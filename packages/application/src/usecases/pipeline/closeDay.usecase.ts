@@ -17,9 +17,15 @@ import { portfolioLock } from './recalculatePortfolio.usecase.js';
  * a projeção do dia a dia poderia divergir da reconstruída, e a invariante central
  * do modelo — reconstruir do zero é igual ao incremental — deixaria de valer.
  *
- * Ou o dia fecha inteiro, ou nada é gravado. Cada carteira fecha na sua própria
- * transação, com a sua trava: travar todas de uma vez serializaria o fechamento
- * com qualquer lançamento sendo salvo em qualquer carteira.
+ * Cada carteira fecha na sua própria transação, com a sua trava. Travar todas de
+ * uma vez serializaria o fechamento com qualquer lançamento sendo salvo em
+ * qualquer carteira, e o fechamento de dez carteiras travaria o app inteiro.
+ *
+ * A consequência é que uma carteira fecha por inteiro ou não fecha: não existe
+ * projeção parcial **dentro** de uma carteira. Se a terceira falhar, as duas
+ * primeiras ficam fechadas e o estágio falha; o job reexecuta, e reexecutar o
+ * mesmo dia produz exatamente as mesmas linhas, porque a escrita é `UPSERT` sobre
+ * `(portfolio_id, position_date)` e o cálculo é função do livro, não do momento.
  */
 export type CloseDayInput = {
   readonly reference_date?: DateOnly | undefined;
