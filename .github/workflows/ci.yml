@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Postgres e Redis reais: a suíte não usa mock de banco.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: patrimonio
+          POSTGRES_PASSWORD: patrimonio
+          POSTGRES_DB: patrimonio_test
+          TZ: UTC
+        ports: ['5434:5432']
+        options: >-
+          --health-cmd "pg_isready -U patrimonio -d patrimonio_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6380:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      WEB_ORIGIN: http://localhost:5173
+      DB_CONNECTION: postgres://patrimonio:patrimonio@localhost:5434/patrimonio_test
+      DB_TEST_CONNECTION: postgres://patrimonio:patrimonio@localhost:5434/patrimonio_test
+      REDIS_URL: redis://localhost:6380
+      REDIS_TEST_URL: redis://localhost:6380
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Formatação
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      # Inclui a regra de dependência entre camadas: uma violação quebra aqui,
+      # não na revisão.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Testes
+        run: pnpm test
