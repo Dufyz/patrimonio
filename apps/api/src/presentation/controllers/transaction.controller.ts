@@ -1,6 +1,7 @@
 import type {
   confirmPayout,
   deleteTransaction,
+  interpretTransaction,
   createCashMovement,
   createPayout,
   dismissPayout,
@@ -21,6 +22,7 @@ import type {
   TransferPositionBody,
   CreatePayoutBody,
   CreateTransactionBody,
+  InterpretTransactionBody,
   UpdateTransactionBody,
 } from '@patrimonio/contracts';
 import type { RequestHandler } from 'express';
@@ -43,6 +45,7 @@ export type TransactionDeps = {
     readonly previewUpdate: ReturnType<typeof previewUpdate>;
     readonly deleteTransaction: ReturnType<typeof deleteTransaction>;
     readonly undoDeletion: ReturnType<typeof undoDeletion>;
+    readonly interpretTransaction: ReturnType<typeof interpretTransaction>;
   };
 };
 
@@ -61,6 +64,7 @@ export type TransactionController = {
   readonly previewUpdate: RequestHandler;
   readonly remove: RequestHandler;
   readonly undo: RequestHandler;
+  readonly interpret: RequestHandler;
 };
 
 type ListQuery = {
@@ -434,5 +438,23 @@ export const createTransactionController = (
       })),
       message: 'Exclusão desfeita',
     });
+  },
+
+  /**
+   * Uma linha de texto vira lançamento interpretado. Nada é gravado aqui: a
+   * interpretação volta em pastilhas, e texto ambíguo diz o que falta em vez de
+   * salvar um palpite.
+   */
+  interpret: async (request, response) => {
+    const body = request.body as InterpretTransactionBody;
+
+    const result = await deps.usecases.interpretTransaction(body.text);
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({ interpretation: result.value });
   },
 });

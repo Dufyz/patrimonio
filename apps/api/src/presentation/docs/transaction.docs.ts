@@ -3,10 +3,12 @@ import {
   createCashMovementSchema,
   createPayoutSchema,
   deleteTransactionSchema,
+  interpretTransactionSchema,
   deletionImpactSchema,
   previewUpdateSchema,
   previewTransferSchema,
   transferPositionSchema,
+  textInterpretationSchema,
   undoDeletionSchema,
   updateTransactionSchema,
   transferPreviewSchema,
@@ -411,6 +413,20 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
         schema: errorResponseSchema,
       },
       409: { description: 'A janela do desfazer fechou.', schema: errorResponseSchema },
+    },
+  },
+  {
+    method: 'post',
+    path: '/transactions/interpret',
+    tag: TAG,
+    summary: 'Interpretar uma linha de texto como lançamento',
+    request: interpretTransactionSchema,
+    responses: {
+      200: {
+        description:
+          '`compra 100 itub4 36,84 ontem` volta em pastilhas, com o ativo resolvido contra o cadastro. Nada é gravado, e texto ambíguo diz o que falta.',
+        schema: z.object({ interpretation: textInterpretationSchema }),
+      },
     },
   },
 ];

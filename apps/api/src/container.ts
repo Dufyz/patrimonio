@@ -19,6 +19,7 @@ import {
   deletePortfolio,
   getAsset,
   getTransaction,
+  interpretTransaction,
   getFgcExposure,
   getPortfolio,
   listAssets,
@@ -129,6 +130,10 @@ export const createApiUseCases = (deps: {
   }),
   listTransactions: listTransactions({ transactions: deps.repositories.transactions }),
   getTransaction: getTransaction({ transactions: deps.repositories.transactions }),
+  interpretTransaction: interpretTransaction({
+    assets: deps.repositories.assets,
+    clock: deps.clock,
+  }),
   updateTransaction: updateTransaction({ unitOfWork: deps.unitOfWork }),
   previewUpdate: previewUpdate({ unitOfWork: deps.unitOfWork }),
   deleteTransaction: deleteTransaction({

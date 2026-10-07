@@ -188,3 +188,8 @@ export {
   setManualPriceSchema,
 } from './asset/manualPrice.schema.js';
 export type { SetManualPriceBody } from './asset/manualPrice.schema.js';
+export {
+  interpretTransactionSchema,
+  textInterpretationSchema,
+} from './transaction/interpretTransaction.schema.js';
+export type { InterpretTransactionBody } from './transaction/interpretTransaction.schema.js';

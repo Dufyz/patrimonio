@@ -217,6 +217,16 @@ export {
   findReplay,
   replayGroup,
 } from './usecases/transaction/idempotency.js';
+export { interpretTransactionText } from './usecases/transaction/interpretText.js';
+export type {
+  TextChip,
+  TextInterpretation,
+} from './usecases/transaction/interpretText.js';
+export { interpretTransaction } from './usecases/transaction/interpretTransaction.usecase.js';
+export type {
+  InterpretTransactionDeps,
+  InterpretTransactionResult,
+} from './usecases/transaction/interpretTransaction.usecase.js';
 export { loadPlanContext } from './usecases/transaction/context.js';
 export type { ContextAsset, ContextParams } from './usecases/transaction/context.js';
 export {

@@ -3,6 +3,7 @@ import {
   createCashMovementSchema,
   createPayoutSchema,
   deleteTransactionSchema,
+  interpretTransactionSchema,
   previewUpdateSchema,
   previewTransferSchema,
   transferPositionSchema,
@@ -26,6 +27,11 @@ export const transactionRoutes = (deps: TransactionDeps): Router => {
 
   router.get('/transactions', validate(listTransactionsSchema), controller.list);
   router.post('/transactions', validate(createTransactionSchema), controller.create);
+  router.post(
+    '/transactions/interpret',
+    validate(interpretTransactionSchema),
+    controller.interpret,
+  );
   router.post('/transactions/cash', validate(createCashMovementSchema), controller.cash);
   router.post('/transactions/payouts', validate(createPayoutSchema), controller.payout);
   router.post(
