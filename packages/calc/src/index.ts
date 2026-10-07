@@ -171,6 +171,18 @@ export type {
 
 // ─── Suporte ─────────────────────────────────────────────────────────────────
 export {
+  MONEY_SCALE,
+  PRICE_SCALE,
+  QUANTITY_SCALE,
+  isNegativeAmount,
+  isZeroAmount,
+  multiplyMoney,
+  toMoney,
+  toPrice,
+  toQuantity,
+} from './support/scale.js';
+
+export {
   addCalendarDays,
   addMonths,
   calendarDaysBetween,

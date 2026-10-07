@@ -121,9 +121,13 @@ const curveLookup = (
     const terms = asset.fixed_income;
     if (terms === null) continue;
 
+    // Prefixado não tem índice: a taxa contratada é a remuneração inteira, e a
+    // série entra vazia em vez de inexistente.
     const code = indexForIndexer(terms.indexer);
-    const factors = code === null ? new Map<DateOnly, string>() : (context.index_factors.get(code) ?? new Map<DateOnly, string>());
-    const projected = code === null ? undefined : context.projected_factors?.get(code);
+    const factors: ReadonlyMap<DateOnly, string> =
+      code === null ? new Map() : (context.index_factors.get(code) ?? new Map());
+    const projected =
+      code === null ? undefined : context.projected_factors?.get(code);
 
     // Título vencido para de render: o acumulado congela no vencimento.
     const through =
@@ -144,7 +148,10 @@ const curveLookup = (
     });
 
     const byDate = new Map<DateOnly, CurveValue>(
-      series.map((value) => [value.reference_date, value]),
+      series.map((value): readonly [DateOnly, CurveValue] => [
+        value.reference_date,
+        value,
+      ]),
     );
 
     // Depois do vencimento o valor é o do vencimento, não zero e não crescente.

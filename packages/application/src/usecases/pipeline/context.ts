@@ -144,17 +144,21 @@ export const loadRecalculationContext = async (
     ),
   ];
 
-  const quotes =
-    codes.length === 0
-      ? success([])
-      : await repositories.prices.indexFactors(codes, oldest, params.through_date);
-  if (quotes.isFailure()) return quotes;
-
   const indexFactors = new Map<string, Map<DateOnly, string>>();
-  for (const quote of quotes.value) {
-    const bucket = indexFactors.get(quote.index_code) ?? new Map<DateOnly, string>();
-    bucket.set(quote.quote_date, quote.daily_factor);
-    indexFactors.set(quote.index_code, bucket);
+
+  if (codes.length > 0) {
+    const quotes = await repositories.prices.indexFactors(
+      codes,
+      oldest,
+      params.through_date,
+    );
+    if (quotes.isFailure()) return quotes;
+
+    for (const quote of quotes.value) {
+      const bucket = indexFactors.get(quote.index_code) ?? new Map<DateOnly, string>();
+      bucket.set(quote.quote_date, quote.daily_factor);
+      indexFactors.set(quote.index_code, bucket);
+    }
   }
 
   const previous = await repositories.projections.lastDayBefore(

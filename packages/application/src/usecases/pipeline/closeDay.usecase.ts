@@ -65,11 +65,13 @@ export const closeDay = (deps: CloseDayDeps) =>
     });
 
     if (!scope.business) {
-      return success<CloseDayResult>({
+      const nothing: CloseDayResult = {
         reference_date: date,
         portfolios: [],
         skipped: true,
-      });
+      };
+
+      return nothing;
     }
 
     const closed: ClosedPortfolio[] = [];
@@ -133,9 +135,11 @@ export const closeDay = (deps: CloseDayDeps) =>
       if (result !== null) closed.push(result);
     }
 
-    return success<CloseDayResult>({
+    const result: CloseDayResult = {
       reference_date: date,
       portfolios: closed,
       skipped: false,
-    });
+    };
+
+    return result;
   });

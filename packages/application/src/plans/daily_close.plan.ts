@@ -1,7 +1,18 @@
-import { applyLedger, buildQuotaSeries, cashBalance, curveValue } from '@patrimonio/calc';
+import {
+  applyLedger,
+  buildQuotaSeries,
+  cashBalance,
+  curveValue,
+  isZeroAmount,
+  moneyDifference,
+  multiplyMoney,
+  sumValues,
+  toMoney,
+  toPrice,
+  toQuantity,
+} from '@patrimonio/calc';
 import type { CurveIndexer, CurveValue, LedgerEntry } from '@patrimonio/calc';
 import type { B3Type, ComputedPriceKind, DateOnly } from '@patrimonio/domain';
-import { Decimal } from 'decimal.js';
 
 import type {
   PortfolioDailyWrite,
@@ -15,18 +26,10 @@ import type {
  * tela um `LATERAL JOIN` buscando o último valor anterior, que é exatamente o que
  * fica lento e difícil de testar.
  *
- * O plano é função pura: o contexto entra carregado, e nada aqui faz I/O nem chama
- * `new Date()`.
+ * O plano é função pura: o contexto entra carregado, nada aqui faz I/O nem chama
+ * `new Date()`, e toda a aritmética passa por `packages/calc` — nenhum plano soma
+ * dinheiro por conta própria.
  */
-const MONEY_DP = 2;
-const QUANTITY_DP = 8;
-const PRICE_DP = 8;
-
-const zero = new Decimal(0);
-
-const money = (value: Decimal): string =>
-  value.toDecimalPlaces(MONEY_DP).toFixed(MONEY_DP);
-
 export type CloseEntry = LedgerEntry & {
   readonly asset_id: string | null;
   readonly institution_id: string;
@@ -105,9 +108,9 @@ export type DailyClosePlan = {
 const isCash = (asset: CloseAsset | undefined): boolean => asset?.b3_type === 'cash';
 
 type Valued = {
-  readonly market_value: Decimal;
+  readonly market_value: string;
   readonly kind: ComputedPriceKind;
-  readonly accrued: Decimal;
+  readonly accrued_interest: string;
 };
 
 /**
@@ -117,8 +120,8 @@ type Valued = {
  */
 const valuePosition = (
   asset: CloseAsset | undefined,
-  quantity: Decimal,
-  costBasis: Decimal,
+  quantity: string,
+  costBasis: string,
   price: PriceOn | undefined,
   curve: CurveValue | undefined,
   referenceDate: DateOnly,
@@ -126,170 +129,78 @@ const valuePosition = (
   // Caixa não tem cotação: o valor dele é o próprio saldo, e isso nunca é
   // "preço atrasado".
   if (isCash(asset)) {
-    return { market_value: quantity, kind: 'fresh', accrued: zero };
+    return { market_value: toMoney(quantity), kind: 'fresh', accrued_interest: '0.00' };
   }
 
   const fixedIncome = asset?.fixed_income ?? null;
 
   if (fixedIncome !== null) {
     if (curve === undefined) {
-      return { market_value: costBasis, kind: 'missing', accrued: zero };
+      return { market_value: costBasis, kind: 'missing', accrued_interest: '0.00' };
     }
 
     // A curva entra como **fator**, não como valor: assim um resgate parcial, que
     // reduz o custo proporcionalmente, reduz o valor na curva junto, sem o motor
     // precisar refazer a conta com outro principal.
-    const value = costBasis.times(new Decimal(curve.factor));
+    const value = multiplyMoney(costBasis, curve.factor);
 
     // Buraco na série do indexador não impede marcar, mas a linha deixa de ser
     // confiável como fechamento do dia: ela é marcada.
     const kind: ComputedPriceKind = curve.missing_days.length > 0 ? 'stale' : 'fresh';
 
-    return { market_value: value, kind, accrued: value.minus(costBasis) };
+    return {
+      market_value: value,
+      kind,
+      accrued_interest: moneyDifference(value, costBasis),
+    };
   }
 
   if (price === undefined) {
     // Nenhuma fonte tem preço: o total da carteira nunca vai a zero por falta de
     // preço, e a ressalva fica visível na linha.
-    return { market_value: costBasis, kind: 'missing', accrued: zero };
+    return { market_value: costBasis, kind: 'missing', accrued_interest: '0.00' };
   }
 
-  const value = quantity.times(new Decimal(price.close));
+  const value = multiplyMoney(quantity, price.close);
 
-  if (price.manual) return { market_value: value, kind: 'manual', accrued: zero };
+  if (price.manual) {
+    return { market_value: value, kind: 'manual', accrued_interest: '0.00' };
+  }
 
   return {
     market_value: value,
     kind: price.price_date === referenceDate ? 'fresh' : 'stale',
-    accrued: zero,
+    accrued_interest: '0.00',
   };
 };
 
 /** Dinheiro que cruzou a fronteira do patrimônio no dia. */
-const flowOn = (entries: readonly CloseEntry[], date: DateOnly): Decimal =>
-  entries
-    .filter(
-      (entry) =>
-        entry.trade_date === date &&
-        (entry.kind === 'deposit' || entry.kind === 'withdrawal'),
-    )
-    .reduce((total, entry) => total.plus(new Decimal(entry.net_amount)), zero);
+const flowOn = (entries: readonly CloseEntry[], date: DateOnly): string =>
+  sumValues(
+    entries
+      .filter(
+        (entry) =>
+          entry.trade_date === date &&
+          (entry.kind === 'deposit' || entry.kind === 'withdrawal'),
+      )
+      .map((entry) => entry.net_amount),
+  );
 
 /**
  * Quanto do rendimento do dia veio de provento. Amortização fica fora: ela devolve
  * principal e reduz o custo, e contá-la como rendimento inflaria a rentabilidade.
  */
-const payoutsOn = (entries: readonly CloseEntry[], date: DateOnly): Decimal =>
-  entries
-    .filter(
-      (entry) =>
-        entry.trade_date === date &&
-        entry.kind === 'payout' &&
-        entry.payout_kind !== 'amortization',
-    )
-    .reduce((total, entry) => total.plus(new Decimal(entry.net_amount)), zero);
-
-export const planDailyClose = (context: DailyCloseContext): DailyClosePlan => {
-  const upTo = context.reference_date;
-  const until = (entry: CloseEntry): boolean => entry.trade_date <= upTo;
-
-  const byAsset = new Map<string, CloseEntry[]>();
-  for (const entry of context.entries) {
-    if (entry.asset_id === null || !until(entry)) continue;
-    const bucket = byAsset.get(entry.asset_id) ?? [];
-    bucket.push(entry);
-    byAsset.set(entry.asset_id, bucket);
-  }
-
-  const positions: PositionDailyWrite[] = [];
-  const pricedAtCost: string[] = [];
-  const health = { fresh: 0, stale: 0, manual: 0, missing: 0 };
-  let totalValue = zero;
-
-  for (const [assetId, bucket] of byAsset) {
-    const asset = context.assets.get(assetId);
-
-    const position = isCash(asset)
-      ? cashPosition(context, assetId, asset)
-      : applyLedger(bucket).position;
-
-    const quantity = new Decimal(position.quantity);
-    const costBasis = new Decimal(position.cost_basis);
-
-    // Posição zerada sai de Posições e continua no histórico: a linha de hoje
-    // simplesmente não é escrita.
-    if (quantity.isZero() && costBasis.isZero()) continue;
-
-    const valued = valuePosition(
-      asset,
-      quantity,
-      costBasis,
-      context.prices.get(assetId),
-      context.curves.get(assetId),
-      context.reference_date,
-    );
-
-    health[valued.kind] += 1;
-    if (valued.kind === 'missing') pricedAtCost.push(assetId);
-
-    totalValue = totalValue.plus(valued.market_value);
-
-    positions.push({
-      portfolio_id: context.portfolio_id,
-      asset_id: assetId,
-      position_date: context.reference_date,
-      quantity: quantity.toDecimalPlaces(QUANTITY_DP).toFixed(QUANTITY_DP),
-      avg_price: new Decimal(position.avg_price)
-        .toDecimalPlaces(PRICE_DP)
-        .toFixed(PRICE_DP),
-      cost_basis: money(costBasis),
-      market_value: money(valued.market_value),
-      price_source_kind: valued.kind,
-      accrued_interest: money(valued.accrued),
-    });
-  }
-
-  const day = buildQuotaSeries(
-    [
-      {
-        position_date: context.reference_date,
-        total_value: money(totalValue),
-        net_flow: money(flowOn(context.entries, context.reference_date)),
-        payouts: money(payoutsOn(context.entries, context.reference_date)),
-      },
-    ],
-    {
-      ...(context.previous === null
-        ? {}
-        : {
-            previous: {
-              position_date: context.previous.position_date,
-              total_value: context.previous.total_value,
-              quota_value: context.previous.quota_value,
-              quota_count: context.previous.quota_count,
-              cumulative_contributions: context.previous.cumulative_contributions,
-            },
-          }),
-    },
-  )[0];
-
-  return {
-    positions,
-    portfolio: {
-      portfolio_id: context.portfolio_id,
-      position_date: context.reference_date,
-      total_value: day?.total_value ?? '0.00',
-      net_flow: day?.net_flow ?? '0.00',
-      income: day?.income ?? '0.00',
-      payouts: day?.payouts ?? '0.00',
-      quota_value: day?.quota_value ?? '1.000000000000',
-      quota_count: day?.quota_count ?? '0.000000000000',
-      cumulative_contributions: day?.cumulative_contributions ?? '0.00',
-    },
-    health,
-    priced_at_cost: pricedAtCost,
-  };
-};
+const payoutsOn = (entries: readonly CloseEntry[], date: DateOnly): string =>
+  sumValues(
+    entries
+      .filter(
+        (entry) =>
+          entry.trade_date === date &&
+          entry.kind === 'payout' &&
+          entry.payout_kind !== 'amortization',
+      )
+      .map((entry) => entry.net_amount),
+  );
 
 /**
  * A posição de caixa é o saldo da carteira naquela instituição, não a soma das
@@ -338,6 +249,95 @@ const cashPosition = (
   const balance = cashBalance(relevant);
 
   return { quantity: balance, avg_price: '1.00000000', cost_basis: balance };
+};
+
+export const planDailyClose = (context: DailyCloseContext): DailyClosePlan => {
+  const upTo = context.reference_date;
+
+  const byAsset = new Map<string, CloseEntry[]>();
+  for (const entry of context.entries) {
+    if (entry.asset_id === null || entry.trade_date > upTo) continue;
+    const bucket = byAsset.get(entry.asset_id) ?? [];
+    bucket.push(entry);
+    byAsset.set(entry.asset_id, bucket);
+  }
+
+  const positions: PositionDailyWrite[] = [];
+  const pricedAtCost: string[] = [];
+  const health = { fresh: 0, stale: 0, manual: 0, missing: 0 };
+  const values: string[] = [];
+
+  for (const [assetId, bucket] of byAsset) {
+    const asset = context.assets.get(assetId);
+
+    const position = isCash(asset)
+      ? cashPosition(context, assetId, asset)
+      : applyLedger(bucket).position;
+
+    const quantity = toQuantity(position.quantity);
+    const costBasis = toMoney(position.cost_basis);
+
+    // Posição zerada sai de Posições e continua no histórico: a linha de hoje
+    // simplesmente não é escrita.
+    if (isZeroAmount(quantity) && isZeroAmount(costBasis)) continue;
+
+    const valued = valuePosition(
+      asset,
+      quantity,
+      costBasis,
+      context.prices.get(assetId),
+      context.curves.get(assetId),
+      context.reference_date,
+    );
+
+    health[valued.kind] += 1;
+    if (valued.kind === 'missing') pricedAtCost.push(assetId);
+
+    values.push(valued.market_value);
+
+    positions.push({
+      portfolio_id: context.portfolio_id,
+      asset_id: assetId,
+      position_date: context.reference_date,
+      quantity,
+      avg_price: toPrice(position.avg_price),
+      cost_basis: costBasis,
+      market_value: valued.market_value,
+      price_source_kind: valued.kind,
+      accrued_interest: valued.accrued_interest,
+    });
+  }
+
+  const day = buildQuotaSeries(
+    [
+      {
+        position_date: context.reference_date,
+        total_value: sumValues(values),
+        net_flow: flowOn(context.entries, context.reference_date),
+        payouts: payoutsOn(context.entries, context.reference_date),
+      },
+    ],
+    {
+      ...(context.previous === null ? {} : { previous: context.previous }),
+    },
+  )[0];
+
+  return {
+    positions,
+    portfolio: {
+      portfolio_id: context.portfolio_id,
+      position_date: context.reference_date,
+      total_value: day?.total_value ?? '0.00',
+      net_flow: day?.net_flow ?? '0.00',
+      income: day?.income ?? '0.00',
+      payouts: day?.payouts ?? '0.00',
+      quota_value: day?.quota_value ?? '1.000000000000',
+      quota_count: day?.quota_count ?? '0.000000000000',
+      cumulative_contributions: day?.cumulative_contributions ?? '0.00',
+    },
+    health,
+    priced_at_cost: pricedAtCost,
+  };
 };
 
 /**
