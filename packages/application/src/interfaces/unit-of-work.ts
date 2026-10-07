@@ -11,6 +11,7 @@ import type { OutboxRepository } from './outbox.repository.js';
 import type { PayoutDismissalRepository } from './payout_dismissal.repository.js';
 import type { PortfolioRepository } from './portfolio.repository.js';
 import type { TransactionRepository } from './transaction.repository.js';
+import type { TransactionUndoRepository } from './transaction_undo.repository.js';
 
 /**
  * Os repositórios criados sobre a transação. O container cria as instâncias
@@ -30,6 +31,7 @@ export type TransactionalRepositories = {
   readonly ledger: LedgerRepository;
   readonly transactions: TransactionRepository;
   readonly payoutDismissals: PayoutDismissalRepository;
+  readonly transactionUndos: TransactionUndoRepository;
   readonly corporateEvents: CorporateEventRepository;
 };
 

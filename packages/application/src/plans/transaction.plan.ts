@@ -9,7 +9,12 @@ import {
 } from '@patrimonio/calc';
 import type { LedgerEntry } from '@patrimonio/calc';
 import { dedupeKey, minDateOnly } from '@patrimonio/domain';
-import type { DateOnly, OutboxEventDraft, PayoutKind, TransactionKind } from '@patrimonio/domain';
+import type {
+  DateOnly,
+  OutboxEventDraft,
+  PayoutKind,
+  TransactionKind,
+} from '@patrimonio/domain';
 
 /**
  * O plano é função pura: recebe o contexto já carregado e devolve o efeito mais
@@ -34,7 +39,9 @@ export type PlanContext = {
   /** Lançamentos da carteira nesta instituição: o caixa sai daqui. */
   readonly institution_entries: readonly LedgerEntry[];
   /** O livro inteiro da carteira: o peso de cada posição sai daqui. */
-  readonly portfolio_entries: readonly (LedgerEntry & { readonly asset_id: string | null })[];
+  readonly portfolio_entries: readonly (LedgerEntry & {
+    readonly asset_id: string | null;
+  })[];
   /** Categoria de cada ativo da carteira, para a alocação por classe. */
   readonly category_by_asset: ReadonlyMap<string, string | null>;
   readonly targets: ReadonlyMap<string, string>;
@@ -180,7 +187,9 @@ export const planTransaction = (
       context.replacing?.id === undefined || candidate.id !== context.replacing.id,
   );
   const portfolioAfter =
-    assetId === null ? portfolioBefore : [...portfolioBefore, { ...entry, asset_id: assetId }];
+    assetId === null
+      ? portfolioBefore
+      : [...portfolioBefore, { ...entry, asset_id: assetId }];
 
   const costsBefore = costBasisByAsset(portfolioBefore);
   const costsAfter = costBasisByAsset(portfolioAfter);
@@ -233,13 +242,19 @@ export const planTransaction = (
     position: {
       quantity: { before: before.position.quantity, after: after.position.quantity },
       avg_price: { before: before.position.avg_price, after: after.position.avg_price },
-      cost_basis: { before: before.position.cost_basis, after: after.position.cost_basis },
+      cost_basis: {
+        before: before.position.cost_basis,
+        after: after.position.cost_basis,
+      },
       weight_pct: {
         before: weightPct(
           assetId === null ? '0' : (costsBefore.get(assetId) ?? '0'),
           totalBefore,
         ),
-        after: weightPct(assetId === null ? '0' : (costsAfter.get(assetId) ?? '0'), totalAfter),
+        after: weightPct(
+          assetId === null ? '0' : (costsAfter.get(assetId) ?? '0'),
+          totalAfter,
+        ),
       },
     },
     cash: { before: cashBefore, after: cashAfter },
@@ -247,9 +262,7 @@ export const planTransaction = (
     allocation,
     realized_result:
       draft.kind === 'sell'
-        ? (realized?.result ??
-          after.realized[after.realized.length - 1]?.result ??
-          null)
+        ? (realized?.result ?? after.realized[after.realized.length - 1]?.result ?? null)
         : null,
     oversold: after.oversold && !before.oversold,
   };
@@ -298,4 +311,62 @@ export const planEvents = (
   }
 
   return events;
+};
+
+export type DeletionPreview = {
+  readonly basis: 'cost';
+  readonly position: {
+    readonly quantity: BeforeAfter;
+    readonly avg_price: BeforeAfter;
+    readonly cost_basis: BeforeAfter;
+  };
+  readonly cash: BeforeAfter;
+  readonly portfolio_cost_basis: BeforeAfter;
+  /** O resultado realizado do ativo, que uma venda excluída devolve. */
+  readonly realized_result: BeforeAfter;
+};
+
+/**
+ * O que a exclusão muda, antes de confirmar. O "antes" é o estado de hoje e o
+ * "depois" é o estado sem aquela linha — os lançamentos posteriores continuam
+ * valendo, e é justamente por isso que excluir uma compra antiga mexe em tudo
+ * o que veio depois dela.
+ */
+export const planDeletion = (
+  context: PlanContext,
+  removed: readonly LedgerEntry[],
+): DeletionPreview => {
+  const removedIds = new Set(
+    removed.map((entry) => entry.id).filter((id): id is string => id !== undefined),
+  );
+
+  const keep = <T extends LedgerEntry>(entries: readonly T[]): T[] =>
+    entries.filter((entry) => entry.id === undefined || !removedIds.has(entry.id));
+
+  const before = applyLedger(context.asset_entries);
+  const after = applyLedger(keep(context.asset_entries));
+
+  const costsBefore = costBasisByAsset(context.portfolio_entries);
+  const costsAfter = costBasisByAsset(keep(context.portfolio_entries));
+
+  return {
+    basis: 'cost',
+    position: {
+      quantity: { before: before.position.quantity, after: after.position.quantity },
+      avg_price: { before: before.position.avg_price, after: after.position.avg_price },
+      cost_basis: {
+        before: before.position.cost_basis,
+        after: after.position.cost_basis,
+      },
+    },
+    cash: {
+      before: cashBalance(context.institution_entries),
+      after: cashBalance(keep(context.institution_entries)),
+    },
+    portfolio_cost_basis: {
+      before: sumValues(costsBefore.values()),
+      after: sumValues(costsAfter.values()),
+    },
+    realized_result: { before: before.realized_total, after: after.realized_total },
+  };
 };

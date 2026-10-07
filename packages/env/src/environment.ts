@@ -45,6 +45,15 @@ const schema = z
     MARKET_REQUEST_TIMEOUT_MS: positiveInt.default(10_000),
     PRICE_STALE_AFTER_DAYS: positiveInt.default(3),
 
+    // ─── Lançamentos ────────────────────────────────────────────────────────
+    // A janela do desfazer depois de excluir um lançamento. Curta demais não dá
+    // tempo de ler o aviso; longa demais deixa o número errado na tela.
+    UNDO_WINDOW_SECONDS: z.coerce
+      .number()
+      .int()
+      .refine((value) => [5, 8, 15].includes(value), 'use 5, 8 ou 15')
+      .default(8),
+
     // ─── Imposto ────────────────────────────────────────────────────────────
     // A alíquota do IR retido no JCP é lei, e lei muda: ela é configuração para
     // o dia em que mudar não exigir um deploy de código.
@@ -113,6 +122,9 @@ export type Environment = {
     readonly requestTimeoutMs: number;
     readonly priceStaleAfterDays: number;
   };
+  readonly ledger: {
+    readonly undoWindowSeconds: number;
+  };
   readonly tax: {
     readonly jcpWithholdingPct: number;
   };
@@ -160,6 +172,9 @@ const group = (raw: Raw): Environment => ({
     brapiToken: raw.MARKET_BRAPI_TOKEN,
     requestTimeoutMs: raw.MARKET_REQUEST_TIMEOUT_MS,
     priceStaleAfterDays: raw.PRICE_STALE_AFTER_DAYS,
+  },
+  ledger: {
+    undoWindowSeconds: raw.UNDO_WINDOW_SECONDS,
   },
   tax: {
     jcpWithholdingPct: raw.JCP_WITHHOLDING_PCT,

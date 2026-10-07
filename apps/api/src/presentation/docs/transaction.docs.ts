@@ -2,8 +2,13 @@ import {
   confirmPayoutSchema,
   createCashMovementSchema,
   createPayoutSchema,
+  deleteTransactionSchema,
+  deletionImpactSchema,
+  previewUpdateSchema,
   previewTransferSchema,
   transferPositionSchema,
+  undoDeletionSchema,
+  updateTransactionSchema,
   transferPreviewSchema,
   dismissPayoutSchema,
   payoutDismissalResourceSchema,
@@ -294,6 +299,118 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
         description: 'Não existe lançamento com esse id.',
         schema: errorResponseSchema,
       },
+    },
+  },
+  {
+    method: 'patch',
+    path: '/transactions/:transaction_id',
+    tag: TAG,
+    summary: 'Editar lançamento',
+    request: updateTransactionSchema,
+    responses: {
+      200: {
+        description:
+          'Gravado. O recálculo sai com a data mais antiga tocada — a nova ou a antiga, o que for anterior.',
+        schema: z.object({
+          transaction: transactionResourceSchema,
+          preview: transactionPreviewSchema,
+          recalculation: z.array(
+            z.object({
+              job_id: z.string(),
+              dedupe_key: z.string(),
+              already_queued: z.boolean(),
+            }),
+          ),
+          message: z.string(),
+        }),
+      },
+      400: {
+        description:
+          'Venda que passaria da posição, ou perna de transferência editada sozinha.',
+        schema: errorResponseSchema,
+      },
+      404: {
+        description: 'Não existe lançamento com esse id.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'post',
+    path: '/transactions/:transaction_id/preview',
+    tag: TAG,
+    summary: 'O efeito da edição, antes de salvar',
+    request: previewUpdateSchema,
+    responses: {
+      200: {
+        description:
+          'O "antes" é a posição sem aquela linha, não a de ontem: é o mesmo plano que a gravação usa.',
+        schema: z.object({ preview: transactionPreviewSchema }),
+      },
+      400: { description: 'A edição não é válida.', schema: errorResponseSchema },
+      404: {
+        description: 'Não existe lançamento com esse id.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'delete',
+    path: '/transactions/:transaction_id',
+    tag: TAG,
+    summary: 'Excluir lançamento, com desfazer',
+    request: deleteTransactionSchema,
+    responses: {
+      200: {
+        description:
+          'Excluído. A resposta traz o impacto nos números e o token do desfazer, que vale por alguns segundos.',
+        schema: z.object({
+          deleted: z.array(transactionResourceSchema),
+          impact: deletionImpactSchema,
+          undo: z.object({ undo_id: z.string(), expires_at: z.string() }),
+          recalculation: z.array(
+            z.object({
+              job_id: z.string(),
+              dedupe_key: z.string(),
+              already_queued: z.boolean(),
+            }),
+          ),
+          message: z.string(),
+        }),
+      },
+      404: {
+        description: 'Não existe lançamento com esse id.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'post',
+    path: '/transactions/undo/:undo_id',
+    tag: TAG,
+    summary: 'Desfazer a exclusão dentro da janela',
+    request: undoDeletionSchema,
+    responses: {
+      200: {
+        description:
+          'O estado anterior volta idêntico, com os mesmos ids, e o recálculo é pedido de novo.',
+        schema: z.object({
+          transactions: z.array(transactionResourceSchema),
+          recalculation: z.array(
+            z.object({
+              job_id: z.string(),
+              dedupe_key: z.string(),
+              already_queued: z.boolean(),
+            }),
+          ),
+          message: z.string(),
+        }),
+      },
+      404: {
+        description: 'Não há o que desfazer com esse token.',
+        schema: errorResponseSchema,
+      },
+      409: { description: 'A janela do desfazer fechou.', schema: errorResponseSchema },
     },
   },
 ];

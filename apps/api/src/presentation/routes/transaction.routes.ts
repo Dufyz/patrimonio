@@ -2,8 +2,12 @@ import {
   confirmPayoutSchema,
   createCashMovementSchema,
   createPayoutSchema,
+  deleteTransactionSchema,
+  previewUpdateSchema,
   previewTransferSchema,
   transferPositionSchema,
+  undoDeletionSchema,
+  updateTransactionSchema,
   dismissPayoutSchema,
   createTransactionSchema,
   getTransactionSchema,
@@ -50,10 +54,31 @@ export const transactionRoutes = (deps: TransactionDeps): Router => {
     validate(previewTransactionSchema),
     controller.preview,
   );
+  // Antes de `/transactions/:id`, senão "undo" vira um id.
+  router.post(
+    '/transactions/undo/:undo_id',
+    validate(undoDeletionSchema),
+    controller.undo,
+  );
   router.get(
     '/transactions/:transaction_id',
     validate(getTransactionSchema),
     controller.detail,
+  );
+  router.patch(
+    '/transactions/:transaction_id',
+    validate(updateTransactionSchema),
+    controller.update,
+  );
+  router.post(
+    '/transactions/:transaction_id/preview',
+    validate(previewUpdateSchema),
+    controller.previewUpdate,
+  );
+  router.delete(
+    '/transactions/:transaction_id',
+    validate(deleteTransactionSchema),
+    controller.remove,
   );
 
   return router;

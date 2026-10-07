@@ -14,6 +14,7 @@ export { createAssetRepository } from './repositories/asset.repository.js';
 export { createLedgerRepository } from './repositories/ledger.repository.js';
 export { createTransactionRepository } from './repositories/transaction.repository.js';
 export { createPayoutDismissalRepository } from './repositories/payout_dismissal.repository.js';
+export { createTransactionUndoRepository } from './repositories/transaction_undo.repository.js';
 export { createCorporateEventRepository } from './repositories/corporate_event.repository.js';
 
 export {

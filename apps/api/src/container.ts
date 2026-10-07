@@ -11,6 +11,7 @@ import {
   createInstitution,
   createPortfolio,
   deleteAsset,
+  deleteTransaction,
   dismissPayout,
   deleteCategory,
   deleteInstitution,
@@ -29,9 +30,12 @@ import {
   setPortfolioArchived,
   previewTransaction,
   previewTransfer,
+  previewUpdate,
   registerCorporateEvent,
   transferPosition,
+  undoDeletion,
   updateAsset,
+  updateTransaction,
   updateCategory,
   updateInstitution,
   updatePortfolio,
@@ -119,6 +123,18 @@ export const createApiUseCases = (deps: {
   }),
   listTransactions: listTransactions({ transactions: deps.repositories.transactions }),
   getTransaction: getTransaction({ transactions: deps.repositories.transactions }),
+  updateTransaction: updateTransaction({ unitOfWork: deps.unitOfWork }),
+  previewUpdate: previewUpdate({ unitOfWork: deps.unitOfWork }),
+  deleteTransaction: deleteTransaction({
+    unitOfWork: deps.unitOfWork,
+    clock: deps.clock,
+    undoWindowSeconds: environment.ledger.undoWindowSeconds,
+  }),
+  undoDeletion: undoDeletion({
+    unitOfWork: deps.unitOfWork,
+    clock: deps.clock,
+    undoWindowSeconds: environment.ledger.undoWindowSeconds,
+  }),
 });
 
 export type ApiUseCases = ReturnType<typeof createApiUseCases>;

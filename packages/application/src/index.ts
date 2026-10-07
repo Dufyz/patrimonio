@@ -31,6 +31,11 @@ export type {
   CorporateEventRepository,
 } from './interfaces/corporate_event.repository.js';
 export type {
+  TransactionUndo,
+  TransactionUndoDraft,
+  TransactionUndoRepository,
+} from './interfaces/transaction_undo.repository.js';
+export type {
   PayoutDismissalDraft,
   PayoutDismissalRepository,
 } from './interfaces/payout_dismissal.repository.js';
@@ -112,8 +117,9 @@ export type {
   TransferPlan,
   TransferPreview,
 } from './plans/transfer.plan.js';
-export { planEvents, planTransaction } from './plans/transaction.plan.js';
+export { planDeletion, planEvents, planTransaction } from './plans/transaction.plan.js';
 export type {
+  DeletionPreview,
   AllocationPreview,
   BeforeAfter,
   PlanAsset,
@@ -184,6 +190,24 @@ export type {
   TransferInput,
   TransferResult,
 } from './usecases/transaction/transferPosition.usecase.js';
+export {
+  previewUpdate,
+  updateTransaction,
+} from './usecases/transaction/updateTransaction.usecase.js';
+export type {
+  UpdateTransactionDeps,
+  UpdateTransactionInput,
+  UpdateTransactionResult,
+} from './usecases/transaction/updateTransaction.usecase.js';
+export {
+  deleteTransaction,
+  undoDeletion,
+} from './usecases/transaction/deleteTransaction.usecase.js';
+export type {
+  DeleteTransactionDeps,
+  DeleteTransactionResult,
+  UndoResult,
+} from './usecases/transaction/deleteTransaction.usecase.js';
 export { loadPlanContext } from './usecases/transaction/context.js';
 export type { ContextAsset, ContextParams } from './usecases/transaction/context.js';
 export {

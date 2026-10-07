@@ -1,5 +1,6 @@
 import type {
   confirmPayout,
+  deleteTransaction,
   createCashMovement,
   createPayout,
   dismissPayout,
@@ -8,7 +9,10 @@ import type {
   getTransaction,
   listTransactions,
   previewTransaction,
+  previewUpdate,
   transferPosition,
+  undoDeletion,
+  updateTransaction,
 } from '@patrimonio/application';
 import type {
   ConfirmPayoutBody,
@@ -17,6 +21,7 @@ import type {
   TransferPositionBody,
   CreatePayoutBody,
   CreateTransactionBody,
+  UpdateTransactionBody,
 } from '@patrimonio/contracts';
 import type { RequestHandler } from 'express';
 
@@ -34,6 +39,10 @@ export type TransactionDeps = {
     readonly previewTransaction: ReturnType<typeof previewTransaction>;
     readonly listTransactions: ReturnType<typeof listTransactions>;
     readonly getTransaction: ReturnType<typeof getTransaction>;
+    readonly updateTransaction: ReturnType<typeof updateTransaction>;
+    readonly previewUpdate: ReturnType<typeof previewUpdate>;
+    readonly deleteTransaction: ReturnType<typeof deleteTransaction>;
+    readonly undoDeletion: ReturnType<typeof undoDeletion>;
   };
 };
 
@@ -48,6 +57,10 @@ export type TransactionController = {
   readonly preview: RequestHandler;
   readonly list: RequestHandler;
   readonly detail: RequestHandler;
+  readonly update: RequestHandler;
+  readonly previewUpdate: RequestHandler;
+  readonly remove: RequestHandler;
+  readonly undo: RequestHandler;
 };
 
 type ListQuery = {
@@ -321,5 +334,99 @@ export const createTransactionController = (
     }
 
     response.status(200).json({ transaction: result.value });
+  },
+
+  /**
+   * Editar mostra o que vai mudar e salva com os mesmos números. O recálculo
+   * sai com a data mais antiga tocada, e o modal fecha na hora.
+   */
+  update: async (request, response) => {
+    const body = request.body as UpdateTransactionBody;
+
+    const result = await deps.usecases.updateTransaction(
+      String(request.params['transaction_id']),
+      { ...body, origin_request_id: request.requestId },
+    );
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({
+      transaction: result.value.transaction,
+      preview: result.value.preview,
+      recalculation: result.value.queued.map((event) => ({
+        job_id: event.id,
+        dedupe_key: event.dedupe_key,
+        already_queued: event.already_queued,
+      })),
+      message: 'Lançamento atualizado',
+    });
+  },
+
+  previewUpdate: async (request, response) => {
+    const body = request.body as UpdateTransactionBody;
+
+    const result = await deps.usecases.previewUpdate(
+      String(request.params['transaction_id']),
+      { ...body, origin_request_id: request.requestId },
+    );
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({ preview: result.value });
+  },
+
+  /** Excluir devolve o impacto e o token do desfazer, que vale por segundos. */
+  remove: async (request, response) => {
+    const result = await deps.usecases.deleteTransaction(
+      String(request.params['transaction_id']),
+      { origin_request_id: request.requestId },
+    );
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({
+      deleted: result.value.deleted,
+      impact: result.value.impact,
+      undo: {
+        undo_id: result.value.undo_id,
+        expires_at: result.value.undo_expires_at,
+      },
+      recalculation: result.value.queued.map((event) => ({
+        job_id: event.id,
+        dedupe_key: event.dedupe_key,
+        already_queued: event.already_queued,
+      })),
+      message: 'Lançamento excluído',
+    });
+  },
+
+  undo: async (request, response) => {
+    const result = await deps.usecases.undoDeletion(String(request.params['undo_id']), {
+      origin_request_id: request.requestId,
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({
+      transactions: result.value.restored,
+      recalculation: result.value.queued.map((event) => ({
+        job_id: event.id,
+        dedupe_key: event.dedupe_key,
+        already_queued: event.already_queued,
+      })),
+      message: 'Exclusão desfeita',
+    });
   },
 });

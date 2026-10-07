@@ -170,3 +170,13 @@ export type {
   CorporateEventResource,
   RegisterCorporateEventBody,
 } from './corporate_event/corporateEvent.schema.js';
+export {
+  previewUpdateSchema,
+  updateTransactionSchema,
+} from './transaction/updateTransaction.schema.js';
+export type { UpdateTransactionBody } from './transaction/updateTransaction.schema.js';
+export {
+  deleteTransactionSchema,
+  deletionImpactSchema,
+  undoDeletionSchema,
+} from './transaction/deleteTransaction.schema.js';

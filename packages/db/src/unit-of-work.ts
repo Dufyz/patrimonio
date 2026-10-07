@@ -18,6 +18,7 @@ import { createOutboxRepository } from './repositories/outbox.repository.js';
 import { createPayoutDismissalRepository } from './repositories/payout_dismissal.repository.js';
 import { createPortfolioRepository } from './repositories/portfolio.repository.js';
 import { createTransactionRepository } from './repositories/transaction.repository.js';
+import { createTransactionUndoRepository } from './repositories/transaction_undo.repository.js';
 
 /**
  * Os repositórios criados sobre uma conexão — a global ou a da transação.
@@ -39,6 +40,7 @@ export const createRepositories = (sql: Connection): DbRepositories => ({
   ledger: createLedgerRepository(sql),
   transactions: createTransactionRepository(sql),
   payoutDismissals: createPayoutDismissalRepository(sql),
+  transactionUndos: createTransactionUndoRepository(sql),
   corporateEvents: createCorporateEventRepository(sql),
 });
 
