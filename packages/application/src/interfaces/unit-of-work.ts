@@ -4,6 +4,7 @@ import type { AppError } from '../errors/app-error.js';
 import type { BusinessDayRepository } from './business_day.repository.js';
 import type { AssetRepository } from './asset.repository.js';
 import type { CategoryRepository } from './category.repository.js';
+import type { CorporateEventRepository } from './corporate_event.repository.js';
 import type { InstitutionRepository } from './institution.repository.js';
 import type { LedgerRepository } from './ledger.repository.js';
 import type { OutboxRepository } from './outbox.repository.js';
@@ -29,6 +30,7 @@ export type TransactionalRepositories = {
   readonly ledger: LedgerRepository;
   readonly transactions: TransactionRepository;
   readonly payoutDismissals: PayoutDismissalRepository;
+  readonly corporateEvents: CorporateEventRepository;
 };
 
 export type UnitOfWorkOptions = {

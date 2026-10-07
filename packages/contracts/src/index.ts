@@ -159,3 +159,14 @@ export {
   transferPreviewSchema,
 } from './transaction/transferPosition.schema.js';
 export type { TransferPositionBody } from './transaction/transferPosition.schema.js';
+export {
+  confirmCorporateEventSchema,
+  corporateEventKindSchema,
+  corporateEventResourceSchema,
+  listCorporateEventsSchema,
+  registerCorporateEventSchema,
+} from './corporate_event/corporateEvent.schema.js';
+export type {
+  CorporateEventResource,
+  RegisterCorporateEventBody,
+} from './corporate_event/corporateEvent.schema.js';

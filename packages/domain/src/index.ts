@@ -105,6 +105,18 @@ export type {
 } from './transaction/transaction.entities.js';
 export { parseTransactionFromDB } from './transaction/transaction.parsers.js';
 
+// ─── Evento corporativo ──────────────────────────────────────────────────────
+export {
+  CORPORATE_EVENT_KINDS,
+  describeCorporateEvent,
+  isCorporateEventKind,
+} from './corporate_event/corporate_event.entities.js';
+export type {
+  CorporateEvent,
+  CorporateEventKind,
+} from './corporate_event/corporate_event.entities.js';
+export { parseCorporateEventFromDB } from './corporate_event/corporate_event.parsers.js';
+
 // ─── Provento não pago ───────────────────────────────────────────────────────
 export type { PayoutDismissal } from './payout_dismissal/payout_dismissal.entities.js';
 export { parsePayoutDismissalFromDB } from './payout_dismissal/payout_dismissal.parsers.js';

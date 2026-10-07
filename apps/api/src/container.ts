@@ -1,6 +1,7 @@
 import {
   archiveAsset,
   createAsset,
+  confirmCorporateEvent,
   confirmPayout,
   createCashMovement,
   createPayout,
@@ -21,12 +22,14 @@ import {
   listAssets,
   listTransactions,
   listCategories,
+  listCorporateEvents,
   listInstitutions,
   listPortfolios,
   putStrategy,
   setPortfolioArchived,
   previewTransaction,
   previewTransfer,
+  registerCorporateEvent,
   transferPosition,
   updateAsset,
   updateCategory,
@@ -103,6 +106,17 @@ export const createApiUseCases = (deps: {
   previewTransaction: previewTransaction({ unitOfWork: deps.unitOfWork }),
   transferPosition: transferPosition({ unitOfWork: deps.unitOfWork }),
   previewTransfer: previewTransfer({ unitOfWork: deps.unitOfWork }),
+  listCorporateEvents: listCorporateEvents({
+    corporateEvents: deps.repositories.corporateEvents,
+  }),
+  registerCorporateEvent: registerCorporateEvent({
+    unitOfWork: deps.unitOfWork,
+    clock: deps.clock,
+  }),
+  confirmCorporateEvent: confirmCorporateEvent({
+    unitOfWork: deps.unitOfWork,
+    clock: deps.clock,
+  }),
   listTransactions: listTransactions({ transactions: deps.repositories.transactions }),
   getTransaction: getTransaction({ transactions: deps.repositories.transactions }),
 });

@@ -10,6 +10,7 @@ import type { ZodType } from 'zod';
 
 import { ASSET_ROUTE_DOCS } from './asset.docs.js';
 import { CATEGORY_ROUTE_DOCS } from './category.docs.js';
+import { CORPORATE_EVENT_ROUTE_DOCS } from './corporate-event.docs.js';
 import { TRANSACTION_ROUTE_DOCS } from './transaction.docs.js';
 import { INSTITUTION_ROUTE_DOCS } from './institution.docs.js';
 import { PORTFOLIO_ROUTE_DOCS } from './portfolio.docs.js';
@@ -66,6 +67,7 @@ export const ROUTE_DOCS: readonly RouteDoc[] = [
   ...CATEGORY_ROUTE_DOCS,
   ...ASSET_ROUTE_DOCS,
   ...TRANSACTION_ROUTE_DOCS,
+  ...CORPORATE_EVENT_ROUTE_DOCS,
 ];
 
 type JsonSchema = Record<string, unknown>;

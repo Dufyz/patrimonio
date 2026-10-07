@@ -27,6 +27,10 @@ export type {
   UnitOfWorkOptions,
 } from './interfaces/unit-of-work.js';
 export type {
+  CorporateEventDraft,
+  CorporateEventRepository,
+} from './interfaces/corporate_event.repository.js';
+export type {
   PayoutDismissalDraft,
   PayoutDismissalRepository,
 } from './interfaces/payout_dismissal.repository.js';
@@ -149,6 +153,16 @@ export type {
   CreatePayoutInput,
   PayoutResult,
 } from './usecases/transaction/createPayout.usecase.js';
+export {
+  confirmCorporateEvent,
+  listCorporateEvents,
+  registerCorporateEvent,
+} from './usecases/corporate_event/corporateEvent.usecases.js';
+export type {
+  ConfirmCorporateEventResult,
+  CorporateEventDeps,
+  CorporateEventWriteDeps,
+} from './usecases/corporate_event/corporateEvent.usecases.js';
 export { confirmPayout } from './usecases/transaction/confirmPayout.usecase.js';
 export type {
   ConfirmPayoutDeps,
