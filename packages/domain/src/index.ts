@@ -7,6 +7,23 @@ export {
   toDateOnly,
 } from './support/date_only.js';
 export type { DateOnly } from './support/date_only.js';
+export {
+  asBoolean,
+  asDateOnly,
+  asDateOnlyOrNull,
+  asEnum,
+  asEnumOrNull,
+  asInteger,
+  asIntegerOrNull,
+  asIsoString,
+  asIsoStringOrNull,
+  asJsonOrNull,
+  asNumeric,
+  asNumericOrNull,
+  asString,
+  asStringOrNull,
+} from './support/row.js';
+export type { Row } from './support/row.js';
 
 // ─── Pipeline ────────────────────────────────────────────────────────────────
 export { RECALC_STATUSES, STAGES, isStage } from './pipeline/pipeline.entities.js';
@@ -32,3 +49,90 @@ export { parseOutboxEventFromDB } from './outbox/outbox.parsers.js';
 // ─── Dia útil ────────────────────────────────────────────────────────────────
 export type { BusinessDay } from './business_day/business_day.entities.js';
 export { parseBusinessDayFromDB } from './business_day/business_day.parsers.js';
+
+// ─── Ativo ───────────────────────────────────────────────────────────────────
+export {
+  ASSET_ORIGINS,
+  B3_TYPES,
+  INDEXERS,
+  LIQUIDITY_KINDS,
+  PRICE_SOURCES,
+  TAX_REGIMES,
+  cashAssetName,
+  cashAssetTicker,
+  describeFixedIncome,
+  fixedIncomeTicker,
+  isB3Type,
+  isIndexer,
+} from './asset/asset.entities.js';
+export type {
+  Asset,
+  AssetOrigin,
+  B3Type,
+  Indexer,
+  LiquidityKind,
+  PriceSource,
+  TaxRegime,
+} from './asset/asset.entities.js';
+export { parseAssetFromDB } from './asset/asset.parsers.js';
+
+// ─── Categoria ───────────────────────────────────────────────────────────────
+export { classifyAsset, isColorToken, isRuleKey } from './category/category.entities.js';
+export type { Category, ClassifiableAsset } from './category/category.entities.js';
+export { parseCategoryFromDB } from './category/category.parsers.js';
+
+// ─── Instituição ─────────────────────────────────────────────────────────────
+export {
+  FGC_LIMIT_BRL,
+  INSTITUTION_ROLES,
+  isInstitutionRole,
+} from './institution/institution.entities.js';
+export type { Institution, InstitutionRole } from './institution/institution.entities.js';
+export { parseInstitutionFromDB } from './institution/institution.parsers.js';
+
+// ─── Lançamento ──────────────────────────────────────────────────────────────
+export {
+  PAYOUT_KINDS,
+  TRANSACTION_KINDS,
+  isPayoutKind,
+  isTransactionKind,
+  settlementBusinessDays,
+} from './transaction/transaction.entities.js';
+export type {
+  PayoutKind,
+  Transaction,
+  TransactionKind,
+} from './transaction/transaction.entities.js';
+export { parseTransactionFromDB } from './transaction/transaction.parsers.js';
+
+// ─── Preço manual ────────────────────────────────────────────────────────────
+export type { ManualPrice } from './manual_price/manual_price.entities.js';
+export { parseManualPriceFromDB } from './manual_price/manual_price.parsers.js';
+
+// ─── Evento corporativo ──────────────────────────────────────────────────────
+export {
+  CORPORATE_EVENT_KINDS,
+  describeCorporateEvent,
+  isCorporateEventKind,
+} from './corporate_event/corporate_event.entities.js';
+export type {
+  CorporateEvent,
+  CorporateEventKind,
+} from './corporate_event/corporate_event.entities.js';
+export { parseCorporateEventFromDB } from './corporate_event/corporate_event.parsers.js';
+
+// ─── Provento não pago ───────────────────────────────────────────────────────
+export type { PayoutDismissal } from './payout_dismissal/payout_dismissal.entities.js';
+export { parsePayoutDismissalFromDB } from './payout_dismissal/payout_dismissal.parsers.js';
+
+// ─── Carteira ────────────────────────────────────────────────────────────────
+export { REBALANCE_MODES, isRebalanceMode } from './portfolio/portfolio.entities.js';
+export type {
+  Portfolio,
+  RebalanceMode,
+  StrategyTarget,
+} from './portfolio/portfolio.entities.js';
+export {
+  parsePortfolioFromDB,
+  parseStrategyTargetFromDB,
+} from './portfolio/portfolio.parsers.js';

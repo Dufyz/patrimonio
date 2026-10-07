@@ -9,7 +9,17 @@ import type { Either } from '@patrimonio/shared';
 import { getRepositoryError } from './errors/repository-error.js';
 import type { Connection, Sql } from './postgresql.js';
 import { createBusinessDayRepository } from './repositories/business_day.repository.js';
+import { createAssetRepository } from './repositories/asset.repository.js';
+import { createCategoryRepository } from './repositories/category.repository.js';
+import { createCorporateEventRepository } from './repositories/corporate_event.repository.js';
+import { createInstitutionRepository } from './repositories/institution.repository.js';
+import { createLedgerRepository } from './repositories/ledger.repository.js';
+import { createManualPriceRepository } from './repositories/manual_price.repository.js';
 import { createOutboxRepository } from './repositories/outbox.repository.js';
+import { createPayoutDismissalRepository } from './repositories/payout_dismissal.repository.js';
+import { createPortfolioRepository } from './repositories/portfolio.repository.js';
+import { createTransactionRepository } from './repositories/transaction.repository.js';
+import { createTransactionUndoRepository } from './repositories/transaction_undo.repository.js';
 
 /**
  * Os repositórios criados sobre uma conexão — a global ou a da transação.
@@ -24,6 +34,16 @@ export const createRepositories = (sql: Connection): DbRepositories => ({
   tx: sql,
   outbox: createOutboxRepository(sql),
   businessDays: createBusinessDayRepository(sql),
+  portfolios: createPortfolioRepository(sql),
+  institutions: createInstitutionRepository(sql),
+  categories: createCategoryRepository(sql),
+  assets: createAssetRepository(sql),
+  ledger: createLedgerRepository(sql),
+  manualPrices: createManualPriceRepository(sql),
+  transactions: createTransactionRepository(sql),
+  payoutDismissals: createPayoutDismissalRepository(sql),
+  transactionUndos: createTransactionUndoRepository(sql),
+  corporateEvents: createCorporateEventRepository(sql),
 });
 
 /**

@@ -114,7 +114,33 @@ calendário de negociação da B3 é o passo que falta: `pnpm holidays:report <a
 imprime o ano para comparação, e cada divergência encontrada vira uma linha em
 `EXCEPTIONS`, em `packages/db/src/seeds/holidays.ts`.
 
+## Fase 2 · Livro de lançamentos
+
+O livro inteiro, pela API: carteiras com alvo de alocação, instituições com
+exposição ao FGC por emissor, categorias em dois níveis com regra automática,
+ativos de mercado que nascem no primeiro lançamento e títulos de renda fixa
+cadastrados à mão.
+
+Os sete tipos de lançamento gravam, editam e excluem com o efeito calculado
+antes de salvar: compra e venda com liquidação sugerida em dia útil, aporte e
+resgate sobre um caixa que é ativo sintético por instituição, provento com
+quantidade apurada na data-com e recebimento confirmado depois, transferência de
+duas pernas que preserva o preço médio, e evento corporativo aplicado só por
+confirmação.
+
+Toda escrita aceita `Idempotency-Key`, toda exclusão deixa desfazer por alguns
+segundos, e uma linha de texto — `compra 100 itub4 36,84 ontem` — vira
+lançamento interpretado antes de virar lançamento gravado.
+
+O preview é o mesmo plano da gravação em modo que não grava: se o número da tela
+divergir do que fica salvo, a confiança no app acaba ali.
+
+Enquanto a projeção diária e o preço de mercado não existem, peso e alocação
+saem do custo, e a resposta diz isso no campo `basis`. O motor de preço médio
+vive em `packages/calc` e cobre compra, venda com resultado realizado,
+transferência, evento corporativo e amortização; o resto de `calc` — cota,
+marcação na curva, IR e projeção — chega em E3.
+
 O que está declarado e ainda não calcula nada: os estágios `recalc`, `close`,
 `market`, `alerts` e `import` atravessam o pipeline e registram que a
-implementação chega em E3, E4 e E7. `packages/calc`, `market` e `exporter` têm
-só a superfície.
+implementação chega em E3, E4 e E7. `market` e `exporter` têm só a superfície.

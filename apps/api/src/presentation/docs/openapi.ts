@@ -8,33 +8,25 @@ import {
 import { z } from 'zod';
 import type { ZodType } from 'zod';
 
+import { ASSET_ROUTE_DOCS } from './asset.docs.js';
+import { CATEGORY_ROUTE_DOCS } from './category.docs.js';
+import { CORPORATE_EVENT_ROUTE_DOCS } from './corporate-event.docs.js';
+import { TRANSACTION_ROUTE_DOCS } from './transaction.docs.js';
+import { INSTITUTION_ROUTE_DOCS } from './institution.docs.js';
+import { PORTFOLIO_ROUTE_DOCS } from './portfolio.docs.js';
+import type { RouteDoc } from './route-doc.js';
+
+export type { HttpMethod, ResponseDoc, RouteDoc } from './route-doc.js';
+
 /**
- * O registro das rotas. A documentação sai dos mesmos schemas zod que a api usa
- * para recusar uma request e que o `web` usa no formulário — então rota sem
- * entrada aqui não aparece em `/api/docs`, e registrar faz parte de adicionar
- * rota.
+ * O registro é composto por recurso: cada arquivo de `docs/` declara as rotas
+ * daquele recurso, e um teste compara o que está montado no Express com o que
+ * está aqui. Rota sem entrada não aparece em `/api/docs`.
  *
  * Cada resposta carrega a razão do código: um 503 sem explicação obriga quem lê
  * a abrir o controller.
  */
-export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
-
-export type ResponseDoc = {
-  readonly description: string;
-  readonly schema?: ZodType;
-};
-
-export type RouteDoc = {
-  readonly method: HttpMethod;
-  /** Caminho sob `/api`, como o Express o registra. */
-  readonly path: string;
-  readonly tag: string;
-  readonly summary: string;
-  readonly request: ZodType;
-  readonly responses: Readonly<Record<number, ResponseDoc>>;
-};
-
-export const ROUTE_DOCS: readonly RouteDoc[] = [
+const HEALTH_ROUTE_DOCS: readonly RouteDoc[] = [
   {
     method: 'get',
     path: '/health-check/live',
@@ -66,6 +58,16 @@ export const ROUTE_DOCS: readonly RouteDoc[] = [
       },
     },
   },
+];
+
+export const ROUTE_DOCS: readonly RouteDoc[] = [
+  ...HEALTH_ROUTE_DOCS,
+  ...PORTFOLIO_ROUTE_DOCS,
+  ...INSTITUTION_ROUTE_DOCS,
+  ...CATEGORY_ROUTE_DOCS,
+  ...ASSET_ROUTE_DOCS,
+  ...TRANSACTION_ROUTE_DOCS,
+  ...CORPORATE_EVENT_ROUTE_DOCS,
 ];
 
 type JsonSchema = Record<string, unknown>;

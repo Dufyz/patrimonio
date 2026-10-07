@@ -7,6 +7,16 @@ export { createRepositories, createUnitOfWork } from './unit-of-work.js';
 
 export { createOutboxRepository } from './repositories/outbox.repository.js';
 export { createBusinessDayRepository } from './repositories/business_day.repository.js';
+export { createPortfolioRepository } from './repositories/portfolio.repository.js';
+export { createInstitutionRepository } from './repositories/institution.repository.js';
+export { createCategoryRepository } from './repositories/category.repository.js';
+export { createAssetRepository } from './repositories/asset.repository.js';
+export { createLedgerRepository } from './repositories/ledger.repository.js';
+export { createManualPriceRepository } from './repositories/manual_price.repository.js';
+export { createTransactionRepository } from './repositories/transaction.repository.js';
+export { createPayoutDismissalRepository } from './repositories/payout_dismissal.repository.js';
+export { createTransactionUndoRepository } from './repositories/transaction_undo.repository.js';
+export { createCorporateEventRepository } from './repositories/corporate_event.repository.js';
 
 export {
   MigrationError,

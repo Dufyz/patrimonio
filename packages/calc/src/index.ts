@@ -12,4 +12,36 @@
  * A cobertura exigida aqui é 100%, sem exceção: são funções puras, e é o único
  * lugar em que a métrica significa alguma coisa.
  */
-export {};
+export {
+  LEDGER_KINDS,
+  applyLedger,
+  cashBalance,
+  positionAt,
+  sortEntries,
+} from './average_price/ledger.js';
+export type {
+  ApplyOptions,
+  LedgerEntry,
+  LedgerKind,
+  LedgerState,
+  Position,
+  RealizedSale,
+} from './average_price/ledger.js';
+
+export { payoutGross, perShareFromGross, withheldFromGross } from './tax/jcp.js';
+
+export { amountsFor, moneyDifference, totalAmount } from './average_price/amounts.js';
+export type { AmountInput, Amounts } from './average_price/amounts.js';
+
+export {
+  costBasisByAsset,
+  deviationPp,
+  sumValues,
+  weightPct,
+} from './allocation/weights.js';
+export type { AssetLedgerEntry } from './allocation/weights.js';
+
+export { duplicatedCategories, sumTargets } from './allocation/targets.js';
+export { fgcHeadroom } from './allocation/fgc.js';
+export type { FgcHeadroom } from './allocation/fgc.js';
+export type { AllocationTarget, TargetSum } from './allocation/targets.js';

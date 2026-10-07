@@ -77,6 +77,34 @@ export const createBusinessDayRepository = (sql: Connection): BusinessDayReposit
     }
   },
 
+  /** Uma consulta: os próximos `days` dias úteis, e o último deles é a resposta. */
+  shiftBusinessDays: async (date: DateOnly, days: number) => {
+    if (days <= 0) return success(date);
+
+    try {
+      const rows = await sql<{ calendar_date: string }[]>`
+        select calendar_date
+          from business_day
+         where calendar_date > ${date}
+           and is_business_day
+         order by calendar_date
+         limit ${days}
+      `;
+
+      const last = rows[rows.length - 1]?.calendar_date;
+
+      if (last === undefined) {
+        return failure(
+          getRepositoryError(new Error(`sem dias úteis no calendário depois de ${date}`)),
+        );
+      }
+
+      return success(last);
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
   previousBusinessDay: async (date: DateOnly) => {
     try {
       const rows = await sql<{ calendar_date: string }[]>`
