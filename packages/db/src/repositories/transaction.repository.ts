@@ -15,6 +15,8 @@ import { definedColumns, hasChanges } from '../support/changes.js';
 type Row = Record<string, unknown>;
 
 export const createTransactionRepository = (sql: Connection): TransactionRepository => ({
+  nextId: () => uuidv7(),
+
   findById: async (id: string) => {
     try {
       const rows = await sql<Row[]>`select * from transaction where id = ${id}`;

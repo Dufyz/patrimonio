@@ -1,10 +1,14 @@
 import type {
+  createCashMovement,
   createTransaction,
   getTransaction,
   listTransactions,
   previewTransaction,
 } from '@patrimonio/application';
-import type { CreateTransactionBody } from '@patrimonio/contracts';
+import type {
+  CreateCashMovementBody,
+  CreateTransactionBody,
+} from '@patrimonio/contracts';
 import type { RequestHandler } from 'express';
 
 import { idempotencyKey, sendFailure, validatedQuery } from '../middleware/respond.js';
@@ -12,6 +16,7 @@ import { idempotencyKey, sendFailure, validatedQuery } from '../middleware/respo
 export type TransactionDeps = {
   readonly usecases: {
     readonly createTransaction: ReturnType<typeof createTransaction>;
+    readonly createCashMovement: ReturnType<typeof createCashMovement>;
     readonly previewTransaction: ReturnType<typeof previewTransaction>;
     readonly listTransactions: ReturnType<typeof listTransactions>;
     readonly getTransaction: ReturnType<typeof getTransaction>;
@@ -20,6 +25,7 @@ export type TransactionDeps = {
 
 export type TransactionController = {
   readonly create: RequestHandler;
+  readonly cash: RequestHandler;
   readonly preview: RequestHandler;
   readonly list: RequestHandler;
   readonly detail: RequestHandler;
@@ -72,6 +78,39 @@ export const createTransactionController = (
               already_queued: queued.already_queued,
             },
       message: replayed ? 'Lançamento já havia sido criado' : 'Lançamento criado',
+    });
+  },
+
+  /**
+   * Aporte e resgate. O caixa é um ativo sintético por instituição, criado na
+   * primeira vez que dinheiro entra ali: o aporte é um lançamento como os
+   * outros, e o dinheiro parado aparece em Posições e na alocação.
+   */
+  cash: async (request, response) => {
+    const body = request.body as CreateCashMovementBody;
+
+    const result = await deps.usecases.createCashMovement({
+      ...body,
+      ...(idempotencyKey(request) === undefined
+        ? {}
+        : { idempotency_key: idempotencyKey(request) }),
+      origin_request_id: request.requestId,
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(201).json({
+      transactions: result.value.transactions,
+      preview: result.value.preview,
+      recalculation: result.value.queued.map((event) => ({
+        job_id: event.id,
+        dedupe_key: event.dedupe_key,
+        already_queued: event.already_queued,
+      })),
+      message: body.kind === 'deposit' ? 'Aporte registrado' : 'Resgate registrado',
     });
   },
 

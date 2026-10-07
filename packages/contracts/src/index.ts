@@ -140,3 +140,5 @@ export {
   getTransactionSchema,
   listTransactionsSchema,
 } from './transaction/listTransactions.schema.js';
+export { createCashMovementSchema } from './transaction/createCashMovement.schema.js';
+export type { CreateCashMovementBody } from './transaction/createCashMovement.schema.js';

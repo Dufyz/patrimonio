@@ -1,4 +1,5 @@
 import {
+  createCashMovementSchema,
   createTransactionSchema,
   getTransactionSchema,
   listTransactionsSchema,
@@ -16,6 +17,7 @@ export const transactionRoutes = (deps: TransactionDeps): Router => {
 
   router.get('/transactions', validate(listTransactionsSchema), controller.list);
   router.post('/transactions', validate(createTransactionSchema), controller.create);
+  router.post('/transactions/cash', validate(createCashMovementSchema), controller.cash);
   // Antes de `/transactions/:id`, senão "preview" vira um id.
   router.post(
     '/transactions/preview',

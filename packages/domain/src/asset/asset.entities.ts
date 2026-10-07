@@ -114,8 +114,33 @@ export const fixedIncomeTicker = (input: {
     .replace(/[^A-Z0-9]+/g, '')
     .slice(0, 8);
 
-  const maturity = input.maturity_date === null ? '' : input.maturity_date.replace(/-/g, '');
+  const maturity =
+    input.maturity_date === null ? '' : input.maturity_date.replace(/-/g, '');
   const suffix = input.suffix === undefined ? '' : `-${input.suffix}`;
 
   return `${input.kind.toUpperCase()}-${issuer}-${maturity}${suffix}`;
 };
+
+/**
+ * O caixa é um ativo sintético por instituição: assim o aporte é um lançamento
+ * como os outros, e o dinheiro parado aparece em Posições e na alocação em vez
+ * de virar uma coluna de saldo que nenhuma tela soma.
+ *
+ * A posição de um ativo de caixa não é a soma das quantidades lançadas nele: é
+ * a soma dos valores líquidos da carteira naquela instituição — comprar tira,
+ * vender e receber provento põem. Quem responde por isso é `cashBalance`, em
+ * `packages/calc`.
+ */
+export const cashAssetTicker = (institutionName: string): string => {
+  const slug = institutionName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '')
+    .slice(0, 12);
+
+  return `CAIXA-${slug}`;
+};
+
+export const cashAssetName = (institutionName: string): string =>
+  `Caixa · ${institutionName}`;

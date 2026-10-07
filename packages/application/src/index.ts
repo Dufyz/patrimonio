@@ -123,6 +123,15 @@ export type {
   NewAssetInput,
   TransactionResult,
 } from './usecases/transaction/createTransaction.usecase.js';
+export {
+  createCashMovement,
+  ensureCashAsset,
+} from './usecases/transaction/cashMovement.usecase.js';
+export type {
+  CashMovementDeps,
+  CashMovementInput,
+  CashMovementResult,
+} from './usecases/transaction/cashMovement.usecase.js';
 export { loadPlanContext } from './usecases/transaction/context.js';
 export type { ContextAsset, ContextParams } from './usecases/transaction/context.js';
 export {

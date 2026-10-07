@@ -1,4 +1,5 @@
 import {
+  createCashMovementSchema,
   createTransactionSchema,
   errorResponseSchema,
   getTransactionSchema,
@@ -77,6 +78,37 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
         schema: errorResponseSchema,
       },
       409: { description: 'A carteira está arquivada.', schema: errorResponseSchema },
+    },
+  },
+  {
+    method: 'post',
+    path: '/transactions/cash',
+    tag: TAG,
+    summary: 'Aporte e resgate de caixa',
+    request: createCashMovementSchema,
+    responses: {
+      201: {
+        description:
+          'Gravado. De fora do app conta como aporte; de outra carteira vira transferência com duas pernas, e o patrimônio total não muda.',
+        schema: z.object({
+          transactions: z.array(transactionResourceSchema),
+          preview: transactionPreviewSchema,
+          recalculation: z.array(
+            z.object({
+              job_id: z.string(),
+              dedupe_key: z.string(),
+              already_queued: z.boolean(),
+            }),
+          ),
+          message: z.string(),
+        }),
+      },
+      400: {
+        description:
+          'Origem "de outra carteira" sem a carteira de origem, ou valor inválido.',
+        schema: errorResponseSchema,
+      },
+      404: { description: 'Carteira não encontrada.', schema: errorResponseSchema },
     },
   },
   {

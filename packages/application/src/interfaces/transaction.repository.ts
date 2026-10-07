@@ -57,6 +57,13 @@ export type TransactionPage = {
 };
 
 export type TransactionRepository = {
+  /**
+   * Um identificador novo. Gerar id é infraestrutura — UUID v7, crescente no
+   * tempo —, e o caso de uso precisa dele para ligar as duas pernas de uma
+   * transferência antes de gravá-las.
+   */
+  readonly nextId: () => string;
+
   readonly findById: (id: string) => Promise<Either<AppError, Transaction | null>>;
 
   /**

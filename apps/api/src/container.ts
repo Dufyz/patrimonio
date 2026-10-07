@@ -1,6 +1,7 @@
 import {
   archiveAsset,
   createAsset,
+  createCashMovement,
   createCategory,
   createTransaction,
   createFixedIncomeAsset,
@@ -85,6 +86,7 @@ export const createApiUseCases = (deps: {
   archiveAsset: archiveAsset({ unitOfWork: deps.unitOfWork }),
   deleteAsset: deleteAsset({ unitOfWork: deps.unitOfWork }),
   createTransaction: createTransaction({ unitOfWork: deps.unitOfWork }),
+  createCashMovement: createCashMovement({ unitOfWork: deps.unitOfWork }),
   previewTransaction: previewTransaction({ unitOfWork: deps.unitOfWork }),
   listTransactions: listTransactions({ transactions: deps.repositories.transactions }),
   getTransaction: getTransaction({ transactions: deps.repositories.transactions }),

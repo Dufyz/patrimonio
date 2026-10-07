@@ -58,6 +58,8 @@ export {
   LIQUIDITY_KINDS,
   PRICE_SOURCES,
   TAX_REGIMES,
+  cashAssetName,
+  cashAssetTicker,
   describeFixedIncome,
   fixedIncomeTicker,
   isB3Type,
