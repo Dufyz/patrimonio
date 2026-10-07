@@ -1,0 +1,43 @@
+{
+  "name": "patrimonio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "tsx scripts/check-layers.ts && turbo typecheck",
+    "test": "turbo test",
+    "test:watch": "turbo test:watch",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "infra:up": "docker compose up -d --wait",
+    "infra:down": "docker compose down",
+    "infra:reset": "docker compose down -v && docker compose up -d --wait",
+    "migrate": "pnpm --filter @patrimonio/db migrate",
+    "migrate:test": "pnpm --filter @patrimonio/db migrate:test",
+    "seed:business-days": "pnpm --filter @patrimonio/db seed:business-days",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test",
+    "holidays:report": "pnpm --filter @patrimonio/db holidays:report",
+    "holidays:generate": "pnpm --filter @patrimonio/db holidays:generate"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^22.19.1",
+    "@vitest/coverage-v8": "^3.2.4",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
+    "turbo": "^2.6.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.1",
+    "vitest": "^3.2.4"
+  }
+}
