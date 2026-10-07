@@ -50,6 +50,30 @@ export { parseOutboxEventFromDB } from './outbox/outbox.parsers.js';
 export type { BusinessDay } from './business_day/business_day.entities.js';
 export { parseBusinessDayFromDB } from './business_day/business_day.parsers.js';
 
+// ─── Ativo ───────────────────────────────────────────────────────────────────
+export {
+  ASSET_ORIGINS,
+  B3_TYPES,
+  INDEXERS,
+  LIQUIDITY_KINDS,
+  PRICE_SOURCES,
+  TAX_REGIMES,
+  describeFixedIncome,
+  fixedIncomeTicker,
+  isB3Type,
+  isIndexer,
+} from './asset/asset.entities.js';
+export type {
+  Asset,
+  AssetOrigin,
+  B3Type,
+  Indexer,
+  LiquidityKind,
+  PriceSource,
+  TaxRegime,
+} from './asset/asset.entities.js';
+export { parseAssetFromDB } from './asset/asset.parsers.js';
+
 // ─── Categoria ───────────────────────────────────────────────────────────────
 export { classifyAsset, isColorToken, isRuleKey } from './category/category.entities.js';
 export type { Category, ClassifiableAsset } from './category/category.entities.js';

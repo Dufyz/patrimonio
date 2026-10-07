@@ -89,3 +89,32 @@ export {
   deleteCategorySchema,
   listCategoriesSchema,
 } from './category/listCategories.schema.js';
+
+export {
+  assetOriginSchema,
+  assetResourceSchema,
+  assetWritableSchema,
+  b3TypeSchema,
+  fixedIncomeAssetSchema,
+  indexerSchema,
+  liquidityKindSchema,
+  marketAssetSchema,
+  priceSourceSchema,
+  taxRegimeSchema,
+} from './asset/asset.schema.js';
+export type {
+  AssetResource,
+  AssetWritable,
+  FixedIncomeAssetBody,
+  MarketAssetBody,
+} from './asset/asset.schema.js';
+export { createAssetSchema } from './asset/createAsset.schema.js';
+export type { CreateAssetBody } from './asset/createAsset.schema.js';
+export { updateAssetSchema } from './asset/updateAsset.schema.js';
+export type { UpdateAssetBody } from './asset/updateAsset.schema.js';
+export {
+  archiveAssetSchema,
+  deleteAssetSchema,
+  getAssetSchema,
+  listAssetsSchema,
+} from './asset/listAssets.schema.js';

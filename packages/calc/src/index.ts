@@ -12,6 +12,22 @@
  * A cobertura exigida aqui é 100%, sem exceção: são funções puras, e é o único
  * lugar em que a métrica significa alguma coisa.
  */
+export {
+  LEDGER_KINDS,
+  applyLedger,
+  cashBalance,
+  positionAt,
+  sortEntries,
+} from './average_price/ledger.js';
+export type {
+  ApplyOptions,
+  LedgerEntry,
+  LedgerKind,
+  LedgerState,
+  Position,
+  RealizedSale,
+} from './average_price/ledger.js';
+
 export { duplicatedCategories, sumTargets } from './allocation/targets.js';
 export { fgcHeadroom } from './allocation/fgc.js';
 export type { FgcHeadroom } from './allocation/fgc.js';

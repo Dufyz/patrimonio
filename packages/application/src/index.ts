@@ -27,6 +27,18 @@ export type {
   UnitOfWorkOptions,
 } from './interfaces/unit-of-work.js';
 export type {
+  AssetDraft,
+  AssetFilter,
+  AssetRepository,
+  AssetUsage,
+  AssetWrite,
+} from './interfaces/asset.repository.js';
+export type {
+  LedgerRepository,
+  LedgerRow,
+  PortfolioHolding,
+} from './interfaces/ledger.repository.js';
+export type {
   CategoryDraft,
   CategoryRepository,
   CategoryUsage,
@@ -77,6 +89,17 @@ export {
 export type { ListPortfoliosDeps } from './usecases/portfolio/listPortfolios.usecase.js';
 export { putStrategy } from './usecases/portfolio/putStrategy.usecase.js';
 export type { PutStrategyDeps } from './usecases/portfolio/putStrategy.usecase.js';
+export {
+  archiveAsset,
+  classifyWithRules,
+  createAsset,
+  createAssetIn,
+  deleteAsset,
+  getAsset,
+  listAssets,
+  updateAsset,
+} from './usecases/asset/asset.usecases.js';
+export type { AssetDeps, AssetWriteDeps } from './usecases/asset/asset.usecases.js';
 export {
   createCategory,
   deleteCategory,
