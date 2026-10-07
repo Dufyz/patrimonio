@@ -2,6 +2,8 @@ import {
   confirmPayoutSchema,
   createCashMovementSchema,
   createPayoutSchema,
+  previewTransferSchema,
+  transferPositionSchema,
   dismissPayoutSchema,
   createTransactionSchema,
   getTransactionSchema,
@@ -22,6 +24,16 @@ export const transactionRoutes = (deps: TransactionDeps): Router => {
   router.post('/transactions', validate(createTransactionSchema), controller.create);
   router.post('/transactions/cash', validate(createCashMovementSchema), controller.cash);
   router.post('/transactions/payouts', validate(createPayoutSchema), controller.payout);
+  router.post(
+    '/transactions/transfer',
+    validate(transferPositionSchema),
+    controller.transfer,
+  );
+  router.post(
+    '/transactions/transfer/preview',
+    validate(previewTransferSchema),
+    controller.previewTransfer,
+  );
   router.post(
     '/transactions/:transaction_id/confirm',
     validate(confirmPayoutSchema),

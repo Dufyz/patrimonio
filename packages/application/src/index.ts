@@ -101,6 +101,13 @@ export type { ListPortfoliosDeps } from './usecases/portfolio/listPortfolios.use
 export { putStrategy } from './usecases/portfolio/putStrategy.usecase.js';
 export type { PutStrategyDeps } from './usecases/portfolio/putStrategy.usecase.js';
 // ─── Planos ──────────────────────────────────────────────────────────────────
+export { planTransfer } from './plans/transfer.plan.js';
+export type {
+  TransferContext,
+  TransferLeg,
+  TransferPlan,
+  TransferPreview,
+} from './plans/transfer.plan.js';
 export { planEvents, planTransaction } from './plans/transaction.plan.js';
 export type {
   AllocationPreview,
@@ -154,6 +161,15 @@ export type {
   DismissPayoutInput,
   DismissPayoutResult,
 } from './usecases/transaction/dismissPayout.usecase.js';
+export {
+  previewTransfer,
+  transferPosition,
+} from './usecases/transaction/transferPosition.usecase.js';
+export type {
+  TransferDeps,
+  TransferInput,
+  TransferResult,
+} from './usecases/transaction/transferPosition.usecase.js';
 export { loadPlanContext } from './usecases/transaction/context.js';
 export type { ContextAsset, ContextParams } from './usecases/transaction/context.js';
 export {

@@ -2,6 +2,9 @@ import {
   confirmPayoutSchema,
   createCashMovementSchema,
   createPayoutSchema,
+  previewTransferSchema,
+  transferPositionSchema,
+  transferPreviewSchema,
   dismissPayoutSchema,
   payoutDismissalResourceSchema,
   createTransactionSchema,
@@ -138,6 +141,62 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
           'Pagamento antes da data-com, ou nenhuma posição no ativo na data-com.',
         schema: errorResponseSchema,
       },
+      404: {
+        description: 'Carteira ou ativo não encontrado.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'post',
+    path: '/transactions/transfer',
+    tag: TAG,
+    summary: 'Mover uma posição entre carteiras, sem vender',
+    request: transferPositionSchema,
+    responses: {
+      201: {
+        description:
+          'As duas pernas gravadas na mesma transação, ligadas pelo mesmo grupo. O preço médio é preservado e o patrimônio total não muda.',
+        schema: z.object({
+          transactions: z.array(transactionResourceSchema),
+          preview: transferPreviewSchema,
+          recalculation: z.array(
+            z.object({
+              job_id: z.string(),
+              dedupe_key: z.string(),
+              already_queued: z.boolean(),
+            }),
+          ),
+          message: z.string(),
+        }),
+      },
+      400: {
+        description: 'Quantidade maior do que a posição da origem, ou carteiras iguais.',
+        schema: errorResponseSchema,
+      },
+      404: {
+        description: 'Carteira ou ativo não encontrado.',
+        schema: errorResponseSchema,
+      },
+      409: {
+        description: 'Uma das carteiras está arquivada.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'post',
+    path: '/transactions/transfer/preview',
+    tag: TAG,
+    summary: 'O efeito da transferência nas duas carteiras',
+    request: previewTransferSchema,
+    responses: {
+      200: {
+        description:
+          'Antes e depois das duas carteiras, e a variação do patrimônio total, que é zero.',
+        schema: z.object({ preview: transferPreviewSchema }),
+      },
+      400: { description: 'A transferência não é válida.', schema: errorResponseSchema },
       404: {
         description: 'Carteira ou ativo não encontrado.',
         schema: errorResponseSchema,

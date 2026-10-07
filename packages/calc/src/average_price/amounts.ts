@@ -25,6 +25,13 @@ export type Amounts = {
 
 const MONEY_DP = 2;
 
+/** Quantidade vezes preço unitário, em reais. */
+export const totalAmount = (quantity: string, unitPrice: string): string =>
+  new Decimal(quantity)
+    .times(new Decimal(unitPrice))
+    .toDecimalPlaces(MONEY_DP)
+    .toFixed(MONEY_DP);
+
 /** Diferença entre dois valores em reais, com sinal e duas casas. */
 export const moneyDifference = (left: string, right: string): string =>
   new Decimal(left).minus(new Decimal(right)).toDecimalPlaces(MONEY_DP).toFixed(MONEY_DP);

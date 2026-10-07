@@ -26,6 +26,8 @@ import {
   putStrategy,
   setPortfolioArchived,
   previewTransaction,
+  previewTransfer,
+  transferPosition,
   updateAsset,
   updateCategory,
   updateInstitution,
@@ -99,6 +101,8 @@ export const createApiUseCases = (deps: {
     jcpWithholdingPct: String(environment.tax.jcpWithholdingPct),
   }),
   previewTransaction: previewTransaction({ unitOfWork: deps.unitOfWork }),
+  transferPosition: transferPosition({ unitOfWork: deps.unitOfWork }),
+  previewTransfer: previewTransfer({ unitOfWork: deps.unitOfWork }),
   listTransactions: listTransactions({ transactions: deps.repositories.transactions }),
   getTransaction: getTransaction({ transactions: deps.repositories.transactions }),
 });
