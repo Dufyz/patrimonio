@@ -1,6 +1,7 @@
 import type {
   archiveAsset,
   createAsset,
+  createFixedIncomeAsset,
   deleteAsset,
   getAsset,
   listAssets,
@@ -16,6 +17,7 @@ export type AssetDeps = {
     readonly listAssets: ReturnType<typeof listAssets>;
     readonly getAsset: ReturnType<typeof getAsset>;
     readonly createAsset: ReturnType<typeof createAsset>;
+    readonly createFixedIncomeAsset: ReturnType<typeof createFixedIncomeAsset>;
     readonly updateAsset: ReturnType<typeof updateAsset>;
     readonly archiveAsset: ReturnType<typeof archiveAsset>;
     readonly deleteAsset: ReturnType<typeof deleteAsset>;
@@ -65,21 +67,42 @@ export const createAssetController = (deps: AssetDeps): AssetController => ({
     response.status(200).json({ asset: result.value });
   },
 
+  /**
+   * O ativo listado vem da base de mercado; o título bancário é cadastrado com
+   * emissor, indexador e taxa, e aí o código interno e o nome exibido são
+   * gerados — ninguém quer digitar "CDB Banco C 10/2028 · 112% CDI" a cada
+   * aplicação.
+   */
   create: async (request, response) => {
     const body = request.body as CreateAssetBody;
 
-    const result = await deps.usecases.createAsset({
-      ticker: body.ticker,
-      name: body.name,
-      origin: 'market',
-      b3_type: body.b3_type,
-      category_id: body.category_id,
-      sector: body.sector,
-      price_source: body.price_source,
-      maturity_date: body.maturity_date,
-      indexer: body.indexer,
-      rate: body.rate,
-    });
+    const result =
+      body.origin === 'manual'
+        ? await deps.usecases.createFixedIncomeAsset({
+            kind: body.kind,
+            issuer_id: body.issuer_id,
+            indexer: body.indexer,
+            rate: body.rate,
+            issued_at: body.issued_at,
+            maturity_date: body.maturity_date,
+            liquidity: body.liquidity,
+            liquidity_days: body.liquidity_days,
+            tax_regime: body.tax_regime,
+            name: body.name,
+            category_id: body.category_id,
+          })
+        : await deps.usecases.createAsset({
+            ticker: body.ticker,
+            name: body.name,
+            origin: 'market',
+            b3_type: body.b3_type,
+            category_id: body.category_id,
+            sector: body.sector,
+            price_source: body.price_source,
+            maturity_date: body.maturity_date,
+            indexer: body.indexer,
+            rate: body.rate,
+          });
 
     if (result.isFailure()) {
       sendFailure(request, response, result.value);

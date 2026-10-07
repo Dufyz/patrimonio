@@ -38,13 +38,20 @@ export const ASSET_ROUTE_DOCS: readonly RouteDoc[] = [
     method: 'post',
     path: '/assets',
     tag: TAG,
-    summary: 'Cadastrar ativo listado antes do primeiro lançamento',
+    summary: 'Cadastrar ativo listado ou título de renda fixa',
     request: createAssetSchema,
     responses: {
       201: {
         description:
-          'Cadastrado. A classe sai da regra automática da categoria quando não vem no corpo.',
+          'Cadastrado. A classe sai da regra automática da categoria quando não vem no corpo; ' +
+          'no título de renda fixa, o código interno e o nome exibido são gerados.',
         schema: assetResponse,
+      },
+      400: {
+        description:
+          'Título sem emissor, com vencimento antes da aplicação, com liquidez D+n sem o número ' +
+          'de dias, ou isento declarado com tabela regressiva.',
+        schema: errorResponseSchema,
       },
       409: {
         description: 'Já existe ativo com esse código.',

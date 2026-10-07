@@ -100,6 +100,12 @@ export {
   updateAsset,
 } from './usecases/asset/asset.usecases.js';
 export type { AssetDeps, AssetWriteDeps } from './usecases/asset/asset.usecases.js';
+export { createFixedIncomeAsset } from './usecases/asset/createFixedIncomeAsset.usecase.js';
+export type {
+  CreateFixedIncomeDeps,
+  CreateFixedIncomeInput,
+  FixedIncomeKind,
+} from './usecases/asset/createFixedIncomeAsset.usecase.js';
 export {
   createCategory,
   deleteCategory,
