@@ -2,6 +2,7 @@ import type { Either } from '@patrimonio/shared';
 
 import type { AppError } from '../errors/app-error.js';
 import type { BusinessDayRepository } from './business_day.repository.js';
+import type { CategoryRepository } from './category.repository.js';
 import type { InstitutionRepository } from './institution.repository.js';
 import type { OutboxRepository } from './outbox.repository.js';
 import type { PortfolioRepository } from './portfolio.repository.js';
@@ -19,6 +20,7 @@ export type TransactionalRepositories = {
   readonly businessDays: BusinessDayRepository;
   readonly portfolios: PortfolioRepository;
   readonly institutions: InstitutionRepository;
+  readonly categories: CategoryRepository;
 };
 
 export type UnitOfWorkOptions = {

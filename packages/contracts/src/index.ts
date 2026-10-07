@@ -73,3 +73,19 @@ export {
   getFgcExposureSchema,
   listInstitutionsSchema,
 } from './institution/listInstitutions.schema.js';
+
+export {
+  autoRuleSchema,
+  categoryResourceSchema,
+  categoryWritableSchema,
+  colorToken,
+} from './category/category.schema.js';
+export type { CategoryResource, CategoryWritable } from './category/category.schema.js';
+export { createCategorySchema } from './category/createCategory.schema.js';
+export type { CreateCategoryBody } from './category/createCategory.schema.js';
+export { updateCategorySchema } from './category/updateCategory.schema.js';
+export type { UpdateCategoryBody } from './category/updateCategory.schema.js';
+export {
+  deleteCategorySchema,
+  listCategoriesSchema,
+} from './category/listCategories.schema.js';

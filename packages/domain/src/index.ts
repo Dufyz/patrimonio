@@ -50,6 +50,11 @@ export { parseOutboxEventFromDB } from './outbox/outbox.parsers.js';
 export type { BusinessDay } from './business_day/business_day.entities.js';
 export { parseBusinessDayFromDB } from './business_day/business_day.parsers.js';
 
+// ─── Categoria ───────────────────────────────────────────────────────────────
+export { classifyAsset, isColorToken, isRuleKey } from './category/category.entities.js';
+export type { Category, ClassifiableAsset } from './category/category.entities.js';
+export { parseCategoryFromDB } from './category/category.parsers.js';
+
 // ─── Instituição ─────────────────────────────────────────────────────────────
 export {
   FGC_LIMIT_BRL,

@@ -1,14 +1,18 @@
 import {
+  createCategory,
   createInstitution,
   createPortfolio,
+  deleteCategory,
   deleteInstitution,
   deletePortfolio,
   getFgcExposure,
   getPortfolio,
+  listCategories,
   listInstitutions,
   listPortfolios,
   putStrategy,
   setPortfolioArchived,
+  updateCategory,
   updateInstitution,
   updatePortfolio,
 } from '@patrimonio/application';
@@ -58,6 +62,10 @@ export const createApiUseCases = (deps: {
   updateInstitution: updateInstitution({ institutions: deps.repositories.institutions }),
   deleteInstitution: deleteInstitution({ unitOfWork: deps.unitOfWork }),
   getFgcExposure: getFgcExposure({ institutions: deps.repositories.institutions }),
+  listCategories: listCategories({ categories: deps.repositories.categories }),
+  createCategory: createCategory({ unitOfWork: deps.unitOfWork }),
+  updateCategory: updateCategory({ unitOfWork: deps.unitOfWork }),
+  deleteCategory: deleteCategory({ unitOfWork: deps.unitOfWork }),
 });
 
 export type ApiUseCases = ReturnType<typeof createApiUseCases>;

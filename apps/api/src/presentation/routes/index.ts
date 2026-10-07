@@ -2,16 +2,19 @@ import { Router } from 'express';
 import swaggerUi from 'swagger-ui-express';
 
 import type { HealthCheckDeps } from '../controllers/health-check.controller.js';
+import type { CategoryDeps } from '../controllers/category.controller.js';
 import type { InstitutionDeps } from '../controllers/institution.controller.js';
 import type { PortfolioDeps } from '../controllers/portfolio.controller.js';
 import { buildOpenApiDocument } from '../docs/openapi.js';
 import { healthCheckRoutes } from './health-check.routes.js';
+import { categoryRoutes } from './category.routes.js';
 import { institutionRoutes } from './institution.routes.js';
 import { portfolioRoutes } from './portfolio.routes.js';
 
 export type RouteDeps = HealthCheckDeps &
   PortfolioDeps &
-  InstitutionDeps & { readonly version: string };
+  InstitutionDeps &
+  CategoryDeps & { readonly version: string };
 
 /** Tudo sob `/api`. */
 export const apiRoutes = (deps: RouteDeps): Router => {
@@ -26,6 +29,7 @@ export const apiRoutes = (deps: RouteDeps): Router => {
   router.use(healthCheckRoutes(deps));
   router.use(portfolioRoutes(deps));
   router.use(institutionRoutes(deps));
+  router.use(categoryRoutes(deps));
 
   return router;
 };

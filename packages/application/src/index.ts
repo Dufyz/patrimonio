@@ -27,6 +27,12 @@ export type {
   UnitOfWorkOptions,
 } from './interfaces/unit-of-work.js';
 export type {
+  CategoryDraft,
+  CategoryRepository,
+  CategoryUsage,
+  CategoryWrite,
+} from './interfaces/category.repository.js';
+export type {
   InstitutionDraft,
   InstitutionRepository,
   InstitutionUsage,
@@ -71,6 +77,16 @@ export {
 export type { ListPortfoliosDeps } from './usecases/portfolio/listPortfolios.usecase.js';
 export { putStrategy } from './usecases/portfolio/putStrategy.usecase.js';
 export type { PutStrategyDeps } from './usecases/portfolio/putStrategy.usecase.js';
+export {
+  createCategory,
+  deleteCategory,
+  listCategories,
+  updateCategory,
+} from './usecases/category/category.usecases.js';
+export type {
+  CategoryDeps,
+  CategoryWriteDeps,
+} from './usecases/category/category.usecases.js';
 export {
   createInstitution,
   deleteInstitution,
