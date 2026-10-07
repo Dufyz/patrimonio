@@ -28,6 +28,8 @@ export type {
   RealizedSale,
 } from './average_price/ledger.js';
 
+export { payoutGross, perShareFromGross, withheldFromGross } from './tax/jcp.js';
+
 export { amountsFor } from './average_price/amounts.js';
 export type { AmountInput, Amounts } from './average_price/amounts.js';
 

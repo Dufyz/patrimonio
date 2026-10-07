@@ -1,5 +1,6 @@
 import type {
   createCashMovement,
+  createPayout,
   createTransaction,
   getTransaction,
   listTransactions,
@@ -7,6 +8,7 @@ import type {
 } from '@patrimonio/application';
 import type {
   CreateCashMovementBody,
+  CreatePayoutBody,
   CreateTransactionBody,
 } from '@patrimonio/contracts';
 import type { RequestHandler } from 'express';
@@ -17,6 +19,7 @@ export type TransactionDeps = {
   readonly usecases: {
     readonly createTransaction: ReturnType<typeof createTransaction>;
     readonly createCashMovement: ReturnType<typeof createCashMovement>;
+    readonly createPayout: ReturnType<typeof createPayout>;
     readonly previewTransaction: ReturnType<typeof previewTransaction>;
     readonly listTransactions: ReturnType<typeof listTransactions>;
     readonly getTransaction: ReturnType<typeof getTransaction>;
@@ -26,6 +29,7 @@ export type TransactionDeps = {
 export type TransactionController = {
   readonly create: RequestHandler;
   readonly cash: RequestHandler;
+  readonly payout: RequestHandler;
   readonly preview: RequestHandler;
   readonly list: RequestHandler;
   readonly detail: RequestHandler;
@@ -111,6 +115,46 @@ export const createTransactionController = (
         already_queued: event.already_queued,
       })),
       message: body.kind === 'deposit' ? 'Aporte registrado' : 'Resgate registrado',
+    });
+  },
+
+  /**
+   * Provento. A quantidade na data-com é calculada pelos lançamentos, e o que
+   * ainda não foi pago nasce "a receber": só vira dinheiro quando o recebimento
+   * é confirmado.
+   */
+  payout: async (request, response) => {
+    const body = request.body as CreatePayoutBody;
+
+    const result = await deps.usecases.createPayout({
+      ...body,
+      ...(idempotencyKey(request) === undefined
+        ? {}
+        : { idempotency_key: idempotencyKey(request) }),
+      origin_request_id: request.requestId,
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(201).json({
+      transaction: result.value.transaction,
+      preview: result.value.preview,
+      quantity_at_record_date: result.value.quantity_at_record_date,
+      recalculation:
+        result.value.queued === null
+          ? null
+          : {
+              job_id: result.value.queued.id,
+              dedupe_key: result.value.queued.dedupe_key,
+              already_queued: result.value.queued.already_queued,
+            },
+      message:
+        result.value.transaction.confirmed_at === null
+          ? 'Provento registrado como a receber'
+          : 'Provento registrado',
     });
   },
 

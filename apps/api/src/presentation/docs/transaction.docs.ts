@@ -1,5 +1,6 @@
 import {
   createCashMovementSchema,
+  createPayoutSchema,
   createTransactionSchema,
   errorResponseSchema,
   getTransactionSchema,
@@ -109,6 +110,35 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
         schema: errorResponseSchema,
       },
       404: { description: 'Carteira não encontrada.', schema: errorResponseSchema },
+    },
+  },
+  {
+    method: 'post',
+    path: '/transactions/payouts',
+    tag: TAG,
+    summary: 'Dividendo, JCP, rendimento, juros e amortização',
+    request: createPayoutSchema,
+    responses: {
+      201: {
+        description:
+          'Gravado. A quantidade na data-com é calculada pelos lançamentos; o que ainda não foi pago fica "a receber".',
+        schema: z.object({
+          transaction: transactionResourceSchema,
+          preview: transactionPreviewSchema,
+          quantity_at_record_date: z.string(),
+          recalculation: queuedWork,
+          message: z.string(),
+        }),
+      },
+      400: {
+        description:
+          'Pagamento antes da data-com, ou nenhuma posição no ativo na data-com.',
+        schema: errorResponseSchema,
+      },
+      404: {
+        description: 'Carteira ou ativo não encontrado.',
+        schema: errorResponseSchema,
+      },
     },
   },
   {

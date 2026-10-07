@@ -2,6 +2,7 @@ import {
   archiveAsset,
   createAsset,
   createCashMovement,
+  createPayout,
   createCategory,
   createTransaction,
   createFixedIncomeAsset,
@@ -59,6 +60,7 @@ import { systemClock } from './infra/config/clock.js';
 export const createApiUseCases = (deps: {
   readonly unitOfWork: UnitOfWork;
   readonly repositories: TransactionalRepositories;
+  readonly clock: Clock;
 }) => ({
   createPortfolio: createPortfolio({ unitOfWork: deps.unitOfWork }),
   updatePortfolio: updatePortfolio({ unitOfWork: deps.unitOfWork }),
@@ -87,6 +89,11 @@ export const createApiUseCases = (deps: {
   deleteAsset: deleteAsset({ unitOfWork: deps.unitOfWork }),
   createTransaction: createTransaction({ unitOfWork: deps.unitOfWork }),
   createCashMovement: createCashMovement({ unitOfWork: deps.unitOfWork }),
+  createPayout: createPayout({
+    unitOfWork: deps.unitOfWork,
+    clock: deps.clock,
+    jcpWithholdingPct: String(environment.tax.jcpWithholdingPct),
+  }),
   previewTransaction: previewTransaction({ unitOfWork: deps.unitOfWork }),
   listTransactions: listTransactions({ transactions: deps.repositories.transactions }),
   getTransaction: getTransaction({ transactions: deps.repositories.transactions }),
@@ -127,7 +134,7 @@ export const createContainer = (version: string): ApiContainer => {
     queues,
     repositories,
     unitOfWork,
-    usecases: createApiUseCases({ unitOfWork, repositories }),
+    usecases: createApiUseCases({ unitOfWork, repositories, clock: systemClock }),
     clock: systemClock,
     version,
     startedAt: new Date(),

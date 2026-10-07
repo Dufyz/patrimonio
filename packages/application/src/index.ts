@@ -132,6 +132,12 @@ export type {
   CashMovementInput,
   CashMovementResult,
 } from './usecases/transaction/cashMovement.usecase.js';
+export { createPayout } from './usecases/transaction/createPayout.usecase.js';
+export type {
+  CreatePayoutDeps,
+  CreatePayoutInput,
+  PayoutResult,
+} from './usecases/transaction/createPayout.usecase.js';
 export { loadPlanContext } from './usecases/transaction/context.js';
 export type { ContextAsset, ContextParams } from './usecases/transaction/context.js';
 export {

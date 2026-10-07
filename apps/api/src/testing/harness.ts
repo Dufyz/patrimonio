@@ -19,6 +19,7 @@ import type { Express } from 'express';
 
 import { createApp } from '../app.js';
 import { createApiUseCases } from '../container.js';
+import { systemClock } from '../infra/config/clock.js';
 
 /**
  * Supertest sobre a app Express completa, com banco e fila reais: nenhum mock.
@@ -57,7 +58,7 @@ export const createApiHarness = async (): Promise<ApiHarness> => {
     sql,
     redis,
     outbox: repositories.outbox,
-    usecases: createApiUseCases({ unitOfWork, repositories }),
+    usecases: createApiUseCases({ unitOfWork, repositories, clock: systemClock }),
     queues,
     startedAt: new Date(),
     version: '0.1.0-test',

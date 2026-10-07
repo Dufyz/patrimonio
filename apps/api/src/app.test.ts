@@ -20,6 +20,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createApp } from './app.js';
 import { createApiUseCases } from './container.js';
+import { systemClock } from './infra/config/clock.js';
 import { ROUTE_DOCS } from './presentation/docs/openapi.js';
 
 let sql: Sql;
@@ -44,7 +45,11 @@ beforeAll(async () => {
     sql,
     redis,
     outbox: repositories.outbox,
-    usecases: createApiUseCases({ unitOfWork: createUnitOfWork(sql), repositories }),
+    usecases: createApiUseCases({
+      unitOfWork: createUnitOfWork(sql),
+      repositories,
+      clock: systemClock,
+    }),
     queues,
     startedAt: new Date(),
     version: '0.1.0-test',
@@ -101,6 +106,7 @@ describe('healthcheck', () => {
       usecases: createApiUseCases({
         unitOfWork: createUnitOfWork(brokenSql),
         repositories: brokenRepositories,
+        clock: systemClock,
       }),
       startedAt: new Date(),
       version: '0.1.0-test',

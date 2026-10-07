@@ -142,3 +142,5 @@ export {
 } from './transaction/listTransactions.schema.js';
 export { createCashMovementSchema } from './transaction/createCashMovement.schema.js';
 export type { CreateCashMovementBody } from './transaction/createCashMovement.schema.js';
+export { createPayoutSchema } from './transaction/createPayout.schema.js';
+export type { CreatePayoutBody } from './transaction/createPayout.schema.js';
