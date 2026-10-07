@@ -2,8 +2,8 @@ import {
   applyLedger,
   costBasisByAsset,
   moneyDifference,
+  proportionalCost,
   sumValues,
-  totalAmount,
 } from '@patrimonio/calc';
 import type { LedgerEntry } from '@patrimonio/calc';
 import type { DateOnly } from '@patrimonio/domain';
@@ -101,9 +101,15 @@ export const planTransfer = (
   const avgPrice = originBefore.position.avg_price;
   const quantity = request.quantity;
 
-  // O custo que viaja é a quantidade pelo preço médio da origem: é isso que
-  // preserva o preço médio nas duas pontas.
-  const amount = totalAmount(quantity, avgPrice);
+  // O custo que viaja é a parcela proporcional do custo da origem — e o custo
+  // inteiro quando a posição toda sai. Multiplicar a quantidade pelo preço médio
+  // arredondado deixaria um centavo para trás, e a invariante de que a
+  // transferência preserva o patrimônio total tem tolerância zero.
+  const amount = proportionalCost(
+    originBefore.position.cost_basis,
+    quantity,
+    originBefore.position.quantity,
+  );
 
   const outEntry: LedgerEntry = {
     kind: 'transfer',
