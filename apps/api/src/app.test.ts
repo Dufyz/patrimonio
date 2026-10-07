@@ -3,6 +3,7 @@ import {
   closeDatabase,
   createConnection,
   createRepositories,
+  createUnitOfWork,
   runMigrations,
 } from '@patrimonio/db';
 import type { Sql } from '@patrimonio/db';
@@ -18,6 +19,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createApp } from './app.js';
+import { createApiUseCases } from './container.js';
 import { ROUTE_DOCS } from './presentation/docs/openapi.js';
 
 let sql: Sql;
@@ -36,10 +38,13 @@ beforeAll(async () => {
   redis = createRedisConnection(environment.redis.url);
   queues = createQueues(redis);
 
+  const repositories = createRepositories(sql);
+
   app = createApp({
     sql,
     redis,
-    outbox: createRepositories(sql).outbox,
+    outbox: repositories.outbox,
+    usecases: createApiUseCases({ unitOfWork: createUnitOfWork(sql), repositories }),
     queues,
     startedAt: new Date(),
     version: '0.1.0-test',
@@ -87,10 +92,16 @@ describe('healthcheck', () => {
       applicationName: 'patrimonio-api-test-broken',
     });
 
+    const brokenRepositories = createRepositories(brokenSql);
+
     const degraded = createApp({
       sql: brokenSql,
       redis,
-      outbox: createRepositories(brokenSql).outbox,
+      outbox: brokenRepositories.outbox,
+      usecases: createApiUseCases({
+        unitOfWork: createUnitOfWork(brokenSql),
+        repositories: brokenRepositories,
+      }),
       startedAt: new Date(),
       version: '0.1.0-test',
     });

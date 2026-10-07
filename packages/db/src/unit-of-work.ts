@@ -10,6 +10,7 @@ import { getRepositoryError } from './errors/repository-error.js';
 import type { Connection, Sql } from './postgresql.js';
 import { createBusinessDayRepository } from './repositories/business_day.repository.js';
 import { createOutboxRepository } from './repositories/outbox.repository.js';
+import { createPortfolioRepository } from './repositories/portfolio.repository.js';
 
 /**
  * Os repositórios criados sobre uma conexão — a global ou a da transação.
@@ -24,6 +25,7 @@ export const createRepositories = (sql: Connection): DbRepositories => ({
   tx: sql,
   outbox: createOutboxRepository(sql),
   businessDays: createBusinessDayRepository(sql),
+  portfolios: createPortfolioRepository(sql),
 });
 
 /**

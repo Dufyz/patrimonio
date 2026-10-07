@@ -1,3 +1,12 @@
+import {
+  createPortfolio,
+  deletePortfolio,
+  getPortfolio,
+  listPortfolios,
+  putStrategy,
+  setPortfolioArchived,
+  updatePortfolio,
+} from '@patrimonio/application';
 import type {
   Clock,
   TransactionalRepositories,
@@ -26,12 +35,30 @@ import { systemClock } from './infra/config/clock.js';
  * controller instancia dependência: ele recebe o caso de uso pronto, e trocar
  * uma implementação é mudar uma linha daqui.
  */
+export const createApiUseCases = (deps: {
+  readonly unitOfWork: UnitOfWork;
+  readonly repositories: TransactionalRepositories;
+}) => ({
+  createPortfolio: createPortfolio({ unitOfWork: deps.unitOfWork }),
+  updatePortfolio: updatePortfolio({ unitOfWork: deps.unitOfWork }),
+  setPortfolioArchived: setPortfolioArchived({
+    portfolios: deps.repositories.portfolios,
+  }),
+  deletePortfolio: deletePortfolio({ unitOfWork: deps.unitOfWork }),
+  listPortfolios: listPortfolios({ portfolios: deps.repositories.portfolios }),
+  getPortfolio: getPortfolio({ portfolios: deps.repositories.portfolios }),
+  putStrategy: putStrategy({ unitOfWork: deps.unitOfWork }),
+});
+
+export type ApiUseCases = ReturnType<typeof createApiUseCases>;
+
 export type ApiContainer = {
   readonly sql: Sql;
   readonly redis: RedisConnection;
   readonly queues: Queues;
   readonly repositories: TransactionalRepositories;
   readonly unitOfWork: UnitOfWork;
+  readonly usecases: ApiUseCases;
   readonly clock: Clock;
   readonly version: string;
   readonly startedAt: Date;
@@ -49,13 +76,16 @@ export const createContainer = (version: string): ApiContainer => {
 
   const redis = createRedisConnection(environment.redis.url);
   const queues = createQueues(redis);
+  const repositories = createRepositories(sql);
+  const unitOfWork = createUnitOfWork(sql);
 
   return {
     sql,
     redis,
     queues,
-    repositories: createRepositories(sql),
-    unitOfWork: createUnitOfWork(sql),
+    repositories,
+    unitOfWork,
+    usecases: createApiUseCases({ unitOfWork, repositories }),
     clock: systemClock,
     version,
     startedAt: new Date(),

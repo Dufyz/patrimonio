@@ -3,6 +3,7 @@ import type { Either } from '@patrimonio/shared';
 import type { AppError } from '../errors/app-error.js';
 import type { BusinessDayRepository } from './business_day.repository.js';
 import type { OutboxRepository } from './outbox.repository.js';
+import type { PortfolioRepository } from './portfolio.repository.js';
 
 /**
  * Os repositórios criados sobre a transação. O container cria as instâncias
@@ -15,6 +16,7 @@ import type { OutboxRepository } from './outbox.repository.js';
 export type TransactionalRepositories = {
   readonly outbox: OutboxRepository;
   readonly businessDays: BusinessDayRepository;
+  readonly portfolios: PortfolioRepository;
 };
 
 export type UnitOfWorkOptions = {

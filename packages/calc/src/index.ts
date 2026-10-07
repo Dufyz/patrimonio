@@ -12,4 +12,5 @@
  * A cobertura exigida aqui é 100%, sem exceção: são funções puras, e é o único
  * lugar em que a métrica significa alguma coisa.
  */
-export {};
+export { duplicatedCategories, sumTargets } from './allocation/targets.js';
+export type { AllocationTarget, TargetSum } from './allocation/targets.js';

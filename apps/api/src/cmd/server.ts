@@ -24,6 +24,7 @@ const app = createApp({
   sql: container.sql,
   redis: container.redis,
   outbox: container.repositories.outbox,
+  usecases: container.usecases,
   queues: container.queues,
   startedAt: container.startedAt,
   version: container.version,
