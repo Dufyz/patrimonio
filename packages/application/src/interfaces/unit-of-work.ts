@@ -7,6 +7,7 @@ import type { CategoryRepository } from './category.repository.js';
 import type { CorporateEventRepository } from './corporate_event.repository.js';
 import type { InstitutionRepository } from './institution.repository.js';
 import type { LedgerRepository } from './ledger.repository.js';
+import type { ManualPriceRepository } from './manual_price.repository.js';
 import type { OutboxRepository } from './outbox.repository.js';
 import type { PayoutDismissalRepository } from './payout_dismissal.repository.js';
 import type { PortfolioRepository } from './portfolio.repository.js';
@@ -29,6 +30,7 @@ export type TransactionalRepositories = {
   readonly categories: CategoryRepository;
   readonly assets: AssetRepository;
   readonly ledger: LedgerRepository;
+  readonly manualPrices: ManualPriceRepository;
   readonly transactions: TransactionRepository;
   readonly payoutDismissals: PayoutDismissalRepository;
   readonly transactionUndos: TransactionUndoRepository;

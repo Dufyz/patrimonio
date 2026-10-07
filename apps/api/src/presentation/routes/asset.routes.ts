@@ -1,9 +1,12 @@
 import {
   archiveAssetSchema,
+  deleteManualPriceSchema,
   createAssetSchema,
   deleteAssetSchema,
   getAssetSchema,
   listAssetsSchema,
+  listManualPricesSchema,
+  setManualPriceSchema,
   updateAssetSchema,
 } from '@patrimonio/contracts';
 import { Router } from 'express';
@@ -26,6 +29,21 @@ export const assetRoutes = (deps: AssetDeps): Router => {
     controller.archive,
   );
   router.delete('/assets/:asset_id', validate(deleteAssetSchema), controller.remove);
+  router.post(
+    '/assets/:asset_id/manual-price',
+    validate(setManualPriceSchema),
+    controller.setManualPrice,
+  );
+  router.get(
+    '/assets/:asset_id/manual-prices',
+    validate(listManualPricesSchema),
+    controller.listManualPrices,
+  );
+  router.delete(
+    '/assets/:asset_id/manual-price/:price_date',
+    validate(deleteManualPriceSchema),
+    controller.deleteManualPrice,
+  );
 
   return router;
 };

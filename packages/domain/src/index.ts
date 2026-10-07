@@ -105,6 +105,10 @@ export type {
 } from './transaction/transaction.entities.js';
 export { parseTransactionFromDB } from './transaction/transaction.parsers.js';
 
+// ─── Preço manual ────────────────────────────────────────────────────────────
+export type { ManualPrice } from './manual_price/manual_price.entities.js';
+export { parseManualPriceFromDB } from './manual_price/manual_price.parsers.js';
+
 // ─── Evento corporativo ──────────────────────────────────────────────────────
 export {
   CORPORATE_EVENT_KINDS,

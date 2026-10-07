@@ -54,6 +54,10 @@ export type {
   AssetWrite,
 } from './interfaces/asset.repository.js';
 export type {
+  ManualPriceDraft,
+  ManualPriceRepository,
+} from './interfaces/manual_price.repository.js';
+export type {
   LedgerRepository,
   LedgerRow,
   PortfolioHolding,
@@ -227,6 +231,18 @@ export {
   updateAsset,
 } from './usecases/asset/asset.usecases.js';
 export type { AssetDeps, AssetWriteDeps } from './usecases/asset/asset.usecases.js';
+export {
+  deleteManualPrice,
+  listManualPrices,
+  setManualPrice,
+} from './usecases/asset/manualPrice.usecase.js';
+export type {
+  ManualPriceDeps,
+  ManualPricePreview,
+  ManualPriceReadDeps,
+  SetManualPriceInput,
+  SetManualPriceResult,
+} from './usecases/asset/manualPrice.usecase.js';
 export { createFixedIncomeAsset } from './usecases/asset/createFixedIncomeAsset.usecase.js';
 export type {
   CreateFixedIncomeDeps,

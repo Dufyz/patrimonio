@@ -1,13 +1,20 @@
 import type {
   archiveAsset,
+  deleteManualPrice,
   createAsset,
   createFixedIncomeAsset,
   deleteAsset,
   getAsset,
   listAssets,
+  listManualPrices,
+  setManualPrice,
   updateAsset,
 } from '@patrimonio/application';
-import type { CreateAssetBody, UpdateAssetBody } from '@patrimonio/contracts';
+import type {
+  CreateAssetBody,
+  SetManualPriceBody,
+  UpdateAssetBody,
+} from '@patrimonio/contracts';
 import type { RequestHandler } from 'express';
 
 import { sendFailure, validatedQuery } from '../middleware/respond.js';
@@ -21,6 +28,9 @@ export type AssetDeps = {
     readonly updateAsset: ReturnType<typeof updateAsset>;
     readonly archiveAsset: ReturnType<typeof archiveAsset>;
     readonly deleteAsset: ReturnType<typeof deleteAsset>;
+    readonly setManualPrice: ReturnType<typeof setManualPrice>;
+    readonly listManualPrices: ReturnType<typeof listManualPrices>;
+    readonly deleteManualPrice: ReturnType<typeof deleteManualPrice>;
   };
 };
 
@@ -31,6 +41,9 @@ export type AssetController = {
   readonly update: RequestHandler;
   readonly archive: RequestHandler;
   readonly remove: RequestHandler;
+  readonly setManualPrice: RequestHandler;
+  readonly listManualPrices: RequestHandler;
+  readonly deleteManualPrice: RequestHandler;
 };
 
 type AssetQuery = {
@@ -154,5 +167,57 @@ export const createAssetController = (deps: AssetDeps): AssetController => ({
     }
 
     response.status(200).json({ result: result.value, message: 'Ativo excluído' });
+  },
+
+  /**
+   * Preço manual: vale até a fonte automática voltar a responder para aquele
+   * ativo, e aparece marcado como manual nas tabelas enquanto vale.
+   */
+  setManualPrice: async (request, response) => {
+    const body = request.body as SetManualPriceBody;
+
+    const result = await deps.usecases.setManualPrice({
+      asset_id: String(request.params['asset_id']),
+      price_date: body.price_date,
+      price: body.price,
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({
+      manual_price: result.value.manual_price,
+      preview: result.value.preview,
+      message: 'Preço manual salvo',
+    });
+  },
+
+  listManualPrices: async (request, response) => {
+    const result = await deps.usecases.listManualPrices(
+      String(request.params['asset_id']),
+    );
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({ manual_prices: result.value });
+  },
+
+  deleteManualPrice: async (request, response) => {
+    const result = await deps.usecases.deleteManualPrice(
+      String(request.params['asset_id']),
+      String(request.params['price_date']),
+    );
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({ message: 'Preço manual removido' });
   },
 });

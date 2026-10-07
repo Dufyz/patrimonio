@@ -180,3 +180,11 @@ export {
   deletionImpactSchema,
   undoDeletionSchema,
 } from './transaction/deleteTransaction.schema.js';
+export {
+  deleteManualPriceSchema,
+  listManualPricesSchema,
+  manualPricePreviewSchema,
+  manualPriceResourceSchema,
+  setManualPriceSchema,
+} from './asset/manualPrice.schema.js';
+export type { SetManualPriceBody } from './asset/manualPrice.schema.js';

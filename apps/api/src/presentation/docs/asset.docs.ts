@@ -1,11 +1,16 @@
 import {
   archiveAssetSchema,
+  deleteManualPriceSchema,
   assetResourceSchema,
   createAssetSchema,
   deleteAssetSchema,
   errorResponseSchema,
   getAssetSchema,
   listAssetsSchema,
+  listManualPricesSchema,
+  manualPricePreviewSchema,
+  manualPriceResourceSchema,
+  setManualPriceSchema,
   updateAssetSchema,
 } from '@patrimonio/contracts';
 import { z } from 'zod';
@@ -121,6 +126,59 @@ export const ASSET_ROUTE_DOCS: readonly RouteDoc[] = [
       409: {
         description:
           'Há lançamentos usando o ativo: a mensagem traz a contagem e oferece arquivar.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'post',
+    path: '/assets/:asset_id/manual-price',
+    tag: TAG,
+    summary: 'Definir o preço de um ativo à mão, por data',
+    request: setManualPriceSchema,
+    responses: {
+      200: {
+        description:
+          'Salvo. Vale até a fonte automática voltar a responder, e o preview mostra o efeito no valor da posição.',
+        schema: z.object({
+          manual_price: manualPriceResourceSchema,
+          preview: manualPricePreviewSchema,
+          message: z.string(),
+        }),
+      },
+      400: {
+        description: 'A data não é dia de pregão: preço só existe em dia útil.',
+        schema: errorResponseSchema,
+      },
+      404: { description: 'Não existe ativo com esse id.', schema: errorResponseSchema },
+    },
+  },
+  {
+    method: 'get',
+    path: '/assets/:asset_id/manual-prices',
+    tag: TAG,
+    summary: 'Os preços manuais do ativo',
+    request: listManualPricesSchema,
+    responses: {
+      200: {
+        description: 'Do mais recente para o mais antigo.',
+        schema: z.object({ manual_prices: z.array(manualPriceResourceSchema) }),
+      },
+    },
+  },
+  {
+    method: 'delete',
+    path: '/assets/:asset_id/manual-price/:price_date',
+    tag: TAG,
+    summary: 'Remover um preço manual',
+    request: deleteManualPriceSchema,
+    responses: {
+      200: {
+        description: 'Removido: o ativo volta a depender da fonte automática.',
+        schema: z.object({ message: z.string() }),
+      },
+      404: {
+        description: 'Não há preço manual desse ativo nessa data.',
         schema: errorResponseSchema,
       },
     },
