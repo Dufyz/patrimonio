@@ -1,5 +1,5 @@
 import type { LedgerEntry } from '@patrimonio/calc';
-import type { DateOnly } from '@patrimonio/domain';
+import type { B3Type, DateOnly } from '@patrimonio/domain';
 import type { Either } from '@patrimonio/shared';
 
 import type { AppError } from '../errors/app-error.js';
@@ -14,6 +14,9 @@ export type LedgerRow = LedgerEntry & {
   readonly asset_id: string | null;
   readonly institution_id: string;
 };
+
+/** A linha do livro com o tipo do papel, para a apuração classificar a venda. */
+export type ClassifiedLedgerRow = LedgerRow & { readonly b3_type: B3Type | null };
 
 export type PortfolioHolding = {
   readonly portfolio_id: string;
@@ -65,4 +68,18 @@ export type LedgerRepository = {
     portfolioId: string,
     untilDate: DateOnly,
   ) => Promise<Either<AppError, LedgerRow[]>>;
+
+  /**
+   * O livro de todas as carteiras até uma data, com o tipo do papel em cada linha.
+   * É o escopo da apuração de renda variável: o limite de isenção olha a soma das
+   * vendas do mês inteiro, em todas as carteiras, e o saldo de prejuízo é uma
+   * corrente que atravessa os anos.
+   *
+   * O tipo vem na própria linha para a apuração não precisar listar o cadastro de
+   * ativos inteiro — a listagem é paginada, e uma carteira de dez anos passa do
+   * limite dela.
+   */
+  readonly allEntries: (
+    untilDate: DateOnly,
+  ) => Promise<Either<AppError, ClassifiedLedgerRow[]>>;
 };

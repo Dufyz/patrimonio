@@ -68,6 +68,30 @@ export const createAssetRepository = (sql: Connection): AssetRepository => ({
     }
   },
 
+  /**
+   * Os ativos que aparecem no livro de uma carteira. Sem limite de página de
+   * propósito: o fechamento precisa de todos, e paginar aqui deixaria uma posição
+   * de fora do patrimônio.
+   */
+  listForPortfolio: async (portfolioId: string) => {
+    try {
+      const rows = await sql<Row[]>`
+        select asset.*
+          from asset
+         where exists (
+                 select 1 from transaction
+                  where transaction.asset_id = asset.id
+                    and transaction.portfolio_id = ${portfolioId}
+               )
+         order by asset.ticker
+      `;
+
+      return success(rows.map((row) => parseAssetFromDB(row)));
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
   create: async (draft: AssetDraft) => {
     const row = definedColumns({
       id: uuidv7(),

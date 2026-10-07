@@ -1,4 +1,8 @@
-import type { EnqueuedEvent, OutboxRepository } from '@patrimonio/application';
+import type {
+  DebouncePolicy,
+  EnqueuedEvent,
+  OutboxRepository,
+} from '@patrimonio/application';
 import { parseOutboxEventFromDB } from '@patrimonio/domain';
 import type { OutboxEvent, OutboxEventDraft, Stage } from '@patrimonio/domain';
 import { failure, success } from '@patrimonio/shared';
@@ -9,7 +13,15 @@ import type { Connection } from '../postgresql.js';
 
 type Row = Record<string, unknown>;
 
-export const createOutboxRepository = (sql: Connection): OutboxRepository => ({
+export const createOutboxRepository = (
+  sql: Connection,
+  /**
+   * A política de coalescência, quando há uma. Sem ela o evento é despachado na
+   * primeira passada do relay, que é o comportamento certo para o que não chega em
+   * rajada — fechamento, alertas e backup nascem de um agendamento.
+   */
+  debounce?: DebouncePolicy,
+): OutboxRepository => ({
   /**
    * Uma consulta para N eventos. A coalescência é a restrição parcial de
    * unicidade sobre `dedupe_key` entre os pendentes: dois pedidos na mesma
@@ -19,7 +31,7 @@ export const createOutboxRepository = (sql: Connection): OutboxRepository => ({
   enqueue: async (events: readonly OutboxEventDraft[]) => {
     if (events.length === 0) return success([]);
 
-    const rows = events.map((event) => ({
+    const rows = events.map((event) => debounce?.(event) ?? event).map((event) => ({
       id: uuidv7(),
       stage: event.stage,
       dedupe_key: event.dedupe_key,

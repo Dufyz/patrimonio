@@ -135,29 +135,50 @@ const applySell = (state: Internal, entry: LedgerEntry): void => {
 
 /**
  * Transferência preserva o preço médio nas duas pontas e não gera resultado
- * realizado: é reclassificação interna, não venda. A perna que sai consome
- * custo pelo preço médio; a que entra recebe esse mesmo custo.
+ * realizado: é reclassificação interna, não venda.
+ *
+ * As duas pernas usam **o mesmo número** — o valor líquido gravado no
+ * lançamento, que é a parcela do custo que viajou. Recalcular o custo em cada
+ * ponta a partir do preço médio arredondado deixaria um centavo de diferença
+ * entre o que saiu e o que entrou, e a invariante "transferência preserva
+ * patrimônio total" tem tolerância zero.
  */
 const applyTransfer = (state: Internal, entry: LedgerEntry): void => {
   const quantity = decimal(entry.quantity);
+  const cost = decimal(entry.net_amount).abs().toDecimalPlaces(MONEY_DP);
 
   if (isOutgoing(entry)) {
     const moving = Decimal.min(quantity, state.quantity);
     if (quantity.greaterThan(state.quantity)) state.oversold = true;
 
-    const average = state.quantity.isZero() ? zero : state.cost.dividedBy(state.quantity);
-
     state.quantity = state.quantity.minus(moving);
     state.cost = state.quantity.isZero()
       ? zero
-      : state.cost.minus(average.times(moving).toDecimalPlaces(MONEY_DP));
+      : Decimal.max(state.cost.minus(cost), zero);
     return;
   }
 
   state.quantity = state.quantity.plus(quantity);
-  state.cost = state.cost.plus(
-    quantity.times(decimal(entry.unit_price)).toDecimalPlaces(MONEY_DP),
-  );
+  state.cost = state.cost.plus(cost);
+};
+
+/**
+ * A parcela do custo que viaja numa transferência: proporcional à quantidade
+ * movida, e o custo inteiro quando a posição toda sai. É o que faz a soma das
+ * duas carteiras ser idêntica à de antes, sem sobra de centavo.
+ */
+export const proportionalCost = (
+  costBasis: string,
+  quantity: string,
+  available: string,
+): string => {
+  const total = new Decimal(costBasis);
+  const moving = new Decimal(quantity);
+  const held = new Decimal(available);
+
+  if (held.isZero() || moving.greaterThanOrEqualTo(held)) return total.toFixed(MONEY_DP);
+
+  return total.times(moving).dividedBy(held).toDecimalPlaces(MONEY_DP).toFixed(MONEY_DP);
 };
 
 /**

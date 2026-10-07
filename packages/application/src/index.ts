@@ -27,6 +27,20 @@ export type {
   UnitOfWorkOptions,
 } from './interfaces/unit-of-work.js';
 export type {
+  PortfolioDailyWrite,
+  PositionDailyWrite,
+  ProjectionRepository,
+  RealizedResultWrite,
+  TaxMonthWrite,
+} from './interfaces/projection.repository.js';
+export type { PriceAt, PriceRepository } from './interfaces/price.repository.js';
+export type {
+  AlertFinding,
+  AlertRepository,
+  AlertRule,
+  AlertUpsertRow,
+} from './interfaces/alert.repository.js';
+export type {
   CorporateEventDraft,
   CorporateEventRepository,
 } from './interfaces/corporate_event.repository.js';
@@ -58,6 +72,7 @@ export type {
   ManualPriceRepository,
 } from './interfaces/manual_price.repository.js';
 export type {
+  ClassifiedLedgerRow,
   LedgerRepository,
   LedgerRow,
   PortfolioHolding,
@@ -286,3 +301,84 @@ export type {
   InstitutionDeps,
   InstitutionWriteDeps,
 } from './usecases/institution/institution.usecases.js';
+
+// ─── Planos e casos de uso do pipeline (E3) ──────────────────────────────────
+export { applyPlan } from './plans/apply.js';
+export type {
+  AlertWrite,
+  ApplicablePlan,
+  ApplyReport,
+  ProjectionWrite,
+  RealizedWrite,
+} from './plans/apply.js';
+
+export { coalesces, createDebouncePolicy } from './plans/debounce.js';
+export type { DebounceConfig, DebouncePolicy } from './plans/debounce.js';
+
+export {
+  curveFor,
+  planDailyClose,
+  totalIsReliable,
+} from './plans/daily_close.plan.js';
+export type {
+  CloseAsset,
+  CloseEntry,
+  CloseSeed,
+  DailyCloseContext,
+  DailyClosePlan,
+  FixedIncomeTerms,
+  PriceHealth,
+  PriceOn,
+} from './plans/daily_close.plan.js';
+
+export { planRecalculation } from './plans/recalculation.plan.js';
+export type {
+  RecalculationContext,
+  RecalculationPlan,
+  RecalculationReport,
+  TaxAnnotation,
+} from './plans/recalculation.plan.js';
+
+export { planTaxes } from './plans/taxes.plan.js';
+export type { TaxSale, TaxesContext, TaxesPlan } from './plans/taxes.plan.js';
+
+export { ALERT_GROUPS, isVisibleOn, reconcileAlerts as planAlertReconciliation } from './plans/alerts.plan.js';
+export type {
+  AlertGroup,
+  AlertKey,
+  AlertUpsert,
+  AlertsContext,
+  AlertsPlan,
+} from './plans/alerts.plan.js';
+
+export {
+  closeAssetOf,
+  loadRecalculationContext,
+  loadTaxSales,
+} from './usecases/pipeline/context.js';
+
+export {
+  portfolioLock as recalcPortfolioLock,
+  recalculatePortfolio,
+} from './usecases/pipeline/recalculatePortfolio.usecase.js';
+export type {
+  RecalculateInput,
+  RecalculatePortfolioDeps,
+  RecalculateResult,
+} from './usecases/pipeline/recalculatePortfolio.usecase.js';
+
+export { closeDay } from './usecases/pipeline/closeDay.usecase.js';
+export type {
+  CloseDayDeps,
+  CloseDayInput,
+  CloseDayResult,
+  ClosedPortfolio,
+} from './usecases/pipeline/closeDay.usecase.js';
+
+export { reconcileAlerts } from './usecases/pipeline/reconcileAlerts.usecase.js';
+export type {
+  AlertRuleRunner,
+  ReconcileAlertsDeps,
+  ReconcileAlertsInput,
+  ReconcileAlertsResult,
+} from './usecases/pipeline/reconcileAlerts.usecase.js';

@@ -23,6 +23,7 @@ import type {
   TransactionPreview,
 } from '../../plans/transaction.plan.js';
 import { classifyWithRules, createAssetIn } from '../asset/asset.usecases.js';
+import { loadPlanContext } from './context.js';
 import { findReplay } from './idempotency.js';
 
 /**
@@ -142,7 +143,9 @@ export const resolveAsset = async (
     const categories = await repositories.categories.list();
     if (categories.isFailure()) return categories;
 
-    return success({
+    // O tipo explícito porque o `Either` de retorno é uma união, e união não serve
+    // de contexto para a inferência: sem ele, `'market'` alarga para `string`.
+    return success<ResolvedAsset>({
       id: DRAFT_ASSET_ID,
       ticker: input.asset.ticker.toUpperCase(),
       b3_type: input.asset.b3_type ?? null,

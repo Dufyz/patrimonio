@@ -22,6 +22,7 @@ const deps: StageDeps = {
   outbox: container.repositories.outbox,
   clock: container.clock,
   logger,
+  usecases: container.usecases,
 };
 
 // Os seis estágios. Nenhum processor instancia dependência: recebe o container.

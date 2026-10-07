@@ -97,7 +97,11 @@ export const setManualPrice = (deps: ManualPriceDeps) =>
           preview: {
             quantity: position.quantity,
             previous_price: previousPrice,
-            previous_source: previousPrice === null ? 'cost' : 'manual',
+            // `as const` porque o ternário de dois literais alarga para `string`:
+            // o tipo do `run` é uma união, e união não serve de contexto para a
+            // inferência do `success`.
+            previous_source:
+              previousPrice === null ? ('cost' as const) : ('manual' as const),
             price: input.price,
             position_value: {
               before: totalAmount(position.quantity, base),

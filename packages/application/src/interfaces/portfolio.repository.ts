@@ -2,6 +2,7 @@ import type {
   DateOnly,
   Portfolio,
   RebalanceMode,
+  RecalcStatus,
   StrategyTarget,
 } from '@patrimonio/domain';
 import type { Either } from '@patrimonio/shared';
@@ -42,6 +43,16 @@ export type MovedContent = {
   readonly from_date: DateOnly | null;
 };
 
+/**
+ * O que a máquina de estados do pipeline escreve. É o único caminho até as quatro
+ * colunas de recálculo, e quem chama é o `apply` — nenhum caso de uso as toca.
+ */
+export type RecalcTransitionWrite = {
+  readonly recalc_status: RecalcStatus;
+  readonly from_date: DateOnly | null;
+  readonly error: string | null;
+};
+
 export type PortfolioRepository = {
   readonly findById: (id: string) => Promise<Either<AppError, Portfolio | null>>;
 
@@ -80,6 +91,19 @@ export type PortfolioRepository = {
 
   /** Apaga os lançamentos da carteira. Muda o patrimônio histórico. */
   readonly deleteTransactions: (id: string) => Promise<Either<AppError, number>>;
+
+  /**
+   * Aplica a transição de `recalc_status`. Separado de `update` de propósito: as
+   * quatro colunas de recálculo não estão em `PortfolioWrite`, e é assim que
+   * nenhuma rota consegue escrevê-las nem por acidente.
+   */
+  readonly applyRecalcTransition: (
+    id: string,
+    write: RecalcTransitionWrite,
+  ) => Promise<Either<AppError, void>>;
+
+  /** As carteiras ativas, para o fechamento diário percorrer todas. */
+  readonly listActiveIds: () => Promise<Either<AppError, string[]>>;
 
   readonly listTargets: (
     portfolioId: string,

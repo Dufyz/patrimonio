@@ -1,6 +1,7 @@
 import type { Either } from '@patrimonio/shared';
 
 import type { AppError } from '../errors/app-error.js';
+import type { AlertRepository } from './alert.repository.js';
 import type { BusinessDayRepository } from './business_day.repository.js';
 import type { AssetRepository } from './asset.repository.js';
 import type { CategoryRepository } from './category.repository.js';
@@ -11,6 +12,8 @@ import type { ManualPriceRepository } from './manual_price.repository.js';
 import type { OutboxRepository } from './outbox.repository.js';
 import type { PayoutDismissalRepository } from './payout_dismissal.repository.js';
 import type { PortfolioRepository } from './portfolio.repository.js';
+import type { PriceRepository } from './price.repository.js';
+import type { ProjectionRepository } from './projection.repository.js';
 import type { TransactionRepository } from './transaction.repository.js';
 import type { TransactionUndoRepository } from './transaction_undo.repository.js';
 
@@ -20,7 +23,8 @@ import type { TransactionUndoRepository } from './transaction_undo.repository.js
  * repositório é uma fábrica que aceita a conexão.
  *
  * Cresce a cada entidade: em E2 entram carteira, instituição, ativo e
- * lançamento.
+ * lançamento; em E3 entram as tabelas de projeção, a leitura de preço e os
+ * alertas.
  */
 export type TransactionalRepositories = {
   readonly outbox: OutboxRepository;
@@ -35,6 +39,9 @@ export type TransactionalRepositories = {
   readonly payoutDismissals: PayoutDismissalRepository;
   readonly transactionUndos: TransactionUndoRepository;
   readonly corporateEvents: CorporateEventRepository;
+  readonly projections: ProjectionRepository;
+  readonly prices: PriceRepository;
+  readonly alerts: AlertRepository;
 };
 
 export type UnitOfWorkOptions = {

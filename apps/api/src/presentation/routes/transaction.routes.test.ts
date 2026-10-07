@@ -132,10 +132,10 @@ describe('compra', () => {
     await lancar({ trade_date: '2026-10-05' });
     await lancar({ trade_date: '2026-10-02' });
 
-    const [{ total }] = await harness.sql<{ total: string }[]>`
+    const [recalcs] = await harness.sql<{ total: string }[]>`
       select count(*)::text as total from pipeline_outbox where stage = 'recalc'
     `;
-    expect(Number(total)).toBe(1);
+    expect(Number(recalcs?.total)).toBe(1);
 
     // E o from_date recua para a data mais antiga pedida na rajada.
     const [evento] = await harness.sql<{ from_date: string }[]>`
@@ -148,11 +148,11 @@ describe('compra', () => {
   it('o primeiro lançamento de um ativo novo pede também o backfill do preço', async () => {
     await lancar({});
 
-    const [{ total }] = await harness.sql<{ total: string }[]>`
+    const [backfills] = await harness.sql<{ total: string }[]>`
       select count(*)::text as total
         from pipeline_outbox where dedupe_key like 'backfill:%'
     `;
-    expect(Number(total)).toBe(1);
+    expect(Number(backfills?.total)).toBe(1);
   });
 
   it('lançar numa carteira arquivada é recusado', async () => {

@@ -193,6 +193,40 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
     }
   },
 
+  /**
+   * O único caminho até as quatro colunas de recálculo. Nenhuma rota chega aqui:
+   * `PortfolioWrite` não as declara, e quem chama este método é o `apply`.
+   */
+  applyRecalcTransition: async (id: string, write) => {
+    try {
+      await sql`
+        update portfolio
+           set recalc_status = ${write.recalc_status},
+               recalc_from_date = ${write.from_date},
+               recalc_error = ${write.error},
+               recalc_updated_at = now()
+         where id = ${id}
+      `;
+
+      return success(undefined);
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
+  /** As carteiras que o fechamento diário percorre. Arquivada não fecha. */
+  listActiveIds: async () => {
+    try {
+      const rows = await sql<{ id: string }[]>`
+        select id from portfolio where archived_at is null order by sort_order, id
+      `;
+
+      return success(rows.map((row) => row.id));
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
   listTargets: async (portfolioId: string) => {
     try {
       const rows = await sql<Row[]>`
