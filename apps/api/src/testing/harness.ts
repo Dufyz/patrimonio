@@ -3,6 +3,7 @@ import {
   createConnection,
   createRepositories,
   createUnitOfWork,
+  loadBusinessDays,
   runMigrations,
 } from '@patrimonio/db';
 import type { Sql } from '@patrimonio/db';
@@ -40,6 +41,13 @@ export const createApiHarness = async (): Promise<ApiHarness> => {
     poolSize: 4,
     applicationName: 'patrimonio-api-test',
   });
+  // A liquidação sugerida conta dia útil, então o calendário precisa existir
+  // antes da primeira compra.
+  const [calendar] = await sql<{ total: string }[]>`
+    select count(*)::text as total from business_day
+  `;
+  if (Number(calendar?.total ?? 0) === 0) await loadBusinessDays(sql);
+
   const redis = createRedisConnection(environment.redis.url);
   const queues = createQueues(redis);
   const repositories = createRepositories(sql);

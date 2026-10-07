@@ -27,6 +27,13 @@ export type {
   UnitOfWorkOptions,
 } from './interfaces/unit-of-work.js';
 export type {
+  TransactionFilter,
+  TransactionPage,
+  TransactionPatch,
+  TransactionRepository,
+  TransactionWrite,
+} from './interfaces/transaction.repository.js';
+export type {
   AssetDraft,
   AssetFilter,
   AssetRepository,
@@ -89,6 +96,41 @@ export {
 export type { ListPortfoliosDeps } from './usecases/portfolio/listPortfolios.usecase.js';
 export { putStrategy } from './usecases/portfolio/putStrategy.usecase.js';
 export type { PutStrategyDeps } from './usecases/portfolio/putStrategy.usecase.js';
+// ─── Planos ──────────────────────────────────────────────────────────────────
+export { planEvents, planTransaction } from './plans/transaction.plan.js';
+export type {
+  AllocationPreview,
+  BeforeAfter,
+  PlanAsset,
+  PlanContext,
+  TransactionDraft,
+  TransactionPlan,
+  TransactionPreview,
+} from './plans/transaction.plan.js';
+
+export {
+  createTransaction,
+  portfolioLock,
+  prepareTransaction,
+  previewTransaction,
+  resolveAsset,
+  resolveFees,
+  resolveSettlement,
+} from './usecases/transaction/createTransaction.usecase.js';
+export type {
+  CreateTransactionDeps,
+  CreateTransactionInput,
+  NewAssetInput,
+  TransactionResult,
+} from './usecases/transaction/createTransaction.usecase.js';
+export { loadPlanContext } from './usecases/transaction/context.js';
+export type { ContextAsset, ContextParams } from './usecases/transaction/context.js';
+export {
+  getTransaction,
+  listTransactions,
+} from './usecases/transaction/listTransactions.usecase.js';
+export type { ListTransactionsDeps } from './usecases/transaction/listTransactions.usecase.js';
+
 export {
   archiveAsset,
   classifyWithRules,

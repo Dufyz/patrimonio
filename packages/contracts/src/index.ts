@@ -118,3 +118,25 @@ export {
   getAssetSchema,
   listAssetsSchema,
 } from './asset/listAssets.schema.js';
+
+export {
+  newAssetSchema,
+  payoutKindSchema,
+  transactionKindSchema,
+  transactionPreviewSchema,
+  transactionResourceSchema,
+  transactionWritableSchema,
+} from './transaction/transaction.schema.js';
+export type {
+  TransactionPreviewResource,
+  TransactionResource,
+  TransactionWritable,
+} from './transaction/transaction.schema.js';
+export { createTransactionSchema } from './transaction/createTransaction.schema.js';
+export type { CreateTransactionBody } from './transaction/createTransaction.schema.js';
+export { previewTransactionSchema } from './transaction/previewTransaction.schema.js';
+export type { PreviewTransactionBody } from './transaction/previewTransaction.schema.js';
+export {
+  getTransactionSchema,
+  listTransactionsSchema,
+} from './transaction/listTransactions.schema.js';

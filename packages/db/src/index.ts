@@ -12,6 +12,7 @@ export { createInstitutionRepository } from './repositories/institution.reposito
 export { createCategoryRepository } from './repositories/category.repository.js';
 export { createAssetRepository } from './repositories/asset.repository.js';
 export { createLedgerRepository } from './repositories/ledger.repository.js';
+export { createTransactionRepository } from './repositories/transaction.repository.js';
 
 export {
   MigrationError,

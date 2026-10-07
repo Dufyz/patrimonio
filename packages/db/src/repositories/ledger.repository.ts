@@ -97,6 +97,21 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
     }
   },
 
+  assetCategories: async (portfolioId: string) => {
+    try {
+      const rows = await sql<{ asset_id: string; category_id: string | null }[]>`
+        select distinct a.id as asset_id, a.category_id
+          from transaction t
+          join asset a on a.id = t.asset_id
+         where t.portfolio_id = ${portfolioId}
+      `;
+
+      return success(new Map(rows.map((row) => [row.asset_id, row.category_id])));
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
   /** Uma consulta: carteira e a data do lançamento mais antigo daquele ativo. */
   portfoliosHoldingAsset: async (assetId: string) => {
     try {

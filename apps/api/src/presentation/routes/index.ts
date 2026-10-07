@@ -6,18 +6,21 @@ import type { AssetDeps } from '../controllers/asset.controller.js';
 import type { CategoryDeps } from '../controllers/category.controller.js';
 import type { InstitutionDeps } from '../controllers/institution.controller.js';
 import type { PortfolioDeps } from '../controllers/portfolio.controller.js';
+import type { TransactionDeps } from '../controllers/transaction.controller.js';
 import { buildOpenApiDocument } from '../docs/openapi.js';
 import { healthCheckRoutes } from './health-check.routes.js';
 import { assetRoutes } from './asset.routes.js';
 import { categoryRoutes } from './category.routes.js';
 import { institutionRoutes } from './institution.routes.js';
 import { portfolioRoutes } from './portfolio.routes.js';
+import { transactionRoutes } from './transaction.routes.js';
 
 export type RouteDeps = HealthCheckDeps &
   PortfolioDeps &
   InstitutionDeps &
   CategoryDeps &
-  AssetDeps & { readonly version: string };
+  AssetDeps &
+  TransactionDeps & { readonly version: string };
 
 /** Tudo sob `/api`. */
 export const apiRoutes = (deps: RouteDeps): Router => {
@@ -34,6 +37,7 @@ export const apiRoutes = (deps: RouteDeps): Router => {
   router.use(institutionRoutes(deps));
   router.use(categoryRoutes(deps));
   router.use(assetRoutes(deps));
+  router.use(transactionRoutes(deps));
 
   return router;
 };

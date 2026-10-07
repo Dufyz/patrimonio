@@ -88,6 +88,21 @@ export {
 export type { Institution, InstitutionRole } from './institution/institution.entities.js';
 export { parseInstitutionFromDB } from './institution/institution.parsers.js';
 
+// ─── Lançamento ──────────────────────────────────────────────────────────────
+export {
+  PAYOUT_KINDS,
+  TRANSACTION_KINDS,
+  isPayoutKind,
+  isTransactionKind,
+  settlementBusinessDays,
+} from './transaction/transaction.entities.js';
+export type {
+  PayoutKind,
+  Transaction,
+  TransactionKind,
+} from './transaction/transaction.entities.js';
+export { parseTransactionFromDB } from './transaction/transaction.parsers.js';
+
 // ─── Carteira ────────────────────────────────────────────────────────────────
 export { REBALANCE_MODES, isRebalanceMode } from './portfolio/portfolio.entities.js';
 export type {

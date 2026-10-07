@@ -40,6 +40,14 @@ export type LedgerRepository = {
     institutionId: string,
   ) => Promise<Either<AppError, LedgerRow[]>>;
 
+  /**
+   * A categoria de cada ativo que a carteira tem. É o que transforma posições em
+   * alocação por classe sem uma consulta por ativo.
+   */
+  readonly assetCategories: (
+    portfolioId: string,
+  ) => Promise<Either<AppError, ReadonlyMap<string, string | null>>>;
+
   /** As carteiras que têm lançamento do ativo, com a data mais antiga de cada. */
   readonly portfoliosHoldingAsset: (
     assetId: string,

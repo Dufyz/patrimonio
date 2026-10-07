@@ -15,6 +15,7 @@ import { createInstitutionRepository } from './repositories/institution.reposito
 import { createLedgerRepository } from './repositories/ledger.repository.js';
 import { createOutboxRepository } from './repositories/outbox.repository.js';
 import { createPortfolioRepository } from './repositories/portfolio.repository.js';
+import { createTransactionRepository } from './repositories/transaction.repository.js';
 
 /**
  * Os repositórios criados sobre uma conexão — a global ou a da transação.
@@ -34,6 +35,7 @@ export const createRepositories = (sql: Connection): DbRepositories => ({
   categories: createCategoryRepository(sql),
   assets: createAssetRepository(sql),
   ledger: createLedgerRepository(sql),
+  transactions: createTransactionRepository(sql),
 });
 
 /**

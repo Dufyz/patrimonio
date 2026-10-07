@@ -8,6 +8,7 @@ import type { InstitutionRepository } from './institution.repository.js';
 import type { LedgerRepository } from './ledger.repository.js';
 import type { OutboxRepository } from './outbox.repository.js';
 import type { PortfolioRepository } from './portfolio.repository.js';
+import type { TransactionRepository } from './transaction.repository.js';
 
 /**
  * Os repositórios criados sobre a transação. O container cria as instâncias
@@ -25,6 +26,7 @@ export type TransactionalRepositories = {
   readonly categories: CategoryRepository;
   readonly assets: AssetRepository;
   readonly ledger: LedgerRepository;
+  readonly transactions: TransactionRepository;
 };
 
 export type UnitOfWorkOptions = {

@@ -28,4 +28,14 @@ export type BusinessDayRepository = {
   readonly previousBusinessDay: (
     date: DateOnly,
   ) => Promise<Either<AppError, DateOnly | null>>;
+
+  /**
+   * A data de liquidação sugerida: D+2 em ação, D+1 em Tesouro, D+0 em título
+   * bancário. Conta dia útil, não dia corrido — uma compra na sexta liquida na
+   * terça, e numa semana com feriado liquida depois.
+   */
+  readonly shiftBusinessDays: (
+    date: DateOnly,
+    days: number,
+  ) => Promise<Either<AppError, DateOnly>>;
 };
