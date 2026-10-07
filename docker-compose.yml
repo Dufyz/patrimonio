@@ -1,0 +1,77 @@
+name: patrimonio
+
+# Ambiente local da Fase 1: nada aqui é exposto na internet.
+# `pnpm infra:up` sobe tudo numa máquina limpa; `pnpm infra:reset` apaga os volumes.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: patrimonio-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: patrimonio
+      POSTGRES_PASSWORD: patrimonio
+      POSTGRES_DB: patrimonio
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U patrimonio -d patrimonio']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Porta separada da de desenvolvimento: a suíte trunca e recria à vontade
+  # sem risco de apagar o banco em que você está lançando operações.
+  postgres-test:
+    image: postgres:17-alpine
+    container_name: patrimonio-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: patrimonio
+      POSTGRES_PASSWORD: patrimonio
+      POSTGRES_DB: patrimonio_test
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - '5434:5432'
+    command:
+      [
+        'postgres',
+        '-c',
+        'fsync=off',
+        '-c',
+        'synchronous_commit=off',
+        '-c',
+        'full_page_writes=off',
+      ]
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U patrimonio -d patrimonio_test']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: patrimonio-redis
+    restart: unless-stopped
+    # noeviction é deliberado: numa fila, descartar chave por pressão de
+    # memória significa perder job em silêncio.
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '6380:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:
+  redisdata:

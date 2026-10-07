@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+.env
+.env.local
+.DS_Store
+tmp/
+
+# o Redis local escreve o dump aqui quando roda fora do container
+dump.rdb
