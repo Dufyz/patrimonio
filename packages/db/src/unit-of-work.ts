@@ -78,7 +78,12 @@ const isAbort = <F>(value: unknown): value is Abort<F> =>
 
 export const createUnitOfWork = (
   sql: Sql,
-  options: RepositoryOptions = {},
+  /**
+   * Nomeado, e não `options`: o `run` tem um `options` próprio — a trava — e o
+   * nome repetido sombreava este, de forma que a política de coalescência nunca
+   * chegava aos repositórios da transação. O compilador pegou; o teste não teria.
+   */
+  repositoryOptions: RepositoryOptions = {},
 ): UnitOfWork => ({
   run: async <F, S>(
     work: (repositories: TransactionalRepositories) => Promise<Either<F, S>>,
@@ -90,7 +95,7 @@ export const createUnitOfWork = (
           await tx`select pg_advisory_xact_lock(hashtextextended(${options.lock}, 0))`;
         }
 
-        const result = await work(createRepositories(tx, options));
+        const result = await work(createRepositories(tx, repositoryOptions));
 
         if (result.isFailure()) {
           const abort: Abort<F> = { [ABORT]: true, failure: result.value };

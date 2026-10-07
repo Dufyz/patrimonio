@@ -530,3 +530,214 @@ describe('reconciliação de alertas', () => {
     expect(total?.total).toBe('0');
   });
 });
+
+/**
+ * A invariante central do modelo, medida contra o banco: reconstruir do zero
+ * produz o mesmo estado que o cálculo incremental. Se ela falha, alguma projeção
+ * guarda informação que não está no livro — e aí o backup não é suficiente, o
+ * histórico não é corrigível, e o princípio de produto cai.
+ *
+ * Os testes de propriedade em `calc` provam a mesma coisa sobre a série em
+ * memória. Este prova sobre o caminho inteiro: fechamento dia a dia, truncar as
+ * projeções, recalcular de uma vez, comparar linha a linha.
+ */
+describe('do zero é igual ao incremental, contra o banco', () => {
+  const DAYS = ['2026-10-01', '2026-10-02', '2026-10-05', '2026-10-06'] as const;
+
+  const SELL = '0191e5a0-0000-7000-8000-00000000f002';
+
+  const seedWithHistory = async (): Promise<void> => {
+    await seed();
+
+    // Uma venda no meio: ela move preço médio, resultado realizado e caixa, que
+    // são as três coisas que um recálculo parcial poderia deixar fora de sincronia.
+    await sql`
+      insert into transaction
+        (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
+         quantity, unit_price, fees, gross_amount, net_amount)
+      values (${SELL}, 'sell', '2026-10-05', '2026-10-07', ${PORTFOLIO}, ${ASSET},
+              ${INSTITUTION}, 40, 31.5, 4.9, 1260, 1255.10)
+    `;
+
+    await sql`
+      insert into asset_price (asset_id, price_date, close, source, source_kind)
+      select ${ASSET}::uuid, entry.price_date::date, entry.close::numeric,
+               'teste', 'primary'::price_source_kind
+        from jsonb_to_recordset(${JSON.stringify([
+          { price_date: '2026-10-01', close: '30.00' },
+          { price_date: '2026-10-02', close: '31.00' },
+          { price_date: '2026-10-05', close: '29.50' },
+          { price_date: '2026-10-06', close: '32.00' },
+        ])}::text::jsonb) as entry(price_date text, close text)
+    `;
+  };
+
+  const snapshot = async (): Promise<{
+    readonly positions: readonly Record<string, unknown>[];
+    readonly days: readonly Record<string, unknown>[];
+    readonly realized: readonly Record<string, unknown>[];
+  }> => ({
+    // `computed_at` fica fora da comparação: ele diz quando a linha foi gravada,
+    // não o que ela vale, e é a única coluna que muda entre duas execuções iguais.
+    positions: await sql<Record<string, unknown>[]>`
+      select asset_id, position_date, quantity, avg_price, cost_basis, market_value,
+             price_source_kind, accrued_interest
+        from position_daily where portfolio_id = ${PORTFOLIO}
+       order by position_date, asset_id
+    `,
+    days: await sql<Record<string, unknown>[]>`
+      select position_date, total_value, net_flow, income, payouts, quota_value,
+             quota_count, cumulative_contributions
+        from portfolio_daily where portfolio_id = ${PORTFOLIO}
+       order by position_date
+    `,
+    realized: await sql<Record<string, unknown>[]>`
+      select transaction_id, trade_date, proceeds, cost_consumed, result, exempt,
+             loss_offset
+        from realized_result where portfolio_id = ${PORTFOLIO} order by trade_date
+    `,
+  });
+
+  it('fechar dia a dia e reconstruir de uma vez dão o mesmo estado, linha a linha', async () => {
+    await seedWithHistory();
+
+    // Incremental: o fechamento de cada dia, na ordem, como acontece na vida real.
+    const close = closeDay({ unitOfWork, clock });
+    for (const date of DAYS) {
+      unwrapSuccess(await close({ reference_date: date }));
+    }
+
+    const incremental = await snapshot();
+    expect(incremental.days).toHaveLength(DAYS.length);
+    expect(incremental.realized).toHaveLength(1);
+
+    // Truncar a projeção e reconstruir do livro, de uma vez.
+    await sql`delete from position_daily where portfolio_id = ${PORTFOLIO}`;
+    await sql`delete from portfolio_daily where portfolio_id = ${PORTFOLIO}`;
+    await sql`delete from realized_result where portfolio_id = ${PORTFOLIO}`;
+
+    unwrapSuccess(
+      await recalculatePortfolio({ unitOfWork, clock })({
+        portfolio_id: PORTFOLIO,
+        from_date: '2026-10-01',
+        through_date: '2026-10-06',
+      }),
+    );
+
+    const rebuilt = await snapshot();
+
+    expect(rebuilt.days).toEqual(incremental.days);
+    expect(rebuilt.positions).toEqual(incremental.positions);
+    expect(rebuilt.realized).toEqual(incremental.realized);
+  });
+
+  it('a projeção pode ser apagada e reconstruída sem perda', async () => {
+    await seedWithHistory();
+
+    const usecase = recalculatePortfolio({ unitOfWork, clock });
+
+    unwrapSuccess(
+      await usecase({
+        portfolio_id: PORTFOLIO,
+        from_date: '2026-10-01',
+        through_date: '2026-10-06',
+      }),
+    );
+    const first = await snapshot();
+
+    await sql`delete from position_daily where portfolio_id = ${PORTFOLIO}`;
+    await sql`delete from portfolio_daily where portfolio_id = ${PORTFOLIO}`;
+
+    unwrapSuccess(
+      await usecase({
+        portfolio_id: PORTFOLIO,
+        from_date: '2026-10-01',
+        through_date: '2026-10-06',
+      }),
+    );
+
+    expect((await snapshot()).days).toEqual(first.days);
+    expect((await snapshot()).positions).toEqual(first.positions);
+  });
+
+  it('reconstruir só a ponta dá o mesmo resultado que reconstruir tudo', async () => {
+    await seedWithHistory();
+
+    const usecase = recalculatePortfolio({ unitOfWork, clock });
+
+    unwrapSuccess(
+      await usecase({
+        portfolio_id: PORTFOLIO,
+        from_date: '2026-10-01',
+        through_date: '2026-10-06',
+      }),
+    );
+    const whole = await snapshot();
+
+    // Só os dois últimos dias, partindo da linha que ficou no banco.
+    unwrapSuccess(
+      await usecase({
+        portfolio_id: PORTFOLIO,
+        from_date: '2026-10-05',
+        through_date: '2026-10-06',
+      }),
+    );
+
+    expect((await snapshot()).days).toEqual(whole.days);
+  });
+
+  it('dois recálculos em paralelo na mesma carteira produzem o estado de um', async () => {
+    await seedWithHistory();
+
+    const order: string[] = [];
+
+    /**
+     * O atraso entra pelo `betweenLoadAndWrite` do próprio caso de uso, não por um
+     * `setTimeout` no teste: o que precisa ser reproduzido é a janela entre a
+     * leitura e a escrita, que é onde a corrida vive. Sem a trava, o segundo
+     * recálculo leria o estado antigo e regravaria por cima do primeiro.
+     */
+    const run = (label: string, delayMs: number) =>
+      recalculatePortfolio({
+        unitOfWork,
+        clock,
+        betweenLoadAndWrite: async () => {
+          order.push(`${label}:leu`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          order.push(`${label}:vai escrever`);
+        },
+      })({
+        portfolio_id: PORTFOLIO,
+        from_date: '2026-10-01',
+        through_date: '2026-10-06',
+      });
+
+    const [a, b] = await Promise.all([run('a', 150), run('b', 0)]);
+
+    expect(a.isSuccess()).toBe(true);
+    expect(b.isSuccess()).toBe(true);
+
+    // Serializados: quem leu primeiro escreveu antes de o outro ler.
+    expect(order).toHaveLength(4);
+    const primeiro = order[0]?.split(':')[0] ?? '';
+    expect(order[1]).toBe(`${primeiro}:vai escrever`);
+    expect(order[2]).not.toBe(`${primeiro}:leu`);
+
+    // E o estado é o de uma execução só, não o de duas sobrepostas.
+    const concorrente = await snapshot();
+
+    await sql`delete from position_daily where portfolio_id = ${PORTFOLIO}`;
+    await sql`delete from portfolio_daily where portfolio_id = ${PORTFOLIO}`;
+    await sql`delete from realized_result where portfolio_id = ${PORTFOLIO}`;
+
+    unwrapSuccess(
+      await recalculatePortfolio({ unitOfWork, clock })({
+        portfolio_id: PORTFOLIO,
+        from_date: '2026-10-01',
+        through_date: '2026-10-06',
+      }),
+    );
+
+    expect(concorrente.days).toEqual((await snapshot()).days);
+  });
+});

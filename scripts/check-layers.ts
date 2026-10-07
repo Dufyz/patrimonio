@@ -7,8 +7,15 @@
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+/**
+ * `fileURLToPath`, e não `.pathname`: o caminho de uma URL vem percent-encoded, e
+ * uma pasta chamada `Patrimônio` chega como `Patrimo%CC%82nio`. O resto do
+ * repositório já usa `fileURLToPath` nos três lugares em que resolve caminho de
+ * arquivo; este era o único que não.
+ */
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SCOPE = '@patrimonio/';
 
 /** Dependências internas que cada pacote pode declarar. Nada fora da lista. */

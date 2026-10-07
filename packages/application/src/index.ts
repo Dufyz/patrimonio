@@ -72,6 +72,7 @@ export type {
   ManualPriceRepository,
 } from './interfaces/manual_price.repository.js';
 export type {
+  ClassifiedLedgerRow,
   LedgerRepository,
   LedgerRow,
   PortfolioHolding,
