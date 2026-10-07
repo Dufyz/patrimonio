@@ -131,8 +131,10 @@ export {
   ASSET_CLASSES,
   COMPUTED_PRICE_KINDS,
   INDEX_CODES,
+  PRICE_SOURCE_KINDS,
   assetClassFor,
   indexForIndexer,
+  isIndexCode,
 } from './projection/projection.entities.js';
 export type {
   AlertInstance,
@@ -144,6 +146,7 @@ export type {
   IndexQuote,
   PortfolioDaily,
   PositionDaily,
+  PriceSourceKind,
   RealizedResult,
   TaxMonth,
 } from './projection/projection.entities.js';

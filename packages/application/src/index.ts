@@ -5,12 +5,15 @@ export {
   ConflictError,
   DatabaseError,
   ExternalServiceError,
+  FormatChangedError,
   InvalidParameterError,
   MarketDataUnavailableError,
+  MarketSourceRejectedError,
   NotFoundError,
   TooManyRequestsError,
   UnauthorizedError,
   isAppError,
+  isFormatChangedError,
 } from './errors/app-error.js';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -34,6 +37,21 @@ export type {
   TaxMonthWrite,
 } from './interfaces/projection.repository.js';
 export type { PriceAt, PriceRepository } from './interfaces/price.repository.js';
+export type {
+  AnnouncedPayoutSample,
+  ClosingResult,
+  CorporateActionProvider,
+  CorporateEventSample,
+  IndexProvider,
+  IndexSample,
+  PriceQuote,
+  QuoteProvider,
+  QuoteSource,
+  SourcedClosing,
+  TreasuryProvider,
+  TreasuryQuote,
+  TreasurySource,
+} from './interfaces/market_data.js';
 export type {
   AlertFinding,
   AlertRepository,

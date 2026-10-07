@@ -97,12 +97,21 @@ export type AlertInstance = {
   readonly updated_at: string;
 };
 
+/**
+ * De onde o preço gravado veio. `primary` é a fonte principal da cadeia,
+ * `fallback` é a que assumiu quando ela falhou, e `manual` é o preço digitado.
+ * É o que a tela de dados de mercado mostra como "quem respondeu por último".
+ */
+export const PRICE_SOURCE_KINDS = ['primary', 'fallback', 'manual'] as const;
+
+export type PriceSourceKind = (typeof PRICE_SOURCE_KINDS)[number];
+
 export type AssetPrice = {
   readonly asset_id: string;
   readonly price_date: DateOnly;
   readonly close: string;
   readonly source: string;
-  readonly source_kind: 'primary' | 'fallback' | 'manual';
+  readonly source_kind: PriceSourceKind;
   readonly fetched_at: string;
 };
 
@@ -124,6 +133,9 @@ export type IndexQuote = {
 export const INDEX_CODES = ['CDI', 'SELIC', 'IPCA', 'IBOV', 'IFIX'] as const;
 
 export type IndexCode = (typeof INDEX_CODES)[number];
+
+export const isIndexCode = (value: unknown): value is IndexCode =>
+  typeof value === 'string' && (INDEX_CODES as readonly string[]).includes(value);
 
 /**
  * O índice que remunera cada indexador. `prefixed` não tem índice: a taxa

@@ -16,6 +16,7 @@ import {
   ALERT_STATUSES,
   ASSET_CLASSES,
   COMPUTED_PRICE_KINDS,
+  PRICE_SOURCE_KINDS,
 } from './projection.entities.js';
 import type {
   AlertInstance,
@@ -98,7 +99,7 @@ export const parseAssetPriceFromDB = (row: Row): AssetPrice => ({
   price_date: asDateOnly(row, 'price_date'),
   close: asNumeric(row, 'close'),
   source: asString(row, 'source'),
-  source_kind: asEnum(row, 'source_kind', ['primary', 'fallback', 'manual'] as const),
+  source_kind: asEnum(row, 'source_kind', PRICE_SOURCE_KINDS),
   fetched_at: asIsoString(row, 'fetched_at'),
 });
 
