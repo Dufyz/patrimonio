@@ -3,7 +3,9 @@ import type {
   Clock,
   OutboxRepository,
   UnitOfWork,
+  backfillAsset,
   closeDay,
+  collectMarketData,
   recalculatePortfolio,
   reconcileAlerts,
 } from '@patrimonio/application';
@@ -34,6 +36,8 @@ export type StageUseCases = {
   readonly recalculatePortfolio: ReturnType<typeof recalculatePortfolio>;
   readonly closeDay: ReturnType<typeof closeDay>;
   readonly reconcileAlerts: ReturnType<typeof reconcileAlerts>;
+  readonly collectMarketData: ReturnType<typeof collectMarketData>;
+  readonly backfillAsset: ReturnType<typeof backfillAsset>;
 };
 
 export type StageDeps = {

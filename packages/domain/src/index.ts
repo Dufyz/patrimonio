@@ -171,3 +171,19 @@ export {
   parsePortfolioFromDB,
   parseStrategyTargetFromDB,
 } from './portfolio/portfolio.parsers.js';
+
+// ─── Dados de mercado ────────────────────────────────────────────────────────
+export {
+  MARKET_RUN_KINDS,
+  isMarketRunKind,
+} from './market/market.entities.js';
+export type {
+  MarketRunKind,
+  MarketSourceRun,
+  MarketSourceRunDraft,
+  PriceableAsset,
+} from './market/market.entities.js';
+export {
+  parseMarketSourceRunFromDB,
+  parsePriceableAssetFromDB,
+} from './market/market.parsers.js';

@@ -21,6 +21,8 @@ export { createCorporateEventRepository } from './repositories/corporate_event.r
 export { createProjectionRepository } from './repositories/projection.repository.js';
 export { createPriceRepository } from './repositories/price.repository.js';
 export { createAlertRepository } from './repositories/alert.repository.js';
+export { createMarketIngestionRepository } from './repositories/market_ingestion.repository.js';
+export { ARRAY_OID } from './support/array_oid.js';
 
 export {
   MigrationError,

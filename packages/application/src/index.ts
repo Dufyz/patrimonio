@@ -38,6 +38,14 @@ export type {
 } from './interfaces/projection.repository.js';
 export type { PriceAt, PriceRepository } from './interfaces/price.repository.js';
 export type {
+  AnnouncedPayoutWrite,
+  AssetPriceWrite,
+  IndexQuoteWrite,
+  MarketIngestionRepository,
+  PendingAnnouncedPayout,
+  SourceStatus,
+} from './interfaces/market_ingestion.repository.js';
+export type {
   AnnouncedPayoutSample,
   ClosingResult,
   CorporateActionProvider,
@@ -400,3 +408,29 @@ export type {
   ReconcileAlertsInput,
   ReconcileAlertsResult,
 } from './usecases/pipeline/reconcileAlerts.usecase.js';
+
+// ─── Dados de mercado ────────────────────────────────────────────────────────
+export {
+  CORPORATE_EVENT_RULE,
+  PRICE_MISSING_RULE,
+  PRICE_STALE_RULE,
+  planBackfillWindow,
+  planMarketIngestion,
+} from './plans/market.plan.js';
+export type {
+  BackfillWindow,
+  MarketIngestionContext,
+  MarketIngestionPlan,
+} from './plans/market.plan.js';
+export { collectMarketData, recalcEventsFor } from './usecases/market/collectMarketData.usecase.js';
+export type {
+  CollectMarketDataDeps,
+  CollectMarketDataInput,
+  CollectMarketDataResult,
+} from './usecases/market/collectMarketData.usecase.js';
+export { backfillAsset } from './usecases/market/backfillAsset.usecase.js';
+export type {
+  BackfillAssetDeps,
+  BackfillAssetInput,
+  BackfillAssetResult,
+} from './usecases/market/backfillAsset.usecase.js';
