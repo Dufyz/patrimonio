@@ -157,7 +157,10 @@ describe('evento corporativo', () => {
       select payload ->> 'from_date' as from_date
         from pipeline_outbox where stage = 'recalc'
     `;
-    expect(outbox?.from_date).toBe('2026-06-10');
+    // A compra de 2026-01-10 já tinha um recálculo pendente com a mesma chave, e
+    // pedido mais antigo recua o `from_date` do evento que estava lá: o
+    // intervalo reconstruído cobre a data-com por cima, não por baixo.
+    expect(outbox?.from_date).toBe('2026-01-10');
   });
 
   it('confirmar duas vezes é recusado', async () => {

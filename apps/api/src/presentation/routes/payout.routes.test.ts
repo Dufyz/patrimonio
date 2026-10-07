@@ -119,7 +119,7 @@ describe('provento', () => {
   });
 
   it('provento já pago entra confirmado', async () => {
-    const response = await lancarProvento({ payment_date: '2026-07-20' });
+    const response = await lancarProvento({ payment_date: '2026-10-05' });
 
     expect(response.body.transaction.confirmed_at).not.toBeNull();
   });
@@ -231,7 +231,7 @@ describe('provento que não foi pago', () => {
   });
 
   it('provento já recebido não é marcado como não pago', async () => {
-    const criado = await lancarProvento({ payment_date: '2026-07-20' });
+    const criado = await lancarProvento({ payment_date: '2026-10-05' });
 
     const response = await request(harness.app)
       .post(`/api/transactions/${criado.body.transaction.id}/dismiss`)

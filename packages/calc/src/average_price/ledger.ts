@@ -81,13 +81,24 @@ const decimal = (value: string | null | undefined): Decimal =>
  * A ordem é cronológica, e o desempate é o id — que é UUID v7, portanto
  * crescente no tempo. É o que faz "aplicar em ordem embaralhada dá o mesmo
  * resultado" valer: a sequência é reconstruída, não assumida.
+ *
+ * Lançamento sem id é o rascunho que está sendo planejado agora, e ele é o mais
+ * novo do dia: vai para o fim. Tratá-lo como id vazio o colocava **antes** de
+ * tudo o que já estava gravado naquela data — e vender no mesmo dia da compra
+ * era recusado por posição insuficiente, porque a venda era aplicada primeiro.
  */
+const DRAFT_LAST = '￿';
+
 export const sortEntries = (entries: readonly LedgerEntry[]): LedgerEntry[] =>
   [...entries].sort((left, right) => {
     if (left.trade_date !== right.trade_date) {
       return left.trade_date < right.trade_date ? -1 : 1;
     }
-    return (left.id ?? '') < (right.id ?? '') ? -1 : (left.id ?? '') > (right.id ?? '') ? 1 : 0;
+
+    const leftId = left.id ?? DRAFT_LAST;
+    const rightId = right.id ?? DRAFT_LAST;
+
+    return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
   });
 
 /** Quantidade move para fora quando o dinheiro — ou o ativo — sai da carteira. */

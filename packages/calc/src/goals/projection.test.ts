@@ -41,7 +41,7 @@ describe('ritmo atual e aporte necessário', () => {
   });
 
   it('o aporte necessário sai da premissa de retorno declarada', () => {
-    expect(projection.required_monthly).toBe('3834.41');
+    expect(projection.required_monthly).toBe('3834.42');
   });
 
   it('aporte abaixo do necessário devolve data de chegada posterior à meta', () => {

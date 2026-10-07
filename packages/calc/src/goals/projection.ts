@@ -34,6 +34,10 @@ const one = new Big(1);
 const money = (value: Decimal): string =>
   value.toDecimalPlaces(MONEY_DP).toFixed(MONEY_DP);
 
+/** Centavo para cima: usado onde arredondar para baixo deixaria o valor curto. */
+const moneyUp = (value: Decimal): string =>
+  value.toDecimalPlaces(MONEY_DP, Decimal.ROUND_UP).toFixed(MONEY_DP);
+
 export type GoalInput = {
   /** `YYYY-MM-DD`: de onde a projeção parte. */
   readonly reference_date: string;
@@ -91,7 +95,12 @@ const futureValue = (
   return present.times(growth).plus(monthly.times(growth.minus(1)).dividedBy(rate));
 };
 
-/** O aporte que leva `present` até `target` em `months`. Nunca negativo. */
+/**
+ * O aporte que leva `present` até `target` em `months`. Nunca negativo.
+ *
+ * Arredonda para **cima** no centavo: aporte necessário arredondado para baixo
+ * não é suficiente, e a tela estaria dando um número que não chega à meta.
+ */
 const requiredContribution = (
   present: Decimal,
   target: Decimal,
@@ -138,19 +147,25 @@ export const projectGoal = (input: GoalInput): GoalProjection => {
 
   const surplus = present.minus(target);
 
+  // A meta e a projeção exibidas são números de centavo, e o que falta precisa
+  // ser a diferença **entre eles**: calcular a diferença antes de arredondar dá
+  // um centavo a mais de vez em quando, e aí as três linhas da tela não fecham.
+  const targetShown = money(target);
+  const projectedShown = money(projected);
+
   return {
     months_remaining: months,
-    target_amount_nominal: money(target),
+    target_amount_nominal: targetShown,
     // Progresso nunca passa de 100%: o excedente vira texto, não barra estourada.
     progress_pct: Decimal.min(progress, 100).toDecimalPlaces(PCT_DP).toFixed(PCT_DP),
-    surplus_brl: surplus.isPositive() ? money(surplus) : null,
-    projected_amount: money(projected),
-    required_monthly: money(requiredContribution(present, target, rate, months)),
+    surplus_brl: surplus.gt(0) ? money(surplus) : null,
+    projected_amount: projectedShown,
+    required_monthly: moneyUp(requiredContribution(present, target, rate, months)),
     arrival_date:
       arrival === null ? null : addMonths(input.reference_date, arrival),
     months_to_arrival: arrival,
     on_track: projected.greaterThanOrEqualTo(target),
-    gap_brl: money(target.minus(projected)),
+    gap_brl: money(new Big(targetShown).minus(new Big(projectedShown))),
   };
 };
 
