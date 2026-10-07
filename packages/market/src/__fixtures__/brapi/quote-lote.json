@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "symbol": "ITUB4",
+      "regularMarketPrice": 32.41,
+      "regularMarketTime": "2026-10-06T21:07:00.000Z"
+    },
+    {
+      "symbol": "KNRI11",
+      "regularMarketPrice": 158.9,
+      "regularMarketTime": "2026-10-06T21:07:00.000Z"
+    }
+  ],
+  "requestedAt": "2026-10-06T21:35:12.901Z",
+  "took": "63ms"
+}

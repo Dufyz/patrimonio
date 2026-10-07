@@ -43,6 +43,12 @@ export type ClientOptions = {
   readonly timeoutMs: number;
   /** A fonte, para o erro dizer quem não respondeu. */
   readonly source: string;
+  /**
+   * Códigos que o provedor quer ler como resposta, não como falha. É o caso do
+   * 404 de "ticker não encontrado": ele é informação sobre aquele papel, não
+   * erro do lote, e virar falha jogaria fora as outras cotações da chamada.
+   */
+  readonly passthroughStatuses?: readonly number[] | undefined;
 };
 
 export const createHttpClient = (options: ClientOptions): HttpClient => {
@@ -57,6 +63,10 @@ export const createHttpClient = (options: ClientOptions): HttpClient => {
       });
 
       const body = await response.text();
+
+      if (options.passthroughStatuses?.includes(response.status) === true) {
+        return success({ status: response.status, body });
+      }
 
       // 429 é transitório por definição: o limite é por janela de tempo, e
       // esperar resolve. Virar erro definitivo aqui perderia o dia inteiro.

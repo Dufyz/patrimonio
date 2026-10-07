@@ -11,6 +11,26 @@ export { createQuoteChain, createTreasuryChain } from './chain.js';
 
 export { BCB_SOURCE, SGS_SERIES, createBcbProvider, sgsUrl } from './providers/bcb.provider.js';
 export {
+  BRAPI_FREE_MONTHLY_CEILING,
+  BRAPI_SOURCE,
+  chunk,
+  createBrapiProvider,
+  quoteUrl,
+} from './providers/brapi.provider.js';
+export {
+  BOLSAI_DAILY_CEILING,
+  BOLSAI_SHAPE,
+  BOLSAI_SOURCE,
+  createJsonQuoteProvider,
+} from './providers/json_quote.provider.js';
+export type { JsonQuoteOptions, QuoteShape } from './providers/json_quote.provider.js';
+export { COTAHIST_SOURCE, readCotahist, readLines } from './cotahist/reader.js';
+export type { CotahistReport, ReadOptions } from './cotahist/reader.js';
+export { RECORD_LENGTH, parseRecord } from './cotahist/layout.js';
+export type { CotahistRecord } from './cotahist/layout.js';
+export { WARNING_RATIO, budgetFor, monthlyProjection } from './usage.js';
+export type { Budget } from './usage.js';
+export {
   TESOURO_CSV_SOURCE,
   TESOURO_CSV_URL,
   TESOURO_JSON_SOURCE,
