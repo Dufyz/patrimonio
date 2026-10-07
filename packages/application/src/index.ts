@@ -27,6 +27,13 @@ export type {
   UnitOfWorkOptions,
 } from './interfaces/unit-of-work.js';
 export type {
+  InstitutionDraft,
+  InstitutionRepository,
+  InstitutionUsage,
+  InstitutionWrite,
+  IssuerExposure,
+} from './interfaces/institution.repository.js';
+export type {
   MovedContent,
   PortfolioContent,
   PortfolioDraft,
@@ -64,3 +71,15 @@ export {
 export type { ListPortfoliosDeps } from './usecases/portfolio/listPortfolios.usecase.js';
 export { putStrategy } from './usecases/portfolio/putStrategy.usecase.js';
 export type { PutStrategyDeps } from './usecases/portfolio/putStrategy.usecase.js';
+export {
+  createInstitution,
+  deleteInstitution,
+  getFgcExposure,
+  listInstitutions,
+  updateInstitution,
+} from './usecases/institution/institution.usecases.js';
+export type {
+  FgcExposure,
+  InstitutionDeps,
+  InstitutionWriteDeps,
+} from './usecases/institution/institution.usecases.js';

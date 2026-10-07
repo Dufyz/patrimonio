@@ -50,6 +50,15 @@ export { parseOutboxEventFromDB } from './outbox/outbox.parsers.js';
 export type { BusinessDay } from './business_day/business_day.entities.js';
 export { parseBusinessDayFromDB } from './business_day/business_day.parsers.js';
 
+// ─── Instituição ─────────────────────────────────────────────────────────────
+export {
+  FGC_LIMIT_BRL,
+  INSTITUTION_ROLES,
+  isInstitutionRole,
+} from './institution/institution.entities.js';
+export type { Institution, InstitutionRole } from './institution/institution.entities.js';
+export { parseInstitutionFromDB } from './institution/institution.parsers.js';
+
 // ─── Carteira ────────────────────────────────────────────────────────────────
 export { REBALANCE_MODES, isRebalanceMode } from './portfolio/portfolio.entities.js';
 export type {

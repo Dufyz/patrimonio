@@ -8,6 +8,7 @@ import {
 import { z } from 'zod';
 import type { ZodType } from 'zod';
 
+import { INSTITUTION_ROUTE_DOCS } from './institution.docs.js';
 import { PORTFOLIO_ROUTE_DOCS } from './portfolio.docs.js';
 import type { RouteDoc } from './route-doc.js';
 
@@ -58,6 +59,7 @@ const HEALTH_ROUTE_DOCS: readonly RouteDoc[] = [
 export const ROUTE_DOCS: readonly RouteDoc[] = [
   ...HEALTH_ROUTE_DOCS,
   ...PORTFOLIO_ROUTE_DOCS,
+  ...INSTITUTION_ROUTE_DOCS,
 ];
 
 type JsonSchema = Record<string, unknown>;

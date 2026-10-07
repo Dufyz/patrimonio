@@ -13,4 +13,6 @@
  * lugar em que a métrica significa alguma coisa.
  */
 export { duplicatedCategories, sumTargets } from './allocation/targets.js';
+export { fgcHeadroom } from './allocation/fgc.js';
+export type { FgcHeadroom } from './allocation/fgc.js';
 export type { AllocationTarget, TargetSum } from './allocation/targets.js';

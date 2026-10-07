@@ -52,3 +52,24 @@ export { deletePortfolioSchema } from './portfolio/deletePortfolio.schema.js';
 export type { DeletePortfolioBody } from './portfolio/deletePortfolio.schema.js';
 export { getStrategySchema, putStrategySchema } from './portfolio/putStrategy.schema.js';
 export type { PutStrategyBody } from './portfolio/putStrategy.schema.js';
+
+export {
+  fgcExposureResourceSchema,
+  institutionResourceSchema,
+  institutionRoleSchema,
+  institutionWritableSchema,
+} from './institution/institution.schema.js';
+export type {
+  FgcExposureResource,
+  InstitutionResource,
+  InstitutionWritable,
+} from './institution/institution.schema.js';
+export { createInstitutionSchema } from './institution/createInstitution.schema.js';
+export type { CreateInstitutionBody } from './institution/createInstitution.schema.js';
+export { updateInstitutionSchema } from './institution/updateInstitution.schema.js';
+export type { UpdateInstitutionBody } from './institution/updateInstitution.schema.js';
+export {
+  deleteInstitutionSchema,
+  getFgcExposureSchema,
+  listInstitutionsSchema,
+} from './institution/listInstitutions.schema.js';

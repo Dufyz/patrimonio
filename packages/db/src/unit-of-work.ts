@@ -9,6 +9,7 @@ import type { Either } from '@patrimonio/shared';
 import { getRepositoryError } from './errors/repository-error.js';
 import type { Connection, Sql } from './postgresql.js';
 import { createBusinessDayRepository } from './repositories/business_day.repository.js';
+import { createInstitutionRepository } from './repositories/institution.repository.js';
 import { createOutboxRepository } from './repositories/outbox.repository.js';
 import { createPortfolioRepository } from './repositories/portfolio.repository.js';
 
@@ -26,6 +27,7 @@ export const createRepositories = (sql: Connection): DbRepositories => ({
   outbox: createOutboxRepository(sql),
   businessDays: createBusinessDayRepository(sql),
   portfolios: createPortfolioRepository(sql),
+  institutions: createInstitutionRepository(sql),
 });
 
 /**

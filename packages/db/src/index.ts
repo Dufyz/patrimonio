@@ -8,6 +8,7 @@ export { createRepositories, createUnitOfWork } from './unit-of-work.js';
 export { createOutboxRepository } from './repositories/outbox.repository.js';
 export { createBusinessDayRepository } from './repositories/business_day.repository.js';
 export { createPortfolioRepository } from './repositories/portfolio.repository.js';
+export { createInstitutionRepository } from './repositories/institution.repository.js';
 
 export {
   MigrationError,
