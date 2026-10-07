@@ -28,6 +28,7 @@ export type TransactionWrite = {
   readonly tax_withheld?: string | undefined;
   readonly net_amount: string;
   readonly payout_kind?: PayoutKind | null | undefined;
+  readonly expected_net_amount?: string | null | undefined;
   readonly record_date?: DateOnly | null | undefined;
   readonly confirmed_at?: string | null | undefined;
   readonly transfer_group_id?: string | null | undefined;

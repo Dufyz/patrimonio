@@ -7,6 +7,7 @@ import type { CategoryRepository } from './category.repository.js';
 import type { InstitutionRepository } from './institution.repository.js';
 import type { LedgerRepository } from './ledger.repository.js';
 import type { OutboxRepository } from './outbox.repository.js';
+import type { PayoutDismissalRepository } from './payout_dismissal.repository.js';
 import type { PortfolioRepository } from './portfolio.repository.js';
 import type { TransactionRepository } from './transaction.repository.js';
 
@@ -27,6 +28,7 @@ export type TransactionalRepositories = {
   readonly assets: AssetRepository;
   readonly ledger: LedgerRepository;
   readonly transactions: TransactionRepository;
+  readonly payoutDismissals: PayoutDismissalRepository;
 };
 
 export type UnitOfWorkOptions = {

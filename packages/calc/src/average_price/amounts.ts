@@ -25,6 +25,10 @@ export type Amounts = {
 
 const MONEY_DP = 2;
 
+/** Diferença entre dois valores em reais, com sinal e duas casas. */
+export const moneyDifference = (left: string, right: string): string =>
+  new Decimal(left).minus(new Decimal(right)).toDecimalPlaces(MONEY_DP).toFixed(MONEY_DP);
+
 export const amountsFor = (input: AmountInput): Amounts => {
   const quantity = new Decimal(input.quantity === '' ? 0 : input.quantity);
   const price = new Decimal(input.unit_price === '' ? 0 : input.unit_price);

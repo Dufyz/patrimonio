@@ -85,6 +85,7 @@ export const createApiHarness = async (): Promise<ApiHarness> => {
 export const resetSourceTables = async (sql: Sql): Promise<void> => {
   await sql.unsafe(`
     truncate table transaction,
+                   payout_dismissal,
                    strategy_target,
                    goal_portfolio,
                    goal,

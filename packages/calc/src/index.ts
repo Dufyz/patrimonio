@@ -30,7 +30,7 @@ export type {
 
 export { payoutGross, perShareFromGross, withheldFromGross } from './tax/jcp.js';
 
-export { amountsFor } from './average_price/amounts.js';
+export { amountsFor, moneyDifference } from './average_price/amounts.js';
 export type { AmountInput, Amounts } from './average_price/amounts.js';
 
 export {

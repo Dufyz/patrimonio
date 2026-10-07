@@ -1,13 +1,17 @@
 import type {
+  confirmPayout,
   createCashMovement,
   createPayout,
+  dismissPayout,
   createTransaction,
   getTransaction,
   listTransactions,
   previewTransaction,
 } from '@patrimonio/application';
 import type {
+  ConfirmPayoutBody,
   CreateCashMovementBody,
+  DismissPayoutBody,
   CreatePayoutBody,
   CreateTransactionBody,
 } from '@patrimonio/contracts';
@@ -20,6 +24,8 @@ export type TransactionDeps = {
     readonly createTransaction: ReturnType<typeof createTransaction>;
     readonly createCashMovement: ReturnType<typeof createCashMovement>;
     readonly createPayout: ReturnType<typeof createPayout>;
+    readonly confirmPayout: ReturnType<typeof confirmPayout>;
+    readonly dismissPayout: ReturnType<typeof dismissPayout>;
     readonly previewTransaction: ReturnType<typeof previewTransaction>;
     readonly listTransactions: ReturnType<typeof listTransactions>;
     readonly getTransaction: ReturnType<typeof getTransaction>;
@@ -30,6 +36,8 @@ export type TransactionController = {
   readonly create: RequestHandler;
   readonly cash: RequestHandler;
   readonly payout: RequestHandler;
+  readonly confirm: RequestHandler;
+  readonly dismiss: RequestHandler;
   readonly preview: RequestHandler;
   readonly list: RequestHandler;
   readonly detail: RequestHandler;
@@ -155,6 +163,55 @@ export const createTransactionController = (
         result.value.transaction.confirmed_at === null
           ? 'Provento registrado como a receber'
           : 'Provento registrado',
+    });
+  },
+
+  /** O recebimento confirmado, com a diferença contra o previsto, se houver. */
+  confirm: async (request, response) => {
+    const body = request.body as ConfirmPayoutBody;
+
+    const result = await deps.usecases.confirmPayout(
+      String(request.params['transaction_id']),
+      { ...body, origin_request_id: request.requestId },
+    );
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({
+      transaction: result.value.transaction,
+      expected_net_amount: result.value.expected_net_amount,
+      difference: result.value.difference,
+      recalculation:
+        result.value.queued === null
+          ? null
+          : {
+              job_id: result.value.queued.id,
+              dedupe_key: result.value.queued.dedupe_key,
+              already_queued: result.value.queued.already_queued,
+            },
+      message: 'Recebimento confirmado',
+    });
+  },
+
+  dismiss: async (request, response) => {
+    const body = request.body as DismissPayoutBody;
+
+    const result = await deps.usecases.dismissPayout(
+      String(request.params['transaction_id']),
+      { reason: body.reason, origin_request_id: request.requestId },
+    );
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({
+      dismissal: result.value.dismissal,
+      message: 'Provento marcado como não pago',
     });
   },
 

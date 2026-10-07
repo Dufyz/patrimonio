@@ -110,6 +110,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
         tax_withheld: row.tax_withheld ?? '0',
         net_amount: row.net_amount,
         payout_kind: row.payout_kind ?? null,
+        expected_net_amount: row.expected_net_amount ?? null,
         record_date: row.record_date ?? null,
         confirmed_at: row.confirmed_at ?? null,
         transfer_group_id: row.transfer_group_id ?? null,
@@ -125,8 +126,8 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
         insert into transaction
           (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
            quantity, unit_price, fees, gross_amount, tax_withheld, net_amount,
-           payout_kind, record_date, confirmed_at, transfer_group_id,
-           event_ratio_from, event_ratio_to, note, idempotency_key)
+           payout_kind, expected_net_amount, record_date, confirmed_at,
+           transfer_group_id, event_ratio_from, event_ratio_to, note, idempotency_key)
         select (entry ->> 'id')::uuid,
                (entry ->> 'kind')::transaction_kind,
                (entry ->> 'trade_date')::date,
@@ -141,6 +142,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
                (entry ->> 'tax_withheld')::numeric,
                (entry ->> 'net_amount')::numeric,
                (entry ->> 'payout_kind')::payout_kind,
+               (entry ->> 'expected_net_amount')::numeric,
                (entry ->> 'record_date')::date,
                (entry ->> 'confirmed_at')::timestamptz,
                (entry ->> 'transfer_group_id')::uuid,

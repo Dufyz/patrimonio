@@ -167,3 +167,86 @@ describe('provento', () => {
     expect(response.body.recalculation.dedupe_key).toBe(`recalc:${carteira}`);
   });
 });
+
+describe('confirmação de recebimento', () => {
+  it('o provento a receber vira recebido quando o dinheiro entra', async () => {
+    const criado = await lancarProvento({ payment_date: '2099-10-20' });
+
+    const response = await request(harness.app)
+      .post(`/api/transactions/${criado.body.transaction.id}/confirm`)
+      .send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body.transaction.confirmed_at).not.toBeNull();
+    expect(response.body.difference).toBeNull();
+  });
+
+  it('o valor recebido pode diferir do previsto, e a diferença fica registrada', async () => {
+    const criado = await lancarProvento({ payment_date: '2099-10-20' });
+
+    const response = await request(harness.app)
+      .post(`/api/transactions/${criado.body.transaction.id}/confirm`)
+      .send({ net_amount: '110.00' });
+
+    expect(response.body.transaction.net_amount).toBe('110.00');
+    expect(response.body.expected_net_amount).toBe('113.08');
+    expect(response.body.difference).toBe('-3.08');
+  });
+
+  it('confirmar duas vezes é recusado', async () => {
+    const criado = await lancarProvento({ payment_date: '2099-10-20' });
+    const url = `/api/transactions/${criado.body.transaction.id}/confirm`;
+
+    await request(harness.app).post(url).send({});
+    const segunda = await request(harness.app).post(url).send({});
+
+    expect(segunda.status).toBe(409);
+  });
+
+  it('confirmar enfileira recálculo da carteira', async () => {
+    const criado = await lancarProvento({ payment_date: '2099-10-20' });
+
+    const response = await request(harness.app)
+      .post(`/api/transactions/${criado.body.transaction.id}/confirm`)
+      .send({});
+
+    expect(response.body.recalculation.dedupe_key).toBe(`recalc:${carteira}`);
+  });
+});
+
+describe('provento que não foi pago', () => {
+  it('sai do livro e o motivo fica registrado', async () => {
+    const criado = await lancarProvento({ payment_date: '2099-10-20' });
+
+    const response = await request(harness.app)
+      .post(`/api/transactions/${criado.body.transaction.id}/dismiss`)
+      .send({ reason: 'A empresa cancelou o pagamento' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.dismissal.reason).toBe('A empresa cancelou o pagamento');
+    expect(response.body.dismissal.expected_net_amount).toBe('113.08');
+
+    const extrato = await request(harness.app).get('/api/transactions?kind=payout');
+    expect(extrato.body.total).toBe(0);
+  });
+
+  it('provento já recebido não é marcado como não pago', async () => {
+    const criado = await lancarProvento({ payment_date: '2026-07-20' });
+
+    const response = await request(harness.app)
+      .post(`/api/transactions/${criado.body.transaction.id}/dismiss`)
+      .send({ reason: 'Enganei-me' });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('sem motivo não é aceito', async () => {
+    const criado = await lancarProvento({ payment_date: '2099-10-20' });
+
+    const response = await request(harness.app)
+      .post(`/api/transactions/${criado.body.transaction.id}/dismiss`)
+      .send({ reason: '' });
+
+    expect(response.status).toBe(400);
+  });
+});

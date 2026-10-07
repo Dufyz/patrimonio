@@ -14,6 +14,7 @@ import { createCategoryRepository } from './repositories/category.repository.js'
 import { createInstitutionRepository } from './repositories/institution.repository.js';
 import { createLedgerRepository } from './repositories/ledger.repository.js';
 import { createOutboxRepository } from './repositories/outbox.repository.js';
+import { createPayoutDismissalRepository } from './repositories/payout_dismissal.repository.js';
 import { createPortfolioRepository } from './repositories/portfolio.repository.js';
 import { createTransactionRepository } from './repositories/transaction.repository.js';
 
@@ -36,6 +37,7 @@ export const createRepositories = (sql: Connection): DbRepositories => ({
   assets: createAssetRepository(sql),
   ledger: createLedgerRepository(sql),
   transactions: createTransactionRepository(sql),
+  payoutDismissals: createPayoutDismissalRepository(sql),
 });
 
 /**

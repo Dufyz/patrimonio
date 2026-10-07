@@ -29,6 +29,7 @@ export const parseTransactionFromDB = (row: Row): Transaction => ({
   tax_withheld: asNumeric(row, 'tax_withheld'),
   net_amount: asNumeric(row, 'net_amount'),
   payout_kind: asEnumOrNull(row, 'payout_kind', PAYOUT_KINDS),
+  expected_net_amount: asNumericOrNull(row, 'expected_net_amount'),
   record_date: asDateOnlyOrNull(row, 'record_date'),
   confirmed_at: asIsoStringOrNull(row, 'confirmed_at'),
   transfer_group_id: asStringOrNull(row, 'transfer_group_id'),

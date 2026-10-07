@@ -1,6 +1,9 @@
 import {
+  confirmPayoutSchema,
   createCashMovementSchema,
   createPayoutSchema,
+  dismissPayoutSchema,
+  payoutDismissalResourceSchema,
   createTransactionSchema,
   errorResponseSchema,
   getTransactionSchema,
@@ -137,6 +140,63 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
       },
       404: {
         description: 'Carteira ou ativo não encontrado.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'post',
+    path: '/transactions/:transaction_id/confirm',
+    tag: TAG,
+    summary: 'Confirmar o recebimento de um provento',
+    request: confirmPayoutSchema,
+    responses: {
+      200: {
+        description:
+          'Confirmado. Quando o recebido difere do previsto, a resposta traz os dois e a diferença.',
+        schema: z.object({
+          transaction: transactionResourceSchema,
+          expected_net_amount: z.string().nullable(),
+          difference: z.string().nullable(),
+          recalculation: queuedWork,
+          message: z.string(),
+        }),
+      },
+      400: {
+        description: 'O lançamento não é um provento.',
+        schema: errorResponseSchema,
+      },
+      404: {
+        description: 'Não existe lançamento com esse id.',
+        schema: errorResponseSchema,
+      },
+      409: {
+        description: 'Este provento já foi confirmado.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'post',
+    path: '/transactions/:transaction_id/dismiss',
+    tag: TAG,
+    summary: 'Marcar um provento como não pago',
+    request: dismissPayoutSchema,
+    responses: {
+      200: {
+        description:
+          'O provento sai do livro e o motivo fica registrado, para a dúvida não voltar a cada anúncio.',
+        schema: z.object({
+          dismissal: payoutDismissalResourceSchema,
+          message: z.string(),
+        }),
+      },
+      400: {
+        description: 'O lançamento não é um provento, ou já foi recebido.',
+        schema: errorResponseSchema,
+      },
+      404: {
+        description: 'Não existe lançamento com esse id.',
         schema: errorResponseSchema,
       },
     },

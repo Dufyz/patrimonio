@@ -50,6 +50,8 @@ export type Transaction = {
   /** O que entra ou sai de fato. Negativo sai da carteira. */
   readonly net_amount: string;
   readonly payout_kind: PayoutKind | null;
+  /** O líquido previsto, guardado quando o recebido veio diferente. */
+  readonly expected_net_amount: string | null;
   readonly record_date: DateOnly | null;
   /** Nulo enquanto o provento está "a receber". */
   readonly confirmed_at: string | null;

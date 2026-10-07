@@ -144,3 +144,12 @@ export { createCashMovementSchema } from './transaction/createCashMovement.schem
 export type { CreateCashMovementBody } from './transaction/createCashMovement.schema.js';
 export { createPayoutSchema } from './transaction/createPayout.schema.js';
 export type { CreatePayoutBody } from './transaction/createPayout.schema.js';
+export {
+  confirmPayoutSchema,
+  dismissPayoutSchema,
+  payoutDismissalResourceSchema,
+} from './transaction/confirmPayout.schema.js';
+export type {
+  ConfirmPayoutBody,
+  DismissPayoutBody,
+} from './transaction/confirmPayout.schema.js';

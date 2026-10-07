@@ -1,6 +1,7 @@
 import {
   archiveAsset,
   createAsset,
+  confirmPayout,
   createCashMovement,
   createPayout,
   createCategory,
@@ -9,6 +10,7 @@ import {
   createInstitution,
   createPortfolio,
   deleteAsset,
+  dismissPayout,
   deleteCategory,
   deleteInstitution,
   deletePortfolio,
@@ -89,6 +91,8 @@ export const createApiUseCases = (deps: {
   deleteAsset: deleteAsset({ unitOfWork: deps.unitOfWork }),
   createTransaction: createTransaction({ unitOfWork: deps.unitOfWork }),
   createCashMovement: createCashMovement({ unitOfWork: deps.unitOfWork }),
+  confirmPayout: confirmPayout({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
+  dismissPayout: dismissPayout({ unitOfWork: deps.unitOfWork }),
   createPayout: createPayout({
     unitOfWork: deps.unitOfWork,
     clock: deps.clock,

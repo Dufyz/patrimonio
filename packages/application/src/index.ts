@@ -27,6 +27,10 @@ export type {
   UnitOfWorkOptions,
 } from './interfaces/unit-of-work.js';
 export type {
+  PayoutDismissalDraft,
+  PayoutDismissalRepository,
+} from './interfaces/payout_dismissal.repository.js';
+export type {
   TransactionFilter,
   TransactionPage,
   TransactionPatch,
@@ -138,6 +142,18 @@ export type {
   CreatePayoutInput,
   PayoutResult,
 } from './usecases/transaction/createPayout.usecase.js';
+export { confirmPayout } from './usecases/transaction/confirmPayout.usecase.js';
+export type {
+  ConfirmPayoutDeps,
+  ConfirmPayoutInput,
+  ConfirmPayoutResult,
+} from './usecases/transaction/confirmPayout.usecase.js';
+export { dismissPayout } from './usecases/transaction/dismissPayout.usecase.js';
+export type {
+  DismissPayoutDeps,
+  DismissPayoutInput,
+  DismissPayoutResult,
+} from './usecases/transaction/dismissPayout.usecase.js';
 export { loadPlanContext } from './usecases/transaction/context.js';
 export type { ContextAsset, ContextParams } from './usecases/transaction/context.js';
 export {

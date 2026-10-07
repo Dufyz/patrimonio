@@ -105,6 +105,10 @@ export type {
 } from './transaction/transaction.entities.js';
 export { parseTransactionFromDB } from './transaction/transaction.parsers.js';
 
+// ─── Provento não pago ───────────────────────────────────────────────────────
+export type { PayoutDismissal } from './payout_dismissal/payout_dismissal.entities.js';
+export { parsePayoutDismissalFromDB } from './payout_dismissal/payout_dismissal.parsers.js';
+
 // ─── Carteira ────────────────────────────────────────────────────────────────
 export { REBALANCE_MODES, isRebalanceMode } from './portfolio/portfolio.entities.js';
 export type {

@@ -28,6 +28,7 @@ export const transactionResourceSchema = z.object({
   tax_withheld: decimalString,
   net_amount: decimalString,
   payout_kind: payoutKindSchema.nullable(),
+  expected_net_amount: decimalString.nullable(),
   record_date: dateOnly.nullable(),
   confirmed_at: z.string().nullable(),
   transfer_group_id: uuid.nullable(),
