@@ -1,4 +1,5 @@
 import type {
+  DebouncePolicy,
   TransactionalRepositories,
   UnitOfWork,
   UnitOfWorkOptions,
@@ -15,7 +16,10 @@ import { createCorporateEventRepository } from './repositories/corporate_event.r
 import { createInstitutionRepository } from './repositories/institution.repository.js';
 import { createLedgerRepository } from './repositories/ledger.repository.js';
 import { createManualPriceRepository } from './repositories/manual_price.repository.js';
+import { createAlertRepository } from './repositories/alert.repository.js';
 import { createOutboxRepository } from './repositories/outbox.repository.js';
+import { createPriceRepository } from './repositories/price.repository.js';
+import { createProjectionRepository } from './repositories/projection.repository.js';
 import { createPayoutDismissalRepository } from './repositories/payout_dismissal.repository.js';
 import { createPortfolioRepository } from './repositories/portfolio.repository.js';
 import { createTransactionRepository } from './repositories/transaction.repository.js';
@@ -30,9 +34,19 @@ import { createTransactionUndoRepository } from './repositories/transaction_undo
  */
 export type DbRepositories = TransactionalRepositories & { readonly tx: Connection };
 
-export const createRepositories = (sql: Connection): DbRepositories => ({
+/**
+ * A política de coalescência entra por aqui, não é decidida em `db`: a espera e o
+ * teto são regra de pipeline, e regra mora em `application`. O que `db` faz é
+ * aplicá-la antes de gravar o evento.
+ */
+export type RepositoryOptions = { readonly debounce?: DebouncePolicy | undefined };
+
+export const createRepositories = (
+  sql: Connection,
+  options: RepositoryOptions = {},
+): DbRepositories => ({
   tx: sql,
-  outbox: createOutboxRepository(sql),
+  outbox: createOutboxRepository(sql, options.debounce),
   businessDays: createBusinessDayRepository(sql),
   portfolios: createPortfolioRepository(sql),
   institutions: createInstitutionRepository(sql),
@@ -44,6 +58,9 @@ export const createRepositories = (sql: Connection): DbRepositories => ({
   payoutDismissals: createPayoutDismissalRepository(sql),
   transactionUndos: createTransactionUndoRepository(sql),
   corporateEvents: createCorporateEventRepository(sql),
+  projections: createProjectionRepository(sql),
+  prices: createPriceRepository(sql),
+  alerts: createAlertRepository(sql),
 });
 
 /**
@@ -59,7 +76,10 @@ type Abort<F> = { readonly [ABORT]: true; readonly failure: F };
 const isAbort = <F>(value: unknown): value is Abort<F> =>
   typeof value === 'object' && value !== null && ABORT in value;
 
-export const createUnitOfWork = (sql: Sql): UnitOfWork => ({
+export const createUnitOfWork = (
+  sql: Sql,
+  options: RepositoryOptions = {},
+): UnitOfWork => ({
   run: async <F, S>(
     work: (repositories: TransactionalRepositories) => Promise<Either<F, S>>,
     options?: UnitOfWorkOptions,
@@ -70,7 +90,7 @@ export const createUnitOfWork = (sql: Sql): UnitOfWork => ({
           await tx`select pg_advisory_xact_lock(hashtextextended(${options.lock}, 0))`;
         }
 
-        const result = await work(createRepositories(tx));
+        const result = await work(createRepositories(tx, options));
 
         if (result.isFailure()) {
           const abort: Abort<F> = { [ABORT]: true, failure: result.value };

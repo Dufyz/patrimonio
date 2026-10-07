@@ -53,6 +53,15 @@ export type AssetRepository = {
 
   readonly list: (filter: AssetFilter) => Promise<Either<AppError, Asset[]>>;
 
+  /**
+   * Os ativos que aparecem no livro de uma carteira, numa consulta. O fechamento
+   * diário precisa dos termos de cada um — indexador, emissão, vencimento — e
+   * buscá-los um por um seria N+1 vezes trezentos, todos os dias.
+   */
+  readonly listForPortfolio: (
+    portfolioId: string,
+  ) => Promise<Either<AppError, Asset[]>>;
+
   readonly create: (draft: AssetDraft) => Promise<Either<AppError, Asset>>;
 
   readonly update: (

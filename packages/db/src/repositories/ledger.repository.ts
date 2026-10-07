@@ -1,4 +1,8 @@
-import type { LedgerRepository, LedgerRow } from '@patrimonio/application';
+import type {
+  ClassifiedLedgerRow,
+  LedgerRepository,
+  LedgerRow,
+} from '@patrimonio/application';
 import {
   asDateOnly,
   asNumeric,
@@ -31,6 +35,15 @@ const parseLedgerRowFromDB = (row: Row): LedgerRow => ({
   portfolio_id: asString(row, 'portfolio_id'),
   asset_id: asStringOrNull(row, 'asset_id'),
   institution_id: asString(row, 'institution_id'),
+});
+
+/**
+ * A mesma cópia campo a campo, mais o tipo do papel: a apuração classifica a venda
+ * sem precisar listar o cadastro de ativos inteiro.
+ */
+const parseClassifiedRowFromDB = (row: Row): ClassifiedLedgerRow => ({
+  ...parseLedgerRowFromDB(row),
+  b3_type: asStringOrNull(row, 'b3_type') as ClassifiedLedgerRow['b3_type'],
 });
 
 export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
@@ -76,6 +89,27 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
       `;
 
       return success(rows.map((row) => parseLedgerRowFromDB(row)));
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
+  /**
+   * O livro de todas as carteiras. A apuração de renda variável é global: o limite
+   * de isenção olha a soma das vendas do mês, não da carteira.
+   */
+  allEntries: async (untilDate) => {
+    try {
+      const rows = await sql<Row[]>`
+        select transaction.*, asset.b3_type
+          from transaction
+          left join asset on asset.id = transaction.asset_id
+         where transaction.trade_date <= ${untilDate}
+         order by transaction.portfolio_id, transaction.asset_id,
+                  transaction.trade_date, transaction.id
+      `;
+
+      return success(rows.map((row) => parseClassifiedRowFromDB(row)));
     } catch (error) {
       return failure(getRepositoryError(error));
     }

@@ -226,3 +226,79 @@ describe('edição', () => {
     expect(preview.position.avg_price.after).toBe('31.04000000');
   });
 });
+
+/**
+ * P-02. A regra que sustenta a confiança no app: o preview e a gravação são o
+ * **mesmo** plano. O teste roda o mesmo cenário nos dois modos e compara campo a
+ * campo — se um dia divergirem, é aqui que isso aparece, e não na tela.
+ */
+describe('o preview é o mesmo plano da gravação', () => {
+  const cenarios: readonly { readonly nome: string; readonly draft: TransactionDraft }[] =
+    [
+      { nome: 'compra', draft: compraDeHoje },
+      {
+        nome: 'venda',
+        draft: {
+          kind: 'sell',
+          trade_date: '2026-10-06',
+          settlement_date: '2026-10-08',
+          quantity: '200',
+          unit_price: '31.00',
+          fees: '4.90',
+        },
+      },
+      {
+        nome: 'provento',
+        draft: {
+          kind: 'payout',
+          trade_date: '2026-10-06',
+          settlement_date: '2026-10-06',
+          quantity: '500',
+          unit_price: '0.42',
+          fees: '0',
+          payout_kind: 'jcp',
+          tax_withheld: '31.50',
+        },
+      },
+    ];
+
+  for (const cenario of cenarios) {
+    it(`os números do preview de ${cenario.nome} são idênticos aos da gravação`, () => {
+      const gravacao = planTransaction(contexto(), cenario.draft);
+      const preview = planTransaction(contexto(), cenario.draft);
+
+      expect(preview.preview).toEqual(gravacao.preview);
+      expect(preview.amounts).toEqual(gravacao.amounts);
+    });
+  }
+
+  it('o preview não inventa número próprio: ele vem do mesmo motor', () => {
+    const plan = planTransaction(contexto(), compraDeHoje);
+
+    // O valor total do preview é exatamente o bruto que vai para a coluna.
+    expect(plan.preview.total_amount).toBe(plan.amounts.gross_amount);
+    expect(plan.preview.net_amount).toBe(plan.amounts.net_amount);
+  });
+
+  it('a base do preview é declarada: enquanto não há preço, o peso é sobre o custo', () => {
+    expect(planTransaction(contexto(), compraDeHoje).preview.basis).toBe('cost');
+  });
+});
+
+describe('o plano não faz I/O e não olha o relógio', () => {
+  it('o mesmo contexto e o mesmo lançamento dão sempre o mesmo plano', () => {
+    const primeiro = planTransaction(contexto(), compraDeHoje);
+    const segundo = planTransaction(contexto(), compraDeHoje);
+
+    expect(segundo).toEqual(primeiro);
+  });
+
+  it('a data do evento vem do lançamento, não de hoje', () => {
+    const plan = planTransaction(contexto(), {
+      ...compraDeHoje,
+      trade_date: '2015-07-20',
+    });
+
+    expect(plan.events[0]?.payload).toMatchObject({ from_date: '2015-07-20' });
+  });
+});

@@ -4,6 +4,7 @@ export type { Connection, ConnectionOptions, Sql, TransactionSql } from './postg
 export { getRepositoryError } from './errors/repository-error.js';
 
 export { createRepositories, createUnitOfWork } from './unit-of-work.js';
+export type { DbRepositories, RepositoryOptions } from './unit-of-work.js';
 
 export { createOutboxRepository } from './repositories/outbox.repository.js';
 export { createBusinessDayRepository } from './repositories/business_day.repository.js';
@@ -17,6 +18,9 @@ export { createTransactionRepository } from './repositories/transaction.reposito
 export { createPayoutDismissalRepository } from './repositories/payout_dismissal.repository.js';
 export { createTransactionUndoRepository } from './repositories/transaction_undo.repository.js';
 export { createCorporateEventRepository } from './repositories/corporate_event.repository.js';
+export { createProjectionRepository } from './repositories/projection.repository.js';
+export { createPriceRepository } from './repositories/price.repository.js';
+export { createAlertRepository } from './repositories/alert.repository.js';
 
 export {
   MigrationError,

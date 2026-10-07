@@ -125,6 +125,38 @@ export { parseCorporateEventFromDB } from './corporate_event/corporate_event.par
 export type { PayoutDismissal } from './payout_dismissal/payout_dismissal.entities.js';
 export { parsePayoutDismissalFromDB } from './payout_dismissal/payout_dismissal.parsers.js';
 
+// ─── Projeção ────────────────────────────────────────────────────────────────
+export {
+  ALERT_STATUSES,
+  ASSET_CLASSES,
+  COMPUTED_PRICE_KINDS,
+  INDEX_CODES,
+  assetClassFor,
+  indexForIndexer,
+} from './projection/projection.entities.js';
+export type {
+  AlertInstance,
+  AlertStatus,
+  AssetClass,
+  AssetPrice,
+  ComputedPriceKind,
+  IndexCode,
+  IndexQuote,
+  PortfolioDaily,
+  PositionDaily,
+  RealizedResult,
+  TaxMonth,
+} from './projection/projection.entities.js';
+export {
+  parseAlertInstanceFromDB,
+  parseAssetPriceFromDB,
+  parseIndexQuoteFromDB,
+  parsePortfolioDailyFromDB,
+  parsePositionDailyFromDB,
+  parseRealizedResultFromDB,
+  parseTaxMonthFromDB,
+} from './projection/projection.parsers.js';
+
 // ─── Carteira ────────────────────────────────────────────────────────────────
 export { REBALANCE_MODES, isRebalanceMode } from './portfolio/portfolio.entities.js';
 export type {

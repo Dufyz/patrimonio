@@ -42,6 +42,7 @@ import {
   updateTransaction,
   updateCategory,
   updateInstitution,
+  createDebouncePolicy,
   updatePortfolio,
 } from '@patrimonio/application';
 import type {
@@ -174,8 +175,22 @@ export const createContainer = (version: string): ApiContainer => {
 
   const redis = createRedisConnection(environment.redis.url);
   const queues = createQueues(redis);
-  const repositories = createRepositories(sql);
-  const unitOfWork = createUnitOfWork(sql);
+  // A coalescência vale aqui também, e principalmente aqui: a rajada de pedidos
+  // de recálculo nasce de cliques na tela, não do worker. Sem a espera, cinco
+  // lançamentos seguidos na mesma carteira seriam cinco recálculos.
+  const debounce = createDebouncePolicy(
+    {
+      waitMs: Math.min(
+        environment.pipeline.relayPollMs * 2,
+        environment.pipeline.debounceMaxMs,
+      ),
+      maxMs: environment.pipeline.debounceMaxMs,
+    },
+    () => systemClock.now(),
+  );
+
+  const repositories = createRepositories(sql, { debounce });
+  const unitOfWork = createUnitOfWork(sql, { debounce });
 
   return {
     sql,

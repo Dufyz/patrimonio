@@ -3,6 +3,9 @@ import type {
   Clock,
   OutboxRepository,
   UnitOfWork,
+  closeDay,
+  recalculatePortfolio,
+  reconcileAlerts,
 } from '@patrimonio/application';
 import { isAppError } from '@patrimonio/application';
 import { dedupeKey, transition } from '@patrimonio/domain';
@@ -22,12 +25,24 @@ export type StageJobData = {
   readonly [key: string]: unknown;
 };
 
+/**
+ * Os casos de uso montados no boot. Nenhum processor instancia dependência: o
+ * container monta, o processor recebe pronto, e trocar uma implementação é mudar
+ * uma linha do container.
+ */
+export type StageUseCases = {
+  readonly recalculatePortfolio: ReturnType<typeof recalculatePortfolio>;
+  readonly closeDay: ReturnType<typeof closeDay>;
+  readonly reconcileAlerts: ReturnType<typeof reconcileAlerts>;
+};
+
 export type StageDeps = {
   readonly connection: RedisConnection;
   readonly unitOfWork: UnitOfWork;
   readonly outbox: OutboxRepository;
   readonly clock: Clock;
   readonly logger: Logger;
+  readonly usecases: StageUseCases;
 };
 
 export type StageDefinition<T> = {

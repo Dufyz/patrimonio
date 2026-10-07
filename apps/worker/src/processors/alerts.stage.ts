@@ -1,27 +1,28 @@
-import { dedupeKey } from '@patrimonio/domain';
-import { success } from '@patrimonio/shared';
+import { dedupeKey, isDateOnly } from '@patrimonio/domain';
 import type { Worker } from 'bullmq';
 
 import { defineStage } from '../infra/define-stage.js';
 import type { StageDeps, StageJobData } from '../infra/define-stage.js';
 
 /**
- * Fila declarada: concorrência, log, classificação de erro e marcação na outbox
- * já funcionam. O motor de alertas entra em E7 — até lá o estágio atravessa o
- * pipeline sem calcular nada, e é o que permite verificar o caminho
- * outbox → relay → fila → job de ponta a ponta.
+ * A reconciliação dos alertas, que roda no fechamento do dia e grava o resultado —
+ * a tela de Requer atenção só lê. As treze regras entram em E7; o que já está de
+ * pé é o motor que as executa e, principalmente, a garantia de que o estado que o
+ * usuário mexeu sobrevive: adiado continua adiado, ignorado não volta.
+ *
+ * Regra sem executor declarado não é reconciliada, e é o que permite ligar as
+ * treze uma a uma sem que as ainda não escritas apaguem o que já existe.
  */
 export const alertsStage = (deps: StageDeps): Worker<StageJobData> =>
   defineStage(
     {
       stage: 'alerts',
       run: async (job) => {
-        deps.logger.warn(
-          { stage: 'alerts', job_id: job.id },
-          'estágio declarado sem implementação: o motor de alertas entra em E7',
-        );
+        const reference = job.data['reference_date'];
 
-        return success(null);
+        return deps.usecases.reconcileAlerts(
+          isDateOnly(reference) ? { reference_date: reference } : {},
+        );
       },
       scheduledEvent: (stageDeps) => ({
         stage: 'alerts',
