@@ -134,7 +134,7 @@ export const createTransactionController = (
       return;
     }
 
-    response.status(201).json({
+    response.status(result.value.replayed ? 200 : 201).json({
       transactions: result.value.transactions,
       preview: result.value.preview,
       recalculation: result.value.queued.map((event) => ({
@@ -142,7 +142,11 @@ export const createTransactionController = (
         dedupe_key: event.dedupe_key,
         already_queued: event.already_queued,
       })),
-      message: body.kind === 'deposit' ? 'Aporte registrado' : 'Resgate registrado',
+      message: result.value.replayed
+        ? 'Lançamento já havia sido criado'
+        : body.kind === 'deposit'
+          ? 'Aporte registrado'
+          : 'Resgate registrado',
     });
   },
 
@@ -167,7 +171,7 @@ export const createTransactionController = (
       return;
     }
 
-    response.status(201).json({
+    response.status(result.value.replayed ? 200 : 201).json({
       transaction: result.value.transaction,
       preview: result.value.preview,
       quantity_at_record_date: result.value.quantity_at_record_date,
@@ -255,7 +259,7 @@ export const createTransactionController = (
       return;
     }
 
-    response.status(201).json({
+    response.status(result.value.replayed ? 200 : 201).json({
       transactions: result.value.transactions,
       preview: result.value.preview,
       recalculation: result.value.queued.map((event) => ({
@@ -263,7 +267,9 @@ export const createTransactionController = (
         dedupe_key: event.dedupe_key,
         already_queued: event.already_queued,
       })),
-      message: 'Posição movida',
+      message: result.value.replayed
+        ? 'Transferência já havia sido feita'
+        : 'Posição movida',
     });
   },
 

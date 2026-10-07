@@ -72,10 +72,10 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
       },
       200: {
         description:
-          'Mesma Idempotency-Key de novo: nada foi gravado e a resposta é a do primeiro pedido.',
+          'Mesma Idempotency-Key de novo: nada foi gravado, a resposta traz o lançamento do primeiro pedido e o preview vem nulo — ele descrevia o estado daquele momento.',
         schema: z.object({
           transaction: transactionResourceSchema,
-          preview: transactionPreviewSchema,
+          preview: transactionPreviewSchema.nullable(),
           recalculation: queuedWork,
           message: z.string(),
         }),

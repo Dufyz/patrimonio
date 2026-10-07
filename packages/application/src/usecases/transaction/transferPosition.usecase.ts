@@ -12,6 +12,7 @@ import type {
   UnitOfWork,
 } from '../../interfaces/unit-of-work.js';
 import { planTransfer } from '../../plans/transfer.plan.js';
+import { findReplay, replayGroup } from './idempotency.js';
 import type { TransferPlan, TransferPreview } from '../../plans/transfer.plan.js';
 
 const FAR_FUTURE = '9999-12-31';
@@ -32,8 +33,10 @@ export type TransferInput = {
 
 export type TransferResult = {
   readonly transactions: readonly Transaction[];
-  readonly preview: TransferPreview;
+  /** Nulo no replay: o preview é do estado em que a transferência aconteceu. */
+  readonly preview: TransferPreview | null;
   readonly queued: readonly EnqueuedEvent[];
+  readonly replayed: boolean;
 };
 
 export type TransferDeps = { readonly unitOfWork: UnitOfWork };
@@ -140,6 +143,21 @@ export const transferPosition = (deps: TransferDeps) =>
   either(async function* (input: TransferInput) {
     return yield* await deps.unitOfWork.run<AppError, TransferResult>(
       async (repositories) => {
+        const replay = await findReplay(repositories, input.idempotency_key);
+        if (replay.isFailure()) return replay;
+
+        if (replay.value !== null) {
+          const group = await replayGroup(repositories, replay.value);
+          if (group.isFailure()) return group;
+
+          return success({
+            transactions: group.value,
+            preview: null,
+            queued: [],
+            replayed: true,
+          });
+        }
+
         const prepared = await prepareTransfer(repositories, input);
         if (prepared.isFailure()) return prepared;
 
@@ -200,6 +218,7 @@ export const transferPosition = (deps: TransferDeps) =>
           transactions: inserted.value,
           preview: plan.preview,
           queued: enqueued.value,
+          replayed: false,
         });
       },
       // A trava é da origem: é dela que a quantidade sai, e é ela que não pode

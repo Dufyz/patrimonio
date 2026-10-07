@@ -14,6 +14,7 @@ import type {
 import type { TransactionPreview } from '../../plans/transaction.plan.js';
 import { createAssetIn } from '../asset/asset.usecases.js';
 import { portfolioLock, prepareTransaction } from './createTransaction.usecase.js';
+import { findReplay, replayGroup } from './idempotency.js';
 
 /**
  * O caixa é um ativo sintético por instituição, criado na primeira vez que
@@ -70,8 +71,10 @@ export type CashMovementInput = {
 
 export type CashMovementResult = {
   readonly transactions: readonly Transaction[];
-  readonly preview: TransactionPreview;
+  /** Nulo no replay: o preview é do estado em que o lançamento foi criado. */
+  readonly preview: TransactionPreview | null;
   readonly queued: readonly EnqueuedEvent[];
+  readonly replayed: boolean;
 };
 
 export type CashMovementDeps = { readonly unitOfWork: UnitOfWork };
@@ -80,6 +83,21 @@ export const createCashMovement = (deps: CashMovementDeps) =>
   either(async function* (input: CashMovementInput) {
     return yield* await deps.unitOfWork.run<AppError, CashMovementResult>(
       async (repositories) => {
+        const replay = await findReplay(repositories, input.idempotency_key);
+        if (replay.isFailure()) return replay;
+
+        if (replay.value !== null) {
+          const group = await replayGroup(repositories, replay.value);
+          if (group.isFailure()) return group;
+
+          return success({
+            transactions: group.value,
+            preview: null,
+            queued: [],
+            replayed: true,
+          });
+        }
+
         const cash = await ensureCashAsset(repositories, input.institution_id);
         if (cash.isFailure()) return cash;
 
@@ -122,6 +140,7 @@ export const createCashMovement = (deps: CashMovementDeps) =>
           transactions: inserted.value,
           preview: prepared.value.plan.preview,
           queued: enqueued.value,
+          replayed: false,
         });
       },
       { lock: portfolioLock(input.portfolio_id) },
@@ -224,5 +243,6 @@ const moveCashBetweenPortfolios = async (
     transactions: inserted.value,
     preview: prepared.value.plan.preview,
     queued: enqueued.value,
+    replayed: false,
   });
 };

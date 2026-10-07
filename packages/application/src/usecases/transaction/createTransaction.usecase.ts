@@ -18,9 +18,12 @@ import type {
   UnitOfWork,
 } from '../../interfaces/unit-of-work.js';
 import { planTransaction } from '../../plans/transaction.plan.js';
-import type { TransactionDraft, TransactionPreview } from '../../plans/transaction.plan.js';
+import type {
+  TransactionDraft,
+  TransactionPreview,
+} from '../../plans/transaction.plan.js';
 import { classifyWithRules, createAssetIn } from '../asset/asset.usecases.js';
-import { loadPlanContext } from './context.js';
+import { findReplay } from './idempotency.js';
 
 /**
  * Ativo que ainda não existe no cadastro: ação, FII, ETF, BDR e Tesouro entram
@@ -57,7 +60,12 @@ export type CreateTransactionInput = {
 
 export type TransactionResult = {
   readonly transaction: Transaction;
-  readonly preview: TransactionPreview;
+  /**
+   * Nulo no replay: o preview descreve o efeito no estado em que o lançamento
+   * foi criado, e refazê-lo agora produziria números diferentes dos que a tela
+   * mostrou.
+   */
+  readonly preview: TransactionPreview | null;
   readonly queued: EnqueuedEvent | null;
   /** A mesma `Idempotency-Key` de novo: nada foi gravado, e a resposta é a mesma. */
   readonly replayed: boolean;
@@ -222,44 +230,16 @@ export const createTransaction = (deps: CreateTransactionDeps) =>
       async (repositories) => {
         // Clique duplo chega como dois requests com a mesma chave: o segundo
         // devolve o primeiro lançamento, em vez de criar outro.
-        if (input.idempotency_key !== undefined) {
-          const replay = await repositories.transactions.findByIdempotencyKey(
-            input.idempotency_key,
-          );
-          if (replay.isFailure()) return replay;
+        const replay = await findReplay(repositories, input.idempotency_key);
+        if (replay.isFailure()) return replay;
 
-          if (replay.value !== null) {
-            const asset =
-              replay.value.asset_id === null
-                ? null
-                : await repositories.assets.findById(replay.value.asset_id);
-            if (asset !== null && asset.isFailure()) return asset;
-
-            const context = await loadPlanContext(repositories, {
-              portfolio_id: replay.value.portfolio_id,
-              asset:
-                asset === null || asset.value === null
-                  ? null
-                  : {
-                      id: asset.value.id,
-                      ticker: asset.value.ticker,
-                      category_id: asset.value.category_id,
-                      is_new: false,
-                    },
-              institution_id: replay.value.institution_id,
-              replacing: replay.value,
-            });
-            if (context.isFailure()) return context;
-
-            const plan = planTransaction(context.value, toDraft(replay.value));
-
-            return success({
-              transaction: replay.value,
-              preview: plan.preview,
-              queued: null,
-              replayed: true,
-            });
-          }
+        if (replay.value !== null) {
+          return success({
+            transaction: replay.value,
+            preview: null,
+            queued: null,
+            replayed: true,
+          });
         }
 
         const prepared = await prepareTransaction(repositories, input);
@@ -290,21 +270,6 @@ export const createTransaction = (deps: CreateTransactionDeps) =>
       { lock: portfolioLock(input.portfolio_id) },
     );
   });
-
-/** O lançamento gravado de volta na forma de rascunho, para replanejar. */
-const toDraft = (transaction: Transaction): TransactionDraft => ({
-  id: transaction.id,
-  kind: transaction.kind,
-  trade_date: transaction.trade_date,
-  settlement_date: transaction.settlement_date,
-  quantity: transaction.quantity,
-  unit_price: transaction.unit_price,
-  fees: transaction.fees,
-  tax_withheld: transaction.tax_withheld,
-  ...(transaction.payout_kind === null ? {} : { payout_kind: transaction.payout_kind }),
-  ...(transaction.record_date === null ? {} : { record_date: transaction.record_date }),
-  ...(transaction.note === null ? {} : { note: transaction.note }),
-});
 
 export type PreparedTransaction = {
   readonly row: TransactionWrite;
@@ -344,9 +309,7 @@ export const prepareTransaction = async (
   if (asset.isFailure()) return asset;
 
   if (asset.value === null && input.kind !== 'deposit' && input.kind !== 'withdrawal') {
-    return failure(
-      new BadRequestError('Este tipo de lançamento precisa de um ativo'),
-    );
+    return failure(new BadRequestError('Este tipo de lançamento precisa de um ativo'));
   }
 
   const settlement = await resolveSettlement(repositories, {
@@ -419,7 +382,8 @@ export const prepareTransaction = async (
     trade_date: input.trade_date,
     settlement_date: settlement.value,
     portfolio_id: input.portfolio_id,
-    asset_id: asset.value === null || asset.value.id === DRAFT_ASSET_ID ? null : asset.value.id,
+    asset_id:
+      asset.value === null || asset.value.id === DRAFT_ASSET_ID ? null : asset.value.id,
     institution_id: input.institution_id,
     quantity: input.quantity,
     unit_price: input.unit_price,

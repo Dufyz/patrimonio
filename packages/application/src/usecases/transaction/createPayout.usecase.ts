@@ -18,6 +18,7 @@ import { planTransaction } from '../../plans/transaction.plan.js';
 import type { TransactionPreview } from '../../plans/transaction.plan.js';
 import { loadPlanContext } from './context.js';
 import { portfolioLock } from './createTransaction.usecase.js';
+import { findReplay } from './idempotency.js';
 
 export type CreatePayoutInput = {
   readonly portfolio_id: string;
@@ -41,10 +42,12 @@ export type CreatePayoutInput = {
 
 export type PayoutResult = {
   readonly transaction: Transaction;
-  readonly preview: TransactionPreview;
+  /** Nulo no replay: o preview é do estado em que o provento foi criado. */
+  readonly preview: TransactionPreview | null;
   readonly queued: EnqueuedEvent | null;
   /** Quantidade na data-com, calculada pelos lançamentos. */
   readonly quantity_at_record_date: string;
+  readonly replayed: boolean;
 };
 
 export type CreatePayoutDeps = {
@@ -64,6 +67,19 @@ export const createPayout = (deps: CreatePayoutDeps) =>
   either(async function* (input: CreatePayoutInput) {
     return yield* await deps.unitOfWork.run<AppError, PayoutResult>(
       async (repositories) => {
+        const replay = await findReplay(repositories, input.idempotency_key);
+        if (replay.isFailure()) return replay;
+
+        if (replay.value !== null) {
+          return success({
+            transaction: replay.value,
+            preview: null,
+            queued: null,
+            replayed: true,
+            quantity_at_record_date: replay.value.quantity,
+          });
+        }
+
         if (input.payment_date < input.record_date) {
           return failure(
             new BadRequestError('O pagamento não pode ser anterior à data-com'),
@@ -194,6 +210,7 @@ export const createPayout = (deps: CreatePayoutDeps) =>
           preview: plan.preview,
           queued: enqueued.value[0] ?? null,
           quantity_at_record_date: quantity,
+          replayed: false,
         });
       },
       { lock: portfolioLock(input.portfolio_id) },

@@ -41,6 +41,22 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
     }
   },
 
+  expireIdempotencyKeys: async (olderThanHours: number) => {
+    try {
+      const rows = await sql<{ id: string }[]>`
+        update transaction
+           set idempotency_key = null
+         where idempotency_key is not null
+           and created_at < now() - make_interval(hours => ${olderThanHours})
+        returning id
+      `;
+
+      return success(rows.length);
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
   /**
    * O extrato de Movimentações, com os filtros combináveis. Duas consultas: a
    * página e a contagem — o orçamento da rota conta as duas.

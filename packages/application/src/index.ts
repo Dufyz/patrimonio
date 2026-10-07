@@ -212,6 +212,11 @@ export type {
   DeleteTransactionResult,
   UndoResult,
 } from './usecases/transaction/deleteTransaction.usecase.js';
+export {
+  IDEMPOTENCY_TTL_HOURS,
+  findReplay,
+  replayGroup,
+} from './usecases/transaction/idempotency.js';
 export { loadPlanContext } from './usecases/transaction/context.js';
 export type { ContextAsset, ContextParams } from './usecases/transaction/context.js';
 export {

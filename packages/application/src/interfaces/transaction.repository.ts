@@ -75,6 +75,15 @@ export type TransactionRepository = {
     key: string,
   ) => Promise<Either<AppError, Transaction | null>>;
 
+  /**
+   * Libera as chaves mais velhas que o prazo. Sem isso o índice único guardaria
+   * para sempre uma chave que o cliente já esqueceu, e o mesmo cabeçalho usado
+   * de novo meses depois viraria conflito em vez de lançamento.
+   */
+  readonly expireIdempotencyKeys: (
+    olderThanHours: number,
+  ) => Promise<Either<AppError, number>>;
+
   readonly list: (
     filter: TransactionFilter,
   ) => Promise<Either<AppError, TransactionPage>>;
