@@ -45,6 +45,17 @@ const fail = (field: string, reason: string, received: unknown): never => {
   throw new FormatChanged(field, reason, received);
 };
 
+/**
+ * A mudança de formato declarada na mão, para o que não é leitura de campo:
+ * coluna que saiu de um CSV, registro de largura fixa mais curto do que o
+ * layout, envelope que mudou de nome.
+ */
+export const formatChanged = (
+  field: string,
+  reason: string,
+  received: unknown,
+): never => fail(field, reason, received);
+
 /** O corpo da resposta como objeto. Corpo vazio é mudança de formato. */
 export const asObject = (value: unknown, field: string): Record<string, unknown> => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -90,14 +101,20 @@ export const at = (
   return current;
 };
 
+/**
+ * Em todo guarda, `path` é como o campo aparece no erro. O padrão é o próprio
+ * nome, e quem lê uma lista passa o caminho inteiro — `resultados[3].preco` diz
+ * onde olhar; `preco` sozinho, numa resposta com trinta papéis, não diz.
+ */
 export const stringField = (
   source: Record<string, unknown>,
   field: string,
+  path = field,
 ): string => {
   const value = source[field];
 
-  if (typeof value !== 'string') return fail(field, 'não é texto', value);
-  if (value.trim() === '') return fail(field, 'veio vazio', value);
+  if (typeof value !== 'string') return fail(path, 'não é texto', value);
+  if (value.trim() === '') return fail(path, 'veio vazio', value);
 
   return value;
 };
@@ -113,19 +130,20 @@ export const stringField = (
 export const decimalField = (
   source: Record<string, unknown>,
   field: string,
+  path = field,
 ): string => {
   const value = source[field];
 
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) return fail(field, 'não é um número finito', value);
+    if (!Number.isFinite(value)) return fail(path, 'não é um número finito', value);
 
     return String(value);
   }
 
-  if (typeof value !== 'string') return fail(field, 'não é um número', value);
+  if (typeof value !== 'string') return fail(path, 'não é um número', value);
 
   const trimmed = value.trim();
-  if (trimmed === '') return fail(field, 'veio vazio', value);
+  if (trimmed === '') return fail(path, 'veio vazio', value);
 
   // Vírgula por ponto é a troca mais comum numa fonte brasileira, e ela é
   // aceita — mas só quando não há ambiguidade com separador de milhar.
@@ -137,7 +155,7 @@ export const decimalField = (
         : trimmed;
 
   if (!/^-?\d+(\.\d+)?$/u.test(normalized)) {
-    return fail(field, 'não é um número reconhecível', value);
+    return fail(path, 'não é um número reconhecível', value);
   }
 
   return normalized;
@@ -151,10 +169,11 @@ export const decimalField = (
 export const dateField = (
   source: Record<string, unknown>,
   field: string,
+  path = field,
 ): DateOnly => {
   const value = source[field];
 
-  if (typeof value !== 'string') return fail(field, 'não é uma data', value);
+  if (typeof value !== 'string') return fail(path, 'não é uma data', value);
 
   const trimmed = value.trim().slice(0, 10);
 
@@ -166,17 +185,18 @@ export const dateField = (
     if (isDateOnly(candidate)) return candidate;
   }
 
-  return fail(field, 'não está num formato de data reconhecido', value);
+  return fail(path, 'não está num formato de data reconhecido', value);
 };
 
 /** O campo quando ele existe, sem falhar quando não existe. */
 export const optionalDateField = (
   source: Record<string, unknown>,
   field: string,
+  path = field,
 ): DateOnly | null =>
   source[field] === undefined || source[field] === null
     ? null
-    : dateField(source, field);
+    : dateField(source, field, path);
 
 /**
  * A borda. Tudo o que um provedor faz ao ler resposta externa passa por aqui: o

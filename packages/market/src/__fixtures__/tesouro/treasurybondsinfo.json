@@ -1,0 +1,74 @@
+{
+  "responseStatus": 200,
+  "response": {
+    "BizSts": { "cd": "OPN" },
+    "TrsrBondMkt": { "clsgDtTm": "2026-10-06T18:30:00" },
+    "TrsrBdTradgList": [
+      {
+        "TrsrBd": {
+          "cd": 204,
+          "nm": "Tesouro IPCA+ 2029",
+          "featrs": "Título com rentabilidade vinculada à variação do IPCA",
+          "mtrtyDt": "2029-05-15T00:00:00",
+          "untrInvstmtVal": 2985.42,
+          "untrRedVal": 2971.08,
+          "anulInvstmtRate": 7.42,
+          "anulRedRate": 7.56,
+          "minInvstmtAmt": 29.85
+        }
+      },
+      {
+        "TrsrBd": {
+          "cd": 211,
+          "nm": "Tesouro Prefixado 2027",
+          "featrs": "Título com rentabilidade prefixada",
+          "mtrtyDt": "2027-01-01T00:00:00",
+          "untrInvstmtVal": 874.19,
+          "untrRedVal": 870.03,
+          "anulInvstmtRate": 11.98,
+          "anulRedRate": 12.14,
+          "minInvstmtAmt": 26.22
+        }
+      },
+      {
+        "TrsrBd": {
+          "cd": 222,
+          "nm": "Tesouro Selic 2031",
+          "featrs": "Título com rentabilidade diária vinculada à taxa Selic",
+          "mtrtyDt": "2031-03-01T00:00:00",
+          "untrInvstmtVal": 16104.77,
+          "untrRedVal": 16092.31,
+          "anulInvstmtRate": 0.0829,
+          "anulRedRate": 0.1029,
+          "minInvstmtAmt": 161.04
+        }
+      },
+      {
+        "TrsrBd": {
+          "cd": 999,
+          "nm": "Tesouro Educa+ 2030",
+          "featrs": "Produto novo, que a tabela de tradução ainda não conhece",
+          "mtrtyDt": "2030-12-15T00:00:00",
+          "untrInvstmtVal": 1000.0,
+          "untrRedVal": 998.0,
+          "anulInvstmtRate": 7.0,
+          "anulRedRate": 7.1,
+          "minInvstmtAmt": 30.0
+        }
+      },
+      {
+        "TrsrBd": {
+          "cd": 190,
+          "nm": "Tesouro Prefixado 2024",
+          "featrs": "Título já vencido: sai da coleta sem erro",
+          "mtrtyDt": "2024-01-01T00:00:00",
+          "untrInvstmtVal": 1000.0,
+          "untrRedVal": 1000.0,
+          "anulInvstmtRate": 10.0,
+          "anulRedRate": 10.1,
+          "minInvstmtAmt": 30.0
+        }
+      }
+    ]
+  }
+}

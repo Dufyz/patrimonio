@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@patrimonio/application": "workspace:*",
+    "@patrimonio/calc": "workspace:*",
     "@patrimonio/domain": "workspace:*",
     "@patrimonio/env": "workspace:*",
     "@patrimonio/shared": "workspace:*"

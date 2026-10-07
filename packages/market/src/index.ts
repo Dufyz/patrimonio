@@ -9,6 +9,17 @@
  */
 export { createQuoteChain, createTreasuryChain } from './chain.js';
 
+export { BCB_SOURCE, SGS_SERIES, createBcbProvider, sgsUrl } from './providers/bcb.provider.js';
+export {
+  TESOURO_CSV_SOURCE,
+  TESOURO_CSV_URL,
+  TESOURO_JSON_SOURCE,
+  TESOURO_JSON_URL,
+  createTesouroCsvProvider,
+  createTesouroJsonProvider,
+  kindFromName,
+} from './providers/tesouro.provider.js';
+
 export { createHttpClient, excerpt, sleep, withRetry } from './http/client.js';
 export type {
   ClientOptions,
@@ -26,6 +37,7 @@ export {
   at,
   dateField,
   decimalField,
+  formatChanged,
   optionalDateField,
   parsing,
   stringField,

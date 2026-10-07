@@ -38,7 +38,7 @@ const ALLOWED: Record<string, readonly string[]> = {
   // Transporte. Nenhum caso de uso o importa.
   queue: ['domain', 'shared', 'env'],
   // Provedores atrás da interface MarketDataProvider.
-  market: ['application', 'domain', 'shared', 'env'],
+  market: ['application', 'calc', 'domain', 'shared', 'env'],
   exporter: ['domain', 'shared'],
   // A api não fala com o Redis no caminho de negócio: o pedido de trabalho vai
   // para a outbox. `queue` entra aqui só para montar o Bull Board em /api/queues.

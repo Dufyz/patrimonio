@@ -1,3 +1,4 @@
+import type { IndexUnit } from '@patrimonio/calc';
 import type { B3Type, DateOnly, IndexCode, PriceSourceKind } from '@patrimonio/domain';
 import type { Either } from '@patrimonio/shared';
 
@@ -88,31 +89,27 @@ export type QuoteSource = {
 // ─── Índices ─────────────────────────────────────────────────────────────────
 
 /**
- * Uma observação de índice, já convertida em **fator diário**. A conversão é do
- * provedor porque é ela que conhece a unidade da fonte: a série 12 do Banco
- * Central publica a taxa do dia em percentual, e a 433 publica o IPCA do mês.
+ * Uma observação de índice como a fonte publicou, com a unidade declarada. O
+ * provedor **não** converte: ele sabe que a série 12 do Banco Central publica a
+ * taxa do dia em percentual e que a 433 publica a variação do mês, e diz isso.
+ * A conta que transforma isso em fator diário é função pura em `calc`, com
+ * fixture conferida à mão e sem rede.
  */
 export type IndexSample = {
   readonly index_code: IndexCode;
-  readonly quote_date: DateOnly;
-  readonly daily_factor: string;
-  /** O número como a fonte publicou, para conferência. */
-  readonly raw_value: string | null;
+  /** Em `monthly_pct`, qualquer dia do mês de referência. */
+  readonly reference_date: DateOnly;
+  readonly unit: IndexUnit;
+  readonly raw_value: string;
 };
 
 export type IndexProvider = {
   readonly id: string;
   readonly series: readonly IndexCode[];
-  /**
-   * Os dias úteis entram como parâmetro: distribuir o IPCA do mês pró-rata
-   * exige a contagem exata, e dia útil vem do calendário em tabela, nunca de
-   * regra.
-   */
   readonly fetchSeries: (
     codes: readonly IndexCode[],
     from: DateOnly,
     to: DateOnly,
-    businessDays: readonly DateOnly[],
   ) => Promise<Either<AppError, readonly IndexSample[]>>;
 };
 

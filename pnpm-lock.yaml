@@ -277,6 +277,9 @@ importers:
       '@patrimonio/application':
         specifier: workspace:*
         version: link:../application
+      '@patrimonio/calc':
+        specifier: workspace:*
+        version: link:../calc
       '@patrimonio/domain':
         specifier: workspace:*
         version: link:../domain

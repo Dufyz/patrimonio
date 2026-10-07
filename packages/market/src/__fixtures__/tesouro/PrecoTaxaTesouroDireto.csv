@@ -1,0 +1,5 @@
+Tipo Titulo;Data Vencimento;Data Base;Taxa Compra Manha;Taxa Venda Manha;PU Compra Manha;PU Venda Manha;PU Base Manha
+Tesouro IPCA+;15/05/2029;06/10/2026;7,42;7,56;2985,42;2971,08;2978,25
+Tesouro Prefixado;01/01/2027;06/10/2026;11,98;12,14;874,19;870,03;872,11
+Tesouro Prefixado;01/01/2024;06/10/2026;10,00;10,10;1000,00;1000,00;1000,00
+Tesouro IPCA+;15/05/2029;03/10/2026;7,38;7,52;2984,10;2969,80;2976,95

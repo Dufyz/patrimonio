@@ -190,3 +190,17 @@ export {
   monthStart,
   monthsBetween,
 } from './support/dates.js';
+
+// ─── Séries de índice ────────────────────────────────────────────────────────
+export {
+  INDEX_UNITS,
+  accumulate,
+  dailyFactorsFrom,
+  factorFromDailyPct,
+  factorFromMonthlyPct,
+} from './index_series/factors.js';
+export type {
+  DailyFactor,
+  IndexObservation,
+  IndexUnit,
+} from './index_series/factors.js';
