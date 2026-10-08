@@ -195,7 +195,11 @@ describe('documentação', () => {
   it('rota sem entrada no registro não aparece na documentação', async () => {
     const { body } = await request(app).get('/api/docs.json');
 
-    expect(Object.keys(body.paths)).toHaveLength(ROUTE_DOCS.length);
+    // O registro tem uma entrada por **operação**, e o documento uma chave por
+    // caminho: `GET` e `PATCH` do mesmo recurso são duas entradas e um caminho.
+    const paths = new Set(ROUTE_DOCS.map((route) => route.path));
+
+    expect(Object.keys(body.paths)).toHaveLength(paths.size);
     expect(body.paths).not.toHaveProperty('/api/queues');
   });
 

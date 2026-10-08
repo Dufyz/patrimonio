@@ -193,3 +193,21 @@ export {
   textInterpretationSchema,
 } from './transaction/interpretTransaction.schema.js';
 export type { InterpretTransactionBody } from './transaction/interpretTransaction.schema.js';
+export {
+  assetPriceSeriesSchema,
+  getAssetPriceSeriesSchema,
+  getMarketHealthSchema,
+  marketHealthSchema,
+  marketRunKindSchema,
+  marketSourceRunSchema,
+  missingPriceSchema,
+  priceSeriesPointSchema,
+  refreshMarketSchema,
+  sourceStatusSchema,
+} from './market/market.schema.js';
+export type {
+  AssetPriceSeriesResource,
+  MarketHealth,
+  RefreshMarketBody,
+  SourceStatusResource,
+} from './market/market.schema.js';

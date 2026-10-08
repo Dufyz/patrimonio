@@ -38,6 +38,8 @@ autenticar: ela entra na Fase 2, junto com a publicação.
 | `pnpm lint`                               | ESLint em todos os pacotes                         |
 | `pnpm typecheck`                          | Regra de camada + `tsc --noEmit` em todos          |
 | `pnpm test`                               | Vitest, contra Postgres e Redis reais              |
+| `pnpm test:live`                          | Bateria de contrato contra as APIs reais; noturna  |
+| `pnpm verify:sources`                     | A mesma bateria, gravando o resultado no banco     |
 | `pnpm format`                             | Prettier                                           |
 | `pnpm verify`                             | Lint, typecheck e testes, na ordem do CI           |
 | `pnpm migrate [up \| down [n] \| status]` | Runner de migration; `--test` usa o banco de teste |
@@ -141,6 +143,46 @@ vive em `packages/calc` e cobre compra, venda com resultado realizado,
 transferência, evento corporativo e amortização; o resto de `calc` — cota,
 marcação na curva, IR e projeção — chega em E3.
 
-O que está declarado e ainda não calcula nada: os estágios `recalc`, `close`,
-`market`, `alerts` e `import` atravessam o pipeline e registram que a
-implementação chega em E3, E4 e E7. `market` e `exporter` têm só a superfície.
+O que está declarado e ainda não calcula nada: os estágios `alerts` e `import`
+atravessam o pipeline e registram que a implementação chega em E7. `exporter` tem
+só a superfície.
+
+## Fase 4 · Dados de mercado
+
+As fontes externas, atrás de `MarketDataProvider`: Banco Central para CDI, Selic
+e IPCA, Tesouro Direto pelo JSON do site com o CSV do Tesouro Transparente
+atrás, brapi para renda variável com um provedor alternativo declarado por
+configuração, e o COTAHIST anual da B3 para o histórico. Nenhum caso de uso
+conhece o nome de uma fonte: trocar a principal é mudar a ordem da cadeia.
+
+**A regra que governa o pacote inteiro: ausência nunca vira zero.** Um preço zero
+gravado por engano zera a posição, e o erro se propaga por toda a série de
+`position_daily` até alguém notar meses depois. Papel sem cotação entra em
+`missing`, a posição dele vale o custo, e a linha fica marcada.
+
+Preços, índices e Tesouro são coletados no mesmo estágio, e o fechamento do dia
+é encadeado pela transição do pipeline. Isso torna estrutural a ordem que
+importa: a marcação na curva de um CDB depende do fator do CDI do dia, e fechar
+antes dele gravaria o título rendendo zero. Três agendamentos com quinze minutos
+de diferença funcionariam na maioria dos dias, e "na maioria dos dias" é o
+problema.
+
+Lançar hoje uma compra de 2015 dispara o backfill daquele papel desde 2015, que
+busca só os dias úteis sem preço e pede o recálculo ao terminar — é esse último
+recálculo que põe a série na tela. Renda fixa de banco não dispara backfill:
+nenhuma fonte tem preço dela, e ela é marcada na curva.
+
+Mudança de formato da fonte é erro nomeado, não número errado: `FormatChangedError`
+diz qual campo, guarda o trecho recebido e encerra o job em vez de insistir contra
+uma API que mudou de contrato. Vírgula por ponto, casa decimal a mais e campo novo
+desconhecido são tolerados, porque o valor é o mesmo.
+
+`market_source_run` guarda uma linha por execução por fonte, e é dela que sai a
+situação em Configurações: quem respondeu por último, quanto da cota do mês foi
+consumido, qual foi a última falha e com que mensagem. `GET /api/market/health`
+entrega isso pronto; a tela em si entra em E6, com o design system.
+
+A verificação noturna (`pnpm test:live`) fala com as APIs reais e abre issue
+quando o formato muda. Ela não bloqueia commit nem deploy: depende da internet, e
+um teste de commit que depende de a brapi estar no ar é um teste que ensina a
+equipe a ignorar vermelho. Fonte fora do ar não é notícia; formato mudado é.

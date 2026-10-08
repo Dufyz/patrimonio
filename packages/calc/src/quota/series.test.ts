@@ -67,6 +67,21 @@ describe('a invariante da cota', () => {
     }
   });
 
+  it('carteira sem cota nenhuma mantém o valor da cota, e não grava NaN', () => {
+    const empty = buildQuotaSeries([
+      {
+        position_date: '2026-03-02',
+        total_value: '0.00',
+        net_flow: '0.00',
+        payouts: '0.00',
+      },
+    ]);
+
+    expect(empty[0]?.quota_value).toBe('1.000000000000');
+    expect(empty[0]?.quota_count).toBe('0.000000000000');
+    expect(Number.isNaN(Number(empty[0]?.quota_value))).toBe(false);
+  });
+
   it('o valor da cota nunca é zero nem negativo: o banco recusaria', () => {
     for (const day of buildQuotaSeries(fullRedemptionThenContribution)) {
       expect(Number(day.quota_value)).toBeGreaterThan(0);

@@ -134,9 +134,12 @@ export const buildQuotaSeries = (
     let quotaCount = state.quotaCount.plus(addedQuotas);
     let quotaValue = state.quotaValue;
 
-    if (quotaCount.isPositive()) {
+    // `gt(0)`, e não `isPositive()`: em decimal.js o sinal de zero é 1, então
+    // `isPositive()` é verdadeiro para zero — e aí a carteira sem cota nenhuma
+    // caía na divisão 0/0, gravando `NaN` na coluna `quota_value`.
+    if (quotaCount.gt(0)) {
       quotaValue = totalValue.dividedBy(quotaCount).toDecimalPlaces(QUOTA_DP);
-    } else if (totalValue.isPositive()) {
+    } else if (totalValue.gt(0)) {
       // Resgate total e novo aporte no mesmo dia: a série não reinicia. As cotas
       // são recriadas ao último valor conhecido, que continua positivo.
       quotaCount = totalValue.dividedBy(state.quotaValue).toDecimalPlaces(QUOTA_DP);

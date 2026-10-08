@@ -16,6 +16,7 @@ import { createCorporateEventRepository } from './repositories/corporate_event.r
 import { createInstitutionRepository } from './repositories/institution.repository.js';
 import { createLedgerRepository } from './repositories/ledger.repository.js';
 import { createManualPriceRepository } from './repositories/manual_price.repository.js';
+import { createMarketIngestionRepository } from './repositories/market_ingestion.repository.js';
 import { createAlertRepository } from './repositories/alert.repository.js';
 import { createOutboxRepository } from './repositories/outbox.repository.js';
 import { createPriceRepository } from './repositories/price.repository.js';
@@ -61,6 +62,7 @@ export const createRepositories = (
   projections: createProjectionRepository(sql),
   prices: createPriceRepository(sql),
   alerts: createAlertRepository(sql),
+  market: createMarketIngestionRepository(sql),
 });
 
 /**

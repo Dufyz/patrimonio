@@ -200,9 +200,9 @@ describe('transferência entre carteiras', () => {
     const origem = applyLedger([inicial, saida]);
     const destino = applyLedger([entrada]);
 
-    expect(
-      Number(origem.position.cost_basis) + Number(destino.position.cost_basis),
-    ).toBe(Number(antes.position.cost_basis));
+    expect(Number(origem.position.cost_basis) + Number(destino.position.cost_basis)).toBe(
+      Number(antes.position.cost_basis),
+    );
   });
 
   it('o custo que viaja é proporcional, e é o custo inteiro quando tudo sai', () => {
@@ -248,6 +248,19 @@ describe('ordem e corte por data', () => {
     ]);
 
     expect(embaralhada).toEqual(cronologica);
+  });
+
+  it('vender no mesmo dia da compra é possível: o rascunho é o último do dia', () => {
+    // O rascunho não tem id, porque ainda não foi gravado. Ele é o mais novo do
+    // dia e entra depois da compra que já está no livro.
+    const estado = applyLedger([
+      compra('2024-01-10', '100', '36.84', '0', '0190'),
+      venda('2024-01-10', '40', '45.00', '0'),
+    ]);
+
+    expect(estado.oversold).toBe(false);
+    expect(estado.position.quantity).toBe('60.00000000');
+    expect(estado.realized[0]?.result).toBe('326.40');
   });
 
   it('a posição em uma data ignora o que veio depois: é o "antes" do preview', () => {

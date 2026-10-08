@@ -131,8 +131,10 @@ export {
   ASSET_CLASSES,
   COMPUTED_PRICE_KINDS,
   INDEX_CODES,
+  PRICE_SOURCE_KINDS,
   assetClassFor,
   indexForIndexer,
+  isIndexCode,
 } from './projection/projection.entities.js';
 export type {
   AlertInstance,
@@ -144,6 +146,7 @@ export type {
   IndexQuote,
   PortfolioDaily,
   PositionDaily,
+  PriceSourceKind,
   RealizedResult,
   TaxMonth,
 } from './projection/projection.entities.js';
@@ -168,3 +171,16 @@ export {
   parsePortfolioFromDB,
   parseStrategyTargetFromDB,
 } from './portfolio/portfolio.parsers.js';
+
+// ─── Dados de mercado ────────────────────────────────────────────────────────
+export { MARKET_RUN_KINDS, isMarketRunKind } from './market/market.entities.js';
+export type {
+  MarketRunKind,
+  MarketSourceRun,
+  MarketSourceRunDraft,
+  PriceableAsset,
+} from './market/market.entities.js';
+export {
+  parseMarketSourceRunFromDB,
+  parsePriceableAssetFromDB,
+} from './market/market.parsers.js';

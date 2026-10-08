@@ -18,6 +18,8 @@ import {
   deleteInstitution,
   deletePortfolio,
   getAsset,
+  getAssetPriceSeries,
+  getMarketHealth,
   getTransaction,
   interpretTransaction,
   getFgcExposure,
@@ -37,6 +39,7 @@ import {
   registerCorporateEvent,
   setManualPrice,
   transferPosition,
+  refreshMarketData,
   undoDeletion,
   updateAsset,
   updateTransaction,
@@ -58,6 +61,7 @@ import {
 } from '@patrimonio/db';
 import type { Sql } from '@patrimonio/db';
 import { environment } from '@patrimonio/env';
+import { BRAPI_FREE_MONTHLY_CEILING } from '@patrimonio/market';
 import {
   closeQueues,
   closeRedisConnection,
@@ -147,6 +151,19 @@ export const createApiUseCases = (deps: {
     clock: deps.clock,
     undoWindowSeconds: environment.ledger.undoWindowSeconds,
   }),
+  // A tela de dados de mercado só lê; a coleta é do worker. O "atualizar agora"
+  // da api insere o evento na outbox e devolve na hora.
+  getMarketHealth: getMarketHealth({
+    unitOfWork: deps.unitOfWork,
+    clock: deps.clock,
+    ceilings: { brapi: BRAPI_FREE_MONTHLY_CEILING },
+    staleAfterDays: environment.market.priceStaleAfterDays,
+  }),
+  refreshMarketData: refreshMarketData({
+    unitOfWork: deps.unitOfWork,
+    clock: deps.clock,
+  }),
+  getAssetPriceSeries: getAssetPriceSeries({ unitOfWork: deps.unitOfWork }),
 });
 
 export type ApiUseCases = ReturnType<typeof createApiUseCases>;

@@ -70,6 +70,10 @@ export const createApiHarness = async (): Promise<ApiHarness> => {
     redis,
     queues,
     close: async () => {
+      // A suíte comita, e o banco é compartilhado com a de `db`, cujos testes
+      // rodam em transação e contam com as tabelas vazias. Devolver o banco como
+      // foi encontrado é o que torna a ordem das suítes irrelevante.
+      await resetSourceTables(sql);
       await closeQueues(queues);
       await closeRedisConnection(redis);
       await closeDatabase(sql);
@@ -95,7 +99,9 @@ export const resetSourceTables = async (sql: Sql): Promise<void> => {
                    category,
                    institution,
                    portfolio,
-                   pipeline_outbox
+                   pipeline_outbox,
+                   index_quote,
+                   market_source_run
       restart identity cascade
   `);
 };

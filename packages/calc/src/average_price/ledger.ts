@@ -81,17 +81,29 @@ const decimal = (value: string | null | undefined): Decimal =>
  * A ordem é cronológica, e o desempate é o id — que é UUID v7, portanto
  * crescente no tempo. É o que faz "aplicar em ordem embaralhada dá o mesmo
  * resultado" valer: a sequência é reconstruída, não assumida.
+ *
+ * Lançamento sem id é o rascunho que está sendo planejado agora, e ele é o mais
+ * novo do dia: vai para o fim. Tratá-lo como id vazio o colocava **antes** de
+ * tudo o que já estava gravado naquela data — e vender no mesmo dia da compra
+ * era recusado por posição insuficiente, porque a venda era aplicada primeiro.
  */
+const DRAFT_LAST = '￿';
+
 export const sortEntries = (entries: readonly LedgerEntry[]): LedgerEntry[] =>
   [...entries].sort((left, right) => {
     if (left.trade_date !== right.trade_date) {
       return left.trade_date < right.trade_date ? -1 : 1;
     }
-    return (left.id ?? '') < (right.id ?? '') ? -1 : (left.id ?? '') > (right.id ?? '') ? 1 : 0;
+
+    const leftId = left.id ?? DRAFT_LAST;
+    const rightId = right.id ?? DRAFT_LAST;
+
+    return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
   });
 
 /** Quantidade move para fora quando o dinheiro — ou o ativo — sai da carteira. */
-const isOutgoing = (entry: LedgerEntry): boolean => decimal(entry.net_amount).isNegative();
+const isOutgoing = (entry: LedgerEntry): boolean =>
+  decimal(entry.net_amount).isNegative();
 
 const applyBuy = (state: Internal, entry: LedgerEntry): void => {
   const quantity = decimal(entry.quantity);
@@ -109,9 +121,7 @@ const applySell = (state: Internal, entry: LedgerEntry): void => {
 
   if (asked.greaterThan(state.quantity)) state.oversold = true;
 
-  const average = state.quantity.isZero()
-    ? zero
-    : state.cost.dividedBy(state.quantity);
+  const average = state.quantity.isZero() ? zero : state.cost.dividedBy(state.quantity);
 
   // Venda parcial consome custo proporcional ao preço médio, e o preço médio
   // das cotas restantes não muda.
@@ -269,10 +279,8 @@ export const applyLedger = (
 };
 
 /** A posição de um ativo numa data, que é o "antes" de todo preview. */
-export const positionAt = (
-  entries: readonly LedgerEntry[],
-  date: string,
-): Position => applyLedger(entries, { until: date }).position;
+export const positionAt = (entries: readonly LedgerEntry[], date: string): Position =>
+  applyLedger(entries, { until: date }).position;
 
 /**
  * O caixa não é coluna de saldo: é a soma dos valores líquidos que entraram e

@@ -9,6 +9,7 @@ import type { CorporateEventRepository } from './corporate_event.repository.js';
 import type { InstitutionRepository } from './institution.repository.js';
 import type { LedgerRepository } from './ledger.repository.js';
 import type { ManualPriceRepository } from './manual_price.repository.js';
+import type { MarketIngestionRepository } from './market_ingestion.repository.js';
 import type { OutboxRepository } from './outbox.repository.js';
 import type { PayoutDismissalRepository } from './payout_dismissal.repository.js';
 import type { PortfolioRepository } from './portfolio.repository.js';
@@ -24,7 +25,7 @@ import type { TransactionUndoRepository } from './transaction_undo.repository.js
  *
  * Cresce a cada entidade: em E2 entram carteira, instituição, ativo e
  * lançamento; em E3 entram as tabelas de projeção, a leitura de preço e os
- * alertas.
+ * alertas; em E4 entra a escrita da ingestão de mercado.
  */
 export type TransactionalRepositories = {
   readonly outbox: OutboxRepository;
@@ -42,6 +43,7 @@ export type TransactionalRepositories = {
   readonly projections: ProjectionRepository;
   readonly prices: PriceRepository;
   readonly alerts: AlertRepository;
+  readonly market: MarketIngestionRepository;
 };
 
 export type UnitOfWorkOptions = {

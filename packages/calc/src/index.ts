@@ -89,12 +89,7 @@ export {
   seedFrom,
   totalFromQuota,
 } from './quota/series.js';
-export type {
-  DailyTotals,
-  QuotaDay,
-  QuotaOptions,
-  QuotaSeed,
-} from './quota/series.js';
+export type { DailyTotals, QuotaDay, QuotaOptions, QuotaSeed } from './quota/series.js';
 
 export {
   WINDOWS,
@@ -190,3 +185,22 @@ export {
   monthStart,
   monthsBetween,
 } from './support/dates.js';
+
+// ─── Séries de índice ────────────────────────────────────────────────────────
+export {
+  INDEX_UNITS,
+  accumulate,
+  dailyFactorsFrom,
+  factorFromDailyPct,
+  factorFromMonthlyPct,
+} from './index_series/factors.js';
+export type { DailyFactor, IndexObservation, IndexUnit } from './index_series/factors.js';
+
+// ─── Série de preço ajustada ─────────────────────────────────────────────────
+export { adjustForEvents } from './prices/adjusted.js';
+export type {
+  AdjustedPoint,
+  AdjustedSeries,
+  PriceEvent,
+  PricePoint,
+} from './prices/adjusted.js';

@@ -1,10 +1,4 @@
 import {
-  closeDay,
-  recalculatePortfolio,
-  reconcileAlerts,
-} from '@patrimonio/application';
-import type { Clock, UnitOfWork } from '@patrimonio/application';
-import {
   closeDatabase,
   createConnection,
   createRepositories,
@@ -25,22 +19,10 @@ import { unwrapSuccess } from '@patrimonio/shared/testing';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { closeStage } from '../processors/close.stage.js';
-import type { StageUseCases } from './define-stage.js';
+import { stageUseCases } from '../testing/stage-usecases.js';
 import { logger } from './logger.js';
 import { runRelayOnce } from './relay.js';
 import type { RelayDeps } from './relay.js';
-
-/**
- * Os casos de uso que `StageDeps` exige, montados sobre a mesma unidade de
- * trabalho do teste. Não são dublês: são os casos de uso de verdade, porque o que
- * este teste mede é o caminho do pipeline, não o cálculo.
- */
-const stageUseCases = (unitOfWork: UnitOfWork, clock: Clock): StageUseCases => ({
-  recalculatePortfolio: recalculatePortfolio({ unitOfWork, clock }),
-  closeDay: closeDay({ unitOfWork, clock }),
-  reconcileAlerts: reconcileAlerts({ unitOfWork, clock }),
-});
-
 
 let sql: Sql;
 let redis: RedisConnection;

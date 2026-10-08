@@ -89,5 +89,61 @@ export class MarketDataUnavailableError extends AppError {
   }
 }
 
+/**
+ * A fonte recusou o pedido: chave inválida, endpoint que saiu do ar, cota do
+ * mês esgotada. É 400 porque repetir não muda a resposta — alguém precisa
+ * renovar a chave ou revisar a configuração, e insistir só queima o que sobrou
+ * da cota. A mensagem carrega o que a fonte disse, que é o que a tela de dados
+ * de mercado mostra em vez de um código.
+ */
+export class MarketSourceRejectedError extends AppError {
+  constructor(message: string) {
+    super(message, 400);
+  }
+}
+
+/**
+ * A fonte respondeu, e a resposta não tem a forma que o provedor conhece: campo
+ * que sumiu, número com vírgula onde havia ponto, data em outro formato,
+ * envelope diferente. É 400 de propósito — reexecutar contra uma API que mudou
+ * de contrato não muda o resultado, então o `defineStage` encerra o job em vez
+ * de insistir, e ninguém grava número errado enquanto o retry roda.
+ *
+ * O trecho recebido viaja no erro: seis meses depois, "o patrimônio ficou
+ * estranho" se responde com o que a fonte de fato devolveu naquele dia.
+ */
+export class FormatChangedError extends AppError {
+  constructor(
+    /** A fonte, como ela aparece em `asset_price.source`. */
+    readonly source: string,
+    /** O campo culpado, no caminho em que ele vive na resposta. */
+    readonly field: string,
+    reason: string,
+    /** O trecho recebido, já recortado para caber num log. */
+    readonly received: string,
+  ) {
+    super(`${source}: ${field} ${reason}`, 400);
+  }
+
+  override toJSON(): {
+    message: string;
+    statusCode: number;
+    name: string;
+    source: string;
+    field: string;
+    received: string;
+  } {
+    return {
+      ...super.toJSON(),
+      source: this.source,
+      field: this.field,
+      received: this.received,
+    };
+  }
+}
+
 export const isAppError = (value: unknown): value is AppError =>
   value instanceof AppError;
+
+export const isFormatChangedError = (value: unknown): value is FormatChangedError =>
+  value instanceof FormatChangedError;
