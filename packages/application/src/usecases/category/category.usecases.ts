@@ -25,72 +25,70 @@ export const listCategories = (deps: CategoryDeps) =>
  */
 export const createCategory = (deps: CategoryWriteDeps) =>
   either(async function* (draft: CategoryDraft) {
-    return yield* await deps.unitOfWork.run<AppError, Category>(
-      async (repositories) => {
-        if (draft.parent_id !== undefined && draft.parent_id !== null) {
-          const parent = await repositories.categories.findById(draft.parent_id);
-          if (parent.isFailure()) return parent;
-          if (parent.value === null) {
-            return failure(new BadRequestError('A categoria pai não existe'));
-          }
-          if (parent.value.parent_id !== null) {
-            return failure(
-              new BadRequestError(
-                `A categoria aceita dois níveis: ${parent.value.name} já está dentro de um grupo`,
-              ),
-            );
-          }
+    return yield* await deps.unitOfWork.run<AppError, Category>(async (repositories) => {
+      if (draft.parent_id !== undefined && draft.parent_id !== null) {
+        const parent = await repositories.categories.findById(draft.parent_id);
+        if (parent.isFailure()) return parent;
+        if (parent.value === null) {
+          return failure(new BadRequestError('A categoria pai não existe'));
         }
+        if (parent.value.parent_id !== null) {
+          return failure(
+            new BadRequestError(
+              `A categoria aceita dois níveis: ${parent.value.name} já está dentro de um grupo`,
+            ),
+          );
+        }
+      }
 
-        return repositories.categories.create(draft);
-      },
-    );
+      return repositories.categories.create(draft);
+    });
   });
 
 export const updateCategory = (deps: CategoryWriteDeps) =>
   either(async function* (id: string, patch: CategoryWrite) {
-    return yield* await deps.unitOfWork.run<AppError, Category>(
-      async (repositories) => {
-        if (patch.parent_id !== undefined && patch.parent_id !== null) {
-          if (patch.parent_id === id) {
-            return failure(new BadRequestError('Uma categoria não pode ser pai de si mesma'));
-          }
-
-          const parent = await repositories.categories.findById(patch.parent_id);
-          if (parent.isFailure()) return parent;
-          if (parent.value === null) {
-            return failure(new BadRequestError('A categoria pai não existe'));
-          }
-          if (parent.value.parent_id !== null) {
-            return failure(
-              new BadRequestError(
-                `A categoria aceita dois níveis: ${parent.value.name} já está dentro de um grupo`,
-              ),
-            );
-          }
-
-          // Virar categoria filha quando se tem filhas criaria o terceiro nível
-          // por tabela, sem nenhuma linha quebrar sozinha.
-          const usage = await repositories.categories.usage(id);
-          if (usage.isFailure()) return usage;
-          if (usage.value.children > 0) {
-            return failure(
-              new BadRequestError(
-                'Este grupo tem categorias dentro dele e não pode virar categoria',
-              ),
-            );
-          }
+    return yield* await deps.unitOfWork.run<AppError, Category>(async (repositories) => {
+      if (patch.parent_id !== undefined && patch.parent_id !== null) {
+        if (patch.parent_id === id) {
+          return failure(
+            new BadRequestError('Uma categoria não pode ser pai de si mesma'),
+          );
         }
 
-        const updated = await repositories.categories.update(id, patch);
-        if (updated.isFailure()) return updated;
-        if (updated.value === null) {
-          return failure(new NotFoundError(`Categoria ${id} não encontrada`));
+        const parent = await repositories.categories.findById(patch.parent_id);
+        if (parent.isFailure()) return parent;
+        if (parent.value === null) {
+          return failure(new BadRequestError('A categoria pai não existe'));
+        }
+        if (parent.value.parent_id !== null) {
+          return failure(
+            new BadRequestError(
+              `A categoria aceita dois níveis: ${parent.value.name} já está dentro de um grupo`,
+            ),
+          );
         }
 
-        return success(updated.value);
-      },
-    );
+        // Virar categoria filha quando se tem filhas criaria o terceiro nível
+        // por tabela, sem nenhuma linha quebrar sozinha.
+        const usage = await repositories.categories.usage(id);
+        if (usage.isFailure()) return usage;
+        if (usage.value.children > 0) {
+          return failure(
+            new BadRequestError(
+              'Este grupo tem categorias dentro dele e não pode virar categoria',
+            ),
+          );
+        }
+      }
+
+      const updated = await repositories.categories.update(id, patch);
+      if (updated.isFailure()) return updated;
+      if (updated.value === null) {
+        return failure(new NotFoundError(`Categoria ${id} não encontrada`));
+      }
+
+      return success(updated.value);
+    });
   });
 
 /**
@@ -111,7 +109,11 @@ export const deleteCategory = (deps: CategoryWriteDeps) =>
         const usage = await repositories.categories.usage(id);
         if (usage.isFailure()) return usage;
 
-        if (usage.value.assets > 0 || usage.value.targets > 0 || usage.value.children > 0) {
+        if (
+          usage.value.assets > 0 ||
+          usage.value.targets > 0 ||
+          usage.value.children > 0
+        ) {
           return failure(
             new ConflictError(
               `A categoria classifica ${usage.value.assets} ativo(s), aparece em ` +

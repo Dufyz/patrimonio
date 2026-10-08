@@ -155,7 +155,11 @@ describe('apagar para reconstruir', () => {
     expect(removed).toEqual({ positions: 1, days: 2 });
 
     const left = unwrapSuccess(
-      await repositories.projections.listDaysBetween(PORTFOLIO, '2026-01-01', '2026-12-31'),
+      await repositories.projections.listDaysBetween(
+        PORTFOLIO,
+        '2026-01-01',
+        '2026-12-31',
+      ),
     );
 
     expect(left.map((row) => row.position_date)).toEqual(['2026-10-01']);
@@ -171,7 +175,9 @@ describe('apagar para reconstruir', () => {
 
   it('sem linha anterior a semente é nula, e a série começa do zero', async () => {
     expect(
-      unwrapSuccess(await repositories.projections.lastDayBefore(PORTFOLIO, '2026-01-01')),
+      unwrapSuccess(
+        await repositories.projections.lastDayBefore(PORTFOLIO, '2026-01-01'),
+      ),
     ).toBeNull();
   });
 });
@@ -193,7 +199,10 @@ describe('a janela lê duas linhas, não duas mil', () => {
 
   it('devolve exatamente a última linha em ou antes de cada data pedida', async () => {
     const points = unwrapSuccess(
-      await repositories.projections.quotaPointsAt(PORTFOLIO, ['2026-03-01', '2026-06-01']),
+      await repositories.projections.quotaPointsAt(PORTFOLIO, [
+        '2026-03-01',
+        '2026-06-01',
+      ]),
     );
 
     expect(points).toHaveLength(2);
@@ -212,9 +221,9 @@ describe('a janela lê duas linhas, não duas mil', () => {
   });
 
   it('sem data pedida não há consulta', async () => {
-    expect(unwrapSuccess(await repositories.projections.quotaPointsAt(PORTFOLIO, []))).toEqual(
-      [],
-    );
+    expect(
+      unwrapSuccess(await repositories.projections.quotaPointsAt(PORTFOLIO, [])),
+    ).toEqual([]);
   });
 });
 

@@ -20,7 +20,10 @@ export const autoRuleSchema = z
     origin: z.string().optional(),
     sector: z.string().optional(),
   })
-  .refine((rule) => Object.keys(rule).length > 0, 'a regra precisa de ao menos uma condição');
+  .refine(
+    (rule) => Object.keys(rule).length > 0,
+    'a regra precisa de ao menos uma condição',
+  );
 
 export const categoryResourceSchema = z.object({
   id: uuid,

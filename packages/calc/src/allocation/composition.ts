@@ -164,8 +164,7 @@ export const composeAllocation = (
       .map((line) => targetByCategory.get(line.category_id))
       .filter((target): target is string => target !== undefined);
 
-    const groupTarget =
-      declared.length === 0 ? null : sum(declared).toFixed(2);
+    const groupTarget = declared.length === 0 ? null : sum(declared).toFixed(2);
 
     roots.push({
       id: groupId,
@@ -199,9 +198,7 @@ const byValueDesc = (left: CompositionNode, right: CompositionNode): number =>
  * As linhas que estouraram a tolerância, que é o que alimenta o alerta de desvio.
  * A ordem é pelo tamanho do desvio: o maior problema primeiro.
  */
-export const outOfTolerance = (
-  composition: Composition,
-): readonly CompositionNode[] => {
+export const outOfTolerance = (composition: Composition): readonly CompositionNode[] => {
   const found: CompositionNode[] = [];
 
   const walk = (nodes: readonly CompositionNode[]): void => {

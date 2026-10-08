@@ -4,6 +4,37 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Patrimônio</title>
+    <!--
+      D-01 · Resolve o tema antes da primeira pintura.
+
+      Sem isto, quem usa o tema escuro vê um lampejo branco a cada recarga,
+      porque o React só decide o tema depois de montar. A lógica é a mesma de
+      `lib/theme.ts`, e um teste compara as duas para que não divirjam.
+    -->
+    <script>
+      (function () {
+        var root = document.documentElement;
+        try {
+          var stored = localStorage.getItem('patrimonio.theme');
+          var preference =
+            stored === 'light' || stored === 'dark' || stored === 'system'
+              ? stored
+              : 'system';
+          var prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+          var density =
+            localStorage.getItem('patrimonio.density') === 'compact'
+              ? 'compact'
+              : 'comfortable';
+
+          root.dataset.theme =
+            preference === 'system' ? (prefersDark ? 'dark' : 'light') : preference;
+          root.dataset.density = density;
+        } catch (error) {
+          root.dataset.theme = 'light';
+          root.dataset.density = 'comfortable';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

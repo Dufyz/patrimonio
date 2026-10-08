@@ -131,7 +131,5 @@ export type ProjectionRepository = {
     rows: readonly TaxMonthWrite[],
   ) => Promise<Either<AppError, number>>;
 
-  readonly listTaxMonths: (
-    year: number,
-  ) => Promise<Either<AppError, TaxMonth[]>>;
+  readonly listTaxMonths: (year: number) => Promise<Either<AppError, TaxMonth[]>>;
 };

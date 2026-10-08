@@ -102,7 +102,10 @@ describe('a reconciliação é por regra e item', () => {
 
   it('o que deixou de valer sai da lista', () => {
     const plan = reconcileAlerts({
-      existing: [instance('preco_atrasado', 'itub4'), instance('preco_atrasado', 'petr4')],
+      existing: [
+        instance('preco_atrasado', 'itub4'),
+        instance('preco_atrasado', 'petr4'),
+      ],
       findings: [finding('preco_atrasado', 'itub4')],
     });
 
@@ -113,13 +116,16 @@ describe('a reconciliação é por regra e item', () => {
   it('o mesmo item em regras diferentes são dois alertas', () => {
     const plan = reconcileAlerts({
       existing: [instance('preco_atrasado', 'itub4', { status: 'ignored' })],
-      findings: [finding('preco_atrasado', 'itub4'), finding('evento_corporativo', 'itub4')],
+      findings: [
+        finding('preco_atrasado', 'itub4'),
+        finding('evento_corporativo', 'itub4'),
+      ],
     });
 
     expect(plan.upserts).toHaveLength(2);
-    expect(plan.upserts.find((row) => row.rule_kind === 'evento_corporativo')?.status).toBe(
-      'open',
-    );
+    expect(
+      plan.upserts.find((row) => row.rule_kind === 'evento_corporativo')?.status,
+    ).toBe('open');
   });
 
   it('nenhum achado resolve tudo o que havia', () => {
@@ -162,7 +168,10 @@ describe('o que o painel mostra', () => {
 
   it('adiado sem data não volta: o banco recusa esse estado, e a tela também', () => {
     expect(
-      isVisibleOn(instance('r', 's', { status: 'snoozed', snooze_until: null }), '2024-03-10'),
+      isVisibleOn(
+        instance('r', 's', { status: 'snoozed', snooze_until: null }),
+        '2024-03-10',
+      ),
     ).toBe(false);
   });
 });

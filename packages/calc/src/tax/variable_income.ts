@@ -86,7 +86,8 @@ export type TaxLedger = {
 const MONEY_DP = 2;
 const zero = new Decimal(0);
 
-const money = (value: Decimal): string => value.toDecimalPlaces(MONEY_DP).toFixed(MONEY_DP);
+const money = (value: Decimal): string =>
+  value.toDecimalPlaces(MONEY_DP).toFixed(MONEY_DP);
 
 const monthKey = (sale: TaxableSale): string =>
   `${sale.trade_date.slice(0, 7)}:${sale.asset_class}`;

@@ -56,9 +56,7 @@ const classify = (error: AppError): ProbeResult['outcome'] =>
   isFormatChangedError(error) ? 'format_changed' : 'unavailable';
 
 const detailOf = (error: AppError): ProbeResult['detail'] =>
-  isFormatChangedError(error)
-    ? { field: error.field, received: error.received }
-    : null;
+  isFormatChangedError(error) ? { field: error.field, received: error.received } : null;
 
 export const probeSources = async (
   options: ProbeOptions,
@@ -167,9 +165,7 @@ export const probeSources = async (
 };
 
 /** As fontes cujo formato mudou. É o que abre issue e o que falha o job. */
-export const formatChanges = (
-  results: readonly ProbeResult[],
-): readonly ProbeResult[] =>
+export const formatChanges = (results: readonly ProbeResult[]): readonly ProbeResult[] =>
   results.filter((result) => result.outcome === 'format_changed');
 
 /** Um relatório legível, para o log do job e o corpo da issue. */

@@ -15,7 +15,9 @@ import type { Connection } from '../postgresql.js';
  * `asset_price` e `manual_price` são lidas juntas de propósito: o fechamento
  * precisa de um preço por ativo, não de duas respostas para escolher.
  */
-const parsePriceAt = (row: Row): {
+const parsePriceAt = (
+  row: Row,
+): {
   readonly asset_id: string;
   readonly price_date: DateOnly;
   readonly close: string;

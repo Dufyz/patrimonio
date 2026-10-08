@@ -96,7 +96,9 @@ export const confirmCorporateEvent = (deps: CorporateEventWriteDeps) =>
             (entry) => entry.portfolio_id === holding.portfolio_id,
           );
 
-          const position = applyLedger(ofPortfolio, { until: event.record_date }).position;
+          const position = applyLedger(ofPortfolio, {
+            until: event.record_date,
+          }).position;
 
           // Carteira sem posição na data-com não é afetada: aplicar o evento
           // nela criaria lançamento que não muda nada e polui o extrato.

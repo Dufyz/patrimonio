@@ -1,10 +1,4 @@
-import {
-  asBoolean,
-  asEnum,
-  asIsoString,
-  asNumeric,
-  asString,
-} from '../support/row.js';
+import { asBoolean, asEnum, asIsoString, asNumeric, asString } from '../support/row.js';
 import type { Row } from '../support/row.js';
 import { INSTITUTION_ROLES } from './institution.entities.js';
 import type { Institution } from './institution.entities.js';

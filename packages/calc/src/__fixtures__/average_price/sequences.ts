@@ -128,7 +128,10 @@ export const LEDGER_CASES: readonly LedgerCase[] = [
   },
   {
     name: 'venda com taxa: o resultado é líquido da corretagem',
-    entries: [buy('2024-01-10', '100', '30.00'), sell('2024-02-10', '40', '45.00', '4.90')],
+    entries: [
+      buy('2024-01-10', '100', '30.00'),
+      sell('2024-02-10', '40', '45.00', '4.90'),
+    ],
     position: {
       quantity: '60.00000000',
       avg_price: '30.00000000',

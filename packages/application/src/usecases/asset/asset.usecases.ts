@@ -53,7 +53,9 @@ export const createAsset = (deps: AssetWriteDeps) =>
       const existing = await repositories.assets.findByTicker(draft.ticker);
       if (existing.isFailure()) return existing;
       if (existing.value !== null) {
-        return failure(new ConflictError(`Já existe um ativo com o código ${draft.ticker}`));
+        return failure(
+          new ConflictError(`Já existe um ativo com o código ${draft.ticker}`),
+        );
       }
 
       return createAssetIn(repositories, draft);
@@ -126,7 +128,8 @@ export const updateAsset = (deps: AssetWriteDeps) =>
       }
 
       const reclassified =
-        patch.category_id !== undefined && patch.category_id !== current.value.category_id;
+        patch.category_id !== undefined &&
+        patch.category_id !== current.value.category_id;
 
       const updated = await repositories.assets.update(id, patch);
       if (updated.isFailure()) return updated;

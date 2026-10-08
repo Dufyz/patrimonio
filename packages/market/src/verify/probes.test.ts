@@ -13,7 +13,8 @@ import type { FetchLike } from '../http/client.js';
 const DATE = '2026-10-06' as DateOnly;
 const FROM = '2026-10-01' as DateOnly;
 
-const responding = (bodyFor: (url: string) => { status: number; body: string }): FetchLike =>
+const responding =
+  (bodyFor: (url: string) => { status: number; body: string }): FetchLike =>
   async (url) => {
     const answer = bodyFor(url);
 
@@ -21,7 +22,8 @@ const responding = (bodyFor: (url: string) => { status: number; body: string }):
   };
 
 const saudavel = responding((url) => {
-  if (url.includes('bcdata.sgs')) return { status: 200, body: fixture('bcb/sgs-12-cdi.json') };
+  if (url.includes('bcdata.sgs'))
+    return { status: 200, body: fixture('bcb/sgs-12-cdi.json') };
   if (url.includes('tesourodireto')) {
     return { status: 200, body: fixture('tesouro/treasurybondsinfo.json') };
   }

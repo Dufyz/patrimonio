@@ -68,7 +68,9 @@ export const classifyAsset = (
   categories: readonly Category[],
 ): Category | null => {
   const candidates = categories
-    .filter((category) => category.auto_rule !== null && matches(category.auto_rule, asset))
+    .filter(
+      (category) => category.auto_rule !== null && matches(category.auto_rule, asset),
+    )
     .sort((left, right) =>
       left.sort_order === right.sort_order
         ? left.name.localeCompare(right.name)

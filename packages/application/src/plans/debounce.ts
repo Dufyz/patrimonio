@@ -35,10 +35,8 @@ export type DebouncePolicy = (draft: OutboxEventDraft) => OutboxEventDraft;
  * O relógio entra por parâmetro: nenhuma função de política chama `new Date()`, e é
  * o que permite ao teste empurrar a rajada no tempo sem esperar de verdade.
  */
-export const createDebouncePolicy = (
-  config: DebounceConfig,
-  now: () => Date,
-): DebouncePolicy =>
+export const createDebouncePolicy =
+  (config: DebounceConfig, now: () => Date): DebouncePolicy =>
   (draft: OutboxEventDraft): OutboxEventDraft => {
     if (!coalesces(draft.stage)) return draft;
 

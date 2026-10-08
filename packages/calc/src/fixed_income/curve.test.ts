@@ -9,12 +9,7 @@ import {
   prefixedOneYear,
   weekdays,
 } from '../__fixtures__/fixed_income/curve.js';
-import {
-  accrualDays,
-  annualToPeriodFactor,
-  curveSeries,
-  curveValue,
-} from './curve.js';
+import { accrualDays, annualToPeriodFactor, curveSeries, curveValue } from './curve.js';
 
 describe('pró-rata conta dia útil', () => {
   it('CDB a 112% do CDI num período com feriado rende cinco dias úteis, não oito', () => {

@@ -71,31 +71,27 @@ export const createPortfolio = (deps: CreatePortfolioDeps) =>
       sort_order: input.sort_order,
     };
 
-    return yield* await deps.unitOfWork.run<AppError, Portfolio>(
-      async (repositories) => {
-        const existing = await repositories.portfolios.findByName(draft.name);
-        if (existing.isFailure()) return existing;
+    return yield* await deps.unitOfWork.run<AppError, Portfolio>(async (repositories) => {
+      const existing = await repositories.portfolios.findByName(draft.name);
+      if (existing.isFailure()) return existing;
 
-        // O índice único é parcial — arquivar libera o nome —, então a
-        // conferência aqui é sobre as ativas, que é o que a barra lateral mostra.
-        if (existing.value !== null && existing.value.archived_at === null) {
-          return failure(
-            new ConflictError(`Já existe uma carteira chamada ${draft.name}`),
-          );
-        }
+      // O índice único é parcial — arquivar libera o nome —, então a
+      // conferência aqui é sobre as ativas, que é o que a barra lateral mostra.
+      if (existing.value !== null && existing.value.archived_at === null) {
+        return failure(new ConflictError(`Já existe uma carteira chamada ${draft.name}`));
+      }
 
-        const created = await repositories.portfolios.create(draft);
-        if (created.isFailure()) return created;
+      const created = await repositories.portfolios.create(draft);
+      if (created.isFailure()) return created;
 
-        if (targets.length > 0) {
-          const saved = await repositories.portfolios.replaceTargets(
-            created.value.id,
-            targets,
-          );
-          if (saved.isFailure()) return saved;
-        }
+      if (targets.length > 0) {
+        const saved = await repositories.portfolios.replaceTargets(
+          created.value.id,
+          targets,
+        );
+        if (saved.isFailure()) return saved;
+      }
 
-        return success(created.value);
-      },
-    );
+      return success(created.value);
+    });
   });

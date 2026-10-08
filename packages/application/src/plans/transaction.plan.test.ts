@@ -100,10 +100,7 @@ describe('preview da compra', () => {
   });
 
   it('categoria sem alvo mostra composição real e desvio vazio', () => {
-    const { preview } = planTransaction(
-      contexto({ targets: new Map() }),
-      compraDeHoje,
-    );
+    const { preview } = planTransaction(contexto({ targets: new Map() }), compraDeHoje);
 
     expect(preview.allocation?.current_pct.after).toBeTruthy();
     expect(preview.allocation?.target_pct).toBeNull();
