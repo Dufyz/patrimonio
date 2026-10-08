@@ -59,7 +59,5 @@ export const monthlyProjection = (input: {
 }): number => {
   const overhead = 1 + (input.overheadRatio ?? 0.3);
 
-  return Math.ceil(
-    input.requestsPerCollection * input.businessDaysPerMonth * overhead,
-  );
+  return Math.ceil(input.requestsPerCollection * input.businessDaysPerMonth * overhead);
 };

@@ -42,7 +42,10 @@ describe('a série ajustada é para o gráfico, não para o patrimônio', () => 
 
   it('grupamento 10:1 multiplica o preço anterior por dez', () => {
     const { points } = adjustForEvents(
-      [{ price_date: '2019-01-02', close: '3.20' }, { price_date: '2026-10-06', close: '32.00' }],
+      [
+        { price_date: '2019-01-02', close: '3.20' },
+        { price_date: '2026-10-06', close: '32.00' },
+      ],
       [grupamento],
     );
 
@@ -113,10 +116,7 @@ describe('a série ajustada é para o gráfico, não para o patrimônio', () => 
       [],
     );
 
-    expect(points.map((point) => point.price_date)).toEqual([
-      '2015-03-12',
-      '2026-10-06',
-    ]);
+    expect(points.map((point) => point.price_date)).toEqual(['2015-03-12', '2026-10-06']);
   });
 
   it('alternar entre ajustada e negociada não muda nenhum dado gravado', () => {
@@ -124,10 +124,6 @@ describe('a série ajustada é para o gráfico, não para o patrimônio', () => 
     // continua intocado, e `adjusted_close` é derivado na leitura.
     const { points } = adjustForEvents(serie, [desdobramento, grupamento]);
 
-    expect(points.map((point) => point.close)).toEqual([
-      '64.82',
-      '70.00',
-      '32.41',
-    ]);
+    expect(points.map((point) => point.close)).toEqual(['64.82', '70.00', '32.41']);
   });
 });

@@ -24,9 +24,6 @@ import { logger } from './logger.js';
 import { runRelayOnce } from './relay.js';
 import type { RelayDeps } from './relay.js';
 
-
-
-
 let sql: Sql;
 let redis: RedisConnection;
 let queues: Queues;

@@ -20,6 +20,7 @@
     "@patrimonio/db": "workspace:*",
     "@patrimonio/domain": "workspace:*",
     "@patrimonio/env": "workspace:*",
+    "@patrimonio/market": "workspace:*",
     "@patrimonio/queue": "workspace:*",
     "@patrimonio/shared": "workspace:*",
     "cors": "^2.8.6",

@@ -31,10 +31,7 @@ import type { Either } from '@patrimonio/shared';
 const kindFor = (index: number): PriceSourceKind =>
   index === 0 ? 'primary' : 'fallback';
 
-const nothing = (
-  tickers: readonly string[],
-  requests: number,
-): SourcedClosing => ({
+const nothing = (tickers: readonly string[], requests: number): SourcedClosing => ({
   quotes: [],
   missing: [...tickers],
   source: 'none',
@@ -42,9 +39,7 @@ const nothing = (
   requests,
 });
 
-export const createQuoteChain = (
-  providers: readonly QuoteProvider[],
-): QuoteSource => ({
+export const createQuoteChain = (providers: readonly QuoteProvider[]): QuoteSource => ({
   fetchClosing: async (
     tickers: readonly string[],
     date: DateOnly,

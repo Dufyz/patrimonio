@@ -1,7 +1,4 @@
-import {
-  MarketDataUnavailableError,
-  NotFoundError,
-} from '@patrimonio/application';
+import { MarketDataUnavailableError, NotFoundError } from '@patrimonio/application';
 import {
   closeDatabase,
   createConnection,
@@ -28,9 +25,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { stageUseCases } from '../testing/stage-usecases.js';
 import { defineStage } from './define-stage.js';
 import type { StageDeps } from './define-stage.js';
-
-
-
 
 let sql: Sql;
 let redis: RedisConnection;

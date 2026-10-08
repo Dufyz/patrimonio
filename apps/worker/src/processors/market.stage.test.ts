@@ -54,12 +54,7 @@ const collect = (script: Script) =>
 const backfill = (script: Script) =>
   backfillAsset({ unitOfWork, clock, quotes: scriptedQuotes(script) });
 
-const outubro = [
-  '2026-10-01',
-  '2026-10-02',
-  '2026-10-05',
-  '2026-10-06',
-] as const;
+const outubro = ['2026-10-01', '2026-10-02', '2026-10-05', '2026-10-06'] as const;
 
 beforeAll(async () => {
   await runMigrations(environment.database.connection);
@@ -265,11 +260,7 @@ describe('a coleta do dia', () => {
       { source: string; kind: string; ok: boolean; source_kind: string | null }[]
     >`select source, kind, ok, source_kind from market_source_run order by kind`;
 
-    expect(runs.map((row) => row.kind).sort()).toEqual([
-      'indices',
-      'quotes',
-      'treasury',
-    ]);
+    expect(runs.map((row) => row.kind).sort()).toEqual(['indices', 'quotes', 'treasury']);
     expect(runs.every((row) => row.ok)).toBe(true);
     expect(runs.find((row) => row.kind === 'quotes')?.source_kind).toBe('primary');
   });
@@ -364,9 +355,7 @@ describe('o backfill de um papel', () => {
       })({ asset_id: ACAO }),
     );
 
-    const segunda = unwrapSuccess(
-      await backfill({ history: [] })({ asset_id: ACAO }),
-    );
+    const segunda = unwrapSuccess(await backfill({ history: [] })({ asset_id: ACAO }));
 
     expect(segunda.skipped).toBe(true);
   });

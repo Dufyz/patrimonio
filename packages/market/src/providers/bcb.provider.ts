@@ -44,12 +44,11 @@ export const SGS_SERIES: Readonly<Record<'CDI' | 'SELIC' | 'IPCA', number>> = {
   IPCA: 433,
 };
 
-const UNIT_OF: Readonly<Record<'CDI' | 'SELIC' | 'IPCA', 'daily_pct' | 'monthly_pct'>> =
-  {
-    CDI: 'daily_pct',
-    SELIC: 'daily_pct',
-    IPCA: 'monthly_pct',
-  };
+const UNIT_OF: Readonly<Record<'CDI' | 'SELIC' | 'IPCA', 'daily_pct' | 'monthly_pct'>> = {
+  CDI: 'daily_pct',
+  SELIC: 'daily_pct',
+  IPCA: 'monthly_pct',
+};
 
 type Served = keyof typeof SGS_SERIES;
 

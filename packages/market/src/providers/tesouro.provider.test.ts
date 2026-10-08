@@ -17,8 +17,7 @@ const CSV_BODY = fixture('tesouro/PrecoTaxaTesouroDireto.csv');
 const DATE = '2026-10-06' as DateOnly;
 
 const json = (body = JSON_BODY) => createTesouroJsonProvider({ http: replying(body) });
-const csv = (body = CSV_BODY) =>
-  createTesouroCsvProvider({ http: replying(''), body });
+const csv = (body = CSV_BODY) => createTesouroCsvProvider({ http: replying(''), body });
 
 describe('identificação do título', () => {
   it('é por indexador, não por nome comercial', () => {
@@ -58,9 +57,9 @@ describe('o JSON do site do Tesouro', () => {
 
     expect(result.isSuccess()).toBe(true);
     if (!result.isSuccess()) return;
-    expect(
-      result.value.some((quote) => quote.maturity_date === '2024-01-01'),
-    ).toBe(false);
+    expect(result.value.some((quote) => quote.maturity_date === '2024-01-01')).toBe(
+      false,
+    );
   });
 
   it('produto novo não derruba a coleta dos que existem', async () => {
@@ -80,9 +79,9 @@ describe('o JSON do site do Tesouro', () => {
 
     expect(result.isSuccess()).toBe(true);
     if (!result.isSuccess()) return;
-    expect(
-      result.value.find((quote) => quote.kind === 'prefixed')?.maturity_date,
-    ).toBe('2027-01-01');
+    expect(result.value.find((quote) => quote.kind === 'prefixed')?.maturity_date).toBe(
+      '2027-01-01',
+    );
   });
 
   it('envelope alterado falha nomeando o caminho', async () => {
@@ -90,9 +89,7 @@ describe('o JSON do site do Tesouro', () => {
 
     expect(result.isFailure()).toBe(true);
     if (!result.isFailure()) return;
-    expect((result.value as FormatChangedError).field).toBe(
-      'response.TrsrBdTradgList',
-    );
+    expect((result.value as FormatChangedError).field).toBe('response.TrsrBdTradgList');
   });
 
   it('preço que virou texto não numérico falha nomeando o título', async () => {

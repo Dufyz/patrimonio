@@ -76,7 +76,10 @@ export const createContainer = (): WorkerContainer => {
   // regra de quais estágios esperam vem de `application`.
   const debounce = createDebouncePolicy(
     {
-      waitMs: Math.min(environment.pipeline.relayPollMs * 2, environment.pipeline.debounceMaxMs),
+      waitMs: Math.min(
+        environment.pipeline.relayPollMs * 2,
+        environment.pipeline.debounceMaxMs,
+      ),
       maxMs: environment.pipeline.debounceMaxMs,
     },
     () => systemClock.now(),

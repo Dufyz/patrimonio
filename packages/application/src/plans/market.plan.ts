@@ -72,9 +72,7 @@ const treasuryKey = (kind: string, maturity: DateOnly): string =>
   `${kind}\u0000${maturity}`;
 
 const isTreasury = (asset: PriceableAsset): boolean =>
-  asset.b3_type === 'treasury' &&
-  asset.indexer !== null &&
-  asset.maturity_date !== null;
+  asset.b3_type === 'treasury' && asset.indexer !== null && asset.maturity_date !== null;
 
 export const planMarketIngestion = (
   context: MarketIngestionContext,
@@ -245,9 +243,7 @@ export const planBackfillWindow = (input: {
 
   const pending = input.business_days.filter(
     (day) =>
-      day >= input.first_trade_date &&
-      day <= input.reference_date &&
-      !priced.has(day),
+      day >= input.first_trade_date && day <= input.reference_date && !priced.has(day),
   );
 
   const first = pending[0];

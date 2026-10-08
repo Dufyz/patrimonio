@@ -1,0 +1,102 @@
+name: Verificação noturna das fontes
+
+# A bateria de contrato contra as APIs reais. Ela existe porque os testes de
+# commit rodam contra resposta gravada em arquivo, e resposta gravada não muda
+# quando a fonte muda — um campo que virou `undefined` silencioso não dá erro,
+# dá número errado no patrimônio.
+#
+# Ela **não** bloqueia commit nem deploy: depende da internet e de a fonte estar
+# no ar. O que ela faz é abrir issue com o trecho recebido.
+on:
+  schedule:
+    # 04:00 UTC, que é 01:00 em São Paulo: depois da coleta do dia anterior.
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  contrato:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      CI: 'true'
+      MARKET_BRAPI_TOKEN: ${{ secrets.MARKET_BRAPI_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Um dia útil recente, do qual as fontes já têm dado publicado.
+      - name: Escolher a data de referência
+        id: datas
+        run: |
+          echo "date=$(date -u -d 'yesterday' +%F)" >> "$GITHUB_OUTPUT"
+          echo "from=$(date -u -d 'yesterday' +%Y-%m-01)" >> "$GITHUB_OUTPUT"
+
+      - name: Bateria de contrato
+        id: contrato
+        continue-on-error: true
+        env:
+          LIVE_REFERENCE_DATE: ${{ steps.datas.outputs.date }}
+          LIVE_FROM: ${{ steps.datas.outputs.from }}
+        run: pnpm test:live 2>&1 | tee contrato.log
+
+      # Formato alterado abre issue com o trecho recebido, que é o que torna o
+      # diagnóstico possível sem reproduzir o dia.
+      - name: Abrir issue quando o formato mudou
+        if: steps.contrato.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { readFileSync } = require('node:fs');
+            const log = readFileSync('contrato.log', 'utf8').slice(-8000);
+            const title = `Formato de fonte de mercado mudou (${{ steps.datas.outputs.date }})`;
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'dados-de-mercado',
+            });
+
+            const body = [
+              'A bateria de contrato falhou contra as APIs reais.',
+              '',
+              'Isto não bloqueia commit nem deploy. O que ele significa é que um',
+              'provedor precisa de ajuste antes de a próxima coleta gravar número',
+              'errado.',
+              '',
+              '```',
+              log,
+              '```',
+            ].join('\n');
+
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body,
+              });
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['dados-de-mercado'],
+            });

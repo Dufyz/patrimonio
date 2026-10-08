@@ -50,10 +50,7 @@ export const createMarketIngestionRepository = (
   sql: Connection,
 ): MarketIngestionRepository => ({
   upsertPrices: async (incoming: readonly AssetPriceWrite[]) => {
-    const rows = lastPerKey(
-      incoming,
-      (row) => `${row.asset_id}\u0000${row.price_date}`,
-    );
+    const rows = lastPerKey(incoming, (row) => `${row.asset_id}\u0000${row.price_date}`);
 
     if (rows.length === 0) return success(0);
 
@@ -62,11 +59,26 @@ export const createMarketIngestionRepository = (
         insert into asset_price (asset_id, price_date, close, source, source_kind, fetched_at)
         select * , now()
           from unnest(
-            ${sql.array(rows.map((row) => row.asset_id), ARRAY_OID.uuid)}::uuid[],
-            ${sql.array(rows.map((row) => row.price_date), ARRAY_OID.date)}::date[],
-            ${sql.array(rows.map((row) => row.close), ARRAY_OID.numeric)}::numeric[],
-            ${sql.array(rows.map((row) => row.source), ARRAY_OID.text)}::text[],
-            ${sql.array(rows.map((row) => row.source_kind), ARRAY_OID.text)}::price_source_kind[]
+            ${sql.array(
+              rows.map((row) => row.asset_id),
+              ARRAY_OID.uuid,
+            )}::uuid[],
+            ${sql.array(
+              rows.map((row) => row.price_date),
+              ARRAY_OID.date,
+            )}::date[],
+            ${sql.array(
+              rows.map((row) => row.close),
+              ARRAY_OID.numeric,
+            )}::numeric[],
+            ${sql.array(
+              rows.map((row) => row.source),
+              ARRAY_OID.text,
+            )}::text[],
+            ${sql.array(
+              rows.map((row) => row.source_kind),
+              ARRAY_OID.text,
+            )}::price_source_kind[]
           )
         on conflict (asset_id, price_date) do update set
           close       = excluded.close,
@@ -95,11 +107,26 @@ export const createMarketIngestionRepository = (
         insert into index_quote (index_code, quote_date, daily_factor, raw_value, source, fetched_at)
         select *, now()
           from unnest(
-            ${sql.array(rows.map((row) => row.index_code), ARRAY_OID.text)}::text[],
-            ${sql.array(rows.map((row) => row.quote_date), ARRAY_OID.date)}::date[],
-            ${sql.array(rows.map((row) => row.daily_factor), ARRAY_OID.numeric)}::numeric[],
-            ${sql.array(rows.map((row) => row.raw_value), ARRAY_OID.numeric)}::numeric[],
-            ${sql.array(rows.map((row) => row.source), ARRAY_OID.text)}::text[]
+            ${sql.array(
+              rows.map((row) => row.index_code),
+              ARRAY_OID.text,
+            )}::text[],
+            ${sql.array(
+              rows.map((row) => row.quote_date),
+              ARRAY_OID.date,
+            )}::date[],
+            ${sql.array(
+              rows.map((row) => row.daily_factor),
+              ARRAY_OID.numeric,
+            )}::numeric[],
+            ${sql.array(
+              rows.map((row) => row.raw_value),
+              ARRAY_OID.numeric,
+            )}::numeric[],
+            ${sql.array(
+              rows.map((row) => row.source),
+              ARRAY_OID.text,
+            )}::text[]
           )
         on conflict (index_code, quote_date) do update set
           daily_factor = excluded.daily_factor,
@@ -312,13 +339,34 @@ export const createMarketIngestionRepository = (
         )
         select *
           from unnest(
-            ${sql.array(rows.map(() => uuidv7()), ARRAY_OID.uuid)}::uuid[],
-            ${sql.array(rows.map((row) => row.asset_id), ARRAY_OID.uuid)}::uuid[],
-            ${sql.array(rows.map((row) => row.payout_kind), ARRAY_OID.text)}::payout_kind[],
-            ${sql.array(rows.map((row) => row.record_date), ARRAY_OID.date)}::date[],
-            ${sql.array(rows.map((row) => row.payment_date), ARRAY_OID.date)}::date[],
-            ${sql.array(rows.map((row) => row.amount_per_share), ARRAY_OID.numeric)}::numeric[],
-            ${sql.array(rows.map((row) => row.source), ARRAY_OID.text)}::text[]
+            ${sql.array(
+              rows.map(() => uuidv7()),
+              ARRAY_OID.uuid,
+            )}::uuid[],
+            ${sql.array(
+              rows.map((row) => row.asset_id),
+              ARRAY_OID.uuid,
+            )}::uuid[],
+            ${sql.array(
+              rows.map((row) => row.payout_kind),
+              ARRAY_OID.text,
+            )}::payout_kind[],
+            ${sql.array(
+              rows.map((row) => row.record_date),
+              ARRAY_OID.date,
+            )}::date[],
+            ${sql.array(
+              rows.map((row) => row.payment_date),
+              ARRAY_OID.date,
+            )}::date[],
+            ${sql.array(
+              rows.map((row) => row.amount_per_share),
+              ARRAY_OID.numeric,
+            )}::numeric[],
+            ${sql.array(
+              rows.map((row) => row.source),
+              ARRAY_OID.text,
+            )}::text[]
           )
         on conflict (asset_id, payout_kind, record_date) do update set
           payment_date     = excluded.payment_date,

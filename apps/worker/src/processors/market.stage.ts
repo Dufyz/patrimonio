@@ -49,7 +49,9 @@ export const marketStage = (deps: StageDeps): Worker<StageJobData> =>
         // errado, e coletar o dia errado não dá erro — dá número errado.
         if (reference !== undefined && !isDateOnly(reference)) {
           return failure(
-            new BadRequestError('A coleta de mercado precisa de uma reference_date válida'),
+            new BadRequestError(
+              'A coleta de mercado precisa de uma reference_date válida',
+            ),
           );
         }
 

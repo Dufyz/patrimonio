@@ -61,9 +61,7 @@ export const scriptedIndices = (script: Script): IndexProvider => ({
   id: 'bcb',
   series: ['CDI', 'SELIC', 'IPCA'] as readonly IndexCode[],
   fetchSeries: async (codes) =>
-    success(
-      (script.indices ?? []).filter((sample) => codes.includes(sample.index_code)),
-    ),
+    success((script.indices ?? []).filter((sample) => codes.includes(sample.index_code))),
 });
 
 export const scriptedTreasury = (script: Script): TreasurySource => ({

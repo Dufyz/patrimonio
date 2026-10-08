@@ -21,7 +21,8 @@ export const fixture = (relative: string): string =>
   );
 
 /** Responde o mesmo corpo a qualquer URL. */
-export const replying = (body: string): HttpClient =>
+export const replying =
+  (body: string): HttpClient =>
   async () =>
     success({ status: 200, body });
 

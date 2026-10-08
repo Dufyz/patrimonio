@@ -42,9 +42,7 @@ describe('número publicado pela fonte', () => {
   });
 
   it('separador de milhar com vírgula decimal é lido sem perder a ordem de grandeza', () => {
-    const result = read({ close: '1.234,56' }, (source) =>
-      decimalField(source, 'close'),
-    );
+    const result = read({ close: '1.234,56' }, (source) => decimalField(source, 'close'));
 
     expect(result.isSuccess()).toBe(true);
     if (!result.isSuccess()) return;
@@ -89,9 +87,7 @@ describe('os sete casos de mudança de formato', () => {
   });
 
   it('casa decimal diferente é tolerada: o valor é o mesmo', () => {
-    const result = read({ close: '32.4100' }, (source) =>
-      decimalField(source, 'close'),
-    );
+    const result = read({ close: '32.4100' }, (source) => decimalField(source, 'close'));
 
     expect(result.isSuccess()).toBe(true);
   });

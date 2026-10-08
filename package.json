@@ -25,7 +25,9 @@
     "seed:business-days": "pnpm --filter @patrimonio/db seed:business-days",
     "verify": "pnpm lint && pnpm typecheck && pnpm test",
     "holidays:report": "pnpm --filter @patrimonio/db holidays:report",
-    "holidays:generate": "pnpm --filter @patrimonio/db holidays:generate"
+    "holidays:generate": "pnpm --filter @patrimonio/db holidays:generate",
+    "test:live": "pnpm --filter @patrimonio/market test:live",
+    "verify:sources": "pnpm --filter @patrimonio/worker verify:sources"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

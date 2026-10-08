@@ -78,9 +78,7 @@ export type TesouroOptions = { readonly http: HttpClient };
  * degrau é conferido: um `undefined` silencioso aqui gravaria o preço de outro
  * título.
  */
-export const createTesouroJsonProvider = (
-  options: TesouroOptions,
-): TreasuryProvider => ({
+export const createTesouroJsonProvider = (options: TesouroOptions): TreasuryProvider => ({
   id: TESOURO_JSON_SOURCE,
 
   fetchQuotes: async (
@@ -204,7 +202,11 @@ export const createTesouroCsvProvider = (options: CsvOptions): TreasuryProvider 
         const cells = splitCsv(line);
         const where = `csv[${offset + 2}]`;
 
-        const base = dateField({ v: cells[at_.base] }, 'v', `${where}.${CSV_COLUMNS.base}`);
+        const base = dateField(
+          { v: cells[at_.base] },
+          'v',
+          `${where}.${CSV_COLUMNS.base}`,
+        );
         if (base !== date) continue;
 
         const kind = kindFromName(cells[at_.kind] ?? '');

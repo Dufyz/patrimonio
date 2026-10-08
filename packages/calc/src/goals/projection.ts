@@ -141,9 +141,7 @@ export const projectGoal = (input: GoalInput): GoalProjection => {
 
   const arrival = arrivalMonth(input, rate);
 
-  const progress = target.isZero()
-    ? zero
-    : present.dividedBy(target).times(100);
+  const progress = target.isZero() ? zero : present.dividedBy(target).times(100);
 
   const surplus = present.minus(target);
 
@@ -161,8 +159,7 @@ export const projectGoal = (input: GoalInput): GoalProjection => {
     surplus_brl: surplus.gt(0) ? money(surplus) : null,
     projected_amount: projectedShown,
     required_monthly: moneyUp(requiredContribution(present, target, rate, months)),
-    arrival_date:
-      arrival === null ? null : addMonths(input.reference_date, arrival),
+    arrival_date: arrival === null ? null : addMonths(input.reference_date, arrival),
     months_to_arrival: arrival,
     on_track: projected.greaterThanOrEqualTo(target),
     gap_brl: money(new Big(targetShown).minus(new Big(projectedShown))),

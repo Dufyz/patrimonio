@@ -25,7 +25,9 @@ export type HttpResponse = {
   readonly body: string;
 };
 
-export type HttpClient = (request: HttpRequest) => Promise<Either<AppError, HttpResponse>>;
+export type HttpClient = (
+  request: HttpRequest,
+) => Promise<Either<AppError, HttpResponse>>;
 
 /** Quanto do corpo entra no erro. Suficiente para diagnosticar, curto para logar. */
 export const EXCERPT_LIMIT = 500;

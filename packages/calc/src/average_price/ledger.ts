@@ -102,7 +102,8 @@ export const sortEntries = (entries: readonly LedgerEntry[]): LedgerEntry[] =>
   });
 
 /** Quantidade move para fora quando o dinheiro — ou o ativo — sai da carteira. */
-const isOutgoing = (entry: LedgerEntry): boolean => decimal(entry.net_amount).isNegative();
+const isOutgoing = (entry: LedgerEntry): boolean =>
+  decimal(entry.net_amount).isNegative();
 
 const applyBuy = (state: Internal, entry: LedgerEntry): void => {
   const quantity = decimal(entry.quantity);
@@ -120,9 +121,7 @@ const applySell = (state: Internal, entry: LedgerEntry): void => {
 
   if (asked.greaterThan(state.quantity)) state.oversold = true;
 
-  const average = state.quantity.isZero()
-    ? zero
-    : state.cost.dividedBy(state.quantity);
+  const average = state.quantity.isZero() ? zero : state.cost.dividedBy(state.quantity);
 
   // Venda parcial consome custo proporcional ao preço médio, e o preço médio
   // das cotas restantes não muda.
@@ -280,10 +279,8 @@ export const applyLedger = (
 };
 
 /** A posição de um ativo numa data, que é o "antes" de todo preview. */
-export const positionAt = (
-  entries: readonly LedgerEntry[],
-  date: string,
-): Position => applyLedger(entries, { until: date }).position;
+export const positionAt = (entries: readonly LedgerEntry[], date: string): Position =>
+  applyLedger(entries, { until: date }).position;
 
 /**
  * O caixa não é coluna de saldo: é a soma dos valores líquidos que entraram e

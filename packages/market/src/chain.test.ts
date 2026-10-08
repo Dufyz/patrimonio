@@ -117,7 +117,12 @@ describe('cadeia de fallback', () => {
         id: 'brapi',
         answer: () =>
           failure(
-            new FormatChangedError('brapi', 'results.0.regularMarketPrice', 'não é um número', '"x"'),
+            new FormatChangedError(
+              'brapi',
+              'results.0.regularMarketPrice',
+              'não é um número',
+              '"x"',
+            ),
           ),
       }),
       provider({

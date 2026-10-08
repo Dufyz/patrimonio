@@ -112,10 +112,7 @@ describe('o orçamento mensal', () => {
 
 describe('ticker que a fonte não conhece', () => {
   it('entra em missing e não quebra o lote', async () => {
-    const result = await brapi(LOTE, 10).fetchClosing(
-      ['ITUB4', 'KNRI11', 'XPTO3'],
-      DATE,
-    );
+    const result = await brapi(LOTE, 10).fetchClosing(['ITUB4', 'KNRI11', 'XPTO3'], DATE);
 
     expect(result.isSuccess()).toBe(true);
     if (!result.isSuccess()) return;
@@ -133,7 +130,10 @@ describe('ticker que a fonte não conhece', () => {
   });
 
   it('papel conhecido sem preço no dia também fica missing, e nunca zero', async () => {
-    const body = UM.replace('"regularMarketPrice": 32.41,', '"regularMarketPrice": null,');
+    const body = UM.replace(
+      '"regularMarketPrice": 32.41,',
+      '"regularMarketPrice": null,',
+    );
 
     const result = await brapi(body).fetchClosing(['ITUB4'], DATE);
 

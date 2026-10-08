@@ -9,6 +9,12 @@ export const sharedTestConfig: UserConfig = {
     globals: false,
     passWithNoTests: true,
     include: ['src/**/*.test.ts'],
+    /**
+     * `*.live.test.ts` fala com a internet e roda só na verificação noturna,
+     * por `pnpm test:live`. Um teste de commit que depende de a brapi estar no
+     * ar é um teste que ensina a equipe a ignorar vermelho.
+     */
+    exclude: ['**/node_modules/**', '**/dist/**', 'src/**/*.live.test.ts'],
     reporters: process.env.CI === 'true' ? ['dot'] : ['default'],
     coverage: {
       provider: 'v8',

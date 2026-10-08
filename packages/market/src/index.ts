@@ -9,7 +9,12 @@
  */
 export { createQuoteChain, createTreasuryChain } from './chain.js';
 
-export { BCB_SOURCE, SGS_SERIES, createBcbProvider, sgsUrl } from './providers/bcb.provider.js';
+export {
+  BCB_SOURCE,
+  SGS_SERIES,
+  createBcbProvider,
+  sgsUrl,
+} from './providers/bcb.provider.js';
 export {
   BRAPI_FREE_MONTHLY_CEILING,
   BRAPI_SOURCE,
@@ -62,3 +67,6 @@ export {
   parsing,
   stringField,
 } from './support/format.js';
+
+export { formatChanges, probeSources, reportOf } from './verify/probes.js';
+export type { ProbeOptions, ProbeOutcome, ProbeResult } from './verify/probes.js';

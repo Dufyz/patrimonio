@@ -50,11 +50,8 @@ const fail = (field: string, reason: string, received: unknown): never => {
  * coluna que saiu de um CSV, registro de largura fixa mais curto do que o
  * layout, envelope que mudou de nome.
  */
-export const formatChanged = (
-  field: string,
-  reason: string,
-  received: unknown,
-): never => fail(field, reason, received);
+export const formatChanged = (field: string, reason: string, received: unknown): never =>
+  fail(field, reason, received);
 
 /** O corpo da resposta como objeto. Corpo vazio é mudança de formato. */
 export const asObject = (value: unknown, field: string): Record<string, unknown> => {
@@ -83,10 +80,7 @@ export const asJson = (body: string, field = 'body'): unknown => {
 };
 
 /** Desce no envelope. Envelope alterado falha aqui, nomeando o caminho. */
-export const at = (
-  source: Record<string, unknown>,
-  path: readonly string[],
-): unknown => {
+export const at = (source: Record<string, unknown>, path: readonly string[]): unknown => {
   let current: unknown = source;
 
   for (const [index, key] of path.entries()) {

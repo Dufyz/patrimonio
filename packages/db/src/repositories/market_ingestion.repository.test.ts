@@ -165,7 +165,11 @@ describe('escrita dos preços', () => {
     );
     unwrapSuccess(
       await repositories.market.upsertPrices([
-        { ...price(ITUB4, '2026-10-06', '32.68'), source: 'usebolsai', source_kind: 'fallback' },
+        {
+          ...price(ITUB4, '2026-10-06', '32.68'),
+          source: 'usebolsai',
+          source_kind: 'fallback',
+        },
       ]),
     );
 
@@ -259,26 +263,20 @@ describe('escrita dos índices', () => {
 
 describe('quem precisa de preço', () => {
   it('sai do livro, com a data do lançamento mais antigo', async () => {
-    const assets = unwrapSuccess(
-      await repositories.market.priceableAssets('2026-10-06'),
-    );
+    const assets = unwrapSuccess(await repositories.market.priceableAssets('2026-10-06'));
 
     const itub4 = assets.find((asset) => asset.asset_id === ITUB4);
     expect(itub4?.first_trade_date).toBe('2015-03-12');
   });
 
   it('renda fixa de banco fica fora: é marcada na curva', async () => {
-    const assets = unwrapSuccess(
-      await repositories.market.priceableAssets('2026-10-06'),
-    );
+    const assets = unwrapSuccess(await repositories.market.priceableAssets('2026-10-06'));
 
     expect(assets.some((asset) => asset.asset_id === CDB)).toBe(false);
   });
 
   it('Tesouro entra, com indexador e vencimento para casar a cotação', async () => {
-    const assets = unwrapSuccess(
-      await repositories.market.priceableAssets('2026-10-06'),
-    );
+    const assets = unwrapSuccess(await repositories.market.priceableAssets('2026-10-06'));
 
     const tesouro = assets.find((asset) => asset.asset_id === TESOURO);
     expect(tesouro?.indexer).toBe('ipca_plus');
@@ -286,25 +284,19 @@ describe('quem precisa de preço', () => {
   });
 
   it('ativo arquivado e sem lançamento não gasta cota', async () => {
-    const assets = unwrapSuccess(
-      await repositories.market.priceableAssets('2026-10-06'),
-    );
+    const assets = unwrapSuccess(await repositories.market.priceableAssets('2026-10-06'));
 
     expect(assets.some((asset) => asset.asset_id === ARQUIVADO)).toBe(false);
   });
 
   it('ativo com preço manual não é buscado na fonte automática', async () => {
-    const assets = unwrapSuccess(
-      await repositories.market.priceableAssets('2026-10-06'),
-    );
+    const assets = unwrapSuccess(await repositories.market.priceableAssets('2026-10-06'));
 
     expect(assets.some((asset) => asset.asset_id === MANUAL)).toBe(false);
   });
 
   it('lançamento futuro não entra na coleta de hoje', async () => {
-    const assets = unwrapSuccess(
-      await repositories.market.priceableAssets('2015-03-12'),
-    );
+    const assets = unwrapSuccess(await repositories.market.priceableAssets('2015-03-12'));
 
     expect(assets.map((asset) => asset.asset_id)).toEqual([ITUB4]);
   });
@@ -503,9 +495,7 @@ describe('proventos anunciados', () => {
 
   it('o anunciado que já virou lançamento sai da fila de pendentes', async () => {
     unwrapSuccess(await repositories.market.upsertAnnouncedPayouts([announced()]));
-    const [pending] = unwrapSuccess(
-      await repositories.market.pendingAnnouncedPayouts(),
-    );
+    const [pending] = unwrapSuccess(await repositories.market.pendingAnnouncedPayouts());
 
     const marked = unwrapSuccess(
       await repositories.market.markPayoutMaterialized(
@@ -522,9 +512,7 @@ describe('proventos anunciados', () => {
 
   it('marcar duas vezes não sobrescreve o lançamento já gerado', async () => {
     unwrapSuccess(await repositories.market.upsertAnnouncedPayouts([announced()]));
-    const [pending] = unwrapSuccess(
-      await repositories.market.pendingAnnouncedPayouts(),
-    );
+    const [pending] = unwrapSuccess(await repositories.market.pendingAnnouncedPayouts());
 
     unwrapSuccess(
       await repositories.market.markPayoutMaterialized(

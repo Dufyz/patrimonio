@@ -65,6 +65,9 @@ importers:
       '@patrimonio/env':
         specifier: workspace:*
         version: link:../../packages/env
+      '@patrimonio/market':
+        specifier: workspace:*
+        version: link:../../packages/market
       '@patrimonio/queue':
         specifier: workspace:*
         version: link:../../packages/queue

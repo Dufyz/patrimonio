@@ -8,11 +8,7 @@ import {
 import type { Clock, UnitOfWork } from '@patrimonio/application';
 
 import type { StageUseCases } from '../infra/define-stage.js';
-import {
-  scriptedIndices,
-  scriptedQuotes,
-  scriptedTreasury,
-} from './market.js';
+import { scriptedIndices, scriptedQuotes, scriptedTreasury } from './market.js';
 import type { Script } from './market.js';
 
 /**

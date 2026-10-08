@@ -449,8 +449,7 @@ export const recalcEventsFor = (
       // O recálculo parte da data afetada, mas nunca antes do primeiro
       // lançamento da carteira: reconstruir o que não existe é trabalho sem
       // efeito.
-      from_date:
-        affectedFrom < holding.from_date ? holding.from_date : affectedFrom,
+      from_date: affectedFrom < holding.from_date ? holding.from_date : affectedFrom,
     },
     ...(originRequestId === undefined ? {} : { origin_request_id: originRequestId }),
   }));

@@ -84,10 +84,7 @@ describe('a carga do arquivo anual', () => {
 
     expect(result.isSuccess()).toBe(true);
     if (!result.isSuccess()) return;
-    expect(result.value.quotes.map((quote) => quote.ticker)).toEqual([
-      'ITUB4',
-      'KNRI11',
-    ]);
+    expect(result.value.quotes.map((quote) => quote.ticker)).toEqual(['ITUB4', 'KNRI11']);
     expect(result.value.lines_read).toBe(5);
     expect(result.value.records_kept).toBe(2);
   });
@@ -147,9 +144,7 @@ describe('a carga do arquivo anual', () => {
 
     expect(result.isSuccess()).toBe(true);
     if (!result.isSuccess()) return;
-    expect(result.value.quotes.map((quote) => quote.price_date)).toEqual([
-      '2015-03-12',
-    ]);
+    expect(result.value.quotes.map((quote) => quote.price_date)).toEqual(['2015-03-12']);
     expect(result.value.first_date).toBe('2015-03-12');
     expect(result.value.last_date).toBe('2015-03-12');
   });
@@ -178,10 +173,9 @@ describe('a carga do arquivo anual', () => {
   });
 
   it('linha corrompida no meio do arquivo falha nomeando a linha', async () => {
-    const result = await readCotahist(
-      [record({}), '01201503130211ITUB4', record({})],
-      { tickers: ['ITUB4'] },
-    );
+    const result = await readCotahist([record({}), '01201503130211ITUB4', record({})], {
+      tickers: ['ITUB4'],
+    });
 
     expect(result.isFailure()).toBe(true);
     if (!result.isFailure()) return;

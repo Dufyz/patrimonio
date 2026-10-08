@@ -87,7 +87,10 @@ describe('retentativa', () => {
   it('429 seguido de 200 devolve o 200, sem estourar o limite', async () => {
     const script = responding([{ status: 429 }, { status: 200, body: 'ok' }]);
 
-    const result = await withRetry(client(script.fetch), noWait)({
+    const result = await withRetry(
+      client(script.fetch),
+      noWait,
+    )({
       url: 'https://exemplo/quote',
     });
 
@@ -98,7 +101,10 @@ describe('retentativa', () => {
   it('erro definitivo não é repetido: insistir não muda a resposta', async () => {
     const script = responding([{ status: 404, body: 'não existe' }]);
 
-    const result = await withRetry(client(script.fetch), noWait)({
+    const result = await withRetry(
+      client(script.fetch),
+      noWait,
+    )({
       url: 'https://exemplo/quote',
     });
 
@@ -109,7 +115,10 @@ describe('retentativa', () => {
   it('500 persistente para na terceira tentativa e passa adiante', async () => {
     const script = responding([{ status: 500 }]);
 
-    const result = await withRetry(client(script.fetch), noWait)({
+    const result = await withRetry(
+      client(script.fetch),
+      noWait,
+    )({
       url: 'https://exemplo/quote',
     });
 

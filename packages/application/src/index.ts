@@ -341,11 +341,7 @@ export type {
 export { coalesces, createDebouncePolicy } from './plans/debounce.js';
 export type { DebounceConfig, DebouncePolicy } from './plans/debounce.js';
 
-export {
-  curveFor,
-  planDailyClose,
-  totalIsReliable,
-} from './plans/daily_close.plan.js';
+export { curveFor, planDailyClose, totalIsReliable } from './plans/daily_close.plan.js';
 export type {
   CloseAsset,
   CloseEntry,
@@ -368,7 +364,11 @@ export type {
 export { planTaxes } from './plans/taxes.plan.js';
 export type { TaxSale, TaxesContext, TaxesPlan } from './plans/taxes.plan.js';
 
-export { ALERT_GROUPS, isVisibleOn, reconcileAlerts as planAlertReconciliation } from './plans/alerts.plan.js';
+export {
+  ALERT_GROUPS,
+  isVisibleOn,
+  reconcileAlerts as planAlertReconciliation,
+} from './plans/alerts.plan.js';
 export type {
   AlertGroup,
   AlertKey,
@@ -422,7 +422,10 @@ export type {
   MarketIngestionContext,
   MarketIngestionPlan,
 } from './plans/market.plan.js';
-export { collectMarketData, recalcEventsFor } from './usecases/market/collectMarketData.usecase.js';
+export {
+  collectMarketData,
+  recalcEventsFor,
+} from './usecases/market/collectMarketData.usecase.js';
 export type {
   CollectMarketDataDeps,
   CollectMarketDataInput,
@@ -434,17 +437,13 @@ export type {
   BackfillAssetInput,
   BackfillAssetResult,
 } from './usecases/market/backfillAsset.usecase.js';
-export {
-  materializeAnnouncedPayouts,
-} from './usecases/market/materializeAnnouncedPayouts.usecase.js';
+export { materializeAnnouncedPayouts } from './usecases/market/materializeAnnouncedPayouts.usecase.js';
 export type {
   MaterializePayoutsDeps,
   MaterializePayoutsInput,
   MaterializePayoutsResult,
 } from './usecases/market/materializeAnnouncedPayouts.usecase.js';
-export {
-  ingestCorporateActions,
-} from './usecases/market/ingestCorporateActions.usecase.js';
+export { ingestCorporateActions } from './usecases/market/ingestCorporateActions.usecase.js';
 export type {
   IngestCorporateActionsDeps,
   IngestCorporateActionsInput,
@@ -454,11 +453,23 @@ export {
   corporateEventRunner,
   marketAlertRunners,
 } from './usecases/market/marketAlertRunners.js';
-export {
-  getAssetPriceSeries,
-} from './usecases/market/assetPriceSeries.usecase.js';
+export { getAssetPriceSeries } from './usecases/market/assetPriceSeries.usecase.js';
 export type {
   AssetPriceSeriesDeps,
   AssetPriceSeriesInput,
   AssetPriceSeriesResult,
 } from './usecases/market/assetPriceSeries.usecase.js';
+export {
+  getMarketHealth,
+  refreshMarketData,
+} from './usecases/market/marketHealth.usecase.js';
+export type {
+  MarketHealthDeps,
+  MarketHealthInput,
+  MarketHealthResult,
+  MissingPrice,
+  RefreshMarketInput,
+  RefreshMarketResult,
+  SourceBudget,
+  SourceHealth,
+} from './usecases/market/marketHealth.usecase.js';

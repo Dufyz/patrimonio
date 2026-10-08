@@ -64,8 +64,7 @@ export type JsonQuoteOptions = {
   readonly tickersPerRequest?: number | undefined;
   /** O endereço da série histórica, quando a fonte serve uma. */
   readonly historyUrl?:
-    | ((ticker: string, from: DateOnly, to: DateOnly) => string)
-    | undefined;
+    ((ticker: string, from: DateOnly, to: DateOnly) => string) | undefined;
 };
 
 const DEFAULT_SUPPORTED: readonly B3Type[] = ['stock', 'fii', 'etf', 'bdr'];
@@ -80,9 +79,7 @@ const chunk = <T>(items: readonly T[], size: number): readonly (readonly T[])[] 
   return groups;
 };
 
-export const createJsonQuoteProvider = (
-  options: JsonQuoteOptions,
-): QuoteProvider => {
+export const createJsonQuoteProvider = (options: JsonQuoteOptions): QuoteProvider => {
   const perRequest = Math.max(1, options.tickersPerRequest ?? 10);
 
   const read = (
@@ -122,11 +119,7 @@ export const createJsonQuoteProvider = (
             options.shape.date === undefined
               ? date
               : dateField(row, options.shape.date, `${path}.${options.shape.date}`),
-          close: decimalField(
-            row,
-            options.shape.close,
-            `${path}.${options.shape.close}`,
-          ),
+          close: decimalField(row, options.shape.close, `${path}.${options.shape.close}`),
         });
       }
 

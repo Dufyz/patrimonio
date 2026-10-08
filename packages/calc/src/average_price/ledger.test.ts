@@ -200,9 +200,9 @@ describe('transferência entre carteiras', () => {
     const origem = applyLedger([inicial, saida]);
     const destino = applyLedger([entrada]);
 
-    expect(
-      Number(origem.position.cost_basis) + Number(destino.position.cost_basis),
-    ).toBe(Number(antes.position.cost_basis));
+    expect(Number(origem.position.cost_basis) + Number(destino.position.cost_basis)).toBe(
+      Number(antes.position.cost_basis),
+    );
   });
 
   it('o custo que viaja é proporcional, e é o custo inteiro quando tudo sai', () => {

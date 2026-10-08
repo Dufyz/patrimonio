@@ -58,7 +58,7 @@ describe('taxa diária publicada em percentual', () => {
     );
 
     expect(ano).toBe('1.111498900580');
-    expect(Number(ano) - 1).toBeGreaterThan(0.041957 * 252 / 100);
+    expect(Number(ano) - 1).toBeGreaterThan((0.041957 * 252) / 100);
   });
 });
 

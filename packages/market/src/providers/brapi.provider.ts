@@ -58,7 +58,10 @@ export type BrapiOptions = {
   readonly baseUrl?: string | undefined;
 };
 
-export const chunk = <T>(items: readonly T[], size: number): readonly (readonly T[])[] => {
+export const chunk = <T>(
+  items: readonly T[],
+  size: number,
+): readonly (readonly T[])[] => {
   const groups: T[][] = [];
 
   for (let index = 0; index < items.length; index += size) {

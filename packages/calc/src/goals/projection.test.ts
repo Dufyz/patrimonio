@@ -21,9 +21,7 @@ describe('meta em reais de hoje', () => {
   });
 
   it('a meta em reais nominais não é corrigida', () => {
-    expect(projectGoal(independenceInNominalBrl).target_amount_nominal).toBe(
-      '500000.00',
-    );
+    expect(projectGoal(independenceInNominalBrl).target_amount_nominal).toBe('500000.00');
   });
 
   it('o progresso é medido contra a meta corrigida, não contra o valor digitado', () => {
@@ -177,10 +175,7 @@ describe('ritmo atual pelos últimos doze meses', () => {
   });
 
   it('só os meses mais recentes entram na janela', () => {
-    const comHistorico = [
-      { month: '2024-01', net_flow: '99000.00' },
-      ...flows,
-    ];
+    const comHistorico = [{ month: '2024-01', net_flow: '99000.00' }, ...flows];
 
     expect(averageMonthlyContribution(comHistorico, 3)).toBe('2000.00');
   });

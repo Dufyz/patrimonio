@@ -4,9 +4,30 @@
       "symbol": "ITUB4",
       "regularMarketPrice": 32.41,
       "historicalDataPrice": [
-        { "date": 1788912000, "open": 31.5, "high": 31.9, "low": 31.2, "close": 31.8, "volume": 18000000 },
-        { "date": 1788998400, "open": 31.8, "high": 32.1, "low": 31.6, "close": 32.05, "volume": 19500000 },
-        { "date": 1791244800, "open": 32.1, "high": 32.68, "low": 32.02, "close": 32.41, "volume": 24918300 }
+        {
+          "date": 1788912000,
+          "open": 31.5,
+          "high": 31.9,
+          "low": 31.2,
+          "close": 31.8,
+          "volume": 18000000
+        },
+        {
+          "date": 1788998400,
+          "open": 31.8,
+          "high": 32.1,
+          "low": 31.6,
+          "close": 32.05,
+          "volume": 19500000
+        },
+        {
+          "date": 1791244800,
+          "open": 32.1,
+          "high": 32.68,
+          "low": 32.02,
+          "close": 32.41,
+          "volume": 24918300
+        }
       ]
     }
   ],

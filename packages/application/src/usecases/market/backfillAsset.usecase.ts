@@ -173,7 +173,8 @@ export const backfillAsset = (deps: BackfillAssetDeps) =>
       }));
 
     const earliest = rows.reduce<DateOnly | null>(
-      (oldest, row) => (oldest === null || row.price_date < oldest ? row.price_date : oldest),
+      (oldest, row) =>
+        oldest === null || row.price_date < oldest ? row.price_date : oldest,
       null,
     );
 
@@ -206,11 +207,7 @@ export const backfillAsset = (deps: BackfillAssetDeps) =>
         const events =
           earliest === null
             ? []
-            : recalcEventsFor(
-                context.holdings,
-                earliest,
-                input.origin_request_id,
-              );
+            : recalcEventsFor(context.holdings, earliest, input.origin_request_id);
 
         const applied = await applyPlan(repositories, {
           stage: 'market',

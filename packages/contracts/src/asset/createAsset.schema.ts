@@ -24,7 +24,9 @@ const assetBodySchema = z.discriminatedUnion('origin', [
 export const createAssetSchema = z.object({
   body: z.preprocess(
     (value) =>
-      typeof value === 'object' && value !== null && !Array.isArray(value) &&
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
       (value as Record<string, unknown>)['origin'] === undefined
         ? { ...(value as Record<string, unknown>), origin: 'market' }
         : value,

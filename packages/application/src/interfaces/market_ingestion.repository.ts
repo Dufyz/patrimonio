@@ -112,9 +112,9 @@ export type MarketIngestionRepository = {
   ) => Promise<Either<AppError, MarketSourceRun>>;
 
   /** A última execução de cada par (fonte, tipo): é a situação que a tela mostra. */
-  readonly sourceStatuses: (
-    options: { readonly requests_since: string },
-  ) => Promise<Either<AppError, SourceStatus[]>>;
+  readonly sourceStatuses: (options: {
+    readonly requests_since: string;
+  }) => Promise<Either<AppError, SourceStatus[]>>;
 
   readonly recentFailures: (
     limit: number,

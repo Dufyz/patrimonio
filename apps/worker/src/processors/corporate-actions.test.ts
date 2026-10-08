@@ -6,11 +6,7 @@ import {
   materializeAnnouncedPayouts,
   reconcileAlerts,
 } from '@patrimonio/application';
-import type {
-  Clock,
-  CorporateActionProvider,
-  UnitOfWork,
-} from '@patrimonio/application';
+import type { Clock, CorporateActionProvider, UnitOfWork } from '@patrimonio/application';
 import {
   closeDatabase,
   createConnection,
@@ -45,8 +41,7 @@ const clock: Clock = {
   today: () => DATE,
 };
 
-const payoutUseCase = () =>
-  createPayout({ unitOfWork, clock, jcpWithholdingPct: '15' });
+const payoutUseCase = () => createPayout({ unitOfWork, clock, jcpWithholdingPct: '15' });
 
 const materialize = () =>
   materializeAnnouncedPayouts({
@@ -329,15 +324,18 @@ describe('ingestão do que a fonte anuncia', () => {
     await comprar('2026-09-01', 100);
 
     const result = unwrapSuccess(
-      await ingest([], [
-        {
-          ticker: 'PRVA4',
-          kind: 'split',
-          record_date: '2026-10-02',
-          ratio_from: '1',
-          ratio_to: '2',
-        },
-      ])({ from: '2026-09-01' }),
+      await ingest(
+        [],
+        [
+          {
+            ticker: 'PRVA4',
+            kind: 'split',
+            record_date: '2026-10-02',
+            ratio_from: '1',
+            ratio_to: '2',
+          },
+        ],
+      )({ from: '2026-09-01' }),
     );
 
     expect(result.events_detected).toBe(1);
@@ -408,7 +406,10 @@ describe('o alerta do evento corporativo', () => {
 
     expect(alerta?.rule_kind).toBe('corporate_event_pending');
     expect(alerta?.status).toBe('open');
-    expect(alerta?.payload).toMatchObject({ ratio_from: '1.00000000', ratio_to: '2.00000000' });
+    expect(alerta?.payload).toMatchObject({
+      ratio_from: '1.00000000',
+      ratio_to: '2.00000000',
+    });
   });
 
   it('evento com data-com futura ainda não é decisão de hoje', async () => {
