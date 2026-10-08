@@ -434,3 +434,31 @@ export type {
   BackfillAssetInput,
   BackfillAssetResult,
 } from './usecases/market/backfillAsset.usecase.js';
+export {
+  materializeAnnouncedPayouts,
+} from './usecases/market/materializeAnnouncedPayouts.usecase.js';
+export type {
+  MaterializePayoutsDeps,
+  MaterializePayoutsInput,
+  MaterializePayoutsResult,
+} from './usecases/market/materializeAnnouncedPayouts.usecase.js';
+export {
+  ingestCorporateActions,
+} from './usecases/market/ingestCorporateActions.usecase.js';
+export type {
+  IngestCorporateActionsDeps,
+  IngestCorporateActionsInput,
+  IngestCorporateActionsResult,
+} from './usecases/market/ingestCorporateActions.usecase.js';
+export {
+  corporateEventRunner,
+  marketAlertRunners,
+} from './usecases/market/marketAlertRunners.js';
+export {
+  getAssetPriceSeries,
+} from './usecases/market/assetPriceSeries.usecase.js';
+export type {
+  AssetPriceSeriesDeps,
+  AssetPriceSeriesInput,
+  AssetPriceSeriesResult,
+} from './usecases/market/assetPriceSeries.usecase.js';

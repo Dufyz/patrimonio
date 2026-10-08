@@ -3,6 +3,7 @@ import {
   closeDay,
   collectMarketData,
   createDebouncePolicy,
+  marketAlertRunners,
   recalculatePortfolio,
   reconcileAlerts,
 } from '@patrimonio/application';
@@ -97,9 +98,15 @@ export const createContainer = (): WorkerContainer => {
     usecases: {
       recalculatePortfolio: recalculatePortfolio({ unitOfWork, clock: systemClock }),
       closeDay: closeDay({ unitOfWork, clock: systemClock }),
-      // Os executores das treze regras entram em E7: sem eles a reconciliação
-      // roda e não encontra nada, em vez de apagar o que já existe.
-      reconcileAlerts: reconcileAlerts({ unitOfWork, clock: systemClock }),
+      // As treze regras do painel entram em E7. As que a ingestão de mercado
+      // liga já estão aqui, e regra sem executor declarado não é reconciliada —
+      // é o que permite ligar as outras uma a uma sem que as ainda não escritas
+      // apaguem o que já existe.
+      reconcileAlerts: reconcileAlerts({
+        unitOfWork,
+        clock: systemClock,
+        runners: marketAlertRunners,
+      }),
       collectMarketData: collectMarketData({
         unitOfWork,
         clock: systemClock,

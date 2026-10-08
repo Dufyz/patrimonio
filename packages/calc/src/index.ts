@@ -204,3 +204,12 @@ export type {
   IndexObservation,
   IndexUnit,
 } from './index_series/factors.js';
+
+// ─── Série de preço ajustada ─────────────────────────────────────────────────
+export { adjustForEvents } from './prices/adjusted.js';
+export type {
+  AdjustedPoint,
+  AdjustedSeries,
+  PriceEvent,
+  PricePoint,
+} from './prices/adjusted.js';
