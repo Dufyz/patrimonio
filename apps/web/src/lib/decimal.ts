@@ -149,3 +149,43 @@ export const trimFraction = (fraction: string, keep: number): string => {
   while (end > keep && fraction[end - 1] === '0') end -= 1;
   return fraction.slice(0, end);
 };
+
+/**
+ * Compara dois decimais em string, para ordenação. Comparar não é somar: a
+ * regra que proíbe aritmética de dinheiro no `web` existe para que todo número
+ * derivado venha da `api`, e a ordem de uma coluna não é um número derivado.
+ *
+ * Valor ausente vai sempre para o fim, nos dois sentidos de ordenação: uma
+ * linha sem preço não é a mais barata.
+ */
+export const compareDecimal = (
+  left: string | null | undefined,
+  right: string | null | undefined,
+): number => {
+  const a = left === null || left === undefined ? null : parseDecimal(left);
+  const b = right === null || right === undefined ? null : parseDecimal(right);
+
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+
+  const aNegative = a.negative && !isZero(a);
+  const bNegative = b.negative && !isZero(b);
+  if (aNegative !== bNegative) return aNegative ? -1 : 1;
+
+  const magnitudeOrder = compareMagnitudes(a, b);
+  return aNegative ? -magnitudeOrder : magnitudeOrder;
+};
+
+const compareMagnitudes = (a: DecimalParts, b: DecimalParts): number => {
+  if (a.integer.length !== b.integer.length) {
+    return a.integer.length < b.integer.length ? -1 : 1;
+  }
+  if (a.integer !== b.integer) return a.integer < b.integer ? -1 : 1;
+
+  const width = Math.max(a.fraction.length, b.fraction.length);
+  const aFraction = a.fraction.padEnd(width, '0');
+  const bFraction = b.fraction.padEnd(width, '0');
+  if (aFraction === bFraction) return 0;
+  return aFraction < bFraction ? -1 : 1;
+};

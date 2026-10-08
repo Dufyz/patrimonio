@@ -27,8 +27,9 @@ if (typeof globalThis.matchMedia !== 'function') {
 }
 
 /**
- * `ResizeObserver` também falta, e o Recharts o usa para medir o contêiner.
- * Observar nada é o comportamento certo aqui: o tamanho vem fixo no teste.
+ * `ResizeObserver` também falta, e os gráficos e a tabela o usam para medir o
+ * contêiner. Observar nada é o comportamento certo aqui: no jsdom todo elemento
+ * tem largura zero, e cada teste informa a largura de que precisa.
  */
 if (typeof globalThis.ResizeObserver !== 'function') {
   Object.defineProperty(globalThis, 'ResizeObserver', {
