@@ -58,7 +58,9 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/web/src/**/*.ts', 'apps/web/src/**/*.tsx'],
+    // `lib/tokens.ts` é a única tradução de token para cor, e por isso o único
+    // arquivo autorizado a escrever `var(--color-...)` e `color-mix`.
+    files: ['apps/web/src/components/**/*.tsx', 'apps/web/src/views/**/*.tsx'],
     rules: {
       'no-restricted-syntax': ['error', ...NO_PROCESS_ENV, ...NO_LITERAL_COLOR],
     },

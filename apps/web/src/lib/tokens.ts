@@ -69,3 +69,26 @@ export const SEMANTIC_COLORS = {
   return: 'var(--color-area-return)',
   loss: 'var(--color-area-loss)',
 } as const;
+
+/**
+ * D-09 · A cor de uma célula da grade mês × ano.
+ *
+ * A intensidade vai de `-1` (o pior mês da grade) a `+1` (o melhor), com zero
+ * no meio. A cor é misturada com o fundo do painel em vez de escolhida de uma
+ * rampa fixa: assim a escala funciona nos dois temas sem uma segunda tabela de
+ * cores, e uma célula fraca continua legível porque o texto nunca muda de cor.
+ */
+export const intensityColor = (intensity: number): string => {
+  const clamped = Math.max(-1, Math.min(1, intensity));
+  if (clamped === 0) return 'transparent';
+
+  const token =
+    clamped > 0 ? 'var(--color-scale-positive)' : 'var(--color-scale-negative)';
+  // Teto em 70%: acima disso o texto escuro deixa de ter contraste no tema claro.
+  const weight = Math.round(Math.abs(clamped) * 70);
+  return `color-mix(in oklab, ${token} ${weight}%, var(--color-panel))`;
+};
+
+/** A faixa translúcida sob uma série de área. */
+export const areaFill = (color: string): string =>
+  `color-mix(in oklab, ${color} 18%, transparent)`;
