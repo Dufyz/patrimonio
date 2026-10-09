@@ -118,6 +118,21 @@ export type {
   OverviewTargetRow,
 } from './interfaces/overview.repository.js';
 export type {
+  PerformanceBenchmarkRow,
+  PerformanceBreakdown,
+  PerformanceBreakdownQuery,
+  PerformanceCategoryRow,
+  PerformanceClassFlow,
+  PerformanceClassValue,
+  PerformanceDayRow,
+  PerformancePoint,
+  PerformancePortfolioPoint,
+  PerformanceSnapshotPortfolio,
+  PerformanceRepository,
+  PerformanceSnapshot,
+  PerformanceSnapshotQuery,
+} from './interfaces/performance.repository.js';
+export type {
   CorporateEventDraft,
   CorporateEventRepository,
 } from './interfaces/corporate_event.repository.js';
@@ -541,6 +556,25 @@ export type {
 
 // ─── Visão geral ─────────────────────────────────────────────────────────────
 export { getOverview } from './usecases/overview/overview.usecase.js';
+
+export { getPerformance } from './usecases/performance/performance.usecase.js';
+export type {
+  BreakdownKey,
+  PerformanceBenchmark,
+  PerformanceChart,
+  PerformanceClassRow,
+  PerformanceDecompositionRow,
+  PerformanceDecompositionTotal,
+  PerformanceDeps,
+  PerformanceInput,
+  PerformanceMethod,
+  PerformancePortfolioRow,
+  PerformanceResult,
+  PerformanceScope,
+  PerformanceWindowColumn,
+  PerformanceWindowRow,
+  PerformanceYear,
+} from './usecases/performance/performance.usecase.js';
 export type {
   ColoredComposition,
   ColoredNode,

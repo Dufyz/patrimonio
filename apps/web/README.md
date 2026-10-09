@@ -18,6 +18,7 @@ pnpm --filter @patrimonio/web test
 | `/todas/visao-geral`        | o mesmo, somando todas as carteiras              |
 | `/:carteira/ativo/:apelido` | T-03 · tudo sobre um ativo em um lugar           |
 | `/:carteira/movimentacoes`  | T-04 · o extrato do livro, onde se corrige o passado |
+| `/:carteira/desempenho`     | T-05 · quanto veio de aporte e quanto de rentabilidade |
 | `/galeria`                  | a galeria do design system (E5)                  |
 
 O escopo é o apelido da carteira, não o identificador: `/longo-prazo/posicoes` é
@@ -163,6 +164,46 @@ Em T-04, mais quatro, contra a prancha 07:
   formulário com preview é T-10.
 - **Exportar CSV** está na barra de lote e exporta a seleção da página, com `;`
   e vírgula decimal. A exportação completa do recorte é O-06.
+
+## T-05 · Desempenho
+
+A tela responde a pergunta que motivou o produto: **quanto do crescimento veio de
+aporte e quanto veio de rentabilidade**. Ela a responde em quatro resoluções — a
+carteira contra benchmarks ao longo do tempo, mês a mês, o saldo decomposto e a
+quebra por carteira e por classe — e declara no rodapé como cada número foi
+calculado. `GET /api/performance` entrega as quatro sobre o mesmo fechamento e a
+mesma cota; cinco rotas deixariam cada tabela escolher o seu "hoje".
+
+**Carteira rende pela cota; classe, por Dietz modificado.** A carteira tem cota
+gravada, e o retorno de qualquer janela é a razão entre dois valores dela — é por
+isso que aporte não vira rentabilidade. No consolidado a cota é *construída* sobre
+a história de todas as carteiras, porque somar valores de cota de carteiras
+diferentes não significa nada. A classe não tem cota, e o retorno dela é uma
+aproximação (ganho sobre o capital médio, cada fluxo pesando pelo tempo em que
+ficou); o caixa fica de fora, e a tela o mostra como traço.
+
+**Retorno ausente é traço, nunca zero.** Janela maior que o histórico, mês
+anterior ao primeiro fechamento e benchmark sem nenhum fator no período chegam
+como `null`. O benchmark sem dado ainda é avisado sob o gráfico e não vira uma
+linha reta em 0%. Nada é anualizado.
+
+**A diferença é em pontos percentuais**, e a grade mensal ganhou `extraKinds`
+para escrevê-la assim ao lado do benchmark do ano.
+
+**Os benchmarks da tela vão para a URL** (`?benchmarks=`), e o benchmark da
+carteira fica sempre na frente — é a referência da grade e da decomposição. O
+período padrão aqui é 24 meses, e não 12 como nas demais telas.
+
+Em T-05, contra a prancha 08:
+
+- **Sem o botão Exportar do cabeçalho.** Exportar CSV mora no painel da
+  decomposição, que é a única tabela que se leva para uma planilha; exportar o
+  resto seria duplicar a tela.
+- **O "12 meses" da decomposição são os doze meses de calendário**, e pode
+  diferir um pouco da janela 12M enquanto o mês corrente não fechou.
+- **Benchmarks compostos** (`IPCA + 6%`, `50% CDI + 50% IBOV`) são definição do
+  usuário e nascem em Configurações; a migration 030 semeia só os cinco índices
+  simples.
 
 ## Divergências registradas
 

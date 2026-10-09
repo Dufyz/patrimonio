@@ -1,6 +1,6 @@
 import { intensityScale, legendSteps } from '../lib/chart/intensity.js';
 import { intensityColor } from '../lib/tokens.js';
-import { Money, Percent } from './number.js';
+import { Money, Percent, Points } from './number.js';
 
 /**
  * D-09 · A grade de mês contra ano.
@@ -45,6 +45,11 @@ export type MonthYearGridProps = {
   readonly format: 'percent' | 'money';
   readonly totalHeader?: string;
   readonly extraHeaders?: readonly string[] | undefined;
+  /**
+   * Como cada coluna extra se escreve. `points` é a diferença contra o
+   * benchmark — já em pontos, e não uma razão —, e ganha sinal e cor.
+   */
+  readonly extraKinds?: readonly ('format' | 'points')[] | undefined;
   /** Média por mês, quando a `api` a calcula. */
   readonly averages?: readonly (string | null)[] | undefined;
   readonly onSelectMonth?: ((year: number, month: number) => void) | undefined;
@@ -69,6 +74,7 @@ export const MonthYearGrid = ({
   format,
   totalHeader = 'Ano',
   extraHeaders = [],
+  extraKinds = [],
   averages,
   onSelectMonth,
   caption,
@@ -161,7 +167,11 @@ export const MonthYearGrid = ({
               </td>
               {extraHeaders.map((header, index) => (
                 <td key={header} className="px-2 text-right text-ink-2">
-                  <CellValue value={year.extras?.[index] ?? null} format={format} />
+                  {extraKinds[index] === 'points' ? (
+                    <Points value={year.extras?.[index] ?? null} decimals={2} />
+                  ) : (
+                    <CellValue value={year.extras?.[index] ?? null} format={format} />
+                  )}
                 </td>
               ))}
             </tr>

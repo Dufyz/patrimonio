@@ -41,6 +41,16 @@ export type MonthlyDecomposition = {
   readonly return_pct: string | null;
 };
 
+/**
+ * O que a decomposição lê de cada dia. `QuotaDay` satisfaz este tipo, e o que
+ * vem do banco — que não precisa carregar `quota_count` só para somar o mês —
+ * também.
+ */
+export type DecompositionDay = Pick<
+  QuotaDay,
+  'position_date' | 'total_value' | 'net_flow' | 'income' | 'payouts' | 'quota_value'
+>;
+
 export type DecompositionOptions = {
   /** O fechamento do mês anterior ao início da série, num recálculo parcial. */
   readonly previous?:
@@ -48,7 +58,7 @@ export type DecompositionOptions = {
 };
 
 export const decomposeByMonth = (
-  series: readonly QuotaDay[],
+  series: readonly DecompositionDay[],
   options: DecompositionOptions = {},
 ): readonly MonthlyDecomposition[] => {
   const months: MonthlyDecomposition[] = [];

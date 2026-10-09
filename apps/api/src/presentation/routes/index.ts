@@ -9,6 +9,7 @@ import type { CorporateEventDeps } from '../controllers/corporate-event.controll
 import type { InstitutionDeps } from '../controllers/institution.controller.js';
 import type { MarketDeps } from '../controllers/market.controller.js';
 import type { OverviewDeps } from '../controllers/overview.controller.js';
+import type { PerformanceDeps } from '../controllers/performance.controller.js';
 import type { PortfolioDeps } from '../controllers/portfolio.controller.js';
 import type { PositionDeps } from '../controllers/position.controller.js';
 import type { StatementDeps } from '../controllers/statement.controller.js';
@@ -22,6 +23,7 @@ import { corporateEventRoutes } from './corporate-event.routes.js';
 import { institutionRoutes } from './institution.routes.js';
 import { marketRoutes } from './market.routes.js';
 import { overviewRoutes } from './overview.routes.js';
+import { performanceRoutes } from './performance.routes.js';
 import { portfolioRoutes } from './portfolio.routes.js';
 import { positionRoutes } from './position.routes.js';
 import { statementRoutes } from './statement.routes.js';
@@ -38,7 +40,8 @@ export type RouteDeps = HealthCheckDeps &
   MarketDeps &
   PositionDeps &
   StatementDeps &
-  OverviewDeps & { readonly version: string };
+  OverviewDeps &
+  PerformanceDeps & { readonly version: string };
 
 /** Tudo sob `/api`. */
 export const apiRoutes = (deps: RouteDeps): Router => {
@@ -62,6 +65,7 @@ export const apiRoutes = (deps: RouteDeps): Router => {
   router.use(positionRoutes(deps));
   router.use(statementRoutes(deps));
   router.use(overviewRoutes(deps));
+  router.use(performanceRoutes(deps));
 
   return router;
 };
