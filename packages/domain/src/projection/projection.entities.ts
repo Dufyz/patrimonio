@@ -177,3 +177,29 @@ export const assetClassFor = (
       return null;
   }
 };
+
+/**
+ * T-02 · Como a tela de Posições agrupa as linhas.
+ *
+ * O agrupamento é escolha de quem olha, não do modelo: a mesma carteira responde
+ * perguntas diferentes agrupada por classe de ativo ("estou concentrado em
+ * ações?") e por instituição ("quanto está na corretora que vou encerrar?").
+ * Por carteira só faz sentido no escopo de todas elas.
+ */
+export const POSITION_GROUP_BY = [
+  'category',
+  'institution',
+  'portfolio',
+  'none',
+] as const;
+
+export type PositionGroupBy = (typeof POSITION_GROUP_BY)[number];
+
+/**
+ * Em que a posição é medida. `curve` é o título sem cotação — CDB, LCI,
+ * debênture —, cuja quantidade não diz nada a quem lê: ele vale o que a curva
+ * diz na data, e a tela mostra traço em quantidade e em preço.
+ */
+export const POSITION_UNITS = ['quantity', 'curve'] as const;
+
+export type PositionUnit = (typeof POSITION_UNITS)[number];

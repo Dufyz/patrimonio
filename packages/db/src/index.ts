@@ -19,6 +19,7 @@ export { createPayoutDismissalRepository } from './repositories/payout_dismissal
 export { createTransactionUndoRepository } from './repositories/transaction_undo.repository.js';
 export { createCorporateEventRepository } from './repositories/corporate_event.repository.js';
 export { createProjectionRepository } from './repositories/projection.repository.js';
+export { createPositionViewRepository } from './repositories/position_view.repository.js';
 export { createPriceRepository } from './repositories/price.repository.js';
 export { createAlertRepository } from './repositories/alert.repository.js';
 export { createMarketIngestionRepository } from './repositories/market_ingestion.repository.js';

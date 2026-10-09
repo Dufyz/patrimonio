@@ -35,3 +35,28 @@ export const useElementWidth = (
 
   return width;
 };
+
+/**
+ * A largura da janela, que é o que decide quais colunas a tabela densa larga.
+ *
+ * As etapas de D-04 vêm da prancha 18, e lá elas são consultas de mídia: é o
+ * tamanho da tela que diz se cabe "preço médio", não o do elemento. Medir o
+ * contêiner escondia três colunas num monitor de 1440 px, porque a barra
+ * lateral e o respiro do conteúdo comem trezentos deles — a tabela teria 1.140
+ * e a etapa de 1.400 dispararia com a tela inteira à vista.
+ *
+ * O gráfico continua medindo o próprio elemento: ele precisa saber onde
+ * desenhar, e isso é mesmo sobre o espaço que ele tem.
+ */
+export const useViewportWidth = (fallback: number): number => {
+  const [width, setWidth] = useState(() => globalThis.innerWidth || fallback);
+
+  useEffect(() => {
+    const measure = (): void => setWidth(globalThis.innerWidth || fallback);
+    measure();
+    globalThis.addEventListener('resize', measure);
+    return () => globalThis.removeEventListener('resize', measure);
+  }, [fallback]);
+
+  return width;
+};

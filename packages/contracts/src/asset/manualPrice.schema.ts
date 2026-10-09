@@ -44,3 +44,12 @@ export const manualPricePreviewSchema = z.object({
 });
 
 export type SetManualPriceBody = z.infer<typeof setManualPriceSchema>['body'];
+
+/** A resposta de L-14: o preço gravado e o antes → depois que a tela mostra. */
+export const setManualPriceResponseSchema = z.object({
+  manual_price: manualPriceResourceSchema,
+  preview: manualPricePreviewSchema,
+  message: z.string(),
+});
+
+export type SetManualPriceResponse = z.infer<typeof setManualPriceResponseSchema>;

@@ -187,6 +187,31 @@ quando o formato muda. Ela não bloqueia commit nem deploy: depende da internet,
 um teste de commit que depende de a brapi estar no ar é um teste que ensina a
 equipe a ignorar vermelho. Fonte fora do ar não é notícia; formato mudado é.
 
+## Fase 6 · Telas
+
+A primeira tela de verdade está de pé: **Posições**, a tabela de tudo que está
+em carteira hoje. `pnpm dev` abre nela; a galeria do design system continua em
+`/galeria`.
+
+`GET /api/positions` entrega a tela pronta em **duas consultas**: uma traz as
+linhas, a outra traz tudo que é soma — subtotal por grupo, total geral,
+contagem de cada pastilha e o cabeçalho. Duas, e não dez, porque o banco fica em
+outra rede.
+
+O que a tela **não** faz é somar. Subtotal, total, peso, resultado e contagem
+chegam prontos da `api`, e é o que mantém o subtotal do grupo correto quando
+"mostrar mais" esconde nove das catorze linhas: ele nunca dependeu das linhas
+visíveis. Filtrar também é da `api`, pela mesma razão — um filtro aplicado no
+navegador faria o subtotal descrever linhas que a tela escondeu.
+
+Uma distinção que parece detalhe e não é. A variação do dia e o retorno de doze
+meses **de uma linha** saem do valor unitário, que aporte e resgate não
+contaminam: comprar mais do mesmo papel muda a quantidade, não o preço. As
+mesmas medidas **de um grupo** não existem — a média ponderada de variações só
+valeria sem fluxo no período —, e o retorno de um conjunto sai da série de cota,
+que é por carteira. Por isso o cabeçalho traz o retorno da carteira e o subtotal
+do grupo mostra traço: é a diferença entre não ter o número e inventá-lo.
+
 ## Design system
 
 As pranchas de design são a especificação, não referência solta: `01 · Produto`
@@ -204,7 +229,8 @@ Toda cor sai de token semântico, e uma regra de lint recusa cor literal dentro
 de um componente. É o que faz Ações ter a mesma cor na tabela, na barra de
 alocação e na linha do gráfico, nos dois temas.
 
-Até E6, `pnpm dev` abre a galeria do design system, que é o critério de saída de
-E5 e o lugar onde as peças são conferidas contra as pranchas. Detalhes e as duas
-divergências registradas em relação à arquitetura — sem TanStack Table e sem
-Recharts — estão em `apps/web/README.md`.
+A galeria do design system, que é o critério de saída de E5, continua em
+`/galeria`: é lá que as peças são conferidas contra as pranchas, e é onde uma
+mudança no botão aparece antes de aparecer em seis telas. Detalhes e as
+divergências registradas — sem TanStack Table, sem Recharts, e as de T-02 contra
+a prancha 05 — estão em `apps/web/README.md`.

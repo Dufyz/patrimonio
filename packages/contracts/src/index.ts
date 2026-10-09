@@ -45,6 +45,7 @@ export { updatePortfolioSchema } from './portfolio/updatePortfolio.schema.js';
 export type { UpdatePortfolioBody } from './portfolio/updatePortfolio.schema.js';
 export {
   getPortfolioSchema,
+  listPortfoliosResponseSchema,
   listPortfoliosSchema,
 } from './portfolio/listPortfolios.schema.js';
 export { archivePortfolioSchema } from './portfolio/archivePortfolio.schema.js';
@@ -185,9 +186,13 @@ export {
   listManualPricesSchema,
   manualPricePreviewSchema,
   manualPriceResourceSchema,
+  setManualPriceResponseSchema,
   setManualPriceSchema,
 } from './asset/manualPrice.schema.js';
-export type { SetManualPriceBody } from './asset/manualPrice.schema.js';
+export type {
+  SetManualPriceBody,
+  SetManualPriceResponse,
+} from './asset/manualPrice.schema.js';
 export {
   interpretTransactionSchema,
   textInterpretationSchema,
@@ -211,3 +216,29 @@ export type {
   RefreshMarketBody,
   SourceStatusResource,
 } from './market/market.schema.js';
+
+export {
+  computedPriceKindSchema,
+  positionFacetSchema,
+  positionGroupBySchema,
+  positionGroupSchema,
+  positionHealthSchema,
+  positionResourceSchema,
+  positionSummarySchema,
+  positionUnitSchema,
+  positionsResourceSchema,
+} from './position/position.schema.js';
+export type {
+  PositionGroup,
+  PositionGroupBy,
+  PositionResource,
+  PositionSummary,
+  PositionsResource,
+} from './position/position.schema.js';
+export {
+  NO_INSTITUTION_KEY,
+  UNCATEGORIZED_KEY,
+  UNGROUPED_KEY,
+  listPositionsSchema,
+} from './position/listPositions.schema.js';
+export type { ListPositionsQuery } from './position/listPositions.schema.js';

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { uuid } from '../support/primitives.schema.js';
+import { portfolioResourceSchema } from './portfolio.schema.js';
 
 export const listPortfoliosSchema = z.object({
   query: z.object({
@@ -14,4 +15,13 @@ export const listPortfoliosSchema = z.object({
 
 export const getPortfolioSchema = z.object({
   params: z.object({ portfolio_id: uuid }),
+});
+
+/**
+ * O envelope da listagem. Ele mora aqui, e não na `api`, para o `web` validar a
+ * resposta com o mesmo schema que a montou — sem precisar do zod por conta
+ * própria nem repetir a forma do corpo.
+ */
+export const listPortfoliosResponseSchema = z.object({
+  portfolios: z.array(portfolioResourceSchema),
 });

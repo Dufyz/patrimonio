@@ -36,6 +36,15 @@ export type {
   RealizedResultWrite,
   TaxMonthWrite,
 } from './interfaces/projection.repository.js';
+export type {
+  PositionView,
+  PositionViewFacetRow,
+  PositionViewFilter,
+  PositionViewHeader,
+  PositionViewRepository,
+  PositionViewRow,
+  PositionViewSummaryRow,
+} from './interfaces/position_view.repository.js';
 export type { PriceAt, PriceRepository } from './interfaces/price.repository.js';
 export type {
   AnnouncedPayoutWrite,
@@ -275,6 +284,11 @@ export {
   listTransactions,
 } from './usecases/transaction/listTransactions.usecase.js';
 export type { ListTransactionsDeps } from './usecases/transaction/listTransactions.usecase.js';
+export { listPositions } from './usecases/position/listPositions.usecase.js';
+export type {
+  ListPositionsDeps,
+  ListPositionsInput,
+} from './usecases/position/listPositions.usecase.js';
 
 export {
   archiveAsset,

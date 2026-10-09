@@ -15,6 +15,7 @@ import { MARKET_ROUTE_DOCS } from './market.docs.js';
 import { TRANSACTION_ROUTE_DOCS } from './transaction.docs.js';
 import { INSTITUTION_ROUTE_DOCS } from './institution.docs.js';
 import { PORTFOLIO_ROUTE_DOCS } from './portfolio.docs.js';
+import { POSITION_ROUTE_DOCS } from './position.docs.js';
 import type { RouteDoc } from './route-doc.js';
 
 export type { HttpMethod, ResponseDoc, RouteDoc } from './route-doc.js';
@@ -70,6 +71,7 @@ export const ROUTE_DOCS: readonly RouteDoc[] = [
   ...TRANSACTION_ROUTE_DOCS,
   ...CORPORATE_EVENT_ROUTE_DOCS,
   ...MARKET_ROUTE_DOCS,
+  ...POSITION_ROUTE_DOCS,
 ];
 
 type JsonSchema = Record<string, unknown>;
