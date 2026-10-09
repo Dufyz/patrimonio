@@ -121,8 +121,11 @@ export type {
   Rebalance,
 } from './quota/benchmark.js';
 
+export { indexCodesOf, parseBenchmarkDefinition } from './quota/definition.js';
+
 export { decomposeByMonth, yearTotals } from './quota/decomposition.js';
 export type {
+  DecompositionDay,
   DecompositionOptions,
   MonthlyDecomposition,
 } from './quota/decomposition.js';
@@ -217,3 +220,17 @@ export type {
   PriceEvent,
   PricePoint,
 } from './prices/adjusted.js';
+
+// ─── Desempenho ──────────────────────────────────────────────────────────────
+export {
+  benchmarkCumulative,
+  benchmarkPeriodReturn,
+  cumulativeReturns,
+  datesBetween,
+  measurementCalendar,
+  yearReturns,
+} from './performance/periods.js';
+export type { BenchmarkSpec, YearReturn } from './performance/periods.js';
+
+export { modifiedDietz } from './performance/dietz.js';
+export type { DietzFlow, DietzInput } from './performance/dietz.js';

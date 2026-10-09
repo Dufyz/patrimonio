@@ -23,6 +23,7 @@ import {
 import { AssetScreen } from './views/asset.js';
 import { Gallery } from './views/gallery.js';
 import { OverviewScreen } from './views/overview.js';
+import { PerformanceScreen } from './views/performance.js';
 import { PositionsScreen } from './views/positions.js';
 import { StatementScreen } from './views/statement.js';
 
@@ -211,6 +212,8 @@ const Workbench = (): React.ReactElement => {
           portfolios={portfolios}
           onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
         />
+      ) : current?.id === 'desempenho' ? (
+        <PerformanceScreen portfolioId={portfolioId} />
       ) : (
         <ScreenPending label={current?.label ?? ''} story={current?.story ?? ''} />
       )}
@@ -241,7 +244,8 @@ const ScreenPending = ({
   <div className="flex flex-col gap-1 rounded-panel border border-line bg-panel p-6">
     <h1 className="text-base font-semibold">{label}</h1>
     <p className="text-[0.8125rem] text-ink-3">
-      Esta tela chega com {story}. Visão geral, Posições e Movimentações já estão de pé.
+      Esta tela chega com {story}. Visão geral, Posições, Movimentações e Desempenho já
+      estão de pé.
     </p>
   </div>
 );

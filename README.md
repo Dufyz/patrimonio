@@ -261,5 +261,5 @@ alocação e na linha do gráfico, nos dois temas.
 A galeria do design system, que é o critério de saída de E5, continua em
 `/galeria`: é lá que as peças são conferidas contra as pranchas, e é onde uma
 mudança no botão aparece antes de aparecer em seis telas. Detalhes e as
-divergências registradas — sem TanStack Table, sem Recharts, e as de T-02, T-03 e T-04
-contra as pranchas 05, 06 e 07 — estão em `apps/web/README.md`.
+divergências registradas — sem TanStack Table, sem Recharts, e as de T-02 a T-05
+contra as pranchas 05 a 08 — estão em `apps/web/README.md`.

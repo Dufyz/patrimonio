@@ -316,3 +316,32 @@ export type {
   StatementRow,
   StatementSummary,
 } from './statement/statement.schema.js';
+
+export {
+  PERFORMANCE_BREAKDOWN_KEYS,
+  PERFORMANCE_WINDOW_KEYS,
+  getPerformanceSchema,
+  performanceBenchmarkSchema,
+  performanceBreakdownKeySchema,
+  performanceBreakdownSchema,
+  performanceChartSchema,
+  performanceClassRowSchema,
+  performanceDecompositionSchema,
+  performanceMethodSchema,
+  performanceMonthlySchema,
+  performancePortfolioRowSchema,
+  performanceSchema,
+  performanceScopeSchema,
+  performanceWindowKeySchema,
+  performanceWindowsSchema,
+  performanceYearSchema,
+} from './performance/performance.schema.js';
+export type {
+  PerformanceBenchmarkResource,
+  PerformanceBreakdownResource,
+  PerformanceDecompositionResource,
+  PerformanceMethodResource,
+  PerformanceMonthlyResource,
+  PerformanceResource,
+  PerformanceWindowsResource,
+} from './performance/performance.schema.js';
