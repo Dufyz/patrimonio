@@ -72,7 +72,6 @@ import type { ManualPriceTarget } from './manual_price_dialog.js';
 const PENDING_TRANSACTION = 'o formulário de lançamento chega com T-10';
 const PENDING_ASSET_FORM = 'o cadastro do ativo chega com T-10';
 const PENDING_TRANSFER = 'mover entre carteiras chega com T-10';
-const PENDING_TRANSACTIONS_SCREEN = 'a tela de Movimentações chega com T-04';
 
 export type AssetScreenProps = {
   /** Código ou identificador: o endereço aceita os dois. */
@@ -81,6 +80,8 @@ export type AssetScreenProps = {
   readonly portfolioId: string | null;
   readonly scopeLabel: string;
   readonly onBack: () => void;
+  /** Abre Movimentações filtrada por este ativo, em todo o período. */
+  readonly onOpenStatement?: ((search: string) => void) | undefined;
 };
 
 export const AssetScreen = ({
@@ -88,6 +89,7 @@ export const AssetScreen = ({
   portfolioId,
   scopeLabel,
   onBack,
+  onOpenStatement,
 }: AssetScreenProps): React.ReactElement => {
   const [params, setParams] = useSearchParams();
   const { hidden: valuesHidden, toggleHidden } = usePreferences();
@@ -261,9 +263,8 @@ export const AssetScreen = ({
               {
                 id: 'transactions',
                 label: 'Ver todos os lançamentos',
-                hint: PENDING_TRANSACTIONS_SCREEN,
-                disabled: true,
-                onSelect: () => {},
+                disabled: onOpenStatement === undefined,
+                onSelect: () => onOpenStatement?.(title),
               },
             ]}
           />
@@ -717,7 +718,8 @@ const percentText = (ratio: string): string => {
 /**
  * Os lançamentos do ativo, com filtro por tipo. A lista é curta de propósito:
  * ela existe para reconhecer o lançamento, não para auditá-lo — a coluna
- * "Efeito" e a seleção em lote são de Movimentações (T-04).
+ * "Efeito" e a seleção em lote são de Movimentações (T-04), que o menu
+ * do ativo abre já filtrada por ele.
  */
 const TransactionsPanel = ({
   resource,
@@ -734,7 +736,7 @@ const TransactionsPanel = ({
     <Panel
       title="Lançamentos"
       action={
-        <span className="text-[0.8125rem] text-ink-3" title={PENDING_TRANSACTIONS_SCREEN}>
+        <span className="text-[0.8125rem] text-ink-3">
           {transactionsCountLabel(resource.transactions.total)}
         </span>
       }

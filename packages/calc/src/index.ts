@@ -18,12 +18,14 @@ export {
   LEDGER_KINDS,
   applyLedger,
   cashBalance,
+  ledgerEffects,
   positionAt,
   proportionalCost,
   sortEntries,
 } from './average_price/ledger.js';
 export type {
   ApplyOptions,
+  EntryEffect,
   LedgerEntry,
   LedgerKind,
   LedgerState,

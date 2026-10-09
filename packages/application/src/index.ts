@@ -45,6 +45,17 @@ export type {
   PositionViewRow,
   PositionViewSummaryRow,
 } from './interfaces/position_view.repository.js';
+export type {
+  StatementFilter,
+  StatementGroupKey,
+  StatementHistoryRow,
+  StatementLedgerRow,
+  StatementMonthRow,
+  StatementPageView,
+  StatementPair,
+  StatementRepository,
+  StatementSummaryRow,
+} from './interfaces/statement.repository.js';
 export { ASSET_PAGE_TRANSACTION_LIMIT } from './interfaces/asset_page.repository.js';
 export type {
   AssetPageCorporateEventRow,
@@ -320,6 +331,10 @@ export type {
   ListPositionsDeps,
   ListPositionsInput,
 } from './usecases/position/listPositions.usecase.js';
+export { getStatement } from './usecases/statement/getStatement.usecase.js';
+export type { GetStatementDeps } from './usecases/statement/getStatement.usecase.js';
+export { statementEffect } from './usecases/statement/statementEffect.js';
+export type { StatementEffectView } from './usecases/statement/statementEffect.js';
 export { getAssetPage } from './usecases/asset/getAssetPage.usecase.js';
 export type {
   GetAssetPageDeps,

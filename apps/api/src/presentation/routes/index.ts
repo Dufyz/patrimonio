@@ -11,6 +11,7 @@ import type { MarketDeps } from '../controllers/market.controller.js';
 import type { OverviewDeps } from '../controllers/overview.controller.js';
 import type { PortfolioDeps } from '../controllers/portfolio.controller.js';
 import type { PositionDeps } from '../controllers/position.controller.js';
+import type { StatementDeps } from '../controllers/statement.controller.js';
 import type { TransactionDeps } from '../controllers/transaction.controller.js';
 import { buildOpenApiDocument } from '../docs/openapi.js';
 import { healthCheckRoutes } from './health-check.routes.js';
@@ -23,6 +24,7 @@ import { marketRoutes } from './market.routes.js';
 import { overviewRoutes } from './overview.routes.js';
 import { portfolioRoutes } from './portfolio.routes.js';
 import { positionRoutes } from './position.routes.js';
+import { statementRoutes } from './statement.routes.js';
 import { transactionRoutes } from './transaction.routes.js';
 
 export type RouteDeps = HealthCheckDeps &
@@ -35,6 +37,7 @@ export type RouteDeps = HealthCheckDeps &
   CorporateEventDeps &
   MarketDeps &
   PositionDeps &
+  StatementDeps &
   OverviewDeps & { readonly version: string };
 
 /** Tudo sob `/api`. */
@@ -57,6 +60,7 @@ export const apiRoutes = (deps: RouteDeps): Router => {
   router.use(corporateEventRoutes(deps));
   router.use(marketRoutes(deps));
   router.use(positionRoutes(deps));
+  router.use(statementRoutes(deps));
   router.use(overviewRoutes(deps));
 
   return router;

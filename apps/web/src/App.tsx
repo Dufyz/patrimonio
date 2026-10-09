@@ -24,6 +24,7 @@ import { AssetScreen } from './views/asset.js';
 import { Gallery } from './views/gallery.js';
 import { OverviewScreen } from './views/overview.js';
 import { PositionsScreen } from './views/positions.js';
+import { StatementScreen } from './views/statement.js';
 
 /**
  * E6 · A moldura e as telas.
@@ -149,6 +150,16 @@ const Workbench = (): React.ReactElement => {
   );
   useShortcuts(shortcuts);
 
+  /**
+   * "Ver lançamentos" de um ativo abre o extrato todo, e não os últimos três
+   * meses: quem pergunta pelos lançamentos de um ativo quer o histórico dele.
+   */
+  const openStatement = (search: string): void => {
+    void navigate(
+      `/${scope}/movimentacoes?${new URLSearchParams({ busca: search, periodo: 'inicio' }).toString()}`,
+    );
+  };
+
   return (
     <AppShell
       portfolios={[
@@ -179,6 +190,7 @@ const Workbench = (): React.ReactElement => {
           portfolioId={portfolioId}
           scopeLabel={scopeLabel}
           onBack={() => navigate(`/${scope}/posicoes`)}
+          onOpenStatement={openStatement}
         />
       ) : current?.id === 'visao' ? (
         <OverviewScreen
@@ -189,6 +201,14 @@ const Workbench = (): React.ReactElement => {
         <PositionsScreen
           portfolioId={portfolioId}
           scopeLabel={scopeLabel}
+          onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
+          onOpenStatement={openStatement}
+        />
+      ) : current?.id === 'movimentacoes' ? (
+        <StatementScreen
+          portfolioId={portfolioId}
+          scopeLabel={scopeLabel}
+          portfolios={portfolios}
           onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
         />
       ) : (
@@ -221,7 +241,7 @@ const ScreenPending = ({
   <div className="flex flex-col gap-1 rounded-panel border border-line bg-panel p-6">
     <h1 className="text-base font-semibold">{label}</h1>
     <p className="text-[0.8125rem] text-ink-3">
-      Esta tela chega com {story}. Visão geral e Posições já estão de pé.
+      Esta tela chega com {story}. Visão geral, Posições e Movimentações já estão de pé.
     </p>
   </div>
 );

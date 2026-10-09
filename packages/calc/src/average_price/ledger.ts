@@ -233,49 +233,114 @@ export const applyLedger = (
   for (const entry of sortEntries(entries)) {
     if (options.until !== undefined && entry.trade_date > options.until) break;
 
-    switch (entry.kind) {
-      case 'buy':
-        applyBuy(state, entry);
-        break;
-      case 'sell':
-        applySell(state, entry);
-        break;
-      case 'transfer':
-        applyTransfer(state, entry);
-        break;
-      case 'corporate_event':
-        applyCorporateEvent(state, entry);
-        break;
-      case 'payout':
-        applyPayout(state, entry);
-        break;
-      // Aporte e resgate movem caixa, não posição de ativo: quem responde por
-      // eles é `cashBalance`.
-      case 'deposit':
-      case 'withdrawal':
-        break;
-    }
+    applyEntry(state, entry);
   }
 
+  return {
+    position: snapshot(state),
+    realized: state.realized,
+    realized_total: realizedTotal(state),
+    oversold: state.oversold,
+  };
+};
+
+/**
+ * Um passo do motor. É o único lugar que decide o que cada tipo de lançamento
+ * faz com a posição — `applyLedger` e `ledgerEffects` passam por aqui, e é isso
+ * que impede a coluna "Efeito" de Movimentações de divergir do que o recálculo
+ * grava.
+ */
+const applyEntry = (state: Internal, entry: LedgerEntry): void => {
+  switch (entry.kind) {
+    case 'buy':
+      applyBuy(state, entry);
+      break;
+    case 'sell':
+      applySell(state, entry);
+      break;
+    case 'transfer':
+      applyTransfer(state, entry);
+      break;
+    case 'corporate_event':
+      applyCorporateEvent(state, entry);
+      break;
+    case 'payout':
+      applyPayout(state, entry);
+      break;
+    // Aporte e resgate movem caixa, não posição de ativo: quem responde por
+    // eles é `cashBalance`.
+    case 'deposit':
+    case 'withdrawal':
+      break;
+  }
+};
+
+const snapshot = (state: Internal): Position => {
   const quantity = state.quantity.toDecimalPlaces(QUANTITY_DP);
   const cost = state.cost.toDecimalPlaces(MONEY_DP);
   const average = quantity.isZero() ? zero : cost.dividedBy(quantity);
 
-  const realizedTotal = state.realized.reduce(
-    (total, sale) => total.plus(new Decimal(sale.result)),
-    zero,
-  );
-
   return {
-    position: {
-      quantity: quantity.toFixed(QUANTITY_DP),
-      avg_price: average.toDecimalPlaces(PRICE_DP).toFixed(PRICE_DP),
-      cost_basis: cost.toFixed(MONEY_DP),
-    },
-    realized: state.realized,
-    realized_total: realizedTotal.toFixed(MONEY_DP),
-    oversold: state.oversold,
+    quantity: quantity.toFixed(QUANTITY_DP),
+    avg_price: average.toDecimalPlaces(PRICE_DP).toFixed(PRICE_DP),
+    cost_basis: cost.toFixed(MONEY_DP),
   };
+};
+
+const realizedTotal = (state: Internal): string =>
+  state.realized
+    .reduce((total, sale) => total.plus(new Decimal(sale.result)), zero)
+    .toFixed(MONEY_DP);
+
+/**
+ * O que um lançamento mudou na posição: a posição logo antes e logo depois dele,
+ * e o resultado realizado quando ele é uma venda.
+ *
+ * É a coluna "Efeito" de Movimentações (T-04). Ela precisa sair do mesmo passo
+ * que o recálculo usa, e não de uma conta própria da tela: um preço médio
+ * mostrado ali que difere do de Posições por um centavo é um extrato que não
+ * confere com a carteira.
+ */
+export type EntryEffect = {
+  readonly before: Position;
+  readonly after: Position;
+  /** Só a venda tem; nulo nos demais tipos, e não `0,00`. */
+  readonly realized_result: string | null;
+  /** Vendeu mais do que havia: o motor zerou a posição e marcou. */
+  readonly oversold: boolean;
+};
+
+/**
+ * Reaplica o livro de um ativo em uma carteira, na ordem canônica, e devolve o
+ * efeito de cada lançamento que tem `id`. Rascunho sem `id` entra na conta e
+ * fica de fora do mapa.
+ */
+export const ledgerEffects = (
+  entries: readonly LedgerEntry[],
+): ReadonlyMap<string, EntryEffect> => {
+  const state: Internal = { quantity: zero, cost: zero, realized: [], oversold: false };
+  const effects = new Map<string, EntryEffect>();
+
+  for (const entry of sortEntries(entries)) {
+    const before = snapshot(state);
+    const sales = state.realized.length;
+    const oversoldBefore = state.oversold;
+
+    applyEntry(state, entry);
+
+    if (entry.id === undefined) continue;
+
+    const sale = state.realized.length > sales ? state.realized.at(-1) : undefined;
+
+    effects.set(entry.id, {
+      before,
+      after: snapshot(state),
+      realized_result: sale?.result ?? null,
+      oversold: state.oversold && !oversoldBefore,
+    });
+  }
+
+  return effects;
 };
 
 /** A posição de um ativo numa data, que é o "antes" de todo preview. */
