@@ -31,15 +31,17 @@ export const createOutboxRepository = (
   enqueue: async (events: readonly OutboxEventDraft[]) => {
     if (events.length === 0) return success([]);
 
-    const rows = events.map((event) => debounce?.(event) ?? event).map((event) => ({
-      id: uuidv7(),
-      stage: event.stage,
-      dedupe_key: event.dedupe_key,
-      payload: event.payload,
-      available_at: (event.available_at ?? new Date()).toISOString(),
-      debounce_until: event.debounce_until?.toISOString() ?? null,
-      origin_request_id: event.origin_request_id ?? null,
-    }));
+    const rows = events
+      .map((event) => debounce?.(event) ?? event)
+      .map((event) => ({
+        id: uuidv7(),
+        stage: event.stage,
+        dedupe_key: event.dedupe_key,
+        payload: event.payload,
+        available_at: (event.available_at ?? new Date()).toISOString(),
+        debounce_until: event.debounce_until?.toISOString() ?? null,
+        origin_request_id: event.origin_request_id ?? null,
+      }));
 
     try {
       // Uma consulta para N eventos: a lista entra como um jsonb e volta

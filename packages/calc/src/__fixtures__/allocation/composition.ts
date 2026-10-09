@@ -1,7 +1,4 @@
-import type {
-  AllocationLine,
-  CompositionTarget,
-} from '../../allocation/composition.js';
+import type { AllocationLine, CompositionTarget } from '../../allocation/composition.js';
 
 /**
  * Uma carteira de R$ 100 mil em dois grupos, para a conta de percentual ser

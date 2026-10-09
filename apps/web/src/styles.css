@@ -1,18 +1,231 @@
 @import 'tailwindcss';
 
-/* O design system entra em E5 (D-01): tokens de cor, tipografia e densidade.
-   Até lá, só o suficiente para a casca não parecer quebrada. */
-@theme {
-  --color-surface: oklch(0.21 0.015 265);
-  --color-surface-raised: oklch(0.25 0.015 265);
-  --color-ink: oklch(0.95 0.01 265);
-  --color-ink-muted: oklch(0.72 0.02 265);
-  --color-positive: oklch(0.74 0.17 155);
-  --color-negative: oklch(0.68 0.19 25);
+@import '@fontsource-variable/ibm-plex-sans/wght.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+
+/*
+ * D-01 · A camada de token.
+ *
+ * Toda cor da aplicação sai daqui. Um componente que escolhe cor por conta
+ * própria é um componente que vai divergir do resto na primeira tela nova, e a
+ * regra de lint em `eslint.config.js` recusa literal de cor dentro de `src/`.
+ *
+ * Os valores do tema claro vêm medidos das pranchas de design, pixel a pixel.
+ * O tema escuro não tem prancha: ele redefine os mesmos papéis, mantendo matiz
+ * e sentido — verde continua positivo, vermelho continua negativo, âmbar
+ * continua atenção — e só muda a luminosidade para sobreviver ao fundo escuro.
+ *
+ * `@theme static` e não `@theme`: por padrão o Tailwind só emite a variável
+ * que alguma classe utilitária usa, e as cores de classe de ativo são lidas em
+ * tempo de execução por `colorForToken`, que o compilador não enxerga. Sem o
+ * `static`, FIIs e Caixa simplesmente não teriam cor na barra de composição.
+ *
+ * `data-theme` é sempre `light` ou `dark` no `<html>`: a preferência "sistema"
+ * é resolvida em JavaScript (`lib/theme.ts`) antes da primeira pintura. É o que
+ * permite a troca de tema sem recarregar e sem nenhum elemento se deslocar —
+ * só os valores das variáveis mudam, e nenhuma medida depende do tema.
+ */
+@theme static {
+  /* Superfícies, da mais funda para a mais alta. */
+  --color-bg: #f5f6f8;
+  --color-panel: #ffffff;
+  --color-panel-2: #f2f4f7;
+  --color-line: #d5d9e0;
+  --color-line-strong: #b9c0cc;
+
+  /* Texto, em três níveis de ênfase. */
+  --color-ink: #121722;
+  --color-ink-2: #475467;
+  --color-ink-3: #667085;
+
+  /* Ação. `soft` é o fundo de linha selecionada e de item ativo. */
+  --color-accent: #2453c7;
+  --color-accent-hover: #1d45a8;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: #eaf0fc;
+
+  /* Sinal do resultado. Nunca sozinho: o número também leva sinal. */
+  --color-positive: #11804f;
+  --color-negative: #c2333f;
+  --color-attention: #a85f00;
+  --color-positive-soft: #e7f5ed;
+  --color-negative-soft: #fbeaec;
+  --color-attention-soft: #fdf3e3;
+
+  /*
+   * Classes de ativo. A mesma cor na tabela, no gráfico e na barra de
+   * alocação, em todas as telas: é por isso que `category.color_token` guarda
+   * `class.acoes` e não `#d07f1d`.
+   */
+  --color-class-rf-pos: #2e63d8;
+  --color-class-rf-inflacao: #178c93;
+  --color-class-rf-pre: #7a5ac9;
+  --color-class-acoes: #d07f1d;
+  --color-class-fiis: #c2477f;
+  --color-class-caixa: #8a94a6;
+  --color-class-etf: #3f7f6a;
+  --color-class-bdr: #9d6b3f;
+  --color-class-outros: #7d879b;
+
+  /*
+   * Séries de gráfico. A série da carteira é sempre a primeira; o benchmark
+   * principal é tracejado e neutro, para não competir com ela.
+   */
+  --color-series-1: #2e63d8;
+  --color-series-2: #178c93;
+  --color-series-3: #7a5ac9;
+  --color-series-4: #d07f1d;
+  --color-series-5: #c2477f;
+  --color-series-6: #8a94a6;
+  --color-series-benchmark: #121722;
+
+  /* Preenchimento da área empilhada: a mesma cor da série, mais clara. */
+  --color-area-contributions: #2e63d8;
+  --color-area-return: #11804f;
+  --color-area-loss: #c2333f;
+
+  /* Extremos da escala divergente da grade mês × ano (D-09). */
+  --color-scale-positive: #1f9d63;
+  --color-scale-negative: #d94f5c;
+
+  --color-focus: #2453c7;
+  --color-overlay: rgb(18 23 34 / 0.32);
+
+  --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /*
+   * Medidas que se repetem. A altura de controle é única em toda a barra de
+   * filtros: a prancha 03 a fixa em 34 px.
+   */
+  --spacing-control: 2.125rem;
+  --text-screen-title: 1.375rem;
+  --text-panel-title: 0.875rem;
+  --text-cell: 0.8125rem;
+  --text-label: 0.65625rem;
+  --text-principal: 2rem;
+
+  --radius-panel: 0.5rem;
+  --radius-control: 0.375rem;
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #0e1116;
+  --color-panel: #161b23;
+  --color-panel-2: #1d2430;
+  --color-line: #2a3240;
+  --color-line-strong: #3b4556;
+
+  --color-ink: #e6e9ef;
+  --color-ink-2: #aab2c0;
+  --color-ink-3: #828c9e;
+
+  --color-accent: #5a8cf5;
+  --color-accent-hover: #74a0ff;
+  --color-accent-ink: #0e1116;
+  --color-accent-soft: #1b2a47;
+
+  --color-positive: #35c08a;
+  --color-negative: #f2697a;
+  --color-attention: #e0a030;
+  --color-positive-soft: #10281f;
+  --color-negative-soft: #2c1519;
+  --color-attention-soft: #2b2112;
+
+  --color-class-rf-pos: #5b8cf0;
+  --color-class-rf-inflacao: #2bb3b8;
+  --color-class-rf-pre: #a08ae0;
+  --color-class-acoes: #e3a049;
+  --color-class-fiis: #e06aa0;
+  --color-class-caixa: #9aa3b4;
+  --color-class-etf: #58a88d;
+  --color-class-bdr: #c08f5e;
+  --color-class-outros: #949eb0;
+
+  --color-series-1: #5b8cf0;
+  --color-series-2: #2bb3b8;
+  --color-series-3: #a08ae0;
+  --color-series-4: #e3a049;
+  --color-series-5: #e06aa0;
+  --color-series-6: #9aa3b4;
+  --color-series-benchmark: #e6e9ef;
+
+  --color-area-contributions: #5b8cf0;
+  --color-area-return: #35c08a;
+  --color-area-loss: #f2697a;
+
+  --color-scale-positive: #35c08a;
+  --color-scale-negative: #f2697a;
+
+  --color-focus: #74a0ff;
+  --color-overlay: rgb(0 0 0 / 0.55);
+}
+
+/*
+ * Densidade. A tabela ocupa a maior parte da aplicação, então a altura de linha
+ * é um token e não uma classe: trocar a densidade em Configurações não pode
+ * exigir que cada tabela saiba disso.
+ */
+:root {
+  --row-height: 2.75rem;
+  --row-height-group: 2.375rem;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+:root[data-density='compact'] {
+  --row-height: 2.125rem;
+  --row-height-group: 1.875rem;
+}
+
+html,
+body,
+#root {
+  height: 100%;
 }
 
 body {
-  background-color: var(--color-surface);
+  background-color: var(--color-bg);
   color: var(--color-ink);
+  font-family: var(--font-sans);
+  /*
+   * `tnum` no texto também: um percentual dentro de uma frase precisa alinhar
+   * com o mesmo percentual na linha de baixo.
+   */
   font-feature-settings: 'tnum' 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Número em mono tabular. `slashed-zero` separa o zero da letra O em ticker, e
+ * `tnum` garante largura igual por dígito — sem isso, coluna de valor não
+ * alinha pela vírgula.
+ */
+.tabular {
+  font-family: var(--font-mono);
+  font-feature-settings:
+    'tnum' 1,
+    'zero' 1;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+/* A transição de tema é instantânea de propósito: animar cor de fundo de uma
+   tabela de 40 linhas custa mais do que entrega. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

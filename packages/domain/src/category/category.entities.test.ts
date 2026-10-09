@@ -45,7 +45,9 @@ describe('classificação automática', () => {
   });
 
   it('regra com duas condições exige as duas', () => {
-    const lista = [categoria('RF pós do banco', { indexer: 'cdi_pct', origin: 'manual' })];
+    const lista = [
+      categoria('RF pós do banco', { indexer: 'cdi_pct', origin: 'manual' }),
+    ];
 
     expect(classifyAsset({ indexer: 'cdi_pct' }, lista)).toBeNull();
     expect(classifyAsset({ indexer: 'cdi_pct', origin: 'manual' }, lista)?.name).toBe(
@@ -67,6 +69,8 @@ describe('classificação automática', () => {
   });
 
   it('chave desconhecida na regra não classifica', () => {
-    expect(classifyAsset({ b3_type: 'fii' }, [categoria('X', { cor: 'azul' })])).toBeNull();
+    expect(
+      classifyAsset({ b3_type: 'fii' }, [categoria('X', { cor: 'azul' })]),
+    ).toBeNull();
   });
 });

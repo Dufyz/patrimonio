@@ -9,12 +9,7 @@ import type {
   RealizedResultWrite,
 } from '../interfaces/projection.repository.js';
 import { planDailyClose } from './daily_close.plan.js';
-import type {
-  CloseAsset,
-  CloseEntry,
-  CloseSeed,
-  PriceOn,
-} from './daily_close.plan.js';
+import type { CloseAsset, CloseEntry, CloseSeed, PriceOn } from './daily_close.plan.js';
 
 /**
  * Reconstruir a projeção de uma carteira a partir de uma data é apagar e regravar
@@ -126,8 +121,7 @@ const curveLookup = (
     const code = indexForIndexer(terms.indexer);
     const factors: ReadonlyMap<DateOnly, string> =
       code === null ? new Map() : (context.index_factors.get(code) ?? new Map());
-    const projected =
-      code === null ? undefined : context.projected_factors?.get(code);
+    const projected = code === null ? undefined : context.projected_factors?.get(code);
 
     // Título vencido para de render: o acumulado congela no vencimento.
     const through =
@@ -213,9 +207,7 @@ const realizedFor = (context: RecalculationContext): readonly RealizedResultWrit
   );
 };
 
-export const planRecalculation = (
-  context: RecalculationContext,
-): RecalculationPlan => {
+export const planRecalculation = (context: RecalculationContext): RecalculationPlan => {
   const nextPrices = priceWalker(context.prices);
   const curves = curveLookup(context);
 

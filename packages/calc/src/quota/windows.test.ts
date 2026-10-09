@@ -95,7 +95,9 @@ describe('retorno por janela', () => {
     // existir, e o número que a tela de Desempenho mostra.
     const returns = ['0.004', '-0.012', '0.009', '0.002', '0.015'];
 
-    const semAporte = buildQuotaSeries(seriesFrom(returns, ['10000', '0', '0', '0', '0']));
+    const semAporte = buildQuotaSeries(
+      seriesFrom(returns, ['10000', '0', '0', '0', '0']),
+    );
     const comAporte = buildQuotaSeries(
       seriesFrom(returns, ['10000', '7000', '0', '-3000', '2500']),
     );

@@ -186,9 +186,7 @@ describe('atomicidade', () => {
       ),
     );
 
-    const [row] = await sql<
-      { recalc_status: string; recalc_error: string | null }[]
-    >`
+    const [row] = await sql<{ recalc_status: string; recalc_error: string | null }[]>`
       select recalc_status, recalc_error from portfolio where id = ${PORTFOLIO}
     `;
 
@@ -267,18 +265,14 @@ describe('idempotência do recálculo', () => {
 
     const usecase = recalculatePortfolio({ unitOfWork, clock });
 
-    unwrapSuccess(
-      await usecase({ portfolio_id: PORTFOLIO, from_date: '2026-10-01' }),
-    );
+    unwrapSuccess(await usecase({ portfolio_id: PORTFOLIO, from_date: '2026-10-01' }));
     const first = await sql<Record<string, unknown>[]>`
       select portfolio_id, position_date, total_value, net_flow, income, payouts,
              quota_value, quota_count, cumulative_contributions
         from portfolio_daily where portfolio_id = ${PORTFOLIO} order by position_date
     `;
 
-    unwrapSuccess(
-      await usecase({ portfolio_id: PORTFOLIO, from_date: '2026-10-01' }),
-    );
+    unwrapSuccess(await usecase({ portfolio_id: PORTFOLIO, from_date: '2026-10-01' }));
     const second = await sql<Record<string, unknown>[]>`
       select portfolio_id, position_date, total_value, net_flow, income, payouts,
              quota_value, quota_count, cumulative_contributions
@@ -337,7 +331,13 @@ describe('coalescência e espera', () => {
   it('cinco pedidos seguidos na mesma carteira produzem um recálculo', async () => {
     const repositories = createRepositories(sql);
 
-    for (const date of ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05']) {
+    for (const date of [
+      '2026-10-01',
+      '2026-10-02',
+      '2026-10-03',
+      '2026-10-04',
+      '2026-10-05',
+    ]) {
       unwrapSuccess(await repositories.outbox.enqueue([draft(date)]));
     }
 
@@ -444,7 +444,12 @@ describe('reconciliação de alertas', () => {
     const plan = planAlertReconciliation({
       existing,
       findings: [
-        { rule_kind: RULE, subject_id: 'e3-itub4', portfolio_id: null, payload: { dias: 9 } },
+        {
+          rule_kind: RULE,
+          subject_id: 'e3-itub4',
+          portfolio_id: null,
+          payload: { dias: 9 },
+        },
       ],
     });
 
@@ -505,7 +510,12 @@ describe('reconciliação de alertas', () => {
     const kept = planAlertReconciliation({
       existing,
       findings: [
-        { rule_kind: RULE, subject_id: 'e3-itub4', portfolio_id: null, payload: { dias: 4 } },
+        {
+          rule_kind: RULE,
+          subject_id: 'e3-itub4',
+          portfolio_id: null,
+          payload: { dias: 4 },
+        },
       ],
     });
     unwrapSuccess(

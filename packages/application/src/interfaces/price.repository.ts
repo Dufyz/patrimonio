@@ -47,7 +47,5 @@ export type PriceRepository = {
   ) => Promise<Either<AppError, IndexQuote[]>>;
 
   /** Ativos com posição aberta e sem preço do dia: o que a tela de dados lista. */
-  readonly assetsWithoutPriceOn: (
-    date: DateOnly,
-  ) => Promise<Either<AppError, string[]>>;
+  readonly assetsWithoutPriceOn: (date: DateOnly) => Promise<Either<AppError, string[]>>;
 };

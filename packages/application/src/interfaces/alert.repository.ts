@@ -55,12 +55,10 @@ export type AlertRepository = {
    * leitura de que a reconciliação precisa: quem decide o que fazer com elas é
    * `reconcileAlerts`, em `plans/alerts.plan.ts`, e não uma consulta.
    */
-  readonly listForRules: (
-    scope: {
-      readonly rule_kinds: readonly string[];
-      readonly portfolio_id?: string | null | undefined;
-    },
-  ) => Promise<Either<AppError, AlertInstance[]>>;
+  readonly listForRules: (scope: {
+    readonly rule_kinds: readonly string[];
+    readonly portfolio_id?: string | null | undefined;
+  }) => Promise<Either<AppError, AlertInstance[]>>;
 
   /**
    * Aplica a reconciliação em duas consultas: um `UPSERT` do que vale e um
@@ -71,17 +69,13 @@ export type AlertRepository = {
   readonly applyReconciliation: (
     upserts: readonly AlertUpsertRow[],
     resolved: readonly { readonly rule_kind: string; readonly subject_id: string }[],
-  ) => Promise<
-    Either<AppError, { readonly written: number; readonly removed: number }>
-  >;
+  ) => Promise<Either<AppError, { readonly written: number; readonly removed: number }>>;
 
   /** O que o painel Requer atenção lê: aberto, e adiado cuja data já passou. */
-  readonly listActive: (
-    options: {
-      readonly portfolio_id?: string | null | undefined;
-      readonly on_date: DateOnly;
-    },
-  ) => Promise<Either<AppError, AlertInstance[]>>;
+  readonly listActive: (options: {
+    readonly portfolio_id?: string | null | undefined;
+    readonly on_date: DateOnly;
+  }) => Promise<Either<AppError, AlertInstance[]>>;
 
   readonly listByStatus: (
     status: AlertStatus,

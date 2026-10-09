@@ -51,7 +51,7 @@ autenticar: ela entra na Fase 2, junto com a publicação.
 apps/
   api/      Express. Valida, roda casos de uso e grava o pedido na outbox
   worker/   Relay da outbox, as seis filas e os jobs
-  web/      SPA em Vite, consumindo a api por HTTP
+  web/      SPA em Vite. O design system está em `src/lib` e `src/components` (E5)
 packages/
   env/        Fonte única das variáveis de ambiente, validadas por zod no boot
   shared/     Either, o gerador `either` e o scrub do log. Sem dependência
@@ -186,3 +186,25 @@ A verificação noturna (`pnpm test:live`) fala com as APIs reais e abre issue
 quando o formato muda. Ela não bloqueia commit nem deploy: depende da internet, e
 um teste de commit que depende de a brapi estar no ar é um teste que ensina a
 equipe a ignorar vermelho. Fonte fora do ar não é notícia; formato mudado é.
+
+## Design system
+
+As pranchas de design são a especificação, não referência solta: `01 · Produto`
+fixa paleta e tipografia, `03 · Componentes` define cada peça com suas medidas,
+`16 · Menus e seletores` define as sobreposições e `18 · Casos limite` define o
+que acontece quando falta ou sobra dado.
+
+Tudo que o design system decide está em `apps/web/src/lib`, com teste; o
+componente só desenha. Dinheiro continua sendo string do contrato até a tela — a
+formatação faz aritmética decimal sobre string, e o `web` não soma: subtotal,
+peso e variação chegam prontos da `api`. Zero e ausência são coisas diferentes
+em todo lugar, inclusive no gráfico, onde buraco na série aparece como buraco.
+
+Toda cor sai de token semântico, e uma regra de lint recusa cor literal dentro
+de um componente. É o que faz Ações ter a mesma cor na tabela, na barra de
+alocação e na linha do gráfico, nos dois temas.
+
+Até E6, `pnpm dev` abre a galeria do design system, que é o critério de saída de
+E5 e o lugar onde as peças são conferidas contra as pranchas. Detalhes e as duas
+divergências registradas em relação à arquitetura — sem TanStack Table e sem
+Recharts — estão em `apps/web/README.md`.

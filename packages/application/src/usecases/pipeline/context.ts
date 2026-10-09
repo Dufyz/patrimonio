@@ -104,7 +104,10 @@ export const loadRecalculationContext = async (
   // O intervalo a reconstruir é de `from_date` para frente; o calendário vai desde
   // o lançamento mais antigo, porque o fator acumulado da curva conta os dias
   // úteis anteriores ao intervalo.
-  const calendar = await repositories.businessDays.listBetween(oldest, params.through_date);
+  const calendar = await repositories.businessDays.listBetween(
+    oldest,
+    params.through_date,
+  );
   if (calendar.isFailure()) return calendar;
 
   const businessDays = calendar.value
@@ -130,7 +133,11 @@ export const loadRecalculationContext = async (
   }
   for (const series of priceSeries.values()) {
     series.sort((left, right) =>
-      left.price_date < right.price_date ? -1 : left.price_date > right.price_date ? 1 : 0,
+      left.price_date < right.price_date
+        ? -1
+        : left.price_date > right.price_date
+          ? 1
+          : 0,
     );
   }
 
@@ -138,7 +145,9 @@ export const loadRecalculationContext = async (
     ...new Set(
       [...assetMap.values()]
         .map((asset) =>
-          asset.fixed_income === null ? null : indexForIndexer(asset.fixed_income.indexer),
+          asset.fixed_income === null
+            ? null
+            : indexForIndexer(asset.fixed_income.indexer),
         )
         .filter((code): code is NonNullable<typeof code> => code !== null),
     ),
@@ -243,7 +252,11 @@ export const loadTaxSales = async (
   // depois de janeiro ter sido apurado.
   return success(
     sales.sort((left, right) =>
-      left.trade_date < right.trade_date ? -1 : left.trade_date > right.trade_date ? 1 : 0,
+      left.trade_date < right.trade_date
+        ? -1
+        : left.trade_date > right.trade_date
+          ? 1
+          : 0,
     ),
   );
 };

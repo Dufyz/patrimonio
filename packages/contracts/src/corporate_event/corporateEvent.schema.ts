@@ -1,7 +1,12 @@
 import { CORPORATE_EVENT_KINDS } from '@patrimonio/domain';
 import { z } from 'zod';
 
-import { dateOnly, decimalString, positiveDecimal, uuid } from '../support/primitives.schema.js';
+import {
+  dateOnly,
+  decimalString,
+  positiveDecimal,
+  uuid,
+} from '../support/primitives.schema.js';
 
 export const corporateEventKindSchema = z.enum(CORPORATE_EVENT_KINDS);
 

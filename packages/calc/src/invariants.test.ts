@@ -26,7 +26,9 @@ const money = (value: number): string => value.toFixed(2);
 
 /** Quantidade e preço positivos e de magnitude plausível, sem flutuante solto. */
 const quantity = fc.integer({ min: 1, max: 10_000 });
-const price = fc.integer({ min: 1, max: 500_00 }).map((cents) => (cents / 100).toFixed(2));
+const price = fc
+  .integer({ min: 1, max: 500_00 })
+  .map((cents) => (cents / 100).toFixed(2));
 
 const dateFrom = (index: number): string => {
   const base = new Date(Date.UTC(2015, 0, 2));
@@ -227,10 +229,7 @@ describe('livro de lançamentos', () => {
 
         // O patrimônio total não muda: só a leitura por propósito.
         expect(
-          sumValues([
-            origin.position.cost_basis,
-            destination.position.cost_basis,
-          ]),
+          sumValues([origin.position.cost_basis, destination.position.cost_basis]),
         ).toBe(before.position.cost_basis);
 
         // E transferir não é vender: nenhum resultado realizado novo aparece.
@@ -256,9 +255,12 @@ const toSeries = (
 
   moves.forEach((move, index) => {
     // O primeiro dia tem de entrar com dinheiro: carteira começa com aporte.
-    const flow = index === 0 ? new Decimal(Math.abs(move.flow) + 1_000) : new Decimal(move.flow);
+    const flow =
+      index === 0 ? new Decimal(Math.abs(move.flow) + 1_000) : new Decimal(move.flow);
     const base = Decimal.max(total.plus(flow), 0);
-    const grown = base.times(new Decimal(1).plus(new Decimal(move.marketBp).dividedBy(10_000)));
+    const grown = base.times(
+      new Decimal(1).plus(new Decimal(move.marketBp).dividedBy(10_000)),
+    );
 
     total = grown.toDecimalPlaces(2);
 

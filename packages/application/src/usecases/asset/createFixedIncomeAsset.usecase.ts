@@ -24,13 +24,7 @@ import { createAssetIn } from './asset.usecases.js';
  * e não tem valor em nenhuma data.
  */
 export type FixedIncomeKind =
-  | 'cdb'
-  | 'lci'
-  | 'lca'
-  | 'cri'
-  | 'cra'
-  | 'debenture'
-  | 'outro';
+  'cdb' | 'lci' | 'lca' | 'cri' | 'cra' | 'debenture' | 'outro';
 
 export type CreateFixedIncomeInput = {
   readonly kind: FixedIncomeKind;

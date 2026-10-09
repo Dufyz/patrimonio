@@ -31,7 +31,11 @@ const buy = (
   institution_id: INSTITUTION,
 });
 
-const deposit = (trade_date: string, amount: string, id = `dep-${trade_date}`): CloseEntry => ({
+const deposit = (
+  trade_date: string,
+  amount: string,
+  id = `dep-${trade_date}`,
+): CloseEntry => ({
   id,
   kind: 'deposit',
   trade_date,
@@ -97,7 +101,10 @@ const price = (date: string, close: string, manual = false): PriceOn => ({
 const context = (overrides: Partial<DailyCloseContext> = {}): DailyCloseContext => ({
   portfolio_id: PORTFOLIO,
   reference_date: '2024-03-08',
-  entries: [deposit('2024-03-01', '10000.00'), buy('2024-03-04', 'itub4', '100', '30.00')],
+  entries: [
+    deposit('2024-03-01', '10000.00'),
+    buy('2024-03-04', 'itub4', '100', '30.00'),
+  ],
   assets: new Map([
     ['caixa', cash],
     ['itub4', listed('itub4')],
@@ -181,9 +188,9 @@ describe('saúde do preço', () => {
       context({ prices: new Map([['itub4', price('2024-03-05', '31.00')]]) }),
     );
 
-    expect(plan.positions.find((row) => row.asset_id === 'itub4')?.price_source_kind).toBe(
-      'stale',
-    );
+    expect(
+      plan.positions.find((row) => row.asset_id === 'itub4')?.price_source_kind,
+    ).toBe('stale');
     expect(plan.health.stale).toBe(1);
     expect(totalIsReliable(plan.health)).toBe(false);
   });
@@ -193,9 +200,9 @@ describe('saúde do preço', () => {
       context({ prices: new Map([['itub4', price('2024-03-08', '31.00', true)]]) }),
     );
 
-    expect(plan.positions.find((row) => row.asset_id === 'itub4')?.price_source_kind).toBe(
-      'manual',
-    );
+    expect(
+      plan.positions.find((row) => row.asset_id === 'itub4')?.price_source_kind,
+    ).toBe('manual');
   });
 
   it('ativo sem preço nenhum entra pelo custo e é marcado', () => {
@@ -212,9 +219,9 @@ describe('saúde do preço', () => {
   it('o estado é gravado na linha, não inferido na tela', () => {
     const plan = planDailyClose(context());
 
-    expect(
-      plan.positions.every((row) => typeof row.price_source_kind === 'string'),
-    ).toBe(true);
+    expect(plan.positions.every((row) => typeof row.price_source_kind === 'string')).toBe(
+      true,
+    );
   });
 });
 
@@ -253,9 +260,7 @@ describe('renda fixa marcada na curva', () => {
     // Três dias úteis de CDI a 112%, sobre dez mil.
     expect(row?.cost_basis).toBe('10000.00');
     expect(Number(row?.market_value)).toBeGreaterThan(10000);
-    expect(row?.accrued_interest).toBe(
-      (Number(row?.market_value) - 10000).toFixed(2),
-    );
+    expect(row?.accrued_interest).toBe((Number(row?.market_value) - 10000).toFixed(2));
     expect(row?.price_source_kind).toBe('fresh');
   });
 

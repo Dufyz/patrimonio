@@ -13,15 +13,7 @@ import { addMonths, calendarDaysBetween } from '../support/dates.js';
  * inventar informação, e é exatamente o tipo de número plausível e errado que o
  * produto existe para não produzir.
  */
-export const WINDOWS = [
-  'month',
-  '3m',
-  '6m',
-  'ytd',
-  '12m',
-  '24m',
-  'inception',
-] as const;
+export const WINDOWS = ['month', '3m', '6m', 'ytd', '12m', '24m', 'inception'] as const;
 
 export type WindowKey = (typeof WINDOWS)[number];
 

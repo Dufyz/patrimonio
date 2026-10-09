@@ -33,7 +33,13 @@ describe('índice simples', () => {
     const completo = benchmarkReturn({
       definition: { kind: 'index', index: 'CDI' },
       factors: new Map([
-        ['CDI', new Map(blendDates.map((date) => [date, '1.000400000000'])) as ReadonlyMap<string, string>],
+        [
+          'CDI',
+          new Map(blendDates.map((date) => [date, '1.000400000000'])) as ReadonlyMap<
+            string,
+            string
+          >,
+        ],
       ]),
       dates: blendDates,
     });
@@ -152,9 +158,7 @@ describe('benchmark composto', () => {
     // Dia 1 o IBOV sobe 2% e o CDI 0,04%: a carteira sobe ~1,02%. Dia 2 o IBOV
     // cai 2% sobre uma base maior, então o conjunto não volta ao ponto de partida.
     expect(Number(series[0]?.accumulated)).toBeGreaterThan(1);
-    expect(Number(series[1]?.accumulated)).toBeLessThan(
-      Number(series[0]?.accumulated),
-    );
+    expect(Number(series[1]?.accumulated)).toBeLessThan(Number(series[0]?.accumulated));
   });
 
   it('peso somando zero não divide por zero', () => {

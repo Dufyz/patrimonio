@@ -19,7 +19,8 @@ export const deletePortfolioSchema = z.object({
       destination_portfolio_id: uuid.optional(),
     })
     .refine(
-      (body) => body.transactions !== 'move' || body.destination_portfolio_id !== undefined,
+      (body) =>
+        body.transactions !== 'move' || body.destination_portfolio_id !== undefined,
       {
         message: 'mover o conteúdo exige a carteira de destino',
         path: ['destination_portfolio_id'],

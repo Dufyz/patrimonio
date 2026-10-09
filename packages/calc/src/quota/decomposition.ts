@@ -44,8 +44,7 @@ export type MonthlyDecomposition = {
 export type DecompositionOptions = {
   /** O fechamento do mês anterior ao início da série, num recálculo parcial. */
   readonly previous?:
-    | { readonly total_value: string; readonly quota_value: string }
-    | undefined;
+    { readonly total_value: string; readonly quota_value: string } | undefined;
 };
 
 export const decomposeByMonth = (

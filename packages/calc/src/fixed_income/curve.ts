@@ -109,7 +109,10 @@ const dailyTerm = (
 };
 
 /** `(1 + i)^(du/252)`, composto por dia útil — nunca linear. */
-export const annualToPeriodFactor = (annualPercent: string, businessDays: number): string => {
+export const annualToPeriodFactor = (
+  annualPercent: string,
+  businessDays: number,
+): string => {
   if (businessDays === 0) return new Big(1).toFixed(RATE_FACTOR_DP);
 
   const annual = new Big(1).plus(new Big(annualPercent).dividedBy(100));
@@ -168,7 +171,9 @@ const accumulateIndex = (
   return { factor, projected: projectedDays, missing: missingDays };
 };
 
-const indexMap = (factors: readonly IndexFactor[] | undefined): ReadonlyMap<string, string> =>
+const indexMap = (
+  factors: readonly IndexFactor[] | undefined,
+): ReadonlyMap<string, string> =>
   new Map((factors ?? []).map((entry) => [entry.date, entry.daily_factor]));
 
 /** O valor na curva em uma data. */

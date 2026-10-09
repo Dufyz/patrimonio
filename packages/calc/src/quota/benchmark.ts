@@ -56,11 +56,8 @@ export type BenchmarkPoint = {
  * Dia sem fator publicado é dia sem variação, não dia interpolado: o buraco da
  * série aparece como buraco, exatamente como no gráfico.
  */
-const factorOn = (
-  factors: FactorsByIndex,
-  index: string,
-  date: string,
-): Decimal => new Big(factors.get(index)?.get(date) ?? '1');
+const factorOn = (factors: FactorsByIndex, index: string, date: string): Decimal =>
+  new Big(factors.get(index)?.get(date) ?? '1');
 
 /** `(1 + i)^(1/252)`: o cupom do benchmark composto por dia útil. */
 const dailySpread = (annualPercent: string): Decimal =>
@@ -68,7 +65,9 @@ const dailySpread = (annualPercent: string): Decimal =>
     .plus(new Big(annualPercent).dividedBy(100))
     .pow(one.dividedBy(new Big(BUSINESS_DAYS_PER_YEAR)));
 
-const normalized = (parts: readonly BenchmarkPart[]): readonly { index: string; weight: Decimal }[] => {
+const normalized = (
+  parts: readonly BenchmarkPart[],
+): readonly { index: string; weight: Decimal }[] => {
   const total = parts.reduce((sum, part) => sum.plus(new Big(part.weight)), new Big(0));
 
   if (total.isZero()) {

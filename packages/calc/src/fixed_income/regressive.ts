@@ -79,7 +79,8 @@ export const redemption = (input: RedemptionInput): Redemption => {
 
   // LCI, LCA, CRI, CRA e debênture incentivada não aplicam a tabela: o rendimento
   // inteiro é do investidor, e a alíquota é zero, não "a de mais de 720 dias".
-  const rate = input.tax_regime === 'exempt' ? new Decimal(0) : new Decimal(regressiveRate(elapsed));
+  const rate =
+    input.tax_regime === 'exempt' ? new Decimal(0) : new Decimal(regressiveRate(elapsed));
 
   const tax = base.times(rate).dividedBy(100).toDecimalPlaces(MONEY_DP);
 

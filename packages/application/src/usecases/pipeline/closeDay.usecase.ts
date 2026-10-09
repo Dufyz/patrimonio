@@ -83,10 +83,7 @@ export const closeDay = (deps: CloseDayDeps) =>
     const closed: ClosedPortfolio[] = [];
 
     for (const portfolioId of scope.portfolios) {
-      const result = yield* await deps.unitOfWork.run<
-        AppError,
-        ClosedPortfolio | null
-      >(
+      const result = yield* await deps.unitOfWork.run<AppError, ClosedPortfolio | null>(
         async (repositories) => {
           const sales = await loadTaxSales(repositories, date);
           if (sales.isFailure()) return sales;
@@ -125,7 +122,9 @@ export const closeDay = (deps: CloseDayDeps) =>
 
           const day = plan.portfolio_days[0];
           if (day === undefined) {
-            return failure(new BadRequestError('O fechamento não produziu linha nenhuma'));
+            return failure(
+              new BadRequestError('O fechamento não produziu linha nenhuma'),
+            );
           }
 
           return success({

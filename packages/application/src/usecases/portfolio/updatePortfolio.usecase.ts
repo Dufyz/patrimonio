@@ -32,35 +32,33 @@ export const updatePortfolio = (deps: UpdatePortfolioDeps) =>
       sort_order: input.sort_order,
     };
 
-    return yield* await deps.unitOfWork.run<AppError, Portfolio>(
-      async (repositories) => {
-        if (patch.name !== undefined) {
-          const sameName = await repositories.portfolios.findByName(patch.name);
-          if (sameName.isFailure()) return sameName;
+    return yield* await deps.unitOfWork.run<AppError, Portfolio>(async (repositories) => {
+      if (patch.name !== undefined) {
+        const sameName = await repositories.portfolios.findByName(patch.name);
+        if (sameName.isFailure()) return sameName;
 
-          if (
-            sameName.value !== null &&
-            sameName.value.id !== id &&
-            sameName.value.archived_at === null
-          ) {
-            return failure(
-              new ConflictError(`Já existe uma carteira chamada ${patch.name}`),
-            );
-          }
+        if (
+          sameName.value !== null &&
+          sameName.value.id !== id &&
+          sameName.value.archived_at === null
+        ) {
+          return failure(
+            new ConflictError(`Já existe uma carteira chamada ${patch.name}`),
+          );
         }
+      }
 
-        const updated = await repositories.portfolios.update(id, patch);
-        if (updated.isFailure()) return updated;
-        if (updated.value === null) {
-          return failure(new NotFoundError(`Carteira ${id} não encontrada`));
-        }
+      const updated = await repositories.portfolios.update(id, patch);
+      if (updated.isFailure()) return updated;
+      if (updated.value === null) {
+        return failure(new NotFoundError(`Carteira ${id} não encontrada`));
+      }
 
-        if (targets !== undefined) {
-          const saved = await repositories.portfolios.replaceTargets(id, targets);
-          if (saved.isFailure()) return saved;
-        }
+      if (targets !== undefined) {
+        const saved = await repositories.portfolios.replaceTargets(id, targets);
+        if (saved.isFailure()) return saved;
+      }
 
-        return success(updated.value);
-      },
-    );
+      return success(updated.value);
+    });
   });

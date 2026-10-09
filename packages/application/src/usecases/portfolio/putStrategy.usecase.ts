@@ -15,10 +15,7 @@ export type PutStrategyDeps = { readonly unitOfWork: UnitOfWork };
  * impossível trocar 35/25/40 por 30/30/40.
  */
 export const putStrategy = (deps: PutStrategyDeps) =>
-  either(async function* (
-    portfolioId: string,
-    targets: readonly StrategyTargetWrite[],
-  ) {
+  either(async function* (portfolioId: string, targets: readonly StrategyTargetWrite[]) {
     yield* validateTargets(targets);
 
     return yield* await deps.unitOfWork.run<AppError, StrategyTarget[]>(

@@ -16,7 +16,9 @@ import type { Connection } from '../postgresql.js';
  * continua dizendo que apareceu em março, e é essa data que diz se o usuário está
  * convivendo com um problema ou acabou de topar com ele.
  */
-const parseRule = (row: Row): {
+const parseRule = (
+  row: Row,
+): {
   readonly kind: string;
   readonly enabled: boolean;
   readonly threshold: Record<string, unknown> | null;

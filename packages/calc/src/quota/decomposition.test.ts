@@ -47,8 +47,18 @@ describe('o que o mês separa', () => {
   it('o mês com prejuízo devolve rendimento negativo, sem truncar em zero', () => {
     const queda = decomposeByMonth(
       buildQuotaSeries([
-        { position_date: '2024-06-03', total_value: '10000.00', net_flow: '10000.00', payouts: '0.00' },
-        { position_date: '2024-06-28', total_value: '9000.00', net_flow: '0.00', payouts: '0.00' },
+        {
+          position_date: '2024-06-03',
+          total_value: '10000.00',
+          net_flow: '10000.00',
+          payouts: '0.00',
+        },
+        {
+          position_date: '2024-06-28',
+          total_value: '9000.00',
+          net_flow: '0.00',
+          payouts: '0.00',
+        },
       ]),
     );
 

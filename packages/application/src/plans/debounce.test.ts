@@ -65,9 +65,7 @@ describe('a espera e o teto', () => {
 
     // O segundo pedido pede uma espera maior; é o `least(..., debounce_until)` da
     // outbox que impede a rajada de adiar o recálculo para sempre.
-    expect(second.available_at!.getTime()).toBeGreaterThan(
-      first.available_at!.getTime(),
-    );
+    expect(second.available_at!.getTime()).toBeGreaterThan(first.available_at!.getTime());
   });
 
   it('data já declarada pelo plano vence a política', () => {
