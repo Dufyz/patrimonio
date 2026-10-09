@@ -19,6 +19,7 @@ import {
   deletePortfolio,
   getAsset,
   getAssetPage,
+  getStatement,
   getAssetPriceSeries,
   getMarketHealth,
   getOverview,
@@ -178,6 +179,8 @@ export const createApiUseCases = (deps: {
     assetPages: deps.repositories.assetPages,
     clock: deps.clock,
   }),
+  // T-04 também lê fora da transação: o extrato só consulta.
+  getStatement: getStatement({ statements: deps.repositories.statements }),
   // A tela de abertura: uma rota, duas consultas — o instantâneo e os alertas.
   getOverview: getOverview({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
 });

@@ -71,12 +71,15 @@ export type PositionsScreenProps = {
   readonly scopeLabel: string;
   /** Abre a página do ativo (T-03), pelo apelido dele no endereço. */
   readonly onOpenAsset: (slug: string) => void;
+  /** Abre Movimentações filtrada por este ativo, em todo o período. */
+  readonly onOpenStatement?: ((search: string) => void) | undefined;
 };
 
 export const PositionsScreen = ({
   portfolioId,
   scopeLabel,
   onOpenAsset,
+  onOpenStatement,
 }: PositionsScreenProps): React.ReactElement => {
   const [params, setParams] = useSearchParams();
   const { hidden: valuesHidden, toggleHidden } = usePreferences();
@@ -307,6 +310,7 @@ export const PositionsScreen = ({
                     position={row}
                     onManualPrice={setManualPriceFor}
                     onOpenAsset={onOpenAsset}
+                    onOpenStatement={onOpenStatement}
                   />
                 )}
                 emptyState={
@@ -500,10 +504,12 @@ const RowMenu = ({
   position,
   onManualPrice,
   onOpenAsset,
+  onOpenStatement,
 }: {
   readonly position: PositionResource;
   readonly onManualPrice: (position: PositionResource) => void;
   readonly onOpenAsset: (slug: string) => void;
+  readonly onOpenStatement: ((search: string) => void) | undefined;
 }): React.ReactElement => (
   <Menu
     label={`Ações de ${positionTitle(position)}`}
@@ -543,9 +549,8 @@ const RowMenu = ({
       {
         id: 'transactions',
         label: 'Ver lançamentos',
-        hint: 'a tela de Movimentações chega com T-04',
-        disabled: true,
-        onSelect: () => {},
+        disabled: onOpenStatement === undefined,
+        onSelect: () => onOpenStatement?.(positionTitle(position)),
       },
     ]}
   />

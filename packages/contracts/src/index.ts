@@ -295,3 +295,24 @@ export type {
   OverviewResource,
   OverviewTopPositionResource,
 } from './overview/overview.schema.js';
+
+export {
+  STATEMENT_GROUPS,
+  STATEMENT_GROUP_KINDS,
+  getStatementSchema,
+  statementEffectSchema,
+  statementGroupSchema,
+  statementMonthSchema,
+  statementResourceSchema,
+  statementRowSchema,
+  statementSummarySchema,
+} from './statement/statement.schema.js';
+export type {
+  GetStatementQuery,
+  StatementEffect,
+  StatementGroup,
+  StatementMonth,
+  StatementResource,
+  StatementRow,
+  StatementSummary,
+} from './statement/statement.schema.js';

@@ -17,6 +17,7 @@ pnpm --filter @patrimonio/web test
 | `/:carteira/posicoes`       | T-02 · a tabela de tudo que está em carteira     |
 | `/todas/visao-geral`        | o mesmo, somando todas as carteiras              |
 | `/:carteira/ativo/:apelido` | T-03 · tudo sobre um ativo em um lugar           |
+| `/:carteira/movimentacoes`  | T-04 · o extrato do livro, onde se corrige o passado |
 | `/galeria`                  | a galeria do design system (E5)                  |
 
 O escopo é o apelido da carteira, não o identificador: `/longo-prazo/posicoes` é
@@ -125,6 +126,43 @@ O `SeriesChart` ganhou duas coisas que só esta tela usa, e que a prancha pede:
 horizontal (o preço médio). Nenhuma das duas é série: elas não têm valor em
 toda data, e entrar na legenda como controle faria "esconder a série" esconder
 a linha inteira. Elas aparecem na legenda como explicação, não como botão.
+
+## T-04 · Movimentações
+
+O extrato do livro de lançamentos. A pergunta da tela não é "quanto tenho", é
+"o que aconteceu, e o que cada lançamento mudou" — e a coluna **Efeito** é a
+razão de ela existir: preço médio de antes e de depois, resultado realizado,
+isenção, de onde veio o dinheiro.
+
+**O Efeito vem do mesmo motor do recálculo.** `GET /api/statement` refaz o livro
+de cada ativo que aparece na página com `ledgerEffects` (`packages/calc`), que é
+o passo-a-passo de `applyLedger`, e não uma conta paralela. Um "PM depois" que
+diferisse de Posições por um centavo seria um extrato que não confere. São duas
+consultas por pedido: a página com todos os agregados, e o livro dos ativos.
+
+**Todo agregado vem pronto.** Resumo do período, subtotal de mês e contagem de
+cada pastilha são somados pela `api` sob o filtro, e é por isso que o subtotal
+de setembro continua certo quando setembro atravessa duas páginas. As pastilhas
+contam sob os *outros* filtros: contar sob o tipo já escolhido zeraria todas as
+demais no primeiro clique.
+
+**Excluir oferece desfazer, não confirma.** O aviso diz que o recálculo foi
+enfileirado e o botão vale pela janela `UNDO_WINDOW_SECONDS`. Nada é otimista: a
+linha só muda quando a `api` confirma, e enquanto houver carteira recalculando a
+tela relê sozinha a cada poucos segundos.
+
+Em T-04, mais quatro, contra a prancha 07:
+
+- **A barra de lote não soma "compras 4.721,00".** O web não faz aritmética com
+  dinheiro; ela diz o que a seleção contém ("2 compras"). Se a soma da seleção
+  for necessária, ela entra na `api`.
+- **"Recategorizar" do backlog virou "Mover para carteira"**, que é o que a
+  prancha desenha e o único campo que o lote edita de fato; categoria é do
+  ativo, não do lançamento.
+- **Editar e Duplicar aparecem desabilitados**, com a história na dica: o
+  formulário com preview é T-10.
+- **Exportar CSV** está na barra de lote e exporta a seleção da página, com `;`
+  e vírgula decimal. A exportação completa do recorte é O-06.
 
 ## Divergências registradas
 
