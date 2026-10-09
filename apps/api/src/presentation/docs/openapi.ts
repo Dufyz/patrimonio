@@ -15,6 +15,7 @@ import { CATEGORY_ROUTE_DOCS } from './category.docs.js';
 import { CORPORATE_EVENT_ROUTE_DOCS } from './corporate-event.docs.js';
 import { MARKET_ROUTE_DOCS } from './market.docs.js';
 import { OVERVIEW_ROUTE_DOCS } from './overview.docs.js';
+import { ALLOCATION_ROUTE_DOCS } from './allocation.docs.js';
 import { PERFORMANCE_ROUTE_DOCS } from './performance.docs.js';
 import { TRANSACTION_ROUTE_DOCS } from './transaction.docs.js';
 import { INSTITUTION_ROUTE_DOCS } from './institution.docs.js';
@@ -80,6 +81,7 @@ export const ROUTE_DOCS: readonly RouteDoc[] = [
   ...POSITION_ROUTE_DOCS,
   ...OVERVIEW_ROUTE_DOCS,
   ...PERFORMANCE_ROUTE_DOCS,
+  ...ALLOCATION_ROUTE_DOCS,
 ];
 
 type JsonSchema = Record<string, unknown>;

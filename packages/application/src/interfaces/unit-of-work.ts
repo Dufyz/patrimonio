@@ -14,6 +14,7 @@ import type { ManualPriceRepository } from './manual_price.repository.js';
 import type { MarketIngestionRepository } from './market_ingestion.repository.js';
 import type { OutboxRepository } from './outbox.repository.js';
 import type { OverviewRepository } from './overview.repository.js';
+import type { AllocationRepository } from './allocation.repository.js';
 import type { PerformanceRepository } from './performance.repository.js';
 import type { PayoutDismissalRepository } from './payout_dismissal.repository.js';
 import type { PortfolioRepository } from './portfolio.repository.js';
@@ -59,6 +60,8 @@ export type TransactionalRepositories = {
   readonly overview: OverviewRepository;
   /** Só leitura: a tela de Desempenho, em duas consultas. */
   readonly performance: PerformanceRepository;
+  /** Só leitura: a tela de Estratégia, numa consulta. */
+  readonly allocation: AllocationRepository;
   readonly market: MarketIngestionRepository;
 };
 

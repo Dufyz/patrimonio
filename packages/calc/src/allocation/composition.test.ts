@@ -76,6 +76,12 @@ describe('desvio contra o alvo', () => {
     expect(node('cat-posfixado')?.amount_to_move).toBe('-5000.00');
   });
 
+  it('traz o valor que a linha teria no alvo, para a tela não somar', () => {
+    expect(node('cat-inflacao')?.target_value).toBe('15000.00');
+    expect(node('cat-posfixado')?.target_value).toBe('35000.00');
+    expect(node('grp-fixa')?.target_value).toBe('50000.00');
+  });
+
   it('desvio acima da tolerância da carteira fica marcado', () => {
     expect(node('cat-posfixado')?.over_tolerance).toBe(true);
     expect(node('cat-inflacao')?.over_tolerance).toBe(true);
@@ -108,6 +114,7 @@ describe('alvo ausente ou incompleto', () => {
     expect(fii?.target_pct).toBeNull();
     expect(fii?.deviation_pp).toBeNull();
     expect(fii?.amount_to_move).toBeNull();
+    expect(fii?.target_value).toBeNull();
     expect(fii?.over_tolerance).toBe(false);
   });
 

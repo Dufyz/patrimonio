@@ -68,6 +68,7 @@ const overview: OverviewResource = {
         deviation_pp: '0.30',
         over_tolerance: false,
         amount_to_move: '-956.71',
+        target_value: '111615.44',
         children: [],
       },
       {
@@ -81,6 +82,7 @@ const overview: OverviewResource = {
         deviation_pp: '-0.90',
         over_tolerance: false,
         amount_to_move: '2870.14',
+        target_value: '79726.03',
         children: [],
       },
     ],

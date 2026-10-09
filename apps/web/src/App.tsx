@@ -26,6 +26,7 @@ import { OverviewScreen } from './views/overview.js';
 import { PerformanceScreen } from './views/performance.js';
 import { PositionsScreen } from './views/positions.js';
 import { StatementScreen } from './views/statement.js';
+import { StrategyScreen } from './views/strategy.js';
 
 /**
  * E6 · A moldura e as telas.
@@ -214,6 +215,8 @@ const Workbench = (): React.ReactElement => {
         />
       ) : current?.id === 'desempenho' ? (
         <PerformanceScreen portfolioId={portfolioId} />
+      ) : current?.id === 'estrategia' ? (
+        <StrategyScreen portfolioId={portfolioId} />
       ) : (
         <ScreenPending label={current?.label ?? ''} story={current?.story ?? ''} />
       )}
@@ -244,8 +247,8 @@ const ScreenPending = ({
   <div className="flex flex-col gap-1 rounded-panel border border-line bg-panel p-6">
     <h1 className="text-base font-semibold">{label}</h1>
     <p className="text-[0.8125rem] text-ink-3">
-      Esta tela chega com {story}. Visão geral, Posições, Movimentações e Desempenho já
-      estão de pé.
+      Esta tela chega com {story}. Visão geral, Posições, Movimentações, Desempenho e
+      Estratégia já estão de pé.
     </p>
   </div>
 );

@@ -23,6 +23,7 @@ import {
   getAssetPriceSeries,
   getMarketHealth,
   getOverview,
+  getAllocation,
   getPerformance,
   getTransaction,
   interpretTransaction,
@@ -187,6 +188,11 @@ export const createApiUseCases = (deps: {
   // T-05 lê fora da transação, como T-02 a T-04: são duas consultas de leitura.
   getPerformance: getPerformance({
     performance: deps.repositories.performance,
+    clock: deps.clock,
+  }),
+  // T-06 também lê fora da transação: a estratégia é uma consulta de leitura.
+  getAllocation: getAllocation({
+    allocation: deps.repositories.allocation,
     clock: deps.clock,
   }),
 });

@@ -80,6 +80,8 @@ const compositionBase = {
   deviation_pp: decimalString.nullable(),
   over_tolerance: z.boolean(),
   amount_to_move: decimalString.nullable(),
+  /** O valor da linha no alvo, pronto: a tela não soma `value` e `amount_to_move`. */
+  target_value: decimalString.nullable(),
 };
 
 /**

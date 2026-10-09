@@ -49,6 +49,12 @@ export type CompositionNode = {
   readonly over_tolerance: boolean;
   /** Quanto mover para chegar ao alvo. Positivo é comprar. */
   readonly amount_to_move: string | null;
+  /**
+   * O valor que a linha teria no alvo. Vem pronto porque a tela não faz conta
+   * com dinheiro: ela mostra a coluna "no alvo" sem somar `value` e
+   * `amount_to_move`.
+   */
+  readonly target_value: string | null;
   readonly children: readonly CompositionNode[];
 };
 
@@ -72,6 +78,7 @@ type Resolved = {
   readonly deviation_pp: string | null;
   readonly over_tolerance: boolean;
   readonly amount_to_move: string | null;
+  readonly target_value: string | null;
 };
 
 const resolve = (
@@ -89,6 +96,7 @@ const resolve = (
       deviation_pp: null,
       over_tolerance: false,
       amount_to_move: null,
+      target_value: null,
     };
   }
 
@@ -102,6 +110,7 @@ const resolve = (
     over_tolerance:
       tolerance !== null && new Decimal(deviation).abs().greaterThan(tolerance),
     amount_to_move: money(wanted.minus(value)),
+    target_value: money(wanted),
   };
 };
 

@@ -345,3 +345,18 @@ export type {
   PerformanceResource,
   PerformanceWindowsResource,
 } from './performance/performance.schema.js';
+
+export {
+  allocationContributionSchema,
+  allocationPortfolioSchema,
+  allocationRulesSchema,
+  allocationSchema,
+  allocationShareSchema,
+  getAllocationSchema,
+} from './allocation/allocation.schema.js';
+export type {
+  AllocationContributionResource,
+  AllocationResource,
+  AllocationRulesResource,
+  AllocationShareResource,
+} from './allocation/allocation.schema.js';

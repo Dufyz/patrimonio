@@ -19,6 +19,7 @@ pnpm --filter @patrimonio/web test
 | `/:carteira/ativo/:apelido` | T-03 · tudo sobre um ativo em um lugar           |
 | `/:carteira/movimentacoes`  | T-04 · o extrato do livro, onde se corrige o passado |
 | `/:carteira/desempenho`     | T-05 · quanto veio de aporte e quanto de rentabilidade |
+| `/:carteira/estrategia`     | T-06 · o dinheiro está dividido como eu disse que queria? |
 | `/galeria`                  | a galeria do design system (E5)                  |
 
 O escopo é o apelido da carteira, não o identificador: `/longo-prazo/posicoes` é
@@ -204,6 +205,52 @@ Em T-05, contra a prancha 08:
 - **Benchmarks compostos** (`IPCA + 6%`, `50% CDI + 50% IBOV`) são definição do
   usuário e nascem em Configurações; a migration 030 semeia só os cinco índices
   simples.
+
+## T-06 · Estratégia
+
+A tela responde uma pergunta: **o dinheiro está dividido como eu disse que
+queria?** O alvo se edita na própria tabela, ao lado do que a carteira tem hoje,
+porque é ali que se vê o que cada ponto de alvo custa em reais. `GET
+/api/allocation` entrega regras, tabela, desvio e — com `contribution` — o plano
+de aporte sobre o mesmo fechamento; a escrita do alvo é a que já existia, `PUT
+/portfolios/{id}/strategy`, e a das regras é o `PATCH` da carteira.
+
+**A estratégia é de uma carteira.** Em "todas as carteiras" a tela explica isso
+em vez de mostrar um consolidado: como combinar o alvo de cada carteira é decisão
+de F2-06, e um consolidado pareceria ter um alvo que ninguém declarou.
+
+**Só a soma dos alvos é conta do navegador**, feita em centésimos de ponto
+percentual, em inteiros — `35,1 + 24,9` em ponto flutuante não é garantidamente
+`60`, e é esse número que trava o botão de salvar. Desvio, valor no alvo e valor
+a mover chegam prontos; enquanto há edição, essas colunas continuam sendo as da
+estratégia salva, e a tela diz isso, em vez de recalcular dinheiro no navegador.
+
+**Sem estratégia, desvio e valores são traço, não zero.** Com estratégia, a
+categoria que ficou de fora tem alvo zero e o desvio dela é a posição inteira.
+Zero não leva `+` nem cor: não tem direção.
+
+**Nenhuma escrita é otimista.** O corpo só leva categorias com alvo acima de zero
+(o banco guarda "sem alvo" como ausência de linha); zerar tudo salva "sem
+estratégia", e a barra avisa antes. O erro do banco volta na barra com o texto
+dele e o rascunho fica. `⌘S` salva de qualquer campo.
+
+Em T-06, contra a prancha 09:
+
+- **O benchmark não se edita aqui.** O lápis está desabilitado, com a dica
+  dizendo onde: escolher benchmark pede a lista de índices e as definições
+  compostas (`IPCA + 6%`), que nascem em Configurações. Tolerância, peso máximo,
+  rebalanceamento e revisão editam em um diálogo pequeno.
+- **O botão Categorias está desabilitado**, pela razão de T-02: criar e
+  reorganizar categorias é Configurações, e fingir que a ação existe custa mais
+  confiança do que dizer que ela não existe.
+- **Planejar aporte pede estratégia salva.** O plano usa o alvo que o banco
+  tem; com alteração não salva o diálogo avisa e não calcula, em vez de planejar
+  sobre um alvo que ainda não existe.
+- **A barra do grupo fica vazia**, como a prancha desenha: o grupo é a soma das
+  categorias e não tem alvo próprio para comparar.
+- **O fundo da barra não é 100%**, e sim o maior valor da tabela arredondado de
+  dez em dez: com Ações em 35,3% a barra cheia é 40%, e o desvio de um ponto se
+  vê. Uma barra fixa em 100% deixaria toda linha menor que 25% como um traço.
 
 ## Divergências registradas
 

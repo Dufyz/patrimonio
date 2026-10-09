@@ -151,6 +151,13 @@ export type {
   CompositionTarget,
 } from './allocation/composition.js';
 
+export { planContribution } from './allocation/contribution.js';
+export type {
+  ContributionLine,
+  ContributionPlan,
+  ContributionShare,
+} from './allocation/contribution.js';
+
 export { fgcHeadroom } from './allocation/fgc.js';
 export type { FgcHeadroom } from './allocation/fgc.js';
 

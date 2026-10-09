@@ -107,6 +107,14 @@ export type {
   AlertUpsertRow,
 } from './interfaces/alert.repository.js';
 export type {
+  AllocationCategoryRow,
+  AllocationPortfolioRow,
+  AllocationQuery,
+  AllocationRepository,
+  AllocationSnapshot,
+  AllocationTargetRow,
+} from './interfaces/allocation.repository.js';
+export type {
   OverviewAnchors,
   OverviewCategoryRow,
   OverviewDayRow,
@@ -591,3 +599,15 @@ export type {
   OverviewTopPosition,
   OverviewTotals,
 } from './usecases/overview/overview.usecase.js';
+
+export { getAllocation } from './usecases/allocation/getAllocation.usecase.js';
+export type {
+  AllocationComposition,
+  AllocationContribution,
+  AllocationNode,
+  AllocationResult,
+  AllocationRules,
+  AllocationShare,
+  GetAllocationDeps,
+  GetAllocationInput,
+} from './usecases/allocation/getAllocation.usecase.js';
