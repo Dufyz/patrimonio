@@ -44,6 +44,12 @@ export type TableState = {
   /** Grupos em que o "mostrar mais" já foi acionado. */
   readonly expandedGroups: readonly string[];
   readonly selectedRowId: string | null;
+  /**
+   * A linha aberta em detalhe, abaixo dela mesma. Uma por vez: duas abertas
+   * empurram a terceira para fora da tela, e a comparação que a tabela existe
+   * para permitir é justamente entre linhas vizinhas.
+   */
+  readonly expandedRowId: string | null;
 };
 
 export const EMPTY_TABLE_STATE: TableState = {
@@ -51,6 +57,7 @@ export const EMPTY_TABLE_STATE: TableState = {
   collapsedGroups: [],
   expandedGroups: [],
   selectedRowId: null,
+  expandedRowId: null,
 };
 
 export type RenderRow<Row> =
@@ -63,6 +70,13 @@ export type RenderRow<Row> =
       readonly count: number;
     }
   | { readonly kind: 'row'; readonly id: string; readonly row: Row }
+  | {
+      /** O detalhe da linha aberta, logo abaixo dela e na largura inteira. */
+      readonly kind: 'expansion';
+      readonly id: string;
+      readonly rowId: string;
+      readonly row: Row;
+    }
   | {
       readonly kind: 'more';
       readonly id: string;
@@ -86,6 +100,8 @@ export type BuildRowModelInput<Row> = {
   readonly isNumericColumn: (columnId: string) => boolean;
   readonly total?: GroupSummary | undefined;
   readonly rowsPerGroup?: number | undefined;
+  /** A tabela sabe desenhar detalhe de linha. Sem isso, abrir não produz nada. */
+  readonly expandable?: boolean | undefined;
 };
 
 const compareText = (left: string | null, right: string | null): number => {
@@ -169,7 +185,12 @@ export const buildRowModel = <Row>(
     const shown = expanded ? ordered : ordered.slice(0, limit);
 
     for (const row of shown) {
-      out.push({ kind: 'row', id: input.rowId(row), row });
+      const id = input.rowId(row);
+      out.push({ kind: 'row', id, row });
+
+      if (input.expandable === true && input.state.expandedRowId === id) {
+        out.push({ kind: 'expansion', id: `expansion:${id}`, rowId: id, row });
+      }
     }
 
     const hiddenCount = ordered.length - shown.length;
@@ -198,6 +219,10 @@ export const ungrouped = <Row>(
   rows: readonly Row[],
   summary: GroupSummary = {},
 ): readonly TableGroup<Row>[] => [{ key: UNGROUPED_KEY, label: '', rows, summary }];
+
+/** Abre a linha, ou fecha a que já estava aberta. */
+export const toggleRow = (current: string | null, id: string): string | null =>
+  current === id ? null : id;
 
 export const toggle = (list: readonly string[], key: string): readonly string[] =>
   list.includes(key) ? list.filter((item) => item !== key) : [...list, key];

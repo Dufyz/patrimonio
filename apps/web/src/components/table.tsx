@@ -13,9 +13,10 @@ import {
   buildRowModel,
   nextSort,
   toggle,
+  toggleRow,
 } from '../lib/table/model.js';
 import { colorForToken } from '../lib/tokens.js';
-import { useElementWidth } from './use_element_width.js';
+import { useViewportWidth } from './use_element_width.js';
 
 /**
  * D-04 · A tabela densa.
@@ -56,6 +57,11 @@ export type DataTableProps<Row> = {
   readonly onNewTransaction?: ((row: Row) => void) | undefined;
   readonly onEditRow?: ((row: Row) => void) | undefined;
   readonly rowActions?: ((row: Row) => React.ReactNode) | undefined;
+  /**
+   * O detalhe que aparece abaixo da linha quando ela é aberta. Clicar na linha
+   * abre e fecha; é o que permite ver o ativo sem sair da tela.
+   */
+  readonly renderExpansion?: ((row: Row) => React.ReactNode) | undefined;
   readonly emptyState?: React.ReactNode;
   /** Largura imposta, para teste e para a comparação visual. */
   readonly width?: number | undefined;
@@ -81,11 +87,14 @@ export const DataTable = <Row,>({
   onNewTransaction,
   onEditRow,
   rowActions,
+  renderExpansion,
   emptyState,
   width: forcedWidth,
 }: DataTableProps<Row>): React.ReactElement => {
   const container = useRef<HTMLDivElement>(null);
-  const measured = useElementWidth(container, 1440);
+  // A etapa de largura é da tela, não deste elemento: a prancha 18 as define
+  // como consulta de mídia, e `useViewportWidth` explica por que importa.
+  const measured = useViewportWidth(1440);
   const width = forcedWidth ?? measured;
 
   const storage = useMemo(() => browserStorage(), []);
@@ -123,8 +132,18 @@ export const DataTable = <Row,>({
         isNumericColumn,
         ...(total === undefined ? {} : { total }),
         ...(rowsPerGroup === undefined ? {} : { rowsPerGroup }),
+        expandable: renderExpansion !== undefined,
       }),
-    [groups, state, rowId, sortValueOf, isNumericColumn, total, rowsPerGroup],
+    [
+      groups,
+      state,
+      rowId,
+      sortValueOf,
+      isNumericColumn,
+      total,
+      rowsPerGroup,
+      renderExpansion,
+    ],
   );
 
   const dataRows = useMemo(() => model.filter((entry) => entry.kind === 'row'), [model]);
@@ -199,7 +218,7 @@ export const DataTable = <Row,>({
               <th
                 key={column.id}
                 scope="col"
-                className={`px-3 pb-2 ${alignClass(column.numeric === true)}`}
+                className={`px-2.5 pb-2 ${alignClass(column.numeric === true)}`}
                 aria-sort={
                   state.sort?.columnId === column.id
                     ? state.sort.direction === 'asc'
@@ -246,7 +265,7 @@ export const DataTable = <Row,>({
                   {shown.map((column, index) => (
                     <td
                       key={column.id}
-                      className={`h-(--row-height-group) px-3 font-semibold ${alignClass(
+                      className={`h-(--row-height-group) px-2.5 font-semibold ${alignClass(
                         column.numeric === true,
                       )}`}
                     >
@@ -293,7 +312,7 @@ export const DataTable = <Row,>({
                 <tr key={entry.id}>
                   <td
                     colSpan={shown.length + (rowActions === undefined ? 0 : 1)}
-                    className="h-(--row-height-group) px-3"
+                    className="h-(--row-height-group) px-2.5"
                   >
                     <button
                       type="button"
@@ -318,7 +337,7 @@ export const DataTable = <Row,>({
                   {shown.map((column, index) => (
                     <td
                       key={column.id}
-                      className={`h-(--row-height) px-3 ${alignClass(
+                      className={`h-(--row-height) px-2.5 ${alignClass(
                         column.numeric === true,
                       )}`}
                     >
@@ -330,7 +349,21 @@ export const DataTable = <Row,>({
               );
             }
 
+            if (entry.kind === 'expansion') {
+              return (
+                <tr key={entry.id} className="border-b border-line bg-panel-2">
+                  <td
+                    colSpan={shown.length + (rowActions === undefined ? 0 : 1)}
+                    className="px-3 py-3"
+                  >
+                    {renderExpansion?.(entry.row)}
+                  </td>
+                </tr>
+              );
+            }
+
             const selected = state.selectedRowId === entry.id;
+            const expanded = state.expandedRowId === entry.id;
 
             return (
               <tr
@@ -339,6 +372,7 @@ export const DataTable = <Row,>({
                 tabIndex={0}
                 aria-selected={selected}
                 aria-label={rowLabel(entry.row)}
+                {...(renderExpansion === undefined ? {} : { 'aria-expanded': expanded })}
                 className={`group border-b border-line/60 outline-offset-[-2px] ${
                   selected ? 'bg-accent-soft' : 'hover:bg-panel-2'
                 }`}
@@ -346,7 +380,14 @@ export const DataTable = <Row,>({
                   setState((current) => ({ ...current, selectedRowId: entry.id }))
                 }
                 onClick={() =>
-                  setState((current) => ({ ...current, selectedRowId: entry.id }))
+                  setState((current) => ({
+                    ...current,
+                    selectedRowId: entry.id,
+                    expandedRowId:
+                      renderExpansion === undefined
+                        ? current.expandedRowId
+                        : toggleRow(current.expandedRowId, entry.id),
+                  }))
                 }
                 onDoubleClick={() => onOpenRow?.(entry.row)}
                 onKeyDown={(event) => onRowKeyDown(event, entry.row)}
@@ -354,7 +395,7 @@ export const DataTable = <Row,>({
                 {shown.map((column) => (
                   <td
                     key={column.id}
-                    className={`h-(--row-height) px-3 ${alignClass(
+                    className={`h-(--row-height) px-2.5 ${alignClass(
                       column.numeric === true,
                     )} ${
                       column.flexible === true
@@ -366,7 +407,12 @@ export const DataTable = <Row,>({
                   </td>
                 ))}
                 {rowActions === undefined ? null : (
-                  <td className="px-1 opacity-0 focus-within:opacity-100 group-hover:opacity-100">
+                  // O clique no menu da linha não é clique na linha: sem isto,
+                  // abrir o menu abriria também o detalhe embaixo.
+                  <td
+                    className="px-1 opacity-0 focus-within:opacity-100 group-hover:opacity-100"
+                    onClick={(event) => event.stopPropagation()}
+                  >
                     {rowActions(entry.row)}
                   </td>
                 )}

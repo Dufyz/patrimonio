@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { TableGroup, TableState } from './model.js';
-import { EMPTY_TABLE_STATE, buildRowModel, nextSort, toggle } from './model.js';
+import {
+  EMPTY_TABLE_STATE,
+  buildRowModel,
+  nextSort,
+  toggle,
+  toggleRow,
+} from './model.js';
 
 type Position = {
   readonly id: string;
@@ -197,5 +203,39 @@ describe('modelo da tabela densa', () => {
     const model = build({}, 2);
     const more = model.find((entry) => entry.kind === 'more');
     expect(more?.kind === 'more' ? more.hiddenCount : 0).toBe(12);
+  });
+});
+
+describe('detalhe da linha', () => {
+  const open = (expandedRowId: string, expandable: boolean) =>
+    buildRowModel<Position>({
+      groups: [acoes],
+      state: { ...EMPTY_TABLE_STATE, expandedRowId },
+      rowId: (row) => row.id,
+      sortValue: (row) => row.value,
+      isNumericColumn: () => true,
+      ...(expandable ? { expandable: true } : {}),
+    });
+
+  it('a linha aberta ganha uma linha de detalhe logo abaixo dela', () => {
+    const model = open('WEGE3', true);
+
+    const positions = model.map((entry) => entry.id);
+    expect(positions).toContain('expansion:WEGE3');
+    expect(positions.indexOf('expansion:WEGE3')).toBe(positions.indexOf('WEGE3') + 1);
+  });
+
+  it('sem a tabela saber desenhar detalhe, abrir uma linha não produz nada', () => {
+    expect(open('WEGE3', false).some((entry) => entry.kind === 'expansion')).toBe(false);
+  });
+
+  it('a linha escondida atrás de "mostrar mais" não abre detalhe nenhum', () => {
+    expect(open('MGLU3', true).some((entry) => entry.kind === 'expansion')).toBe(false);
+  });
+
+  it('abrir a linha já aberta a fecha', () => {
+    expect(toggleRow('ITUB4', 'ITUB4')).toBeNull();
+    expect(toggleRow('ITUB4', 'WEGE3')).toBe('WEGE3');
+    expect(toggleRow(null, 'WEGE3')).toBe('WEGE3');
   });
 });

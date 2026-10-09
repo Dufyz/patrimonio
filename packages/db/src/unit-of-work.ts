@@ -23,6 +23,7 @@ import { createPriceRepository } from './repositories/price.repository.js';
 import { createProjectionRepository } from './repositories/projection.repository.js';
 import { createPayoutDismissalRepository } from './repositories/payout_dismissal.repository.js';
 import { createPortfolioRepository } from './repositories/portfolio.repository.js';
+import { createPositionViewRepository } from './repositories/position_view.repository.js';
 import { createTransactionRepository } from './repositories/transaction.repository.js';
 import { createTransactionUndoRepository } from './repositories/transaction_undo.repository.js';
 
@@ -60,6 +61,7 @@ export const createRepositories = (
   transactionUndos: createTransactionUndoRepository(sql),
   corporateEvents: createCorporateEventRepository(sql),
   projections: createProjectionRepository(sql),
+  positionViews: createPositionViewRepository(sql),
   prices: createPriceRepository(sql),
   alerts: createAlertRepository(sql),
   market: createMarketIngestionRepository(sql),

@@ -83,12 +83,17 @@ export const createApiHarness = async (): Promise<ApiHarness> => {
 
 /**
  * O teste de rota atravessa o HTTP e comita: não há transação para desfazer no
- * fim. Então cada teste começa com as tabelas de fonte limpas — o calendário de
- * dias úteis fica, porque é semente e não dado de teste.
+ * fim. Então cada teste começa com as tabelas de fonte e de projeção limpas — o
+ * calendário de dias úteis fica, porque é semente e não dado de teste.
  */
 export const resetSourceTables = async (sql: Sql): Promise<void> => {
   await sql.unsafe(`
-    truncate table transaction,
+    truncate table position_daily,
+                   portfolio_daily,
+                   realized_result,
+                   tax_month,
+                   asset_price,
+                   transaction,
                    transaction_undo,
                    payout_dismissal,
                    strategy_target,

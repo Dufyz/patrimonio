@@ -8,6 +8,7 @@ import type { CorporateEventDeps } from '../controllers/corporate-event.controll
 import type { InstitutionDeps } from '../controllers/institution.controller.js';
 import type { MarketDeps } from '../controllers/market.controller.js';
 import type { PortfolioDeps } from '../controllers/portfolio.controller.js';
+import type { PositionDeps } from '../controllers/position.controller.js';
 import type { TransactionDeps } from '../controllers/transaction.controller.js';
 import { buildOpenApiDocument } from '../docs/openapi.js';
 import { healthCheckRoutes } from './health-check.routes.js';
@@ -17,6 +18,7 @@ import { corporateEventRoutes } from './corporate-event.routes.js';
 import { institutionRoutes } from './institution.routes.js';
 import { marketRoutes } from './market.routes.js';
 import { portfolioRoutes } from './portfolio.routes.js';
+import { positionRoutes } from './position.routes.js';
 import { transactionRoutes } from './transaction.routes.js';
 
 export type RouteDeps = HealthCheckDeps &
@@ -26,7 +28,8 @@ export type RouteDeps = HealthCheckDeps &
   AssetDeps &
   TransactionDeps &
   CorporateEventDeps &
-  MarketDeps & { readonly version: string };
+  MarketDeps &
+  PositionDeps & { readonly version: string };
 
 /** Tudo sob `/api`. */
 export const apiRoutes = (deps: RouteDeps): Router => {
@@ -46,6 +49,7 @@ export const apiRoutes = (deps: RouteDeps): Router => {
   router.use(transactionRoutes(deps));
   router.use(corporateEventRoutes(deps));
   router.use(marketRoutes(deps));
+  router.use(positionRoutes(deps));
 
   return router;
 };

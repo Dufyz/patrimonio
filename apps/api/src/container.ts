@@ -31,6 +31,7 @@ import {
   listCorporateEvents,
   listInstitutions,
   listPortfolios,
+  listPositions,
   putStrategy,
   setPortfolioArchived,
   previewTransaction,
@@ -164,6 +165,12 @@ export const createApiUseCases = (deps: {
     clock: deps.clock,
   }),
   getAssetPriceSeries: getAssetPriceSeries({ unitOfWork: deps.unitOfWork }),
+  // T-02 lê fora da transação: a tela de Posições só consulta, e abrir uma
+  // transação para duas leituras custaria uma conexão do pool a cada abertura.
+  listPositions: listPositions({
+    positionViews: deps.repositories.positionViews,
+    clock: deps.clock,
+  }),
 });
 
 export type ApiUseCases = ReturnType<typeof createApiUseCases>;
