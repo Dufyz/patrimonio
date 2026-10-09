@@ -9,7 +9,12 @@ import {
   weighByValue,
   weightPct,
 } from '@patrimonio/calc';
-import type { AllocationLine, Composition, GrowthPoint } from '@patrimonio/calc';
+import type {
+  AllocationLine,
+  Composition,
+  CompositionNode,
+  GrowthPoint,
+} from '@patrimonio/calc';
 import { alertGroupFor } from '@patrimonio/domain';
 import type {
   AlertGroup,
@@ -90,6 +95,7 @@ export type OverviewTopPosition = {
   readonly asset_id: string;
   readonly ticker: string;
   readonly name: string;
+  readonly b3_type: string | null;
   readonly color_token: string | null;
   readonly value: string;
   readonly weight_pct: string;
@@ -124,13 +130,28 @@ export type OverviewAttention = {
   readonly groups: readonly OverviewAttentionGroup[];
 };
 
+/**
+ * A composição com a cor de cada linha. `composeAllocation` não conhece
+ * design system, e a tela não pode escolher cor por conta própria: Ações
+ * precisa ter a mesma cor na barra, na tabela e no gráfico, e quem garante
+ * isso é `category.color_token`, que viaja junto da linha.
+ */
+export type ColoredNode = Omit<CompositionNode, 'children'> & {
+  readonly color_token: string;
+  readonly children: readonly ColoredNode[];
+};
+
+export type ColoredComposition = Omit<Composition, 'nodes'> & {
+  readonly nodes: readonly ColoredNode[];
+};
+
 export type OverviewResult = {
   readonly reference_date: DateOnly | null;
   readonly scope: OverviewScope;
   readonly totals: OverviewTotals;
   readonly period: OverviewPeriod;
   readonly series: readonly GrowthPoint[];
-  readonly composition: Composition;
+  readonly composition: ColoredComposition;
   readonly by_portfolio: readonly OverviewPortfolioShare[];
   readonly top_positions: {
     readonly total_count: number;
@@ -182,24 +203,32 @@ const windowReturn = (
   const last = lastDayOf(snapshot.days);
   if (last === null) return { return_pct: null, return_method: 'unavailable' };
 
+  /**
+   * A base é o fechamento anterior à janela. Quando ele não existe — a janela
+   * começa onde a carteira começou —, a base é o primeiro fechamento dela, e o
+   * retorno é o da história inteira. Devolver nulo aí diria "não dá para
+   * medir" sobre a única janela que dá.
+   */
+  const first = snapshot.days[0] ?? null;
+  const fromInception = snapshot.anchors.window_base === null;
+  const base = snapshot.anchors.window_base ?? first;
+
+  if (base === null) return { return_pct: null, return_method: 'unavailable' };
+
   if (scoped) {
-    const base = snapshot.anchors.window_base?.quota_value ?? null;
-    if (base === null || last.quota_value === null) {
+    if (base.quota_value === null || last.quota_value === null) {
       return { return_pct: null, return_method: 'unavailable' };
     }
 
     return {
-      return_pct: returnPct(base, last.quota_value),
+      return_pct: returnPct(base.quota_value, last.quota_value),
       return_method: 'portfolio_quota',
     };
   }
 
-  const base = snapshot.anchors.window_base;
-  if (base === null) return { return_pct: null, return_method: 'unavailable' };
-
   // A semente é o fechamento anterior à janela, com cota em 1: o retorno é uma
   // razão entre cotas, então o valor da semente não entra na resposta.
-  const series = buildQuotaSeries(snapshot.days, {
+  const series = buildQuotaSeries(fromInception ? snapshot.days.slice(1) : snapshot.days, {
     previous: {
       position_date: base.position_date,
       total_value: base.total_value,
@@ -214,6 +243,36 @@ const windowReturn = (
 
   return { return_pct: returnPct('1', end.quota_value), return_method: 'window_quota' };
 };
+
+const FALLBACK_TOKEN = 'class.outros';
+
+/**
+ * O grupo herda a cor do filho de maior valor: um grupo não tem token próprio,
+ * e a alternativa — cinza para todo grupo — apagaria a leitura de cor
+ * justamente na linha que a tela mostra fechada.
+ */
+const colorize = (
+  composition: Composition,
+  tokens: ReadonlyMap<string, string>,
+): ColoredComposition => ({
+  ...composition,
+  nodes: composition.nodes.map((node): ColoredNode => {
+    const children = node.children.map(
+      (child): ColoredNode => ({
+        ...child,
+        color_token: tokens.get(child.id) ?? FALLBACK_TOKEN,
+        children: [],
+      }),
+    );
+
+    return {
+      ...node,
+      children,
+      color_token:
+        tokens.get(node.id) ?? children[0]?.color_token ?? FALLBACK_TOKEN,
+    };
+  }),
+});
 
 const allocationLines = (snapshot: OverviewSnapshot): readonly AllocationLine[] =>
   snapshot.categories.map((row) => ({
@@ -343,6 +402,15 @@ export const getOverview = (deps: OverviewDeps) =>
               ? everything
               : portfolio.total_value;
 
+        /**
+         * O peso das posições é medido contra a soma delas, que é a mesma base
+         * da composição por categoria. Usar o total do fechamento faria os
+         * dois painéis da tela discordarem no dia em que a projeção de uma
+         * carteira ficasse para trás — e dois pesos diferentes para o mesmo
+         * ativo na mesma tela é pior do que um peso velho.
+         */
+        const held = sumValues(snapshot.positions.map((row) => row.value));
+
         const positions = weighByValue(
           snapshot.positions.map((row) => ({
             id: row.asset_id,
@@ -351,10 +419,11 @@ export const getOverview = (deps: OverviewDeps) =>
             asset_id: row.asset_id,
             ticker: row.ticker,
             name: row.name,
+            b3_type: row.b3_type,
             color_token: row.color_token,
             price_source_kind: row.price_source_kind,
           })),
-          total ?? '0',
+          held,
         );
 
         const shares = weighByValue(
@@ -391,9 +460,14 @@ export const getOverview = (deps: OverviewDeps) =>
             payouts: flows.payouts,
           },
           series: growthSeries(snapshot.days),
-          composition: composeAllocation(allocationLines(snapshot), snapshot.targets, {
-            tolerance_pp: portfolio?.tolerance_pp ?? '0',
-          }),
+          composition: colorize(
+            composeAllocation(allocationLines(snapshot), snapshot.targets, {
+              tolerance_pp: portfolio?.tolerance_pp ?? '0',
+            }),
+            new Map(
+              snapshot.categories.map((row) => [row.category_id, row.color_token]),
+            ),
+          ),
           by_portfolio: shares.map((row) => ({
             portfolio_id: row.portfolio_id,
             name: row.name,
@@ -406,6 +480,7 @@ export const getOverview = (deps: OverviewDeps) =>
               asset_id: row.asset_id,
               ticker: row.ticker,
               name: row.name,
+              b3_type: row.b3_type,
               color_token: row.color_token,
               value: row.value,
               weight_pct: row.weight_pct,

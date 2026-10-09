@@ -1,21 +1,23 @@
 # @patrimonio/web — design system e telas
 
-E5 entregou a camada de peças; E6 constrói as telas sobre ela. Duas estão de
-pé: **Posições** e a **página do ativo**, que abre de dentro dela. A galeria
-continua existindo, em `/galeria`, e continua sendo onde uma mudança no botão
-aparece antes de aparecer em seis telas.
+E5 entregou a camada de peças; E6 constrói as telas sobre ela. Três estão de
+pé: **Visão geral**, que é onde a aplicação abre, **Posições**, e a **página do
+ativo**, que abre das duas. A galeria continua existindo, em `/galeria`, e
+continua sendo onde uma mudança no botão aparece antes de aparecer em seis
+telas.
 
 ```bash
-pnpm --filter @patrimonio/web dev     # Posições em http://localhost:5173
+pnpm --filter @patrimonio/web dev     # Visão geral em http://localhost:5173
 pnpm --filter @patrimonio/web test
 ```
 
-| Endereço                    | O que é                                      |
-| --------------------------- | -------------------------------------------- |
-| `/:carteira/posicoes`       | T-02 · a tabela de tudo que está em carteira |
-| `/todas/posicoes`           | o mesmo, somando todas as carteiras          |
-| `/:carteira/ativo/:apelido` | T-03 · tudo sobre um ativo em um lugar       |
-| `/galeria`                  | a galeria do design system (E5)              |
+| Endereço                    | O que é                                          |
+| --------------------------- | ------------------------------------------------ |
+| `/:carteira/visao-geral`    | T-01 · quanto eu tenho hoje, e o que precisa de mim |
+| `/:carteira/posicoes`       | T-02 · a tabela de tudo que está em carteira     |
+| `/todas/visao-geral`        | o mesmo, somando todas as carteiras              |
+| `/:carteira/ativo/:apelido` | T-03 · tudo sobre um ativo em um lugar           |
+| `/galeria`                  | a galeria do design system (E5)                  |
 
 O escopo é o apelido da carteira, não o identificador: `/longo-prazo/posicoes` é
 um endereço que alguém cola em outra aba. O apelido do ativo segue a mesma

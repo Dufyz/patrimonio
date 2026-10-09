@@ -76,6 +76,7 @@ const parsePosition = (row: Row): OverviewPositionRow => ({
   asset_id: asString(row, 'asset_id'),
   ticker: asString(row, 'ticker'),
   name: asString(row, 'name'),
+  b3_type: asStringOrNull(row, 'b3_type'),
   color_token: asStringOrNull(row, 'color_token'),
   value: asMoney(row, 'value'),
   price_source_kind: asEnum(row, 'price_source_kind', COMPUTED_PRICE_KINDS),
@@ -224,6 +225,7 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
           select held.asset_id::text as asset_id,
                  asset.ticker,
                  asset.name,
+                 asset.b3_type,
                  category.color_token,
                  sum(held.market_value)::text as value,
                  -- O pior estado entre as carteiras: um papel sem preço em uma
@@ -239,7 +241,8 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
             from held
             join asset on asset.id = held.asset_id
             left join category on category.id = asset.category_id
-           group by held.asset_id, asset.ticker, asset.name, category.color_token
+           group by held.asset_id, asset.ticker, asset.name, asset.b3_type,
+                    category.color_token
           having sum(held.quantity) <> 0
         ),
         categories as (

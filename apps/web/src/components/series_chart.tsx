@@ -351,6 +351,7 @@ export const SeriesChart = ({
               return (
                 <text
                   key={date}
+                  data-axis="x"
                   x={x(index)}
                   y={plotHeight + 16}
                   textAnchor={

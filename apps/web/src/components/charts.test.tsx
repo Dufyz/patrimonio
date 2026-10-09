@@ -51,6 +51,43 @@ const seriesChart = (props: Partial<React.ComponentProps<typeof SeriesChart>> = 
   );
 
 describe('gráfico de série', () => {
+  it('o eixo não sobrepõe o último rótulo com o anterior', () => {
+    const longo = Array.from(
+      { length: 250 },
+      (_, index) => `2026-01-${String((index % 28) + 1).padStart(2, '0')}`,
+    );
+
+    const { container } = wrap(
+      <SeriesChart
+        dates={longo}
+        series={[
+          {
+            id: 'carteira',
+            label: 'Carteira',
+            color: 'var(--color-series-1)',
+            points: longo.map((date, index) => ({ date, value: String(index) })),
+          },
+        ]}
+        valueFormat="money"
+        ariaLabel="Evolução"
+        xTickLabel={(date) => date}
+        tooltipDateLabel={(date) => date}
+        width={800}
+      />,
+    );
+
+    const positions = [...container.querySelectorAll('text[data-axis="x"]')]
+      .map((node) => Number(node.getAttribute('x')))
+      .toSorted((left, right) => left - right);
+
+    const gaps = positions
+      .slice(1)
+      .map((value, index) => value - (positions[index] ?? 0))
+      .filter((gap) => gap > 0);
+
+    expect(Math.min(...gaps)).toBeGreaterThan(40);
+  });
+
   it('buraco na série não vira interpolação', () => {
     const { container } = seriesChart();
     const carteira = container.querySelectorAll('path[data-series="carteira"]');

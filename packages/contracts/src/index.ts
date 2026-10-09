@@ -269,6 +269,8 @@ export {
   listPositionsSchema,
 } from './position/listPositions.schema.js';
 export type { ListPositionsQuery } from './position/listPositions.schema.js';
+
+export {
   compositionChildSchema,
   compositionNodeSchema,
   getOverviewSchema,

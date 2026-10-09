@@ -527,6 +527,8 @@ export type {
 // ─── Visão geral ─────────────────────────────────────────────────────────────
 export { getOverview } from './usecases/overview/overview.usecase.js';
 export type {
+  ColoredComposition,
+  ColoredNode,
   OverviewAttention,
   OverviewAttentionGroup,
   OverviewAttentionItem,

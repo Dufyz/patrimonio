@@ -22,13 +22,15 @@ import {
 } from './lib/scope.js';
 import { AssetScreen } from './views/asset.js';
 import { Gallery } from './views/gallery.js';
+import { OverviewScreen } from './views/overview.js';
 import { PositionsScreen } from './views/positions.js';
 
 /**
  * E6 · A moldura e as telas.
  *
  * Até E5 o que a aplicação abria era a galeria do design system. Agora ela abre
- * a primeira tela de verdade — Posições —, e a galeria continua existindo em
+ * a Visão geral, como a prancha `02 · Mapa de telas e navegação` manda — é a
+ * tela que responde "quanto eu tenho hoje" —, e a galeria continua existindo em
  * `/galeria`: ela é o lugar onde uma mudança no botão aparece antes de aparecer
  * em seis telas.
  *
@@ -76,12 +78,12 @@ const Workspace = (): React.ReactElement => (
         ela mora sob o escopo e mantém Posições destacada na navegação. */}
     <Route path="/:scope/ativo/:asset" element={<Workbench />} />
     <Route path="/:scope/:screen" element={<Workbench />} />
-    <Route path="*" element={<Navigate to={`/${ALL_SCOPE}/posicoes`} replace />} />
+    <Route path="*" element={<Navigate to={`/${ALL_SCOPE}/visao-geral`} replace />} />
   </Routes>
 );
 
 const Workbench = (): React.ReactElement => {
-  const { scope = ALL_SCOPE, screen = 'posicoes', asset } = useParams();
+  const { scope = ALL_SCOPE, screen = 'visao-geral', asset } = useParams();
   const navigate = useNavigate();
 
   const [portfolios, setPortfolios] = useState<readonly PortfolioResource[]>([]);
@@ -128,7 +130,7 @@ const Workbench = (): React.ReactElement => {
   // ativo foi aberta de lá, e é para lá que a trilha volta.
   const current =
     asset === undefined
-      ? (SCREENS.find((item) => item.path === screen) ?? SCREENS[1])
+      ? (SCREENS.find((item) => item.path === screen) ?? SCREENS[0])
       : SCREENS[1];
   const scopeLabel =
     portfolioId === null
@@ -159,14 +161,14 @@ const Workbench = (): React.ReactElement => {
       ]}
       screens={SCREENS.map(({ id, label, icon }) => ({ id, label, icon }))}
       scope={portfolioId ?? ALL_PORTFOLIOS}
-      screen={current?.id ?? 'posicoes'}
+      screen={current?.id ?? 'visao'}
       onNavigate={(nextScope, nextScreen) => {
-        const target = SCREENS.find((item) => item.id === nextScreen) ?? SCREENS[1];
+        const target = SCREENS.find((item) => item.id === nextScreen) ?? SCREENS[0];
         const slug =
           nextScope === ALL_PORTFOLIOS
             ? ALL_SCOPE
             : scopeForPortfolioId(nextScope, slugs);
-        navigate(`/${slug}/${target?.path ?? 'posicoes'}`);
+        navigate(`/${slug}/${target?.path ?? 'visao-geral'}`);
       }}
       onOpenSearch={() => navigate('/galeria')}
       onOpenSettings={() => navigate('/galeria')}
@@ -177,6 +179,11 @@ const Workbench = (): React.ReactElement => {
           portfolioId={portfolioId}
           scopeLabel={scopeLabel}
           onBack={() => navigate(`/${scope}/posicoes`)}
+        />
+      ) : current?.id === 'visao' ? (
+        <OverviewScreen
+          portfolioId={portfolioId}
+          onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
         />
       ) : current?.id === 'posicoes' ? (
         <PositionsScreen
@@ -214,7 +221,7 @@ const ScreenPending = ({
   <div className="flex flex-col gap-1 rounded-panel border border-line bg-panel p-6">
     <h1 className="text-base font-semibold">{label}</h1>
     <p className="text-[0.8125rem] text-ink-3">
-      Esta tela chega com {story}. Posições já está de pé.
+      Esta tela chega com {story}. Visão geral e Posições já estão de pé.
     </p>
   </div>
 );

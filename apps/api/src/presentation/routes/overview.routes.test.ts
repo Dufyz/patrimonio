@@ -419,3 +419,26 @@ describe('o que precisa de mim', () => {
     expect(devolta.body.attention.total).toBe(1);
   });
 });
+
+describe('a janela que começa onde a carteira começou', () => {
+  it('sem fechamento anterior à janela, o retorno é medido do primeiro dia dela', async () => {
+    await fecharDia(longo, '2026-10-01', '10000.00', { quota_value: '1.000000000000' });
+    await fecharDia(longo, '2026-10-02', '10500.00', { quota_value: '1.050000000000' });
+
+    const response = await visaoGeral(
+      `?on_date=2026-10-02&from=2026-10-01&to=2026-10-02&portfolio_id=${longo}`,
+    );
+
+    expect(response.body.period.return_pct).toBe('5.00');
+    expect(response.body.period.return_method).toBe('portfolio_quota');
+  });
+
+  it('um único fechamento não produz retorno nenhum, e isso não é zero', async () => {
+    await fecharDia(longo, '2026-10-02', '10000.00');
+
+    const response = await visaoGeral('?on_date=2026-10-02&from=2026-10-02&to=2026-10-02');
+
+    expect(response.body.period.return_pct).toBeNull();
+    expect(response.body.period.return_method).toBe('unavailable');
+  });
+});

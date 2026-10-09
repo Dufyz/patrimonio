@@ -70,6 +70,8 @@ export const overviewPointSchema = z.object({
 const compositionBase = {
   id: z.string(),
   name: z.string(),
+  /** Token do design system: a mesma cor na barra, na tabela e no gráfico. */
+  color_token: z.string(),
   level: z.enum(['group', 'category']),
   value: decimalString,
   current_pct: decimalString,
@@ -118,6 +120,8 @@ export const overviewTopPositionSchema = z.object({
   asset_id: uuid,
   ticker: z.string(),
   name: z.string(),
+  /** Decide se o papel se chama pelo código ou pelo nome (`lib/asset_page.ts`). */
+  b3_type: z.string().nullable(),
   /** Token do design system, nunca hexadecimal. */
   color_token: z.string().nullable(),
   value: decimalString,

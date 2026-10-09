@@ -62,6 +62,8 @@ export type OverviewPositionRow = {
   readonly asset_id: string;
   readonly ticker: string;
   readonly name: string;
+  /** Decide se o papel se chama pelo código ou pelo nome, como em T-02 e T-03. */
+  readonly b3_type: string | null;
   readonly color_token: string | null;
   readonly value: string;
   /**
