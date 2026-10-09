@@ -149,6 +149,17 @@ export type {
 export { fgcHeadroom } from './allocation/fgc.js';
 export type { FgcHeadroom } from './allocation/fgc.js';
 
+// ─── Visão geral ─────────────────────────────────────────────────────────────
+export { growthSeries, periodFlows, valueChange, weighByValue } from './overview/summary.js';
+export type {
+  GrowthPoint,
+  OverviewDay,
+  PeriodFlows,
+  ValueChange,
+  WeighedItem,
+  WeighedResult,
+} from './overview/summary.js';
+
 // ─── Objetivos ───────────────────────────────────────────────────────────────
 export {
   averageMonthlyContribution,

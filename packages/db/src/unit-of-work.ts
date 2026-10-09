@@ -19,6 +19,7 @@ import { createLedgerRepository } from './repositories/ledger.repository.js';
 import { createManualPriceRepository } from './repositories/manual_price.repository.js';
 import { createMarketIngestionRepository } from './repositories/market_ingestion.repository.js';
 import { createAlertRepository } from './repositories/alert.repository.js';
+import { createOverviewRepository } from './repositories/overview.repository.js';
 import { createOutboxRepository } from './repositories/outbox.repository.js';
 import { createPriceRepository } from './repositories/price.repository.js';
 import { createProjectionRepository } from './repositories/projection.repository.js';
@@ -66,6 +67,7 @@ export const createRepositories = (
   assetPages: createAssetPageRepository(sql),
   prices: createPriceRepository(sql),
   alerts: createAlertRepository(sql),
+  overview: createOverviewRepository(sql),
   market: createMarketIngestionRepository(sql),
 });
 

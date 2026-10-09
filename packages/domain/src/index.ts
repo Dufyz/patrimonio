@@ -127,6 +127,7 @@ export { parsePayoutDismissalFromDB } from './payout_dismissal/payout_dismissal.
 
 // ─── Projeção ────────────────────────────────────────────────────────────────
 export {
+  ALERT_GROUPS,
   ALERT_STATUSES,
   ASSET_CLASSES,
   COMPUTED_PRICE_KINDS,
@@ -134,11 +135,13 @@ export {
   POSITION_GROUP_BY,
   POSITION_UNITS,
   PRICE_SOURCE_KINDS,
+  alertGroupFor,
   assetClassFor,
   indexForIndexer,
   isIndexCode,
 } from './projection/projection.entities.js';
 export type {
+  AlertGroup,
   AlertInstance,
   AlertStatus,
   AssetClass,

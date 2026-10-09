@@ -98,6 +98,34 @@ export type AlertInstance = {
 };
 
 /**
+ * Os três grupos de "Requer atenção", na ordem em que o painel os mostra. O
+ * agrupamento é pelo que o usuário precisa **fazer** com o alerta, e não pela
+ * gravidade: corrigir é dado errado ou faltando, decidir é escolha que espera
+ * por ele, acompanhar é o que só precisa ser visto.
+ *
+ * Ordenar por gravidade parece mais natural e é pior: "grave" e "urgente" não
+ * são a mesma coisa, e um painel ordenado por gravidade mistura o que tem ação
+ * com o que não tem, que é como se aprende a rolar a lista sem ler.
+ */
+export const ALERT_GROUPS = ['corrigir', 'decidir', 'acompanhar'] as const;
+
+export type AlertGroup = (typeof ALERT_GROUPS)[number];
+
+/**
+ * A regra em que grupo cai. As treze regras de E7 entram neste mapa quando
+ * forem escritas; o que não está aqui cai em `acompanhar`, que é o grupo que
+ * não promete ação — um alerta novo nunca aparece pedindo correção por engano.
+ */
+const GROUP_BY_RULE: Readonly<Record<string, AlertGroup>> = {
+  price_missing: 'corrigir',
+  price_stale: 'corrigir',
+  corporate_event_pending: 'corrigir',
+};
+
+export const alertGroupFor = (ruleKind: string): AlertGroup =>
+  GROUP_BY_RULE[ruleKind] ?? 'acompanhar';
+
+/**
  * De onde o preço gravado veio. `primary` é a fonte principal da cadeia,
  * `fallback` é a que assumiu quando ela falhou, e `manual` é o preço digitado.
  * É o que a tela de dados de mercado mostra como "quem respondeu por último".

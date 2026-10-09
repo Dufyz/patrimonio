@@ -23,6 +23,7 @@ export { createPositionViewRepository } from './repositories/position_view.repos
 export { createAssetPageRepository } from './repositories/asset_page.repository.js';
 export { createPriceRepository } from './repositories/price.repository.js';
 export { createAlertRepository } from './repositories/alert.repository.js';
+export { createOverviewRepository } from './repositories/overview.repository.js';
 export { createMarketIngestionRepository } from './repositories/market_ingestion.repository.js';
 export { ARRAY_OID } from './support/array_oid.js';
 
