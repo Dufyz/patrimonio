@@ -17,12 +17,17 @@
  * e sentido — verde continua positivo, vermelho continua negativo, âmbar
  * continua atenção — e só muda a luminosidade para sobreviver ao fundo escuro.
  *
+ * `@theme static` e não `@theme`: por padrão o Tailwind só emite a variável
+ * que alguma classe utilitária usa, e as cores de classe de ativo são lidas em
+ * tempo de execução por `colorForToken`, que o compilador não enxerga. Sem o
+ * `static`, FIIs e Caixa simplesmente não teriam cor na barra de composição.
+ *
  * `data-theme` é sempre `light` ou `dark` no `<html>`: a preferência "sistema"
  * é resolvida em JavaScript (`lib/theme.ts`) antes da primeira pintura. É o que
  * permite a troca de tema sem recarregar e sem nenhum elemento se deslocar —
  * só os valores das variáveis mudam, e nenhuma medida depende do tema.
  */
-@theme {
+@theme static {
   /* Superfícies, da mais funda para a mais alta. */
   --color-bg: #f5f6f8;
   --color-panel: #ffffff;

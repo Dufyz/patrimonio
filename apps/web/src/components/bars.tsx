@@ -53,7 +53,7 @@ export const AllocationBar = ({
     </span>
 
     <span
-      className="relative h-2 w-1/2 shrink-0 rounded-xs bg-panel-2"
+      className="relative h-2 w-2/5 shrink-0 rounded-xs bg-panel-2"
       role="img"
       aria-label={`${label}: atual contra alvo`}
     >

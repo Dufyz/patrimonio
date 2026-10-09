@@ -385,10 +385,15 @@ const ChartLegend = ({
           }`}
           onClick={(event) => onToggle(entry.id, !event.altKey)}
         >
+          {/* O traço da legenda repete o traço do gráfico: benchmark é
+              tracejado lá e aqui, senão a legenda não identifica a linha. */}
           <span
             aria-hidden="true"
-            className={`inline-block h-0.5 w-4 ${entry.dashed === true ? 'opacity-70' : ''}`}
-            style={{ backgroundColor: entry.color }}
+            className="inline-block h-0 w-4 border-t-2"
+            style={{
+              borderColor: entry.color,
+              borderStyle: entry.dashed === true ? 'dashed' : 'solid',
+            }}
           />
           {entry.label}
         </button>

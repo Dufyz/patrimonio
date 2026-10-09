@@ -243,10 +243,28 @@ export const Chip = ({
  */
 export const PriceHealthDot = ({
   kind,
+  showFresh = false,
 }: {
   readonly kind: 'fresh' | 'stale' | 'manual' | 'missing';
+  /**
+   * Na tabela, preço atualizado não ganha marca: uma bolinha em toda linha é
+   * ruído que some o sinal das poucas linhas que precisam de atenção. Na
+   * legenda, ganha — senão a legenda não explica o estado normal.
+   */
+  readonly showFresh?: boolean;
 }): React.ReactElement | null => {
-  if (kind === 'fresh') return null;
+  if (kind === 'fresh' && !showFresh) return null;
+
+  if (kind === 'fresh') {
+    return (
+      <span
+        title="preço atualizado"
+        aria-label="preço atualizado"
+        role="img"
+        className="mr-1 inline-block size-1.5 rounded-full bg-positive align-middle"
+      />
+    );
+  }
 
   const description =
     kind === 'missing'

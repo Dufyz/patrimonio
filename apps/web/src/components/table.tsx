@@ -65,6 +65,9 @@ const alignClass = (numeric: boolean): string => (numeric ? 'text-right' : 'text
 
 const SORT_GLYPH = { asc: '↑', desc: '↓' } as const;
 
+const HEADER_TYPOGRAPHY =
+  'text-label font-medium tracking-wide whitespace-nowrap text-ink-3 uppercase';
+
 export const DataTable = <Row,>({
   screen,
   caption,
@@ -196,9 +199,7 @@ export const DataTable = <Row,>({
               <th
                 key={column.id}
                 scope="col"
-                className={`px-3 pb-2 text-label font-medium tracking-wide text-ink-3 uppercase ${alignClass(
-                  column.numeric === true,
-                )}`}
+                className={`px-3 pb-2 ${alignClass(column.numeric === true)}`}
                 aria-sort={
                   state.sort?.columnId === column.id
                     ? state.sort.direction === 'asc'
@@ -210,7 +211,9 @@ export const DataTable = <Row,>({
                 {column.sortable === true ? (
                   <button
                     type="button"
-                    className="cursor-pointer whitespace-nowrap hover:text-ink"
+                    // O `text-transform` do `th` não chega ao botão: a folha de
+                    // estilo do navegador o zera em todo controle de formulário.
+                    className={`${HEADER_TYPOGRAPHY} cursor-pointer hover:text-ink`}
                     onClick={() => onSort(column.id)}
                   >
                     {column.header}
@@ -219,7 +222,7 @@ export const DataTable = <Row,>({
                       : ''}
                   </button>
                 ) : (
-                  <span className="whitespace-nowrap">{column.header}</span>
+                  <span className={HEADER_TYPOGRAPHY}>{column.header}</span>
                 )}
               </th>
             ))}
