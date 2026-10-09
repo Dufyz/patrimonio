@@ -1,4 +1,3 @@
-import type { PositionResource } from '@patrimonio/contracts';
 import { useEffect, useState } from 'react';
 
 import type { SetManualPriceResponse } from '@patrimonio/contracts';
@@ -16,7 +15,19 @@ import { amountInputValue, parseAmountInput } from '../lib/positions.js';
  * ativo, e enquanto vale a linha aparece marcada. O preview do efeito vem da
  * `api` — é o mesmo cálculo que fica gravado, e não uma multiplicação feita
  * aqui: se os dois divergirem, a confiança no app acaba naquele número.
+ *
+ * O diálogo pede as cinco colunas de que precisa, e não uma linha de Posições
+ * inteira: Posições e a página do ativo (T-03) leem recursos diferentes do
+ * mesmo papel, e a forma mais estreita é a que serve às duas sem conversão.
  */
+export type ManualPriceTarget = {
+  readonly asset_id: string;
+  readonly ticker: string;
+  readonly name: string;
+  /** O preço que o campo mostra ao abrir. */
+  readonly price: string | null;
+  readonly price_date: string | null;
+};
 export const ManualPriceDialog = ({
   position,
   /** O dia do último fechamento: é a data que o preço corrige por padrão. */
@@ -24,7 +35,7 @@ export const ManualPriceDialog = ({
   onClose,
   onSaved,
 }: {
-  readonly position: PositionResource | null;
+  readonly position: ManualPriceTarget | null;
   readonly defaultDate: string | null;
   readonly onClose: () => void;
   readonly onSaved: () => void;

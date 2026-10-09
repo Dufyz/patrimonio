@@ -113,7 +113,11 @@ export const MonthlyBarsChart = ({
 
             return (
               <g
-                key={bar.label}
+                // A chave é a posição, e não o rótulo: o eixo de doze meses da
+                // página do ativo é a inicial de cada um, e `M`, `J` e `A`
+                // aparecem duas vezes. Com a chave no rótulo, React descarta a
+                // segunda barra de cada par.
+                key={index}
                 onPointerMove={() => setHover(index)}
                 {...(onSelectBar === undefined
                   ? {}

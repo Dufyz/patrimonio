@@ -52,6 +52,15 @@ type BaseOptions = {
   /** D-03: esconde o valor em reais, preservando a largura. */
   readonly hidden?: boolean;
   readonly decimals?: number;
+  /**
+   * Omite o `R$`, mantendo casas e separador de milhar.
+   *
+   * É para a coluna que é inteira de reais e já diz isso no cabeçalho — a lista
+   * de lançamentos da página do ativo (prancha 06) escreve `1.755,00` e
+   * `+96,12`. O prefixo repetido em cada linha de uma coluna estreita rouba a
+   * largura das colunas ao lado, e não acrescenta informação nenhuma.
+   */
+  readonly bare?: boolean;
 };
 
 const unavailable = (): FormattedNumber => ({
@@ -122,7 +131,8 @@ export const formatMoney = (
   value: NumberInput,
   options: BaseOptions = {},
 ): FormattedNumber => {
-  if (options.hidden === true) return masked('R$');
+  const prefix = options.bare === true ? '' : 'R$ ';
+  if (options.hidden === true) return masked(prefix.trim());
 
   const parts = value === null || value === undefined ? null : parseDecimal(value);
   if (parts === null) return unavailable();
@@ -130,7 +140,7 @@ export const formatMoney = (
   const decimals = options.decimals ?? 2;
   return assemble(
     parts,
-    `R$ ${render(roundToPlaces(parts, decimals))}`,
+    `${prefix}${render(roundToPlaces(parts, decimals))}`,
     options.signed === true,
   );
 };

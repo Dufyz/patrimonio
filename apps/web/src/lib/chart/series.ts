@@ -67,6 +67,19 @@ export const valuesOf = (series: readonly Series[]): readonly number[] =>
       .filter((value): value is number => value !== null),
   );
 
+/**
+ * Os valores de marcas e referências, para o domínio do eixo contá-los. O que
+ * não é número fica de fora: uma marca sem preço é uma marca que não se
+ * desenha, não uma marca no zero.
+ */
+export const markerValues = (
+  marks: readonly { readonly value: string | null }[],
+): readonly number[] =>
+  marks.flatMap((mark) => {
+    const value = toNumber(mark.value);
+    return value === null ? [] : [value];
+  });
+
 export const bandValuesOf = (bands: readonly Band[]): readonly number[] =>
   bands.flatMap((band) =>
     [toNumber(band.from), toNumber(band.to)].filter(

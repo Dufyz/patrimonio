@@ -8,6 +8,7 @@ import {
   bandValuesOf,
   downsample,
   linePath,
+  markerValues,
   nearestIndex,
   splitSegments,
   tooltipSide,
@@ -45,6 +46,34 @@ export type ChartBand = {
   readonly values: readonly Band[];
 };
 
+/**
+ * Uma marca sobre a linha: a compra e a venda de quem olha, no gráfico de
+ * preço do ativo (T-03). Ela não é uma série — não tem valor em toda data, e
+ * entrar na legenda como se tivesse faria "esconder a série" esconder a linha
+ * inteira em vez das marcas.
+ */
+export type ChartMarker = {
+  readonly id: string;
+  readonly date: DateOnly;
+  readonly value: string;
+  readonly color: string;
+  readonly label: string;
+};
+
+/**
+ * A linha horizontal de referência: o preço médio, no gráfico do ativo. É
+ * tracejada e rotulada porque ela responde a pergunta que o gráfico de preço
+ * sempre provoca — estou acima ou abaixo do que paguei.
+ */
+export type ChartReference = {
+  readonly value: string;
+  /** O rótulo sobre a própria linha, no gráfico. */
+  readonly label: string;
+  readonly color: string;
+  /** Como ela se chama na legenda, quando é diferente do rótulo. */
+  readonly legend?: string | undefined;
+};
+
 export type SeriesChartProps = {
   readonly dates: readonly DateOnly[];
   readonly series?: readonly Series[];
@@ -60,6 +89,10 @@ export type SeriesChartProps = {
   readonly width?: number | undefined;
   /** As séries visíveis, para a exportação da tela usar o mesmo recorte. */
   readonly onVisibleChange?: ((visible: readonly string[]) => void) | undefined;
+  readonly markers?: readonly ChartMarker[] | undefined;
+  /** Como as marcas se chamam na legenda: "Compras", na página do ativo. */
+  readonly markerLegend?: string | undefined;
+  readonly reference?: ChartReference | undefined;
 };
 
 export const SeriesChart = ({
@@ -74,6 +107,9 @@ export const SeriesChart = ({
   tooltipDateLabel,
   width: forcedWidth,
   onVisibleChange,
+  markers = [],
+  markerLegend,
+  reference,
 }: SeriesChartProps): React.ReactElement => {
   const container = useRef<HTMLDivElement>(null);
   const measured = useElementWidth(container, 720);
@@ -107,9 +143,14 @@ export const SeriesChart = ({
     [visibleSeries, plotWidth],
   );
 
+  // A referência e as marcas entram no domínio: um preço médio fora da escala
+  // sairia desenhado na borda, dizendo que a posição está no limite do gráfico
+  // quando ela está fora dele.
   const values = [
     ...valuesOf(reduced),
     ...visibleBands.flatMap((band) => bandValuesOf(band.values)),
+    ...markerValues(markers),
+    ...(reference === undefined ? [] : markerValues([{ value: reference.value }])),
   ];
   const domain = domainOf(values, { fromZero });
 
@@ -123,9 +164,37 @@ export const SeriesChart = ({
     const step = Math.max(1, Math.floor((dates.length - 1) / (wanted - 1)));
     const out: number[] = [];
     for (let index = 0; index < dates.length; index += step) out.push(index);
-    if (out.at(-1) !== dates.length - 1) out.push(dates.length - 1);
+
+    // O último ponto sempre ganha etiqueta — é a data que a pessoa procura
+    // primeiro. Quando o passo não cai exatamente nele, a etiqueta anterior
+    // fica a meio passo de distância e as duas se sobrepõem, então ela sai:
+    // duas datas impressas uma sobre a outra não são duas datas.
+    const last = dates.length - 1;
+    if (out.at(-1) !== last) {
+      if (last - (out.at(-1) ?? 0) < step / 2 && out.length > 1) out.pop();
+      out.push(last);
+    }
     return out;
   }, [dates.length, plotWidth]);
+
+  /**
+   * Onde a marca cai no eixo. A data do negócio pode não ter preço — compra em
+   * dia sem pregão na série, feriado, papel que parou de negociar —, e aí ela
+   * vai para o primeiro dia da série em ou depois dela, em vez de sumir.
+   */
+  const indexOfDate = (date: DateOnly): number => {
+    const exact = dates.indexOf(date);
+    if (exact >= 0) return exact;
+    const after = dates.findIndex((candidate) => candidate >= date);
+    return after;
+  };
+
+  const placedMarkers = markers.flatMap((marker) => {
+    const index = indexOfDate(marker.date);
+    const value = Number(marker.value);
+    if (index < 0 || Number.isNaN(value)) return [];
+    return [{ ...marker, index, numeric: value }];
+  });
 
   const toggleSeries = (id: string, isolate: boolean): void => {
     if (isolate) {
@@ -226,6 +295,44 @@ export const SeriesChart = ({
               )),
             )}
 
+            {reference === undefined || Number.isNaN(Number(reference.value)) ? null : (
+              <g>
+                <line
+                  x1={0}
+                  x2={plotWidth}
+                  y1={y(Number(reference.value))}
+                  y2={y(Number(reference.value))}
+                  stroke={reference.color}
+                  strokeWidth={1.5}
+                  strokeDasharray="6 4"
+                />
+                <text
+                  x={plotWidth - 4}
+                  y={y(Number(reference.value)) + 14}
+                  textAnchor="end"
+                  className="tabular text-label"
+                  fill={reference.color}
+                >
+                  {reference.label}
+                </text>
+              </g>
+            )}
+
+            {placedMarkers.map((marker) => (
+              <circle
+                key={marker.id}
+                cx={x(marker.index)}
+                cy={y(marker.numeric)}
+                r={4}
+                fill={marker.color}
+                stroke="var(--color-panel)"
+                strokeWidth={1.5}
+                data-marker={marker.id}
+              >
+                <title>{marker.label}</title>
+              </circle>
+            ))}
+
             {hover === null ? null : (
               <line
                 x1={hover.x}
@@ -276,25 +383,66 @@ export const SeriesChart = ({
                 color: entry.color,
                 value: entry.points[hover.index]?.value ?? null,
               })),
+              // A marca daquele dia entra na dica: é onde o "comprei a 35,10"
+              // aparece escrito, em vez de só como um ponto sobre a linha.
+              ...placedMarkers
+                .filter((marker) => marker.index === hover.index)
+                .map((marker) => ({
+                  id: marker.id,
+                  label: marker.label,
+                  color: marker.color,
+                  value: marker.value,
+                })),
             ]}
             valueFormat={valueFormat}
           />
         )}
       </div>
 
-      <ChartLegend
-        entries={[
-          ...bands.map((band) => ({ id: band.id, label: band.label, color: band.color })),
-          ...series.map((entry) => ({
-            id: entry.id,
-            label: entry.label,
-            color: entry.color,
-            dashed: entry.dashed === true,
-          })),
-        ]}
-        isVisible={isVisible}
-        onToggle={toggleSeries}
-      />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <ChartLegend
+          entries={[
+            ...bands.map((band) => ({
+              id: band.id,
+              label: band.label,
+              color: band.color,
+            })),
+            ...series.map((entry) => ({
+              id: entry.id,
+              label: entry.label,
+              color: entry.color,
+              dashed: entry.dashed === true,
+            })),
+          ]}
+          isVisible={isVisible}
+          onToggle={toggleSeries}
+        />
+
+        {/* Marca e referência entram na legenda como explicação, e não como
+            controle: esconder "Compras" esconderia os pontos sem esconder
+            nenhuma série, e a legenda passaria a prometer o que não faz. */}
+        {placedMarkers.length === 0 ? null : (
+          <span className="flex items-center gap-1.5 text-[0.8125rem] text-ink-2">
+            <span
+              aria-hidden="true"
+              className="inline-block size-2 rounded-full"
+              style={{ backgroundColor: placedMarkers[0]?.color }}
+            />
+            {markerLegend ?? 'Marcas'}
+          </span>
+        )}
+
+        {reference === undefined ? null : (
+          <span className="flex items-center gap-1.5 text-[0.8125rem] text-ink-2">
+            <span
+              aria-hidden="true"
+              className="inline-block h-0 w-4 border-t-2 border-dashed"
+              style={{ borderColor: reference.color }}
+            />
+            {reference.legend ?? reference.label}
+          </span>
+        )}
+      </div>
     </div>
   );
 };

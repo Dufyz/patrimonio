@@ -70,6 +70,8 @@ const NumberCell = ({
 type ValueProps = {
   readonly value: NumberInput;
   readonly decimals?: number;
+  /** Omite o `R$` numa coluna que é inteira de reais. Ver `formatMoney`. */
+  readonly bare?: boolean;
   readonly tone?: Tone;
   readonly className?: string;
   /** Força o valor a aparecer mesmo com o modo de valores ocultos ligado. */
@@ -80,6 +82,7 @@ type ValueProps = {
 export const Money = ({
   value,
   decimals,
+  bare = false,
   tone = 'neutral',
   className,
   alwaysVisible = false,
@@ -89,6 +92,7 @@ export const Money = ({
     <NumberCell
       value={formatMoney(value, {
         hidden,
+        bare,
         ...(decimals === undefined ? {} : { decimals }),
       })}
       tone={tone}
@@ -101,6 +105,7 @@ export const Money = ({
 export const MoneyChange = ({
   value,
   decimals,
+  bare = false,
   className,
   alwaysVisible = false,
 }: Omit<ValueProps, 'tone'>): React.ReactElement => {
@@ -109,6 +114,7 @@ export const MoneyChange = ({
     <NumberCell
       value={formatMoneyChange(value, {
         hidden,
+        bare,
         ...(decimals === undefined ? {} : { decimals }),
       })}
       tone="signed"

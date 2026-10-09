@@ -24,6 +24,23 @@ describe('formatação de número', () => {
     expect(formatMoney('12345678.9').text).toBe('R$ 12.345.678,90');
   });
 
+  it('sem o prefixo, o valor mantém casas, milhar e sinal', () => {
+    // A coluna que é inteira de reais e já diz isso no cabeçalho dispensa o
+    // `R$` em cada linha (prancha 06) — e não dispensa o resto: `1.755` em vez
+    // de `1.755,00` desalinharia a coluna pela vírgula.
+    expect(formatMoney('1755', { bare: true }).text).toBe('1.755,00');
+    expect(formatMoney('96.12', { bare: true }).text).toBe('96,12');
+    expect(formatMoneyChange('96.12', { bare: true }).text).toBe('+96,12');
+    expect(formatMoneyChange('-3170', { bare: true }).text).toBe('−3.170,00');
+  });
+
+  it('sem o prefixo, o valor oculto também esconde o prefixo que não existe', () => {
+    const oculto = formatMoney('1755', { bare: true, hidden: true });
+
+    expect(oculto.masked).toBe(true);
+    expect(oculto.text).not.toContain('R$');
+  });
+
   it('variação em reais leva sinal de menos tipográfico', () => {
     expect(formatMoneyChange('-3170').text).toBe('−R$ 3.170,00');
   });
