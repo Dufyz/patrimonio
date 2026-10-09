@@ -21,6 +21,7 @@ import {
   getAssetPage,
   getAssetPriceSeries,
   getMarketHealth,
+  getOverview,
   getTransaction,
   interpretTransaction,
   getFgcExposure,
@@ -177,6 +178,8 @@ export const createApiUseCases = (deps: {
     assetPages: deps.repositories.assetPages,
     clock: deps.clock,
   }),
+  // A tela de abertura: uma rota, duas consultas — o instantâneo e os alertas.
+  getOverview: getOverview({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
 });
 
 export type ApiUseCases = ReturnType<typeof createApiUseCases>;

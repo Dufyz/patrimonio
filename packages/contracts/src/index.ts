@@ -269,3 +269,29 @@ export {
   listPositionsSchema,
 } from './position/listPositions.schema.js';
 export type { ListPositionsQuery } from './position/listPositions.schema.js';
+
+export {
+  compositionChildSchema,
+  compositionNodeSchema,
+  getOverviewSchema,
+  overviewAttentionItemSchema,
+  overviewAttentionSchema,
+  overviewChangeSchema,
+  overviewCompositionSchema,
+  overviewPeriodSchema,
+  overviewPointSchema,
+  overviewPortfolioShareSchema,
+  overviewSchema,
+  overviewScopeSchema,
+  overviewTopPositionSchema,
+  overviewTotalsSchema,
+} from './overview/overview.schema.js';
+export type {
+  OverviewAttentionItemResource,
+  OverviewAttentionResource,
+  OverviewCompositionResource,
+  OverviewPointResource,
+  OverviewPortfolioShareResource,
+  OverviewResource,
+  OverviewTopPositionResource,
+} from './overview/overview.schema.js';

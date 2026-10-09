@@ -96,6 +96,17 @@ export type {
   AlertUpsertRow,
 } from './interfaces/alert.repository.js';
 export type {
+  OverviewAnchors,
+  OverviewCategoryRow,
+  OverviewDayRow,
+  OverviewPortfolioRow,
+  OverviewPositionRow,
+  OverviewQuery,
+  OverviewRepository,
+  OverviewSnapshot,
+  OverviewTargetRow,
+} from './interfaces/overview.repository.js';
+export type {
   CorporateEventDraft,
   CorporateEventRepository,
 } from './interfaces/corporate_event.repository.js';
@@ -512,3 +523,22 @@ export type {
   SourceBudget,
   SourceHealth,
 } from './usecases/market/marketHealth.usecase.js';
+
+// ─── Visão geral ─────────────────────────────────────────────────────────────
+export { getOverview } from './usecases/overview/overview.usecase.js';
+export type {
+  ColoredComposition,
+  ColoredNode,
+  OverviewAttention,
+  OverviewAttentionGroup,
+  OverviewAttentionItem,
+  OverviewChange,
+  OverviewDeps,
+  OverviewInput,
+  OverviewPeriod,
+  OverviewPortfolioShare,
+  OverviewResult,
+  OverviewScope,
+  OverviewTopPosition,
+  OverviewTotals,
+} from './usecases/overview/overview.usecase.js';
