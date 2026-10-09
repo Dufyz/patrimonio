@@ -222,6 +222,9 @@ const answerWith = (body: PositionsResource): void => {
   );
 };
 
+/** Para onde a tela mandou abrir o ativo, que é o que T-03 recebe. */
+const opened: string[] = [];
+
 const show = (initial = '/longo-prazo/posicoes', width = 1440) => {
   // O jsdom mede tudo como zero; a largura é informada, como na galeria.
   Object.defineProperty(globalThis, 'innerWidth', { value: width, writable: true });
@@ -230,7 +233,11 @@ const show = (initial = '/longo-prazo/posicoes', width = 1440) => {
     <MemoryRouter initialEntries={[initial]}>
       <PreferencesProvider storage={null}>
         <ShortcutProvider>
-          <PositionsScreen portfolioId="p1" scopeLabel="Longo prazo" />
+          <PositionsScreen
+            portfolioId="p1"
+            scopeLabel="Longo prazo"
+            onOpenAsset={(slug) => opened.push(slug)}
+          />
         </ShortcutProvider>
       </PreferencesProvider>
     </MemoryRouter>,
@@ -240,6 +247,7 @@ const show = (initial = '/longo-prazo/posicoes', width = 1440) => {
 beforeEach(() => {
   calls.length = 0;
   posted.length = 0;
+  opened.length = 0;
   answerWith(resource());
 });
 
@@ -315,6 +323,43 @@ describe('tela de Posições', () => {
     expect(
       screen.getByRole('menuitem', { name: /Definir preço manual/ }),
     ).toBeInTheDocument();
+  });
+
+  it('o menu da linha abre a página do ativo, pelo apelido dele', async () => {
+    const user = userEvent.setup();
+    show();
+
+    await user.click(await screen.findByRole('button', { name: 'Ações de ITUB4' }));
+    await user.click(screen.getByRole('menuitem', { name: /Abrir o ativo/ }));
+
+    expect(opened).toEqual(['itub4']);
+  });
+
+  it('o detalhe da linha também leva à página inteira do ativo (T-03)', async () => {
+    const user = userEvent.setup();
+    show();
+
+    const row = (await screen.findByText('ITUB4')).closest('tr');
+    await user.click(row as HTMLElement);
+    await user.click(
+      await screen.findByRole('button', { name: 'Abrir a página do ativo' }),
+    );
+
+    expect(opened).toEqual(['itub4']);
+  });
+
+  it('título de banco abre pelo identificador, porque o código dele não é nome', async () => {
+    const user = userEvent.setup();
+    show();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Ações de CDB Prefixado Banco C 2028',
+      }),
+    );
+    await user.click(screen.getByRole('menuitem', { name: /Abrir o ativo/ }));
+
+    expect(opened).toEqual(['aaaa3333-3333-4333-8333-333333333333']);
   });
 
   it('abrir o preço manual não abre o detalhe da linha junto', async () => {

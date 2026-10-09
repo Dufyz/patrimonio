@@ -18,6 +18,7 @@ import {
   deleteInstitution,
   deletePortfolio,
   getAsset,
+  getAssetPage,
   getAssetPriceSeries,
   getMarketHealth,
   getTransaction,
@@ -169,6 +170,11 @@ export const createApiUseCases = (deps: {
   // transação para duas leituras custaria uma conexão do pool a cada abertura.
   listPositions: listPositions({
     positionViews: deps.repositories.positionViews,
+    clock: deps.clock,
+  }),
+  // T-03 lê fora da transação pela mesma razão.
+  getAssetPage: getAssetPage({
+    assetPages: deps.repositories.assetPages,
     clock: deps.clock,
   }),
 });

@@ -1,23 +1,28 @@
 # @patrimonio/web — design system e telas
 
-E5 entregou a camada de peças; E6 constrói as telas sobre ela. A primeira está
-de pé: **Posições**. A galeria continua existindo, em `/galeria`, e continua
-sendo onde uma mudança no botão aparece antes de aparecer em seis telas.
+E5 entregou a camada de peças; E6 constrói as telas sobre ela. Duas estão de
+pé: **Posições** e a **página do ativo**, que abre de dentro dela. A galeria
+continua existindo, em `/galeria`, e continua sendo onde uma mudança no botão
+aparece antes de aparecer em seis telas.
 
 ```bash
 pnpm --filter @patrimonio/web dev     # Posições em http://localhost:5173
 pnpm --filter @patrimonio/web test
 ```
 
-| Endereço              | O que é                                      |
-| --------------------- | -------------------------------------------- |
-| `/:carteira/posicoes` | T-02 · a tabela de tudo que está em carteira |
-| `/todas/posicoes`     | o mesmo, somando todas as carteiras          |
-| `/galeria`            | a galeria do design system (E5)              |
+| Endereço                    | O que é                                      |
+| --------------------------- | -------------------------------------------- |
+| `/:carteira/posicoes`       | T-02 · a tabela de tudo que está em carteira |
+| `/todas/posicoes`           | o mesmo, somando todas as carteiras          |
+| `/:carteira/ativo/:apelido` | T-03 · tudo sobre um ativo em um lugar       |
+| `/galeria`                  | a galeria do design system (E5)              |
 
 O escopo é o apelido da carteira, não o identificador: `/longo-prazo/posicoes` é
-um endereço que alguém cola em outra aba. O recorte da tela — agrupamento, busca
-e categoria — vai para a query, e o padrão nunca é escrito.
+um endereço que alguém cola em outra aba. O apelido do ativo segue a mesma
+regra — `/longo-prazo/ativo/itub4` —, e título de banco abre pelo identificador,
+porque `CDB-BANCOC-20280614` é chave de banco de dados e não nome de coisa. O
+recorte de cada tela — agrupamento, busca, categoria, janela do gráfico, tipo de
+lançamento — vai para a query, e o padrão nunca é escrito.
 
 ## Onde está cada coisa
 
@@ -82,6 +87,43 @@ carteira — então o cabeçalho o traz, e o subtotal de grupo mostra traço.
 compará-la com as vizinhas, e sair da tela para isso perde o lugar. A página
 inteira do ativo é T-03; o que abre aqui é o que cabe em seis números.
 
+## T-03 · Página do ativo
+
+A tela responde a pergunta seguinte à de Posições, e ela é de decisão: vale
+manter, aumentar ou sair. A prancha 06 organiza a resposta em duas alturas — em
+cima o imediato (quanto tenho, quanto vale, como o preço andou), embaixo o
+contexto (de onde vem a renda, o que já foi lançado, o que o papel é) —, e
+`views/asset.tsx` segue essa ordem.
+
+**Um pedido entrega a tela inteira.** `GET /api/assets/:asset_id/page` traz
+posição, preço, série, proventos por mês, lançamentos, cadastro e eventos.
+Cinco rotas costuradas aqui dariam cinco momentos em que metade da tela está
+pronta, e o orçamento de consultas (T-11) é por rota.
+
+**A série do gráfico é a ajustada por evento.** É a única da aplicação que é:
+`asset_price` guarda o preço como foi negociado, e é ele que todo cálculo de
+patrimônio usa. Sem o ajuste, um desdobramento 1:2 apareceria no gráfico como
+uma queda de 50% que não aconteceu (M-15), e as marcas de compra — que estão em
+preço negociado — ficariam no lugar errado da escala. A legenda diz quando a
+janela tem evento aplicado.
+
+**Amortização não é rendimento.** Ela aparece como fatia própria na grade de
+proventos e entra no total recebido, porque é dinheiro que entrou; e fica fora
+do yield sobre custo e do retorno "com proventos", porque é devolução de capital
+(L-08).
+
+**Ausência continua não sendo zero.** Papel nunca vendido não mostra "resultado
+realizado R$ 0,00" — a linha some, porque o zero leria como "vendi e não ganhei
+nada". Posição zerada diz que está zerada em vez de mostrar seis zeros, e a
+frase é diferente da de quem nunca teve fechamento: as duas mandam procurar o
+problema em lugares diferentes.
+
+O `SeriesChart` ganhou duas coisas que só esta tela usa, e que a prancha pede:
+**marca** sobre a linha (a compra e a venda de quem olha) e **referência**
+horizontal (o preço médio). Nenhuma das duas é série: elas não têm valor em
+toda data, e entrar na legenda como controle faria "esconder a série" esconder
+a linha inteira. Elas aparecem na legenda como explicação, não como botão.
+
 ## Divergências registradas
 
 A arquitetura declarava **TanStack Table** e **Recharts**. Nenhum dos dois está
@@ -114,6 +156,37 @@ Em T-02, mais quatro, todas contra a prancha 05:
 - **Lançar compra, provento e transferência aparecem desabilitados**, com a
   história que os entrega na própria dica. O formulário com preview é T-10, e
   fingir que a ação existe custa mais confiança do que dizer que ela não existe.
+
+Em T-03, mais três, contra a prancha 06:
+
+- **Os três blocos de baixo não dividem a largura em partes iguais.** O do meio
+  é uma tabela de quatro colunas; os outros dois são um gráfico de barras e uma
+  lista de pares. Em partes iguais a tabela cortava o valor, que é a coluna que
+  ninguém abre a tela para não ver. A altura continua igual, que é o que O-10
+  cobra.
+- **"A receber" não ocupa coluna na lista de lançamentos.** A prancha o mostra
+  no bloco de Proventos, que é onde a pergunta "o que ainda vai cair" é feita,
+  e é lá que ele está; na lista, a linha inteira o diz na dica.
+- **"Editar ativo" e "Mover entre carteiras" aparecem desabilitados**, com a
+  história que os entrega na dica, pela razão de T-02: o formulário é T-10, e
+  fingir que a ação existe custa mais confiança do que dizer que ela não existe.
+  O preço manual, que é L-14, está de pé.
+
+Duas coisas que a prancha 06 mostra e o design system não tinha entraram como
+peça, em vez de como marcação solta nesta tela: a **marca** e a **referência**
+do `SeriesChart`, e a opção `bare` de `formatMoney` — o valor com casas, milhar
+e sinal, sem o `R$`, para a coluna que é inteira de reais e já diz isso no
+cabeçalho.
+
+Dois defeitos apareceram ao montar a tela e foram corrigidos onde estavam, e
+não contornados aqui:
+
+- `MonthlyBarsChart` usava o rótulo como chave de lista. O eixo de doze meses
+  desta tela é a inicial de cada um, e `M`, `J` e `A` aparecem duas vezes —
+  React descartava a segunda barra de cada par.
+- `SeriesChart` sempre acrescentava uma etiqueta no último ponto do eixo. Quando
+  o passo não caía exatamente nele, a etiqueta anterior ficava a meio passo de
+  distância e as duas se imprimiam uma sobre a outra.
 
 A etapa de largura da tabela densa passou a medir **a janela**, e não o
 contêiner. A prancha 18 as define como consulta de mídia, e medir o elemento

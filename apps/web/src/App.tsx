@@ -20,6 +20,7 @@ import {
   portfolioSlugs,
   scopeForPortfolioId,
 } from './lib/scope.js';
+import { AssetScreen } from './views/asset.js';
 import { Gallery } from './views/gallery.js';
 import { PositionsScreen } from './views/positions.js';
 
@@ -70,13 +71,17 @@ export const App = (): React.ReactElement => (
 const Workspace = (): React.ReactElement => (
   <Routes>
     <Route path="/galeria" element={<Gallery />} />
+    {/* A página do ativo é uma tela dentro do escopo, e não uma tela da barra
+        lateral: ela pertence ao papel, e o papel pertence à carteira. Por isso
+        ela mora sob o escopo e mantém Posições destacada na navegação. */}
+    <Route path="/:scope/ativo/:asset" element={<Workbench />} />
     <Route path="/:scope/:screen" element={<Workbench />} />
     <Route path="*" element={<Navigate to={`/${ALL_SCOPE}/posicoes`} replace />} />
   </Routes>
 );
 
 const Workbench = (): React.ReactElement => {
-  const { scope = ALL_SCOPE, screen = 'posicoes' } = useParams();
+  const { scope = ALL_SCOPE, screen = 'posicoes', asset } = useParams();
   const navigate = useNavigate();
 
   const [portfolios, setPortfolios] = useState<readonly PortfolioResource[]>([]);
@@ -119,7 +124,12 @@ const Workbench = (): React.ReactElement => {
   const slugs = useMemo(() => portfolioSlugs(portfolios), [portfolios]);
   const portfolioId = portfolioIdForScope(scope, slugs);
 
-  const current = SCREENS.find((item) => item.path === screen) ?? SCREENS[1];
+  // Com um ativo na URL, a tela ativa continua sendo Posições: a página do
+  // ativo foi aberta de lá, e é para lá que a trilha volta.
+  const current =
+    asset === undefined
+      ? (SCREENS.find((item) => item.path === screen) ?? SCREENS[1])
+      : SCREENS[1];
   const scopeLabel =
     portfolioId === null
       ? 'Todas as carteiras'
@@ -161,8 +171,19 @@ const Workbench = (): React.ReactElement => {
       onOpenSearch={() => navigate('/galeria')}
       onOpenSettings={() => navigate('/galeria')}
     >
-      {current?.id === 'posicoes' ? (
-        <PositionsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
+      {asset !== undefined ? (
+        <AssetScreen
+          assetRef={asset}
+          portfolioId={portfolioId}
+          scopeLabel={scopeLabel}
+          onBack={() => navigate(`/${scope}/posicoes`)}
+        />
+      ) : current?.id === 'posicoes' ? (
+        <PositionsScreen
+          portfolioId={portfolioId}
+          scopeLabel={scopeLabel}
+          onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
+        />
       ) : (
         <ScreenPending label={current?.label ?? ''} story={current?.story ?? ''} />
       )}

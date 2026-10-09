@@ -121,6 +121,33 @@ export {
 } from './asset/listAssets.schema.js';
 
 export {
+  assetPageCorporateEventSchema,
+  assetPageCustodianSchema,
+  assetPageIdentitySchema,
+  assetPagePayoutMonthSchema,
+  assetPagePayoutsSchema,
+  assetPagePointSchema,
+  assetPagePortfolioSchema,
+  assetPagePositionSchema,
+  assetPagePriceSchema,
+  assetPageResourceSchema,
+  assetPageSeriesSchema,
+  assetPageTradeMarkSchema,
+  assetPageTransactionSchema,
+  assetPageTransactionsSchema,
+  assetPeriodSchema,
+  assetRefSchema,
+  getAssetPageSchema,
+} from './asset/assetPage.schema.js';
+export type {
+  AssetPageIdentity,
+  AssetPagePosition,
+  AssetPageResource,
+  AssetPeriod,
+  GetAssetPageQuery,
+} from './asset/assetPage.schema.js';
+
+export {
   newAssetSchema,
   payoutKindSchema,
   transactionKindSchema,

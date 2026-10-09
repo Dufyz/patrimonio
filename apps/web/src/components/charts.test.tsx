@@ -141,6 +141,117 @@ describe('gráfico de série', () => {
   });
 });
 
+describe('marcas e referência no gráfico de série', () => {
+  // T-03 · O gráfico de preço do ativo precisa das duas: a compra de quem olha
+  // sobre a linha, e o preço médio como referência horizontal.
+  const comMarcas = () =>
+    seriesChart({
+      markers: [
+        {
+          id: 'buy-2026-08-31',
+          date: '2026-08-31',
+          value: '0.14',
+          color: 'var(--color-accent)',
+          label: 'Compra de 100 em 31/08',
+        },
+      ],
+      markerLegend: 'Compras',
+      reference: {
+        value: '0.12',
+        label: 'PM 29,10',
+        color: 'var(--color-ink-3)',
+      },
+    });
+
+  it('a marca aparece sobre a linha, na data do negócio', () => {
+    const { container } = comMarcas();
+
+    expect(container.querySelectorAll('[data-marker]')).toHaveLength(1);
+  });
+
+  it('a legenda nomeia as marcas e a referência, que o gráfico só desenha', () => {
+    comMarcas();
+
+    expect(screen.getByText('Compras')).toBeInTheDocument();
+  });
+
+  it('a referência é tracejada e rotulada', () => {
+    const { container } = comMarcas();
+    const tracejada = Array.from(container.querySelectorAll('line')).filter(
+      (line) => line.getAttribute('stroke-dasharray') === '6 4',
+    );
+
+    expect(tracejada).toHaveLength(1);
+    // Uma vez sobre a linha, no gráfico, e uma na legenda que a nomeia.
+    expect(screen.getAllByText('PM 29,10')).toHaveLength(2);
+  });
+
+  it('a marca de um dia que não está na série cai no primeiro dia depois dele', () => {
+    // Compra em dia sem pregão na série não some do gráfico: ela vai para o
+    // primeiro ponto em ou depois da data.
+    const { container } = seriesChart({
+      markers: [
+        {
+          id: 'buy-2026-08-15',
+          date: '2026-08-15',
+          value: '0.14',
+          color: 'var(--color-accent)',
+          label: 'Compra de 100 em 15/08',
+        },
+      ],
+    });
+
+    expect(container.querySelectorAll('[data-marker]')).toHaveLength(1);
+  });
+
+  it('a marca depois do fim da série não é desenhada em lugar nenhum', () => {
+    const { container } = seriesChart({
+      markers: [
+        {
+          id: 'buy-2027-01-02',
+          date: '2027-01-02',
+          value: '0.14',
+          color: 'var(--color-accent)',
+          label: 'Compra de 100 em 02/01',
+        },
+      ],
+    });
+
+    expect(container.querySelectorAll('[data-marker]')).toHaveLength(0);
+  });
+
+  it('a marca daquele dia entra na dica, com o preço escrito', async () => {
+    const { container } = comMarcas();
+    const svg = container.querySelector('svg') as SVGElement;
+
+    fireEvent.pointerMove(svg, { clientX: 400, clientY: 50 });
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+});
+
+describe('barras por mês, com rótulos repetidos', () => {
+  it('doze meses pela inicial não perdem barra, mesmo com M, J e A repetidos', () => {
+    // O eixo da página do ativo é a inicial do mês. Com a chave no rótulo,
+    // React descartaria a segunda barra de cada par.
+    const iniciais = ['O', 'N', 'D', 'J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S'];
+    const { container } = wrap(
+      <MonthlyBarsChart
+        ariaLabel="Proventos por mês"
+        width={600}
+        slices={[{ id: 'jcp', label: 'JCP', color: 'var(--color-series-2)' }]}
+        bars={iniciais.map((label, index) => ({
+          label,
+          values: [String(100 + index)],
+          total: String(100 + index),
+        }))}
+      />,
+    );
+
+    expect(container.querySelectorAll('rect[data-slice]')).toHaveLength(12);
+  });
+});
+
 describe('barras de proporção', () => {
   it('a barra de alocação marca o alvo e diz o desvio em pontos', () => {
     wrap(

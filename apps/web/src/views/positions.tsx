@@ -25,6 +25,8 @@ import {
 } from '../components/primitives.js';
 import type { TableColumn } from '../components/table.js';
 import { DataTable } from '../components/table.js';
+import { assetSlug } from '../lib/asset_page.js';
+import type { AssetNaming } from '../lib/asset_page.js';
 import {
   DEFAULT_GROUP_BY,
   effectiveGroupBy,
@@ -67,11 +69,14 @@ export type PositionsScreenProps = {
   /** Nulo é o escopo de todas as carteiras. */
   readonly portfolioId: string | null;
   readonly scopeLabel: string;
+  /** Abre a página do ativo (T-03), pelo apelido dele no endereço. */
+  readonly onOpenAsset: (slug: string) => void;
 };
 
 export const PositionsScreen = ({
   portfolioId,
   scopeLabel,
+  onOpenAsset,
 }: PositionsScreenProps): React.ReactElement => {
   const [params, setParams] = useSearchParams();
   const { hidden: valuesHidden, toggleHidden } = usePreferences();
@@ -294,9 +299,15 @@ export const PositionsScreen = ({
                 rowId={positionId}
                 rowLabel={positionLabel}
                 {...(total === null ? {} : { total })}
-                renderExpansion={(row) => <PositionDetail position={row} />}
+                renderExpansion={(row) => (
+                  <PositionDetail position={row} onOpenAsset={onOpenAsset} />
+                )}
                 rowActions={(row) => (
-                  <RowMenu position={row} onManualPrice={setManualPriceFor} />
+                  <RowMenu
+                    position={row}
+                    onManualPrice={setManualPriceFor}
+                    onOpenAsset={onOpenAsset}
+                  />
                 )}
                 emptyState={
                   <EmptyState
@@ -488,13 +499,20 @@ const COLUMNS: readonly TableColumn<PositionResource>[] = [
 const RowMenu = ({
   position,
   onManualPrice,
+  onOpenAsset,
 }: {
   readonly position: PositionResource;
   readonly onManualPrice: (position: PositionResource) => void;
+  readonly onOpenAsset: (slug: string) => void;
 }): React.ReactElement => (
   <Menu
     label={`Ações de ${positionTitle(position)}`}
     items={[
+      {
+        id: 'open_asset',
+        label: 'Abrir o ativo',
+        onSelect: () => onOpenAsset(assetSlug(toAssetRef(position))),
+      },
       {
         id: 'buy_sell',
         label: 'Lançar compra ou venda',
@@ -534,20 +552,40 @@ const RowMenu = ({
 );
 
 /**
+ * O apelido do ativo no endereço sai das mesmas três colunas em Posições e na
+ * página dele. A conversão existe porque as duas telas leem recursos
+ * diferentes do mesmo papel, e a regra de qual nome ele usa é uma só.
+ */
+const toAssetRef = (position: PositionResource): AssetNaming => ({
+  asset_id: position.asset_id,
+  ticker: position.ticker,
+  name: position.name,
+  b3_type: position.b3_type,
+});
+
+/**
  * O detalhe da linha, aberto embaixo dela. É o "abrir o ativo sem sair da
  * tela": o que cabe em quatro números e responde a pergunta imediata — quanto
- * custou, quanto vale, de onde veio o preço. A página inteira do ativo é T-03.
+ * custou, quanto vale, de onde veio o preço. A página inteira do ativo abre no
+ * botão ao lado do nome.
  */
 const PositionDetail = ({
   position,
+  onOpenAsset,
 }: {
   readonly position: PositionResource;
+  readonly onOpenAsset: (slug: string) => void;
 }): React.ReactElement => {
   const detail = positionDetail(position);
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-sm font-medium">{position.name}</p>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <p className="text-sm font-medium">{position.name}</p>
+        <Button onClick={() => onOpenAsset(assetSlug(toAssetRef(position)))}>
+          Abrir a página do ativo
+        </Button>
+      </div>
 
       <dl className="flex flex-wrap gap-x-8 gap-y-2 text-[0.8125rem]">
         <Fact label="Custo total">

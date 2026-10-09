@@ -4,6 +4,7 @@ import type { AppError } from '../errors/app-error.js';
 import type { AlertRepository } from './alert.repository.js';
 import type { BusinessDayRepository } from './business_day.repository.js';
 import type { AssetRepository } from './asset.repository.js';
+import type { AssetPageRepository } from './asset_page.repository.js';
 import type { CategoryRepository } from './category.repository.js';
 import type { CorporateEventRepository } from './corporate_event.repository.js';
 import type { InstitutionRepository } from './institution.repository.js';
@@ -45,6 +46,8 @@ export type TransactionalRepositories = {
   readonly projections: ProjectionRepository;
   /** Leitura: a tela de Posições, em duas consultas. */
   readonly positionViews: PositionViewRepository;
+  /** Leitura: a página do ativo, também em duas. */
+  readonly assetPages: AssetPageRepository;
   readonly prices: PriceRepository;
   readonly alerts: AlertRepository;
   readonly market: MarketIngestionRepository;

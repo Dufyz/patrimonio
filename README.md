@@ -189,9 +189,9 @@ equipe a ignorar vermelho. Fonte fora do ar não é notícia; formato mudado é.
 
 ## Fase 6 · Telas
 
-A primeira tela de verdade está de pé: **Posições**, a tabela de tudo que está
-em carteira hoje. `pnpm dev` abre nela; a galeria do design system continua em
-`/galeria`.
+Duas telas de verdade estão de pé: **Posições**, a tabela de tudo que está em
+carteira hoje, e a **página do ativo**, que abre de dentro dela. `pnpm dev` abre
+em Posições; a galeria do design system continua em `/galeria`.
 
 `GET /api/positions` entrega a tela pronta em **duas consultas**: uma traz as
 linhas, a outra traz tudo que é soma — subtotal por grupo, total geral,
@@ -211,6 +211,35 @@ mesmas medidas **de um grupo** não existem — a média ponderada de variaçõe
 valeria sem fluxo no período —, e o retorno de um conjunto sai da série de cota,
 que é por carteira. Por isso o cabeçalho traz o retorno da carteira e o subtotal
 do grupo mostra traço: é a diferença entre não ter o número e inventá-lo.
+
+A **página do ativo** responde a pergunta seguinte, que é de decisão: vale
+manter, aumentar ou sair. `GET /api/assets/:asset_id/page` entrega a tela
+inteira — posição, preço, série do gráfico, proventos por mês, lançamentos,
+cadastro e eventos corporativos — também em **duas consultas**: uma traz a
+série, que é a única parte com milhares de linhas, e a outra traz tudo o resto
+em uma linha de JSON. Cinco rotas costuradas no navegador dariam cinco momentos
+em que metade da tela está pronta.
+
+O endereço é `/longo-prazo/ativo/itub4`, com o código do papel e não o
+identificador, pela mesma razão que o escopo é o apelido da carteira: ele é
+lido por gente. Título de banco, que não tem código que alguém reconheça, abre
+pelo identificador.
+
+Três decisões da página valem conhecer:
+
+- **A série do gráfico é a ajustada por evento** (M-15). `asset_price` guarda o
+  preço como foi negociado, que é o que todo cálculo de patrimônio usa; sem o
+  ajuste, um desdobramento 1:2 apareceria como uma queda de 50% que não
+  aconteceu. O ajustado é derivado na leitura, nunca gravado, e a legenda diz
+  quando a janela tem evento.
+- **Amortização não é rendimento** (L-08). Ela aparece como fatia própria na
+  grade de proventos e entra no total recebido, porque é dinheiro que entrou; e
+  fica fora do yield sobre custo e do retorno "com proventos", porque é
+  devolução de capital.
+- **Ausência continua não sendo zero.** Papel que nunca foi vendido devolve
+  resultado realizado nulo e a linha some da tela, em vez de mostrar
+  `R$ 0,00` — que leria como "vendi e não ganhei nada". Papel sem provento
+  devolve yield nulo; janela maior que o histórico devolve traço.
 
 ## Design system
 
@@ -232,5 +261,5 @@ alocação e na linha do gráfico, nos dois temas.
 A galeria do design system, que é o critério de saída de E5, continua em
 `/galeria`: é lá que as peças são conferidas contra as pranchas, e é onde uma
 mudança no botão aparece antes de aparecer em seis telas. Detalhes e as
-divergências registradas — sem TanStack Table, sem Recharts, e as de T-02 contra
-a prancha 05 — estão em `apps/web/README.md`.
+divergências registradas — sem TanStack Table, sem Recharts, e as de T-02 e
+T-03 contra as pranchas 05 e 06 — estão em `apps/web/README.md`.

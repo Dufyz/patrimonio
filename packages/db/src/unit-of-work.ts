@@ -11,6 +11,7 @@ import { getRepositoryError } from './errors/repository-error.js';
 import type { Connection, Sql } from './postgresql.js';
 import { createBusinessDayRepository } from './repositories/business_day.repository.js';
 import { createAssetRepository } from './repositories/asset.repository.js';
+import { createAssetPageRepository } from './repositories/asset_page.repository.js';
 import { createCategoryRepository } from './repositories/category.repository.js';
 import { createCorporateEventRepository } from './repositories/corporate_event.repository.js';
 import { createInstitutionRepository } from './repositories/institution.repository.js';
@@ -62,6 +63,7 @@ export const createRepositories = (
   corporateEvents: createCorporateEventRepository(sql),
   projections: createProjectionRepository(sql),
   positionViews: createPositionViewRepository(sql),
+  assetPages: createAssetPageRepository(sql),
   prices: createPriceRepository(sql),
   alerts: createAlertRepository(sql),
   market: createMarketIngestionRepository(sql),

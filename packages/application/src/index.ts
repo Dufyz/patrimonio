@@ -45,6 +45,26 @@ export type {
   PositionViewRow,
   PositionViewSummaryRow,
 } from './interfaces/position_view.repository.js';
+export { ASSET_PAGE_TRANSACTION_LIMIT } from './interfaces/asset_page.repository.js';
+export type {
+  AssetPageCorporateEventRow,
+  AssetPageCustodianRow,
+  AssetPageFacetRow,
+  AssetPageFilter,
+  AssetPageIdentityRow,
+  AssetPageMarkRow,
+  AssetPagePayoutMonthRow,
+  AssetPagePeriod,
+  AssetPagePointRow,
+  AssetPagePortfolioRow,
+  AssetPagePositionRow,
+  AssetPagePriceRow,
+  AssetPageRepository,
+  AssetPageTransactionRow,
+  AssetPageUpcomingPayoutRow,
+  AssetPageView,
+  AssetPageWindowRow,
+} from './interfaces/asset_page.repository.js';
 export type { PriceAt, PriceRepository } from './interfaces/price.repository.js';
 export type {
   AnnouncedPayoutWrite,
@@ -289,6 +309,11 @@ export type {
   ListPositionsDeps,
   ListPositionsInput,
 } from './usecases/position/listPositions.usecase.js';
+export { getAssetPage } from './usecases/asset/getAssetPage.usecase.js';
+export type {
+  GetAssetPageDeps,
+  GetAssetPageInput,
+} from './usecases/asset/getAssetPage.usecase.js';
 
 export {
   archiveAsset,
