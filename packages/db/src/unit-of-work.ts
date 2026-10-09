@@ -21,6 +21,7 @@ import { createManualPriceRepository } from './repositories/manual_price.reposit
 import { createMarketIngestionRepository } from './repositories/market_ingestion.repository.js';
 import { createAlertRepository } from './repositories/alert.repository.js';
 import { createOverviewRepository } from './repositories/overview.repository.js';
+import { createAllocationRepository } from './repositories/allocation.repository.js';
 import { createPerformanceRepository } from './repositories/performance.repository.js';
 import { createOutboxRepository } from './repositories/outbox.repository.js';
 import { createPriceRepository } from './repositories/price.repository.js';
@@ -72,6 +73,7 @@ export const createRepositories = (
   alerts: createAlertRepository(sql),
   overview: createOverviewRepository(sql),
   performance: createPerformanceRepository(sql),
+  allocation: createAllocationRepository(sql),
   market: createMarketIngestionRepository(sql),
 });
 
