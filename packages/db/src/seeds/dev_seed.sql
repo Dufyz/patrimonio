@@ -18,6 +18,8 @@
 -- Pré-requisito:   pnpm migrate up (já carrega o calendário de dias úteis)
 -- Uso:             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f dev_seed.sql
 --
+-- Depois do seed, `pnpm seed:institutions` acrescenta as instituições reais (BCB/CVM).
+--
 -- Recusa rodar em banco que já tenha carteira, ativo, instituição ou lançamento:
 -- para recomeçar, `pnpm infra:reset && pnpm migrate up`.
 -- O corte do cenário é 08/10/2026: preços e índices vão até essa data; lançamentos e
@@ -489,7 +491,7 @@ INSERT INTO seed_plan VALUES
   (218, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'CDB-DAYCOVAL-20300708', DATE '2024-07-08', 7000, NULL, 'Aplicação em renda fixa'),
   (219, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'CDB-C6BANK-20271007', DATE '2024-10-07', 5500, NULL, 'Aplicação em renda fixa'),
   (220, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'CDB-DAYCOVAL-20310407', DATE '2025-04-07', 8500, NULL, 'Aplicação em renda fixa'),
-  (221, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'LCI-BANCOINT-20270107', DATE '2025-07-07', 5500, NULL, 'Aplicação em renda fixa'),
+  (221, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'LCI-BANCOINT-20270107', DATE '2025-07-07', 5000, NULL, 'Aplicação em renda fixa'),
   (222, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'CDB-C6BANK-20280112', DATE '2026-01-12', 7000, NULL, 'Aplicação em renda fixa'),
   (223, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'CDB-DAYCOVAL-20320608', DATE '2026-06-08', 7000, NULL, 'Aplicação em renda fixa'),
   (224, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TESOURO-IPCA-20350515', DATE '2025-02-10', 7000, NULL, 'Tesouro Direto'),
@@ -665,8 +667,8 @@ SELECT 0, p.seq, p.kind::transaction_kind, p.trade_date, p.trade_date, p.portfol
   JOIN asset cash ON cash.b3_type = 'cash' AND cash.issuer_id = p.institution_id
  WHERE p.kind IN ('deposit', 'withdrawal');
 
--- Fase 1 · compras. Corretagem só em renda variável; liquidação D+2 (D+1 no Tesouro,
--- D+0 na renda fixa de banco).
+-- Fase 1 · compras. Sem corretagem; liquidação D+2 (D+1 no Tesouro, D+0 na renda fixa
+-- de banco).
 INSERT INTO seed_tx (phase, seq, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
                      quantity, unit_price, fees, gross_amount, net_amount, note)
 SELECT 1, p.seq, 'buy', p.trade_date,
@@ -677,11 +679,9 @@ SELECT 1, p.seq, 'buy', p.trade_date,
        ROUND(qty.v * px.price, 2), -(ROUND(qty.v * px.price, 2) + px.fee), p.note
   FROM seed_plan p
   JOIN asset a ON a.ticker = p.ticker
-  JOIN institution i ON i.id = p.institution_id
   LEFT JOIN asset_price ap ON ap.asset_id = a.id AND ap.price_date = p.trade_date
  CROSS JOIN LATERAL (SELECT CASE WHEN a.origin = 'manual' THEN 1::NUMERIC ELSE ap.close END AS price,
-                            CASE WHEN a.origin = 'manual' OR a.b3_type = 'treasury'
-                                 THEN 0 ELSE i.brokerage_per_order END AS fee) px
+                            0::NUMERIC AS fee) px
  CROSS JOIN LATERAL (SELECT CASE WHEN a.origin = 'manual' THEN p.budget
                                  WHEN a.b3_type = 'treasury' THEN FLOOR((p.budget - px.fee) / px.price * 100) / 100
                                  ELSE FLOOR((p.budget - px.fee) / px.price) END AS v) qty
@@ -691,11 +691,10 @@ SELECT 1, p.seq, 'buy', p.trade_date,
 INSERT INTO seed_tx (phase, seq, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
                      quantity, unit_price, fees, gross_amount, net_amount, note)
 SELECT 2, p.seq, 'sell', p.trade_date, pg_temp.add_bd(p.trade_date, 2), p.portfolio_id, a.id, p.institution_id,
-       held.qty, ap.close, i.brokerage_per_order, ROUND(held.qty * ap.close, 2),
-       ROUND(held.qty * ap.close, 2) - i.brokerage_per_order, p.note
+       held.qty, ap.close, 0, ROUND(held.qty * ap.close, 2),
+       ROUND(held.qty * ap.close, 2), p.note
   FROM seed_plan p
   JOIN asset a ON a.ticker = p.ticker
-  JOIN institution i ON i.id = p.institution_id
   JOIN asset_price ap ON ap.asset_id = a.id AND ap.price_date = p.trade_date
  CROSS JOIN LATERAL (
    SELECT FLOOR(COALESCE(SUM(CASE t.kind WHEN 'buy' THEN t.quantity ELSE -t.quantity END), 0) * p.fraction) AS qty
