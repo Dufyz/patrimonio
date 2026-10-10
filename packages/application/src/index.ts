@@ -115,6 +115,15 @@ export type {
   AllocationTargetRow,
 } from './interfaces/allocation.repository.js';
 export type {
+  GoalFlowRow,
+  GoalInflationRow,
+  GoalPortfolioRow,
+  GoalRepository,
+  GoalRow,
+  GoalSnapshot,
+  GoalSnapshotQuery,
+} from './interfaces/goal.repository.js';
+export type {
   OverviewAnchors,
   OverviewCategoryRow,
   OverviewDayRow,
@@ -611,3 +620,18 @@ export type {
   GetAllocationDeps,
   GetAllocationInput,
 } from './usecases/allocation/getAllocation.usecase.js';
+
+export { getGoals } from './usecases/goal/getGoals.usecase.js';
+export type {
+  GetGoalsDeps,
+  GetGoalsInput,
+  GoalBlock,
+  GoalChart,
+  GoalContributionRow,
+  GoalPace,
+  GoalProjectionResult,
+  GoalRate,
+  GoalResult,
+  GoalStatus,
+  GoalsResult,
+} from './usecases/goal/getGoals.usecase.js';

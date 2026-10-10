@@ -186,6 +186,23 @@ export type {
   GoalProjection,
   MonthlyFlow,
 } from './goals/projection.js';
+export {
+  contributionLadder,
+  expectedProgress,
+  factorToPct,
+  goalStanding,
+  goalTrajectory,
+  nominalRate,
+  normalizeRate,
+  parseReturnAssumption,
+} from './goals/trajectory.js';
+export type {
+  ExpectedProgressInput,
+  GoalStanding,
+  LadderEntry,
+  ReturnAssumption,
+  TrajectoryInput,
+} from './goals/trajectory.js';
 
 // ─── Suporte ─────────────────────────────────────────────────────────────────
 export {
