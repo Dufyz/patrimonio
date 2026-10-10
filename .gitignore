@@ -10,3 +10,6 @@ tmp/
 
 # o Redis local escreve o dump aqui quando roda fora do container
 dump.rdb
+
+# T-11: relatório de consultas por rota, gerado a cada execução da suíte da api
+apps/api/reports/

@@ -20,6 +20,10 @@ import type { Express } from 'express';
 import { createApp } from '../app.js';
 import { createApiUseCases } from '../container.js';
 import { systemClock } from '../infra/config/clock.js';
+import { createQueryCounter } from './query-counter.js';
+import type { QueryCounter } from './query-counter.js';
+
+const POOL_SIZE = 4;
 
 /**
  * Supertest sobre a app Express completa, com banco e fila reais: nenhum mock.
@@ -31,16 +35,20 @@ export type ApiHarness = {
   readonly sql: Sql;
   readonly redis: RedisConnection;
   readonly queues: Queues;
+  /** T-11 · conta as idas ao Postgres de um trecho: ver `query-counter.ts`. */
+  readonly queryCounter: QueryCounter;
   readonly close: () => Promise<void>;
 };
 
 export const createApiHarness = async (): Promise<ApiHarness> => {
   await runMigrations(environment.database.connection);
 
+  const queryCounter = createQueryCounter();
   const sql = createConnection({
     connection: environment.database.connection,
-    poolSize: 4,
+    poolSize: POOL_SIZE,
     applicationName: 'patrimonio-api-test',
+    onQuery: queryCounter.record,
   });
   // A liquidação sugerida conta dia útil, então o calendário precisa existir
   // antes da primeira compra.
@@ -69,6 +77,7 @@ export const createApiHarness = async (): Promise<ApiHarness> => {
     sql,
     redis,
     queues,
+    queryCounter,
     close: async () => {
       // A suíte comita, e o banco é compartilhado com a de `db`, cujos testes
       // rodam em transação e contam com as tabelas vazias. Devolver o banco como
