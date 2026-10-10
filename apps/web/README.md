@@ -335,6 +335,27 @@ Em T-08, contra a prancha 11:
   cobertura do FGC", não "garantia do Tesouro".
 - **A navegação lateral destaca a seção clicada**, sem IntersectionObserver.
 
+## T-11 · Orçamento de consultas por rota
+
+Cada tela do `web` pede **uma rota** à `api`, e cada rota tem um limite de
+consultas ao Postgres declarado em `apps/api/src/testing/query-budget.ts`. O
+banco fica em outra rede, então uma consulta a mais é uma ida e volta a mais
+sentida por quem olha a tela. Nenhuma tela passa de duas.
+
+`apps/api/src/presentation/routes/query-budget.routes.test.ts` chama cada rota
+de tela contra Postgres de verdade, conta o que o driver envia e falha ao passar
+do limite — listando as consultas, para dizer qual foi a terceira. Roda em
+`pnpm test`, sem ambiente além do que a suíte da `api` já usa.
+
+**`begin` e `commit` não entram na conta, mas aparecem no relatório.** O
+`UnitOfWork` os abre em volta da leitura; não são consultas da tela, mas são
+idas ao banco, e esconder o número esconderia justamente o que o orçamento
+existe para vigiar.
+
+O relatório sai no fim da execução, no terminal e em
+`apps/api/reports/query-budget.json` (fora do git), com a contagem por rota.
+Subir um limite é editar `query-budget.ts`, e isso aparece na revisão.
+
 ## Divergências registradas
 
 A arquitetura declarava **TanStack Table** e **Recharts**. Nenhum dos dois está
