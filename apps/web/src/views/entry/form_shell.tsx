@@ -48,7 +48,7 @@ export const FormShell = ({
       <Callout tone="error">{error}</Callout>
     )}
 
-    <div className="-mx-5 -mb-4 flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3">
+    <div className="-mx-5 -mb-4 flex flex-wrap items-center justify-between gap-3 rounded-b-panel border-t border-line bg-panel-2 px-5 py-3">
       <div className="flex items-center gap-2">
         {destructive}
         {onSaveAgain === undefined ? null : (

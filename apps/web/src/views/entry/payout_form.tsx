@@ -41,6 +41,11 @@ export type PayoutSeed = {
   readonly date: string;
 };
 
+/** Os rótulos desta aba, como a prancha 13B os escreve. */
+const PAYOUT_TABS: Readonly<Record<string, string>> = {
+  interest: 'Juros/cupom',
+};
+
 const MODES: readonly { readonly value: PayoutEntryMode; readonly label: string }[] = [
   { value: 'per_share', label: 'Valor por ação' },
   { value: 'gross', label: 'Total bruto' },
@@ -131,7 +136,7 @@ export const PayoutFormView = ({
 
   const value = previewValue(preview);
   const amountField: EntryField = mode === 'per_share' ? 'perShare' : 'gross';
-  const overdue = paymentDate !== '' && paymentDate <= seed.date;
+  const overdue = paymentDate !== '' && paymentDate < seed.date;
 
   return (
     <FormShell
@@ -146,7 +151,7 @@ export const PayoutFormView = ({
           label="Tipo de provento"
           options={PAYOUT_KINDS.map((kind) => ({
             value: kind,
-            label: PAYOUT_KIND_LABELS[kind] ?? kind,
+            label: PAYOUT_TABS[kind] ?? PAYOUT_KIND_LABELS[kind] ?? kind,
           }))}
           value={payoutKind}
           onChange={setPayoutKind}
@@ -256,7 +261,11 @@ export const PayoutFormView = ({
         <Field
           label={payoutKind === 'jcp' ? 'IR retido' : 'IR retido (se houver)'}
           error={visible.show('tax')}
-          hint={tax === '' && value !== null ? 'automático para este tipo' : undefined}
+          hint={
+            tax === ''
+              ? `automático para ${PAYOUT_KIND_LABELS[payoutKind] ?? 'este tipo'}`
+              : undefined
+          }
         >
           {(control) => (
             <Input
@@ -312,32 +321,34 @@ export const PayoutFormView = ({
         </Callout>
       ) : null}
 
-      <Field label="Carteira" error={visible.show('portfolio')}>
-        {(control) => (
-          <Select
-            {...control}
-            invalid={control['aria-invalid']}
-            options={reference.portfolios}
-            placeholder="Escolha"
-            value={portfolioId ?? ''}
-            onBlur={touch('portfolio')}
-            onChange={(event) => setPortfolioId(event.target.value || null)}
-          />
-        )}
-      </Field>
-      <Field label="Instituição" error={visible.show('institution')}>
-        {(control) => (
-          <Select
-            {...control}
-            invalid={control['aria-invalid']}
-            options={reference.institutions}
-            placeholder="Escolha"
-            value={institutionId ?? ''}
-            onBlur={touch('institution')}
-            onChange={(event) => setInstitutionId(event.target.value || null)}
-          />
-        )}
-      </Field>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Carteira" error={visible.show('portfolio')}>
+          {(control) => (
+            <Select
+              {...control}
+              invalid={control['aria-invalid']}
+              options={reference.portfolios}
+              placeholder="Escolha"
+              value={portfolioId ?? ''}
+              onBlur={touch('portfolio')}
+              onChange={(event) => setPortfolioId(event.target.value || null)}
+            />
+          )}
+        </Field>
+        <Field label="Instituição" error={visible.show('institution')}>
+          {(control) => (
+            <Select
+              {...control}
+              invalid={control['aria-invalid']}
+              options={reference.institutions}
+              placeholder="Escolha"
+              value={institutionId ?? ''}
+              onBlur={touch('institution')}
+              onChange={(event) => setInstitutionId(event.target.value || null)}
+            />
+          )}
+        </Field>
+      </div>
 
       <Field label="Observação">
         {(control) => (
@@ -351,7 +362,7 @@ export const PayoutFormView = ({
         )}
       </Field>
 
-      {received ? (
+      {received || preview.status === 'error' ? (
         <EffectPanel
           state={preview}
           rows={(result) => effectRows('payout', result.preview)}

@@ -23,6 +23,13 @@ import { useSave } from './hooks.js';
  * o motivo fica registrado. Por isso pede o motivo, e não uma confirmação vazia.
  */
 
+/** `84.60` → `84,60`: o valor esperado como dinheiro, sempre com os centavos. */
+const moneyInput = (value: string): string => {
+  const typed = inputValue(value);
+  const [integer = '', fraction = ''] = typed.split(',');
+  return `${integer},${fraction.padEnd(2, '0')}`;
+};
+
 type Loaded =
   | { readonly status: 'loading' }
   | { readonly status: 'error'; readonly message: string }
@@ -101,7 +108,7 @@ export const ConfirmFormView = ({
   readonly onCancel: () => void;
 }): React.ReactElement => {
   const expected = transaction.expected_net_amount ?? transaction.net_amount;
-  const [netAmount, setNetAmount] = useState(inputValue(expected));
+  const [netAmount, setNetAmount] = useState(moneyInput(expected));
   const [note, setNote] = useState('');
   const [dismissing, setDismissing] = useState(false);
   const [reason, setReason] = useState('');
@@ -142,14 +149,18 @@ export const ConfirmFormView = ({
   return (
     <FormShell
       pending={save.pending}
-      saveLabel={dismissing ? 'Registrar que não foi pago' : 'Confirmar recebimento'}
+      saveLabel={dismissing ? 'Registrar que não foi pago' : 'Confirmar'}
       onSave={() => void submit()}
       onCancel={onCancel}
       error={save.error}
       secondary={
-        <Button onClick={() => setDismissing((current) => !current)}>
+        <button
+          type="button"
+          className="cursor-pointer px-1 text-sm text-negative hover:underline"
+          onClick={() => setDismissing((current) => !current)}
+        >
           {dismissing ? 'Voltar' : 'Não foi pago'}
-        </Button>
+        </button>
       }
     >
       <p className="text-sm">
@@ -188,7 +199,7 @@ export const ConfirmFormView = ({
           <Field
             label="Líquido recebido"
             error={visible.show('netAmount')}
-            hint="Se chegou um valor diferente do esperado, digite o que caiu na conta."
+            hint="Se o valor for diferente do previsto, a diferença fica registrada no lançamento."
           >
             {(control) => (
               <Input

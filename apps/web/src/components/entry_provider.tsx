@@ -30,7 +30,7 @@ import { TradeFormView } from '../views/entry/trade_form.js';
 import type { TradeSeed } from '../views/entry/trade_form.js';
 import { TransferFormView } from '../views/entry/transfer_form.js';
 import { Modal } from './overlay.js';
-import { Button } from './primitives.js';
+import { Button, Segmented } from './primitives.js';
 import { useShortcuts } from './shortcuts.js';
 
 /**
@@ -211,7 +211,17 @@ export const EntryProvider = ({
     <EntryContext.Provider value={api}>
       {children}
 
-      <Modal title={title} open={dialog !== null} onClose={close}>
+      <Modal
+        narrow
+        title={title}
+        subtitle={
+          dialog?.kind === 'entry'
+            ? 'Abre N de qualquer tela, já com a carteira e o ativo da tela atual'
+            : dialog?.label
+        }
+        open={dialog !== null}
+        onClose={close}
+      >
         {dialog === null ? null : reference.status === 'loading' ? (
           <p className="py-6 text-center text-sm text-ink-3">Carregando…</p>
         ) : reference.status === 'error' ? (
@@ -284,7 +294,7 @@ export const EntryProvider = ({
 };
 
 /** As abas e o formulário da aba ativa. */
-const EntryForms = ({
+export const EntryForms = ({
   tab,
   request,
   reference,
@@ -320,31 +330,22 @@ const EntryForms = ({
 
   return (
     <div className="flex flex-col gap-4">
-      <div
-        role="tablist"
-        aria-label="Tipo de lançamento"
-        className="flex flex-wrap gap-1 border-b border-line"
-      >
-        {ENTRY_TABS.map((item) => {
-          const active = item.id === tab;
-          const unavailable = item.unavailable;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              disabled={unavailable !== undefined}
-              title={unavailable}
-              className={`-mb-px cursor-pointer border-b-2 px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:text-ink-3 ${
-                active ? 'border-accent font-semibold' : 'border-transparent text-ink-2'
-              }`}
-              onClick={() => onTab(item.id)}
-            >
-              {item.label}
-            </button>
-          );
-        })}
+      <div className="max-w-full overflow-x-auto">
+        <Segmented
+          label="Tipo de lançamento"
+          options={ENTRY_TABS.map((item) => ({
+            value: item.id,
+            label: item.label,
+            ...(item.unavailable === undefined ? {} : { title: item.unavailable }),
+          }))}
+          value={tab}
+          onChange={(next) => {
+            // Evento aparece, mas ainda não tem preview na api: não abre.
+            if (ENTRY_TABS.find((item) => item.id === next)?.unavailable === undefined) {
+              onTab(next);
+            }
+          }}
+        />
       </div>
 
       {tab === 'buy' || tab === 'sell' ? (

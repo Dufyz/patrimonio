@@ -252,6 +252,13 @@ export const CashFormView = ({
             rows={(result) => effectRows(kind, result)}
             idle="Informe a carteira, a instituição e o valor para ver o efeito no caixa."
           />
+
+          {kind === 'deposit' ? (
+            <Callout tone="info">
+              “De outra carteira” vira uma transferência: não conta como aporte novo no
+              patrimônio.
+            </Callout>
+          ) : null}
         </>
       )}
     </FormShell>

@@ -124,6 +124,7 @@ export const AssetPicker = ({
         aria-autocomplete="list"
         autoComplete="off"
         autoFocus={autoFocus}
+        className="pl-9 font-semibold"
         invalid={invalid}
         value={query}
         placeholder="Código ou nome do ativo"
@@ -154,9 +155,23 @@ export const AssetPicker = ({
         }}
       />
 
-      {value?.held === null || value === null ? null : (
-        <span className="pointer-events-none absolute top-0 right-3 flex h-control items-center text-[0.75rem] text-ink-3">
-          você tem <span className="tabular ml-1">{value.held}</span>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute top-0 left-3 flex h-control items-center text-ink-3"
+      >
+        ⌕
+      </span>
+
+      {value === null ? null : (
+        <span className="pointer-events-none absolute top-0 right-3 flex h-control max-w-[60%] items-center gap-2 text-[0.75rem] text-ink-3">
+          {value.name === null || value.name === value.label ? null : (
+            <span className="truncate">{value.name}</span>
+          )}
+          {value.held === null ? null : (
+            <span className="shrink-0">
+              você tem <span className="tabular ml-1">{value.held}</span>
+            </span>
+          )}
         </span>
       )}
 

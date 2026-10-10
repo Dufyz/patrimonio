@@ -33,7 +33,7 @@ const Value = ({
     case 'quantity':
       return <Quantity value={value} />;
     case 'money':
-      return <Money value={value} />;
+      return <Money value={value} bare />;
     case 'signed_money':
       return <MoneyChange value={value} />;
     case 'percent':
@@ -80,7 +80,7 @@ const Row = ({ row }: { readonly row: EffectRow }): React.ReactElement => {
       </td>
       <td className="px-3 py-2 text-right font-semibold">
         {row.unchanged ? (
-          <span className="font-normal text-ink-3">sem mudança</span>
+          <span>sem mudança</span>
         ) : (
           <Value unit={row.unit} value={row.after} />
         )}

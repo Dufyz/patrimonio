@@ -140,6 +140,33 @@ export const EditEntry = ({
   );
 };
 
+const fullDate = (iso: string): string => iso.split('-').reverse().join('/');
+
+/** `31,4` → `31,40`: o valor de antes aparece como dinheiro, e não como o campo o guarda. */
+const twoDecimals = (value: string): string => {
+  if (value === '') return value;
+  const [integer = '', fraction = ''] = value.split(',');
+  return `${integer},${fraction.padEnd(2, '0')}`;
+};
+
+const TrashIcon = (): React.ReactElement => (
+  <svg
+    viewBox="0 0 16 16"
+    width="14"
+    height="14"
+    aria-hidden="true"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+  >
+    <path
+      d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 8h6l.5-8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 /** "antes: 31,04" sob o campo que mudou. */
 const before = (changed: boolean, was: string): string | undefined =>
   changed ? `antes: ${was === '' ? '—' : was}` : undefined;
@@ -241,6 +268,7 @@ export const EditFormView = ({
       <FormShell
         pending={save.pending}
         canSave={hasChanges}
+        saveLabel="Salvar alterações"
         onSave={() => void submit()}
         onCancel={onCancel}
         error={
@@ -250,13 +278,14 @@ export const EditFormView = ({
         }
         destructive={
           <Button variant="destructive" onClick={() => setConfirmingDelete(true)}>
+            <TrashIcon />
             Excluir
           </Button>
         }
       >
         <Callout tone="warning">
-          Editar recalcula o preço médio e as posições a partir de{' '}
-          {formatShortDate(since)}.
+          Alterar este lançamento recalcula preço médio, resultado e rentabilidade a
+          partir de {fullDate(since)}.
         </Callout>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -322,7 +351,7 @@ export const EditFormView = ({
             <Field
               label={payout ? 'Valor por ação' : 'Preço unitário'}
               error={visible.show('price')}
-              hint={before(changed('price'), original.price)}
+              hint={before(changed('price'), twoDecimals(original.price))}
             >
               {(control) => (
                 <Input
@@ -341,7 +370,7 @@ export const EditFormView = ({
           <Field
             label="Taxas"
             error={visible.show('fees')}
-            hint={before(changed('fees'), original.fees)}
+            hint={before(changed('fees'), twoDecimals(original.fees))}
           >
             {(control) => (
               <Input
@@ -362,7 +391,7 @@ export const EditFormView = ({
           <Field
             label="IR retido"
             error={visible.show('tax')}
-            hint={before(changed('tax'), original.tax)}
+            hint={before(changed('tax'), twoDecimals(original.tax))}
           >
             {(control) => (
               <Input
@@ -440,6 +469,7 @@ export const EditFormView = ({
 
         {hasChanges ? (
           <EffectPanel
+            title="O que muda"
             state={panelMapped ? { status: 'idle' } : preview}
             rows={(result) =>
               effectRows(
@@ -459,6 +489,10 @@ export const EditFormView = ({
             Altere um campo para ver o efeito da edição antes de salvar.
           </p>
         )}
+
+        <p className="text-[0.75rem] text-ink-3">
+          Criado em {fullDate(transaction.created_at.slice(0, 10))}
+        </p>
       </FormShell>
 
       <ConfirmDialog

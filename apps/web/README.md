@@ -352,7 +352,7 @@ Compra, venda, provento, aporte, resgate, mover posição, editar e confirmar re
 - **Entrada por texto** (colar "compra 100 ITUB4...") não foi feita.
 - **Editar** não se aplica a perna de transferência nem a evento; o modal explica e oferece fechar.
 - **Duplicar** só vale para compra, venda, provento, aporte e resgate; só compra e venda levam os números. Em lote, só com uma linha selecionada.
-- Conformidade visual com as pranchas 13, 14, 15 e 17 **não foi verificada em navegador**.
+- **Conferência visual (Chromium, contra as pranchas 13, 15 e 17):** abas no `Segmented` da prancha, modal estreito, campo de ativo com lupa e nome, rodapé cinza, "O que muda", "antes: 31,40", "Salvar alterações" e "Não foi pago" em vermelho. Diferenças que ficaram: a liquidação abre em branco (a prancha a mostra preenchida; o cálculo D+N é da api), a tabela de efeito traz também custo da posição e da carteira (a prancha só traz quantidade, preço médio, % e classe, mas o critério da história pede custo), "Resultado aberto" e "Rent. 12M" na edição não existem no preview, "Recebido em" na confirmação não existe na api e o rodapé da edição não tem "editado N vez · ver histórico".
 
 ## Divergências registradas
 

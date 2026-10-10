@@ -891,9 +891,9 @@ export const effectRows = (
 };
 
 /**
- * O efeito de mover uma posição: origem e destino lado a lado. O preço médio é
- * preservado nas duas pontas, então a tabela mostra "sem mudança" onde ele não
- * muda — e o total, que a transferência nunca altera, fecha a conta.
+ * O efeito de mover uma posição, como a prancha 15C o desenha: o valor de cada
+ * carteira e o total, que a transferência nunca altera e por isso diz "sem
+ * mudança". O preço médio mantido é dito no aviso do formulário.
  */
 export const transferRows = (
   preview: {
@@ -903,45 +903,10 @@ export const transferRows = (
   },
   names: { readonly origin: string; readonly destination: string },
 ): readonly EffectRow[] => [
+  pair('origin', names.origin, 'money', preview.origin.portfolio_cost_basis),
   pair(
-    'origin_quantity',
-    `Quantidade · ${names.origin}`,
-    'quantity',
-    preview.origin.quantity,
-  ),
-  pair(
-    'origin_cost',
-    `Custo da posição · ${names.origin}`,
-    'money',
-    preview.origin.cost_basis,
-  ),
-  pair(
-    'origin_portfolio_cost',
-    `Custo da carteira · ${names.origin}`,
-    'money',
-    preview.origin.portfolio_cost_basis,
-  ),
-  pair(
-    'destination_quantity',
-    `Quantidade · ${names.destination}`,
-    'quantity',
-    preview.destination.quantity,
-  ),
-  pair(
-    'destination_avg_price',
-    `Preço médio · ${names.destination}`,
-    'money',
-    preview.destination.avg_price,
-  ),
-  pair(
-    'destination_cost',
-    `Custo da posição · ${names.destination}`,
-    'money',
-    preview.destination.cost_basis,
-  ),
-  pair(
-    'destination_portfolio_cost',
-    `Custo da carteira · ${names.destination}`,
+    'destination',
+    names.destination,
     'money',
     preview.destination.portfolio_cost_basis,
   ),
@@ -949,9 +914,6 @@ export const transferRows = (
 ];
 
 type TransferSideRows = {
-  readonly quantity: { readonly before: string; readonly after: string };
-  readonly avg_price: { readonly before: string; readonly after: string };
-  readonly cost_basis: { readonly before: string; readonly after: string };
   readonly portfolio_cost_basis: { readonly before: string; readonly after: string };
 };
 
