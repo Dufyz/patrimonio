@@ -916,9 +916,12 @@ export type EntryReference = {
   readonly institutions: readonly { readonly id: string; readonly name: string }[];
 };
 
-export const referenceOf = (settings: Settings): EntryReference => ({
+export const referenceOf = (
+  settings: Settings,
+  institutions: readonly { readonly id: string; readonly name: string }[],
+): EntryReference => ({
   portfolios: settings.portfolios.map(({ id, name }) => ({ id, name })),
-  institutions: settings.institutions.map(({ id, name }) => ({ id, name })),
+  institutions: institutions.map(({ id, name }) => ({ id, name })),
 });
 
 /** A data de hoje no relógio de quem digita — não em UTC, que às 22h já é amanhã. */

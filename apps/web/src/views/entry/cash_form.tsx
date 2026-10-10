@@ -21,6 +21,7 @@ import type {
 import { EffectPanel } from './effect_table.js';
 import { Field, Input, Select, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
+import { InstitutionPicker } from './institution_picker.js';
 import { previewValue, usePreview, useSave } from './hooks.js';
 
 /**
@@ -126,14 +127,13 @@ export const CashFormView = ({
         </Field>
         <Field label="Instituição" error={visible.show('institution')}>
           {(control) => (
-            <Select
-              {...control}
+            <InstitutionPicker
+              control={control}
               invalid={control['aria-invalid']}
               options={reference.institutions}
-              placeholder="Escolha"
-              value={institutionId ?? ''}
+              value={institutionId}
               onBlur={touch('institution')}
-              onChange={(event) => setInstitutionId(event.target.value || null)}
+              onChange={setInstitutionId}
             />
           )}
         </Field>

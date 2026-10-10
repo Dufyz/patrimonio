@@ -9,6 +9,7 @@ import {
 
 import type { DeletionReceipt } from '../api/transactions.js';
 import { undoDeletion } from '../api/transactions.js';
+import { fetchInstitutions } from '../api/institutions.js';
 import { fetchSettings } from '../api/settings.js';
 import type { SaveReceipt } from '../api/entry.js';
 import {
@@ -112,10 +113,10 @@ export const EntryProvider = ({
     const controller = new AbortController();
     setReference({ status: 'loading' });
 
-    fetchSettings(controller.signal)
-      .then((settings) => {
+    Promise.all([fetchSettings(controller.signal), fetchInstitutions(controller.signal)])
+      .then(([settings, institutions]) => {
         if (!controller.signal.aborted) {
-          setReference({ status: 'ready', reference: referenceOf(settings) });
+          setReference({ status: 'ready', reference: referenceOf(settings, institutions) });
         }
       })
       .catch((cause: unknown) => {

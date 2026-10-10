@@ -26,6 +26,7 @@ import { formatShortDate } from '../../lib/positions.js';
 import { EffectPanel } from './effect_table.js';
 import { Callout, Field, Input, Select, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
+import { InstitutionPicker } from './institution_picker.js';
 import { usePreview, useSave } from './hooks.js';
 
 /**
@@ -439,14 +440,14 @@ export const EditFormView = ({
             )}
           >
             {(control) => (
-              <Select
-                {...control}
+              <InstitutionPicker
+                control={control}
                 invalid={control['aria-invalid']}
                 changed={changed('institution')}
                 options={reference.institutions}
-                value={form.institutionId}
+                value={form.institutionId === '' ? null : form.institutionId}
                 onBlur={touch('institution')}
-                onChange={(event) => set('institutionId', event.target.value)}
+                onChange={(id) => set('institutionId', id ?? '')}
               />
             )}
           </Field>

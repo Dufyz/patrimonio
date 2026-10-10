@@ -345,7 +345,6 @@ describe('SettingsView', () => {
     ).toBeTruthy();
     expect(screen.getByText('15%')).toBeTruthy();
     expect(screen.getByText('8 s')).toBeTruthy();
-    expect(screen.getByText(/Banco B/, { selector: 'span span' })).toBeTruthy();
   });
 
   it('exibição troca o tema e a densidade sem recarregar', async () => {

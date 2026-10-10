@@ -43,6 +43,7 @@ autenticar: ela entra na Fase 2, junto com a publicação.
 | `pnpm verify`                             | Lint, typecheck e testes, na ordem do CI           |
 | `pnpm migrate [up \| down [n] \| status]` | Runner de migration; `--test` usa o banco de teste |
 | `pnpm infra:up` / `infra:reset`           | Sobe o ambiente / apaga os volumes e recria        |
+| `pnpm seed:institutions`                  | Carrega as instituições do STR e da CVM (baixa os CSVs; `--str=`/`--cvm=` aceitam arquivo) |
 
 ## Estrutura
 
