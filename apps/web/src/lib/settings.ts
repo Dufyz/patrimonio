@@ -3,7 +3,6 @@ import type {
   Settings,
   SettingsAlertRule,
   SettingsBackup,
-  SettingsBenchmark,
   SettingsCategory,
   SettingsInstitution,
 } from '@patrimonio/contracts';
@@ -20,7 +19,6 @@ export const SECTIONS = [
   { id: 'alertas', label: 'Alertas' },
   { id: 'categorias', label: 'Categorias de ativo' },
   { id: 'instituicoes', label: 'Instituições' },
-  { id: 'benchmarks', label: 'Benchmarks' },
   { id: 'mercado', label: 'Dados de mercado' },
   { id: 'lancamentos', label: 'Lançamentos' },
   { id: 'exibicao', label: 'Exibição' },
@@ -280,76 +278,6 @@ export const fgcNote = (institution: SettingsInstitution): string => {
   if (!institution.fgc_covered) return 'sem cobertura do FGC';
   return '—';
 };
-
-/* -------------------------------------------------------------------------- */
-/* Benchmarks                                                                 */
-/* -------------------------------------------------------------------------- */
-
-const INDEX_HOW: Readonly<Record<string, string>> = {
-  CDI: 'Série diária acumulada',
-  SELIC: 'Série diária acumulada',
-  IPCA: 'Mensal, distribuída por dia útil',
-  IBOV: 'Pontos de fechamento',
-  IFIX: 'Pontos de fechamento',
-};
-
-const INDEX_SOURCE: Readonly<Record<string, string>> = {
-  CDI: 'Banco Central',
-  SELIC: 'Banco Central',
-  IPCA: 'IBGE, via Banco Central',
-  IBOV: 'B3',
-  IFIX: 'B3',
-};
-
-const indexOf = (definition: Record<string, unknown>): string | null =>
-  typeof definition['index'] === 'string' ? definition['index'] : null;
-
-export const benchmarkHow = (benchmark: SettingsBenchmark): string => {
-  const index = indexOf(benchmark.definition);
-
-  if (benchmark.kind === 'index') {
-    return index === null ? '—' : (INDEX_HOW[index] ?? 'Série do índice');
-  }
-
-  if (benchmark.kind === 'index_plus_rate') {
-    const rate = benchmark.definition['rate'];
-    // A taxa fica como o usuário a definiu: 0.06 é 6% ao ano, e a conversão é
-    // de apresentação, feita sobre o texto para não passar por ponto flutuante.
-    const pct = typeof rate === 'number' ? ratioToPercentText(String(rate)) : null;
-    return index === null || pct === null ? '—' : `${index} + ${pct}% a.a., por dia útil`;
-  }
-
-  return `Rebalanceado ${REBALANCE_TEXT[benchmark.rebalance]}`;
-};
-
-const REBALANCE_TEXT: Readonly<Record<SettingsBenchmark['rebalance'], string>> = {
-  monthly: 'todo mês',
-  daily: 'todo dia',
-  never: 'nunca',
-};
-
-/** `0.06` → `6`, `0.055` → `5,5`. Deslocamento da vírgula sobre o texto. */
-export const ratioToPercentText = (ratio: string): string | null => {
-  const match = /^(\d+)(?:\.(\d+))?$/.exec(ratio);
-  if (match === null) return null;
-
-  const whole = match[1] ?? '0';
-  const fraction = match[2] ?? '';
-  const padded = `${fraction}00`;
-  const integer = `${whole}${padded.slice(0, 2)}`.replace(/^0+(?=\d)/, '');
-  const rest = padded.slice(2).replace(/0+$/, '');
-
-  return rest === '' ? integer : `${integer},${rest}`;
-};
-
-export const benchmarkSource = (benchmark: SettingsBenchmark): string => {
-  if (benchmark.kind !== 'index') return 'Calculado';
-  const index = indexOf(benchmark.definition);
-  return index === null ? '—' : (INDEX_SOURCE[index] ?? '—');
-};
-
-export const benchmarkUse = (usedBy: number): string =>
-  usedBy === 0 ? 'Comparação opcional' : portfolioCount(usedBy);
 
 /* -------------------------------------------------------------------------- */
 /* Dados de mercado                                                           */

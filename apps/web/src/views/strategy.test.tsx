@@ -52,7 +52,7 @@ const allocation = (overrides: Partial<AllocationResource> = {}): AllocationReso
   rules: {
     tolerance_pp: '3.00',
     reviewed_on: '2026-07-09',
-    benchmark: { id: '019b0000-0000-7000-8000-000000000009', name: 'IPCA + 6%' },
+    benchmark: { value: 'IPCA+6', name: 'IPCA + 6%' },
   },
   strategy_defined: true,
   composition: {

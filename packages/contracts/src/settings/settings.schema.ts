@@ -6,7 +6,7 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
  * T-08 · Configurações: as oito seções de ajuste, cada uma resolvendo uma coisa.
  *
  * A resposta é uma só para a tela inteira — carteiras, alertas, categorias,
- * instituições, benchmarks, o que o lançamento preenche sozinho e o backup — e
+ * instituições, o que o lançamento preenche sozinho e o backup — e
  * não oito, porque a prancha mostra tudo na mesma rolagem e o banco fica em outra
  * rede. A seção de dados de mercado **não** está aqui: ela já tem a sua rota
  * (`GET /market/health`, M-16), com compasso próprio de releitura enquanto uma
@@ -34,7 +34,7 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
 export const settingsPortfolioSchema = z.object({
   id: uuid,
   name: z.string(),
-  benchmark: z.object({ id: uuid, name: z.string() }).nullable(),
+  benchmark: z.object({ value: z.string(), name: z.string() }).nullable(),
   /** Quantas categorias a estratégia da carteira usa. */
   strategy_categories: z.number().int(),
   /** Os objetivos abertos que a medem, por nome. */
@@ -105,16 +105,6 @@ export const settingsInstitutionSchema = z.object({
   }),
 });
 
-export const settingsBenchmarkSchema = z.object({
-  id: uuid,
-  name: z.string(),
-  kind: z.enum(['index', 'index_plus_rate', 'blend']),
-  rebalance: z.enum(['monthly', 'daily', 'never']),
-  definition: z.record(z.string(), z.unknown()),
-  /** Carteiras que o usam como régua. */
-  used_by: z.number().int(),
-});
-
 export const settingsBackupSchema = z.object({
   /** Falso quando a instalação não ligou o backup: a seção diz isso. */
   enabled: z.boolean(),
@@ -139,7 +129,6 @@ export const settingsSchema = z.object({
   alerts: z.array(settingsAlertRuleSchema),
   categories: z.array(settingsCategorySchema),
   institutions: z.array(settingsInstitutionSchema),
-  benchmarks: z.array(settingsBenchmarkSchema),
   ledger_defaults: settingsLedgerDefaultsSchema,
   backup: settingsBackupSchema,
 });
@@ -158,6 +147,5 @@ export type Settings = z.infer<typeof settingsSchema>;
 export type SettingsPortfolio = z.infer<typeof settingsPortfolioSchema>;
 export type SettingsCategory = z.infer<typeof settingsCategorySchema>;
 export type SettingsInstitution = z.infer<typeof settingsInstitutionSchema>;
-export type SettingsBenchmark = z.infer<typeof settingsBenchmarkSchema>;
 export type SettingsAlertRule = z.infer<typeof settingsAlertRuleSchema>;
 export type SettingsBackup = z.infer<typeof settingsBackupSchema>;

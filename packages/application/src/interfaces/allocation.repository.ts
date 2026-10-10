@@ -21,8 +21,7 @@ export type AllocationPortfolioRow = {
   readonly portfolio_id: string;
   readonly name: string;
   readonly recalc_status: RecalcStatus;
-  readonly benchmark_id: string | null;
-  readonly benchmark_name: string | null;
+  readonly benchmark: string | null;
   /** O dia em que o alvo foi salvo pela última vez. Nulo sem alvo. */
   readonly reviewed_on: DateOnly | null;
   /** O valor total da carteira no fechamento. Nulo quando nunca fechou. */

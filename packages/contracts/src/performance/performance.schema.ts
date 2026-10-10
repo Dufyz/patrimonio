@@ -1,3 +1,4 @@
+import { parseBenchmark } from '@patrimonio/domain';
 import { z } from 'zod';
 
 import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
@@ -42,9 +43,10 @@ export const performanceBreakdownKeySchema = z.enum(PERFORMANCE_BREAKDOWN_KEYS);
 const returnOrNull = decimalString.nullable();
 
 export const performanceBenchmarkSchema = z.object({
-  id: uuid,
+  /** O texto canônico (`CDI`, `IPCA+6`, `110%CDI`): é a identidade e o que a URL carrega. */
+  id: z.string(),
   name: z.string(),
-  kind: z.enum(['index', 'index_plus_rate', 'blend']),
+  kind: z.enum(['index', 'index_plus_rate', 'percent_of_index']),
 });
 
 export const performanceScopeSchema = z.object({
@@ -78,7 +80,7 @@ export const performanceChartSchema = z.object({
   portfolio: z.array(decimalString),
   benchmarks: z.array(
     z.object({
-      id: uuid,
+      id: z.string(),
       values: z.array(decimalString),
     }),
   ),
@@ -93,7 +95,7 @@ export const performanceWindowColumnSchema = z.object({
 export const performanceWindowRowSchema = z.object({
   kind: z.enum(['portfolio', 'benchmark', 'difference']),
   /** O benchmark da linha; nulo na carteira e na diferença. */
-  benchmark_id: uuid.nullable(),
+  benchmark: z.string().nullable(),
   name: z.string(),
   /** Um por coluna. Retorno em %, diferença em pontos percentuais. */
   values: z.array(returnOrNull),
@@ -181,15 +183,15 @@ export const performanceSchema = z.object({
   scope: performanceScopeSchema,
   method: performanceMethodSchema,
   benchmarks: z.object({
-    /** Tudo o que existe para escolher, na ordem do nome. */
+    /** Os índices simples e o benchmark da própria carteira; qualquer outro valor também vale. */
     available: z.array(performanceBenchmarkSchema),
     /** O que está na tela, na ordem das linhas e das cores. */
     selected: z.array(performanceBenchmarkSchema),
     /**
      * A referência da grade mensal e da decomposição: o benchmark declarado da
-     * carteira e, sem ele, o primeiro da lista, o CDI quando nada foi pedido. Nulo só sem benchmark nenhum no catálogo.
+     * carteira e, sem ele, o CDI.
      */
-    primary_id: uuid.nullable(),
+    primary_id: z.string(),
   }),
   chart: performanceChartSchema,
   windows: performanceWindowsSchema,
@@ -198,13 +200,13 @@ export const performanceSchema = z.object({
   breakdown: performanceBreakdownSchema,
 });
 
-/** `a,b,c` → lista de identificadores; vazio ou ausente é "usar o padrão". */
-const uuidList = z
+/** `CDI,IPCA+6` → lista de benchmarks; vazio ou ausente é "usar o padrão". */
+const benchmarkList = z
   .string()
   .refine(
     (value) =>
-      value === '' || value.split(',').every((part) => uuid.safeParse(part).success),
-    'informe identificadores separados por vírgula',
+      value === '' || value.split(',').every((part) => parseBenchmark(part) !== null),
+    'informe benchmarks separados por vírgula, como CDI,IPCA+6',
   );
 
 export const getPerformanceSchema = z.object({
@@ -215,7 +217,7 @@ export const getPerformanceSchema = z.object({
     from: dateOnly.optional(),
     to: dateOnly.optional(),
     /** Benchmarks na tela; ausente é o padrão da carteira. */
-    benchmark_ids: uuidList.optional(),
+    benchmarks: benchmarkList.optional(),
   }),
 });
 

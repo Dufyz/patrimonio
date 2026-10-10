@@ -42,12 +42,9 @@ describe('GET /api/settings', () => {
     expect(response.body.institutions).toEqual([]);
   });
 
-  it('os benchmarks de referência e as regras de mercado vêm semeados', async () => {
+  it('as regras de mercado vêm semeadas', async () => {
     const response = await configuracoes();
 
-    expect(
-      response.body.benchmarks.map((benchmark: { name: string }) => benchmark.name),
-    ).toEqual(expect.arrayContaining(['CDI', 'IPCA', 'Ibovespa']));
     expect(response.body.alerts.map((rule: { kind: string }) => rule.kind)).toEqual(
       expect.arrayContaining(['price_stale', 'price_missing']),
     );

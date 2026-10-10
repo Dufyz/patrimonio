@@ -5,7 +5,7 @@ import type {
   CompositionNode,
   ContributionPlan,
 } from '@patrimonio/calc';
-import { TOLERANCE_PP } from '@patrimonio/domain';
+import { TOLERANCE_PP, describeBenchmark } from '@patrimonio/domain';
 import type { DateOnly, RecalcStatus } from '@patrimonio/domain';
 import { either, failure } from '@patrimonio/shared';
 
@@ -72,7 +72,7 @@ export type AllocationContribution = Omit<ContributionPlan, 'shares'> & {
 export type AllocationRules = {
   readonly tolerance_pp: string;
   readonly reviewed_on: DateOnly | null;
-  readonly benchmark: { readonly id: string; readonly name: string } | null;
+  readonly benchmark: { readonly value: string; readonly name: string } | null;
 };
 
 export type AllocationResult = {
@@ -229,10 +229,7 @@ export const getAllocation = (deps: GetAllocationDeps) =>
       rules: {
         tolerance_pp: TOLERANCE_PP,
         reviewed_on: portfolio.reviewed_on,
-        benchmark:
-          portfolio.benchmark_id === null || portfolio.benchmark_name === null
-            ? null
-            : { id: portfolio.benchmark_id, name: portfolio.benchmark_name },
+        benchmark: describeBenchmark(portfolio.benchmark),
       },
       strategy_defined: strategyDefined,
       composition: arrange(composition, snapshot.categories),

@@ -14,7 +14,7 @@ import type { AppError } from '../errors/app-error.js';
  */
 export type PortfolioWrite = {
   readonly name?: string | undefined;
-  readonly benchmark_id?: string | null | undefined;
+  readonly benchmark?: string | null | undefined;
   readonly sort_order?: number | undefined;
 };
 

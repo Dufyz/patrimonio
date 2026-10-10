@@ -105,7 +105,6 @@ export {
 export type { QuotaPoint, WindowKey, WindowReturn } from './quota/windows.js';
 
 export {
-  REBALANCES,
   benchmarkReturn,
   benchmarkSeries,
   differencePp,
@@ -113,14 +112,12 @@ export {
 export type {
   BenchmarkDefinition,
   BenchmarkInput,
-  BenchmarkPart,
   BenchmarkPoint,
   BenchmarkReturn,
   FactorsByIndex,
-  Rebalance,
 } from './quota/benchmark.js';
 
-export { indexCodesOf, parseBenchmarkDefinition } from './quota/definition.js';
+export { indexCodesOf } from './quota/definition.js';
 
 export { decomposeByMonth, yearTotals } from './quota/decomposition.js';
 export type {

@@ -4,6 +4,7 @@ import type {
   PerformanceResource,
   PerformanceWindowsResource,
 } from '@patrimonio/contracts';
+import { normalizeBenchmark } from '@patrimonio/domain';
 import type { DateOnly } from '@patrimonio/domain';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -130,7 +131,7 @@ export const PerformanceScreen = ({
   const resource = useResource(
     (signal) =>
       fetchPerformance(
-        { portfolioId, from: range.from, to: range.to, benchmarkIds: extraIds },
+        { portfolioId, from: range.from, to: range.to, benchmarks: extraIds },
         signal,
       ),
     [portfolioId, range.from, range.to, extraIds.join(',')],
@@ -168,7 +169,14 @@ const BenchmarkPicker = ({
   const container = useRef<HTMLDivElement>(null);
   useDismiss(container, open, () => setOpen(false));
 
-  if (options.length === 0) return null;
+  const [draft, setDraft] = useState('');
+  const typed = normalizeBenchmark(draft);
+
+  const add = (id: string): void => {
+    onPick(id);
+    setDraft('');
+    setOpen(false);
+  };
 
   return (
     <div ref={container} className="relative">
@@ -192,15 +200,34 @@ const BenchmarkPicker = ({
                 type="button"
                 role="menuitem"
                 className="w-full cursor-pointer rounded-control px-3 py-1.5 text-left text-[0.8125rem] hover:bg-panel-2"
-                onClick={() => {
-                  onPick(option.id);
-                  setOpen(false);
-                }}
+                onClick={() => add(option.id)}
               >
                 {option.name}
               </button>
             </li>
           ))}
+          <li role="none" className="mt-1 border-t border-line px-2 pt-2 pb-1">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (typed !== null) add(typed);
+              }}
+            >
+              <input
+                type="text"
+                aria-label="Outro benchmark"
+                placeholder="IPCA+6 ou 110%CDI"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                className="h-control w-full rounded-control border border-line bg-panel px-2 text-[0.8125rem]"
+              />
+              {draft !== '' && typed === null ? (
+                <p role="alert" className="mt-1 text-[0.75rem] text-ink-3">
+                  Use CDI, IPCA+6 ou 110%CDI.
+                </p>
+              ) : null}
+            </form>
+          </li>
         </ul>
       ) : null}
     </div>
@@ -258,7 +285,7 @@ const WindowsTable = ({
 
             return (
               <tr
-                key={`${row.kind}:${row.benchmark_id ?? ''}`}
+                key={`${row.kind}:${row.benchmark ?? ''}`}
                 className="h-(--row-height) border-b border-line"
               >
                 <th scope="row" className="px-4 text-left font-normal">

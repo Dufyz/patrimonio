@@ -50,8 +50,7 @@ const parsePortfolio = (row: Row): AllocationPortfolioRow => ({
   portfolio_id: asString(row, 'portfolio_id'),
   name: asString(row, 'name'),
   recalc_status: asEnum(row, 'recalc_status', RECALC_STATUSES),
-  benchmark_id: asStringOrNull(row, 'benchmark_id'),
-  benchmark_name: asStringOrNull(row, 'benchmark_name'),
+  benchmark: asStringOrNull(row, 'benchmark'),
   reviewed_on: asDateOnlyOrNull(row, 'reviewed_on'),
   total_value: asNumericOrNull(row, 'total_value'),
 });
@@ -89,8 +88,7 @@ export const createAllocationRepository = (sql: Connection): AllocationRepositor
           SELECT p.id::TEXT AS portfolio_id,
                  p.name,
                  p.recalc_status,
-                 p.benchmark_id::TEXT AS benchmark_id,
-                 benchmark.name AS benchmark_name,
+                 p.benchmark,
                  (SELECT MAX(target.updated_at)::DATE
                     FROM strategy_target target
                    WHERE target.portfolio_id = p.id) AS reviewed_on,
@@ -101,7 +99,6 @@ export const createAllocationRepository = (sql: Connection): AllocationRepositor
                    ORDER BY day.position_date DESC
                    LIMIT 1) AS total_value
             FROM portfolio p
-            LEFT JOIN benchmark ON benchmark.id = p.benchmark_id
            WHERE p.id = ${query.portfolio_id}::UUID
              AND p.archived_at IS NULL
         ),

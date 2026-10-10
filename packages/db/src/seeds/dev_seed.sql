@@ -16,7 +16,6 @@
 -- valor como informação de mercado. A coleta real sobrescreve o que ela buscar.
 --
 -- Pré-requisito:   pnpm migrate up (já carrega o calendário de dias úteis)
--- (a migration 031 já cria os benchmarks CDI, Selic, IPCA, Ibovespa e IFIX)
 -- Uso:             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f dev_seed.sql
 --
 -- Recusa rodar em banco que já tenha carteira, ativo, instituição ou lançamento:
@@ -77,17 +76,12 @@ INSERT INTO category (id, parent_id, name, color_token, auto_rule, sort_order, c
   ('01960000-0002-7000-8000-00000000000a', NULL, 'Liquidez', 'class.caixa', NULL, 30, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
   ('01960000-0002-7000-8000-00000000000b', '01960000-0002-7000-8000-00000000000a', 'Caixa', 'class.caixa', '{"b3_type": "cash"}'::JSONB, 31, TIMESTAMPTZ '2024-01-02 09:00:00-03');
 
--- ------------------------------------------------------ benchmarks compostos
-INSERT INTO benchmark (id, name, kind, definition, rebalance, created_at) VALUES
-  ('01960000-0003-7000-8000-000000000002', 'IPCA + 6%', 'index_plus_rate', '{"index": "IPCA", "rate": 0.06}'::JSONB, 'never', TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0003-7000-8000-000000000004', '70% CDI + 30% Ibovespa', 'blend', '{"parts": [{"index": "CDI", "weight": 0.7}, {"index": "IBOV", "weight": 0.3}]}'::JSONB, 'monthly', TIMESTAMPTZ '2024-01-02 09:00:00-03');
-
 -- ------------------------------------------------------------------- carteiras
-INSERT INTO portfolio (id, name, benchmark_id, sort_order, archived_at, created_at) VALUES
-  ('01960000-0004-7000-8000-000000000001', 'Longo prazo', '01960000-0003-7000-8000-000000000004', 10, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0004-7000-8000-000000000002', 'Reserva de emergência', '019b0000-0000-7000-8000-000000000001', 20, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0004-7000-8000-000000000003', 'Entrada do imóvel', '01960000-0003-7000-8000-000000000002', 30, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0004-7000-8000-000000000004', 'Experimentos', '019b0000-0000-7000-8000-000000000004', 40, TIMESTAMPTZ '2024-09-30 12:00:00-03', TIMESTAMPTZ '2024-01-02 09:00:00-03');
+INSERT INTO portfolio (id, name, benchmark, sort_order, archived_at, created_at) VALUES
+  ('01960000-0004-7000-8000-000000000001', 'Longo prazo', '110%CDI', 10, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0004-7000-8000-000000000002', 'Reserva de emergência', 'CDI', 20, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0004-7000-8000-000000000003', 'Entrada do imóvel', 'IPCA+6', 30, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0004-7000-8000-000000000004', 'Experimentos', 'IBOV', 40, TIMESTAMPTZ '2024-09-30 12:00:00-03', TIMESTAMPTZ '2024-01-02 09:00:00-03');
 
 -- Estratégia: o alvo de cada carteira soma 100 (a restrição é verificada no commit).
 INSERT INTO strategy_target (portfolio_id, category_id, target_pct) VALUES

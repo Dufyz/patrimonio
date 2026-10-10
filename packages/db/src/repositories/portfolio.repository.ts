@@ -81,7 +81,7 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
     const row = definedColumns({
       id: uuidv7(),
       name: draft.name,
-      benchmark_id: draft.benchmark_id,
+      benchmark: draft.benchmark,
       sort_order: draft.sort_order,
     });
 

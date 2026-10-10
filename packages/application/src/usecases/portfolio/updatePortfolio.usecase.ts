@@ -23,7 +23,7 @@ export const updatePortfolio = (deps: UpdatePortfolioDeps) =>
 
     const patch: PortfolioWrite = {
       name: input.name,
-      benchmark_id: input.benchmark_id,
+      benchmark: input.benchmark,
       sort_order: input.sort_order,
     };
 

@@ -15,7 +15,7 @@ export type PerformanceQuery = {
   readonly from?: string | undefined;
   readonly to?: string | undefined;
   /** Benchmarks além do da carteira, na ordem em que entram na tela. */
-  readonly benchmarkIds?: readonly string[] | undefined;
+  readonly benchmarks?: readonly string[] | undefined;
 };
 
 export const fetchPerformance = async (
@@ -26,8 +26,8 @@ export const fetchPerformance = async (
   search.set('portfolio_id', query.portfolioId);
   if (query.from !== undefined) search.set('from', query.from);
   if (query.to !== undefined) search.set('to', query.to);
-  if (query.benchmarkIds !== undefined && query.benchmarkIds.length > 0) {
-    search.set('benchmark_ids', query.benchmarkIds.join(','));
+  if (query.benchmarks !== undefined && query.benchmarks.length > 0) {
+    search.set('benchmarks', query.benchmarks.join(','));
   }
 
   const suffix = search.toString();

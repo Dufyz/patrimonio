@@ -7,7 +7,8 @@ export const TOLERANCE_PP = '5.00';
 export type Portfolio = {
   readonly id: string;
   readonly name: string;
-  readonly benchmark_id: string | null;
+  /** O benchmark como texto canônico: `CDI`, `IPCA+6`, `110%CDI`. */
+  readonly benchmark: string | null;
   readonly sort_order: number;
   /**
    * As quatro colunas abaixo são escritas só pela máquina de estados do

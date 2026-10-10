@@ -1,5 +1,4 @@
 import type {
-  PerformanceBenchmarkRow,
   PerformanceBreakdown,
   PerformanceBreakdownQuery,
   PerformanceCategoryRow,
@@ -31,7 +30,7 @@ import type { Connection } from '../postgresql.js';
  * A tela de Desempenho em **duas** consultas, e a divisão não é gosto: a
  * segunda precisa de coisas que só a primeira sabe.
  *
- * A primeira devolve a história da carteira e o catálogo de benchmarks. Com ela o
+ * A primeira devolve a história da carteira. Com ela o
  * caso de uso descobre o último fechamento, o primeiro, as datas-base de cada
  * janela e os índices de que os benchmarks escolhidos dependem — e só então
  * pode pedir à segunda o que depende deles.
@@ -59,16 +58,8 @@ const parsePortfolio = (row: Row): PerformanceSnapshotPortfolio => ({
   portfolio_id: asString(row, 'portfolio_id'),
   name: asString(row, 'name'),
   recalc_status: asEnum(row, 'recalc_status', RECALC_STATUSES),
-  benchmark_id: asStringOrNull(row, 'benchmark_id'),
+  benchmark: asStringOrNull(row, 'benchmark'),
   total_value: row['total_value'] === null ? null : asNumeric(row, 'total_value'),
-});
-
-const parseBenchmark = (row: Row): PerformanceBenchmarkRow => ({
-  id: asString(row, 'id'),
-  name: asString(row, 'name'),
-  kind: asString(row, 'kind'),
-  rebalance: asString(row, 'rebalance'),
-  definition: row['definition'],
 });
 
 const parseCategory = (row: Row): PerformanceCategoryRow => ({
@@ -154,7 +145,7 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
           SELECT p.id::TEXT AS portfolio_id,
                  p.name,
                  p.recalc_status,
-                 p.benchmark_id::TEXT AS benchmark_id,
+                 p.benchmark,
                  (SELECT day.total_value::TEXT
                     FROM portfolio_daily day
                    WHERE day.portfolio_id = p.id
@@ -164,14 +155,6 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
             FROM portfolio p
            WHERE p.archived_at IS NULL
              AND p.id = ${scope}::UUID
-        ),
-        catalog AS (
-          SELECT b.id::TEXT AS id,
-                 b.name,
-                 b.kind::TEXT AS kind,
-                 b.rebalance::TEXT AS rebalance,
-                 b.definition
-            FROM benchmark b
         )
         SELECT (SELECT position_date FROM reference) AS reference_date,
                (SELECT position_date FROM inception) AS inception,
@@ -179,11 +162,7 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
                  SELECT JSONB_AGG(TO_JSONB(series) ORDER BY series.position_date)
                    FROM series
                ), '[]'::JSONB) AS days,
-               (SELECT TO_JSONB(portfolio) FROM portfolio) AS portfolio,
-               COALESCE((
-                 SELECT JSONB_AGG(TO_JSONB(catalog) ORDER BY LOWER(catalog.name))
-                   FROM catalog
-               ), '[]'::JSONB) AS benchmarks
+               (SELECT TO_JSONB(portfolio) FROM portfolio) AS portfolio
       `;
 
       if (row === undefined) {
@@ -197,7 +176,6 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
         inception: asDateOnlyOrNull(row, 'inception'),
         days: asRows(row['days']).map(parseDay),
         portfolio: row['portfolio'] === null ? null : parsePortfolio(row['portfolio'] as Row),
-        benchmarks: asRows(row['benchmarks']).map(parseBenchmark),
       };
 
       return success(snapshot);

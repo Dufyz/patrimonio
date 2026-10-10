@@ -375,12 +375,12 @@ describe('GET /api/allocation · a estratégia lida', () => {
   it('o benchmark da carteira vem com o nome', async () => {
     await carteiraDaPrancha();
     await harness.sql`
-      UPDATE portfolio SET benchmark_id = (SELECT id FROM benchmark WHERE LOWER(name) = 'cdi')
+      UPDATE portfolio SET benchmark = 'CDI'
     `;
 
     const { rules } = (await estrategia()).body;
 
-    expect(rules.benchmark).toMatchObject({ name: 'CDI' });
+    expect(rules.benchmark).toEqual({ value: 'CDI', name: 'CDI' });
   });
 });
 

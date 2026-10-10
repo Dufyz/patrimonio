@@ -2,7 +2,6 @@ import type {
   SettingsAlertRuleRow,
   SettingsArchivedPortfolioRow,
   SettingsBackupRow,
-  SettingsBenchmarkRow,
   SettingsCategoryRow,
   SettingsInstitutionRow,
   SettingsPortfolioRow,
@@ -57,8 +56,7 @@ const asStrings = (value: unknown): readonly string[] =>
 const parsePortfolio = (row: Row): SettingsPortfolioRow => ({
   id: asString(row, 'id'),
   name: asString(row, 'name'),
-  benchmark_id: asStringOrNull(row, 'benchmark_id'),
-  benchmark_name: asStringOrNull(row, 'benchmark_name'),
+  benchmark: asStringOrNull(row, 'benchmark'),
   strategy_categories: asInteger(row, 'strategy_categories'),
   goals: asStrings(row['goals']),
   transactions: asInteger(row, 'transactions'),
@@ -98,15 +96,6 @@ const parseInstitution = (row: Row): SettingsInstitutionRow => ({
   assets: asInteger(row, 'assets'),
 });
 
-const parseBenchmark = (row: Row): SettingsBenchmarkRow => ({
-  id: asString(row, 'id'),
-  name: asString(row, 'name'),
-  kind: asEnum(row, 'kind', ['index', 'index_plus_rate', 'blend']),
-  rebalance: asEnum(row, 'rebalance', ['monthly', 'daily', 'never']),
-  definition: asJsonOrNull(row, 'definition') ?? {},
-  used_by: asInteger(row, 'used_by'),
-});
-
 const parseAlert = (row: Row): SettingsAlertRuleRow => ({
   kind: asString(row, 'kind'),
   enabled: asBoolean(row, 'enabled'),
@@ -127,7 +116,7 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
     try {
       const [row] = await sql<Row[]>`
         WITH open_portfolio AS (
-          SELECT p.id, p.name, p.benchmark_id, p.sort_order
+          SELECT p.id, p.name, p.benchmark, p.sort_order
             FROM portfolio p
            WHERE p.archived_at IS NULL
         ),
@@ -143,8 +132,7 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
                    JSONB_BUILD_OBJECT(
                      'id', p.id,
                      'name', p.name,
-                     'benchmark_id', p.benchmark_id,
-                     'benchmark_name', b.name,
+                     'benchmark', p.benchmark,
                      'strategy_categories', (
                        SELECT COUNT(*) FROM strategy_target s WHERE s.portfolio_id = p.id
                      ),
@@ -158,7 +146,6 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
                    ) ORDER BY p.sort_order, LOWER(p.name)
                  ), '[]'::JSONB) AS value
             FROM open_portfolio p
-            LEFT JOIN benchmark b ON b.id = p.benchmark_id
             LEFT JOIN portfolio_content c ON c.portfolio_id = p.id
         ),
         archived_json AS (
@@ -269,21 +256,6 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
             FROM institution i
             LEFT JOIN cash_by_institution cb ON cb.institution_id = i.id
         ),
-        benchmark_json AS (
-          SELECT COALESCE(JSONB_AGG(
-                   JSONB_BUILD_OBJECT(
-                     'id', b.id,
-                     'name', b.name,
-                     'kind', b.kind,
-                     'rebalance', b.rebalance,
-                     'definition', b.definition,
-                     'used_by', (
-                       SELECT COUNT(*) FROM open_portfolio p WHERE p.benchmark_id = b.id
-                     )
-                   ) ORDER BY b.created_at, LOWER(b.name)
-                 ), '[]'::JSONB) AS value
-            FROM benchmark b
-        ),
         alert_json AS (
           SELECT COALESCE(JSONB_AGG(
                    JSONB_BUILD_OBJECT(
@@ -330,7 +302,6 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
                (SELECT value FROM archived_json) AS archived_portfolios,
                (SELECT value FROM category_json) AS categories,
                (SELECT value FROM institution_json) AS institutions,
-               (SELECT value FROM benchmark_json) AS benchmarks,
                (SELECT value FROM alert_json) AS alerts,
                (SELECT TO_JSONB(b) FROM backup_row b) AS backup
       `;
@@ -346,7 +317,6 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
         archived_portfolios: asRows(row['archived_portfolios']).map(parseArchived),
         categories: asRows(row['categories']).map(parseCategory),
         institutions: asRows(row['institutions']).map(parseInstitution),
-        benchmarks: asRows(row['benchmarks']).map(parseBenchmark),
         alerts: asRows(row['alerts']).map(parseAlert),
         backup: parseBackup(
           typeof row['backup'] === 'object' && row['backup'] !== null

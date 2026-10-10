@@ -19,9 +19,9 @@ let acoes: string;
 let itub4: string;
 let corretora: string;
 
-const CDI = '019b0000-0000-7000-8000-000000000001';
-const IPCA = '019b0000-0000-7000-8000-000000000003';
-const IBOV = '019b0000-0000-7000-8000-000000000004';
+const CDI = 'CDI';
+const IPCA = 'IPCA';
+const IBOV = 'IBOV';
 
 const fecharDia = async (
   portfolio: string,
@@ -143,7 +143,7 @@ beforeEach(async () => {
 
   const criada = await request(harness.app)
     .post('/api/portfolios')
-    .send({ name: 'Longo prazo', benchmark_id: CDI });
+    .send({ name: 'Longo prazo', benchmark: 'cdi' });
   longo = criada.body.portfolio.id;
 
   const categoria = await harness.sql<{ id: string }[]>`
@@ -331,7 +331,7 @@ describe('GET /api/performance · benchmarks', () => {
     const { windows } = (await desempenho(doLongo())).body;
     const [carteira, cdi, diferenca] = windows.rows;
 
-    expect(cdi).toMatchObject({ kind: 'benchmark', benchmark_id: CDI, name: 'CDI' });
+    expect(cdi).toMatchObject({ kind: 'benchmark', benchmark: CDI, name: 'CDI' });
     expect(numero(cdi.values[6])).toBeCloseTo(esperado, 2);
     expect(diferenca.kind).toBe('difference');
     expect(numero(diferenca.values[6])).toBeCloseTo(
@@ -355,13 +355,13 @@ describe('GET /api/performance · benchmarks', () => {
     ]);
   });
 
-  it('benchmark_ids acrescenta à tela, atrás do benchmark da carteira, na ordem pedida', async () => {
+  it('benchmarks acrescenta à tela, atrás do benchmark da carteira, na ordem pedida', async () => {
     await historiaDoLongo();
     await fatores('CDI', '2026-04-01', '2026-06-30', '1.000500000000');
     await fatores('IPCA', '2026-04-01', '2026-06-30', '1.000100000000');
     await fatores('IBOV', '2026-04-01', '2026-06-30', '1.001000000000');
 
-    const body = (await desempenho(doLongo(`&benchmark_ids=${IBOV},${IPCA}`))).body;
+    const body = (await desempenho(doLongo(`&benchmarks=${IBOV},${IPCA}`))).body;
 
     expect(body.benchmarks.primary_id).toBe(CDI);
     expect(body.benchmarks.selected.map((item: { id: string }) => item.id)).toEqual([
@@ -372,7 +372,7 @@ describe('GET /api/performance · benchmarks', () => {
     expect(
       body.windows.rows
         .filter((row: { kind: string }) => row.kind === 'benchmark')
-        .map((row: { benchmark_id: string }) => row.benchmark_id),
+        .map((row: { benchmark: string }) => row.benchmark),
     ).toEqual([CDI, IBOV, IPCA]);
     expect(body.chart.benchmarks.map((item: { id: string }) => item.id)).toEqual([
       CDI,
@@ -386,6 +386,26 @@ describe('GET /api/performance · benchmarks', () => {
       'IPCA',
       'Selic',
     ]);
+  });
+
+  it('o benchmark da carteira pode ser IPCA+6 ou 110%CDI, e entra na lista e à frente', async () => {
+    await historiaDoLongo();
+    await fatores('CDI', '2026-04-01', '2026-06-30', '1.000500000000');
+    await fatores('IPCA', '2026-04-01', '2026-06-30', '1.000100000000');
+    await harness.sql`UPDATE portfolio SET benchmark = '110%CDI' WHERE id = ${longo}::UUID`;
+
+    const body = (await desempenho(doLongo(`&benchmarks=${encodeURIComponent('IPCA+6')}`))).body;
+
+    expect(body.benchmarks.primary_id).toBe('110%CDI');
+    expect(body.benchmarks.selected.map((item: { id: string }) => item.id)).toEqual([
+      '110%CDI',
+      'IPCA+6',
+    ]);
+    expect(body.benchmarks.selected.map((item: { name: string }) => item.name)).toEqual([
+      '110% do CDI',
+      'IPCA + 6%',
+    ]);
+    expect(body.benchmarks.available.map((item: { id: string }) => item.id)).toContain('110%CDI');
   });
 
   it('o gráfico do benchmark tem o comprimento da carteira e parte de zero', async () => {
@@ -487,8 +507,8 @@ describe('GET /api/performance · casos limite', () => {
     expect(response.status).toBe(400);
   });
 
-  it('identificador malformado em benchmark_ids é 400', async () => {
-    const response = await desempenho('?benchmark_ids=nao-e-uuid');
+  it('benchmark malformado em benchmarks é 400', async () => {
+    const response = await desempenho(`?portfolio_id=${longo}&benchmarks=nao-e-indice`);
 
     expect(response.status).toBe(400);
   });

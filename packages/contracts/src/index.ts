@@ -30,6 +30,7 @@ export type { QueuedWork } from './support/primitives.schema.js';
 export {
   portfolioResourceSchema,
   portfolioWritableSchema,
+  benchmarkSchema,
   recalcStatusSchema,
   strategyTargetResourceSchema,
 } from './portfolio/portfolio.schema.js';
@@ -404,7 +405,6 @@ export {
   settingsAlertRuleSchema,
   settingsArchivedPortfolioSchema,
   settingsBackupSchema,
-  settingsBenchmarkSchema,
   settingsCategorySchema,
   settingsInstitutionSchema,
   settingsLedgerDefaultsSchema,
@@ -415,7 +415,6 @@ export type {
   Settings,
   SettingsAlertRule,
   SettingsBackup,
-  SettingsBenchmark,
   SettingsCategory,
   SettingsInstitution,
   SettingsPortfolio,

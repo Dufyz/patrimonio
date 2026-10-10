@@ -133,7 +133,6 @@ export type {
   SettingsAlertRuleRow,
   SettingsArchivedPortfolioRow,
   SettingsBackupRow,
-  SettingsBenchmarkRow,
   SettingsCategoryRow,
   SettingsInstitutionRow,
   SettingsPortfolioRow,
@@ -152,7 +151,6 @@ export type {
   OverviewTargetRow,
 } from './interfaces/overview.repository.js';
 export type {
-  PerformanceBenchmarkRow,
   PerformanceBreakdown,
   PerformanceBreakdownQuery,
   PerformanceCategoryRow,

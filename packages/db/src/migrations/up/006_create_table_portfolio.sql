@@ -3,7 +3,7 @@ CREATE TYPE recalc_status AS ENUM ('idle', 'queued', 'running', 'failed');
 CREATE TABLE portfolio (
   id                   UUID PRIMARY KEY,
   name                 TEXT NOT NULL,
-  benchmark_id         UUID REFERENCES benchmark (id) ON DELETE SET NULL,
+  benchmark            TEXT,
   sort_order           INTEGER NOT NULL DEFAULT 0,
   recalc_status        recalc_status NOT NULL DEFAULT 'idle',
   recalc_from_date     DATE,

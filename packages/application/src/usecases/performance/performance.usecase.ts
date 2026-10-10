@@ -10,7 +10,6 @@ import {
   indexCodesOf,
   measurementCalendar,
   modifiedDietz,
-  parseBenchmarkDefinition,
   resolveWindow,
   returnPct,
   sumValues,
@@ -23,10 +22,10 @@ import type {
   BenchmarkSpec,
   DecompositionDay,
   QuotaPoint,
-  Rebalance,
   WindowKey,
   WindowReturn,
 } from '@patrimonio/calc';
+import { INDEX_CODES, benchmarkLabel, formatBenchmark, parseBenchmark } from '@patrimonio/domain';
 import type { DateOnly, RecalcStatus } from '@patrimonio/domain';
 import { either, failure } from '@patrimonio/shared';
 
@@ -78,7 +77,7 @@ export type PerformanceScope = {
 export type PerformanceBenchmark = {
   readonly id: string;
   readonly name: string;
-  readonly kind: 'index' | 'index_plus_rate' | 'blend';
+  readonly kind: 'index' | 'index_plus_rate' | 'percent_of_index';
 };
 
 export type PerformanceMethod = {
@@ -102,7 +101,7 @@ export type PerformanceWindowColumn = {
 
 export type PerformanceWindowRow = {
   readonly kind: 'portfolio' | 'benchmark' | 'difference';
-  readonly benchmark_id: string | null;
+  readonly benchmark: string | null;
   readonly name: string;
   readonly values: readonly (string | null)[];
 };
@@ -153,7 +152,7 @@ export type PerformanceResult = {
   readonly benchmarks: {
     readonly available: readonly PerformanceBenchmark[];
     readonly selected: readonly PerformanceBenchmark[];
-    readonly primary_id: string | null;
+    readonly primary_id: string;
   };
   readonly chart: PerformanceChart;
   readonly windows: {
@@ -180,8 +179,8 @@ export type PerformanceInput = {
   readonly on_date?: DateOnly | undefined;
   readonly from?: DateOnly | undefined;
   readonly to?: DateOnly | undefined;
-  /** Vazio ou ausente é o padrão: o benchmark da carteira e o CDI. */
-  readonly benchmark_ids?: readonly string[] | undefined;
+  /** Vazio ou ausente é o padrão: o benchmark da carteira, ou o CDI sem ele. */
+  readonly benchmarks?: readonly string[] | undefined;
 };
 
 export type PerformanceDeps = {
@@ -196,36 +195,45 @@ const QUOTA_FALLBACK = '1.000000000000';
 
 type Benchmark = PerformanceBenchmark & {
   readonly definition: BenchmarkDefinition;
-  readonly rebalance: Rebalance;
 };
 
-const REBALANCE_VALUES: readonly string[] = ['daily', 'monthly', 'never'];
 
-const parseBenchmarks = (snapshot: PerformanceSnapshot): readonly Benchmark[] =>
-  snapshot.benchmarks
-    .flatMap((row): Benchmark[] => {
-      const definition = parseBenchmarkDefinition(row.kind, row.definition);
-      if (definition === null) return [];
+const CDI: Benchmark = {
+  id: 'CDI',
+  name: 'CDI',
+  kind: 'index',
+  definition: { kind: 'index', index: 'CDI' },
+};
 
-      return [
-        {
-          id: row.id,
-          name: row.name,
-          kind: definition.kind,
-          definition,
-          rebalance: (REBALANCE_VALUES.includes(row.rebalance)
-            ? row.rebalance
-            : 'never') as Rebalance,
-        },
-      ];
-    })
-    .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
+const toBenchmark = (text: string): Benchmark | null => {
+  const value = parseBenchmark(text);
+  if (value === null) return null;
+
+  return {
+    id: formatBenchmark(value),
+    name: benchmarkLabel(value),
+    kind: value.kind,
+    definition: value,
+  };
+};
 
 const publicBenchmark = (benchmark: Benchmark): PerformanceBenchmark => ({
   id: benchmark.id,
   name: benchmark.name,
   kind: benchmark.kind,
 });
+
+/** Os índices sozinhos e o benchmark da carteira: o que a tela oferece sem digitar. */
+const availableBenchmarks = (own: Benchmark | null): readonly Benchmark[] => {
+  const plain = INDEX_CODES.flatMap((code) => {
+    const found = toBenchmark(code);
+    return found === null ? [] : [found];
+  });
+
+  const all = own === null || plain.some((item) => item.id === own.id) ? plain : [own, ...plain];
+
+  return [...all].sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
+};
 
 /**
  * O que está na tela. A ordem é a das linhas e a das cores, então ela precisa
@@ -234,27 +242,15 @@ const publicBenchmark = (benchmark: Benchmark): PerformanceBenchmark => ({
  * brasileira ouve.
  */
 const chooseBenchmarks = (
-  catalog: readonly Benchmark[],
+  primary: Benchmark,
   requested: readonly string[],
-  primaryId: string | null,
 ): readonly Benchmark[] => {
-  const byId = new Map(catalog.map((benchmark) => [benchmark.id, benchmark]));
-  const primary = primaryId === null ? undefined : byId.get(primaryId);
-
-  const asked = requested.flatMap((id) => {
-    const found = byId.get(id);
-    return found === undefined ? [] : [found];
+  const asked = requested.flatMap((text) => {
+    const found = toBenchmark(text);
+    return found === null ? [] : [found];
   });
 
-  const fallback =
-    asked.length > 0
-      ? asked
-      : catalog.filter(
-          (benchmark) =>
-            benchmark.definition.kind === 'index' && benchmark.definition.index === 'CDI',
-        );
-
-  const ordered = primary === undefined ? fallback : [primary, ...fallback];
+  const ordered = [primary, ...(asked.length > 0 ? asked : [CDI])];
 
   return ordered.filter(
     (benchmark, position) =>
@@ -267,11 +263,16 @@ const emptyResult = (
   scope: PerformanceScope,
   method: PerformanceMethod,
   catalog: readonly Benchmark[],
+  primary: Benchmark,
 ): PerformanceResult => ({
   reference_date: snapshot.reference_date,
   scope,
   method,
-  benchmarks: { available: catalog.map(publicBenchmark), selected: [], primary_id: null },
+  benchmarks: {
+    available: catalog.map(publicBenchmark),
+    selected: [],
+    primary_id: primary.id,
+  },
   chart: { base_date: null, dates: [], portfolio: [], benchmarks: [] },
   windows: {
     columns: WINDOWS.map((key) => ({ key, base_date: null })),
@@ -371,11 +372,14 @@ export const getPerformance = (deps: PerformanceDeps) =>
       annualized: false,
     };
 
-    const catalog = parseBenchmarks(snapshot);
+    const own = portfolio.benchmark === null ? null : toBenchmark(portfolio.benchmark);
+    const catalog = availableBenchmarks(own);
+    const primary = own ?? CDI;
+
     const reference = snapshot.reference_date;
 
     if (reference === null || snapshot.days.length === 0) {
-      return emptyResult(snapshot, scope, method, catalog);
+      return emptyResult(snapshot, scope, method, catalog, primary);
     }
 
     // ── A série de cota do escopo ──────────────────────────────────────────
@@ -385,7 +389,7 @@ export const getPerformance = (deps: PerformanceDeps) =>
     const lastPoint = points[points.length - 1];
 
     if (first === undefined || lastPoint === undefined) {
-      return emptyResult(snapshot, scope, method, catalog);
+      return emptyResult(snapshot, scope, method, catalog, primary);
     }
 
     // ── As janelas, resolvidas uma vez ─────────────────────────────────────
@@ -396,11 +400,7 @@ export const getPerformance = (deps: PerformanceDeps) =>
     const windowOf = (key: WindowKey): WindowReturn | null => windowResults.get(key) ?? null;
 
     // ── Os benchmarks escolhidos ───────────────────────────────────────────
-    const selected = chooseBenchmarks(
-      catalog,
-      input.benchmark_ids ?? [],
-      portfolio.benchmark_id,
-    );
+    const selected = chooseBenchmarks(primary, input.benchmarks ?? []);
     const referenceBenchmark = selected[0] ?? null;
 
     // ── A segunda consulta: o que depende das datas e dos índices ──────────
@@ -434,7 +434,6 @@ export const getPerformance = (deps: PerformanceDeps) =>
         item.id,
         {
           definition: item.definition,
-          rebalance: item.rebalance,
           factors: breakdown.factors,
           calendar,
         },
@@ -522,18 +521,18 @@ export const getPerformance = (deps: PerformanceDeps) =>
       });
 
     const windowRows: PerformanceWindowRow[] = [
-      { kind: 'portfolio', benchmark_id: null, name: scope.name, values: portfolioValues },
+      { kind: 'portfolio', benchmark: null, name: scope.name, values: portfolioValues },
     ];
 
     selected.forEach((item, position) => {
       const values = benchmarkValues(item);
-      windowRows.push({ kind: 'benchmark', benchmark_id: item.id, name: item.name, values });
+      windowRows.push({ kind: 'benchmark', benchmark: item.id, name: item.name, values });
 
       // A diferença fica logo abaixo do benchmark que a define, como a prancha.
       if (position === 0) {
         windowRows.push({
           kind: 'difference',
-          benchmark_id: null,
+          benchmark: null,
           name: 'Diferença',
           values: portfolioValues.map((value, column) => diff(value, values[column] ?? null)),
         });
@@ -676,7 +675,7 @@ export const getPerformance = (deps: PerformanceDeps) =>
       benchmarks: {
         available: catalog.map(publicBenchmark),
         selected: selected.map(publicBenchmark),
-        primary_id: referenceBenchmark?.id ?? null,
+        primary_id: primary.id,
       },
       chart,
       windows: { columns, rows: windowRows },

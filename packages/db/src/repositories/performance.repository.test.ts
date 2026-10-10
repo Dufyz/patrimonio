@@ -244,21 +244,6 @@ describe('o instantâneo de desempenho', () => {
     expect(snapshot.portfolio).toBeNull();
   });
 
-  it('o catálogo traz os benchmarks de referência com a definição como o banco guarda', async () => {
-    const repository = createPerformanceRepository(tx);
-
-    const snapshot = unwrapSuccess(
-      await repository.snapshot({ portfolio_id: LONGO, on_date: '2026-06-30' }),
-    );
-    const cdi = snapshot.benchmarks.find((row) => row.name === 'CDI');
-
-    expect(cdi).toMatchObject({ kind: 'index', rebalance: 'never' });
-    expect(cdi?.definition).toEqual({ index: 'CDI' });
-    expect(snapshot.benchmarks.map((row) => row.name)).toEqual(
-      expect.arrayContaining(['CDI', 'Selic', 'IPCA', 'Ibovespa', 'IFIX']),
-    );
-  });
-
   it('antes do primeiro fechamento a resposta é vazia, não erro', async () => {
     const repository = createPerformanceRepository(tx);
 

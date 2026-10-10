@@ -6,7 +6,7 @@ import type { AppError } from '../errors/app-error.js';
 /**
  * A leitura da tela de Configurações, em **uma** consulta.
  *
- * As carteiras, as categorias, as instituições e os benchmarks são cadastros, e
+ * As carteiras, as categorias e as instituições são cadastros, e
  * cada um precisa do que o prende — quantos lançamentos, quantos ativos, quantas
  * estratégias — para a tela explicar um bloqueio antes de o usuário esbarrar
  * nele. Uma consulta por cadastro, e por linha de cadastro, faria a abertura
@@ -18,8 +18,7 @@ import type { AppError } from '../errors/app-error.js';
 export type SettingsPortfolioRow = {
   readonly id: string;
   readonly name: string;
-  readonly benchmark_id: string | null;
-  readonly benchmark_name: string | null;
+  readonly benchmark: string | null;
   readonly strategy_categories: number;
   readonly goals: readonly string[];
   readonly transactions: number;
@@ -63,15 +62,6 @@ export type SettingsInstitutionRow = {
   readonly assets: number;
 };
 
-export type SettingsBenchmarkRow = {
-  readonly id: string;
-  readonly name: string;
-  readonly kind: 'index' | 'index_plus_rate' | 'blend';
-  readonly rebalance: 'monthly' | 'daily' | 'never';
-  readonly definition: Record<string, unknown>;
-  readonly used_by: number;
-};
-
 export type SettingsAlertRuleRow = {
   readonly kind: string;
   readonly enabled: boolean;
@@ -92,7 +82,6 @@ export type SettingsSnapshot = {
   readonly archived_portfolios: readonly SettingsArchivedPortfolioRow[];
   readonly categories: readonly SettingsCategoryRow[];
   readonly institutions: readonly SettingsInstitutionRow[];
-  readonly benchmarks: readonly SettingsBenchmarkRow[];
   readonly alerts: readonly SettingsAlertRuleRow[];
   readonly backup: SettingsBackupRow;
 };

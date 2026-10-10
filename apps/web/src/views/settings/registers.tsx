@@ -1,6 +1,5 @@
 import type {
   Settings,
-  SettingsBenchmark,
   SettingsCategory,
   SettingsInstitution,
 } from '@patrimonio/contracts';
@@ -11,9 +10,6 @@ import {
   alertCopy,
   alertLimit,
   autoRuleText,
-  benchmarkHow,
-  benchmarkSource,
-  benchmarkUse,
   categoryHold,
   fgcNote,
   groupCategories,
@@ -421,62 +417,5 @@ export const InstitutionsSection = ({
         </tbody>
       </table>
     )}
-  </SettingsSection>
-);
-
-const isComposite = (benchmark: SettingsBenchmark): boolean => benchmark.kind !== 'index';
-
-export const BenchmarksSection = ({
-  settings,
-}: {
-  readonly settings: Settings;
-}): React.ReactElement => (
-  <SettingsSection
-    id="benchmarks"
-    title="Benchmarks"
-    description="Índices usados para comparar rentabilidade. Os índices base vêm de dados de mercado; os compostos são calculados a partir deles. Cada carteira escolhe o seu."
-    action={
-      <Button disabled title="Criar benchmark composto chega com T-10">
-        + Benchmark composto
-      </Button>
-    }
-  >
-    <table className="w-full text-[0.8125rem]">
-      <caption className="sr-only">Benchmarks</caption>
-      <thead>
-        <tr>
-          <th scope="col" className={TH}>
-            Benchmark
-          </th>
-          <th scope="col" className={TH}>
-            Como é calculado
-          </th>
-          <th scope="col" className={TH}>
-            Fonte
-          </th>
-          <th scope="col" className={TH}>
-            Usado por
-          </th>
-          <th scope="col" className="w-12" />
-        </tr>
-      </thead>
-      <tbody>
-        {settings.benchmarks.map((benchmark) => (
-          <tr key={benchmark.id} className={ROW}>
-            <th scope="row" className={`${TD} text-left font-medium`}>
-              {benchmark.name}
-            </th>
-            <td className={TD}>{benchmarkHow(benchmark)}</td>
-            <td className={TD}>{benchmarkSource(benchmark)}</td>
-            <td className={TD}>{benchmarkUse(benchmark.used_by)}</td>
-            <td className="pr-4 text-right">
-              {isComposite(benchmark) ? (
-                <EditButton label={`o benchmark ${benchmark.name}`} />
-              ) : null}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   </SettingsSection>
 );

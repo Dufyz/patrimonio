@@ -4,7 +4,6 @@ import { benchmarkSeries } from '../quota/benchmark.js';
 import type {
   BenchmarkDefinition,
   FactorsByIndex,
-  Rebalance,
 } from '../quota/benchmark.js';
 import { returnPct } from '../quota/windows.js';
 import type { QuotaPoint } from '../quota/windows.js';
@@ -25,7 +24,6 @@ import type { QuotaPoint } from '../quota/windows.js';
  */
 export type BenchmarkSpec = {
   readonly definition: BenchmarkDefinition;
-  readonly rebalance?: Rebalance | undefined;
   readonly factors: FactorsByIndex;
   /** A união dos dias da carteira e dos dias de índice, em ordem crescente. */
   readonly calendar: readonly string[];
@@ -77,7 +75,6 @@ export const benchmarkPeriodReturn = (
 ): string => {
   const points = benchmarkSeries({
     definition: spec.definition,
-    rebalance: spec.rebalance,
     factors: spec.factors,
     dates: datesBetween(spec.calendar, base, end),
   });
@@ -106,7 +103,6 @@ export const benchmarkCumulative = (
 
   const points = benchmarkSeries({
     definition: spec.definition,
-    rebalance: spec.rebalance,
     factors: spec.factors,
     dates: datesBetween(spec.calendar, base, last),
   });

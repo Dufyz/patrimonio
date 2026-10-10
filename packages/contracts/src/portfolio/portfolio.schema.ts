@@ -1,4 +1,4 @@
-import { RECALC_STATUSES } from '@patrimonio/domain';
+import { normalizeBenchmark, parseBenchmark, RECALC_STATUSES } from '@patrimonio/domain';
 import { z } from 'zod';
 
 import {
@@ -11,6 +11,15 @@ import {
 /** O `web` itera o enum de `domain` em vez de repetir as opções. */
 export const recalcStatusSchema = z.enum(RECALC_STATUSES);
 
+/**
+ * O benchmark é um valor: `CDI`, `IPCA+6`, `110%CDI`. Quem digita pode escrever
+ * `IPCA + 6%` ou `110% do CDI`; o que sai daqui é sempre o texto canônico.
+ */
+export const benchmarkSchema = z
+  .string()
+  .refine((value) => parseBenchmark(value) !== null, 'informe um benchmark como CDI, IPCA+6 ou 110%CDI')
+  .transform((value) => normalizeBenchmark(value) ?? value);
+
 export const strategyTargetResourceSchema = z.object({
   category_id: uuid,
   target_pct: percentString,
@@ -19,7 +28,7 @@ export const strategyTargetResourceSchema = z.object({
 export const portfolioResourceSchema = z.object({
   id: uuid,
   name: z.string(),
-  benchmark_id: uuid.nullable(),
+  benchmark: z.string().nullable(),
   sort_order: z.number().int(),
   recalc_status: recalcStatusSchema,
   recalc_from_date: dateOnly.nullable(),
@@ -37,7 +46,7 @@ export const portfolioResourceSchema = z.object({
  */
 export const portfolioWritableSchema = z.object({
   name,
-  benchmark_id: uuid.nullable().optional(),
+  benchmark: benchmarkSchema.nullable().optional(),
   sort_order: z.number().int().optional(),
   /**
    * O alvo entra junto porque é a mesma decisão: a carteira só fica consistente

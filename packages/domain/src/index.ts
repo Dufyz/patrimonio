@@ -169,6 +169,15 @@ export {
 
 // ─── Carteira ────────────────────────────────────────────────────────────────
 export { TOLERANCE_PP } from './portfolio/portfolio.entities.js';
+export {
+  INDEX_LABELS,
+  benchmarkLabel,
+  describeBenchmark,
+  formatBenchmark,
+  normalizeBenchmark,
+  parseBenchmark,
+} from './portfolio/benchmark.js';
+export type { BenchmarkValue } from './portfolio/benchmark.js';
 export type { Portfolio, StrategyTarget } from './portfolio/portfolio.entities.js';
 export {
   parsePortfolioFromDB,

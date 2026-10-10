@@ -16,7 +16,7 @@ export const SETTINGS_ROUTE_DOCS: readonly RouteDoc[] = [
     path: '/settings',
     tag: TAG,
     summary:
-      'Carteiras, alertas, categorias, instituições, benchmarks, padrões de lançamento e backup',
+      'Carteiras, alertas, categorias, instituições, padrões de lançamento e backup',
     request: getSettingsSchema,
     responses: {
       200: {

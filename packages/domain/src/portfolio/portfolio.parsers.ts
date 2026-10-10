@@ -15,7 +15,7 @@ import type { Portfolio, StrategyTarget } from './portfolio.entities.js';
 export const parsePortfolioFromDB = (row: Row): Portfolio => ({
   id: asString(row, 'id'),
   name: asString(row, 'name'),
-  benchmark_id: asStringOrNull(row, 'benchmark_id'),
+  benchmark: asStringOrNull(row, 'benchmark'),
   sort_order: asInteger(row, 'sort_order'),
   recalc_status: asEnum(row, 'recalc_status', RECALC_STATUSES),
   recalc_from_date: asDateOnlyOrNull(row, 'recalc_from_date'),

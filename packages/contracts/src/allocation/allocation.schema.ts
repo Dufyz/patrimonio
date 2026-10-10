@@ -27,7 +27,7 @@ export const allocationRulesSchema = z.object({
   tolerance_pp: decimalString,
   /** O dia em que a estratégia foi salva pela última vez. Nulo sem estratégia. */
   reviewed_on: dateOnly.nullable(),
-  benchmark: z.object({ id: uuid, name: z.string() }).nullable(),
+  benchmark: z.object({ value: z.string(), name: z.string() }).nullable(),
 });
 
 export const allocationPortfolioSchema = z.object({

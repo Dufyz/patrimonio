@@ -9,7 +9,7 @@ import type { AppError } from '../errors/app-error.js';
  * O que decide a divisão é uma dependência: a segunda consulta precisa de coisas
  * que só a primeira sabe — qual é o último fechamento, qual é o primeiro, e de
  * que índices os benchmarks escolhidos dependem. Por isso a primeira devolve a
- * série e o catálogo, e a segunda recebe as datas e os códigos já resolvidos e
+ * série, e a segunda recebe as datas e os códigos já resolvidos e
  * devolve o que depende deles: fatores de índice e valor e fluxo de cada
  * classe.
  *
@@ -31,21 +31,9 @@ export type PerformanceSnapshotPortfolio = {
   readonly portfolio_id: string;
   readonly name: string;
   readonly recalc_status: RecalcStatus;
-  readonly benchmark_id: string | null;
+  readonly benchmark: string | null;
   /** O valor na data de referência, ou no último fechamento da carteira. */
   readonly total_value: string | null;
-};
-
-/**
- * O benchmark como o banco o guarda: a definição ainda é JSON. Quem a
- * interpreta é `parseBenchmarkDefinition`, de `calc` — `db` não importa o motor.
- */
-export type PerformanceBenchmarkRow = {
-  readonly id: string;
-  readonly name: string;
-  readonly kind: string;
-  readonly rebalance: string;
-  readonly definition: unknown;
 };
 
 export type PerformanceSnapshot = {
@@ -57,7 +45,6 @@ export type PerformanceSnapshot = {
   readonly days: readonly PerformanceDayRow[];
   /** A carteira pedida. Nulo quando ela não existe ou está arquivada. */
   readonly portfolio: PerformanceSnapshotPortfolio | null;
-  readonly benchmarks: readonly PerformanceBenchmarkRow[];
 };
 
 export type PerformanceSnapshotQuery = {

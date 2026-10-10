@@ -35,8 +35,6 @@ const CAIXA_B = '0191e5a0-0000-7000-8000-00000000e305';
 const OBJETIVO = '0191e5a0-0000-7000-8000-00000000e401';
 const ENCERRADO = '0191e5a0-0000-7000-8000-00000000e402';
 
-const BENCHMARK_PROPRIO = '0191e5a0-0000-7000-8000-00000000e501';
-const CDI = '019b0000-0000-7000-8000-000000000001';
 
 let sql: Sql;
 let tx: TestTransaction;
@@ -113,8 +111,8 @@ beforeEach(async () => {
   tx = await beginTestTransaction(sql);
 
   await tx`
-    INSERT INTO portfolio (id, name, sort_order, benchmark_id)
-    VALUES (${LONGO}, 'Longo prazo', 1, ${CDI}), (${IMOVEL}, 'Entrada do imóvel', 2, NULL)
+    INSERT INTO portfolio (id, name, sort_order, benchmark)
+    VALUES (${LONGO}, 'Longo prazo', 1, 'CDI'), (${IMOVEL}, 'Entrada do imóvel', 2, NULL)
   `;
   await tx`
     INSERT INTO portfolio (id, name, sort_order, archived_at)
@@ -219,16 +217,14 @@ describe('o instantâneo da tela de configurações', () => {
     expect(longo).toEqual({
       id: LONGO,
       name: 'Longo prazo',
-      benchmark_id: CDI,
-      benchmark_name: 'CDI',
+      benchmark: 'CDI',
       strategy_categories: 2,
       goals: ['Independência financeira'],
       transactions: 3,
       assets: 2,
     });
     expect(imovel).toMatchObject({
-      benchmark_id: null,
-      benchmark_name: null,
+      benchmark: null,
       strategy_categories: 0,
       goals: [],
       transactions: 0,
@@ -360,33 +356,6 @@ describe('o instantâneo da tela de configurações', () => {
       fgc_covered: true,
       role: 'both',
     });
-  });
-
-  it('o benchmark traz quantas carteiras abertas o usam, e as de referência vêm semeadas', async () => {
-    await tx`
-      INSERT INTO benchmark (id, name, kind, definition, rebalance)
-      VALUES (
-        ${BENCHMARK_PROPRIO}, 'IPCA + 6%', 'index_plus_rate',
-        '{"index":"IPCA","rate":0.06}'::JSONB, 'never'
-      )
-    `;
-    await tx`UPDATE portfolio SET benchmark_id = ${BENCHMARK_PROPRIO} WHERE id = ${IMOVEL}`;
-    // A carteira arquivada com benchmark não conta como uso.
-    await tx`UPDATE portfolio SET benchmark_id = ${CDI} WHERE id = ${ANTIGA}`;
-
-    const benchmarks = unwrapSuccess(
-      await createSettingsRepository(tx).snapshot(),
-    ).benchmarks;
-    const byName = new Map(benchmarks.map((benchmark) => [benchmark.name, benchmark]));
-
-    expect(byName.get('CDI')).toMatchObject({ kind: 'index', used_by: 1 });
-    expect(byName.get('IPCA + 6%')).toMatchObject({
-      kind: 'index_plus_rate',
-      rebalance: 'never',
-      definition: { index: 'IPCA', rate: 0.06 },
-      used_by: 1,
-    });
-    expect(byName.has('IFIX')).toBe(true);
   });
 
   it('as regras de alerta semeadas pelo mercado chegam, com o limite como veio', async () => {

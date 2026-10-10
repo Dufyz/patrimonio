@@ -12,8 +12,8 @@ import { PERFORMANCE_DEFAULT_PERIOD, PerformanceView } from './performance.js';
  * a diferença é em pontos, o método está escrito na tela e a escolha de
  * benchmark volta para quem a guarda.
  */
-const CDI = '019b0000-0000-7000-8000-000000000001';
-const IBOV = '019b0000-0000-7000-8000-000000000004';
+const CDI = 'CDI';
+const IBOV = 'IBOV';
 const LONGO = '0191e5a0-0000-7000-8000-00000000c001';
 
 const year = {
@@ -63,19 +63,19 @@ const performance: PerformanceResource = {
     rows: [
       {
         kind: 'portfolio',
-        benchmark_id: null,
+        benchmark: null,
         name: 'Longo prazo',
         values: ['0.98', '15.92', null, '102.96'],
       },
       {
         kind: 'benchmark',
-        benchmark_id: CDI,
+        benchmark: CDI,
         name: 'CDI',
         values: ['1.14', '14.52', null, '84.90'],
       },
       {
         kind: 'difference',
-        benchmark_id: null,
+        benchmark: null,
         name: 'Diferença',
         values: ['-0.16', '1.40', null, '18.06'],
       },

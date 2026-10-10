@@ -1,5 +1,5 @@
 import { fgcUsedPct, fgcHeadroom } from '@patrimonio/calc';
-import { FGC_LIMIT_BRL, settlementBusinessDays } from '@patrimonio/domain';
+import { FGC_LIMIT_BRL, describeBenchmark, settlementBusinessDays } from '@patrimonio/domain';
 import { either } from '@patrimonio/shared';
 
 import type { SettingsRepository } from '../../interfaces/settings.repository.js';
@@ -73,10 +73,7 @@ export const getSettings = (deps: GetSettingsDeps) =>
       portfolios: snapshot.portfolios.map((portfolio) => ({
         id: portfolio.id,
         name: portfolio.name,
-        benchmark:
-          portfolio.benchmark_id === null || portfolio.benchmark_name === null
-            ? null
-            : { id: portfolio.benchmark_id, name: portfolio.benchmark_name },
+        benchmark: describeBenchmark(portfolio.benchmark),
         strategy_categories: portfolio.strategy_categories,
         goals: [...portfolio.goals],
         blocking: { transactions: portfolio.transactions, assets: portfolio.assets },
@@ -85,7 +82,6 @@ export const getSettings = (deps: GetSettingsDeps) =>
       alerts: [...snapshot.alerts],
       categories,
       institutions,
-      benchmarks: [...snapshot.benchmarks],
       ledger_defaults: {
         undo_window_seconds: deps.undoWindowSeconds,
         // `number` só até aqui: é percentual de configuração, e vira texto.

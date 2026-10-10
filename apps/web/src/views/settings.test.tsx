@@ -29,14 +29,13 @@ const TESOURO = '0191e5a0-0000-7000-8000-00000000e103';
 const RF = '0191e5a0-0000-7000-8000-00000000e201';
 const POS = '0191e5a0-0000-7000-8000-00000000e202';
 const ACOES = '0191e5a0-0000-7000-8000-00000000e205';
-const CDI = '019b0000-0000-7000-8000-000000000001';
 
 const settings: Settings = {
   portfolios: [
     {
       id: LONGO,
       name: 'Longo prazo',
-      benchmark: { id: CDI, name: 'CDI' },
+      benchmark: { value: 'CDI', name: 'CDI' },
       strategy_categories: 5,
       goals: ['Independência financeira'],
       blocking: { transactions: 41, assets: 9 },
@@ -131,24 +130,6 @@ const settings: Settings = {
       cash: null,
       fgc: null,
       blocking: { transactions: 0, assets: 0 },
-    },
-  ],
-  benchmarks: [
-    {
-      id: CDI,
-      name: 'CDI',
-      kind: 'index',
-      rebalance: 'never',
-      definition: { index: 'CDI' },
-      used_by: 1,
-    },
-    {
-      id: 'b2',
-      name: 'IPCA + 6%',
-      kind: 'index_plus_rate',
-      rebalance: 'never',
-      definition: { index: 'IPCA', rate: 0.06 },
-      used_by: 0,
     },
   ],
   ledger_defaults: {
@@ -269,7 +250,6 @@ describe('SettingsView', () => {
       'Alertas',
       'Categorias de ativo',
       'Instituições',
-      'Benchmarks',
       'Dados de mercado',
       'Lançamentos',
       'Exibição',
@@ -297,7 +277,6 @@ describe('SettingsView', () => {
       '+ Nova carteira',
       '+ Categoria',
       '+ Instituição',
-      '+ Benchmark composto',
     ]) {
       expect(
         (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
@@ -352,15 +331,6 @@ describe('SettingsView', () => {
         'sem cobertura do FGC',
       ),
     ).toBeTruthy();
-  });
-
-  it('o benchmark composto declara a taxa e a fonte é "Calculado"', () => {
-    montar();
-
-    const row = screen.getByRole('row', { name: /IPCA \+ 6%/ });
-    expect(within(row).getByText('IPCA + 6% a.a., por dia útil')).toBeTruthy();
-    expect(within(row).getByText('Calculado')).toBeTruthy();
-    expect(within(row).getByText('Comparação opcional')).toBeTruthy();
   });
 
   it('dados de mercado mostram cobertura, falha com a mensagem e os papéis sem preço', () => {

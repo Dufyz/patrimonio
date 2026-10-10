@@ -62,7 +62,7 @@ export const createPortfolio = (deps: CreatePortfolioDeps) =>
 
     const draft: PortfolioDraft = {
       name: input.name,
-      benchmark_id: input.benchmark_id,
+      benchmark: input.benchmark,
       sort_order: input.sort_order,
     };
 
