@@ -80,9 +80,9 @@ beforeEach(async () => {
       (${OUTRA}, 'Reserva')
   `;
   await tx`
-    INSERT INTO institution (id, name, role) VALUES
-      (${CORRETORA}, 'Corretora A', 'custodian'),
-      (${BANCO}, 'Banco C', 'both')
+    INSERT INTO institution (id, name) VALUES
+      (${CORRETORA}, 'Corretora A'),
+      (${BANCO}, 'Banco C')
   `;
   await tx`
     INSERT INTO category (id, name, color_token, sort_order) VALUES

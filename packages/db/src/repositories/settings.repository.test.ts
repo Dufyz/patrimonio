@@ -119,11 +119,11 @@ beforeEach(async () => {
     VALUES (${ANTIGA}, 'Viagem 2024', 3, '2026-03-04T12:00:00Z')
   `;
   await tx`
-    INSERT INTO institution (id, name, role, fgc_covered, brokerage_per_order)
+    INSERT INTO institution (id, name)
     VALUES
-      (${CORRETORA_A}, 'Corretora A', 'custodian', FALSE, '0.00'),
-      (${BANCO_B}, 'Banco B', 'both', TRUE, '4.90'),
-      (${TESOURO}, 'Tesouro Direto', 'issuer', FALSE, '0.00')
+      (${CORRETORA_A}, 'Corretora A'),
+      (${BANCO_B}, 'Banco B'),
+      (${TESOURO}, 'Tesouro Direto')
   `;
   await tx`
     INSERT INTO category (id, parent_id, name, color_token, sort_order)
@@ -315,47 +315,26 @@ describe('o instantâneo da tela de configurações', () => {
     });
   });
 
-  it('a exposição do emissor é o aplicado menos o resgatado, e deixa o caixa de fora', async () => {
+  it('só entra a instituição em uso ou estrangeira; o catálogo brasileiro parado fica de fora', async () => {
+    await tx`
+      INSERT INTO institution (id, name, country)
+      VALUES
+        ('0191e5a0-0000-7000-8000-00000000e701', 'Banco Parado', 'BR'),
+        ('0191e5a0-0000-7000-8000-00000000e702', 'Interactive Brokers', 'US')
+    `;
     await transaction('0191e5a0-0000-7000-8000-00000000e621', {
-      kind: 'buy',
-      portfolio: LONGO,
-      institution: BANCO_B,
-      asset: CDB,
-      gross: '60000.00',
-    });
-    await transaction('0191e5a0-0000-7000-8000-00000000e622', {
-      kind: 'buy',
-      portfolio: IMOVEL,
-      institution: BANCO_B,
-      asset: CDB_2,
-      gross: '40000.00',
-    });
-    await transaction('0191e5a0-0000-7000-8000-00000000e623', {
-      kind: 'sell',
-      portfolio: LONGO,
-      institution: BANCO_B,
-      asset: CDB,
-      gross: '6740.00',
-    });
-    // Depósito no caixa do banco não é título emitido por ele.
-    await transaction('0191e5a0-0000-7000-8000-00000000e624', {
       kind: 'deposit',
       portfolio: LONGO,
       institution: BANCO_B,
-      gross: '4120.08',
+      gross: '100.00',
     });
 
-    const banco = unwrapSuccess(
-      await createSettingsRepository(tx).snapshot(),
-    ).institutions.find((institution) => institution.id === BANCO_B);
+    const names = unwrapSuccess(await createSettingsRepository(tx).snapshot())
+      .institutions.map((institution) => institution.name);
 
-    expect(banco).toMatchObject({
-      issuer_exposure: '93260.00',
-      issued_assets: 2,
-      brokerage_per_order: '4.90',
-      fgc_covered: true,
-      role: 'both',
-    });
+    expect(names).toContain('Banco B');
+    expect(names).toContain('Interactive Brokers');
+    expect(names).not.toContain('Banco Parado');
   });
 
   it('as regras de alerta semeadas pelo mercado chegam, com o limite como veio', async () => {

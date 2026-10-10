@@ -52,15 +52,15 @@ CREATE FUNCTION pg_temp.add_bd(d DATE, n INT) RETURNS DATE LANGUAGE sql stable A
 $f$;
 
 -- ---------------------------------------------------------------- instituições
-INSERT INTO institution (id, name, role, fgc_covered, brokerage_per_order, custody_monthly_fee, created_at) VALUES
-  ('01960000-0001-7000-8000-000000000001', 'XP Investimentos', 'custodian', FALSE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0001-7000-8000-000000000002', 'Banco Inter', 'both', TRUE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0001-7000-8000-000000000003', 'Nubank', 'both', TRUE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0001-7000-8000-000000000004', 'BTG Pactual', 'both', TRUE, 4.90, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0001-7000-8000-000000000005', 'C6 Bank', 'issuer', TRUE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0001-7000-8000-000000000006', 'Daycoval', 'issuer', TRUE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0001-7000-8000-000000000007', 'Banco Pan', 'issuer', TRUE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0001-7000-8000-000000000008', 'Tesouro Nacional', 'issuer', FALSE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03');
+INSERT INTO institution (id, name, country, created_at) VALUES
+  ('01960000-0001-7000-8000-000000000001', 'XP Investimentos', 'BR', TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000002', 'Banco Inter', 'BR', TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000003', 'Nubank', 'BR', TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000004', 'BTG Pactual', 'BR', TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000005', 'C6 Bank', 'BR', TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000006', 'Daycoval', 'BR', TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000007', 'Banco Pan', 'BR', TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000008', 'Tesouro Nacional', 'BR', TIMESTAMPTZ '2024-01-02 09:00:00-03');
 
 -- ------------------------------------------------------------------ categorias
 INSERT INTO category (id, parent_id, name, color_token, auto_rule, sort_order, created_at) VALUES

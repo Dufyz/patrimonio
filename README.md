@@ -117,8 +117,8 @@ imprime o ano para comparação, e cada divergência encontrada vira uma linha e
 
 ## Fase 2 · Livro de lançamentos
 
-O livro inteiro, pela API: carteiras com alvo de alocação, instituições com
-exposição ao FGC por emissor, categorias em dois níveis com regra automática,
+O livro inteiro, pela API: carteiras com alvo de alocação, instituições
+com país, categorias em dois níveis com regra automática,
 ativos de mercado que nascem no primeiro lançamento e títulos de renda fixa
 cadastrados à mão.
 

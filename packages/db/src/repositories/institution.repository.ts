@@ -52,10 +52,7 @@ export const createInstitutionRepository = (sql: Connection): InstitutionReposit
     const row = definedColumns({
       id: uuidv7(),
       name: draft.name,
-      role: draft.role,
-      fgc_covered: draft.fgc_covered,
-      brokerage_per_order: draft.brokerage_per_order,
-      custody_monthly_fee: draft.custody_monthly_fee,
+      country: draft.country,
     });
 
     try {
@@ -115,38 +112,6 @@ export const createInstitutionRepository = (sql: Connection): InstitutionReposit
 
       return success({
         transactions: Number(row?.transactions ?? 0),
-        assets: Number(row?.assets ?? 0),
-      });
-    } catch (error) {
-      return failure(getRepositoryError(error));
-    }
-  },
-
-  /**
-   * Aplicado menos resgatado nos títulos deste emissor. Sai do livro, e não de
-   * `position_daily`: a projeção ainda não existe em E2, e o custo é o número
-   * honesto até a marcação na curva entrar.
-   */
-  issuerExposure: async (id: string) => {
-    try {
-      const rows = await sql<{ exposure: string; assets: string }[]>`
-        SELECT COALESCE(SUM(
-                 CASE t.kind
-                   WHEN 'buy'  THEN t.gross_amount
-                   WHEN 'sell' THEN -t.gross_amount
-                   ELSE 0
-                 END
-               ), 0)::TEXT AS exposure,
-               COUNT(DISTINCT a.id)::TEXT AS assets
-          FROM asset a
-          JOIN transaction t ON t.asset_id = a.id
-         WHERE a.issuer_id = ${id}
-           AND a.origin = 'manual'
-      `;
-      const row = rows[0];
-
-      return success({
-        exposure_brl: row?.exposure ?? '0',
         assets: Number(row?.assets ?? 0),
       });
     } catch (error) {

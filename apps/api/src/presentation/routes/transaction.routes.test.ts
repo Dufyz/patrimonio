@@ -31,7 +31,7 @@ beforeEach(async () => {
     .post('/api/portfolios')
     .send({ name: 'Longo prazo' });
   carteira = criada.body.portfolio.id;
-  corretora = await seedInstitution(harness.sql, 'Corretora A', { brokerage: '4.90' });
+  corretora = await seedInstitution(harness.sql, 'Corretora A');
 });
 
 const lancar = (body: Record<string, unknown>) =>
@@ -83,16 +83,16 @@ describe('compra', () => {
     expect(response.body.transaction.net_amount).toBe('-3688.90');
   });
 
-  it('a taxa vem da regra da instituição quando não é informada', async () => {
+  it('sem taxa informada, a taxa é zero', async () => {
     const response = await lancar({});
 
-    expect(response.body.transaction.fees).toBe('4.90');
+    expect(response.body.transaction.fees).toBe('0.00');
   });
 
-  it('a taxa informada no corpo sobrescreve a sugestão', async () => {
-    const response = await lancar({ fees: '0' });
+  it('a taxa informada no corpo é a gravada', async () => {
+    const response = await lancar({ fees: '2.50' });
 
-    expect(response.body.transaction.fees).toBe('0.00');
+    expect(response.body.transaction.fees).toBe('2.50');
   });
 
   it('a liquidação de ação é sugerida em D+2 dias úteis', async () => {

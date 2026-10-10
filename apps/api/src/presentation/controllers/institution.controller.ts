@@ -1,7 +1,6 @@
 import type {
   createInstitution,
   deleteInstitution,
-  getFgcExposure,
   listInstitutions,
   updateInstitution,
 } from '@patrimonio/application';
@@ -16,7 +15,6 @@ export type InstitutionDeps = {
     readonly createInstitution: ReturnType<typeof createInstitution>;
     readonly updateInstitution: ReturnType<typeof updateInstitution>;
     readonly deleteInstitution: ReturnType<typeof deleteInstitution>;
-    readonly getFgcExposure: ReturnType<typeof getFgcExposure>;
   };
 };
 
@@ -25,7 +23,6 @@ export type InstitutionController = {
   readonly create: RequestHandler;
   readonly update: RequestHandler;
   readonly remove: RequestHandler;
-  readonly fgcExposure: RequestHandler;
 };
 
 export const createInstitutionController = (
@@ -84,18 +81,5 @@ export const createInstitutionController = (
     }
 
     response.status(200).json({ result: result.value, message: 'Instituição excluída' });
-  },
-
-  fgcExposure: async (request, response) => {
-    const result = await deps.usecases.getFgcExposure(
-      String(request.params['institution_id']),
-    );
-
-    if (result.isFailure()) {
-      sendFailure(request, response, result.value);
-      return;
-    }
-
-    response.status(200).json({ exposure: result.value });
   },
 });

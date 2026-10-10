@@ -154,8 +154,6 @@ export type {
   ContributionShare,
 } from './allocation/contribution.js';
 
-export { fgcHeadroom, fgcUsedPct } from './allocation/fgc.js';
-export type { FgcHeadroom } from './allocation/fgc.js';
 
 // ─── Visão geral ─────────────────────────────────────────────────────────────
 export {

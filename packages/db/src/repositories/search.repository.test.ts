@@ -89,8 +89,8 @@ beforeEach(async () => {
       (${ARQUIVADA}, 'Antiga', 3, NOW())
   `;
   await tx`
-    INSERT INTO institution (id, name, role)
-    VALUES (${CORRETORA}, 'Corretora A', 'custodian')
+    INSERT INTO institution (id, name)
+    VALUES (${CORRETORA}, 'Corretora A')
   `;
   await tx`
     INSERT INTO asset (id, ticker, name, origin, b3_type, archived_at) VALUES

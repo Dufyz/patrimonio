@@ -18,9 +18,8 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
  *   instituição trazem o que as prende (`blocking`), e a tela escreve "41
  *   lançamentos impedem" em vez de deixar o usuário descobrir pelo erro. A
  *   regra de bloquear é do servidor; a contagem é só para explicá-la.
- * - **Dinheiro e percentual são string.** Caixa, exposição e limite do FGC
- *   chegam prontos, inclusive o percentual da barra, porque a tela não faz
- *   conta com dinheiro.
+ * - **Dinheiro e percentual são string.** O caixa e os totais chegam
+ *   prontos, porque a tela não faz conta com dinheiro.
  * - **Alerta traz o limite como veio.** `threshold` é o `jsonb` da regra, sem
  *   interpretação: cada regra tem a forma dela, e quem a traduz em texto é a
  *   tela, a partir do `kind`. Regra "da carteira" vem com `scope:
@@ -77,27 +76,11 @@ export const settingsCategorySchema = z.object({
 export const settingsInstitutionSchema = z.object({
   id: uuid,
   name: z.string(),
-  role: z.enum(['custodian', 'issuer', 'both']),
-  fgc_covered: z.boolean(),
-  brokerage_per_order: decimalString,
-  custody_monthly_fee: decimalString,
+  country: z.string(),
   /** As carteiras com lançamento nesta instituição, por nome. */
   portfolios: z.array(z.string()),
   /** O saldo de caixa que a instituição guarda. Nulo quando ela não guarda. */
   cash: decimalString.nullable(),
-  /**
-   * A exposição de quem a instituição emite contra o limite do FGC. Nulo quando
-   * ela não é emissora, ou não é coberta — e `fgc_covered` diz qual dos dois.
-   */
-  fgc: z
-    .object({
-      exposure: decimalString,
-      limit: decimalString,
-      /** Exposição sobre o limite, em pontos percentuais, para a barra. */
-      used_pct: decimalString,
-      over_limit: z.boolean(),
-    })
-    .nullable(),
   /** O que impede a exclusão. */
   blocking: z.object({
     transactions: z.number().int(),

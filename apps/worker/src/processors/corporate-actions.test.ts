@@ -110,8 +110,8 @@ beforeEach(async () => {
   await limpar();
 
   await sql`
-    INSERT INTO institution (id, name, role)
-    VALUES (${INSTITUTION}, 'Corretora Provento', 'custodian')
+    INSERT INTO institution (id, name)
+    VALUES (${INSTITUTION}, 'Corretora Provento')
   `;
   await sql`
     INSERT INTO portfolio (id, name)

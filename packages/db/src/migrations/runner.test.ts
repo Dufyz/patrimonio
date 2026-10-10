@@ -285,8 +285,8 @@ describe('o schema do projeto', () => {
 
   it('um UPDATE sem tocar em updated_at ainda atualiza a coluna', async () => {
     await sql`
-      INSERT INTO institution (id, name, role)
-      VALUES ('0191e5a0-0000-7000-8000-00000000f001', 'Corretora de Teste', 'custodian')
+      INSERT INTO institution (id, name)
+      VALUES ('0191e5a0-0000-7000-8000-00000000f001', 'Corretora de Teste')
     `;
 
     const [before] = await sql<{ updated_at: Date }[]>`

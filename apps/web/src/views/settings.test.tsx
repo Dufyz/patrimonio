@@ -93,42 +93,25 @@ const settings: Settings = {
     {
       id: CORRETORA,
       name: 'Corretora A',
-      role: 'custodian',
-      fgc_covered: false,
-      brokerage_per_order: '0.00',
-      custody_monthly_fee: '0.00',
+      country: 'BR',
       portfolios: ['Longo prazo', 'Entrada do imóvel'],
       cash: '7192.87',
-      fgc: null,
       blocking: { transactions: 12, assets: 1 },
     },
     {
       id: BANCO,
       name: 'Banco B',
-      role: 'both',
-      fgc_covered: true,
-      brokerage_per_order: '4.90',
-      custody_monthly_fee: '0.00',
+      country: 'BR',
       portfolios: ['Entrada do imóvel'],
       cash: '4120.08',
-      fgc: {
-        exposure: '93260.00',
-        limit: '250000.00',
-        used_pct: '37.30',
-        over_limit: false,
-      },
       blocking: { transactions: 3, assets: 2 },
     },
     {
       id: TESOURO,
       name: 'Tesouro Direto',
-      role: 'issuer',
-      fgc_covered: false,
-      brokerage_per_order: '0.00',
-      custody_monthly_fee: '0.00',
+      country: 'BR',
       portfolios: [],
       cash: null,
-      fgc: null,
       blocking: { transactions: 0, assets: 0 },
     },
   ],
@@ -317,20 +300,12 @@ describe('SettingsView', () => {
     expect(screen.getByText('Tipo B3: ação ou unit')).toBeTruthy();
   });
 
-  it('só quem emite e é coberto tem barra de FGC; os outros dizem por que não', () => {
+  it('a instituição mostra o país, as carteiras e o caixa', () => {
     montar();
 
-    const meter = screen.getByRole('meter', { name: /Banco B contra o limite do FGC/ });
-    expect(meter.getAttribute('aria-valuenow')).toBe('37');
-
-    expect(
-      within(screen.getByRole('row', { name: /Corretora A/ })).getByText('não se aplica'),
-    ).toBeTruthy();
-    expect(
-      within(screen.getByRole('row', { name: /Tesouro Direto/ })).getByText(
-        'sem cobertura do FGC',
-      ),
-    ).toBeTruthy();
+    const row = within(screen.getByRole('row', { name: /Banco B/ }));
+    expect(row.getByText('BR')).toBeTruthy();
+    expect(row.getByText('Entrada do imóvel')).toBeTruthy();
   });
 
   it('dados de mercado mostram cobertura, falha com a mensagem e os papéis sem preço', () => {

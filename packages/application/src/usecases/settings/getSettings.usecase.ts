@@ -1,5 +1,4 @@
-import { fgcUsedPct, fgcHeadroom } from '@patrimonio/calc';
-import { FGC_LIMIT_BRL, describeBenchmark, settlementBusinessDays } from '@patrimonio/domain';
+import { describeBenchmark, settlementBusinessDays } from '@patrimonio/domain';
 import { either } from '@patrimonio/shared';
 
 import type { SettingsRepository } from '../../interfaces/settings.repository.js';
@@ -8,13 +7,9 @@ import type { SettingsRepository } from '../../interfaces/settings.repository.js
  * T-08 · Configurações. O caso de uso monta o que o banco leu na forma que a
  * tela desenha, e decide o que o banco não decide:
  *
- * - **Só quem emite e é coberto pelo FGC tem exposição.** Uma custodiante pura
- *   não emite nada, e uma emissora fora do FGC (o Tesouro Direto, que é dívida
- *   da União) não tem teto: mostrar uma barra para elas diria que existe um
- *   limite onde não existe. Nos dois casos `fgc` é nulo, e `fgc_covered` e
- *   `role` dizem qual foi.
- * - **A exposição é de custo, não de mercado.** É a conta de `getFgcExposure`
- *   (aplicado menos resgatado), feita para todas as instituições de uma vez.
+ * - **Só aparece a instituição que a pessoa usa.** O catálogo traz centenas
+ *   de instituições brasileiras; listá-las todas esconderia as poucas que têm
+ *   lançamento, ativo ou caixa. As estrangeiras, que a pessoa criou, ficam.
  * - **A regra de liquidação é a do domínio.** A tela a lista, e não a escreve:
  *   `settlementBusinessDays` é a mesma função que sugere a data no lançamento.
  * - **O que é do ambiente chega como leitura.** A alíquota do JCP e a janela do
@@ -36,30 +31,12 @@ export const getSettings = (deps: GetSettingsDeps) =>
     const categories = snapshot.categories.map((category) => ({ ...category }));
 
     const institutions = snapshot.institutions.map((institution) => {
-      const issues = institution.role !== 'custodian';
-      const headroom =
-        issues && institution.fgc_covered
-          ? fgcHeadroom(institution.issuer_exposure, FGC_LIMIT_BRL)
-          : null;
-
       return {
         id: institution.id,
         name: institution.name,
-        role: institution.role,
-        fgc_covered: institution.fgc_covered,
-        brokerage_per_order: institution.brokerage_per_order,
-        custody_monthly_fee: institution.custody_monthly_fee,
+        country: institution.country,
         portfolios: [...institution.portfolios],
         cash: institution.cash,
-        fgc:
-          headroom === null
-            ? null
-            : {
-                exposure: headroom.exposure_brl,
-                limit: headroom.limit_brl,
-                used_pct: fgcUsedPct(institution.issuer_exposure, FGC_LIMIT_BRL),
-                over_limit: headroom.over_limit,
-              },
         blocking: {
           transactions: institution.transactions,
           assets: institution.assets,

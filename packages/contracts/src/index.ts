@@ -55,13 +55,11 @@ export { getStrategySchema, putStrategySchema } from './portfolio/putStrategy.sc
 export type { PutStrategyBody } from './portfolio/putStrategy.schema.js';
 
 export {
-  fgcExposureResourceSchema,
+  countrySchema,
   institutionResourceSchema,
-  institutionRoleSchema,
   institutionWritableSchema,
 } from './institution/institution.schema.js';
 export type {
-  FgcExposureResource,
   InstitutionResource,
   InstitutionWritable,
 } from './institution/institution.schema.js';
@@ -71,7 +69,6 @@ export { updateInstitutionSchema } from './institution/updateInstitution.schema.
 export type { UpdateInstitutionBody } from './institution/updateInstitution.schema.js';
 export {
   deleteInstitutionSchema,
-  getFgcExposureSchema,
   listInstitutionsSchema,
 } from './institution/listInstitutions.schema.js';
 

@@ -161,8 +161,8 @@ beforeEach(async () => {
   itub4 = ativo[0]?.id ?? '';
 
   const instituicao = await harness.sql<{ id: string }[]>`
-    INSERT INTO institution (id, name, role)
-    VALUES (GEN_RANDOM_UUID(), 'Corretora A', 'custodian')
+    INSERT INTO institution (id, name)
+    VALUES (GEN_RANDOM_UUID(), 'Corretora A')
     RETURNING id
   `;
   corretora = instituicao[0]?.id ?? '';

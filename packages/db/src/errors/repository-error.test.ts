@@ -48,8 +48,8 @@ const errorOf = async (statement: string): Promise<unknown> => {
 };
 
 const INSTITUTION = `
-  INSERT INTO institution (id, name, role)
-  VALUES ('0191e5a0-0000-7000-8000-0000000000b1', 'Corretora Traduzida', 'custodian')
+  INSERT INTO institution (id, name)
+  VALUES ('0191e5a0-0000-7000-8000-0000000000b1', 'Corretora Traduzida')
 `;
 
 describe('getRepositoryError', () => {
@@ -80,8 +80,8 @@ describe('getRepositoryError', () => {
   it('valor fora do enum vira BadRequestError', async () => {
     const error = getRepositoryError(
       await errorOf(`
-        INSERT INTO institution (id, name, role)
-        VALUES ('0191e5a0-0000-7000-8000-0000000000b3', 'Papel Inválido', 'intermediario')
+        INSERT INTO portfolio (id, name, recalc_status)
+        VALUES ('0191e5a0-0000-7000-8000-0000000000b3', 'Status Inválido', 'inexistente')
       `),
     );
 
@@ -102,8 +102,8 @@ describe('getRepositoryError', () => {
   it('campo obrigatório ausente vira BadRequestError', async () => {
     const error = getRepositoryError(
       await errorOf(`
-        INSERT INTO institution (id, role)
-        VALUES ('0191e5a0-0000-7000-8000-0000000000b5', 'custodian')
+        INSERT INTO institution (id)
+        VALUES ('0191e5a0-0000-7000-8000-0000000000b5')
       `),
     );
 

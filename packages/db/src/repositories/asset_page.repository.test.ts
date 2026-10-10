@@ -82,9 +82,9 @@ beforeEach(async () => {
       (${OUTRA}, 'Reserva')
   `;
   await tx`
-    INSERT INTO institution (id, name, role) VALUES
-      (${CORRETORA}, 'Corretora A', 'custodian'),
-      (${BANCO}, 'Banco C', 'both')
+    INSERT INTO institution (id, name) VALUES
+      (${CORRETORA}, 'Corretora A'),
+      (${BANCO}, 'Banco C')
   `;
   // A categoria de Ações tem regra automática por tipo de B3: é ela que faz a
   // página dizer "Ações · automática" sem um sinalizador por ativo.

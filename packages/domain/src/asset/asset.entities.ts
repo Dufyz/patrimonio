@@ -42,7 +42,7 @@ export type Asset = {
   readonly category_id: string | null;
   readonly sector: string | null;
   readonly price_source: PriceSource;
-  /** Emissor, para o FGC. Obrigatório quando `origin` é `manual`. */
+  /** Emissor do título. Obrigatório quando `origin` é `manual`. */
   readonly issuer_id: string | null;
   readonly indexer: Indexer | null;
   /** O significado depende do indexador: 112 em `cdi_pct` é 112% do CDI. */

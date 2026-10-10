@@ -13,7 +13,6 @@ import {
   autoRuleText,
   backupSummary,
   categoryHold,
-  fgcNote,
   formatInstant,
   groupCategories,
   isEmptyInstallation,
@@ -39,13 +38,9 @@ const category = (overrides: Partial<SettingsCategory>): SettingsCategory => ({
 const institution = (overrides: Partial<SettingsInstitution>): SettingsInstitution => ({
   id: 'i',
   name: 'Banco',
-  role: 'both',
-  fgc_covered: true,
-  brokerage_per_order: '0.00',
-  custody_monthly_fee: '0.00',
+  country: 'BR',
   portfolios: [],
   cash: null,
-  fgc: null,
   blocking: { transactions: 0, assets: 0 },
   ...overrides,
 });
@@ -154,18 +149,6 @@ describe('as categorias', () => {
       'Prefixada',
     ]);
     expect(groups[1]?.children).toEqual([]);
-  });
-});
-
-describe('as instituições', () => {
-  it('sem barra de FGC a coluna diz por quê', () => {
-    expect(fgcNote(institution({ role: 'custodian', fgc_covered: false }))).toBe(
-      'não se aplica',
-    );
-    expect(fgcNote(institution({ role: 'issuer', fgc_covered: false }))).toBe(
-      'sem cobertura do FGC',
-    );
-    expect(fgcNote(institution({ role: 'both', fgc_covered: true }))).toBe('—');
   });
 });
 

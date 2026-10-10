@@ -37,8 +37,8 @@ const clock: Clock = { now: () => new Date(), today: () => '2026-10-06' };
 
 const seed = async (): Promise<void> => {
   await sql`
-    INSERT INTO institution (id, name, role)
-    VALUES (${INSTITUTION}, 'Corretora E3', 'custodian')
+    INSERT INTO institution (id, name)
+    VALUES (${INSTITUTION}, 'Corretora E3')
   `;
   await sql`
     INSERT INTO portfolio (id, name) VALUES (${PORTFOLIO}, 'Carteira E3')

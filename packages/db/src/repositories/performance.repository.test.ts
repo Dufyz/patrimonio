@@ -150,8 +150,8 @@ beforeEach(async () => {
       (${CAIXA}, 'CAIXA-A', 'Caixa · Corretora A', 'market', 'cash', ${CAIXA_CATEGORIA})
   `;
   await tx`
-    INSERT INTO institution (id, name, role)
-    VALUES (${CORRETORA}, 'Corretora A', 'custodian')
+    INSERT INTO institution (id, name)
+    VALUES (${CORRETORA}, 'Corretora A')
   `;
 });
 

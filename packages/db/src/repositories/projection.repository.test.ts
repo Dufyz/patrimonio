@@ -62,8 +62,8 @@ beforeEach(async () => {
   repositories = repositoriesOn(tx);
 
   await tx`
-    INSERT INTO institution (id, name, role)
-    VALUES (${INSTITUTION}, 'Corretora Projeção', 'custodian')
+    INSERT INTO institution (id, name)
+    VALUES (${INSTITUTION}, 'Corretora Projeção')
   `;
   await tx`INSERT INTO portfolio (id, name) VALUES (${PORTFOLIO}, 'Carteira Projeção')`;
   await tx`

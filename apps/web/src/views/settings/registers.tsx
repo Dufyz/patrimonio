@@ -1,7 +1,6 @@
 import type {
   Settings,
   SettingsCategory,
-  SettingsInstitution,
 } from '@patrimonio/contracts';
 
 import { Money } from '../../components/number.js';
@@ -11,13 +10,11 @@ import {
   alertLimit,
   autoRuleText,
   categoryHold,
-  fgcNote,
   groupCategories,
   institutionHold,
   plural,
   portfolioCount,
   portfolioHold,
-  ROLE_LABEL,
   sortAlerts,
 } from '../../lib/settings.js';
 import { colorForToken } from '../../lib/tokens.js';
@@ -298,42 +295,6 @@ export const CategoriesSection = ({
   );
 };
 
-const FgcCell = ({
-  institution,
-}: {
-  readonly institution: SettingsInstitution;
-}): React.ReactElement => {
-  const { fgc } = institution;
-  if (fgc === null) return <Muted>{fgcNote(institution)}</Muted>;
-
-  // Largura de barra é geometria, não dinheiro: o percentual já chegou pronto.
-  const width = Math.min(Number(fgc.used_pct), 100);
-  const state = fgc.over_limit
-    ? 'bg-negative'
-    : width >= 80
-      ? 'bg-attention'
-      : 'bg-accent';
-
-  return (
-    <span className="flex items-center justify-end gap-3">
-      <span
-        role="meter"
-        aria-label={`Exposição de ${institution.name} contra o limite do FGC`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(width)}
-        className="h-1.5 w-14 overflow-hidden rounded-full bg-panel-2"
-      >
-        <span className={`block h-full ${state}`} style={{ width: `${width}%` }} />
-      </span>
-      <span className="tabular whitespace-nowrap">
-        <Money value={fgc.exposure} decimals={0} bare /> /{' '}
-        <Money value={fgc.limit} decimals={0} bare />
-      </span>
-    </span>
-  );
-};
-
 export const InstitutionsSection = ({
   settings,
 }: {
@@ -342,7 +303,7 @@ export const InstitutionsSection = ({
   <SettingsSection
     id="instituicoes"
     title="Instituições"
-    description="Onde o dinheiro está. A instituição de custódia guarda o ativo; o emissor é quem deve o título. O app soma a exposição por emissor para mostrar quanto está coberto pelo FGC, que garante até R$ 250 mil por CPF e instituição."
+    description="Onde o dinheiro está: a instituição guarda o ativo e, nos títulos, é quem o emite. Aparecem as que você usa e as estrangeiras que criou; o catálogo brasileiro completo está disponível ao lançar."
     action={
       <Button disabled title="Criar instituição chega com T-10">
         + Instituição
@@ -360,16 +321,13 @@ export const InstitutionsSection = ({
               Instituição
             </th>
             <th scope="col" className={TH}>
-              Papel
+              País
             </th>
             <th scope="col" className={TH}>
               Carteiras
             </th>
             <th scope="col" className={TH_RIGHT}>
               Caixa
-            </th>
-            <th scope="col" className={TH_RIGHT}>
-              Exposição FGC
             </th>
             <th scope="col" className={TH}>
               Impede excluir
@@ -386,7 +344,7 @@ export const InstitutionsSection = ({
                 <th scope="row" className={`${TD} text-left font-medium`}>
                   {institution.name}
                 </th>
-                <td className={TD}>{ROLE_LABEL[institution.role]}</td>
+                <td className={TD}>{institution.country}</td>
                 <td
                   className={`${TD} max-w-28 truncate`}
                   title={institution.portfolios.join(', ')}
@@ -403,9 +361,6 @@ export const InstitutionsSection = ({
                   ) : (
                     <Money value={institution.cash} />
                   )}
-                </td>
-                <td className={`${TD} text-right`}>
-                  <FgcCell institution={institution} />
                 </td>
                 <td className={TD}>{hold === null ? <Muted>—</Muted> : hold}</td>
                 <td className="pr-4 text-right">

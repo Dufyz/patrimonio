@@ -71,8 +71,8 @@ beforeEach(async () => {
   await tx`DELETE FROM transaction`;
 
   await tx`
-    INSERT INTO institution (id, name, role)
-    VALUES (${INSTITUTION}, 'Corretora Mercado', 'custodian')
+    INSERT INTO institution (id, name)
+    VALUES (${INSTITUTION}, 'Corretora Mercado')
   `;
   await tx`INSERT INTO portfolio (id, name) VALUES (${PORTFOLIO}, 'Carteira Mercado')`;
 

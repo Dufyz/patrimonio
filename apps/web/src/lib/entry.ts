@@ -913,15 +913,12 @@ export const newAttemptKey = (): string => globalThis.crypto.randomUUID();
 
 export type EntryReference = {
   readonly portfolios: readonly { readonly id: string; readonly name: string }[];
-  /** Só quem guarda posição: emissor puro não custodia, e não recebe lançamento. */
   readonly institutions: readonly { readonly id: string; readonly name: string }[];
 };
 
 export const referenceOf = (settings: Settings): EntryReference => ({
   portfolios: settings.portfolios.map(({ id, name }) => ({ id, name })),
-  institutions: settings.institutions
-    .filter((institution) => institution.role !== 'issuer')
-    .map(({ id, name }) => ({ id, name })),
+  institutions: settings.institutions.map(({ id, name }) => ({ id, name })),
 });
 
 /** A data de hoje no relógio de quem digita — não em UTC, que às 22h já é amanhã. */

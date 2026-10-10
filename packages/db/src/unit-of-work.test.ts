@@ -37,8 +37,8 @@ describe('transação', () => {
       const { tx } = repositories as DbRepositories;
 
       await tx`
-        INSERT INTO institution (id, name, role)
-        VALUES (${INSTITUTION}, 'Corretora Abortada', 'custodian')
+        INSERT INTO institution (id, name)
+        VALUES (${INSTITUTION}, 'Corretora Abortada')
       `;
       await repositories.outbox.enqueue([
         {
@@ -98,8 +98,8 @@ describe('transação', () => {
 describe('trava de escopo', () => {
   it('dois trabalhos na mesma carteira serializam, com atraso entre leitura e escrita', async () => {
     await sql`
-      INSERT INTO institution (id, name, role, brokerage_per_order)
-      VALUES (${INSTITUTION}, 'Corretora Concorrente', 'custodian', 0)
+      INSERT INTO institution (id, name)
+      VALUES (${INSTITUTION}, 'Corretora Concorrente')
     `;
 
     // Lê, espera e escreve o valor lido + 1. Sem a trava os dois leem 0 e o

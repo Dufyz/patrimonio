@@ -139,17 +139,10 @@ export const seedCategory = async (
 export const seedInstitution = async (
   sql: Sql,
   name: string,
-  options: { readonly brokerage?: string; readonly fgc?: boolean } = {},
 ): Promise<string> => {
   const rows = await sql<{ id: string }[]>`
-    INSERT INTO institution (id, name, role, fgc_covered, brokerage_per_order)
-    VALUES (
-      GEN_RANDOM_UUID(),
-      ${name},
-      'both',
-      ${options.fgc ?? true},
-      ${options.brokerage ?? '0'}
-    )
+    INSERT INTO institution (id, name)
+    VALUES (GEN_RANDOM_UUID(), ${name})
     RETURNING id
   `;
 

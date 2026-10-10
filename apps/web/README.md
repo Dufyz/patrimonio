@@ -325,8 +325,6 @@ Em T-08, contra a prancha 11:
 - **Preferências de exibição**: tema, densidade e ocultar valores funcionam
   (guardados no navegador). "Período padrão" e "Tela inicial" da prancha foram
   omitidos: exigiriam ligar o padrão a Visão geral, Desempenho e à rota inicial.
-- **FGC**: instituição só custodiante não tem barra; Tesouro Direto diz "sem
-  cobertura do FGC", não "garantia do Tesouro".
 - **A navegação lateral destaca a seção clicada**, sem IntersectionObserver.
 
 ## T-11 · Orçamento de consultas por rota

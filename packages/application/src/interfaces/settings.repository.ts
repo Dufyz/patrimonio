@@ -12,7 +12,7 @@ import type { AppError } from '../errors/app-error.js';
  * nele. Uma consulta por cadastro, e por linha de cadastro, faria a abertura
  * crescer com o tamanho do livro; o banco fica em outra rede.
  *
- * O repositório entrega fatos e contagens. Percentual do FGC, ordem dos grupos e
+ * O repositório entrega fatos e contagens. A ordem dos grupos e
  * o texto de cada bloqueio são do caso de uso e da tela.
  */
 export type SettingsPortfolioRow = {
@@ -48,16 +48,10 @@ export type SettingsCategoryRow = {
 export type SettingsInstitutionRow = {
   readonly id: string;
   readonly name: string;
-  readonly role: 'custodian' | 'issuer' | 'both';
-  readonly fgc_covered: boolean;
-  readonly brokerage_per_order: string;
-  readonly custody_monthly_fee: string;
+  readonly country: string;
   readonly portfolios: readonly string[];
   /** A soma do último valor de cada caixa da instituição. Nulo sem caixa. */
   readonly cash: string | null;
-  /** Aplicado menos resgatado nos títulos manuais que ela emite. */
-  readonly issuer_exposure: string;
-  readonly issued_assets: number;
   readonly transactions: number;
   readonly assets: number;
 };

@@ -82,12 +82,7 @@ export type { Category, ClassifiableAsset } from './category/category.entities.j
 export { parseCategoryFromDB } from './category/category.parsers.js';
 
 // ─── Instituição ─────────────────────────────────────────────────────────────
-export {
-  FGC_LIMIT_BRL,
-  INSTITUTION_ROLES,
-  isInstitutionRole,
-} from './institution/institution.entities.js';
-export type { Institution, InstitutionRole } from './institution/institution.entities.js';
+export type { Institution } from './institution/institution.entities.js';
 export { parseInstitutionFromDB } from './institution/institution.parsers.js';
 
 // ─── Lançamento ──────────────────────────────────────────────────────────────

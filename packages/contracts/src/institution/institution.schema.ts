@@ -1,51 +1,26 @@
-import { INSTITUTION_ROLES } from '@patrimonio/domain';
 import { z } from 'zod';
 
-import {
-  decimalString,
-  name,
-  nonNegativeDecimal,
-  uuid,
-} from '../support/primitives.schema.js';
+import { name, uuid } from '../support/primitives.schema.js';
 
-export const institutionRoleSchema = z.enum(INSTITUTION_ROLES);
+/** ISO 3166-1 alpha-2: `BR`, `US`. Quem digita pode usar minúsculas. */
+export const countrySchema = z
+  .string()
+  .regex(/^[A-Za-z]{2}$/, 'informe o país com duas letras, como BR ou US')
+  .transform((value) => value.toUpperCase());
 
 export const institutionResourceSchema = z.object({
   id: uuid,
   name: z.string(),
-  role: institutionRoleSchema,
-  fgc_covered: z.boolean(),
-  brokerage_per_order: decimalString,
-  custody_monthly_fee: decimalString,
+  country: z.string(),
   created_at: z.string(),
   updated_at: z.string(),
 });
 
 export const institutionWritableSchema = z.object({
   name,
-  role: institutionRoleSchema,
-  fgc_covered: z.boolean().optional(),
-  /** Entra como sugestão no lançamento, e pode ser sobrescrita lá. */
-  brokerage_per_order: nonNegativeDecimal.optional(),
-  custody_monthly_fee: nonNegativeDecimal.optional(),
-});
-
-/**
- * O que a tela de cadastro de título mostra: quanto você já tem neste emissor e
- * quanto do teto do FGC sobrou. Enquanto a marcação na curva não existe, a base
- * é o custo — e o campo `basis` diz isso em vez de deixar a tela adivinhar.
- */
-export const fgcExposureResourceSchema = z.object({
-  institution_id: uuid,
-  institution_name: z.string(),
-  fgc_covered: z.boolean(),
-  limit_brl: decimalString,
-  exposure_brl: decimalString,
-  available_brl: decimalString,
-  over_limit: z.boolean(),
-  basis: z.literal('cost'),
+  /** Ausente é `BR`: as instituições brasileiras vêm do catálogo. */
+  country: countrySchema.optional(),
 });
 
 export type InstitutionResource = z.infer<typeof institutionResourceSchema>;
 export type InstitutionWritable = z.infer<typeof institutionWritableSchema>;
-export type FgcExposureResource = z.infer<typeof fgcExposureResourceSchema>;

@@ -211,7 +211,6 @@ export type {
   InstitutionRepository,
   InstitutionUsage,
   InstitutionWrite,
-  IssuerExposure,
 } from './interfaces/institution.repository.js';
 export type {
   MovedContent,
@@ -418,12 +417,10 @@ export type {
 export {
   createInstitution,
   deleteInstitution,
-  getFgcExposure,
   listInstitutions,
   updateInstitution,
 } from './usecases/institution/institution.usecases.js';
 export type {
-  FgcExposure,
   InstitutionDeps,
   InstitutionWriteDeps,
 } from './usecases/institution/institution.usecases.js';

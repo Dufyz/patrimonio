@@ -4,7 +4,6 @@ import type {
   SettingsAlertRule,
   SettingsBackup,
   SettingsCategory,
-  SettingsInstitution,
 } from '@patrimonio/contracts';
 
 /**
@@ -134,7 +133,7 @@ export const ALERT_COPY: Readonly<Record<string, AlertCopy>> = {
   },
   issuer_concentration: {
     label: 'Concentração em um emissor',
-    description: 'Soma por emissor passa do limite do patrimônio ou do FGC',
+    description: 'Soma por emissor passa do limite do patrimônio',
   },
   strategy_review: {
     label: 'Revisão da estratégia',
@@ -261,23 +260,6 @@ export const groupCategories = (
 /* -------------------------------------------------------------------------- */
 /* Instituições                                                               */
 /* -------------------------------------------------------------------------- */
-
-export const ROLE_LABEL: Readonly<Record<SettingsInstitution['role'], string>> = {
-  custodian: 'Custódia',
-  issuer: 'Emissor',
-  both: 'Custódia e emissor',
-};
-
-/**
- * O que a coluna de exposição diz quando não há barra. Quem só custodia não tem
- * exposição a medir; quem emite e não é coberto não tem teto — e dizer qual dos
- * dois é o que impede a ausência da barra de parecer esquecimento.
- */
-export const fgcNote = (institution: SettingsInstitution): string => {
-  if (institution.role === 'custodian') return 'não se aplica';
-  if (!institution.fgc_covered) return 'sem cobertura do FGC';
-  return '—';
-};
 
 /* -------------------------------------------------------------------------- */
 /* Dados de mercado                                                           */

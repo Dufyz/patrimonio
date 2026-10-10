@@ -14,7 +14,6 @@ import {
   asInteger,
   asIsoStringOrNull,
   asJsonOrNull,
-  asNumeric,
   asNumericOrNull,
   asString,
   asStringOrNull,
@@ -40,10 +39,9 @@ import type { Connection } from '../postgresql.js';
  *   instituição (L-07), e o valor dele é o saldo — então a soma do último
  *   `position_daily` por carteira é o que está parado ali, e ela não depende de
  *   uma coluna de saldo que não existe.
- * - **A exposição do emissor sai do livro, e exclui o caixa.** É a mesma conta
- *   de `issuerExposure` (aplicado menos resgatado nos títulos manuais), feita
- *   para todas as instituições de uma vez; o caixa fica de fora porque saldo
- *   em conta não é título emitido, e o FGC mede o que se aplicou nele.
+ * - **Só entra a instituição em uso.** O catálogo brasileiro tem centenas de
+ *   linhas; a lista mostra as que têm lançamento, ativo ou caixa, e as
+ *   estrangeiras, que a pessoa criou.
  */
 const asRows = (value: unknown): readonly Row[] =>
   Array.isArray(value) ? (value as Row[]) : [];
@@ -84,14 +82,9 @@ const parseCategory = (row: Row): SettingsCategoryRow => ({
 const parseInstitution = (row: Row): SettingsInstitutionRow => ({
   id: asString(row, 'id'),
   name: asString(row, 'name'),
-  role: asEnum(row, 'role', ['custodian', 'issuer', 'both']),
-  fgc_covered: asBoolean(row, 'fgc_covered'),
-  brokerage_per_order: asNumeric(row, 'brokerage_per_order'),
-  custody_monthly_fee: asNumeric(row, 'custody_monthly_fee'),
+  country: asString(row, 'country'),
   portfolios: asStrings(row['portfolios']),
   cash: asNumericOrNull(row, 'cash'),
-  issuer_exposure: asNumeric(row, 'issuer_exposure'),
-  issued_assets: asInteger(row, 'issued_assets'),
   transactions: asInteger(row, 'transactions'),
   assets: asInteger(row, 'assets'),
 });
@@ -214,10 +207,7 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
                    JSONB_BUILD_OBJECT(
                      'id', i.id,
                      'name', i.name,
-                     'role', i.role,
-                     'fgc_covered', i.fgc_covered,
-                     'brokerage_per_order', i.brokerage_per_order::TEXT,
-                     'custody_monthly_fee', i.custody_monthly_fee::TEXT,
+                     'country', i.country,
                      'portfolios', COALESCE((
                        SELECT JSONB_AGG(DISTINCT p.name)
                          FROM transaction t
@@ -225,28 +215,6 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
                         WHERE t.institution_id = i.id
                      ), '[]'::JSONB),
                      'cash', cb.cash::TEXT,
-                     'issuer_exposure', COALESCE((
-                       SELECT SUM(
-                                CASE t.kind
-                                  WHEN 'buy'  THEN t.gross_amount
-                                  WHEN 'sell' THEN -t.gross_amount
-                                  ELSE 0
-                                END
-                              )
-                         FROM asset a
-                         JOIN transaction t ON t.asset_id = a.id
-                        WHERE a.issuer_id = i.id
-                          AND a.origin = 'manual'
-                          AND a.b3_type IS DISTINCT FROM 'cash'
-                     ), 0)::TEXT,
-                     'issued_assets', (
-                       SELECT COUNT(DISTINCT a.id)
-                         FROM asset a
-                         JOIN transaction t ON t.asset_id = a.id
-                        WHERE a.issuer_id = i.id
-                          AND a.origin = 'manual'
-                          AND a.b3_type IS DISTINCT FROM 'cash'
-                     ),
                      'transactions', (
                        SELECT COUNT(*) FROM transaction t WHERE t.institution_id = i.id
                      ),
@@ -255,6 +223,10 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
                  ), '[]'::JSONB) AS value
             FROM institution i
             LEFT JOIN cash_by_institution cb ON cb.institution_id = i.id
+           WHERE i.country <> 'BR'
+              OR cb.cash IS NOT NULL
+              OR EXISTS (SELECT 1 FROM transaction t WHERE t.institution_id = i.id)
+              OR EXISTS (SELECT 1 FROM asset a WHERE a.issuer_id = i.id)
         ),
         alert_json AS (
           SELECT COALESCE(JSONB_AGG(
