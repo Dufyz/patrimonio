@@ -12,6 +12,7 @@ import type { Connection, Sql } from './postgresql.js';
 import { createBusinessDayRepository } from './repositories/business_day.repository.js';
 import { createAssetRepository } from './repositories/asset.repository.js';
 import { createAssetPageRepository } from './repositories/asset_page.repository.js';
+import { createSearchRepository } from './repositories/search.repository.js';
 import { createStatementRepository } from './repositories/statement.repository.js';
 import { createCategoryRepository } from './repositories/category.repository.js';
 import { createCorporateEventRepository } from './repositories/corporate_event.repository.js';
@@ -70,6 +71,7 @@ export const createRepositories = (
   positionViews: createPositionViewRepository(sql),
   assetPages: createAssetPageRepository(sql),
   statements: createStatementRepository(sql),
+  search: createSearchRepository(sql),
   prices: createPriceRepository(sql),
   alerts: createAlertRepository(sql),
   overview: createOverviewRepository(sql),

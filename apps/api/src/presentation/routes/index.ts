@@ -14,6 +14,7 @@ import type { GoalDeps } from '../controllers/goal.controller.js';
 import type { PerformanceDeps } from '../controllers/performance.controller.js';
 import type { PortfolioDeps } from '../controllers/portfolio.controller.js';
 import type { PositionDeps } from '../controllers/position.controller.js';
+import type { SearchDeps } from '../controllers/search.controller.js';
 import type { StatementDeps } from '../controllers/statement.controller.js';
 import type { TransactionDeps } from '../controllers/transaction.controller.js';
 import { buildOpenApiDocument } from '../docs/openapi.js';
@@ -30,6 +31,7 @@ import { goalRoutes } from './goal.routes.js';
 import { performanceRoutes } from './performance.routes.js';
 import { portfolioRoutes } from './portfolio.routes.js';
 import { positionRoutes } from './position.routes.js';
+import { searchRoutes } from './search.routes.js';
 import { statementRoutes } from './statement.routes.js';
 import { transactionRoutes } from './transaction.routes.js';
 
@@ -44,6 +46,7 @@ export type RouteDeps = HealthCheckDeps &
   MarketDeps &
   PositionDeps &
   StatementDeps &
+  SearchDeps &
   OverviewDeps &
   PerformanceDeps &
   AllocationDeps &
@@ -70,6 +73,7 @@ export const apiRoutes = (deps: RouteDeps): Router => {
   router.use(marketRoutes(deps));
   router.use(positionRoutes(deps));
   router.use(statementRoutes(deps));
+  router.use(searchRoutes(deps));
   router.use(overviewRoutes(deps));
   router.use(performanceRoutes(deps));
   router.use(allocationRoutes(deps));

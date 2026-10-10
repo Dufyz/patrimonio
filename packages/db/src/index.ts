@@ -21,6 +21,7 @@ export { createCorporateEventRepository } from './repositories/corporate_event.r
 export { createProjectionRepository } from './repositories/projection.repository.js';
 export { createPositionViewRepository } from './repositories/position_view.repository.js';
 export { createAssetPageRepository } from './repositories/asset_page.repository.js';
+export { createSearchRepository } from './repositories/search.repository.js';
 export { createStatementRepository } from './repositories/statement.repository.js';
 export { createPriceRepository } from './repositories/price.repository.js';
 export { createAlertRepository } from './repositories/alert.repository.js';
