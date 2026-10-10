@@ -73,11 +73,11 @@ const transaction = async (
   },
 ): Promise<void> => {
   await tx`
-    insert into transaction (
+    INSERT INTO transaction (
       id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
       quantity, unit_price, gross_amount, net_amount
     )
-    values (
+    VALUES (
       ${id}, ${options.kind}, '2026-09-01', '2026-09-01', ${options.portfolio},
       ${options.asset ?? null}, ${options.institution}, 1, ${options.gross},
       ${options.gross}, ${options.gross}
@@ -92,11 +92,11 @@ const position = async (
   value: string,
 ): Promise<void> => {
   await tx`
-    insert into position_daily (
+    INSERT INTO position_daily (
       portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
       market_value, price_source_kind
     )
-    values (${portfolio}, ${asset}, ${date}, ${value}, 1, ${value}, ${value}, 'manual')
+    VALUES (${portfolio}, ${asset}, ${date}, ${value}, 1, ${value}, ${value}, 'manual')
   `;
 };
 
@@ -113,42 +113,42 @@ beforeEach(async () => {
   tx = await beginTestTransaction(sql);
 
   await tx`
-    insert into portfolio (id, name, sort_order, benchmark_id)
-    values (${LONGO}, 'Longo prazo', 1, ${CDI}), (${IMOVEL}, 'Entrada do imóvel', 2, null)
+    INSERT INTO portfolio (id, name, sort_order, benchmark_id)
+    VALUES (${LONGO}, 'Longo prazo', 1, ${CDI}), (${IMOVEL}, 'Entrada do imóvel', 2, NULL)
   `;
   await tx`
-    insert into portfolio (id, name, sort_order, archived_at)
-    values (${ANTIGA}, 'Viagem 2024', 3, '2026-03-04T12:00:00Z')
+    INSERT INTO portfolio (id, name, sort_order, archived_at)
+    VALUES (${ANTIGA}, 'Viagem 2024', 3, '2026-03-04T12:00:00Z')
   `;
   await tx`
-    insert into institution (id, name, role, fgc_covered, brokerage_per_order)
-    values
-      (${CORRETORA_A}, 'Corretora A', 'custodian', false, '0.00'),
-      (${BANCO_B}, 'Banco B', 'both', true, '4.90'),
-      (${TESOURO}, 'Tesouro Direto', 'issuer', false, '0.00')
+    INSERT INTO institution (id, name, role, fgc_covered, brokerage_per_order)
+    VALUES
+      (${CORRETORA_A}, 'Corretora A', 'custodian', FALSE, '0.00'),
+      (${BANCO_B}, 'Banco B', 'both', TRUE, '4.90'),
+      (${TESOURO}, 'Tesouro Direto', 'issuer', FALSE, '0.00')
   `;
   await tx`
-    insert into category (id, parent_id, name, color_token, sort_order)
-    values
-      (${RENDA_FIXA}, null, 'Renda fixa', 'class.rf', 1),
+    INSERT INTO category (id, parent_id, name, color_token, sort_order)
+    VALUES
+      (${RENDA_FIXA}, NULL, 'Renda fixa', 'class.rf', 1),
       (${POS_FIXADA}, ${RENDA_FIXA}, 'Pós-fixada', 'class.rf_pos', 2),
       (${INFLACAO}, ${RENDA_FIXA}, 'Inflação', 'class.rf_ipca', 3),
-      (${RENDA_VARIAVEL}, null, 'Renda variável', 'class.rv', 4),
+      (${RENDA_VARIAVEL}, NULL, 'Renda variável', 'class.rv', 4),
       (${ACOES}, ${RENDA_VARIAVEL}, 'Ações', 'class.acoes', 5)
   `;
   await tx`
-    insert into asset (id, ticker, name, origin, category_id, issuer_id, price_source)
-    values
+    INSERT INTO asset (id, ticker, name, origin, category_id, issuer_id, price_source)
+    VALUES
       (${CDB}, 'CDB-BANCOB-1', 'CDB Banco B', 'manual', ${POS_FIXADA}, ${BANCO_B}, 'manual'),
       (${CDB_2}, 'CDB-BANCOB-2', 'CDB Banco B 2', 'manual', ${INFLACAO}, ${BANCO_B}, 'manual')
   `;
   await tx`
-    insert into asset (id, ticker, name, origin, category_id, price_source)
-    values (${ITUB4}, 'ITUB4', 'Itaú', 'market', ${ACOES}, 'auto')
+    INSERT INTO asset (id, ticker, name, origin, category_id, price_source)
+    VALUES (${ITUB4}, 'ITUB4', 'Itaú', 'market', ${ACOES}, 'auto')
   `;
   await tx`
-    insert into asset (id, ticker, name, origin, b3_type, issuer_id, price_source)
-    values
+    INSERT INTO asset (id, ticker, name, origin, b3_type, issuer_id, price_source)
+    VALUES
       (${CAIXA_A}, 'CAIXA-CORRETORAA', 'Caixa A', 'manual', 'cash', ${CORRETORA_A}, 'manual'),
       (${CAIXA_B}, 'CAIXA-BANCOB', 'Caixa B', 'manual', 'cash', ${BANCO_B}, 'manual')
   `;
@@ -181,18 +181,18 @@ describe('o instantâneo da tela de configurações', () => {
 
   it('a carteira traz o benchmark, a estratégia, os objetivos e o que impede excluí-la', async () => {
     await tx`
-      insert into strategy_target (portfolio_id, category_id, target_pct)
-      values (${LONGO}, ${POS_FIXADA}, 60), (${LONGO}, ${ACOES}, 40)
+      INSERT INTO strategy_target (portfolio_id, category_id, target_pct)
+      VALUES (${LONGO}, ${POS_FIXADA}, 60), (${LONGO}, ${ACOES}, 40)
     `;
     await tx`
-      insert into goal (id, name, target_amount, target_date, return_assumption)
-      values (${OBJETIVO}, 'Independência financeira', '1500000.00', '2040-01-01', 'IPCA+6'),
-             (${ENCERRADO}, 'Já encerrado', '1000.00', '2027-01-01', null)
+      INSERT INTO goal (id, name, target_amount, target_date, return_assumption)
+      VALUES (${OBJETIVO}, 'Independência financeira', '1500000.00', '2040-01-01', 'IPCA+6'),
+             (${ENCERRADO}, 'Já encerrado', '1000.00', '2027-01-01', NULL)
     `;
-    await tx`update goal set closed_at = now() where id = ${ENCERRADO}`;
+    await tx`UPDATE goal SET closed_at = NOW() WHERE id = ${ENCERRADO}`;
     await tx`
-      insert into goal_portfolio (goal_id, portfolio_id)
-      values (${OBJETIVO}, ${LONGO}), (${ENCERRADO}, ${LONGO})
+      INSERT INTO goal_portfolio (goal_id, portfolio_id)
+      VALUES (${OBJETIVO}, ${LONGO}), (${ENCERRADO}, ${LONGO})
     `;
     await transaction('0191e5a0-0000-7000-8000-00000000e601', {
       kind: 'buy',
@@ -242,8 +242,8 @@ describe('o instantâneo da tela de configurações', () => {
 
   it('o grupo de categorias soma ativos e carteiras distintas das que estão dentro dele', async () => {
     await tx`
-      insert into strategy_target (portfolio_id, category_id, target_pct)
-      values
+      INSERT INTO strategy_target (portfolio_id, category_id, target_pct)
+      VALUES
         (${LONGO}, ${POS_FIXADA}, 30), (${LONGO}, ${INFLACAO}, 30), (${LONGO}, ${ACOES}, 40),
         (${IMOVEL}, ${POS_FIXADA}, 100)
     `;
@@ -273,8 +273,8 @@ describe('o instantâneo da tela de configurações', () => {
 
   it('a estratégia de uma carteira arquivada não conta como uso da categoria', async () => {
     await tx`
-      insert into strategy_target (portfolio_id, category_id, target_pct)
-      values (${ANTIGA}, ${ACOES}, 100)
+      INSERT INTO strategy_target (portfolio_id, category_id, target_pct)
+      VALUES (${ANTIGA}, ${ACOES}, 100)
     `;
 
     const acoes = unwrapSuccess(
@@ -368,15 +368,15 @@ describe('o instantâneo da tela de configurações', () => {
 
   it('o benchmark traz quantas carteiras abertas o usam, e as de referência vêm semeadas', async () => {
     await tx`
-      insert into benchmark (id, name, kind, definition, rebalance)
-      values (
+      INSERT INTO benchmark (id, name, kind, definition, rebalance)
+      VALUES (
         ${BENCHMARK_PROPRIO}, 'IPCA + 6%', 'index_plus_rate',
-        '{"index":"IPCA","rate":0.06}'::jsonb, 'never'
+        '{"index":"IPCA","rate":0.06}'::JSONB, 'never'
       )
     `;
-    await tx`update portfolio set benchmark_id = ${BENCHMARK_PROPRIO} where id = ${IMOVEL}`;
+    await tx`UPDATE portfolio SET benchmark_id = ${BENCHMARK_PROPRIO} WHERE id = ${IMOVEL}`;
     // A carteira arquivada com benchmark não conta como uso.
-    await tx`update portfolio set benchmark_id = ${CDI} where id = ${ANTIGA}`;
+    await tx`UPDATE portfolio SET benchmark_id = ${CDI} WHERE id = ${ANTIGA}`;
 
     const benchmarks = unwrapSuccess(
       await createSettingsRepository(tx).snapshot(),
@@ -416,11 +416,11 @@ describe('o estado do backup', () => {
     key = id,
   ): Promise<void> => {
     await tx`
-      insert into pipeline_outbox (
+      INSERT INTO pipeline_outbox (
         id, stage, dedupe_key, payload, completed_at, failed_at, error, dispatched_at
       )
-      values (
-        ${id}, 'backup', ${`backup:${key}`}, '{"reference_date":"2026-10-08"}'::jsonb,
+      VALUES (
+        ${id}, 'backup', ${`backup:${key}`}, '{"reference_date":"2026-10-08"}'::JSONB,
         ${columns.completed ?? null}, ${columns.failed ?? null}, ${columns.error ?? null},
         ${columns.completed !== undefined || columns.failed !== undefined ? '2026-10-08T03:00:00Z' : null}
       )

@@ -19,37 +19,37 @@ export const loadBusinessDays = async (sql: Connection): Promise<LoadReport> => 
   const seed = await readHolidaySeed();
 
   await sql`
-    insert into business_day (
+    INSERT INTO business_day (
       calendar_date, is_business_day, is_bank_holiday, is_trading_holiday, holiday_name
     )
-    select *
-      from unnest(
+    SELECT *
+      FROM UNNEST(
         ${sql.array(
           calendar.map((row) => row.calendar_date),
           ARRAY_OID.date,
-        )}::date[],
+        )}::DATE[],
         ${sql.array(
           calendar.map((row) => row.is_business_day),
           ARRAY_OID.boolean,
-        )}::boolean[],
+        )}::BOOLEAN[],
         ${sql.array(
           calendar.map((row) => row.is_bank_holiday),
           ARRAY_OID.boolean,
-        )}::boolean[],
+        )}::BOOLEAN[],
         ${sql.array(
           calendar.map((row) => row.is_trading_holiday),
           ARRAY_OID.boolean,
-        )}::boolean[],
+        )}::BOOLEAN[],
         ${sql.array(
           calendar.map((row) => row.holiday_name),
           ARRAY_OID.text,
-        )}::text[]
+        )}::TEXT[]
       )
-    on conflict (calendar_date) do update set
-      is_business_day    = excluded.is_business_day,
-      is_bank_holiday    = excluded.is_bank_holiday,
-      is_trading_holiday = excluded.is_trading_holiday,
-      holiday_name       = excluded.holiday_name
+    ON CONFLICT (calendar_date) DO UPDATE SET
+      is_business_day    = EXCLUDED.is_business_day,
+      is_bank_holiday    = EXCLUDED.is_bank_holiday,
+      is_trading_holiday = EXCLUDED.is_trading_holiday,
+      holiday_name       = EXCLUDED.holiday_name
   `;
 
   return { rows: calendar.length, years: `${seed.first_year}–${seed.last_year}` };

@@ -17,7 +17,7 @@ type Row = Record<string, unknown>;
 export const createPortfolioRepository = (sql: Connection): PortfolioRepository => ({
   findById: async (id: string) => {
     try {
-      const rows = await sql<Row[]>`select * from portfolio where id = ${id}`;
+      const rows = await sql<Row[]>`SELECT * FROM portfolio WHERE id = ${id}`;
       const row = rows[0];
 
       return success(row === undefined ? null : parsePortfolioFromDB(row));
@@ -30,13 +30,13 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
   findByName: async (name: string) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from portfolio
-         where lower(name) = lower(${name})
+        SELECT *
+          FROM portfolio
+         WHERE LOWER(name) = LOWER(${name})
          -- A ativa primeiro: arquivar libera o nome, e pode haver homônima no
          -- histórico.
-         order by archived_at nulls first
-         limit 1
+         ORDER BY archived_at NULLS FIRST
+         LIMIT 1
       `;
       const row = rows[0];
 
@@ -49,10 +49,10 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
   list: async (options) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from portfolio
-         where ${options.includeArchived ? sql`true` : sql`archived_at is null`}
-         order by sort_order, lower(name)
+        SELECT *
+          FROM portfolio
+         WHERE ${options.includeArchived ? sql`TRUE` : sql`archived_at IS NULL`}
+         ORDER BY sort_order, LOWER(name)
       `;
 
       return success(rows.map((row) => parsePortfolioFromDB(row)));
@@ -76,7 +76,7 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
 
     try {
       const rows = await sql<Row[]>`
-        insert into portfolio ${sql(row)} returning *
+        INSERT INTO portfolio ${sql(row)} RETURNING *
       `;
       const created = rows[0];
 
@@ -96,9 +96,9 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
     try {
       const rows = hasChanges(changes)
         ? await sql<Row[]>`
-            update portfolio set ${sql(changes)} where id = ${id} returning *
+            UPDATE portfolio SET ${sql(changes)} WHERE id = ${id} RETURNING *
           `
-        : await sql<Row[]>`select * from portfolio where id = ${id}`;
+        : await sql<Row[]>`SELECT * FROM portfolio WHERE id = ${id}`;
 
       const row = rows[0];
 
@@ -111,10 +111,10 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
   setArchived: async (id: string, archived: boolean) => {
     try {
       const rows = await sql<Row[]>`
-        update portfolio
-           set archived_at = ${archived ? sql`now()` : sql`null`}
-         where id = ${id}
-        returning *
+        UPDATE portfolio
+           SET archived_at = ${archived ? sql`NOW()` : sql`NULL`}
+         WHERE id = ${id}
+        RETURNING *
       `;
       const row = rows[0];
 
@@ -127,7 +127,7 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
   remove: async (id: string) => {
     try {
       const rows = await sql<{ id: string }[]>`
-        delete from portfolio where id = ${id} returning id
+        DELETE FROM portfolio WHERE id = ${id} RETURNING id
       `;
 
       return success(rows.length > 0);
@@ -140,10 +140,10 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
   contentSummary: async (id: string) => {
     try {
       const rows = await sql<{ transactions: string; assets: string }[]>`
-        select count(*)::text as transactions,
-               count(distinct asset_id)::text as assets
-          from transaction
-         where portfolio_id = ${id}
+        SELECT COUNT(*)::TEXT AS transactions,
+               COUNT(DISTINCT asset_id)::TEXT AS assets
+          FROM transaction
+         WHERE portfolio_id = ${id}
       `;
       const row = rows[0];
 
@@ -159,13 +159,13 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
   moveContent: async (from: string, to: string) => {
     try {
       const rows = await sql<{ moved: string; from_date: string | null }[]>`
-        with moved as (
-          update transaction
-             set portfolio_id = ${to}
-           where portfolio_id = ${from}
-          returning trade_date
+        WITH moved AS (
+          UPDATE transaction
+             SET portfolio_id = ${to}
+           WHERE portfolio_id = ${from}
+          RETURNING trade_date
         )
-        select count(*)::text as moved, min(trade_date) as from_date from moved
+        SELECT COUNT(*)::TEXT AS moved, MIN(trade_date) AS from_date FROM moved
       `;
       const row = rows[0];
 
@@ -181,10 +181,10 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
   deleteTransactions: async (id: string) => {
     try {
       const rows = await sql<{ total: string }[]>`
-        with removed as (
-          delete from transaction where portfolio_id = ${id} returning id
+        WITH removed AS (
+          DELETE FROM transaction WHERE portfolio_id = ${id} RETURNING id
         )
-        select count(*)::text as total from removed
+        SELECT COUNT(*)::TEXT AS total FROM removed
       `;
 
       return success(Number(rows[0]?.total ?? 0));
@@ -200,12 +200,12 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
   applyRecalcTransition: async (id: string, write) => {
     try {
       await sql`
-        update portfolio
-           set recalc_status = ${write.recalc_status},
+        UPDATE portfolio
+           SET recalc_status = ${write.recalc_status},
                recalc_from_date = ${write.from_date},
                recalc_error = ${write.error},
-               recalc_updated_at = now()
-         where id = ${id}
+               recalc_updated_at = NOW()
+         WHERE id = ${id}
       `;
 
       return success(undefined);
@@ -218,7 +218,7 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
   listActiveIds: async () => {
     try {
       const rows = await sql<{ id: string }[]>`
-        select id from portfolio where archived_at is null order by sort_order, id
+        SELECT id FROM portfolio WHERE archived_at IS NULL ORDER BY sort_order, id
       `;
 
       return success(rows.map((row) => row.id));
@@ -230,7 +230,7 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
   listTargets: async (portfolioId: string) => {
     try {
       const rows = await sql<Row[]>`
-        select * from strategy_target where portfolio_id = ${portfolioId}
+        SELECT * FROM strategy_target WHERE portfolio_id = ${portfolioId}
       `;
 
       return success(rows.map((row) => parseStrategyTargetFromDB(row)));
@@ -248,7 +248,7 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
     targets: readonly StrategyTargetWrite[],
   ) => {
     try {
-      await sql`delete from strategy_target where portfolio_id = ${portfolioId}`;
+      await sql`DELETE FROM strategy_target WHERE portfolio_id = ${portfolioId}`;
 
       if (targets.length === 0) return success([]);
 
@@ -261,12 +261,12 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
 
       // Uma consulta para N linhas: a lista entra como jsonb e volta expandida.
       const rows = await sql<Row[]>`
-        insert into strategy_target (portfolio_id, category_id, target_pct)
-        select ${portfolioId}::uuid,
-               (entry ->> 'category_id')::uuid,
-               (entry ->> 'target_pct')::numeric
-          from jsonb_array_elements(${payload}::text::jsonb) as entry
-        returning *
+        INSERT INTO strategy_target (portfolio_id, category_id, target_pct)
+        SELECT ${portfolioId}::UUID,
+               (entry ->> 'category_id')::UUID,
+               (entry ->> 'target_pct')::NUMERIC
+          FROM JSONB_ARRAY_ELEMENTS(${payload}::TEXT::JSONB) AS entry
+        RETURNING *
       `;
 
       return success(rows.map((row) => parseStrategyTargetFromDB(row)));

@@ -154,8 +154,8 @@ describe('evento corporativo', () => {
     expect(response.body.recalculation[0].dedupe_key).toBe(`recalc:${carteira}`);
 
     const [outbox] = await harness.sql<{ from_date: string }[]>`
-      select payload ->> 'from_date' as from_date
-        from pipeline_outbox where stage = 'recalc'
+      SELECT payload ->> 'from_date' AS from_date
+        FROM pipeline_outbox WHERE stage = 'recalc'
     `;
     // A compra de 2026-01-10 já tinha um recálculo pendente com a mesma chave, e
     // pedido mais antigo recua o `from_date` do evento que estava lá: o

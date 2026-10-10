@@ -141,7 +141,7 @@ describe('POST /api/backup', () => {
     expect(JSON.stringify(response.body)).toContain('desligado');
 
     const [pedidos] = await harness.sql<{ total: string }[]>`
-      select count(*)::text as total from pipeline_outbox where stage = 'backup'
+      SELECT COUNT(*)::TEXT AS total FROM pipeline_outbox WHERE stage = 'backup'
     `;
     expect(pedidos?.total).toBe('0');
   });
@@ -171,7 +171,7 @@ describe('o pedido de backup com o backup ligado', () => {
     expect(segundo.isSuccess() && segundo.value.queued.already_queued).toBe(true);
 
     const [pedidos] = await harness.sql<{ total: string }[]>`
-      select count(*)::text as total from pipeline_outbox where stage = 'backup'
+      SELECT COUNT(*)::TEXT AS total FROM pipeline_outbox WHERE stage = 'backup'
     `;
     expect(pedidos?.total).toBe('1');
   });

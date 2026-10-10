@@ -36,9 +36,9 @@ afterEach(async () => {
 
 const categoria = async (name: string): Promise<string> => {
   const rows = await tx<{ id: string }[]>`
-    insert into category (id, name, color_token)
-    values (gen_random_uuid(), ${name}, 'class.stock')
-    returning id
+    INSERT INTO category (id, name, color_token)
+    VALUES (GEN_RANDOM_UUID(), ${name}, 'class.stock')
+    RETURNING id
   `;
   const id = rows[0]?.id;
   if (id === undefined) throw new Error('categoria não criada');
@@ -126,7 +126,7 @@ describe('alvo de alocação', () => {
     );
 
     // O trigger é diferido: a recusa acontece no commit, não no insert.
-    await expect(tx.unsafe('set constraints all immediate')).rejects.toThrow(/100/);
+    await expect(tx.unsafe('SET CONSTRAINTS ALL IMMEDIATE')).rejects.toThrow(/100/);
   });
 
   it('trocar o alvo inteiro apaga o anterior na mesma transação', async () => {

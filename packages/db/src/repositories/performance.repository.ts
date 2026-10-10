@@ -138,81 +138,81 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
 
     try {
       const [row] = await sql<Row[]>`
-        with scope as (
-          select p.id
-            from portfolio p
-           where p.archived_at is null
-             and (${scope}::uuid is null or p.id = ${scope}::uuid)
+        WITH scope AS (
+          SELECT p.id
+            FROM portfolio p
+           WHERE p.archived_at IS NULL
+             AND (${scope}::UUID IS NULL OR p.id = ${scope}::UUID)
         ),
-        reference as (
-          select max(position_date) as position_date
-            from portfolio_daily
-           where portfolio_id in (select id from scope)
-             and position_date <= ${query.on_date}::date
+        reference AS (
+          SELECT MAX(position_date) AS position_date
+            FROM portfolio_daily
+           WHERE portfolio_id IN (SELECT id FROM scope)
+             AND position_date <= ${query.on_date}::DATE
         ),
-        inception as (
-          select min(position_date) as position_date
-            from portfolio_daily
-           where portfolio_id in (select id from scope)
+        inception AS (
+          SELECT MIN(position_date) AS position_date
+            FROM portfolio_daily
+           WHERE portfolio_id IN (SELECT id FROM scope)
         ),
-        series as (
-          select position_date,
-                 sum(total_value)::text as total_value,
-                 sum(net_flow)::text as net_flow,
-                 sum(income)::text as income,
-                 sum(payouts)::text as payouts,
-                 case
-                   when ${scope}::uuid is null then null
-                   else min(quota_value)::text
-                 end as quota_value
-            from portfolio_daily
-           where portfolio_id in (select id from scope)
-             and position_date <= (select position_date from reference)
-           group by position_date
+        series AS (
+          SELECT position_date,
+                 SUM(total_value)::TEXT AS total_value,
+                 SUM(net_flow)::TEXT AS net_flow,
+                 SUM(income)::TEXT AS income,
+                 SUM(payouts)::TEXT AS payouts,
+                 CASE
+                   WHEN ${scope}::UUID IS NULL THEN NULL
+                   ELSE MIN(quota_value)::TEXT
+                 END AS quota_value
+            FROM portfolio_daily
+           WHERE portfolio_id IN (SELECT id FROM scope)
+             AND position_date <= (SELECT position_date FROM reference)
+           GROUP BY position_date
         ),
-        portfolios as (
-          select p.id::text as portfolio_id,
+        portfolios AS (
+          SELECT p.id::TEXT AS portfolio_id,
                  p.name,
                  p.purpose,
                  p.recalc_status,
-                 p.benchmark_id::text as benchmark_id,
+                 p.benchmark_id::TEXT AS benchmark_id,
                  -- Cada carteira no último fechamento que ela tem até a
                  -- referência: recálculo atrasado não pode tirá-la da tabela.
-                 (select day.total_value::text
-                    from portfolio_daily day
-                   where day.portfolio_id = p.id
-                     and day.position_date <= (select position_date from reference)
-                   order by day.position_date desc
-                   limit 1) as total_value,
+                 (SELECT day.total_value::TEXT
+                    FROM portfolio_daily day
+                   WHERE day.portfolio_id = p.id
+                     AND day.position_date <= (SELECT position_date FROM reference)
+                   ORDER BY day.position_date DESC
+                   LIMIT 1) AS total_value,
                  p.sort_order
-            from portfolio p
-           where p.archived_at is null
+            FROM portfolio p
+           WHERE p.archived_at IS NULL
         ),
-        catalog as (
-          select b.id::text as id,
+        catalog AS (
+          SELECT b.id::TEXT AS id,
                  b.name,
-                 b.kind::text as kind,
-                 b.rebalance::text as rebalance,
+                 b.kind::TEXT AS kind,
+                 b.rebalance::TEXT AS rebalance,
                  b.definition
-            from benchmark b
+            FROM benchmark b
         )
-        select (select position_date from reference) as reference_date,
-               (select position_date from inception) as inception,
-               coalesce((
-                 select jsonb_agg(to_jsonb(series) order by series.position_date)
-                   from series
-               ), '[]'::jsonb) as days,
-               coalesce((
-                 select jsonb_agg(
-                          to_jsonb(portfolios) - 'sort_order'
-                          order by portfolios.sort_order, portfolios.name
+        SELECT (SELECT position_date FROM reference) AS reference_date,
+               (SELECT position_date FROM inception) AS inception,
+               COALESCE((
+                 SELECT JSONB_AGG(TO_JSONB(series) ORDER BY series.position_date)
+                   FROM series
+               ), '[]'::JSONB) AS days,
+               COALESCE((
+                 SELECT JSONB_AGG(
+                          TO_JSONB(portfolios) - 'sort_order'
+                          ORDER BY portfolios.sort_order, portfolios.name
                         )
-                   from portfolios
-               ), '[]'::jsonb) as portfolios,
-               coalesce((
-                 select jsonb_agg(to_jsonb(catalog) order by lower(catalog.name))
-                   from catalog
-               ), '[]'::jsonb) as benchmarks
+                   FROM portfolios
+               ), '[]'::JSONB) AS portfolios,
+               COALESCE((
+                 SELECT JSONB_AGG(TO_JSONB(catalog) ORDER BY LOWER(catalog.name))
+                   FROM catalog
+               ), '[]'::JSONB) AS benchmarks
       `;
 
       if (row === undefined) {
@@ -242,132 +242,132 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
 
     try {
       const [row] = await sql<Row[]>`
-        with scope as (
-          select p.id
-            from portfolio p
-           where p.archived_at is null
-             and (${scope}::uuid is null or p.id = ${scope}::uuid)
+        WITH scope AS (
+          SELECT p.id
+            FROM portfolio p
+           WHERE p.archived_at IS NULL
+             AND (${scope}::UUID IS NULL OR p.id = ${scope}::UUID)
         ),
-        points as (
-          select t.label, t.point_date
-            from unnest(${labels}::text[], ${dates}::date[]) as t(label, point_date)
+        points AS (
+          SELECT t.label, t.point_date
+            FROM UNNEST(${labels}::TEXT[], ${dates}::DATE[]) AS t(label, point_date)
         ),
         -- A cota de cada carteira em cada ponto: a última em ou antes da data,
         -- e para o início, a primeira que a carteira tem. Sem linha, a carteira
         -- ainda não existia, e o retorno daquela janela é traço.
-        portfolio_points as (
-          select p.id::text as portfolio_id,
+        portfolio_points AS (
+          SELECT p.id::TEXT AS portfolio_id,
                  pt.label,
                  d.position_date,
-                 d.quota_value::text as quota_value
-            from portfolio p
-           cross join points pt
-            left join lateral (
-              select day.position_date, day.quota_value
-                from portfolio_daily day
-               where day.portfolio_id = p.id
-                 and (pt.label = 'inception' or day.position_date <= pt.point_date)
-               order by (case when pt.label = 'inception' then day.position_date end) asc nulls last,
-                        day.position_date desc
-               limit 1
-            ) d on true
-           where p.archived_at is null
+                 d.quota_value::TEXT AS quota_value
+            FROM portfolio p
+           CROSS JOIN points pt
+            LEFT JOIN LATERAL (
+              SELECT day.position_date, day.quota_value
+                FROM portfolio_daily day
+               WHERE day.portfolio_id = p.id
+                 AND (pt.label = 'inception' OR day.position_date <= pt.point_date)
+               ORDER BY (CASE WHEN pt.label = 'inception' THEN day.position_date END) ASC NULLS LAST,
+                        day.position_date DESC
+               LIMIT 1
+            ) d ON TRUE
+           WHERE p.archived_at IS NULL
         ),
         -- O valor de cada classe em cada ponto, cada carteira na última data
         -- que ela tem até ele.
-        class_values as (
-          select pt.label,
-                 coalesce(c.id::text, ${SEM_CATEGORIA}) as category_id,
-                 sum(pos.market_value)::text as value
-            from points pt
-           cross join scope s
-            join lateral (
-              select max(day.position_date) as position_date
-                from portfolio_daily day
-               where day.portfolio_id = s.id
-                 and day.position_date <= pt.point_date
-            ) last on last.position_date is not null
-            join position_daily pos
-              on pos.portfolio_id = s.id
-             and pos.position_date = last.position_date
-            join asset a on a.id = pos.asset_id
-            left join category c on c.id = a.category_id
-           group by pt.label, c.id
+        class_values AS (
+          SELECT pt.label,
+                 COALESCE(c.id::TEXT, ${SEM_CATEGORIA}) AS category_id,
+                 SUM(pos.market_value)::TEXT AS value
+            FROM points pt
+           CROSS JOIN scope s
+            JOIN LATERAL (
+              SELECT MAX(day.position_date) AS position_date
+                FROM portfolio_daily day
+               WHERE day.portfolio_id = s.id
+                 AND day.position_date <= pt.point_date
+            ) last ON last.position_date IS NOT NULL
+            JOIN position_daily pos
+              ON pos.portfolio_id = s.id
+             AND pos.position_date = last.position_date
+            JOIN asset a ON a.id = pos.asset_id
+            LEFT JOIN category c ON c.id = a.category_id
+           GROUP BY pt.label, c.id
         ),
         -- O que entrou na classe e o que ela pagou, por dia. Compra e venda
         -- movem a classe com o sinal contrário ao do caixa; a perna de uma
         -- transferência entra com o próprio sinal; a amortização devolve
         -- principal e sai como fluxo, não como rendimento. Caixa fica de fora:
         -- ele não rende por si.
-        flows as (
-          select coalesce(c.id::text, ${SEM_CATEGORIA}) as category_id,
+        flows AS (
+          SELECT COALESCE(c.id::TEXT, ${SEM_CATEGORIA}) AS category_id,
                  t.trade_date,
-                 sum(
-                   case t.kind
-                     when 'buy' then -t.net_amount
-                     when 'sell' then -t.net_amount
-                     when 'transfer' then t.net_amount
-                     when 'payout' then
-                       case when t.payout_kind = 'amortization' then -t.net_amount else 0 end
-                     else 0
-                   end
-                 )::numeric(20,2)::text as flow,
-                 sum(
-                   case
-                     when t.kind = 'payout' and t.payout_kind is distinct from 'amortization'
-                       then t.net_amount
-                     else 0
-                   end
-                 )::numeric(20,2)::text as income
-            from transaction t
-            join asset a on a.id = t.asset_id
-            left join category c on c.id = a.category_id
-           where t.portfolio_id in (select id from scope)
-             and t.trade_date > ${query.flows_from}::date
-             and t.trade_date <= ${query.reference}::date
-             and a.b3_type is distinct from 'cash'
-             and (t.kind <> 'payout' or t.confirmed_at is not null)
-           group by c.id, t.trade_date
+                 SUM(
+                   CASE t.kind
+                     WHEN 'buy' THEN -t.net_amount
+                     WHEN 'sell' THEN -t.net_amount
+                     WHEN 'transfer' THEN t.net_amount
+                     WHEN 'payout' THEN
+                       CASE WHEN t.payout_kind = 'amortization' THEN -t.net_amount ELSE 0 END
+                     ELSE 0
+                   END
+                 )::NUMERIC(20,2)::TEXT AS flow,
+                 SUM(
+                   CASE
+                     WHEN t.kind = 'payout' AND t.payout_kind IS DISTINCT FROM 'amortization'
+                       THEN t.net_amount
+                     ELSE 0
+                   END
+                 )::NUMERIC(20,2)::TEXT AS income
+            FROM transaction t
+            JOIN asset a ON a.id = t.asset_id
+            LEFT JOIN category c ON c.id = a.category_id
+           WHERE t.portfolio_id IN (SELECT id FROM scope)
+             AND t.trade_date > ${query.flows_from}::DATE
+             AND t.trade_date <= ${query.reference}::DATE
+             AND a.b3_type IS DISTINCT FROM 'cash'
+             AND (t.kind <> 'payout' OR t.confirmed_at IS NOT NULL)
+           GROUP BY c.id, t.trade_date
         ),
-        used as (
-          select category_id from class_values
-          union
-          select category_id from flows
+        used AS (
+          SELECT category_id FROM class_values
+          UNION
+          SELECT category_id FROM flows
         ),
-        categories as (
-          select coalesce(c.id::text, ${SEM_CATEGORIA}) as category_id,
-                 coalesce(c.name, 'Sem categoria') as name,
-                 coalesce(c.color_token, 'class.outros') as color_token,
-                 coalesce(bool_or(a.b3_type = 'cash'), false) as is_cash
-            from asset a
-            left join category c on c.id = a.category_id
-           group by c.id, c.name, c.color_token
-          having coalesce(c.id::text, ${SEM_CATEGORIA}) in (select category_id from used)
+        categories AS (
+          SELECT COALESCE(c.id::TEXT, ${SEM_CATEGORIA}) AS category_id,
+                 COALESCE(c.name, 'Sem categoria') AS name,
+                 COALESCE(c.color_token, 'class.outros') AS color_token,
+                 COALESCE(BOOL_OR(a.b3_type = 'cash'), FALSE) AS is_cash
+            FROM asset a
+            LEFT JOIN category c ON c.id = a.category_id
+           GROUP BY c.id, c.name, c.color_token
+          HAVING COALESCE(c.id::TEXT, ${SEM_CATEGORIA}) IN (SELECT category_id FROM used)
         ),
-        factors as (
-          select q.index_code, q.quote_date, q.daily_factor::text as daily_factor
-            from index_quote q
-           where q.index_code = any(${query.index_codes}::text[])
-             and q.quote_date > ${query.factors_from}::date
-             and q.quote_date <= ${query.reference}::date
+        factors AS (
+          SELECT q.index_code, q.quote_date, q.daily_factor::TEXT AS daily_factor
+            FROM index_quote q
+           WHERE q.index_code = ANY(${query.index_codes}::TEXT[])
+             AND q.quote_date > ${query.factors_from}::DATE
+             AND q.quote_date <= ${query.reference}::DATE
         )
-        select coalesce((
-                 select jsonb_object_agg(by_code.index_code, by_code.by_date)
-                   from (
-                     select f.index_code,
-                            jsonb_object_agg(f.quote_date::text, f.daily_factor) as by_date
-                       from factors f
-                      group by f.index_code
+        SELECT COALESCE((
+                 SELECT JSONB_OBJECT_AGG(by_code.index_code, by_code.by_date)
+                   FROM (
+                     SELECT f.index_code,
+                            JSONB_OBJECT_AGG(f.quote_date::TEXT, f.daily_factor) AS by_date
+                       FROM factors f
+                      GROUP BY f.index_code
                    ) by_code
-               ), '{}'::jsonb) as factors,
-               coalesce((select jsonb_agg(to_jsonb(portfolio_points)) from portfolio_points),
-                        '[]'::jsonb) as portfolio_points,
-               coalesce((select jsonb_agg(to_jsonb(categories)) from categories),
-                        '[]'::jsonb) as categories,
-               coalesce((select jsonb_agg(to_jsonb(class_values)) from class_values),
-                        '[]'::jsonb) as class_values,
-               coalesce((select jsonb_agg(to_jsonb(flows)) from flows),
-                        '[]'::jsonb) as class_flows
+               ), '{}'::JSONB) AS factors,
+               COALESCE((SELECT JSONB_AGG(TO_JSONB(portfolio_points)) FROM portfolio_points),
+                        '[]'::JSONB) AS portfolio_points,
+               COALESCE((SELECT JSONB_AGG(TO_JSONB(categories)) FROM categories),
+                        '[]'::JSONB) AS categories,
+               COALESCE((SELECT JSONB_AGG(TO_JSONB(class_values)) FROM class_values),
+                        '[]'::JSONB) AS class_values,
+               COALESCE((SELECT JSONB_AGG(TO_JSONB(flows)) FROM flows),
+                        '[]'::JSONB) AS class_flows
       `;
 
       if (row === undefined) {

@@ -70,7 +70,7 @@ const medir = async (path: string): Promise<{ status: number; count: QueryCount 
 
 /** O driver aprende os tipos de array uma vez por conexão: o pool sobe antes de medir. */
 const aquecerPool = async (): Promise<void> => {
-  await Promise.all(Array.from({ length: 4 }, () => harness.sql`select pg_sleep(0.05)`));
+  await Promise.all(Array.from({ length: 4 }, () => harness.sql`SELECT PG_SLEEP(0.05)`));
 };
 
 beforeAll(async () => {
@@ -105,11 +105,11 @@ beforeAll(async () => {
     ['2026-10-09', '4025.00'],
   ] as const) {
     await harness.sql`
-      insert into portfolio_daily (
+      INSERT INTO portfolio_daily (
         portfolio_id, position_date, total_value, net_flow, income, payouts,
         quota_value, quota_count, cumulative_contributions
       )
-      values (
+      VALUES (
         ${carteira}, ${dia}, ${total}, '0.00', '0.00', '0.00',
         '1.000000000000', '1000.000000000000', '4000.00'
       )

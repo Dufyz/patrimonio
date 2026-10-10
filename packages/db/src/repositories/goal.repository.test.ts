@@ -54,11 +54,11 @@ const close = async (
   netFlow = '0.00',
 ): Promise<void> => {
   await tx`
-    insert into portfolio_daily (
+    INSERT INTO portfolio_daily (
       portfolio_id, position_date, total_value, net_flow, income, payouts,
       quota_value, quota_count, cumulative_contributions
     )
-    values (
+    VALUES (
       ${portfolio}, ${date}, ${total}, ${netFlow}, '0.00', '0.00',
       '1.000000000000', ${total}, '0.00'
     )
@@ -78,11 +78,11 @@ const goal = async (
   } = {},
 ): Promise<void> => {
   await tx`
-    insert into goal (
+    INSERT INTO goal (
       id, name, target_amount, target_date, return_assumption,
       amount_in_today_brl, created_at, closed_at
     )
-    values (
+    VALUES (
       ${id}, ${name}, ${options.target ?? '1500000.00'}, ${options.date ?? '2040-01-01'},
       ${options.assumption === undefined ? 'IPCA+6' : options.assumption},
       ${options.today ?? true}, ${options.createdAt ?? '2025-10-09T12:00:00Z'},
@@ -92,7 +92,7 @@ const goal = async (
 };
 
 const link = async (goalId: string, portfolio: string): Promise<void> => {
-  await tx`insert into goal_portfolio (goal_id, portfolio_id) values (${goalId}, ${portfolio})`;
+  await tx`INSERT INTO goal_portfolio (goal_id, portfolio_id) VALUES (${goalId}, ${portfolio})`;
 };
 
 beforeAll(async () => {
@@ -108,12 +108,12 @@ beforeEach(async () => {
   tx = await beginTestTransaction(sql);
 
   await tx`
-    insert into portfolio (id, name, sort_order)
-    values (${LONGO}, 'Longo prazo', 1), (${RESERVA}, 'Reserva', 2)
+    INSERT INTO portfolio (id, name, sort_order)
+    VALUES (${LONGO}, 'Longo prazo', 1), (${RESERVA}, 'Reserva', 2)
   `;
   await tx`
-    insert into portfolio (id, name, sort_order, archived_at)
-    values (${ANTIGA}, 'Antiga', 3, '2026-01-01T00:00:00Z')
+    INSERT INTO portfolio (id, name, sort_order, archived_at)
+    VALUES (${ANTIGA}, 'Antiga', 3, '2026-01-01T00:00:00Z')
   `;
 });
 
@@ -451,8 +451,8 @@ describe('o fluxo mensal', () => {
 describe('a inflação dos últimos doze meses', () => {
   const quote = async (date: string, factor: string): Promise<void> => {
     await tx`
-      insert into index_quote (index_code, quote_date, daily_factor, raw_value, source)
-      values ('IPCA', ${date}, ${factor}, '0', 'teste')
+      INSERT INTO index_quote (index_code, quote_date, daily_factor, raw_value, source)
+      VALUES ('IPCA', ${date}, ${factor}, '0', 'teste')
     `;
   };
 
@@ -490,8 +490,8 @@ describe('a inflação dos últimos doze meses', () => {
 
   it('outro índice não é IPCA', async () => {
     await tx`
-      insert into index_quote (index_code, quote_date, daily_factor, raw_value, source)
-      values ('CDI', '2026-04-01', '1.000500000000', '0', 'teste')
+      INSERT INTO index_quote (index_code, quote_date, daily_factor, raw_value, source)
+      VALUES ('CDI', '2026-04-01', '1.000500000000', '0', 'teste')
     `;
 
     const { inflation } = unwrapSuccess(

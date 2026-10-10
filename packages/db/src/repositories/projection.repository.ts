@@ -35,17 +35,17 @@ export const createProjectionRepository = (sql: Connection): ProjectionRepositor
   deleteFrom: async (portfolioId: string, fromDate: DateOnly) => {
     try {
       const positions = await sql<{ portfolio_id: string }[]>`
-        delete from position_daily
-         where portfolio_id = ${portfolioId}
-           and position_date >= ${fromDate}
-        returning portfolio_id
+        DELETE FROM position_daily
+         WHERE portfolio_id = ${portfolioId}
+           AND position_date >= ${fromDate}
+        RETURNING portfolio_id
       `;
 
       const days = await sql<{ portfolio_id: string }[]>`
-        delete from portfolio_daily
-         where portfolio_id = ${portfolioId}
-           and position_date >= ${fromDate}
-        returning portfolio_id
+        DELETE FROM portfolio_daily
+         WHERE portfolio_id = ${portfolioId}
+           AND position_date >= ${fromDate}
+        RETURNING portfolio_id
       `;
 
       return success({ positions: positions.length, days: days.length });
@@ -59,28 +59,28 @@ export const createProjectionRepository = (sql: Connection): ProjectionRepositor
 
     try {
       const written = await sql<{ asset_id: string }[]>`
-        insert into position_daily
+        INSERT INTO position_daily
           (portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
            market_value, price_source_kind, accrued_interest)
-        select (entry ->> 'portfolio_id')::uuid,
-               (entry ->> 'asset_id')::uuid,
-               (entry ->> 'position_date')::date,
-               (entry ->> 'quantity')::numeric,
-               (entry ->> 'avg_price')::numeric,
-               (entry ->> 'cost_basis')::numeric,
-               (entry ->> 'market_value')::numeric,
+        SELECT (entry ->> 'portfolio_id')::UUID,
+               (entry ->> 'asset_id')::UUID,
+               (entry ->> 'position_date')::DATE,
+               (entry ->> 'quantity')::NUMERIC,
+               (entry ->> 'avg_price')::NUMERIC,
+               (entry ->> 'cost_basis')::NUMERIC,
+               (entry ->> 'market_value')::NUMERIC,
                (entry ->> 'price_source_kind')::computed_price_kind,
-               (entry ->> 'accrued_interest')::numeric
-          from jsonb_array_elements(${asJson(rows)}::text::jsonb) as entry
-        on conflict (portfolio_id, asset_id, position_date) do update set
-          quantity = excluded.quantity,
-          avg_price = excluded.avg_price,
-          cost_basis = excluded.cost_basis,
-          market_value = excluded.market_value,
-          price_source_kind = excluded.price_source_kind,
-          accrued_interest = excluded.accrued_interest,
-          computed_at = now()
-        returning asset_id
+               (entry ->> 'accrued_interest')::NUMERIC
+          FROM JSONB_ARRAY_ELEMENTS(${asJson(rows)}::TEXT::JSONB) AS entry
+        ON CONFLICT (portfolio_id, asset_id, position_date) DO UPDATE SET
+          quantity = EXCLUDED.quantity,
+          avg_price = EXCLUDED.avg_price,
+          cost_basis = EXCLUDED.cost_basis,
+          market_value = EXCLUDED.market_value,
+          price_source_kind = EXCLUDED.price_source_kind,
+          accrued_interest = EXCLUDED.accrued_interest,
+          computed_at = NOW()
+        RETURNING asset_id
       `;
 
       return success(written.length);
@@ -94,29 +94,29 @@ export const createProjectionRepository = (sql: Connection): ProjectionRepositor
 
     try {
       const written = await sql<{ position_date: string }[]>`
-        insert into portfolio_daily
+        INSERT INTO portfolio_daily
           (portfolio_id, position_date, total_value, net_flow, income, payouts,
            quota_value, quota_count, cumulative_contributions)
-        select (entry ->> 'portfolio_id')::uuid,
-               (entry ->> 'position_date')::date,
-               (entry ->> 'total_value')::numeric,
-               (entry ->> 'net_flow')::numeric,
-               (entry ->> 'income')::numeric,
-               (entry ->> 'payouts')::numeric,
-               (entry ->> 'quota_value')::numeric,
-               (entry ->> 'quota_count')::numeric,
-               (entry ->> 'cumulative_contributions')::numeric
-          from jsonb_array_elements(${asJson(rows)}::text::jsonb) as entry
-        on conflict (portfolio_id, position_date) do update set
-          total_value = excluded.total_value,
-          net_flow = excluded.net_flow,
-          income = excluded.income,
-          payouts = excluded.payouts,
-          quota_value = excluded.quota_value,
-          quota_count = excluded.quota_count,
-          cumulative_contributions = excluded.cumulative_contributions,
-          computed_at = now()
-        returning position_date
+        SELECT (entry ->> 'portfolio_id')::UUID,
+               (entry ->> 'position_date')::DATE,
+               (entry ->> 'total_value')::NUMERIC,
+               (entry ->> 'net_flow')::NUMERIC,
+               (entry ->> 'income')::NUMERIC,
+               (entry ->> 'payouts')::NUMERIC,
+               (entry ->> 'quota_value')::NUMERIC,
+               (entry ->> 'quota_count')::NUMERIC,
+               (entry ->> 'cumulative_contributions')::NUMERIC
+          FROM JSONB_ARRAY_ELEMENTS(${asJson(rows)}::TEXT::JSONB) AS entry
+        ON CONFLICT (portfolio_id, position_date) DO UPDATE SET
+          total_value = EXCLUDED.total_value,
+          net_flow = EXCLUDED.net_flow,
+          income = EXCLUDED.income,
+          payouts = EXCLUDED.payouts,
+          quota_value = EXCLUDED.quota_value,
+          quota_count = EXCLUDED.quota_count,
+          cumulative_contributions = EXCLUDED.cumulative_contributions,
+          computed_at = NOW()
+        RETURNING position_date
       `;
 
       return success(written.length);
@@ -128,12 +128,12 @@ export const createProjectionRepository = (sql: Connection): ProjectionRepositor
   lastDayBefore: async (portfolioId: string, date: DateOnly) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from portfolio_daily
-         where portfolio_id = ${portfolioId}
-           and position_date < ${date}
-         order by position_date desc
-         limit 1
+        SELECT *
+          FROM portfolio_daily
+         WHERE portfolio_id = ${portfolioId}
+           AND position_date < ${date}
+         ORDER BY position_date DESC
+         LIMIT 1
       `;
 
       const row = rows[0];
@@ -147,11 +147,11 @@ export const createProjectionRepository = (sql: Connection): ProjectionRepositor
   listPositionsOn: async (portfolioId: string, date: DateOnly) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from position_daily
-         where portfolio_id = ${portfolioId}
-           and position_date = ${date}
-         order by market_value desc
+        SELECT *
+          FROM position_daily
+         WHERE portfolio_id = ${portfolioId}
+           AND position_date = ${date}
+         ORDER BY market_value DESC
       `;
 
       return success(rows.map((row) => parsePositionDailyFromDB(row)));
@@ -170,12 +170,12 @@ export const createProjectionRepository = (sql: Connection): ProjectionRepositor
 
     try {
       const rows = await sql<Row[]>`
-        select distinct on (asked.wanted) day.*
-          from unnest(${sql.array([...dates])}::date[]) as asked(wanted)
-          join portfolio_daily as day
-            on day.portfolio_id = ${portfolioId}
-           and day.position_date <= asked.wanted
-         order by asked.wanted, day.position_date desc
+        SELECT DISTINCT ON (asked.wanted) day.*
+          FROM UNNEST(${sql.array([...dates])}::DATE[]) AS asked(wanted)
+          JOIN portfolio_daily AS day
+            ON day.portfolio_id = ${portfolioId}
+           AND day.position_date <= asked.wanted
+         ORDER BY asked.wanted, day.position_date DESC
       `;
 
       return success(rows.map((row) => parsePortfolioDailyFromDB(row)));
@@ -187,11 +187,11 @@ export const createProjectionRepository = (sql: Connection): ProjectionRepositor
   listDaysBetween: async (portfolioId: string, from: DateOnly, to: DateOnly) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from portfolio_daily
-         where portfolio_id = ${portfolioId}
-           and position_date between ${from} and ${to}
-         order by position_date
+        SELECT *
+          FROM portfolio_daily
+         WHERE portfolio_id = ${portfolioId}
+           AND position_date BETWEEN ${from} AND ${to}
+         ORDER BY position_date
       `;
 
       return success(rows.map((row) => parsePortfolioDailyFromDB(row)));
@@ -207,38 +207,38 @@ export const createProjectionRepository = (sql: Connection): ProjectionRepositor
   ) => {
     try {
       await sql`
-        delete from realized_result
-         where portfolio_id = ${portfolioId}
-           and trade_date >= ${fromDate}
+        DELETE FROM realized_result
+         WHERE portfolio_id = ${portfolioId}
+           AND trade_date >= ${fromDate}
       `;
 
       if (rows.length === 0) return success(0);
 
       const written = await sql<{ transaction_id: string }[]>`
-        insert into realized_result
+        INSERT INTO realized_result
           (transaction_id, portfolio_id, asset_id, trade_date, proceeds,
            cost_consumed, result, exempt, loss_offset)
-        select (entry ->> 'transaction_id')::uuid,
-               (entry ->> 'portfolio_id')::uuid,
-               (entry ->> 'asset_id')::uuid,
-               (entry ->> 'trade_date')::date,
-               (entry ->> 'proceeds')::numeric,
-               (entry ->> 'cost_consumed')::numeric,
-               (entry ->> 'result')::numeric,
-               (entry ->> 'exempt')::boolean,
-               (entry ->> 'loss_offset')::numeric
-          from jsonb_array_elements(${asJson(rows)}::text::jsonb) as entry
-        on conflict (transaction_id) do update set
-          portfolio_id = excluded.portfolio_id,
-          asset_id = excluded.asset_id,
-          trade_date = excluded.trade_date,
-          proceeds = excluded.proceeds,
-          cost_consumed = excluded.cost_consumed,
-          result = excluded.result,
-          exempt = excluded.exempt,
-          loss_offset = excluded.loss_offset,
-          computed_at = now()
-        returning transaction_id
+        SELECT (entry ->> 'transaction_id')::UUID,
+               (entry ->> 'portfolio_id')::UUID,
+               (entry ->> 'asset_id')::UUID,
+               (entry ->> 'trade_date')::DATE,
+               (entry ->> 'proceeds')::NUMERIC,
+               (entry ->> 'cost_consumed')::NUMERIC,
+               (entry ->> 'result')::NUMERIC,
+               (entry ->> 'exempt')::BOOLEAN,
+               (entry ->> 'loss_offset')::NUMERIC
+          FROM JSONB_ARRAY_ELEMENTS(${asJson(rows)}::TEXT::JSONB) AS entry
+        ON CONFLICT (transaction_id) DO UPDATE SET
+          portfolio_id = EXCLUDED.portfolio_id,
+          asset_id = EXCLUDED.asset_id,
+          trade_date = EXCLUDED.trade_date,
+          proceeds = EXCLUDED.proceeds,
+          cost_consumed = EXCLUDED.cost_consumed,
+          result = EXCLUDED.result,
+          exempt = EXCLUDED.exempt,
+          loss_offset = EXCLUDED.loss_offset,
+          computed_at = NOW()
+        RETURNING transaction_id
       `;
 
       return success(written.length);
@@ -250,11 +250,11 @@ export const createProjectionRepository = (sql: Connection): ProjectionRepositor
   listRealizedBetween: async (portfolioId: string, from: DateOnly, to: DateOnly) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from realized_result
-         where portfolio_id = ${portfolioId}
-           and trade_date between ${from} and ${to}
-         order by trade_date, transaction_id
+        SELECT *
+          FROM realized_result
+         WHERE portfolio_id = ${portfolioId}
+           AND trade_date BETWEEN ${from} AND ${to}
+         ORDER BY trade_date, transaction_id
       `;
 
       return success(rows.map((row) => parseRealizedResultFromDB(row)));
@@ -268,24 +268,24 @@ export const createProjectionRepository = (sql: Connection): ProjectionRepositor
 
     try {
       const written = await sql<{ year: number }[]>`
-        insert into tax_month
+        INSERT INTO tax_month
           (year, month, asset_class, sales_total, gross_result, exempt,
            loss_carried_forward)
-        select (entry ->> 'year')::smallint,
-               (entry ->> 'month')::smallint,
+        SELECT (entry ->> 'year')::SMALLINT,
+               (entry ->> 'month')::SMALLINT,
                (entry ->> 'asset_class')::asset_class,
-               (entry ->> 'sales_total')::numeric,
-               (entry ->> 'gross_result')::numeric,
-               (entry ->> 'exempt')::boolean,
-               (entry ->> 'loss_carried_forward')::numeric
-          from jsonb_array_elements(${asJson(rows)}::text::jsonb) as entry
-        on conflict (year, month, asset_class) do update set
-          sales_total = excluded.sales_total,
-          gross_result = excluded.gross_result,
-          exempt = excluded.exempt,
-          loss_carried_forward = excluded.loss_carried_forward,
-          computed_at = now()
-        returning year
+               (entry ->> 'sales_total')::NUMERIC,
+               (entry ->> 'gross_result')::NUMERIC,
+               (entry ->> 'exempt')::BOOLEAN,
+               (entry ->> 'loss_carried_forward')::NUMERIC
+          FROM JSONB_ARRAY_ELEMENTS(${asJson(rows)}::TEXT::JSONB) AS entry
+        ON CONFLICT (year, month, asset_class) DO UPDATE SET
+          sales_total = EXCLUDED.sales_total,
+          gross_result = EXCLUDED.gross_result,
+          exempt = EXCLUDED.exempt,
+          loss_carried_forward = EXCLUDED.loss_carried_forward,
+          computed_at = NOW()
+        RETURNING year
       `;
 
       return success(written.length);
@@ -297,10 +297,10 @@ export const createProjectionRepository = (sql: Connection): ProjectionRepositor
   listTaxMonths: async (year: number) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from tax_month
-         where year = ${year}
-         order by month, asset_class
+        SELECT *
+          FROM tax_month
+         WHERE year = ${year}
+         ORDER BY month, asset_class
       `;
 
       return success(rows.map((row) => parseTaxMonthFromDB(row)));

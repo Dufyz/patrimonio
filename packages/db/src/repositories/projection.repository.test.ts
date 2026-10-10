@@ -62,14 +62,14 @@ beforeEach(async () => {
   repositories = repositoriesOn(tx);
 
   await tx`
-    insert into institution (id, name, role)
-    values (${INSTITUTION}, 'Corretora Projeção', 'custodian')
+    INSERT INTO institution (id, name, role)
+    VALUES (${INSTITUTION}, 'Corretora Projeção', 'custodian')
   `;
-  await tx`insert into portfolio (id, name) values (${PORTFOLIO}, 'Carteira Projeção')`;
+  await tx`INSERT INTO portfolio (id, name) VALUES (${PORTFOLIO}, 'Carteira Projeção')`;
   await tx`
-    insert into asset (id, ticker, name, origin, b3_type)
-    select id, 'P' || row_number() over (order by id), 'Ativo', 'market', 'stock'
-      from unnest(${sql.array(assetIds)}::uuid[]) as t(id)
+    INSERT INTO asset (id, ticker, name, origin, b3_type)
+    SELECT id, 'P' || ROW_NUMBER() OVER (ORDER BY id), 'Ativo', 'market', 'stock'
+      FROM UNNEST(${sql.array(assetIds)}::UUID[]) AS t(id)
   `;
 });
 
@@ -236,8 +236,8 @@ describe('plano de consulta', () => {
     );
 
     const plan = await tx<{ ['QUERY PLAN']: string }[]>`
-      explain select * from position_daily
-        where portfolio_id = ${PORTFOLIO} and position_date = '2026-10-06'
+      EXPLAIN SELECT * FROM position_daily
+        WHERE portfolio_id = ${PORTFOLIO} AND position_date = '2026-10-06'
     `;
 
     const text = plan.map((row) => row['QUERY PLAN']).join('\n');
@@ -252,9 +252,9 @@ describe('plano de consulta', () => {
 
   it('o intervalo de um recálculo de dez anos toca dez partições, não todas', async () => {
     const plan = await tx<{ ['QUERY PLAN']: string }[]>`
-      explain select * from position_daily
-        where portfolio_id = ${PORTFOLIO}
-          and position_date between '2016-01-01' and '2026-12-31'
+      EXPLAIN SELECT * FROM position_daily
+        WHERE portfolio_id = ${PORTFOLIO}
+          AND position_date BETWEEN '2016-01-01' AND '2026-12-31'
     `;
 
     const text = plan.map((row) => row['QUERY PLAN']).join('\n');

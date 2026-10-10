@@ -50,7 +50,7 @@ beforeEach(async () => {
 
   // A rajada do cadastro vira um recálculo só; limpar aqui deixa cada teste
   // olhando apenas o evento que ele mesmo produziu.
-  await harness.sql`delete from pipeline_outbox`;
+  await harness.sql`DELETE FROM pipeline_outbox`;
 });
 
 describe('editar lançamento', () => {
@@ -88,8 +88,8 @@ describe('editar lançamento', () => {
     expect(response.body.recalculation[0].dedupe_key).toBe(`recalc:${carteira}`);
 
     const [evento] = await harness.sql<{ from_date: string }[]>`
-      select payload ->> 'from_date' as from_date
-        from pipeline_outbox where stage = 'recalc'
+      SELECT payload ->> 'from_date' AS from_date
+        FROM pipeline_outbox WHERE stage = 'recalc'
     `;
     expect(evento?.from_date).toBe('2021-03-12');
   });
@@ -100,8 +100,8 @@ describe('editar lançamento', () => {
       .send({ trade_date: '2019-05-02' });
 
     const [evento] = await harness.sql<{ from_date: string }[]>`
-      select payload ->> 'from_date' as from_date
-        from pipeline_outbox where stage = 'recalc'
+      SELECT payload ->> 'from_date' AS from_date
+        FROM pipeline_outbox WHERE stage = 'recalc'
     `;
     expect(evento?.from_date).toBe('2019-05-02');
   });
@@ -172,7 +172,7 @@ describe('excluir com desfazer', () => {
 
   it('o desfazer pede o recálculo de novo', async () => {
     const excluido = await request(harness.app).delete(`/api/transactions/${compraId}`);
-    await harness.sql`delete from pipeline_outbox`;
+    await harness.sql`DELETE FROM pipeline_outbox`;
 
     const desfeito = await request(harness.app)
       .post(`/api/transactions/undo/${excluido.body.undo.undo_id}`)
@@ -198,8 +198,8 @@ describe('excluir com desfazer', () => {
     const excluido = await request(harness.app).delete(`/api/transactions/${compraId}`);
 
     await harness.sql`
-      update transaction_undo set expires_at = now() - interval '1 minute'
-       where id = ${excluido.body.undo.undo_id}
+      UPDATE transaction_undo SET expires_at = NOW() - INTERVAL '1 minute'
+       WHERE id = ${excluido.body.undo.undo_id}
     `;
 
     const resposta = await request(harness.app)

@@ -75,66 +75,66 @@ beforeEach(async () => {
   tx = await beginTestTransaction(sql);
 
   await tx`
-    insert into portfolio (id, name) values
+    INSERT INTO portfolio (id, name) VALUES
       (${CARTEIRA}, 'Longo prazo'),
       (${OUTRA}, 'Reserva')
   `;
   await tx`
-    insert into institution (id, name, role) values
+    INSERT INTO institution (id, name, role) VALUES
       (${CORRETORA}, 'Corretora A', 'custodian'),
       (${BANCO}, 'Banco C', 'both')
   `;
   await tx`
-    insert into category (id, name, color_token, sort_order) values
+    INSERT INTO category (id, name, color_token, sort_order) VALUES
       (${ACOES}, 'Ações', 'class.acoes', 1),
       (${RF_PRE}, 'RF prefixada', 'class.rf-pre', 2)
   `;
   await tx`
-    insert into asset (id, ticker, name, origin, b3_type, category_id) values
+    INSERT INTO asset (id, ticker, name, origin, b3_type, category_id) VALUES
       (${ITUB4}, 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', ${ACOES}),
       (${WEGE3}, 'WEGE3', 'WEG ON', 'market', 'stock', ${ACOES}),
       (${VENDIDO}, 'MGLU3', 'Magazine Luiza ON', 'market', 'stock', ${ACOES})
   `;
   // Título de banco: sem cotação, marcado na curva, com emissor obrigatório.
   await tx`
-    insert into asset
+    INSERT INTO asset
       (id, ticker, name, origin, category_id, issuer_id, indexer, rate,
        issued_at, maturity_date, liquidity, tax_regime)
-    values
+    VALUES
       (${CDB}, 'CDBC2028', 'CDB Prefixado Banco C 2028', 'manual', ${RF_PRE},
        ${BANCO}, 'prefixed', '14.10', '2023-06-14', '2028-06-14',
        'at_maturity', 'regressive')
   `;
 
   await tx`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
        institution_id, quantity, unit_price, net_amount)
-    values
-      (gen_random_uuid(), 'buy', '2024-02-01', '2024-02-05', ${CARTEIRA}, ${ITUB4},
+    VALUES
+      (GEN_RANDOM_UUID(), 'buy', '2024-02-01', '2024-02-05', ${CARTEIRA}, ${ITUB4},
        ${CORRETORA}, '500', '29.10', '14550.00'),
-      (gen_random_uuid(), 'buy', '2024-02-01', '2024-02-05', ${CARTEIRA}, ${WEGE3},
+      (GEN_RANDOM_UUID(), 'buy', '2024-02-01', '2024-02-05', ${CARTEIRA}, ${WEGE3},
        ${CORRETORA}, '500', '36.80', '18400.00'),
-      (gen_random_uuid(), 'buy', '2023-06-14', '2023-06-14', ${CARTEIRA}, ${CDB},
+      (GEN_RANDOM_UUID(), 'buy', '2023-06-14', '2023-06-14', ${CARTEIRA}, ${CDB},
        ${BANCO}, '0', '0', '15120.00')
   `;
   // Provento confirmado dentro da janela de doze meses, e um fora dela.
   await tx`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
        institution_id, payout_kind, net_amount, confirmed_at)
-    values
-      (gen_random_uuid(), 'payout', '2026-05-10', '2026-05-20', ${CARTEIRA}, ${ITUB4},
-       ${CORRETORA}, 'dividend', '1123.62', now()),
-      (gen_random_uuid(), 'payout', '2024-01-10', '2024-01-20', ${CARTEIRA}, ${ITUB4},
-       ${CORRETORA}, 'dividend', '900.00', now())
+    VALUES
+      (GEN_RANDOM_UUID(), 'payout', '2026-05-10', '2026-05-20', ${CARTEIRA}, ${ITUB4},
+       ${CORRETORA}, 'dividend', '1123.62', NOW()),
+      (GEN_RANDOM_UUID(), 'payout', '2024-01-10', '2024-01-20', ${CARTEIRA}, ${ITUB4},
+       ${CORRETORA}, 'dividend', '900.00', NOW())
   `;
 
   await tx`
-    insert into position_daily
+    INSERT INTO position_daily
       (portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
        market_value, price_source_kind)
-    values
+    VALUES
       (${CARTEIRA}, ${ITUB4}, ${HOJE}, '500', '29.10', '14550.00', '18420.00', 'fresh'),
       (${CARTEIRA}, ${ITUB4}, ${ONTEM}, '500', '29.10', '14550.00', '18345.00', 'fresh'),
       (${CARTEIRA}, ${ITUB4}, ${ANO_PASSADO}, '500', '29.10', '14550.00', '15170.00', 'fresh'),
@@ -144,15 +144,15 @@ beforeEach(async () => {
       (${OUTRA}, ${ITUB4}, ${HOJE}, '100', '29.10', '2910.00', '3684.00', 'fresh')
   `;
   await tx`
-    insert into asset_price (asset_id, price_date, close, source, source_kind) values
+    INSERT INTO asset_price (asset_id, price_date, close, source, source_kind) VALUES
       (${ITUB4}, ${HOJE}, '36.84', 'brapi', 'primary'),
       (${WEGE3}, '2026-10-03', '30.46', 'brapi', 'fallback')
   `;
   await tx`
-    insert into portfolio_daily
+    INSERT INTO portfolio_daily
       (portfolio_id, position_date, total_value, net_flow, income, payouts,
        quota_value, quota_count, cumulative_contributions)
-    values
+    VALUES
       (${CARTEIRA}, ${HOJE}, '50150.00', '0', '0', '0', '1.159200', '43262.25', '48070.00'),
       (${CARTEIRA}, ${ONTEM}, '50075.00', '0', '0', '0', '1.157000', '43280.00', '48070.00'),
       (${CARTEIRA}, ${ANO_PASSADO}, '43000.00', '0', '0', '0', '1.000000', '43000.00', '48070.00')

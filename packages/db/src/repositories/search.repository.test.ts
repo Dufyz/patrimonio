@@ -85,32 +85,32 @@ beforeEach(async () => {
   tx = await beginTestTransaction(sql);
 
   await tx`
-    insert into portfolio (id, name, sort_order, archived_at) values
-      (${LONGO}, 'Longo prazo', 1, null),
-      (${RESERVA}, 'Reserva', 2, null),
-      (${ARQUIVADA}, 'Antiga', 3, now())
+    INSERT INTO portfolio (id, name, sort_order, archived_at) VALUES
+      (${LONGO}, 'Longo prazo', 1, NULL),
+      (${RESERVA}, 'Reserva', 2, NULL),
+      (${ARQUIVADA}, 'Antiga', 3, NOW())
   `;
   await tx`
-    insert into institution (id, name, role)
-    values (${CORRETORA}, 'Corretora A', 'custodian')
+    INSERT INTO institution (id, name, role)
+    VALUES (${CORRETORA}, 'Corretora A', 'custodian')
   `;
   await tx`
-    insert into asset (id, ticker, name, origin, b3_type, archived_at) values
-      (${ITUB4}, 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', null),
-      (${ITUB3}, 'ITUB3', 'Itaú Unibanco ON', 'market', 'stock', null),
-      (${WEGE3}, 'WEGE3', 'WEG ON', 'market', 'stock', null),
-      (${VALE3}, 'VALE3', 'Vale ON', 'market', 'stock', null),
-      (${ITAUSA}, 'ITSA4', 'Itaúsa PN', 'market', 'stock', null),
-      (${ANTIGO}, 'ITUB9', 'Itaú Antigo', 'market', 'stock', now())
+    INSERT INTO asset (id, ticker, name, origin, b3_type, archived_at) VALUES
+      (${ITUB4}, 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', NULL),
+      (${ITUB3}, 'ITUB3', 'Itaú Unibanco ON', 'market', 'stock', NULL),
+      (${WEGE3}, 'WEGE3', 'WEG ON', 'market', 'stock', NULL),
+      (${VALE3}, 'VALE3', 'Vale ON', 'market', 'stock', NULL),
+      (${ITAUSA}, 'ITSA4', 'Itaúsa PN', 'market', 'stock', NULL),
+      (${ANTIGO}, 'ITUB9', 'Itaú Antigo', 'market', 'stock', NOW())
   `;
 
   // ITUB4: 500 na Longo prazo e 100 na Reserva, e um dia antigo com outra
   // quantidade — só o último dia de cada carteira conta.
   await tx`
-    insert into position_daily
+    INSERT INTO position_daily
       (portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
        market_value, price_source_kind)
-    values
+    VALUES
       (${LONGO}, ${ITUB4}, '2026-10-07', '300', '30.00', '9000.00', '10000.00', 'fresh'),
       (${LONGO}, ${ITUB4}, '2026-10-08', '500', '30.00', '15000.00', '18420.00', 'fresh'),
       (${RESERVA}, ${ITUB4}, '2026-10-08', '100', '31.00', '3100.00', '3684.00', 'fresh'),
@@ -120,24 +120,24 @@ beforeEach(async () => {
   `;
 
   await tx`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
        institution_id, quantity, unit_price, fees, gross_amount, net_amount,
        payout_kind, confirmed_at, note)
-    values
+    VALUES
       (${id(1)}, 'buy', '2025-03-12', '2025-03-14', ${LONGO}, ${ITUB4},
-       ${CORRETORA}, '100', '30.00', '0', '3000.00', '-3000.00', null, null, null),
+       ${CORRETORA}, '100', '30.00', '0', '3000.00', '-3000.00', NULL, NULL, NULL),
       (${id(2)}, 'payout', '2026-10-20', '2026-10-20', ${LONGO}, ${ITUB4},
-       ${CORRETORA}, '500', '0.19', '0', '96.12', '96.12', 'jcp', null, null),
+       ${CORRETORA}, '500', '0.19', '0', '96.12', '96.12', 'jcp', NULL, NULL),
       (${id(3)}, 'buy', '2026-09-30', '2026-10-02', ${LONGO}, ${WEGE3},
-       ${CORRETORA}, '100', '31.20', '0', '3120.00', '-3120.00', null, null,
+       ${CORRETORA}, '100', '31.20', '0', '3120.00', '-3120.00', NULL, NULL,
        'comprei pela dica do itu'),
       (${id(4)}, 'buy', '2026-09-10', '2026-09-12', ${RESERVA}, ${ITUB4},
-       ${CORRETORA}, '100', '31.00', '0', '3100.00', '-3100.00', null, null, null),
+       ${CORRETORA}, '100', '31.00', '0', '3100.00', '-3100.00', NULL, NULL, NULL),
       (${id(5)}, 'buy', '2026-09-11', '2026-09-13', ${ARQUIVADA}, ${ITUB4},
-       ${CORRETORA}, '10', '31.00', '0', '310.00', '-310.00', null, null, null),
-      (${id(6)}, 'deposit', '2026-10-01', '2026-10-01', ${LONGO}, null,
-       ${CORRETORA}, '0', '0', '0', '4000.00', '4000.00', null, null, 'aporte itu')
+       ${CORRETORA}, '10', '31.00', '0', '310.00', '-310.00', NULL, NULL, NULL),
+      (${id(6)}, 'deposit', '2026-10-01', '2026-10-01', ${LONGO}, NULL,
+       ${CORRETORA}, '0', '0', '0', '4000.00', '4000.00', NULL, NULL, 'aporte itu')
   `;
 });
 

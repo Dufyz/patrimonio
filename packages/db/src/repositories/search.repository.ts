@@ -56,80 +56,80 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
 
       const [assets, transactions] = await Promise.all([
         sql<AssetResultRow[]>`
-          with scope as (
-            select p.id, p.name, p.sort_order
-              from portfolio p
-             where p.archived_at is null
-               and (${filter.portfolioId}::uuid is null or p.id = ${filter.portfolioId}::uuid)
+          WITH scope AS (
+            SELECT p.id, p.name, p.sort_order
+              FROM portfolio p
+             WHERE p.archived_at IS NULL
+               AND (${filter.portfolioId}::UUID IS NULL OR p.id = ${filter.portfolioId}::UUID)
           ),
-          candidates as (
-            select a.id, a.ticker, a.name, a.b3_type,
-                   case
-                     when unaccent(lower(a.ticker)) = unaccent(lower(${filter.text}::text)) then 0
-                     when unaccent(a.ticker) ilike unaccent(${prefix}::text) then 1
-                     when unaccent(a.name) ilike unaccent(${prefix}::text) then 2
-                     when unaccent(a.ticker) ilike unaccent(${contains}::text) then 3
-                     else 4
-                   end as match_rank,
-                   count(*) over () as total
-              from asset a
-             where a.archived_at is null
-               and (unaccent(a.ticker) ilike unaccent(${contains}::text)
-                    or unaccent(a.name) ilike unaccent(${contains}::text))
-             order by match_rank, a.ticker
-             limit ${CANDIDATES}
+          candidates AS (
+            SELECT a.id, a.ticker, a.name, a.b3_type,
+                   CASE
+                     WHEN unaccent(LOWER(a.ticker)) = unaccent(LOWER(${filter.text}::TEXT)) THEN 0
+                     WHEN unaccent(a.ticker) ILIKE unaccent(${prefix}::TEXT) THEN 1
+                     WHEN unaccent(a.name) ILIKE unaccent(${prefix}::TEXT) THEN 2
+                     WHEN unaccent(a.ticker) ILIKE unaccent(${contains}::TEXT) THEN 3
+                     ELSE 4
+                   END AS match_rank,
+                   COUNT(*) OVER () AS total
+              FROM asset a
+             WHERE a.archived_at IS NULL
+               AND (unaccent(a.ticker) ILIKE unaccent(${contains}::TEXT)
+                    OR unaccent(a.name) ILIKE unaccent(${contains}::TEXT))
+             ORDER BY match_rank, a.ticker
+             LIMIT ${CANDIDATES}
           )
-          select c.id, c.ticker, c.name, c.b3_type, c.total::int as total,
-                 h.quantity::text as quantity,
-                 h.market_value::numeric(20,2)::text as market_value,
+          SELECT c.id, c.ticker, c.name, c.b3_type, c.total::INT AS total,
+                 h.quantity::TEXT AS quantity,
+                 h.market_value::NUMERIC(20,2)::TEXT AS market_value,
                  h.portfolio_names
-            from candidates c
-            left join lateral (
-              select sum(l.quantity) as quantity,
-                     sum(l.market_value) as market_value,
-                     array_agg(l.name order by l.sort_order, l.name) as portfolio_names
-                from (
-                  select s.name, s.sort_order, p.quantity, p.market_value
-                    from scope s
-                    cross join lateral (
-                      select pd.quantity, pd.market_value
-                        from position_daily pd
-                       where pd.asset_id = c.id
-                         and pd.portfolio_id = s.id
-                       order by pd.position_date desc
-                       limit 1
+            FROM candidates c
+            LEFT JOIN LATERAL (
+              SELECT SUM(l.quantity) AS quantity,
+                     SUM(l.market_value) AS market_value,
+                     ARRAY_AGG(l.name ORDER BY l.sort_order, l.name) AS portfolio_names
+                FROM (
+                  SELECT s.name, s.sort_order, p.quantity, p.market_value
+                    FROM scope s
+                    CROSS JOIN LATERAL (
+                      SELECT pd.quantity, pd.market_value
+                        FROM position_daily pd
+                       WHERE pd.asset_id = c.id
+                         AND pd.portfolio_id = s.id
+                       ORDER BY pd.position_date DESC
+                       LIMIT 1
                     ) p
-                   where p.quantity > 0
+                   WHERE p.quantity > 0
                 ) l
-            ) h on true
-           order by c.match_rank, (h.quantity is not null) desc, c.ticker
-           limit ${filter.limit}
+            ) h ON TRUE
+           ORDER BY c.match_rank, (h.quantity IS NOT NULL) DESC, c.ticker
+           LIMIT ${filter.limit}
         `,
         sql<TransactionResultRow[]>`
-          select t.id,
-                 t.kind::text as kind,
-                 t.payout_kind::text as payout_kind,
-                 t.trade_date::text as trade_date,
+          SELECT t.id,
+                 t.kind::TEXT AS kind,
+                 t.payout_kind::TEXT AS payout_kind,
+                 t.trade_date::TEXT AS trade_date,
                  t.portfolio_id,
-                 p.name as portfolio_name,
+                 p.name AS portfolio_name,
                  t.asset_id,
                  a.ticker,
-                 a.name as asset_name,
+                 a.name AS asset_name,
                  a.b3_type,
-                 t.quantity::text as quantity,
-                 t.net_amount::numeric(20,2)::text as net_amount,
-                 t.confirmed_at::text as confirmed_at,
-                 count(*) over ()::int as total
-            from transaction t
-            join portfolio p on p.id = t.portfolio_id and p.archived_at is null
-            left join asset a on a.id = t.asset_id
-           where (${filter.portfolioId}::uuid is null
-                  or t.portfolio_id = ${filter.portfolioId}::uuid)
-             and (unaccent(a.ticker) ilike unaccent(${contains}::text)
-                  or unaccent(a.name) ilike unaccent(${contains}::text)
-                  or unaccent(t.note) ilike unaccent(${contains}::text))
-           order by t.trade_date desc, t.id desc
-           limit ${filter.limit}
+                 t.quantity::TEXT AS quantity,
+                 t.net_amount::NUMERIC(20,2)::TEXT AS net_amount,
+                 t.confirmed_at::TEXT AS confirmed_at,
+                 COUNT(*) OVER ()::INT AS total
+            FROM transaction t
+            JOIN portfolio p ON p.id = t.portfolio_id AND p.archived_at IS NULL
+            LEFT JOIN asset a ON a.id = t.asset_id
+           WHERE (${filter.portfolioId}::UUID IS NULL
+                  OR t.portfolio_id = ${filter.portfolioId}::UUID)
+             AND (unaccent(a.ticker) ILIKE unaccent(${contains}::TEXT)
+                  OR unaccent(a.name) ILIKE unaccent(${contains}::TEXT)
+                  OR unaccent(t.note) ILIKE unaccent(${contains}::TEXT))
+           ORDER BY t.trade_date DESC, t.id DESC
+           LIMIT ${filter.limit}
         `,
       ]);
 

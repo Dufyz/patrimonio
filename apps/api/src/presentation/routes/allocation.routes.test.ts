@@ -35,9 +35,9 @@ const categoria = async (
   parent: string | null = null,
 ): Promise<string> => {
   const rows = await harness.sql<{ id: string }[]>`
-    insert into category (id, parent_id, name, color_token, sort_order)
-    values (gen_random_uuid(), ${parent}, ${name}, ${token}, ${sortOrder})
-    returning id
+    INSERT INTO category (id, parent_id, name, color_token, sort_order)
+    VALUES (GEN_RANDOM_UUID(), ${parent}, ${name}, ${token}, ${sortOrder})
+    RETURNING id
   `;
   return rows[0]?.id ?? '';
 };
@@ -49,28 +49,28 @@ const posicao = async (
   value: string,
 ): Promise<void> => {
   const ativo = await harness.sql<{ id: string }[]>`
-    insert into asset (id, ticker, name, origin, category_id)
-    values (gen_random_uuid(), ${ticker}, ${ticker}, 'market', ${category})
-    returning id
+    INSERT INTO asset (id, ticker, name, origin, category_id)
+    VALUES (GEN_RANDOM_UUID(), ${ticker}, ${ticker}, 'market', ${category})
+    RETURNING id
   `;
 
   await harness.sql`
-    insert into position_daily (
+    INSERT INTO position_daily (
       portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
       market_value, price_source_kind, accrued_interest
     )
-    values (${longo}, ${ativo[0]?.id ?? ''}, ${DIA}, '1.00000000', ${value}, ${value},
+    VALUES (${longo}, ${ativo[0]?.id ?? ''}, ${DIA}, '1.00000000', ${value}, ${value},
             ${value}, 'fresh', '0.00')
   `;
 };
 
 const fechar = async (total: string): Promise<void> => {
   await harness.sql`
-    insert into portfolio_daily (
+    INSERT INTO portfolio_daily (
       portfolio_id, position_date, total_value, net_flow, income, payouts,
       quota_value, quota_count, cumulative_contributions
     )
-    values (${longo}, ${DIA}, ${total}, '0.00', '0.00', '0.00',
+    VALUES (${longo}, ${DIA}, ${total}, '0.00', '0.00', '0.00',
             '1.000000000000', '1000.000000000000', '0.00')
   `;
 };
@@ -272,7 +272,7 @@ describe('GET /api/allocation · a estratégia lida', () => {
   it('o desvio de quem tem posição e alvo zero é a posição inteira', async () => {
     await carteiraDaPrancha();
     await posicao('POS1', posfixada, '100.00');
-    await harness.sql`update portfolio_daily set total_value = '1100.00'`;
+    await harness.sql`UPDATE portfolio_daily SET total_value = '1100.00'`;
     await estrategiaDaPrancha();
 
     const nodes = (await estrategia()).body.composition.nodes as Node[];
@@ -311,8 +311,8 @@ describe('GET /api/allocation · a estratégia lida', () => {
   it('a ordem é a do cadastro, não a do valor', async () => {
     await carteiraDaPrancha();
     // FIIs passa a valer mais que Ações; a linha não troca de lugar.
-    await harness.sql`update position_daily set market_value = '900.00' where asset_id = (select id from asset where ticker = 'FIIS1')`;
-    await harness.sql`update portfolio_daily set total_value = '1700.00'`;
+    await harness.sql`UPDATE position_daily SET market_value = '900.00' WHERE asset_id = (SELECT id FROM asset WHERE ticker = 'FIIS1')`;
+    await harness.sql`UPDATE portfolio_daily SET total_value = '1700.00'`;
 
     const nodes = (await estrategia()).body.composition.nodes as Node[];
 
@@ -328,7 +328,7 @@ describe('GET /api/allocation · a estratégia lida', () => {
   it('ativo direto num grupo vira a linha "Outros" do grupo, e o grupo continua somando', async () => {
     await carteiraDaPrancha();
     await posicao('DIRETO1', renda_variavel, '100.00');
-    await harness.sql`update portfolio_daily set total_value = '1100.00'`;
+    await harness.sql`UPDATE portfolio_daily SET total_value = '1100.00'`;
 
     const nodes = (await estrategia()).body.composition.nodes as Node[];
     const variavel = achar(nodes, 'Renda variável');
@@ -345,7 +345,7 @@ describe('GET /api/allocation · a estratégia lida', () => {
     await carteiraDaPrancha();
     await estrategiaDaPrancha();
     await posicao('SEMCAT1', null, '100.00');
-    await harness.sql`update portfolio_daily set total_value = '1100.00'`;
+    await harness.sql`UPDATE portfolio_daily SET total_value = '1100.00'`;
 
     const { composition } = (await estrategia()).body;
     const semCategoria = achar(composition.nodes as Node[], 'Sem categoria');
@@ -382,7 +382,7 @@ describe('GET /api/allocation · a estratégia lida', () => {
 
     const { rules } = (await estrategia()).body;
     const meses = await harness.sql<{ next: string }[]>`
-      select (${rules.reviewed_on}::date + interval '6 months')::date::text as next
+      SELECT (${rules.reviewed_on}::DATE + INTERVAL '6 months')::DATE::TEXT AS next
     `;
 
     expect(rules.reviewed_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -392,7 +392,7 @@ describe('GET /api/allocation · a estratégia lida', () => {
   it('carteira sem período de revisão não tem próxima revisão', async () => {
     await carteiraDaPrancha();
     await estrategiaDaPrancha();
-    await harness.sql`update portfolio set review_every_months = null`;
+    await harness.sql`UPDATE portfolio SET review_every_months = NULL`;
 
     const { rules } = (await estrategia()).body;
 
@@ -403,7 +403,7 @@ describe('GET /api/allocation · a estratégia lida', () => {
   it('o benchmark da carteira vem com o nome', async () => {
     await carteiraDaPrancha();
     await harness.sql`
-      update portfolio set benchmark_id = (select id from benchmark where lower(name) = 'cdi')
+      UPDATE portfolio SET benchmark_id = (SELECT id FROM benchmark WHERE LOWER(name) = 'cdi')
     `;
 
     const { rules } = (await estrategia()).body;

@@ -77,32 +77,32 @@ beforeEach(async () => {
   tx = await beginTestTransaction(sql);
 
   await tx`
-    insert into portfolio (id, name) values
+    INSERT INTO portfolio (id, name) VALUES
       (${CARTEIRA}, 'Longo prazo'),
       (${OUTRA}, 'Reserva')
   `;
   await tx`
-    insert into institution (id, name, role) values
+    INSERT INTO institution (id, name, role) VALUES
       (${CORRETORA}, 'Corretora A', 'custodian'),
       (${BANCO}, 'Banco C', 'both')
   `;
   // A categoria de Ações tem regra automática por tipo de B3: é ela que faz a
   // página dizer "Ações · automática" sem um sinalizador por ativo.
   await tx`
-    insert into category (id, name, color_token, auto_rule, sort_order) values
-      (${ACOES}, 'Ações', 'class.acoes', '{"b3_type":"stock"}'::jsonb, 1),
-      (${RF_PRE}, 'RF prefixada', 'class.rf-pre', null, 2)
+    INSERT INTO category (id, name, color_token, auto_rule, sort_order) VALUES
+      (${ACOES}, 'Ações', 'class.acoes', '{"b3_type":"stock"}'::JSONB, 1),
+      (${RF_PRE}, 'RF prefixada', 'class.rf-pre', NULL, 2)
   `;
   await tx`
-    insert into asset (id, ticker, name, origin, b3_type, sector, category_id) values
+    INSERT INTO asset (id, ticker, name, origin, b3_type, sector, category_id) VALUES
       (${ITUB4}, 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', 'Bancos', ${ACOES}),
       (${SPLIT}, 'DESD3', 'Desdobrada ON', 'market', 'stock', 'Outros', ${ACOES})
   `;
   await tx`
-    insert into asset
+    INSERT INTO asset
       (id, ticker, name, origin, category_id, issuer_id, indexer, rate,
        issued_at, maturity_date, liquidity, tax_regime)
-    values
+    VALUES
       (${CDB}, 'CDBC2028', 'CDB Prefixado Banco C 2028', 'manual', ${RF_PRE},
        ${BANCO}, 'prefixed', '14.10', '2023-06-14', '2028-06-14',
        'at_maturity', 'regressive')
@@ -110,65 +110,65 @@ beforeEach(async () => {
 
   // As três compras da prancha, e uma venda que dá resultado realizado.
   await tx`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
        institution_id, quantity, unit_price, net_amount)
-    values
-      (gen_random_uuid(), 'buy', '2025-03-12', '2025-03-14', ${CARTEIRA}, ${ITUB4},
+    VALUES
+      (GEN_RANDOM_UUID(), 'buy', '2025-03-12', '2025-03-14', ${CARTEIRA}, ${ITUB4},
        ${CORRETORA}, '100', '31.40', '3140.00'),
-      (gen_random_uuid(), 'buy', '2026-01-15', '2026-01-19', ${CARTEIRA}, ${ITUB4},
+      (GEN_RANDOM_UUID(), 'buy', '2026-01-15', '2026-01-19', ${CARTEIRA}, ${ITUB4},
        ${CORRETORA}, '100', '33.80', '3380.00'),
-      (gen_random_uuid(), 'buy', '2026-06-10', '2026-06-12', ${CARTEIRA}, ${ITUB4},
+      (GEN_RANDOM_UUID(), 'buy', '2026-06-10', '2026-06-12', ${CARTEIRA}, ${ITUB4},
        ${CORRETORA}, '50', '35.10', '1755.00'),
-      (gen_random_uuid(), 'sell', '2026-07-20', '2026-07-22', ${CARTEIRA}, ${ITUB4},
+      (GEN_RANDOM_UUID(), 'sell', '2026-07-20', '2026-07-22', ${CARTEIRA}, ${ITUB4},
        ${CORRETORA}, '20', '36.00', '720.00'),
-      (gen_random_uuid(), 'buy', '2023-06-14', '2023-06-14', ${CARTEIRA}, ${CDB},
+      (GEN_RANDOM_UUID(), 'buy', '2023-06-14', '2023-06-14', ${CARTEIRA}, ${CDB},
        ${BANCO}, '0', '0', '15120.00'),
-      (gen_random_uuid(), 'buy', '2026-02-02', '2026-02-04', ${OUTRA}, ${ITUB4},
+      (GEN_RANDOM_UUID(), 'buy', '2026-02-02', '2026-02-04', ${OUTRA}, ${ITUB4},
        ${BANCO}, '100', '30.00', '3000.00')
   `;
 
   await tx`
-    insert into realized_result
+    INSERT INTO realized_result
       (transaction_id, portfolio_id, asset_id, trade_date, proceeds,
        cost_consumed, result)
-    select t.id, t.portfolio_id, t.asset_id, t.trade_date, '720.00', '582.00', '138.00'
-      from transaction t
-     where t.kind = 'sell'
+    SELECT t.id, t.portfolio_id, t.asset_id, t.trade_date, '720.00', '582.00', '138.00'
+      FROM transaction t
+     WHERE t.kind = 'sell'
   `;
 
   // Proventos: dois confirmados dentro dos doze meses, um fora, um a receber,
   // e uma amortização, que é devolução de capital e não rendimento.
   await tx`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
        institution_id, quantity, unit_price, payout_kind, net_amount, confirmed_at)
-    values
-      (gen_random_uuid(), 'payout', '2025-12-10', '2025-12-20', ${CARTEIRA}, ${ITUB4},
-       ${CORRETORA}, '200', '2.50', 'jcp', '500.00', now()),
-      (gen_random_uuid(), 'payout', '2026-03-10', '2026-03-20', ${CARTEIRA}, ${ITUB4},
-       ${CORRETORA}, '250', '2.0420', 'jcp', '510.50', now()),
-      (gen_random_uuid(), 'payout', '2024-04-10', '2024-04-20', ${CARTEIRA}, ${ITUB4},
-       ${CORRETORA}, '100', '9.00', 'dividend', '900.00', now()),
-      (gen_random_uuid(), 'payout', '2026-09-20', '2026-10-01', ${CARTEIRA}, ${ITUB4},
-       ${CORRETORA}, '250', '0.0360', 'dividend', '9.00', now()),
-      (gen_random_uuid(), 'payout', '2026-05-05', '2026-05-15', ${CARTEIRA}, ${ITUB4},
-       ${CORRETORA}, '250', '0.4040', 'amortization', '101.00', now())
+    VALUES
+      (GEN_RANDOM_UUID(), 'payout', '2025-12-10', '2025-12-20', ${CARTEIRA}, ${ITUB4},
+       ${CORRETORA}, '200', '2.50', 'jcp', '500.00', NOW()),
+      (GEN_RANDOM_UUID(), 'payout', '2026-03-10', '2026-03-20', ${CARTEIRA}, ${ITUB4},
+       ${CORRETORA}, '250', '2.0420', 'jcp', '510.50', NOW()),
+      (GEN_RANDOM_UUID(), 'payout', '2024-04-10', '2024-04-20', ${CARTEIRA}, ${ITUB4},
+       ${CORRETORA}, '100', '9.00', 'dividend', '900.00', NOW()),
+      (GEN_RANDOM_UUID(), 'payout', '2026-09-20', '2026-10-01', ${CARTEIRA}, ${ITUB4},
+       ${CORRETORA}, '250', '0.0360', 'dividend', '9.00', NOW()),
+      (GEN_RANDOM_UUID(), 'payout', '2026-05-05', '2026-05-15', ${CARTEIRA}, ${ITUB4},
+       ${CORRETORA}, '250', '0.4040', 'amortization', '101.00', NOW())
   `;
   await tx`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
        institution_id, quantity, unit_price, payout_kind, net_amount)
-    values
-      (gen_random_uuid(), 'payout', '2026-10-10', '2026-10-20', ${CARTEIRA}, ${ITUB4},
+    VALUES
+      (GEN_RANDOM_UUID(), 'payout', '2026-10-10', '2026-10-20', ${CARTEIRA}, ${ITUB4},
        ${CORRETORA}, '250', '0.384480', 'jcp', '96.12')
   `;
 
   await tx`
-    insert into position_daily
+    INSERT INTO position_daily
       (portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
        market_value, price_source_kind, accrued_interest)
-    values
+    VALUES
       (${CARTEIRA}, ${ITUB4}, ${HOJE}, '500', '29.10', '14550.00', '18420.00',
        'fresh', '0'),
       (${CARTEIRA}, ${ITUB4}, ${ONTEM}, '500', '29.10', '14550.00', '18270.00',
@@ -184,19 +184,19 @@ beforeEach(async () => {
   // A série do gráfico: um ponto por mês ao longo de dois anos, para a janela
   // de 6M recortar menos pontos que a de 1A.
   await tx`
-    insert into asset_price (asset_id, price_date, close, source, source_kind)
-    select ${ITUB4},
-           d::date,
-           30 + (extract(month from d)::numeric / 10),
+    INSERT INTO asset_price (asset_id, price_date, close, source, source_kind)
+    SELECT ${ITUB4},
+           d::DATE,
+           30 + (EXTRACT(month FROM d)::NUMERIC / 10),
            'brapi',
            'primary'
-      from generate_series('2024-10-07'::date, ${HOJE}::date, interval '1 month') d
+      FROM GENERATE_SERIES('2024-10-07'::DATE, ${HOJE}::DATE, INTERVAL '1 month') d
   `;
   await tx`
-    insert into asset_price (asset_id, price_date, close, source, source_kind) values
+    INSERT INTO asset_price (asset_id, price_date, close, source, source_kind) VALUES
       (${ITUB4}, ${ANO_PASSADO}, '31.35', 'brapi', 'primary'),
       (${ITUB4}, ${HOJE}, '36.84', 'brapi', 'primary')
-    on conflict (asset_id, price_date) do update set close = excluded.close
+    ON CONFLICT (asset_id, price_date) DO UPDATE SET close = EXCLUDED.close
   `;
 });
 
@@ -220,7 +220,7 @@ describe('identidade e cadastro', () => {
 
     // A mesma ação movida para uma categoria sem regra passa a ser manual, sem
     // nenhuma escrita além da troca de categoria.
-    await tx`update asset set category_id = ${RF_PRE} where id = ${ITUB4}`;
+    await tx`UPDATE asset SET category_id = ${RF_PRE} WHERE id = ${ITUB4}`;
     const manual = unwrapSuccess(await open());
 
     expect(manual.asset?.category_automatic).toBe(false);
@@ -283,7 +283,7 @@ describe('posição', () => {
   });
 
   it('nunca vendido devolve ausência, e não resultado realizado de zero', async () => {
-    await tx`delete from realized_result`;
+    await tx`DELETE FROM realized_result`;
     const view = unwrapSuccess(await open());
 
     expect(view.position?.realized_result).toBeNull();
@@ -315,7 +315,7 @@ describe('posição', () => {
   });
 
   it('sem posição aberta o histórico fica e a posição volta nula', async () => {
-    await tx`delete from position_daily where asset_id = ${ITUB4}`;
+    await tx`DELETE FROM position_daily WHERE asset_id = ${ITUB4}`;
     const view = unwrapSuccess(await open());
 
     expect(view.position).toBeNull();
@@ -357,7 +357,7 @@ describe('proventos', () => {
   });
 
   it('papel sem provento devolve ausência, e não rendimento de zero', async () => {
-    await tx`delete from transaction where kind = 'payout'`;
+    await tx`DELETE FROM transaction WHERE kind = 'payout'`;
     const view = unwrapSuccess(await open());
 
     expect(view.position?.yield_on_cost_12m).toBeNull();
@@ -402,7 +402,7 @@ describe('série do gráfico', () => {
   });
 
   it('sem preço nenhum na janela, a variação é traço e não zero', async () => {
-    await tx`delete from asset_price where asset_id = ${ITUB4}`;
+    await tx`DELETE FROM asset_price WHERE asset_id = ${ITUB4}`;
     const view = unwrapSuccess(await open());
 
     expect(view.points).toHaveLength(0);
@@ -426,11 +426,11 @@ describe('série do gráfico', () => {
 
   it('duas compras no mesmo dia viram uma marca com o preço médio delas', async () => {
     await tx`
-      insert into transaction
+      INSERT INTO transaction
         (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
          institution_id, quantity, unit_price, net_amount)
-      values
-        (gen_random_uuid(), 'buy', '2026-06-10', '2026-06-12', ${CARTEIRA}, ${ITUB4},
+      VALUES
+        (GEN_RANDOM_UUID(), 'buy', '2026-06-10', '2026-06-12', ${CARTEIRA}, ${ITUB4},
          ${CORRETORA}, '50', '35.90', '1795.00')
     `;
     const view = unwrapSuccess(await open({ period: 'tudo' }));
@@ -443,15 +443,15 @@ describe('série do gráfico', () => {
 
   it('o desdobramento confirmado ajusta a série, e o anunciado não', async () => {
     await tx`
-      insert into asset_price (asset_id, price_date, close, source, source_kind) values
+      INSERT INTO asset_price (asset_id, price_date, close, source, source_kind) VALUES
         (${SPLIT}, '2026-09-01', '80.00', 'brapi', 'primary'),
         (${SPLIT}, ${HOJE}, '41.00', 'brapi', 'primary')
     `;
     await tx`
-      insert into corporate_event
+      INSERT INTO corporate_event
         (id, asset_id, kind, record_date, ratio_from, ratio_to)
-      values
-        (gen_random_uuid(), ${SPLIT}, 'split', '2026-09-15', '1', '2')
+      VALUES
+        (GEN_RANDOM_UUID(), ${SPLIT}, 'split', '2026-09-15', '1', '2')
     `;
 
     const anunciado = unwrapSuccess(await open({ assetId: SPLIT, period: 'tudo' }));
@@ -460,7 +460,7 @@ describe('série do gráfico', () => {
     // Sem o ajuste a série mostra uma queda de 49% que não aconteceu.
     expect(anunciado.window.return_ratio).toBe('-0.487500');
 
-    await tx`update corporate_event set confirmed_at = now() where asset_id = ${SPLIT}`;
+    await tx`UPDATE corporate_event SET confirmed_at = NOW() WHERE asset_id = ${SPLIT}`;
     const confirmado = unwrapSuccess(await open({ assetId: SPLIT, period: 'tudo' }));
 
     expect(confirmado.window.adjusted).toBe(true);

@@ -36,11 +36,11 @@ const fecharDia = async (
   } = {},
 ): Promise<void> => {
   await harness.sql`
-    insert into portfolio_daily (
+    INSERT INTO portfolio_daily (
       portfolio_id, position_date, total_value, net_flow, income, payouts,
       quota_value, quota_count, cumulative_contributions
     )
-    values (
+    VALUES (
       ${portfolio}, ${date}, ${total}, ${options.net_flow ?? '0.00'},
       ${options.income ?? '0.00'}, ${options.payouts ?? '0.00'},
       ${quota}, '1000.000000000000', '0.00'
@@ -70,19 +70,19 @@ const fatores = async (
   daily: string,
 ): Promise<void> => {
   await harness.sql`
-    insert into index_quote (index_code, quote_date, daily_factor, raw_value, source)
-    select ${code}, calendar_date, ${daily}, '0', 'teste'
-      from business_day
-     where is_business_day and calendar_date between ${from}::date and ${to}::date
-    on conflict (index_code, quote_date) do nothing
+    INSERT INTO index_quote (index_code, quote_date, daily_factor, raw_value, source)
+    SELECT ${code}, calendar_date, ${daily}, '0', 'teste'
+      FROM business_day
+     WHERE is_business_day AND calendar_date BETWEEN ${from}::DATE AND ${to}::DATE
+    ON CONFLICT (index_code, quote_date) DO NOTHING
   `;
 };
 
 const diasUteis = async (after: string, until: string): Promise<number> => {
   const rows = await harness.sql<{ total: string }[]>`
-    select count(*)::text as total
-      from business_day
-     where is_business_day and calendar_date > ${after}::date and calendar_date <= ${until}::date
+    SELECT COUNT(*)::TEXT AS total
+      FROM business_day
+     WHERE is_business_day AND calendar_date > ${after}::DATE AND calendar_date <= ${until}::DATE
   `;
 
   return Number(rows[0]?.total ?? 0);
@@ -90,11 +90,11 @@ const diasUteis = async (after: string, until: string): Promise<number> => {
 
 const posicao = async (asset: string, date: string, value: string): Promise<void> => {
   await harness.sql`
-    insert into position_daily (
+    INSERT INTO position_daily (
       portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
       market_value, price_source_kind, accrued_interest
     )
-    values (${longo}, ${asset}, ${date}, '100.00000000', '10.00000000', '1000.00',
+    VALUES (${longo}, ${asset}, ${date}, '100.00000000', '10.00000000', '1000.00',
             ${value}, 'fresh', '0.00')
   `;
 };
@@ -107,13 +107,13 @@ const lancar = async (
   payoutKind: string | null = null,
 ): Promise<void> => {
   await harness.sql`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
        quantity, unit_price, fees, gross_amount, net_amount, payout_kind, confirmed_at)
-    values
+    VALUES
       (${`0191e5a0-0000-7000-8000-0000000d${String(n).padStart(4, '0')}`},
        ${kind}::transaction_kind, ${date}, ${date}, ${longo}, ${itub4}, ${corretora},
-       '1', '1', '0', ${net}, ${net}, ${payoutKind}::payout_kind, now())
+       '1', '1', '0', ${net}, ${net}, ${payoutKind}::payout_kind, NOW())
   `;
 };
 
@@ -135,8 +135,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetSourceTables(harness.sql);
-  await harness.sql`delete from portfolio_daily`;
-  await harness.sql`delete from position_daily`;
+  await harness.sql`DELETE FROM portfolio_daily`;
+  await harness.sql`DELETE FROM position_daily`;
 
   const criada = await request(harness.app)
     .post('/api/portfolios')
@@ -149,23 +149,23 @@ beforeEach(async () => {
   reserva = outra.body.portfolio.id;
 
   const categoria = await harness.sql<{ id: string }[]>`
-    insert into category (id, name, color_token)
-    values (gen_random_uuid(), 'Ações', 'class.acoes')
-    returning id
+    INSERT INTO category (id, name, color_token)
+    VALUES (GEN_RANDOM_UUID(), 'Ações', 'class.acoes')
+    RETURNING id
   `;
   acoes = categoria[0]?.id ?? '';
 
   const ativo = await harness.sql<{ id: string }[]>`
-    insert into asset (id, ticker, name, origin, b3_type, category_id)
-    values (gen_random_uuid(), 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', ${acoes})
-    returning id
+    INSERT INTO asset (id, ticker, name, origin, b3_type, category_id)
+    VALUES (GEN_RANDOM_UUID(), 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', ${acoes})
+    RETURNING id
   `;
   itub4 = ativo[0]?.id ?? '';
 
   const instituicao = await harness.sql<{ id: string }[]>`
-    insert into institution (id, name, role)
-    values (gen_random_uuid(), 'Corretora A', 'custodian')
-    returning id
+    INSERT INTO institution (id, name, role)
+    VALUES (GEN_RANDOM_UUID(), 'Corretora A', 'custodian')
+    RETURNING id
   `;
   corretora = instituicao[0]?.id ?? '';
 });
@@ -500,8 +500,8 @@ describe('GET /api/performance · por carteira e por classe', () => {
 
     expect(numero(comProvento.returns[3])).toBeCloseTo(10, 0);
 
-    await harness.sql`delete from transaction`;
-    await harness.sql`delete from position_daily where position_date = '2026-06-30'`;
+    await harness.sql`DELETE FROM transaction`;
+    await harness.sql`DELETE FROM position_daily WHERE position_date = '2026-06-30'`;
     await posicao(itub4, '2026-06-30', '900.00');
     await lancar(3, 'payout', '2026-05-15', '100.00', 'amortization');
 

@@ -22,7 +22,7 @@ const asJsonb = (
 export const createCategoryRepository = (sql: Connection): CategoryRepository => ({
   findById: async (id: string) => {
     try {
-      const rows = await sql<Row[]>`select * from category where id = ${id}`;
+      const rows = await sql<Row[]>`SELECT * FROM category WHERE id = ${id}`;
       const row = rows[0];
 
       return success(row === undefined ? null : parseCategoryFromDB(row));
@@ -35,9 +35,9 @@ export const createCategoryRepository = (sql: Connection): CategoryRepository =>
   list: async () => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from category
-         order by coalesce(parent_id, id), parent_id nulls first, sort_order, lower(name)
+        SELECT *
+          FROM category
+         ORDER BY COALESCE(parent_id, id), parent_id NULLS FIRST, sort_order, LOWER(name)
       `;
 
       return success(rows.map((row) => parseCategoryFromDB(row)));
@@ -57,7 +57,7 @@ export const createCategoryRepository = (sql: Connection): CategoryRepository =>
     });
 
     try {
-      const rows = await sql<Row[]>`insert into category ${sql(row)} returning *`;
+      const rows = await sql<Row[]>`INSERT INTO category ${sql(row)} RETURNING *`;
       const created = rows[0];
 
       if (created === undefined) {
@@ -76,9 +76,9 @@ export const createCategoryRepository = (sql: Connection): CategoryRepository =>
     try {
       const rows = hasChanges(changes)
         ? await sql<Row[]>`
-            update category set ${sql(changes)} where id = ${id} returning *
+            UPDATE category SET ${sql(changes)} WHERE id = ${id} RETURNING *
           `
-        : await sql<Row[]>`select * from category where id = ${id}`;
+        : await sql<Row[]>`SELECT * FROM category WHERE id = ${id}`;
       const row = rows[0];
 
       return success(row === undefined ? null : parseCategoryFromDB(row));
@@ -90,7 +90,7 @@ export const createCategoryRepository = (sql: Connection): CategoryRepository =>
   remove: async (id: string) => {
     try {
       const rows = await sql<{ id: string }[]>`
-        delete from category where id = ${id} returning id
+        DELETE FROM category WHERE id = ${id} RETURNING id
       `;
 
       return success(rows.length > 0);
@@ -102,10 +102,10 @@ export const createCategoryRepository = (sql: Connection): CategoryRepository =>
   usage: async (id: string) => {
     try {
       const rows = await sql<{ assets: string; targets: string; children: string }[]>`
-        select (select count(*) from asset where category_id = ${id})::text as assets,
-               (select count(*) from strategy_target where category_id = ${id})::text
-                 as targets,
-               (select count(*) from category where parent_id = ${id})::text as children
+        SELECT (SELECT COUNT(*) FROM asset WHERE category_id = ${id})::TEXT AS assets,
+               (SELECT COUNT(*) FROM strategy_target WHERE category_id = ${id})::TEXT
+                 AS targets,
+               (SELECT COUNT(*) FROM category WHERE parent_id = ${id})::TEXT AS children
       `;
       const row = rows[0];
 

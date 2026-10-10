@@ -126,56 +126,56 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
   snapshot: async () => {
     try {
       const [row] = await sql<Row[]>`
-        with open_portfolio as (
-          select p.id, p.name, p.benchmark_id, p.sort_order
-            from portfolio p
-           where p.archived_at is null
+        WITH open_portfolio AS (
+          SELECT p.id, p.name, p.benchmark_id, p.sort_order
+            FROM portfolio p
+           WHERE p.archived_at IS NULL
         ),
-        portfolio_content as (
-          select t.portfolio_id,
-                 count(*) as transactions,
-                 count(distinct t.asset_id) as assets
-            from transaction t
-           group by t.portfolio_id
+        portfolio_content AS (
+          SELECT t.portfolio_id,
+                 COUNT(*) AS transactions,
+                 COUNT(DISTINCT t.asset_id) AS assets
+            FROM transaction t
+           GROUP BY t.portfolio_id
         ),
-        portfolio_json as (
-          select coalesce(jsonb_agg(
-                   jsonb_build_object(
+        portfolio_json AS (
+          SELECT COALESCE(JSONB_AGG(
+                   JSONB_BUILD_OBJECT(
                      'id', p.id,
                      'name', p.name,
                      'benchmark_id', p.benchmark_id,
                      'benchmark_name', b.name,
                      'strategy_categories', (
-                       select count(*) from strategy_target s where s.portfolio_id = p.id
+                       SELECT COUNT(*) FROM strategy_target s WHERE s.portfolio_id = p.id
                      ),
-                     'goals', coalesce((
-                       select jsonb_agg(g.name order by g.target_date, g.name)
-                         from goal g
-                         join goal_portfolio link on link.goal_id = g.id
-                        where link.portfolio_id = p.id and g.closed_at is null
-                     ), '[]'::jsonb),
-                     'transactions', coalesce(c.transactions, 0),
-                     'assets', coalesce(c.assets, 0)
-                   ) order by p.sort_order, lower(p.name)
-                 ), '[]'::jsonb) as value
-            from open_portfolio p
-            left join benchmark b on b.id = p.benchmark_id
-            left join portfolio_content c on c.portfolio_id = p.id
+                     'goals', COALESCE((
+                       SELECT JSONB_AGG(g.name ORDER BY g.target_date, g.name)
+                         FROM goal g
+                         JOIN goal_portfolio link ON link.goal_id = g.id
+                        WHERE link.portfolio_id = p.id AND g.closed_at IS NULL
+                     ), '[]'::JSONB),
+                     'transactions', COALESCE(c.transactions, 0),
+                     'assets', COALESCE(c.assets, 0)
+                   ) ORDER BY p.sort_order, LOWER(p.name)
+                 ), '[]'::JSONB) AS value
+            FROM open_portfolio p
+            LEFT JOIN benchmark b ON b.id = p.benchmark_id
+            LEFT JOIN portfolio_content c ON c.portfolio_id = p.id
         ),
-        archived_json as (
-          select coalesce(jsonb_agg(
-                   jsonb_build_object(
+        archived_json AS (
+          SELECT COALESCE(JSONB_AGG(
+                   JSONB_BUILD_OBJECT(
                      'id', p.id,
                      'name', p.name,
-                     'archived_on', p.archived_at::date
-                   ) order by p.archived_at desc, lower(p.name)
-                 ), '[]'::jsonb) as value
-            from portfolio p
-           where p.archived_at is not null
+                     'archived_on', p.archived_at::DATE
+                   ) ORDER BY p.archived_at DESC, LOWER(p.name)
+                 ), '[]'::JSONB) AS value
+            FROM portfolio p
+           WHERE p.archived_at IS NOT NULL
         ),
-        category_json as (
-          select coalesce(jsonb_agg(
-                   jsonb_build_object(
+        category_json AS (
+          SELECT COALESCE(JSONB_AGG(
+                   JSONB_BUILD_OBJECT(
                      'id', c.id,
                      'parent_id', c.parent_id,
                      'name', c.name,
@@ -186,154 +186,154 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
                      -- distintas, porque duas categorias do mesmo grupo na mesma
                      -- carteira são uma carteira só.
                      'assets', (
-                       select count(*) from asset a
-                        where a.category_id = c.id
-                           or a.category_id in (
-                                select ch.id from category ch where ch.parent_id = c.id
+                       SELECT COUNT(*) FROM asset a
+                        WHERE a.category_id = c.id
+                           OR a.category_id IN (
+                                SELECT ch.id FROM category ch WHERE ch.parent_id = c.id
                               )
                      ),
                      'strategies', (
-                       select count(distinct s.portfolio_id)
-                         from strategy_target s
-                         join open_portfolio op on op.id = s.portfolio_id
-                        where s.category_id = c.id
-                           or s.category_id in (
-                                select ch.id from category ch where ch.parent_id = c.id
+                       SELECT COUNT(DISTINCT s.portfolio_id)
+                         FROM strategy_target s
+                         JOIN open_portfolio op ON op.id = s.portfolio_id
+                        WHERE s.category_id = c.id
+                           OR s.category_id IN (
+                                SELECT ch.id FROM category ch WHERE ch.parent_id = c.id
                               )
                      ),
                      'children', (
-                       select count(*) from category ch where ch.parent_id = c.id
+                       SELECT COUNT(*) FROM category ch WHERE ch.parent_id = c.id
                      )
-                   ) order by c.sort_order, lower(c.name)
-                 ), '[]'::jsonb) as value
-            from category c
+                   ) ORDER BY c.sort_order, LOWER(c.name)
+                 ), '[]'::JSONB) AS value
+            FROM category c
         ),
         -- O último valor de cada carteira nos ativos de caixa da instituição.
-        cash_by_institution as (
-          select a.issuer_id as institution_id, sum(last_day.market_value) as cash
-            from asset a
-            cross join open_portfolio p
-            cross join lateral (
-              select d.market_value
-                from position_daily d
-               where d.portfolio_id = p.id and d.asset_id = a.id
-               order by d.position_date desc
-               limit 1
+        cash_by_institution AS (
+          SELECT a.issuer_id AS institution_id, SUM(last_day.market_value) AS cash
+            FROM asset a
+            CROSS JOIN open_portfolio p
+            CROSS JOIN LATERAL (
+              SELECT d.market_value
+                FROM position_daily d
+               WHERE d.portfolio_id = p.id AND d.asset_id = a.id
+               ORDER BY d.position_date DESC
+               LIMIT 1
             ) last_day
-           where a.b3_type = 'cash' and a.issuer_id is not null
-           group by a.issuer_id
+           WHERE a.b3_type = 'cash' AND a.issuer_id IS NOT NULL
+           GROUP BY a.issuer_id
         ),
-        institution_json as (
-          select coalesce(jsonb_agg(
-                   jsonb_build_object(
+        institution_json AS (
+          SELECT COALESCE(JSONB_AGG(
+                   JSONB_BUILD_OBJECT(
                      'id', i.id,
                      'name', i.name,
                      'role', i.role,
                      'fgc_covered', i.fgc_covered,
-                     'brokerage_per_order', i.brokerage_per_order::text,
-                     'custody_monthly_fee', i.custody_monthly_fee::text,
-                     'portfolios', coalesce((
-                       select jsonb_agg(distinct p.name)
-                         from transaction t
-                         join open_portfolio p on p.id = t.portfolio_id
-                        where t.institution_id = i.id
-                     ), '[]'::jsonb),
-                     'cash', cb.cash::text,
-                     'issuer_exposure', coalesce((
-                       select sum(
-                                case t.kind
-                                  when 'buy'  then t.gross_amount
-                                  when 'sell' then -t.gross_amount
-                                  else 0
-                                end
+                     'brokerage_per_order', i.brokerage_per_order::TEXT,
+                     'custody_monthly_fee', i.custody_monthly_fee::TEXT,
+                     'portfolios', COALESCE((
+                       SELECT JSONB_AGG(DISTINCT p.name)
+                         FROM transaction t
+                         JOIN open_portfolio p ON p.id = t.portfolio_id
+                        WHERE t.institution_id = i.id
+                     ), '[]'::JSONB),
+                     'cash', cb.cash::TEXT,
+                     'issuer_exposure', COALESCE((
+                       SELECT SUM(
+                                CASE t.kind
+                                  WHEN 'buy'  THEN t.gross_amount
+                                  WHEN 'sell' THEN -t.gross_amount
+                                  ELSE 0
+                                END
                               )
-                         from asset a
-                         join transaction t on t.asset_id = a.id
-                        where a.issuer_id = i.id
-                          and a.origin = 'manual'
-                          and a.b3_type is distinct from 'cash'
-                     ), 0)::text,
+                         FROM asset a
+                         JOIN transaction t ON t.asset_id = a.id
+                        WHERE a.issuer_id = i.id
+                          AND a.origin = 'manual'
+                          AND a.b3_type IS DISTINCT FROM 'cash'
+                     ), 0)::TEXT,
                      'issued_assets', (
-                       select count(distinct a.id)
-                         from asset a
-                         join transaction t on t.asset_id = a.id
-                        where a.issuer_id = i.id
-                          and a.origin = 'manual'
-                          and a.b3_type is distinct from 'cash'
+                       SELECT COUNT(DISTINCT a.id)
+                         FROM asset a
+                         JOIN transaction t ON t.asset_id = a.id
+                        WHERE a.issuer_id = i.id
+                          AND a.origin = 'manual'
+                          AND a.b3_type IS DISTINCT FROM 'cash'
                      ),
                      'transactions', (
-                       select count(*) from transaction t where t.institution_id = i.id
+                       SELECT COUNT(*) FROM transaction t WHERE t.institution_id = i.id
                      ),
-                     'assets', (select count(*) from asset a where a.issuer_id = i.id)
-                   ) order by lower(i.name)
-                 ), '[]'::jsonb) as value
-            from institution i
-            left join cash_by_institution cb on cb.institution_id = i.id
+                     'assets', (SELECT COUNT(*) FROM asset a WHERE a.issuer_id = i.id)
+                   ) ORDER BY LOWER(i.name)
+                 ), '[]'::JSONB) AS value
+            FROM institution i
+            LEFT JOIN cash_by_institution cb ON cb.institution_id = i.id
         ),
-        benchmark_json as (
-          select coalesce(jsonb_agg(
-                   jsonb_build_object(
+        benchmark_json AS (
+          SELECT COALESCE(JSONB_AGG(
+                   JSONB_BUILD_OBJECT(
                      'id', b.id,
                      'name', b.name,
                      'kind', b.kind,
                      'rebalance', b.rebalance,
                      'definition', b.definition,
                      'used_by', (
-                       select count(*) from open_portfolio p where p.benchmark_id = b.id
+                       SELECT COUNT(*) FROM open_portfolio p WHERE p.benchmark_id = b.id
                      )
-                   ) order by b.created_at, lower(b.name)
-                 ), '[]'::jsonb) as value
-            from benchmark b
+                   ) ORDER BY b.created_at, LOWER(b.name)
+                 ), '[]'::JSONB) AS value
+            FROM benchmark b
         ),
-        alert_json as (
-          select coalesce(jsonb_agg(
-                   jsonb_build_object(
+        alert_json AS (
+          SELECT COALESCE(JSONB_AGG(
+                   JSONB_BUILD_OBJECT(
                      'kind', r.kind,
                      'enabled', r.enabled,
                      'scope', r.scope,
                      'threshold', r.threshold
-                   ) order by r.created_at, r.kind
-                 ), '[]'::jsonb) as value
-            from alert_rule r
+                   ) ORDER BY r.created_at, r.kind
+                 ), '[]'::JSONB) AS value
+            FROM alert_rule r
         ),
-        backup_row as (
-          select
-            (select max(o.completed_at)
-               from pipeline_outbox o
-              where o.stage = 'backup' and o.completed_at is not null)
-              as last_success_at,
+        backup_row AS (
+          SELECT
+            (SELECT MAX(o.completed_at)
+               FROM pipeline_outbox o
+              WHERE o.stage = 'backup' AND o.completed_at IS NOT NULL)
+              AS last_success_at,
             -- Só a falha que veio depois do último sucesso: uma falha antiga,
             -- já superada por um backup que deu certo, não é o estado de hoje.
-            f.failed_at as last_failure_at,
-            f.error as last_failure_error,
-            exists (
-              select 1 from pipeline_outbox o
-               where o.stage = 'backup'
-                 and o.completed_at is null
-                 and o.failed_at is null
-            ) as pending
-            from (select 1) one
-            left join lateral (
-              select o.failed_at, o.error
-                from pipeline_outbox o
-               where o.stage = 'backup'
-                 and o.failed_at is not null
-                 and o.failed_at > coalesce((
-                       select max(ok.completed_at)
-                         from pipeline_outbox ok
-                        where ok.stage = 'backup' and ok.completed_at is not null
-                     ), '-infinity'::timestamptz)
-               order by o.failed_at desc
-               limit 1
-            ) f on true
+            f.failed_at AS last_failure_at,
+            f.error AS last_failure_error,
+            EXISTS (
+              SELECT 1 FROM pipeline_outbox o
+               WHERE o.stage = 'backup'
+                 AND o.completed_at IS NULL
+                 AND o.failed_at IS NULL
+            ) AS pending
+            FROM (SELECT 1) one
+            LEFT JOIN LATERAL (
+              SELECT o.failed_at, o.error
+                FROM pipeline_outbox o
+               WHERE o.stage = 'backup'
+                 AND o.failed_at IS NOT NULL
+                 AND o.failed_at > COALESCE((
+                       SELECT MAX(ok.completed_at)
+                         FROM pipeline_outbox ok
+                        WHERE ok.stage = 'backup' AND ok.completed_at IS NOT NULL
+                     ), '-infinity'::TIMESTAMPTZ)
+               ORDER BY o.failed_at DESC
+               LIMIT 1
+            ) f ON TRUE
         )
-        select (select value from portfolio_json) as portfolios,
-               (select value from archived_json) as archived_portfolios,
-               (select value from category_json) as categories,
-               (select value from institution_json) as institutions,
-               (select value from benchmark_json) as benchmarks,
-               (select value from alert_json) as alerts,
-               (select to_jsonb(b) from backup_row b) as backup
+        SELECT (SELECT value FROM portfolio_json) AS portfolios,
+               (SELECT value FROM archived_json) AS archived_portfolios,
+               (SELECT value FROM category_json) AS categories,
+               (SELECT value FROM institution_json) AS institutions,
+               (SELECT value FROM benchmark_json) AS benchmarks,
+               (SELECT value FROM alert_json) AS alerts,
+               (SELECT TO_JSONB(b) FROM backup_row b) AS backup
       `;
 
       if (row === undefined) {

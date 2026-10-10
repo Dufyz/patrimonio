@@ -37,12 +37,12 @@ export const createTransactionUndoRepository = (
   create: async (draft: TransactionUndoDraft) => {
     try {
       const rows = await sql<Row[]>`
-        insert into transaction_undo
+        INSERT INTO transaction_undo
           (id, transaction_id, portfolio_id, payload, from_date, expires_at)
-        values (${uuidv7()}, ${draft.transaction_id}, ${draft.portfolio_id},
-                ${JSON.stringify(draft.transactions)}::text::jsonb,
+        VALUES (${uuidv7()}, ${draft.transaction_id}, ${draft.portfolio_id},
+                ${JSON.stringify(draft.transactions)}::TEXT::JSONB,
                 ${draft.from_date}, ${draft.expires_at})
-        returning *
+        RETURNING *
       `;
 
       const created = rows[0];
@@ -58,7 +58,7 @@ export const createTransactionUndoRepository = (
 
   findById: async (id: string) => {
     try {
-      const rows = await sql<Row[]>`select * from transaction_undo where id = ${id}`;
+      const rows = await sql<Row[]>`SELECT * FROM transaction_undo WHERE id = ${id}`;
       const row = rows[0];
 
       return success(row === undefined ? null : parseUndoFromDB(row));
@@ -70,7 +70,7 @@ export const createTransactionUndoRepository = (
   remove: async (id: string) => {
     try {
       const rows = await sql<{ id: string }[]>`
-        delete from transaction_undo where id = ${id} returning id
+        DELETE FROM transaction_undo WHERE id = ${id} RETURNING id
       `;
 
       return success(rows.length > 0);

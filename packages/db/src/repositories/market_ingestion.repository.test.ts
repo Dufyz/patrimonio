@@ -63,48 +63,48 @@ beforeEach(async () => {
   // A suíte compartilha o banco com os testes de rota, que **comitam**. Dentro
   // desta transação as tabelas que estas consultas leem ficam vazias, e o
   // ROLLBACK devolve tudo no fim.
-  await tx`delete from asset_price`;
-  await tx`delete from index_quote`;
-  await tx`delete from manual_price`;
-  await tx`delete from announced_payout`;
-  await tx`delete from market_source_run`;
-  await tx`delete from transaction`;
+  await tx`DELETE FROM asset_price`;
+  await tx`DELETE FROM index_quote`;
+  await tx`DELETE FROM manual_price`;
+  await tx`DELETE FROM announced_payout`;
+  await tx`DELETE FROM market_source_run`;
+  await tx`DELETE FROM transaction`;
 
   await tx`
-    insert into institution (id, name, role)
-    values (${INSTITUTION}, 'Corretora Mercado', 'custodian')
+    INSERT INTO institution (id, name, role)
+    VALUES (${INSTITUTION}, 'Corretora Mercado', 'custodian')
   `;
-  await tx`insert into portfolio (id, name) values (${PORTFOLIO}, 'Carteira Mercado')`;
+  await tx`INSERT INTO portfolio (id, name) VALUES (${PORTFOLIO}, 'Carteira Mercado')`;
 
   await tx`
-    insert into asset (id, ticker, name, origin, b3_type, price_source)
-    values
+    INSERT INTO asset (id, ticker, name, origin, b3_type, price_source)
+    VALUES
       (${ITUB4}, 'MKTA4', 'Ação de teste', 'market', 'stock', 'auto'),
       (${KNRI11}, 'MKTF11', 'FII de teste', 'market', 'fii', 'auto'),
       (${ARQUIVADO}, 'MKTOLD3', 'Arquivado', 'market', 'stock', 'auto'),
       (${MANUAL}, 'MKTMAN11', 'Preço manual', 'market', 'stock', 'manual')
   `;
   await tx`
-    insert into asset (
+    INSERT INTO asset (
       id, ticker, name, origin, b3_type, issuer_id, indexer, rate, issued_at,
       maturity_date, liquidity, tax_regime
     )
-    values
-      (${CDB}, 'MKT-CDB-20281010', 'CDB de teste', 'manual', null, ${INSTITUTION},
+    VALUES
+      (${CDB}, 'MKT-CDB-20281010', 'CDB de teste', 'manual', NULL, ${INSTITUTION},
        'cdi_pct', 112, '2024-01-02', '2028-10-10', 'at_maturity', 'regressive'),
       (${TESOURO}, 'MKT-TESOURO-IPCA-2029', 'Tesouro de teste', 'market', 'treasury',
-       null, 'ipca_plus', 0, '2024-01-02', '2029-05-15', 'daily', 'regressive')
+       NULL, 'ipca_plus', 0, '2024-01-02', '2029-05-15', 'daily', 'regressive')
   `;
 
-  await tx`update asset set archived_at = now() where id = ${ARQUIVADO}`;
+  await tx`UPDATE asset SET archived_at = NOW() WHERE id = ${ARQUIVADO}`;
 
   // O livro: é dele que sai quem precisa de preço.
   await tx`
-    insert into transaction (
+    INSERT INTO transaction (
       id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
       quantity, unit_price, fees, gross_amount, net_amount
     )
-    values
+    VALUES
       ('0191e5a0-0000-7000-8000-00000000c001', 'buy', '2015-03-12', '2015-03-16',
        ${PORTFOLIO}, ${ITUB4}, ${INSTITUTION}, 100, 30, 0, 3000, -3000),
       ('0191e5a0-0000-7000-8000-00000000c002', 'buy', '2024-06-10', '2024-06-12',
@@ -154,7 +154,7 @@ describe('escrita dos preços', () => {
     expect(written).toBe(1);
 
     const [row] = await tx<{ close: string }[]>`
-      select close from asset_price where asset_id = ${ITUB4}
+      SELECT close FROM asset_price WHERE asset_id = ${ITUB4}
     `;
     expect(row?.close).toBe('32.40000000');
   });
@@ -174,7 +174,7 @@ describe('escrita dos preços', () => {
     );
 
     const rows = await tx<{ close: string; source: string; source_kind: string }[]>`
-      select close, source, source_kind from asset_price where asset_id = ${ITUB4}
+      SELECT close, source, source_kind FROM asset_price WHERE asset_id = ${ITUB4}
     `;
 
     expect(rows).toHaveLength(1);
@@ -254,7 +254,7 @@ describe('escrita dos índices', () => {
     unwrapSuccess(await repositories.market.upsertIndexQuotes(quotes));
 
     const [total] = await tx<{ total: string }[]>`
-      select count(*)::text as total from index_quote
+      SELECT COUNT(*)::TEXT AS total FROM index_quote
     `;
 
     expect(Number(total?.total)).toBe(2);

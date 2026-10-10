@@ -63,7 +63,7 @@ const day = (
 const writeDays = async (rows: readonly ReturnType<typeof day>[]): Promise<void> => {
   for (const row of rows) {
     await tx`
-      insert into portfolio_daily ${tx(
+      INSERT INTO portfolio_daily ${tx(
         row,
         'portfolio_id',
         'position_date',
@@ -88,11 +88,11 @@ const writePosition = async (
   quantity = '100.00000000',
 ): Promise<void> => {
   await tx`
-    insert into position_daily (
+    INSERT INTO position_daily (
       portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
       market_value, price_source_kind, accrued_interest
     )
-    values (
+    VALUES (
       ${portfolio}, ${asset}, ${date}, ${quantity}, '30.00000000', '3000.00',
       ${value}, ${kind}::computed_price_kind, '0.00'
     )
@@ -112,16 +112,16 @@ beforeEach(async () => {
   tx = await beginTestTransaction(sql);
 
   await tx`
-    insert into portfolio (id, name, tolerance_pp, sort_order)
-    values (${LONGO}, 'Longo prazo', '3', 1), (${RESERVA}, 'Reserva', '5', 2)
+    INSERT INTO portfolio (id, name, tolerance_pp, sort_order)
+    VALUES (${LONGO}, 'Longo prazo', '3', 1), (${RESERVA}, 'Reserva', '5', 2)
   `;
   await tx`
-    insert into category (id, name, color_token, sort_order)
-    values (${ACOES}, 'Ações', 'class.acoes', 1), (${FIIS}, 'FIIs', 'class.fiis', 2)
+    INSERT INTO category (id, name, color_token, sort_order)
+    VALUES (${ACOES}, 'Ações', 'class.acoes', 1), (${FIIS}, 'FIIs', 'class.fiis', 2)
   `;
   await tx`
-    insert into asset (id, ticker, name, origin, b3_type, category_id)
-    values
+    INSERT INTO asset (id, ticker, name, origin, b3_type, category_id)
+    VALUES
       (${ITUB4}, 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', ${ACOES}),
       (${HGLG11}, 'HGLG11', 'CSHG Logística', 'market', 'fii', ${FIIS})
   `;
@@ -340,18 +340,18 @@ describe('o instantâneo da tela de abertura', () => {
       }),
     );
 
-    expect(snapshot.categories.map((row) => [row.category_name, row.color_token])).toEqual(
-      [
-        ['Ações', 'class.acoes'],
-        ['FIIs', 'class.fiis'],
-      ],
-    );
+    expect(
+      snapshot.categories.map((row) => [row.category_name, row.color_token]),
+    ).toEqual([
+      ['Ações', 'class.acoes'],
+      ['FIIs', 'class.fiis'],
+    ]);
   });
 
   it('ativo sem categoria aparece como sem categoria, em vez de sumir do total', async () => {
     const repository = createOverviewRepository(tx);
 
-    await tx`update asset set category_id = null where id = ${ITUB4}`;
+    await tx`UPDATE asset SET category_id = NULL WHERE id = ${ITUB4}`;
     await writeDays([day(LONGO, '2026-10-02', '10000.00')]);
     await writePosition(LONGO, ITUB4, '2026-10-02', '10000.00');
 
@@ -380,8 +380,8 @@ describe('o instantâneo da tela de abertura', () => {
     const repository = createOverviewRepository(tx);
 
     await tx`
-      insert into strategy_target (portfolio_id, category_id, target_pct)
-      values (${LONGO}, ${ACOES}, '60'), (${LONGO}, ${FIIS}, '40')
+      INSERT INTO strategy_target (portfolio_id, category_id, target_pct)
+      VALUES (${LONGO}, ${ACOES}, '60'), (${LONGO}, ${FIIS}, '40')
     `;
     await writeDays([day(LONGO, '2026-10-02', '10000.00')]);
 

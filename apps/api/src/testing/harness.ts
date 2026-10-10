@@ -53,7 +53,7 @@ export const createApiHarness = async (): Promise<ApiHarness> => {
   // A liquidação sugerida conta dia útil, então o calendário precisa existir
   // antes da primeira compra.
   const [calendar] = await sql<{ total: string }[]>`
-    select count(*)::text as total from business_day
+    SELECT COUNT(*)::TEXT AS total FROM business_day
   `;
   if (Number(calendar?.total ?? 0) === 0) await loadBusinessDays(sql);
 
@@ -97,7 +97,7 @@ export const createApiHarness = async (): Promise<ApiHarness> => {
  */
 export const resetSourceTables = async (sql: Sql): Promise<void> => {
   await sql.unsafe(`
-    truncate table position_daily,
+    TRUNCATE TABLE position_daily,
                    portfolio_daily,
                    realized_result,
                    tax_month,
@@ -116,7 +116,7 @@ export const resetSourceTables = async (sql: Sql): Promise<void> => {
                    pipeline_outbox,
                    index_quote,
                    market_source_run
-      restart identity cascade
+      restart IDENTITY CASCADE
   `);
 };
 
@@ -127,9 +127,9 @@ export const seedCategory = async (
   colorToken = 'class.stock',
 ): Promise<string> => {
   const rows = await sql<{ id: string }[]>`
-    insert into category (id, name, color_token)
-    values (gen_random_uuid(), ${name}, ${colorToken})
-    returning id
+    INSERT INTO category (id, name, color_token)
+    VALUES (GEN_RANDOM_UUID(), ${name}, ${colorToken})
+    RETURNING id
   `;
 
   const id = rows[0]?.id;
@@ -143,15 +143,15 @@ export const seedInstitution = async (
   options: { readonly brokerage?: string; readonly fgc?: boolean } = {},
 ): Promise<string> => {
   const rows = await sql<{ id: string }[]>`
-    insert into institution (id, name, role, fgc_covered, brokerage_per_order)
-    values (
-      gen_random_uuid(),
+    INSERT INTO institution (id, name, role, fgc_covered, brokerage_per_order)
+    VALUES (
+      GEN_RANDOM_UUID(),
       ${name},
       'both',
       ${options.fgc ?? true},
       ${options.brokerage ?? '0'}
     )
-    returning id
+    RETURNING id
   `;
 
   const id = rows[0]?.id;

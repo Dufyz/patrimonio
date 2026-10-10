@@ -30,11 +30,11 @@ const fechar = async (
   netFlow = '0.00',
 ): Promise<void> => {
   await harness.sql`
-    insert into portfolio_daily (
+    INSERT INTO portfolio_daily (
       portfolio_id, position_date, total_value, net_flow, income, payouts,
       quota_value, quota_count, cumulative_contributions
     )
-    values (
+    VALUES (
       ${portfolio}, ${date}, ${total}, ${netFlow}, '0.00', '0.00',
       '1.000000000000', ${total}, '0.00'
     )
@@ -52,21 +52,21 @@ const objetivo = async (
   } = {},
 ): Promise<void> => {
   await harness.sql`
-    insert into goal (
+    INSERT INTO goal (
       id, name, target_amount, target_date, return_assumption,
       amount_in_today_brl, created_at
     )
-    values (
+    VALUES (
       ${id}, ${name}, ${options.target ?? '1500000.00'}, ${options.date ?? '2040-01-01'},
       ${options.assumption === undefined ? 'IPCA+6' : options.assumption},
-      true, ${options.createdAt ?? '2026-01-01T12:00:00Z'}
+      TRUE, ${options.createdAt ?? '2026-01-01T12:00:00Z'}
     )
   `;
 };
 
 const ligar = async (goalId: string, portfolio: string): Promise<void> => {
   await harness.sql`
-    insert into goal_portfolio (goal_id, portfolio_id) values (${goalId}, ${portfolio})
+    INSERT INTO goal_portfolio (goal_id, portfolio_id) VALUES (${goalId}, ${portfolio})
   `;
 };
 
@@ -99,7 +99,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetSourceTables(harness.sql);
-  await harness.sql`delete from portfolio_daily`;
+  await harness.sql`DELETE FROM portfolio_daily`;
 
   const criada = await request(harness.app)
     .post('/api/portfolios')

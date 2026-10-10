@@ -105,40 +105,40 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
    * o preço sem ter posição.
    */
   const scope = (filter: AssetPageFilter) => sql`
-    with target as (
-      select a.id as asset_id
-        from asset a
-       where (${isUuid(filter.assetId) ? filter.assetId : null}::uuid is not null
-              and a.id = ${isUuid(filter.assetId) ? filter.assetId : null}::uuid)
-          or upper(a.ticker) = upper(${filter.assetId}::text)
-       limit 1
+    WITH target AS (
+      SELECT a.id AS asset_id
+        FROM asset a
+       WHERE (${isUuid(filter.assetId) ? filter.assetId : null}::UUID IS NOT NULL
+              AND a.id = ${isUuid(filter.assetId) ? filter.assetId : null}::UUID)
+          OR UPPER(a.ticker) = UPPER(${filter.assetId}::TEXT)
+       LIMIT 1
     ),
-    scope as (
-      select p.id as portfolio_id, p.name as portfolio_name
-        from portfolio p
-       where p.archived_at is null
-         and (${filter.portfolioId}::uuid is null or p.id = ${filter.portfolioId}::uuid)
+    scope AS (
+      SELECT p.id AS portfolio_id, p.name AS portfolio_name
+        FROM portfolio p
+       WHERE p.archived_at IS NULL
+         AND (${filter.portfolioId}::UUID IS NULL OR p.id = ${filter.portfolioId}::UUID)
     ),
-    as_of as (
-      select max(pd.position_date) as position_date
-        from position_daily pd
-        join scope s on s.portfolio_id = pd.portfolio_id
-       where pd.position_date <= ${filter.today}::date
+    as_of AS (
+      SELECT MAX(pd.position_date) AS position_date
+        FROM position_daily pd
+        JOIN scope s ON s.portfolio_id = pd.portfolio_id
+       WHERE pd.position_date <= ${filter.today}::DATE
     ),
-    bounds as (
-      select coalesce(
-               (select position_date from as_of),
-               ${filter.today}::date
-             ) as anchor
+    bounds AS (
+      SELECT COALESCE(
+               (SELECT position_date FROM as_of),
+               ${filter.today}::DATE
+             ) AS anchor
     ),
-    range as (
-      select case ${filter.period}::text
-               when '6m' then (b.anchor - interval '6 months')::date
-               when '1a' then (b.anchor - interval '12 months')::date
-               when '3a' then (b.anchor - interval '36 months')::date
-             end as from_date,
-             b.anchor as to_date
-        from bounds b
+    range AS (
+      SELECT CASE ${filter.period}::TEXT
+               WHEN '6m' THEN (b.anchor - INTERVAL '6 months')::DATE
+               WHEN '1a' THEN (b.anchor - INTERVAL '12 months')::DATE
+               WHEN '3a' THEN (b.anchor - INTERVAL '36 months')::DATE
+             END AS from_date,
+             b.anchor AS to_date
+        FROM bounds b
     ),
     -- Só o evento **confirmado** ajusta: um evento ainda não confirmado não
     -- mexeu na quantidade em carteira, e ajustar por ele mostraria uma série
@@ -147,12 +147,12 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
     -- anterior por dois, para o passado ficar na escala de hoje. É a mesma
     -- direção de adjustForEvents em packages/calc, e tem de ser: duas
     -- direções para a mesma série seriam dois gráficos do mesmo papel.
-    events as (
-      select ce.record_date, ce.ratio_from / ce.ratio_to as factor
-        from corporate_event ce, target t
-       where ce.asset_id = t.asset_id
-         and ce.confirmed_at is not null
-         and ce.ratio_to <> ce.ratio_from
+    events AS (
+      SELECT ce.record_date, ce.ratio_from / ce.ratio_to AS factor
+        FROM corporate_event ce, target t
+       WHERE ce.asset_id = t.asset_id
+         AND ce.confirmed_at IS NOT NULL
+         AND ce.ratio_to <> ce.ratio_from
     )
   `;
 
@@ -163,11 +163,11 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
    * o arredondamento devolve o fator exato de um 1:2 ou de um 10:1.
    */
   const adjustment = (dateColumn: ReturnType<typeof sql>) => sql`
-    left join lateral (
-      select round(coalesce(exp(sum(ln(ev.factor))), 1), ${PRICE_SCALE}) as factor
-        from events ev
-       where ev.record_date > ${dateColumn}
-    ) adj on true
+    LEFT JOIN LATERAL (
+      SELECT ROUND(COALESCE(EXP(SUM(LN(ev.factor))), 1), ${PRICE_SCALE}) AS factor
+        FROM events ev
+       WHERE ev.record_date > ${dateColumn}
+    ) adj ON TRUE
   `;
 
   return {
@@ -175,22 +175,22 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
       try {
         const points = await sql<AssetPagePointRow[]>`
           ${scope(filter)}
-          select ap.price_date,
-                 ap.close::text as close,
-                 round(ap.close * adj.factor, ${PRICE_SCALE})::text as adjusted_close
-            from asset_price ap
-            join target t on t.asset_id = ap.asset_id
-           cross join range r
+          SELECT ap.price_date,
+                 ap.close::TEXT AS close,
+                 ROUND(ap.close * adj.factor, ${PRICE_SCALE})::TEXT AS adjusted_close
+            FROM asset_price ap
+            JOIN target t ON t.asset_id = ap.asset_id
+           CROSS JOIN range r
            ${adjustment(sql`ap.price_date`)}
-           where (r.from_date is null or ap.price_date >= r.from_date)
-             and ap.price_date <= r.to_date
-           order by ap.price_date
+           WHERE (r.from_date IS NULL OR ap.price_date >= r.from_date)
+             AND ap.price_date <= r.to_date
+           ORDER BY ap.price_date
         `;
 
         const aggregates = await sql<AggregateRow[]>`
           ${scope(filter)},
-          asset_row as (
-            select a.id as asset_id,
+          asset_row AS (
+            SELECT a.id AS asset_id,
                    a.ticker,
                    a.name,
                    a.origin,
@@ -198,44 +198,44 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
                    a.sector,
                    a.price_source,
                    a.category_id,
-                   c.name as category_name,
+                   c.name AS category_name,
                    c.color_token,
                    -- "automática" é derivado, e não uma coluna: a categoria do
                    -- ativo também é a que a regra escolheria. Quem sobrescreveu
                    -- à mão vê "manual", sem um sinalizador para manter em dia.
                    (
-                     c.auto_rule is not null
-                     and (c.auto_rule->>'b3_type' is null
-                          or c.auto_rule->>'b3_type' = a.b3_type)
-                     and (c.auto_rule->>'indexer' is null
-                          or c.auto_rule->>'indexer' = a.indexer::text)
-                     and (c.auto_rule->>'origin' is null
-                          or c.auto_rule->>'origin' = a.origin::text)
-                     and (c.auto_rule->>'sector' is null
-                          or c.auto_rule->>'sector' = a.sector)
-                   ) as category_automatic,
-                   i.name as issuer_name,
+                     c.auto_rule IS NOT NULL
+                     AND (c.auto_rule->>'b3_type' IS NULL
+                          OR c.auto_rule->>'b3_type' = a.b3_type)
+                     AND (c.auto_rule->>'indexer' IS NULL
+                          OR c.auto_rule->>'indexer' = a.indexer::TEXT)
+                     AND (c.auto_rule->>'origin' IS NULL
+                          OR c.auto_rule->>'origin' = a.origin::TEXT)
+                     AND (c.auto_rule->>'sector' IS NULL
+                          OR c.auto_rule->>'sector' = a.sector)
+                   ) AS category_automatic,
+                   i.name AS issuer_name,
                    a.archived_at,
                    a.indexer,
-                   a.rate::text as rate,
+                   a.rate::TEXT AS rate,
                    a.issued_at,
                    a.maturity_date,
                    a.liquidity,
-                   a.liquidity_days::int as liquidity_days,
+                   a.liquidity_days::INT AS liquidity_days,
                    a.tax_regime,
                    -- Título de banco marcado na curva: a quantidade dele não
                    -- diz nada a quem lê, e a tela mostra traço em vez dela.
-                   case
-                     when a.origin = 'manual' and a.indexer is not null then 'curve'
-                     else 'quantity'
-                   end as unit
-              from asset a
-              join target t on t.asset_id = a.id
-              left join category c on c.id = a.category_id
-              left join institution i on i.id = a.issuer_id
+                   CASE
+                     WHEN a.origin = 'manual' AND a.indexer IS NOT NULL THEN 'curve'
+                     ELSE 'quantity'
+                   END AS unit
+              FROM asset a
+              JOIN target t ON t.asset_id = a.id
+              LEFT JOIN category c ON c.id = a.category_id
+              LEFT JOIN institution i ON i.id = a.issuer_id
           ),
-          holdings as (
-            select pd.portfolio_id,
+          holdings AS (
+            SELECT pd.portfolio_id,
                    s.portfolio_name,
                    pd.quantity,
                    pd.cost_basis,
@@ -243,402 +243,402 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
                    pd.accrued_interest,
                    pd.price_source_kind,
                    pd.computed_at
-              from position_daily pd
-              join scope s on s.portfolio_id = pd.portfolio_id
-              join target t on t.asset_id = pd.asset_id
-              join as_of a on a.position_date = pd.position_date
+              FROM position_daily pd
+              JOIN scope s ON s.portfolio_id = pd.portfolio_id
+              JOIN target t ON t.asset_id = pd.asset_id
+              JOIN as_of a ON a.position_date = pd.position_date
              -- Posição zerada fica no histórico e sai da linha de posição (O-09).
-             where pd.quantity <> 0 or pd.market_value <> 0
+             WHERE pd.quantity <> 0 OR pd.market_value <> 0
           ),
           -- O denominador do peso: tudo que o recorte tem aberto no dia, e não
           -- só este papel.
-          scope_total as (
-            select coalesce(sum(pd.market_value), 0) as value
-              from position_daily pd
-              join scope s on s.portfolio_id = pd.portfolio_id
-              join as_of a on a.position_date = pd.position_date
-             where pd.quantity <> 0 or pd.market_value <> 0
+          scope_total AS (
+            SELECT COALESCE(SUM(pd.market_value), 0) AS value
+              FROM position_daily pd
+              JOIN scope s ON s.portfolio_id = pd.portfolio_id
+              JOIN as_of a ON a.position_date = pd.position_date
+             WHERE pd.quantity <> 0 OR pd.market_value <> 0
           ),
           -- A janela de dez dias cobre feriado prolongado sem varrer a série:
           -- o fechamento grava todo dia útil.
-          previous as (
-            select coalesce(sum(pd.market_value), 0) as market_value,
-                   coalesce(sum(pd.quantity), 0) as quantity
-              from position_daily pd
-              join scope s on s.portfolio_id = pd.portfolio_id
-              join target t on t.asset_id = pd.asset_id
-             where pd.position_date = (
-                     select max(prev.position_date)
-                       from position_daily prev
-                       join scope s2 on s2.portfolio_id = prev.portfolio_id
-                      where prev.asset_id = t.asset_id
-                        and prev.position_date < (select position_date from as_of)
-                        and prev.position_date
-                              >= (select position_date from as_of) - 10
+          previous AS (
+            SELECT COALESCE(SUM(pd.market_value), 0) AS market_value,
+                   COALESCE(SUM(pd.quantity), 0) AS quantity
+              FROM position_daily pd
+              JOIN scope s ON s.portfolio_id = pd.portfolio_id
+              JOIN target t ON t.asset_id = pd.asset_id
+             WHERE pd.position_date = (
+                     SELECT MAX(prev.position_date)
+                       FROM position_daily prev
+                       JOIN scope s2 ON s2.portfolio_id = prev.portfolio_id
+                      WHERE prev.asset_id = t.asset_id
+                        AND prev.position_date < (SELECT position_date FROM as_of)
+                        AND prev.position_date
+                              >= (SELECT position_date FROM as_of) - 10
                    )
           ),
-          ledger as (
-            select tr.*, s.portfolio_name
-              from transaction tr
-              join scope s on s.portfolio_id = tr.portfolio_id
-              join target t on t.asset_id = tr.asset_id
+          ledger AS (
+            SELECT tr.*, s.portfolio_name
+              FROM transaction tr
+              JOIN scope s ON s.portfolio_id = tr.portfolio_id
+              JOIN target t ON t.asset_id = tr.asset_id
           ),
-          confirmed_payouts as (
-            select l.*
-              from ledger l
-             where l.kind = 'payout' and l.confirmed_at is not null
+          confirmed_payouts AS (
+            SELECT l.*
+              FROM ledger l
+             WHERE l.kind = 'payout' AND l.confirmed_at IS NOT NULL
           ),
           -- Os doze meses da grade, gerados em vez de descobertos: mês sem
           -- provento é uma barra vazia, não um mês que some do eixo.
-          month_axis as (
-            select to_char(m, 'YYYY-MM') as month, m::date as month_start
-              from bounds b,
-                   generate_series(
-                     date_trunc('month', b.anchor::timestamp)
-                       - make_interval(months => ${PAYOUT_MONTHS - 1}),
-                     date_trunc('month', b.anchor::timestamp),
-                     interval '1 month'
+          month_axis AS (
+            SELECT TO_CHAR(m, 'YYYY-MM') AS month, m::DATE AS month_start
+              FROM bounds b,
+                   GENERATE_SERIES(
+                     DATE_TRUNC('month', b.anchor::TIMESTAMP)
+                       - MAKE_INTERVAL(months => ${PAYOUT_MONTHS - 1}),
+                     DATE_TRUNC('month', b.anchor::TIMESTAMP),
+                     INTERVAL '1 month'
                    ) m
           ),
-          payouts_by_month as (
-            select to_char(p.settlement_date, 'YYYY-MM') as month,
-                   coalesce(sum(p.net_amount)
-                     filter (where p.payout_kind = 'dividend'), 0) as dividend,
-                   coalesce(sum(p.net_amount)
-                     filter (where p.payout_kind = 'jcp'), 0) as jcp,
-                   coalesce(sum(p.net_amount)
-                     filter (where p.payout_kind = 'income'), 0) as income,
-                   coalesce(sum(p.net_amount)
-                     filter (where p.payout_kind = 'interest'), 0) as interest,
-                   coalesce(sum(p.net_amount)
-                     filter (where p.payout_kind = 'amortization'), 0) as amortization,
-                   coalesce(sum(p.net_amount), 0) as total
-              from confirmed_payouts p
-             group by 1
+          payouts_by_month AS (
+            SELECT TO_CHAR(p.settlement_date, 'YYYY-MM') AS month,
+                   COALESCE(SUM(p.net_amount)
+                     FILTER (WHERE p.payout_kind = 'dividend'), 0) AS dividend,
+                   COALESCE(SUM(p.net_amount)
+                     FILTER (WHERE p.payout_kind = 'jcp'), 0) AS jcp,
+                   COALESCE(SUM(p.net_amount)
+                     FILTER (WHERE p.payout_kind = 'income'), 0) AS income,
+                   COALESCE(SUM(p.net_amount)
+                     FILTER (WHERE p.payout_kind = 'interest'), 0) AS interest,
+                   COALESCE(SUM(p.net_amount)
+                     FILTER (WHERE p.payout_kind = 'amortization'), 0) AS amortization,
+                   COALESCE(SUM(p.net_amount), 0) AS total
+              FROM confirmed_payouts p
+             GROUP BY 1
           ),
-          payouts_12m as (
-            select coalesce(sum(p.net_amount), 0) as received,
+          payouts_12m AS (
+            SELECT COALESCE(SUM(p.net_amount), 0) AS received,
                    -- Amortização reduz o custo em vez de contar como
                    -- rendimento (L-08): ela entra no recebido e sai do yield.
-                   coalesce(sum(p.net_amount)
-                     filter (where p.payout_kind <> 'amortization'), 0) as income
-              from confirmed_payouts p, bounds b
-             where p.settlement_date <= b.anchor
-               and p.settlement_date > (b.anchor - interval '12 months')::date
+                   COALESCE(SUM(p.net_amount)
+                     FILTER (WHERE p.payout_kind <> 'amortization'), 0) AS income
+              FROM confirmed_payouts p, bounds b
+             WHERE p.settlement_date <= b.anchor
+               AND p.settlement_date > (b.anchor - INTERVAL '12 months')::DATE
           ),
           -- Provento por cota do período: o mesmo anúncio vira um lançamento
           -- por carteira, então a média por evento evita contá-lo duas vezes.
-          payout_per_event as (
-            select p.settlement_date,
+          payout_per_event AS (
+            SELECT p.settlement_date,
                    p.trade_date,
-                   avg(p.net_amount / nullif(p.quantity, 0)) as per_share
-              from confirmed_payouts p
-             cross join range r
-             where p.payout_kind <> 'amortization'
-               and (r.from_date is null or p.settlement_date >= r.from_date)
-               and p.settlement_date <= r.to_date
-             group by 1, 2
+                   AVG(p.net_amount / NULLIF(p.quantity, 0)) AS per_share
+              FROM confirmed_payouts p
+             CROSS JOIN range r
+             WHERE p.payout_kind <> 'amortization'
+               AND (r.from_date IS NULL OR p.settlement_date >= r.from_date)
+               AND p.settlement_date <= r.to_date
+             GROUP BY 1, 2
           ),
-          window_payouts as (
-            select coalesce(sum(e.per_share * adj.factor), 0) as per_share
-              from payout_per_event e
+          window_payouts AS (
+            SELECT COALESCE(SUM(e.per_share * adj.factor), 0) AS per_share
+              FROM payout_per_event e
               ${adjustment(sql`e.trade_date`)}
           ),
-          window_prices as (
-            select (
-                     select round(ap.close * adj.factor, ${PRICE_SCALE})
-                       from asset_price ap
-                      cross join range r
+          window_prices AS (
+            SELECT (
+                     SELECT ROUND(ap.close * adj.factor, ${PRICE_SCALE})
+                       FROM asset_price ap
+                      CROSS JOIN range r
                       ${adjustment(sql`ap.price_date`)}
-                      where ap.asset_id = (select asset_id from target)
-                        and (r.from_date is null or ap.price_date >= r.from_date)
-                        and ap.price_date <= r.to_date
-                      order by ap.price_date
-                      limit 1
-                   ) as first_close,
+                      WHERE ap.asset_id = (SELECT asset_id FROM target)
+                        AND (r.from_date IS NULL OR ap.price_date >= r.from_date)
+                        AND ap.price_date <= r.to_date
+                      ORDER BY ap.price_date
+                      LIMIT 1
+                   ) AS first_close,
                    (
-                     select round(ap.close * adj.factor, ${PRICE_SCALE})
-                       from asset_price ap
-                      cross join range r
+                     SELECT ROUND(ap.close * adj.factor, ${PRICE_SCALE})
+                       FROM asset_price ap
+                      CROSS JOIN range r
                       ${adjustment(sql`ap.price_date`)}
-                      where ap.asset_id = (select asset_id from target)
-                        and (r.from_date is null or ap.price_date >= r.from_date)
-                        and ap.price_date <= r.to_date
-                      order by ap.price_date desc
-                      limit 1
-                   ) as last_close,
+                      WHERE ap.asset_id = (SELECT asset_id FROM target)
+                        AND (r.from_date IS NULL OR ap.price_date >= r.from_date)
+                        AND ap.price_date <= r.to_date
+                      ORDER BY ap.price_date DESC
+                      LIMIT 1
+                   ) AS last_close,
                    (
-                     select min(ap.price_date)
-                       from asset_price ap, range r
-                      where ap.asset_id = (select asset_id from target)
-                        and (r.from_date is null or ap.price_date >= r.from_date)
-                        and ap.price_date <= r.to_date
-                   ) as from_date,
+                     SELECT MIN(ap.price_date)
+                       FROM asset_price ap, range r
+                      WHERE ap.asset_id = (SELECT asset_id FROM target)
+                        AND (r.from_date IS NULL OR ap.price_date >= r.from_date)
+                        AND ap.price_date <= r.to_date
+                   ) AS from_date,
                    (
-                     select max(ap.price_date)
-                       from asset_price ap, range r
-                      where ap.asset_id = (select asset_id from target)
-                        and (r.from_date is null or ap.price_date >= r.from_date)
-                        and ap.price_date <= r.to_date
-                   ) as to_date
+                     SELECT MAX(ap.price_date)
+                       FROM asset_price ap, range r
+                      WHERE ap.asset_id = (SELECT asset_id FROM target)
+                        AND (r.from_date IS NULL OR ap.price_date >= r.from_date)
+                        AND ap.price_date <= r.to_date
+                   ) AS to_date
           )
-          select json_build_object(
-            'asset', (select row_to_json(ar) from (
-                       select asset_id, ticker, name, origin, b3_type, sector,
+          SELECT JSON_BUILD_OBJECT(
+            'asset', (SELECT ROW_TO_JSON(ar) FROM (
+                       SELECT asset_id, ticker, name, origin, b3_type, sector,
                               price_source, category_id, category_name, color_token,
                               category_automatic, issuer_name, archived_at, indexer,
                               rate, issued_at, maturity_date, liquidity,
                               liquidity_days, tax_regime
-                         from asset_row
+                         FROM asset_row
                      ) ar),
-            'portfolio_name', (select portfolio_name from scope
-                                where ${filter.portfolioId}::uuid is not null limit 1),
-            'as_of', (select position_date from as_of),
-            'computed_at', (select max(computed_at) from holdings),
+            'portfolio_name', (SELECT portfolio_name FROM scope
+                                WHERE ${filter.portfolioId}::UUID IS NOT NULL LIMIT 1),
+            'as_of', (SELECT position_date FROM as_of),
+            'computed_at', (SELECT MAX(computed_at) FROM holdings),
             'price', (
-              select json_build_object(
-                'value', case
-                           when (select unit from asset_row) = 'quantity'
-                                and sum(h.quantity) <> 0
-                           then round(sum(h.market_value) / sum(h.quantity),
-                                      ${PRICE_SCALE})::text
-                         end,
-                'day_change_ratio', round(
-                  (sum(h.market_value) / nullif(sum(h.quantity), 0))
-                  / nullif(
-                      (select market_value / nullif(quantity, 0) from previous), 0
+              SELECT JSON_BUILD_OBJECT(
+                'value', CASE
+                           WHEN (SELECT unit FROM asset_row) = 'quantity'
+                                AND SUM(h.quantity) <> 0
+                           THEN ROUND(SUM(h.market_value) / SUM(h.quantity),
+                                      ${PRICE_SCALE})::TEXT
+                         END,
+                'day_change_ratio', ROUND(
+                  (SUM(h.market_value) / NULLIF(SUM(h.quantity), 0))
+                  / NULLIF(
+                      (SELECT market_value / NULLIF(quantity, 0) FROM previous), 0
                     ) - 1,
                   ${RATIO_SCALE}
-                )::text,
+                )::TEXT,
                 -- A ressalva do recorte é a pior das linhas: uma carteira com
                 -- preço de ontem contamina o total mesmo que a outra esteja em
                 -- dia, e dizer "fresh" aí seria dizer que o número é de hoje.
                 'price_health', (
-                  select h2.price_source_kind
-                    from holdings h2
-                   order by case h2.price_source_kind
-                              when 'missing' then 0 when 'stale' then 1
-                              when 'manual' then 2 else 3
-                            end
-                   limit 1
+                  SELECT h2.price_source_kind
+                    FROM holdings h2
+                   ORDER BY CASE h2.price_source_kind
+                              WHEN 'missing' THEN 0 WHEN 'stale' THEN 1
+                              WHEN 'manual' THEN 2 ELSE 3
+                            END
+                   LIMIT 1
                 ),
                 'price_date', (
-                  select case
-                           when (select price_source_kind from holdings
-                                  order by case price_source_kind
-                                             when 'manual' then 0 else 1 end
-                                  limit 1) = 'manual'
-                           then (select max(mp.price_date) from manual_price mp
-                                  where mp.asset_id = (select asset_id from target)
-                                    and mp.price_date <= b.anchor)
-                           else (select max(ap.price_date) from asset_price ap
-                                  where ap.asset_id = (select asset_id from target)
-                                    and ap.price_date <= b.anchor)
-                         end
-                    from bounds b
+                  SELECT CASE
+                           WHEN (SELECT price_source_kind FROM holdings
+                                  ORDER BY CASE price_source_kind
+                                             WHEN 'manual' THEN 0 ELSE 1 END
+                                  LIMIT 1) = 'manual'
+                           THEN (SELECT MAX(mp.price_date) FROM manual_price mp
+                                  WHERE mp.asset_id = (SELECT asset_id FROM target)
+                                    AND mp.price_date <= b.anchor)
+                           ELSE (SELECT MAX(ap.price_date) FROM asset_price ap
+                                  WHERE ap.asset_id = (SELECT asset_id FROM target)
+                                    AND ap.price_date <= b.anchor)
+                         END
+                    FROM bounds b
                 )
               )
-              from holdings h
+              FROM holdings h
             ),
             'position', (
-              select case when count(*) = 0 then null else json_build_object(
-                'unit', (select unit from asset_row),
-                'quantity', case
-                              when (select unit from asset_row) = 'quantity'
-                              then sum(h.quantity)::text
-                            end,
+              SELECT CASE WHEN COUNT(*) = 0 THEN NULL ELSE JSON_BUILD_OBJECT(
+                'unit', (SELECT unit FROM asset_row),
+                'quantity', CASE
+                              WHEN (SELECT unit FROM asset_row) = 'quantity'
+                              THEN SUM(h.quantity)::TEXT
+                            END,
                 -- Com mais de uma carteira no recorte, o preço médio exibido é
                 -- custo sobre quantidade: a média ponderada das duas pontas. O
                 -- preço médio do modelo continua sendo por carteira (C-01).
-                'avg_price', case
-                               when (select unit from asset_row) = 'quantity'
-                                    and sum(h.quantity) <> 0
-                               then round(sum(h.cost_basis) / sum(h.quantity),
-                                          ${PRICE_SCALE})::text
-                             end,
-                'cost_basis', sum(h.cost_basis)::text,
-                'value', sum(h.market_value)::text,
-                'open_result', sum(h.market_value - h.cost_basis)::text,
-                'open_result_ratio', round(
-                  sum(h.market_value - h.cost_basis) / nullif(sum(h.cost_basis), 0),
+                'avg_price', CASE
+                               WHEN (SELECT unit FROM asset_row) = 'quantity'
+                                    AND SUM(h.quantity) <> 0
+                               THEN ROUND(SUM(h.cost_basis) / SUM(h.quantity),
+                                          ${PRICE_SCALE})::TEXT
+                             END,
+                'cost_basis', SUM(h.cost_basis)::TEXT,
+                'value', SUM(h.market_value)::TEXT,
+                'open_result', SUM(h.market_value - h.cost_basis)::TEXT,
+                'open_result_ratio', ROUND(
+                  SUM(h.market_value - h.cost_basis) / NULLIF(SUM(h.cost_basis), 0),
                   ${RATIO_SCALE}
-                )::text,
-                'weight', coalesce(round(
-                  sum(h.market_value) / nullif((select value from scope_total), 0),
+                )::TEXT,
+                'weight', COALESCE(ROUND(
+                  SUM(h.market_value) / NULLIF((SELECT value FROM scope_total), 0),
                   ${RATIO_SCALE}
-                ), 0)::text,
-                'accrued_interest', coalesce(sum(h.accrued_interest), 0)::text,
+                ), 0)::TEXT,
+                'accrued_interest', COALESCE(SUM(h.accrued_interest), 0)::TEXT,
                 -- Nunca vendido é ausência de resultado realizado, não zero:
                 -- "0,00" leria como "vendi e não ganhei nada".
                 'realized_result', (
-                  select sum(rr.result)::text
-                    from realized_result rr
-                    join scope s on s.portfolio_id = rr.portfolio_id
-                   where rr.asset_id = (select asset_id from target)
+                  SELECT SUM(rr.result)::TEXT
+                    FROM realized_result rr
+                    JOIN scope s ON s.portfolio_id = rr.portfolio_id
+                   WHERE rr.asset_id = (SELECT asset_id FROM target)
                 ),
-                'payouts_12m', (select received from payouts_12m)::text,
-                'yield_on_cost_12m', round(
-                  nullif((select income from payouts_12m), 0)
-                    / nullif(sum(h.cost_basis), 0),
+                'payouts_12m', (SELECT received FROM payouts_12m)::TEXT,
+                'yield_on_cost_12m', ROUND(
+                  NULLIF((SELECT income FROM payouts_12m), 0)
+                    / NULLIF(SUM(h.cost_basis), 0),
                   ${RATIO_SCALE}
-                )::text
-              ) end
-              from holdings h
+                )::TEXT
+              ) END
+              FROM holdings h
             ),
             'window', (
-              select json_build_object(
+              SELECT JSON_BUILD_OBJECT(
                 'from', w.from_date,
                 'to', w.to_date,
-                'return_ratio', round(
-                  w.last_close / nullif(w.first_close, 0) - 1, ${RATIO_SCALE}
-                )::text,
-                'return_with_payouts_ratio', round(
-                  (w.last_close + (select per_share from window_payouts))
-                    / nullif(w.first_close, 0) - 1,
+                'return_ratio', ROUND(
+                  w.last_close / NULLIF(w.first_close, 0) - 1, ${RATIO_SCALE}
+                )::TEXT,
+                'return_with_payouts_ratio', ROUND(
+                  (w.last_close + (SELECT per_share FROM window_payouts))
+                    / NULLIF(w.first_close, 0) - 1,
                   ${RATIO_SCALE}
-                )::text,
-                'adjusted', exists (
-                  select 1 from events e, range r
-                   where e.record_date <= r.to_date
-                     and (r.from_date is null or e.record_date >= r.from_date)
+                )::TEXT,
+                'adjusted', EXISTS (
+                  SELECT 1 FROM events e, range r
+                   WHERE e.record_date <= r.to_date
+                     AND (r.from_date IS NULL OR e.record_date >= r.from_date)
                 )
               )
-              from window_prices w
+              FROM window_prices w
             ),
-            'marks', coalesce((
-              select json_agg(m order by m.trade_date)
-                from (
-                  select l.trade_date,
-                         l.kind::text as side,
-                         sum(l.quantity)::text as quantity,
-                         round(
-                           sum(l.quantity * l.unit_price) / nullif(sum(l.quantity), 0),
+            'marks', COALESCE((
+              SELECT JSON_AGG(m ORDER BY m.trade_date)
+                FROM (
+                  SELECT l.trade_date,
+                         l.kind::TEXT AS side,
+                         SUM(l.quantity)::TEXT AS quantity,
+                         ROUND(
+                           SUM(l.quantity * l.unit_price) / NULLIF(SUM(l.quantity), 0),
                            ${PRICE_SCALE}
-                         )::text as unit_price
-                    from ledger l
-                   cross join range r
-                   where l.kind in ('buy', 'sell')
-                     and l.quantity > 0
-                     and (r.from_date is null or l.trade_date >= r.from_date)
-                     and l.trade_date <= r.to_date
-                   group by l.trade_date, l.kind
+                         )::TEXT AS unit_price
+                    FROM ledger l
+                   CROSS JOIN range r
+                   WHERE l.kind IN ('buy', 'sell')
+                     AND l.quantity > 0
+                     AND (r.from_date IS NULL OR l.trade_date >= r.from_date)
+                     AND l.trade_date <= r.to_date
+                   GROUP BY l.trade_date, l.kind
                 ) m
-            ), '[]'::json),
-            'payout_months', coalesce((
-              select json_agg(
-                       json_build_object(
+            ), '[]'::JSON),
+            'payout_months', COALESCE((
+              SELECT JSON_AGG(
+                       JSON_BUILD_OBJECT(
                          'month', a.month,
-                         'dividend', coalesce(p.dividend, 0)::text,
-                         'jcp', coalesce(p.jcp, 0)::text,
-                         'income', coalesce(p.income, 0)::text,
-                         'interest', coalesce(p.interest, 0)::text,
-                         'amortization', coalesce(p.amortization, 0)::text,
-                         'total', coalesce(p.total, 0)::text
+                         'dividend', COALESCE(p.dividend, 0)::TEXT,
+                         'jcp', COALESCE(p.jcp, 0)::TEXT,
+                         'income', COALESCE(p.income, 0)::TEXT,
+                         'interest', COALESCE(p.interest, 0)::TEXT,
+                         'amortization', COALESCE(p.amortization, 0)::TEXT,
+                         'total', COALESCE(p.total, 0)::TEXT
                        )
-                       order by a.month
+                       ORDER BY a.month
                      )
-                from month_axis a
-                left join payouts_by_month p on p.month = a.month
-            ), '[]'::json),
-            'payouts_total_12m', (select received from payouts_12m)::text,
-            'upcoming_payouts', coalesce((
-              select json_agg(
-                       json_build_object(
+                FROM month_axis a
+                LEFT JOIN payouts_by_month p ON p.month = a.month
+            ), '[]'::JSON),
+            'payouts_total_12m', (SELECT received FROM payouts_12m)::TEXT,
+            'upcoming_payouts', COALESCE((
+              SELECT JSON_AGG(
+                       JSON_BUILD_OBJECT(
                          'transaction_id', l.id,
                          'settlement_date', l.settlement_date,
                          'payout_kind', l.payout_kind,
-                         'net_amount', l.net_amount::text
+                         'net_amount', l.net_amount::TEXT
                        )
-                       order by l.settlement_date
+                       ORDER BY l.settlement_date
                      )
-                from ledger l
-               where l.kind = 'payout' and l.confirmed_at is null
-            ), '[]'::json),
-            'transactions', coalesce((
-              select json_agg(t order by t.trade_date desc, t.created_at desc)
-                from (
-                  select l.id,
+                FROM ledger l
+               WHERE l.kind = 'payout' AND l.confirmed_at IS NULL
+            ), '[]'::JSON),
+            'transactions', COALESCE((
+              SELECT JSON_AGG(t ORDER BY t.trade_date DESC, t.created_at DESC)
+                FROM (
+                  SELECT l.id,
                          l.kind,
                          l.payout_kind,
                          l.trade_date,
                          l.settlement_date,
-                         l.quantity::text as quantity,
-                         l.unit_price::text as unit_price,
-                         l.net_amount::text as net_amount,
+                         l.quantity::TEXT AS quantity,
+                         l.unit_price::TEXT AS unit_price,
+                         l.net_amount::TEXT AS net_amount,
                          l.confirmed_at,
                          l.portfolio_id,
                          l.portfolio_name,
-                         i.name as institution_name,
+                         i.name AS institution_name,
                          l.created_at
-                    from ledger l
-                    left join institution i on i.id = l.institution_id
-                   where (${filter.kind}::text is null
-                          or l.kind::text = ${filter.kind}::text)
-                   order by l.trade_date desc, l.created_at desc
-                   limit ${ASSET_PAGE_TRANSACTION_LIMIT}
+                    FROM ledger l
+                    LEFT JOIN institution i ON i.id = l.institution_id
+                   WHERE (${filter.kind}::TEXT IS NULL
+                          OR l.kind::TEXT = ${filter.kind}::TEXT)
+                   ORDER BY l.trade_date DESC, l.created_at DESC
+                   LIMIT ${ASSET_PAGE_TRANSACTION_LIMIT}
                 ) t
-            ), '[]'::json),
+            ), '[]'::JSON),
             'transactions_total', (
-              select count(*)::int from ledger l
-               where (${filter.kind}::text is null
-                      or l.kind::text = ${filter.kind}::text)
+              SELECT COUNT(*)::INT FROM ledger l
+               WHERE (${filter.kind}::TEXT IS NULL
+                      OR l.kind::TEXT = ${filter.kind}::TEXT)
             ),
             -- As contagens são de antes do filtro de tipo: é o que faz a opção
             -- "Compra 12" continuar dizendo 12 depois de ser escolhida.
-            'transaction_facets', coalesce((
-              select json_agg(
-                       json_build_object('kind', f.kind, 'count', f.count)
-                       order by f.count desc, f.kind
+            'transaction_facets', COALESCE((
+              SELECT JSON_AGG(
+                       JSON_BUILD_OBJECT('kind', f.kind, 'count', f.count)
+                       ORDER BY f.count DESC, f.kind
                      )
-                from (
-                  select l.kind, count(*)::int as count from ledger l group by l.kind
+                FROM (
+                  SELECT l.kind, COUNT(*)::INT AS count FROM ledger l GROUP BY l.kind
                 ) f
-            ), '[]'::json),
-            'corporate_events', coalesce((
-              select json_agg(
-                       json_build_object(
+            ), '[]'::JSON),
+            'corporate_events', COALESCE((
+              SELECT JSON_AGG(
+                       JSON_BUILD_OBJECT(
                          'id', ce.id,
                          'kind', ce.kind,
                          'record_date', ce.record_date,
-                         'ratio_from', ce.ratio_from::text,
-                         'ratio_to', ce.ratio_to::text,
+                         'ratio_from', ce.ratio_from::TEXT,
+                         'ratio_to', ce.ratio_to::TEXT,
                          'confirmed_at', ce.confirmed_at
                        )
-                       order by ce.record_date desc
+                       ORDER BY ce.record_date DESC
                      )
-                from corporate_event ce
-               where ce.asset_id = (select asset_id from target)
-            ), '[]'::json),
-            'portfolios', coalesce((
-              select json_agg(
-                       json_build_object(
+                FROM corporate_event ce
+               WHERE ce.asset_id = (SELECT asset_id FROM target)
+            ), '[]'::JSON),
+            'portfolios', COALESCE((
+              SELECT JSON_AGG(
+                       JSON_BUILD_OBJECT(
                          'portfolio_id', h.portfolio_id,
                          'portfolio_name', h.portfolio_name,
-                         'quantity', case
-                                       when (select unit from asset_row) = 'quantity'
-                                       then h.quantity::text
-                                     end,
-                         'value', h.market_value::text
+                         'quantity', CASE
+                                       WHEN (SELECT unit FROM asset_row) = 'quantity'
+                                       THEN h.quantity::TEXT
+                                     END,
+                         'value', h.market_value::TEXT
                        )
-                       order by h.market_value desc
+                       ORDER BY h.market_value DESC
                      )
-                from holdings h
-            ), '[]'::json),
-            'custodians', coalesce((
-              select json_agg(
-                       json_build_object(
+                FROM holdings h
+            ), '[]'::JSON),
+            'custodians', COALESCE((
+              SELECT JSON_AGG(
+                       JSON_BUILD_OBJECT(
                          'institution_id', c.institution_id,
                          'institution_name', c.institution_name
                        )
-                       order by c.institution_name
+                       ORDER BY c.institution_name
                      )
-                from (
-                  select distinct l.institution_id, i.name as institution_name
-                    from ledger l
-                    join institution i on i.id = l.institution_id
+                FROM (
+                  SELECT DISTINCT l.institution_id, i.name AS institution_name
+                    FROM ledger l
+                    JOIN institution i ON i.id = l.institution_id
                 ) c
-            ), '[]'::json)
-          ) as page
+            ), '[]'::JSON)
+          ) AS page
         `;
 
         const page = aggregates[0]?.page ?? null;

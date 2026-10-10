@@ -16,7 +16,7 @@ type Row = Record<string, unknown>;
 export const createInstitutionRepository = (sql: Connection): InstitutionRepository => ({
   findById: async (id: string) => {
     try {
-      const rows = await sql<Row[]>`select * from institution where id = ${id}`;
+      const rows = await sql<Row[]>`SELECT * FROM institution WHERE id = ${id}`;
       const row = rows[0];
 
       return success(row === undefined ? null : parseInstitutionFromDB(row));
@@ -28,7 +28,7 @@ export const createInstitutionRepository = (sql: Connection): InstitutionReposit
   findByName: async (name: string) => {
     try {
       const rows = await sql<Row[]>`
-        select * from institution where lower(name) = lower(${name}) limit 1
+        SELECT * FROM institution WHERE LOWER(name) = LOWER(${name}) LIMIT 1
       `;
       const row = rows[0];
 
@@ -40,7 +40,7 @@ export const createInstitutionRepository = (sql: Connection): InstitutionReposit
 
   list: async () => {
     try {
-      const rows = await sql<Row[]>`select * from institution order by lower(name)`;
+      const rows = await sql<Row[]>`SELECT * FROM institution ORDER BY LOWER(name)`;
 
       return success(rows.map((row) => parseInstitutionFromDB(row)));
     } catch (error) {
@@ -59,7 +59,7 @@ export const createInstitutionRepository = (sql: Connection): InstitutionReposit
     });
 
     try {
-      const rows = await sql<Row[]>`insert into institution ${sql(row)} returning *`;
+      const rows = await sql<Row[]>`INSERT INTO institution ${sql(row)} RETURNING *`;
       const created = rows[0];
 
       if (created === undefined) {
@@ -80,9 +80,9 @@ export const createInstitutionRepository = (sql: Connection): InstitutionReposit
     try {
       const rows = hasChanges(changes)
         ? await sql<Row[]>`
-            update institution set ${sql(changes)} where id = ${id} returning *
+            UPDATE institution SET ${sql(changes)} WHERE id = ${id} RETURNING *
           `
-        : await sql<Row[]>`select * from institution where id = ${id}`;
+        : await sql<Row[]>`SELECT * FROM institution WHERE id = ${id}`;
       const row = rows[0];
 
       return success(row === undefined ? null : parseInstitutionFromDB(row));
@@ -94,7 +94,7 @@ export const createInstitutionRepository = (sql: Connection): InstitutionReposit
   remove: async (id: string) => {
     try {
       const rows = await sql<{ id: string }[]>`
-        delete from institution where id = ${id} returning id
+        DELETE FROM institution WHERE id = ${id} RETURNING id
       `;
 
       return success(rows.length > 0);
@@ -107,9 +107,9 @@ export const createInstitutionRepository = (sql: Connection): InstitutionReposit
   usage: async (id: string) => {
     try {
       const rows = await sql<{ transactions: string; assets: string }[]>`
-        select (select count(*) from transaction where institution_id = ${id})::text
-                 as transactions,
-               (select count(*) from asset where issuer_id = ${id})::text as assets
+        SELECT (SELECT COUNT(*) FROM transaction WHERE institution_id = ${id})::TEXT
+                 AS transactions,
+               (SELECT COUNT(*) FROM asset WHERE issuer_id = ${id})::TEXT AS assets
       `;
       const row = rows[0];
 
@@ -130,18 +130,18 @@ export const createInstitutionRepository = (sql: Connection): InstitutionReposit
   issuerExposure: async (id: string) => {
     try {
       const rows = await sql<{ exposure: string; assets: string }[]>`
-        select coalesce(sum(
-                 case t.kind
-                   when 'buy'  then t.gross_amount
-                   when 'sell' then -t.gross_amount
-                   else 0
-                 end
-               ), 0)::text as exposure,
-               count(distinct a.id)::text as assets
-          from asset a
-          join transaction t on t.asset_id = a.id
-         where a.issuer_id = ${id}
-           and a.origin = 'manual'
+        SELECT COALESCE(SUM(
+                 CASE t.kind
+                   WHEN 'buy'  THEN t.gross_amount
+                   WHEN 'sell' THEN -t.gross_amount
+                   ELSE 0
+                 END
+               ), 0)::TEXT AS exposure,
+               COUNT(DISTINCT a.id)::TEXT AS assets
+          FROM asset a
+          JOIN transaction t ON t.asset_id = a.id
+         WHERE a.issuer_id = ${id}
+           AND a.origin = 'manual'
       `;
       const row = rows[0];
 

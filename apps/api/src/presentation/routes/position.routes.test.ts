@@ -28,12 +28,12 @@ let itub4: string;
 /** O fechamento é do worker; aqui ele é escrito à mão, que é o que a tela lê. */
 const fecharDia = async (date: string): Promise<void> => {
   await harness.sql`
-    insert into position_daily
+    INSERT INTO position_daily
       (portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
        market_value, price_source_kind)
-    values
+    VALUES
       (${carteira}, ${itub4}, ${date}, '500', '29.10', '14550.00', '18420.00', 'fresh')
-    on conflict (portfolio_id, asset_id, position_date) do nothing
+    ON CONFLICT (portfolio_id, asset_id, position_date) DO NOTHING
   `;
 };
 

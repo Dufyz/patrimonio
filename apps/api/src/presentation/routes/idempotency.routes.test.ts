@@ -93,8 +93,8 @@ describe('Idempotency-Key', () => {
     const primeira = await compra('chave-de-ontem');
 
     await harness.sql`
-      update transaction set created_at = now() - interval '25 hours'
-       where id = ${primeira.body.transaction.id}
+      UPDATE transaction SET created_at = NOW() - INTERVAL '25 hours'
+       WHERE id = ${primeira.body.transaction.id}
     `;
 
     const segunda = await compra('chave-de-ontem');

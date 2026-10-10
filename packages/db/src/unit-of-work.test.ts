@@ -27,8 +27,8 @@ afterAll(async () => {
 
 afterEach(async () => {
   // Estes testes comitam de propósito: a limpeza é explícita.
-  await sql`delete from pipeline_outbox`;
-  await sql`delete from institution where id = ${INSTITUTION}`;
+  await sql`DELETE FROM pipeline_outbox`;
+  await sql`DELETE FROM institution WHERE id = ${INSTITUTION}`;
 });
 
 describe('transação', () => {
@@ -37,8 +37,8 @@ describe('transação', () => {
       const { tx } = repositories as DbRepositories;
 
       await tx`
-        insert into institution (id, name, role)
-        values (${INSTITUTION}, 'Corretora Abortada', 'custodian')
+        INSERT INTO institution (id, name, role)
+        VALUES (${INSTITUTION}, 'Corretora Abortada', 'custodian')
       `;
       await repositories.outbox.enqueue([
         {
@@ -55,10 +55,10 @@ describe('transação', () => {
 
     // Nem a instituição nem o evento ficaram: os dois morreram juntos.
     const [institutions] = await sql<{ total: string }[]>`
-      select count(*)::text as total from institution where id = ${INSTITUTION}
+      SELECT COUNT(*)::TEXT AS total FROM institution WHERE id = ${INSTITUTION}
     `;
     const [events] = await sql<{ total: string }[]>`
-      select count(*)::text as total from pipeline_outbox
+      SELECT COUNT(*)::TEXT AS total FROM pipeline_outbox
     `;
 
     expect(Number(institutions?.total)).toBe(0);
@@ -79,7 +79,7 @@ describe('transação', () => {
     expect(unwrapSuccess(result)).toHaveLength(1);
 
     const [row] = await sql<{ total: string }[]>`
-      select count(*)::text as total from pipeline_outbox
+      SELECT COUNT(*)::TEXT AS total FROM pipeline_outbox
     `;
     expect(Number(row?.total)).toBe(1);
   });
@@ -87,7 +87,7 @@ describe('transação', () => {
   it('erro inesperado do banco volta como AppError, não como exceção', async () => {
     const result = await uow.run(async (repositories) => {
       const { tx } = repositories as DbRepositories;
-      await tx.unsafe('select * from tabela_que_nao_existe');
+      await tx.unsafe('SELECT * FROM tabela_que_nao_existe');
       return success('não chega aqui');
     });
 
@@ -98,8 +98,8 @@ describe('transação', () => {
 describe('trava de escopo', () => {
   it('dois trabalhos na mesma carteira serializam, com atraso entre leitura e escrita', async () => {
     await sql`
-      insert into institution (id, name, role, brokerage_per_order)
-      values (${INSTITUTION}, 'Corretora Concorrente', 'custodian', 0)
+      INSERT INTO institution (id, name, role, brokerage_per_order)
+      VALUES (${INSTITUTION}, 'Corretora Concorrente', 'custodian', 0)
     `;
 
     // Lê, espera e escreve o valor lido + 1. Sem a trava os dois leem 0 e o
@@ -111,16 +111,16 @@ describe('trava de escopo', () => {
           const { tx } = repositories as DbRepositories;
 
           const [row] = await tx<{ value: string }[]>`
-            select brokerage_per_order::text as value
-              from institution where id = ${INSTITUTION}
+            SELECT brokerage_per_order::TEXT AS value
+              FROM institution WHERE id = ${INSTITUTION}
           `;
 
           await new Promise((resolve) => setTimeout(resolve, 80));
 
           await tx`
-            update institution
-               set brokerage_per_order = ${Number(row?.value ?? 0) + 1}
-             where id = ${INSTITUTION}
+            UPDATE institution
+               SET brokerage_per_order = ${Number(row?.value ?? 0) + 1}
+             WHERE id = ${INSTITUTION}
           `;
 
           return success(undefined);
@@ -131,7 +131,7 @@ describe('trava de escopo', () => {
     await Promise.all([increment(), increment()]);
 
     const [row] = await sql<{ value: string }[]>`
-      select brokerage_per_order::text as value from institution where id = ${INSTITUTION}
+      SELECT brokerage_per_order::TEXT AS value FROM institution WHERE id = ${INSTITUTION}
     `;
 
     expect(Number(row?.value)).toBe(2);

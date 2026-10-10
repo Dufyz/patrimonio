@@ -76,50 +76,50 @@ afterAll(async () => {
 });
 
 const limpar = async (): Promise<void> => {
-  await sql`delete from asset_price`;
-  await sql`delete from index_quote`;
-  await sql`delete from market_source_run`;
-  await sql`delete from position_daily`;
-  await sql`delete from portfolio_daily`;
-  await sql`delete from pipeline_outbox`;
-  await sql`delete from alert_instance`;
-  await sql`delete from transaction`;
-  await sql`delete from asset where id in (${ACAO}, ${CDB}, ${TESOURO})`;
-  await sql`delete from portfolio where id = ${PORTFOLIO}`;
-  await sql`delete from institution where id = ${INSTITUTION}`;
+  await sql`DELETE FROM asset_price`;
+  await sql`DELETE FROM index_quote`;
+  await sql`DELETE FROM market_source_run`;
+  await sql`DELETE FROM position_daily`;
+  await sql`DELETE FROM portfolio_daily`;
+  await sql`DELETE FROM pipeline_outbox`;
+  await sql`DELETE FROM alert_instance`;
+  await sql`DELETE FROM transaction`;
+  await sql`DELETE FROM asset WHERE id IN (${ACAO}, ${CDB}, ${TESOURO})`;
+  await sql`DELETE FROM portfolio WHERE id = ${PORTFOLIO}`;
+  await sql`DELETE FROM institution WHERE id = ${INSTITUTION}`;
 };
 
 beforeEach(async () => {
   await limpar();
 
   await sql`
-    insert into institution (id, name, role)
-    values (${INSTITUTION}, 'Corretora Estágio', 'custodian')
+    INSERT INTO institution (id, name, role)
+    VALUES (${INSTITUTION}, 'Corretora Estágio', 'custodian')
   `;
-  await sql`insert into portfolio (id, name) values (${PORTFOLIO}, 'Carteira Estágio')`;
+  await sql`INSERT INTO portfolio (id, name) VALUES (${PORTFOLIO}, 'Carteira Estágio')`;
 
   await sql`
-    insert into asset (id, ticker, name, origin, b3_type, price_source)
-    values (${ACAO}, 'STGA4', 'Ação do estágio', 'market', 'stock', 'auto')
+    INSERT INTO asset (id, ticker, name, origin, b3_type, price_source)
+    VALUES (${ACAO}, 'STGA4', 'Ação do estágio', 'market', 'stock', 'auto')
   `;
   await sql`
-    insert into asset (
+    INSERT INTO asset (
       id, ticker, name, origin, b3_type, issuer_id, indexer, rate, issued_at,
       maturity_date, liquidity, tax_regime
     )
-    values
-      (${CDB}, 'STG-CDB-2028', 'CDB do estágio', 'manual', null, ${INSTITUTION},
+    VALUES
+      (${CDB}, 'STG-CDB-2028', 'CDB do estágio', 'manual', NULL, ${INSTITUTION},
        'cdi_pct', 112, '2026-10-01', '2028-10-10', 'at_maturity', 'regressive'),
       (${TESOURO}, 'STG-TESOURO-2029', 'Tesouro do estágio', 'market', 'treasury',
-       null, 'ipca_plus', 0, '2026-10-01', '2029-05-15', 'daily', 'regressive')
+       NULL, 'ipca_plus', 0, '2026-10-01', '2029-05-15', 'daily', 'regressive')
   `;
 
   await sql`
-    insert into transaction (
+    INSERT INTO transaction (
       id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
       quantity, unit_price, fees, gross_amount, net_amount
     )
-    values
+    VALUES
       ('0191e5a0-0000-7000-8000-00000000e001', 'buy', '2026-10-01', '2026-10-05',
        ${PORTFOLIO}, ${ACAO}, ${INSTITUTION}, 100, 30, 0, 3000, -3000),
       ('0191e5a0-0000-7000-8000-00000000e002', 'buy', '2026-10-01', '2026-10-01',
@@ -130,7 +130,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await sql`delete from pipeline_outbox`;
+  await sql`DELETE FROM pipeline_outbox`;
 });
 
 const quote = (close: string, date = DATE) => ({
@@ -164,12 +164,12 @@ describe('a coleta do dia', () => {
     expect(result.indices_written).toBe(4);
 
     const prices = await sql<{ asset_id: string; close: string }[]>`
-      select asset_id, close from asset_price order by asset_id
+      SELECT asset_id, close FROM asset_price ORDER BY asset_id
     `;
     expect(prices).toHaveLength(2);
 
     const [cdi] = await sql<{ daily_factor: string }[]>`
-      select daily_factor from index_quote where quote_date = ${DATE}
+      SELECT daily_factor FROM index_quote WHERE quote_date = ${DATE}
     `;
     expect(cdi?.daily_factor).toBe('1.000419570000');
   });
@@ -184,7 +184,7 @@ describe('a coleta do dia', () => {
     );
 
     const [evento] = await sql<{ stage: string; dedupe_key: string }[]>`
-      select stage, dedupe_key from pipeline_outbox where stage = 'close'
+      SELECT stage, dedupe_key FROM pipeline_outbox WHERE stage = 'close'
     `;
 
     expect(evento?.dedupe_key).toBe(`close:${DATE}`);
@@ -205,7 +205,7 @@ describe('a coleta do dia', () => {
     expect(result.skipped).toBe(true);
 
     const [total] = await sql<{ total: string }[]>`
-      select count(*)::text as total from asset_price
+      SELECT COUNT(*)::TEXT AS total FROM asset_price
     `;
     expect(Number(total?.total)).toBe(0);
   });
@@ -216,7 +216,7 @@ describe('a coleta do dia', () => {
     );
 
     const prices = await sql<{ asset_id: string }[]>`
-      select asset_id from asset_price
+      SELECT asset_id FROM asset_price
     `;
 
     expect(prices.map((row) => row.asset_id)).not.toContain(CDB);
@@ -231,7 +231,7 @@ describe('a coleta do dia', () => {
     expect(result.missing).toContain('STGA4');
 
     const zeros = await sql<{ total: string }[]>`
-      select count(*)::text as total from asset_price where close = 0
+      SELECT COUNT(*)::TEXT AS total FROM asset_price WHERE close = 0
     `;
     expect(Number(zeros[0]?.total)).toBe(0);
   });
@@ -240,7 +240,7 @@ describe('a coleta do dia', () => {
     unwrapSuccess(await collect({ quotes: [] })({}));
 
     const alertas = await sql<{ rule_kind: string; subject_id: string }[]>`
-      select rule_kind, subject_id from alert_instance
+      SELECT rule_kind, subject_id FROM alert_instance
     `;
 
     expect(alertas.some((alerta) => alerta.rule_kind === 'price_missing')).toBe(true);
@@ -258,7 +258,7 @@ describe('a coleta do dia', () => {
 
     const runs = await sql<
       { source: string; kind: string; ok: boolean; source_kind: string | null }[]
-    >`select source, kind, ok, source_kind from market_source_run order by kind`;
+    >`SELECT source, kind, ok, source_kind FROM market_source_run ORDER BY kind`;
 
     expect(runs.map((row) => row.kind).sort()).toEqual(['indices', 'quotes', 'treasury']);
     expect(runs.every((row) => row.ok)).toBe(true);
@@ -275,7 +275,7 @@ describe('a coleta do dia', () => {
     );
 
     const [row] = await sql<{ source: string; source_kind: string }[]>`
-      select source, source_kind from asset_price where asset_id = ${ACAO}
+      SELECT source, source_kind FROM asset_price WHERE asset_id = ${ACAO}
     `;
 
     expect(row?.source).toBe('usebolsai');
@@ -291,12 +291,12 @@ describe('a coleta do dia', () => {
 
     unwrapSuccess(await collect(script)({}));
     const primeira = await sql<{ asset_id: string; close: string }[]>`
-      select asset_id, close from asset_price order by asset_id
+      SELECT asset_id, close FROM asset_price ORDER BY asset_id
     `;
 
     unwrapSuccess(await collect(script)({}));
     const segunda = await sql<{ asset_id: string; close: string }[]>`
-      select asset_id, close from asset_price order by asset_id
+      SELECT asset_id, close FROM asset_price ORDER BY asset_id
     `;
 
     expect(segunda).toEqual(primeira);
@@ -306,7 +306,7 @@ describe('a coleta do dia', () => {
     unwrapSuccess(await collect({ treasury: [tesouroQuote()] })({}));
 
     const [row] = await sql<{ close: string }[]>`
-      select close from asset_price where asset_id = ${TESOURO}
+      SELECT close FROM asset_price WHERE asset_id = ${TESOURO}
     `;
 
     expect(row?.close).toBe('2971.08000000');
@@ -326,7 +326,7 @@ describe('o backfill de um papel', () => {
     expect(result.recalculated).toEqual([PORTFOLIO]);
 
     const [evento] = await sql<{ payload: { from_date: string } }[]>`
-      select payload from pipeline_outbox where stage = 'recalc'
+      SELECT payload FROM pipeline_outbox WHERE stage = 'recalc'
     `;
 
     // O recálculo parte da data mais antiga preenchida: é ele que põe a série na
@@ -387,7 +387,7 @@ describe('o backfill de um papel', () => {
     expect(result.from).toBe('2026-10-01');
 
     const [evento] = await sql<{ payload: { from_date: string } }[]>`
-      select payload from pipeline_outbox where stage = 'recalc'
+      SELECT payload FROM pipeline_outbox WHERE stage = 'recalc'
     `;
 
     expect(evento?.payload.from_date).toBe('2026-10-01');
@@ -399,7 +399,7 @@ describe('o backfill de um papel', () => {
     );
 
     const [row] = await sql<{ kind: string; items: number }[]>`
-      select kind, items from market_source_run where kind = 'backfill'
+      SELECT kind, items FROM market_source_run WHERE kind = 'backfill'
     `;
 
     expect(row?.items).toBe(1);
@@ -426,24 +426,24 @@ describe('uma semana de coleta', () => {
     }
 
     const precos = await sql<{ price_date: string; close: string }[]>`
-      select price_date, close
-        from asset_price
-       where asset_id = ${ACAO}
-       order by price_date
+      SELECT price_date, close
+        FROM asset_price
+       WHERE asset_id = ${ACAO}
+       ORDER BY price_date
     `;
 
     expect(precos.map((row) => row.price_date)).toEqual(dias);
     expect(precos.every((row) => Number(row.close) > 0)).toBe(true);
 
     const [fatores] = await sql<{ total: string }[]>`
-      select count(*)::text as total from index_quote where index_code = 'CDI'
+      SELECT COUNT(*)::TEXT AS total FROM index_quote WHERE index_code = 'CDI'
     `;
     expect(Number(fatores?.total)).toBe(4);
 
     // Um `close` por dia foi encadeado, e a coalescência não os perdeu: cada dia
     // tem a sua própria chave.
     const fechamentos = await sql<{ dedupe_key: string }[]>`
-      select dedupe_key from pipeline_outbox where stage = 'close' order by dedupe_key
+      SELECT dedupe_key FROM pipeline_outbox WHERE stage = 'close' ORDER BY dedupe_key
     `;
     expect(fechamentos.map((row) => row.dedupe_key)).toEqual(
       dias.map((dia) => `close:${dia}`),

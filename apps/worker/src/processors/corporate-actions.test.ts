@@ -73,20 +73,20 @@ const provider = (
 });
 
 const limpar = async (): Promise<void> => {
-  await sql`delete from announced_payout`;
-  await sql`delete from corporate_event`;
-  await sql`delete from alert_instance`;
-  await sql`delete from asset_price`;
-  await sql`delete from market_source_run`;
-  await sql`delete from position_daily`;
-  await sql`delete from portfolio_daily`;
-  await sql`delete from pipeline_outbox`;
-  await sql`delete from transaction_undo`;
-  await sql`delete from payout_dismissal`;
-  await sql`delete from transaction`;
-  await sql`delete from asset where id = ${ACAO}`;
-  await sql`delete from portfolio where id in (${PORTFOLIO}, ${OUTRA})`;
-  await sql`delete from institution where id = ${INSTITUTION}`;
+  await sql`DELETE FROM announced_payout`;
+  await sql`DELETE FROM corporate_event`;
+  await sql`DELETE FROM alert_instance`;
+  await sql`DELETE FROM asset_price`;
+  await sql`DELETE FROM market_source_run`;
+  await sql`DELETE FROM position_daily`;
+  await sql`DELETE FROM portfolio_daily`;
+  await sql`DELETE FROM pipeline_outbox`;
+  await sql`DELETE FROM transaction_undo`;
+  await sql`DELETE FROM payout_dismissal`;
+  await sql`DELETE FROM transaction`;
+  await sql`DELETE FROM asset WHERE id = ${ACAO}`;
+  await sql`DELETE FROM portfolio WHERE id IN (${PORTFOLIO}, ${OUTRA})`;
+  await sql`DELETE FROM institution WHERE id = ${INSTITUTION}`;
 };
 
 beforeAll(async () => {
@@ -110,16 +110,16 @@ beforeEach(async () => {
   await limpar();
 
   await sql`
-    insert into institution (id, name, role)
-    values (${INSTITUTION}, 'Corretora Provento', 'custodian')
+    INSERT INTO institution (id, name, role)
+    VALUES (${INSTITUTION}, 'Corretora Provento', 'custodian')
   `;
   await sql`
-    insert into portfolio (id, name)
-    values (${PORTFOLIO}, 'Carteira Provento'), (${OUTRA}, 'Carteira Sem Posição')
+    INSERT INTO portfolio (id, name)
+    VALUES (${PORTFOLIO}, 'Carteira Provento'), (${OUTRA}, 'Carteira Sem Posição')
   `;
   await sql`
-    insert into asset (id, ticker, name, origin, b3_type, price_source)
-    values (${ACAO}, 'PRVA4', 'Ação do provento', 'market', 'stock', 'auto')
+    INSERT INTO asset (id, ticker, name, origin, b3_type, price_source)
+    VALUES (${ACAO}, 'PRVA4', 'Ação do provento', 'market', 'stock', 'auto')
   `;
 });
 
@@ -129,11 +129,11 @@ const comprar = async (date: string, quantity: number, portfolio = PORTFOLIO) =>
   sequencia += 1;
 
   await sql`
-    insert into transaction (
+    INSERT INTO transaction (
       id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
       quantity, unit_price, fees, gross_amount, net_amount
     )
-    values (
+    VALUES (
       ${`0191e5a0-0000-7000-8000-${String(sequencia).padStart(12, '0')}`},
       'buy', ${date}, ${date}, ${portfolio}, ${ACAO}, ${INSTITUTION},
       ${quantity}, 30, 0, ${quantity * 30}, ${-quantity * 30}
@@ -178,7 +178,7 @@ describe('provento anunciado vira lançamento a receber', () => {
     expect(result.created[0]?.confirmed).toBe(false);
 
     const [row] = await sql<{ confirmed_at: Date | null }[]>`
-      select confirmed_at from transaction where kind = 'payout'
+      SELECT confirmed_at FROM transaction WHERE kind = 'payout'
     `;
     expect(row?.confirmed_at).toBeNull();
   });
@@ -204,7 +204,7 @@ describe('provento anunciado vira lançamento a receber', () => {
     expect(result.skipped).toHaveLength(1);
 
     const [total] = await sql<{ total: string }[]>`
-      select count(*)::text as total from transaction where kind = 'payout'
+      SELECT COUNT(*)::TEXT AS total FROM transaction WHERE kind = 'payout'
     `;
     expect(Number(total?.total)).toBe(0);
   });
@@ -230,7 +230,7 @@ describe('provento anunciado vira lançamento a receber', () => {
     expect(segunda.created).toEqual([]);
 
     const [total] = await sql<{ total: string }[]>`
-      select count(*)::text as total from transaction where kind = 'payout'
+      SELECT COUNT(*)::TEXT AS total FROM transaction WHERE kind = 'payout'
     `;
     expect(Number(total?.total)).toBe(1);
   });
@@ -242,7 +242,7 @@ describe('provento anunciado vira lançamento a receber', () => {
     unwrapSuccess(await materialize()({}));
 
     const [row] = await sql<{ gross_amount: string }[]>`
-      select gross_amount from transaction where kind = 'payout'
+      SELECT gross_amount FROM transaction WHERE kind = 'payout'
     `;
     expect(row?.gross_amount).toBe('100.00');
   });
@@ -261,7 +261,7 @@ describe('provento anunciado vira lançamento a receber', () => {
     expect(confirmada.transaction.confirmed_at).not.toBeNull();
 
     const [total] = await sql<{ total: string }[]>`
-      select count(*)::text as total from transaction where kind = 'payout'
+      SELECT COUNT(*)::TEXT AS total FROM transaction WHERE kind = 'payout'
     `;
     expect(Number(total?.total)).toBe(1);
   });
@@ -296,7 +296,7 @@ describe('ingestão do que a fonte anuncia', () => {
     expect(result.payouts_announced).toBe(1);
 
     const [lancamentos] = await sql<{ total: string }[]>`
-      select count(*)::text as total from transaction where kind = 'payout'
+      SELECT COUNT(*)::TEXT AS total FROM transaction WHERE kind = 'payout'
     `;
     expect(Number(lancamentos?.total)).toBe(0);
   });
@@ -341,15 +341,15 @@ describe('ingestão do que a fonte anuncia', () => {
     expect(result.events_detected).toBe(1);
 
     const [evento] = await sql<{ confirmed_at: Date | null }[]>`
-      select confirmed_at from corporate_event
+      SELECT confirmed_at FROM corporate_event
     `;
     expect(evento?.confirmed_at).toBeNull();
 
     // Nenhum lançamento de evento corporativo foi criado: a quantidade em
     // carteira só muda depois da confirmação.
     const [total] = await sql<{ total: string }[]>`
-      select count(*)::text as total
-        from transaction where kind = 'corporate_event'
+      SELECT COUNT(*)::TEXT AS total
+        FROM transaction WHERE kind = 'corporate_event'
     `;
     expect(Number(total?.total)).toBe(0);
   });
@@ -369,7 +369,7 @@ describe('ingestão do que a fonte anuncia', () => {
     unwrapSuccess(await ingest([], [evento])({ from: '2026-09-01' }));
 
     const [total] = await sql<{ total: string }[]>`
-      select count(*)::text as total from corporate_event
+      SELECT COUNT(*)::TEXT AS total FROM corporate_event
     `;
     expect(Number(total?.total)).toBe(1);
   });
@@ -402,7 +402,7 @@ describe('o alerta do evento corporativo', () => {
 
     const [alerta] = await sql<
       { rule_kind: string; status: string; payload: Record<string, unknown> }[]
-    >`select rule_kind, status, payload from alert_instance`;
+    >`SELECT rule_kind, status, payload FROM alert_instance`;
 
     expect(alerta?.rule_kind).toBe('corporate_event_pending');
     expect(alerta?.status).toBe('open');
@@ -419,7 +419,7 @@ describe('o alerta do evento corporativo', () => {
     unwrapSuccess(await reconcile()({}));
 
     const [total] = await sql<{ total: string }[]>`
-      select count(*)::text as total from alert_instance
+      SELECT COUNT(*)::TEXT AS total FROM alert_instance
     `;
     expect(Number(total?.total)).toBe(0);
   });
@@ -438,7 +438,7 @@ describe('o alerta do evento corporativo', () => {
     unwrapSuccess(await reconcile()({}));
 
     const [total] = await sql<{ total: string }[]>`
-      select count(*)::text as total from alert_instance
+      SELECT COUNT(*)::TEXT AS total FROM alert_instance
     `;
     expect(Number(total?.total)).toBe(0);
   });
@@ -468,7 +468,7 @@ describe('o alerta do evento corporativo', () => {
     expect(visiveis).toEqual([]);
 
     const [persistido] = await sql<{ status: string }[]>`
-      select status from alert_instance
+      SELECT status FROM alert_instance
     `;
     expect(persistido?.status).toBe('ignored');
   });

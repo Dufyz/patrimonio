@@ -19,7 +19,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
 
   findById: async (id: string) => {
     try {
-      const rows = await sql<Row[]>`select * from transaction where id = ${id}`;
+      const rows = await sql<Row[]>`SELECT * FROM transaction WHERE id = ${id}`;
       const row = rows[0];
 
       return success(row === undefined ? null : parseTransactionFromDB(row));
@@ -31,7 +31,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
   findByIdempotencyKey: async (key: string) => {
     try {
       const rows = await sql<Row[]>`
-        select * from transaction where idempotency_key = ${key} limit 1
+        SELECT * FROM transaction WHERE idempotency_key = ${key} LIMIT 1
       `;
       const row = rows[0];
 
@@ -44,11 +44,11 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
   expireIdempotencyKeys: async (olderThanHours: number) => {
     try {
       const rows = await sql<{ id: string }[]>`
-        update transaction
-           set idempotency_key = null
-         where idempotency_key is not null
-           and created_at < now() - make_interval(hours => ${olderThanHours})
-        returning id
+        UPDATE transaction
+           SET idempotency_key = NULL
+         WHERE idempotency_key IS NOT NULL
+           AND created_at < NOW() - MAKE_INTERVAL(hours => ${olderThanHours})
+        RETURNING id
       `;
 
       return success(rows.length);
@@ -65,32 +65,32 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
     const offset = (filter.page - 1) * filter.limit;
 
     const where = sql`
-      where ${filter.portfolio_id === undefined ? sql`true` : sql`portfolio_id = ${filter.portfolio_id}`}
-        and ${filter.asset_id === undefined ? sql`true` : sql`asset_id = ${filter.asset_id}`}
-        and ${
+      WHERE ${filter.portfolio_id === undefined ? sql`TRUE` : sql`portfolio_id = ${filter.portfolio_id}`}
+        AND ${filter.asset_id === undefined ? sql`TRUE` : sql`asset_id = ${filter.asset_id}`}
+        AND ${
           filter.institution_id === undefined
-            ? sql`true`
+            ? sql`TRUE`
             : sql`institution_id = ${filter.institution_id}`
         }
-        and ${filter.kind === undefined ? sql`true` : sql`kind = ${filter.kind}`}
-        and ${filter.from === undefined ? sql`true` : sql`trade_date >= ${filter.from}`}
-        and ${filter.to === undefined ? sql`true` : sql`trade_date <= ${filter.to}`}
-        and ${
+        AND ${filter.kind === undefined ? sql`TRUE` : sql`kind = ${filter.kind}`}
+        AND ${filter.from === undefined ? sql`TRUE` : sql`trade_date >= ${filter.from}`}
+        AND ${filter.to === undefined ? sql`TRUE` : sql`trade_date <= ${filter.to}`}
+        AND ${
           filter.pending_payouts === true
-            ? sql`kind = 'payout' and confirmed_at is null`
-            : sql`true`
+            ? sql`kind = 'payout' AND confirmed_at IS NULL`
+            : sql`TRUE`
         }
     `;
 
     try {
       const rows = await sql<Row[]>`
-        select * from transaction ${where}
-         order by trade_date desc, created_at desc
-         limit ${filter.limit} offset ${offset}
+        SELECT * FROM transaction ${where}
+         ORDER BY trade_date DESC, created_at DESC
+         LIMIT ${filter.limit} OFFSET ${offset}
       `;
 
       const counted = await sql<{ total: string }[]>`
-        select count(*)::text as total from transaction ${where}
+        SELECT COUNT(*)::TEXT AS total FROM transaction ${where}
       `;
 
       return success({
@@ -139,37 +139,37 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
 
     try {
       const inserted = await sql<Row[]>`
-        insert into transaction
+        INSERT INTO transaction
           (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
            quantity, unit_price, fees, gross_amount, tax_withheld, net_amount,
            payout_kind, expected_net_amount, record_date, confirmed_at,
            transfer_group_id, event_ratio_from, event_ratio_to, note, idempotency_key)
-        select (entry ->> 'id')::uuid,
+        SELECT (entry ->> 'id')::UUID,
                (entry ->> 'kind')::transaction_kind,
-               (entry ->> 'trade_date')::date,
-               (entry ->> 'settlement_date')::date,
-               (entry ->> 'portfolio_id')::uuid,
-               (entry ->> 'asset_id')::uuid,
-               (entry ->> 'institution_id')::uuid,
-               (entry ->> 'quantity')::numeric,
-               (entry ->> 'unit_price')::numeric,
-               (entry ->> 'fees')::numeric,
-               (entry ->> 'gross_amount')::numeric,
-               (entry ->> 'tax_withheld')::numeric,
-               (entry ->> 'net_amount')::numeric,
+               (entry ->> 'trade_date')::DATE,
+               (entry ->> 'settlement_date')::DATE,
+               (entry ->> 'portfolio_id')::UUID,
+               (entry ->> 'asset_id')::UUID,
+               (entry ->> 'institution_id')::UUID,
+               (entry ->> 'quantity')::NUMERIC,
+               (entry ->> 'unit_price')::NUMERIC,
+               (entry ->> 'fees')::NUMERIC,
+               (entry ->> 'gross_amount')::NUMERIC,
+               (entry ->> 'tax_withheld')::NUMERIC,
+               (entry ->> 'net_amount')::NUMERIC,
                (entry ->> 'payout_kind')::payout_kind,
-               (entry ->> 'expected_net_amount')::numeric,
-               (entry ->> 'record_date')::date,
-               (entry ->> 'confirmed_at')::timestamptz,
-               (entry ->> 'transfer_group_id')::uuid,
-               (entry ->> 'event_ratio_from')::numeric,
-               (entry ->> 'event_ratio_to')::numeric,
+               (entry ->> 'expected_net_amount')::NUMERIC,
+               (entry ->> 'record_date')::DATE,
+               (entry ->> 'confirmed_at')::TIMESTAMPTZ,
+               (entry ->> 'transfer_group_id')::UUID,
+               (entry ->> 'event_ratio_from')::NUMERIC,
+               (entry ->> 'event_ratio_to')::NUMERIC,
                entry ->> 'note',
                entry ->> 'idempotency_key'
           -- text antes de jsonb: com o cast direto o driver infere o parâmetro
           -- como json e reencoda a string, que chega escalar.
-          from jsonb_array_elements(${payload}::text::jsonb) as entry
-        returning *
+          FROM JSONB_ARRAY_ELEMENTS(${payload}::TEXT::JSONB) AS entry
+        RETURNING *
       `;
 
       return success(inserted.map((row) => parseTransactionFromDB(row)));
@@ -184,9 +184,9 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
     try {
       const rows = hasChanges(changes)
         ? await sql<Row[]>`
-            update transaction set ${sql(changes)} where id = ${id} returning *
+            UPDATE transaction SET ${sql(changes)} WHERE id = ${id} RETURNING *
           `
-        : await sql<Row[]>`select * from transaction where id = ${id}`;
+        : await sql<Row[]>`SELECT * FROM transaction WHERE id = ${id}`;
       const row = rows[0];
 
       return success(row === undefined ? null : parseTransactionFromDB(row));
@@ -197,7 +197,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
 
   remove: async (id: string) => {
     try {
-      const rows = await sql<Row[]>`delete from transaction where id = ${id} returning *`;
+      const rows = await sql<Row[]>`DELETE FROM transaction WHERE id = ${id} RETURNING *`;
       const row = rows[0];
 
       return success(row === undefined ? null : parseTransactionFromDB(row));
@@ -209,7 +209,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
   removeByTransferGroup: async (groupId: string) => {
     try {
       const rows = await sql<Row[]>`
-        delete from transaction where transfer_group_id = ${groupId} returning *
+        DELETE FROM transaction WHERE transfer_group_id = ${groupId} RETURNING *
       `;
 
       return success(rows.map((row) => parseTransactionFromDB(row)));
@@ -221,7 +221,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
   findByTransferGroup: async (groupId: string) => {
     try {
       const rows = await sql<Row[]>`
-        select * from transaction where transfer_group_id = ${groupId} order by net_amount
+        SELECT * FROM transaction WHERE transfer_group_id = ${groupId} ORDER BY net_amount
       `;
 
       return success(rows.map((row) => parseTransactionFromDB(row)));

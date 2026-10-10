@@ -17,13 +17,13 @@ export const createPayoutDismissalRepository = (
   create: async (draft: PayoutDismissalDraft) => {
     try {
       const rows = await sql<Row[]>`
-        insert into payout_dismissal
+        INSERT INTO payout_dismissal
           (id, portfolio_id, asset_id, payout_kind, record_date, payment_date,
            expected_net_amount, reason)
-        values (${uuidv7()}, ${draft.portfolio_id}, ${draft.asset_id},
+        VALUES (${uuidv7()}, ${draft.portfolio_id}, ${draft.asset_id},
                 ${draft.payout_kind}, ${draft.record_date}, ${draft.payment_date},
                 ${draft.expected_net_amount}, ${draft.reason})
-        returning *
+        RETURNING *
       `;
 
       const created = rows[0];
@@ -40,9 +40,9 @@ export const createPayoutDismissalRepository = (
   listByPortfolio: async (portfolioId: string) => {
     try {
       const rows = await sql<Row[]>`
-        select * from payout_dismissal
-         where portfolio_id = ${portfolioId}
-         order by payment_date desc
+        SELECT * FROM payout_dismissal
+         WHERE portfolio_id = ${portfolioId}
+         ORDER BY payment_date DESC
       `;
 
       return success(rows.map((row) => parsePayoutDismissalFromDB(row)));

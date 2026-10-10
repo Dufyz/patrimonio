@@ -54,11 +54,11 @@ const close = async (
   flow = '0.00',
 ): Promise<void> => {
   await tx`
-    insert into portfolio_daily (
+    INSERT INTO portfolio_daily (
       portfolio_id, position_date, total_value, net_flow, income, payouts,
       quota_value, quota_count, cumulative_contributions
     )
-    values (${portfolio}, ${date}, ${total}, ${flow}, '0.00', '0.00', ${quota}, '1000', '0.00')
+    VALUES (${portfolio}, ${date}, ${total}, ${flow}, '0.00', '0.00', ${quota}, '1000', '0.00')
   `;
 };
 
@@ -69,11 +69,11 @@ const hold = async (
   value: string,
 ): Promise<void> => {
   await tx`
-    insert into position_daily (
+    INSERT INTO position_daily (
       portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
       market_value, price_source_kind, accrued_interest
     )
-    values (${portfolio}, ${asset}, ${date}, '100', '10', '1000.00', ${value}, 'fresh', '0.00')
+    VALUES (${portfolio}, ${asset}, ${date}, '100', '10', '1000.00', ${value}, 'fresh', '0.00')
   `;
 };
 
@@ -90,16 +90,16 @@ type Entry = {
 
 const record = async (entry: Entry): Promise<void> => {
   await tx`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
        quantity, unit_price, fees, gross_amount, net_amount, payout_kind, confirmed_at,
        transfer_group_id)
-    values
+    VALUES
       (${`0191e5a0-0000-7000-8000-0000000d${String(entry.id).padStart(4, '0')}`},
        ${entry.kind}::transaction_kind, ${entry.date}, ${entry.date},
        ${entry.portfolio ?? LONGO}, ${entry.asset}, ${CORRETORA}, '1', '1', '0',
        ${entry.net}, ${entry.net}, ${entry.payoutKind ?? null}::payout_kind,
-       ${entry.confirmed === false ? null : tx`now()`},
+       ${entry.confirmed === false ? null : tx`NOW()`},
        ${entry.kind === 'transfer' ? '0191e5a0-0000-7000-8000-0000000e0001' : null})
   `;
 };
@@ -111,10 +111,10 @@ const factors = async (
   daily: string,
 ): Promise<void> => {
   await tx`
-    insert into index_quote (index_code, quote_date, daily_factor, raw_value, source)
-    select ${code}, calendar_date, ${daily}, '0', 'teste'
-      from business_day
-     where is_business_day and calendar_date between ${from}::date and ${to}::date
+    INSERT INTO index_quote (index_code, quote_date, daily_factor, raw_value, source)
+    SELECT ${code}, calendar_date, ${daily}, '0', 'teste'
+      FROM business_day
+     WHERE is_business_day AND calendar_date BETWEEN ${from}::DATE AND ${to}::DATE
   `;
 };
 
@@ -131,29 +131,29 @@ beforeEach(async () => {
   tx = await beginTestTransaction(sql);
 
   await tx`
-    insert into portfolio (id, name, purpose, sort_order, archived_at)
-    values
-      (${LONGO}, 'Longo prazo', 'independência', 1, null),
-      (${RESERVA}, 'Reserva', null, 2, null),
-      (${ARQUIVADA}, 'Antiga', null, 3, now())
+    INSERT INTO portfolio (id, name, purpose, sort_order, archived_at)
+    VALUES
+      (${LONGO}, 'Longo prazo', 'independência', 1, NULL),
+      (${RESERVA}, 'Reserva', NULL, 2, NULL),
+      (${ARQUIVADA}, 'Antiga', NULL, 3, NOW())
   `;
   await tx`
-    insert into category (id, name, color_token, sort_order)
-    values
+    INSERT INTO category (id, name, color_token, sort_order)
+    VALUES
       (${ACOES}, 'Ações', 'class.acoes', 1),
       (${FIIS}, 'FIIs', 'class.fiis', 2),
       (${CAIXA_CATEGORIA}, 'Caixa', 'class.caixa', 3)
   `;
   await tx`
-    insert into asset (id, ticker, name, origin, b3_type, category_id)
-    values
+    INSERT INTO asset (id, ticker, name, origin, b3_type, category_id)
+    VALUES
       (${ITUB4}, 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', ${ACOES}),
       (${HGLG11}, 'HGLG11', 'CSHG Logística', 'market', 'fii', ${FIIS}),
       (${CAIXA}, 'CAIXA-A', 'Caixa · Corretora A', 'market', 'cash', ${CAIXA_CATEGORIA})
   `;
   await tx`
-    insert into institution (id, name, role)
-    values (${CORRETORA}, 'Corretora A', 'custodian')
+    INSERT INTO institution (id, name, role)
+    VALUES (${CORRETORA}, 'Corretora A', 'custodian')
   `;
 });
 

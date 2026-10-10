@@ -23,9 +23,9 @@ let hglg11: string;
 
 const seedCategoria = async (name: string, token: string): Promise<string> => {
   const rows = await harness.sql<{ id: string }[]>`
-    insert into category (id, name, color_token)
-    values (gen_random_uuid(), ${name}, ${token})
-    returning id
+    INSERT INTO category (id, name, color_token)
+    VALUES (GEN_RANDOM_UUID(), ${name}, ${token})
+    RETURNING id
   `;
 
   return rows[0]?.id ?? '';
@@ -38,9 +38,9 @@ const seedAtivo = async (
   category: string,
 ): Promise<string> => {
   const rows = await harness.sql<{ id: string }[]>`
-    insert into asset (id, ticker, name, origin, b3_type, category_id)
-    values (gen_random_uuid(), ${ticker}, ${name}, 'market', ${b3Type}, ${category})
-    returning id
+    INSERT INTO asset (id, ticker, name, origin, b3_type, category_id)
+    VALUES (GEN_RANDOM_UUID(), ${ticker}, ${name}, 'market', ${b3Type}, ${category})
+    RETURNING id
   `;
 
   return rows[0]?.id ?? '';
@@ -59,20 +59,20 @@ const fecharDia = async (
   } = {},
 ): Promise<void> => {
   await harness.sql`
-    insert into portfolio_daily (
+    INSERT INTO portfolio_daily (
       portfolio_id, position_date, total_value, net_flow, income, payouts,
       quota_value, quota_count, cumulative_contributions
     )
-    values (
+    VALUES (
       ${portfolio}, ${date}, ${total}, ${options.net_flow ?? '0.00'},
       ${options.income ?? '0.00'}, ${options.payouts ?? '0.00'},
       ${options.quota_value ?? '1.000000000000'}, '1000.000000000000',
       ${options.contributions ?? '0.00'}
     )
-    on conflict (portfolio_id, position_date) do update
-      set total_value = excluded.total_value,
-          quota_value = excluded.quota_value,
-          cumulative_contributions = excluded.cumulative_contributions
+    ON CONFLICT (portfolio_id, position_date) DO UPDATE
+      SET total_value = EXCLUDED.total_value,
+          quota_value = EXCLUDED.quota_value,
+          cumulative_contributions = EXCLUDED.cumulative_contributions
   `;
 };
 
@@ -84,17 +84,17 @@ const manterPosicao = async (
   kind: 'fresh' | 'stale' | 'manual' | 'missing' = 'fresh',
 ): Promise<void> => {
   await harness.sql`
-    insert into position_daily (
+    INSERT INTO position_daily (
       portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
       market_value, price_source_kind, accrued_interest
     )
-    values (
+    VALUES (
       ${portfolio}, ${asset}, ${date}, '100.00000000', '30.00000000', '3000.00',
       ${value}, ${kind}::computed_price_kind, '0.00'
     )
-    on conflict (portfolio_id, asset_id, position_date) do update
-      set market_value = excluded.market_value,
-          price_source_kind = excluded.price_source_kind
+    ON CONFLICT (portfolio_id, asset_id, position_date) DO UPDATE
+      SET market_value = EXCLUDED.market_value,
+          price_source_kind = EXCLUDED.price_source_kind
   `;
 };
 
@@ -104,8 +104,8 @@ const abrirAlerta = async (
   portfolio: string | null,
 ): Promise<void> => {
   await harness.sql`
-    insert into alert_instance (rule_kind, subject_id, portfolio_id, status, payload)
-    values (${ruleKind}, ${subject}, ${portfolio}, 'open', '{"ticker":"ITUB4"}'::jsonb)
+    INSERT INTO alert_instance (rule_kind, subject_id, portfolio_id, status, payload)
+    VALUES (${ruleKind}, ${subject}, ${portfolio}, 'open', '{"ticker":"ITUB4"}'::JSONB)
   `;
 };
 
@@ -122,9 +122,9 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetSourceTables(harness.sql);
-  await harness.sql`delete from alert_instance`;
-  await harness.sql`delete from portfolio_daily`;
-  await harness.sql`delete from position_daily`;
+  await harness.sql`DELETE FROM alert_instance`;
+  await harness.sql`DELETE FROM portfolio_daily`;
+  await harness.sql`DELETE FROM position_daily`;
 
   const criada = await request(harness.app)
     .post('/api/portfolios')
@@ -313,8 +313,8 @@ describe('como o patrimônio está distribuído', () => {
 
   it('a composição aponta o desvio contra o alvo declarado da carteira', async () => {
     await harness.sql`
-      insert into strategy_target (portfolio_id, category_id, target_pct)
-      values (${longo}, ${acoes}, '60'), (${longo}, ${fiis}, '40')
+      INSERT INTO strategy_target (portfolio_id, category_id, target_pct)
+      VALUES (${longo}, ${acoes}, '60'), (${longo}, ${fiis}, '40')
     `;
 
     const response = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${longo}`);
@@ -396,7 +396,7 @@ describe('o que precisa de mim', () => {
   it('alerta ignorado não volta para a frente do usuário', async () => {
     await abrirAlerta('price_stale', itub4, longo);
     await harness.sql`
-      update alert_instance set status = 'ignored' where rule_kind = 'price_stale'
+      UPDATE alert_instance SET status = 'ignored' WHERE rule_kind = 'price_stale'
     `;
 
     const response = await visaoGeral('?on_date=2026-10-02');
@@ -407,9 +407,9 @@ describe('o que precisa de mim', () => {
   it('alerta adiado some até a data escolhida e volta depois dela', async () => {
     await abrirAlerta('price_stale', itub4, longo);
     await harness.sql`
-      update alert_instance
-         set status = 'snoozed', snooze_until = '2026-10-05'
-       where rule_kind = 'price_stale'
+      UPDATE alert_instance
+         SET status = 'snoozed', snooze_until = '2026-10-05'
+       WHERE rule_kind = 'price_stale'
     `;
 
     const escondido = await visaoGeral('?on_date=2026-10-02');

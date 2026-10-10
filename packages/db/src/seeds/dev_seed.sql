@@ -1,0 +1,1161 @@
+-- =============================================================================
+-- Seed de desenvolvimento · Patrimônio
+--
+-- Popula um banco recém-migrado com um cenário completo: 4 carteiras (uma
+-- arquivada), 8 instituições, categorias em dois níveis, 37 ativos (ações, FIIs,
+-- ETFs, Tesouro Direto, renda fixa de banco e caixa), o livro de lançamentos de
+-- jan/2024 a out/2026, preços de mercado, índices, proventos (pagos e a receber),
+-- objetivos e o histórico de coleta de mercado.
+--
+-- Só os DADOS-FONTE entram aqui. Posição diária, cota, resultado realizado e
+-- apuração de IR são projeções: o seed enfileira um recálculo por carteira na
+-- outbox e o worker as reconstrói (`pnpm dev` já sobe o worker).
+--
+-- Preços, CDI/Selic/IPCA/IBOV/IFIX e proventos são SINTÉTICOS — inspirados em
+-- ordens de grandeza reais, determinísticos (mesmo seed, mesmos números) e sem
+-- valor como informação de mercado. A coleta real sobrescreve o que ela buscar.
+--
+-- Pré-requisitos:  pnpm migrate up  &&  pnpm seed:business-days
+-- (a migration 031 já cria os benchmarks CDI, Selic, IPCA, Ibovespa e IFIX)
+-- Uso:             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f dev_seed.sql
+--
+-- Recusa rodar em banco que já tenha carteira, ativo, instituição ou lançamento:
+-- para recomeçar, `pnpm infra:reset && pnpm migrate up && pnpm seed:business-days`.
+-- O corte do cenário é 08/10/2026: preços e índices vão até essa data; lançamentos e
+-- proventos têm datas fixas (os de pagamento posterior ficam "a receber").
+-- =============================================================================
+
+BEGIN;
+
+CREATE TEMP TABLE seed_params ON COMMIT DROP AS
+  SELECT DATE '2026-10-08' AS as_of, DATE '2024-01-02' AS first_day;
+
+DO $guard$
+BEGIN
+  IF (SELECT COUNT(*) FROM business_day
+       WHERE calendar_date BETWEEN '2024-01-01' AND '2026-12-31' AND is_business_day) < 600 THEN
+    RAISE EXCEPTION 'calendário de dias úteis vazio: rode `pnpm seed:business-days` antes do seed';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM portfolio) OR EXISTS (SELECT 1 FROM asset)
+     OR EXISTS (SELECT 1 FROM institution) OR EXISTS (SELECT 1 FROM transaction)
+     OR EXISTS (SELECT 1 FROM category) THEN
+    RAISE EXCEPTION 'o banco já tem dados: o seed só roda em banco vazio (veja o cabeçalho)';
+  END IF;
+END
+$guard$;
+
+-- Dia útil seguinte (n = 1) ou n-ésimo dia útil depois de d: liquidação D+n.
+CREATE FUNCTION pg_temp.add_bd(d DATE, n INT) RETURNS DATE LANGUAGE sql stable AS $f$
+  SELECT calendar_date FROM business_day
+   WHERE is_business_day AND calendar_date > d
+   ORDER BY calendar_date OFFSET n - 1 LIMIT 1
+$f$;
+
+-- ---------------------------------------------------------------- instituições
+INSERT INTO institution (id, name, role, fgc_covered, brokerage_per_order, custody_monthly_fee, created_at) VALUES
+  ('01960000-0001-7000-8000-000000000001', 'XP Investimentos', 'custodian', FALSE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000002', 'Banco Inter', 'both', TRUE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000003', 'Nubank', 'both', TRUE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000004', 'BTG Pactual', 'both', TRUE, 4.90, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000005', 'C6 Bank', 'issuer', TRUE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000006', 'Daycoval', 'issuer', TRUE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000007', 'Banco Pan', 'issuer', TRUE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0001-7000-8000-000000000008', 'Tesouro Nacional', 'issuer', FALSE, 0.00, 0.00, TIMESTAMPTZ '2024-01-02 09:00:00-03');
+
+-- ------------------------------------------------------------------ categorias
+INSERT INTO category (id, parent_id, name, color_token, auto_rule, sort_order, created_at) VALUES
+  ('01960000-0002-7000-8000-000000000001', NULL, 'Renda variável', 'class.acoes', NULL, 10, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0002-7000-8000-000000000002', '01960000-0002-7000-8000-000000000001', 'Ações', 'class.acoes', '{"b3_type": "stock"}'::JSONB, 11, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0002-7000-8000-000000000003', '01960000-0002-7000-8000-000000000001', 'FIIs', 'class.fiis', '{"b3_type": "fii"}'::JSONB, 12, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0002-7000-8000-000000000004', '01960000-0002-7000-8000-000000000001', 'ETFs', 'class.etf', '{"b3_type": "etf"}'::JSONB, 13, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0002-7000-8000-000000000005', '01960000-0002-7000-8000-000000000001', 'Internacional', 'class.bdr', '{"b3_type": "bdr"}'::JSONB, 14, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0002-7000-8000-000000000006', NULL, 'Renda fixa', 'class.rf-pos', NULL, 20, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0002-7000-8000-000000000007', '01960000-0002-7000-8000-000000000006', 'Pós-fixado', 'class.rf-pos', '{"indexer": "cdi_pct"}'::JSONB, 21, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0002-7000-8000-000000000008', '01960000-0002-7000-8000-000000000006', 'Inflação', 'class.rf-inflacao', '{"indexer": "ipca_plus"}'::JSONB, 22, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0002-7000-8000-000000000009', '01960000-0002-7000-8000-000000000006', 'Prefixado', 'class.rf-pre', '{"indexer": "prefixed"}'::JSONB, 23, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0002-7000-8000-00000000000a', NULL, 'Liquidez', 'class.caixa', NULL, 30, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0002-7000-8000-00000000000b', '01960000-0002-7000-8000-00000000000a', 'Caixa', 'class.caixa', '{"b3_type": "cash"}'::JSONB, 31, TIMESTAMPTZ '2024-01-02 09:00:00-03');
+
+-- ------------------------------------------------------ benchmarks compostos
+INSERT INTO benchmark (id, name, kind, definition, rebalance, created_at) VALUES
+  ('01960000-0003-7000-8000-000000000002', 'IPCA + 6%', 'index_plus_rate', '{"index": "IPCA", "rate": 0.06}'::JSONB, 'never', TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0003-7000-8000-000000000004', '70% CDI + 30% Ibovespa', 'blend', '{"parts": [{"index": "CDI", "weight": 0.7}, {"index": "IBOV", "weight": 0.3}]}'::JSONB, 'monthly', TIMESTAMPTZ '2024-01-02 09:00:00-03');
+
+-- ------------------------------------------------------------------- carteiras
+INSERT INTO portfolio (id, name, purpose, benchmark_id, tolerance_pp, max_asset_weight_pct, rebalance_mode,
+                       review_every_months, sort_order, archived_at, created_at) VALUES
+  ('01960000-0004-7000-8000-000000000001', 'Longo prazo', 'Independência financeira', '01960000-0003-7000-8000-000000000004', 5.00, 12.00, 'contributions_only', 6, 10, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0004-7000-8000-000000000002', 'Reserva de emergência', 'Seis a doze meses de despesas, liquidez diária', '019b0000-0000-7000-8000-000000000001', 10.00, NULL, 'contributions_only', 12, 20, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0004-7000-8000-000000000003', 'Entrada do imóvel', 'Entrada e custos de aquisição até 2029', '01960000-0003-7000-8000-000000000002', 7.50, 35.00, 'contributions_only', 6, 30, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0004-7000-8000-000000000004', 'Experimentos', 'Operações de curto prazo (encerrada)', '019b0000-0000-7000-8000-000000000004', 5.00, NULL, 'buy_and_sell', NULL, 40, TIMESTAMPTZ '2024-09-30 12:00:00-03', TIMESTAMPTZ '2024-01-02 09:00:00-03');
+
+-- Estratégia: o alvo de cada carteira soma 100 (a restrição é verificada no commit).
+INSERT INTO strategy_target (portfolio_id, category_id, target_pct) VALUES
+  ('01960000-0004-7000-8000-000000000001', '01960000-0002-7000-8000-000000000002', 40.00),
+  ('01960000-0004-7000-8000-000000000001', '01960000-0002-7000-8000-000000000003', 20.00),
+  ('01960000-0004-7000-8000-000000000001', '01960000-0002-7000-8000-000000000004', 10.00),
+  ('01960000-0004-7000-8000-000000000001', '01960000-0002-7000-8000-000000000007', 8.00),
+  ('01960000-0004-7000-8000-000000000001', '01960000-0002-7000-8000-000000000008', 14.00),
+  ('01960000-0004-7000-8000-000000000001', '01960000-0002-7000-8000-00000000000b', 8.00),
+  ('01960000-0004-7000-8000-000000000002', '01960000-0002-7000-8000-000000000007', 85.00),
+  ('01960000-0004-7000-8000-000000000002', '01960000-0002-7000-8000-00000000000b', 15.00),
+  ('01960000-0004-7000-8000-000000000003', '01960000-0002-7000-8000-000000000007', 35.00),
+  ('01960000-0004-7000-8000-000000000003', '01960000-0002-7000-8000-000000000008', 40.00),
+  ('01960000-0004-7000-8000-000000000003', '01960000-0002-7000-8000-000000000009', 15.00),
+  ('01960000-0004-7000-8000-000000000003', '01960000-0002-7000-8000-00000000000b', 10.00);
+
+-- ---------------------------------------------------------------------- ativos
+INSERT INTO asset (id, ticker, name, origin, b3_type, category_id, sector, price_source, issuer_id, indexer,
+                   rate, issued_at, maturity_date, liquidity, liquidity_days, tax_regime, archived_at, created_at) VALUES
+  ('01960000-0005-7000-8000-000000000001', 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', '01960000-0002-7000-8000-000000000002', 'Financeiro', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000002', 'WEGE3', 'WEG ON', 'market', 'stock', '01960000-0002-7000-8000-000000000002', 'Bens industriais', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000003', 'PETR4', 'Petrobras PN', 'market', 'stock', '01960000-0002-7000-8000-000000000002', 'Petróleo, gás e biocombustíveis', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000004', 'VALE3', 'Vale ON', 'market', 'stock', '01960000-0002-7000-8000-000000000002', 'Materiais básicos', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000005', 'BBAS3', 'Banco do Brasil ON', 'market', 'stock', '01960000-0002-7000-8000-000000000002', 'Financeiro', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000006', 'TAEE11', 'Taesa UNT', 'market', 'stock', '01960000-0002-7000-8000-000000000002', 'Utilidade pública', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000007', 'ABEV3', 'Ambev ON', 'market', 'stock', '01960000-0002-7000-8000-000000000002', 'Consumo não cíclico', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000008', 'RENT3', 'Localiza ON', 'market', 'stock', '01960000-0002-7000-8000-000000000002', 'Consumo cíclico', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000009', 'MGLU3', 'Magazine Luiza ON', 'market', 'stock', '01960000-0002-7000-8000-000000000002', 'Consumo cíclico', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-10-01 12:00:00-03', TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-00000000000a', 'KNRI11', 'Kinea Renda Imobiliária', 'market', 'fii', '01960000-0002-7000-8000-000000000003', 'Híbrido', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-00000000000b', 'HGLG11', 'CSHG Logística', 'market', 'fii', '01960000-0002-7000-8000-000000000003', 'Logística', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-00000000000c', 'MXRF11', 'Maxi Renda', 'market', 'fii', '01960000-0002-7000-8000-000000000003', 'Papel', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-00000000000d', 'XPML11', 'XP Malls', 'market', 'fii', '01960000-0002-7000-8000-000000000003', 'Shoppings', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-00000000000e', 'BTLG11', 'BTG Pactual Logística', 'market', 'fii', '01960000-0002-7000-8000-000000000003', 'Logística', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-00000000000f', 'BOVA11', 'iShares Ibovespa', 'market', 'etf', '01960000-0002-7000-8000-000000000004', 'Índice Brasil', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000010', 'IVVB11', 'iShares S&P 500', 'market', 'etf', '01960000-0002-7000-8000-000000000004', 'Índice S&P 500', 'auto', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000011', 'TESOURO-SELIC-20290301', 'Tesouro Selic 2029', 'market', 'treasury', '01960000-0002-7000-8000-000000000007', NULL, 'auto', '01960000-0001-7000-8000-000000000008', 'selic_plus', NULL, NULL, DATE '2029-03-01', 'daily', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000012', 'TESOURO-IPCA-20290515', 'Tesouro IPCA+ 2029', 'market', 'treasury', '01960000-0002-7000-8000-000000000008', NULL, 'auto', '01960000-0001-7000-8000-000000000008', 'ipca_plus', NULL, NULL, DATE '2029-05-15', 'at_maturity', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000013', 'TESOURO-IPCA-20350515', 'Tesouro IPCA+ 2035', 'market', 'treasury', '01960000-0002-7000-8000-000000000008', NULL, 'auto', '01960000-0001-7000-8000-000000000008', 'ipca_plus', NULL, NULL, DATE '2035-05-15', 'at_maturity', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000014', 'CAIXA-XPINVESTIMEN', 'Caixa · XP Investimentos', 'manual', 'cash', '01960000-0002-7000-8000-00000000000b', NULL, 'manual', '01960000-0001-7000-8000-000000000001', NULL, NULL, NULL, NULL, 'daily', NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000015', 'CAIXA-BANCOINTER', 'Caixa · Banco Inter', 'manual', 'cash', '01960000-0002-7000-8000-00000000000b', NULL, 'manual', '01960000-0001-7000-8000-000000000002', NULL, NULL, NULL, NULL, 'daily', NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000016', 'CAIXA-NUBANK', 'Caixa · Nubank', 'manual', 'cash', '01960000-0002-7000-8000-00000000000b', NULL, 'manual', '01960000-0001-7000-8000-000000000003', NULL, NULL, NULL, NULL, 'daily', NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000017', 'CAIXA-BTGPACTUAL', 'Caixa · BTG Pactual', 'manual', 'cash', '01960000-0002-7000-8000-00000000000b', NULL, 'manual', '01960000-0001-7000-8000-000000000004', NULL, NULL, NULL, NULL, 'daily', NULL, NULL, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000018', 'CDB-C6BANK-20270408', 'CDB · C6 Bank · 04/2027 · 112% CDI', 'manual', NULL, '01960000-0002-7000-8000-000000000007', NULL, 'manual', '01960000-0001-7000-8000-000000000005', 'cdi_pct', 112, DATE '2024-04-08', DATE '2027-04-08', 'at_maturity', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000019', 'CDB-DAYCOVAL-20300708', 'CDB · Daycoval · 07/2030 · IPCA + 7.10%', 'manual', NULL, '01960000-0002-7000-8000-000000000008', NULL, 'manual', '01960000-0001-7000-8000-000000000006', 'ipca_plus', 7.10, DATE '2024-07-08', DATE '2030-07-08', 'at_maturity', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-00000000001a', 'CDB-C6BANK-20271007', 'CDB · C6 Bank · 10/2027 · 110% CDI', 'manual', NULL, '01960000-0002-7000-8000-000000000007', NULL, 'manual', '01960000-0001-7000-8000-000000000005', 'cdi_pct', 110, DATE '2024-10-07', DATE '2027-10-07', 'at_maturity', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-00000000001b', 'CDB-DAYCOVAL-20310407', 'CDB · Daycoval · 04/2031 · IPCA + 7.60%', 'manual', NULL, '01960000-0002-7000-8000-000000000008', NULL, 'manual', '01960000-0001-7000-8000-000000000006', 'ipca_plus', 7.60, DATE '2025-04-07', DATE '2031-04-07', 'at_maturity', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-00000000001c', 'LCI-BANCOINT-20270107', 'LCI · Banco Inter · 01/2027 · 94% CDI', 'manual', NULL, '01960000-0002-7000-8000-000000000007', NULL, 'manual', '01960000-0001-7000-8000-000000000002', 'cdi_pct', 94, DATE '2025-07-07', DATE '2027-01-07', 'at_maturity', NULL, 'exempt', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-00000000001d', 'CDB-C6BANK-20280112', 'CDB · C6 Bank · 01/2028 · 108% CDI', 'manual', NULL, '01960000-0002-7000-8000-000000000007', NULL, 'manual', '01960000-0001-7000-8000-000000000005', 'cdi_pct', 108, DATE '2026-01-12', DATE '2028-01-12', 'at_maturity', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-00000000001e', 'CDB-DAYCOVAL-20320608', 'CDB · Daycoval · 06/2032 · IPCA + 7.35%', 'manual', NULL, '01960000-0002-7000-8000-000000000008', NULL, 'manual', '01960000-0001-7000-8000-000000000006', 'ipca_plus', 7.35, DATE '2026-06-08', DATE '2032-06-08', 'at_maturity', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-00000000001f', 'CDB-BANCOINT-20290104', 'CDB · Banco Inter · 01/2029 · 100% CDI', 'manual', NULL, '01960000-0002-7000-8000-000000000007', NULL, 'manual', '01960000-0001-7000-8000-000000000002', 'cdi_pct', 100, DATE '2024-01-04', DATE '2029-01-04', 'daily', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000020', 'CDB-NUBANK-20270602', 'CDB · Nubank · 06/2027 · 103% CDI', 'manual', NULL, '01960000-0002-7000-8000-000000000007', NULL, 'manual', '01960000-0001-7000-8000-000000000003', 'cdi_pct', 103, DATE '2025-06-02', DATE '2027-06-02', 'd_plus_n', 30, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000021', 'LCA-C6BANK-20261202', 'LCA · C6 Bank · 12/2026 · 95% CDI', 'manual', NULL, '01960000-0002-7000-8000-000000000007', NULL, 'manual', '01960000-0001-7000-8000-000000000005', 'cdi_pct', 95, DATE '2024-12-02', DATE '2026-12-02', 'at_maturity', NULL, 'exempt', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000022', 'LCI-BANCOINT-20261103', 'LCI · Banco Inter · 11/2026 · 91% CDI', 'manual', NULL, '01960000-0002-7000-8000-000000000007', NULL, 'manual', '01960000-0001-7000-8000-000000000002', 'cdi_pct', 91, DATE '2025-03-05', DATE '2026-11-03', 'at_maturity', NULL, 'exempt', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000023', 'CDB-BANCOPAN-20280505', 'CDB · Banco Pan · 05/2028 · 12.30% a.a.', 'manual', NULL, '01960000-0002-7000-8000-000000000009', NULL, 'manual', '01960000-0001-7000-8000-000000000007', 'prefixed', 12.30, DATE '2025-05-05', DATE '2028-05-05', 'at_maturity', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000024', 'CDB-DAYCOVAL-20281103', 'CDB · Daycoval · 11/2028 · 108% CDI', 'manual', NULL, '01960000-0002-7000-8000-000000000007', NULL, 'manual', '01960000-0001-7000-8000-000000000006', 'cdi_pct', 108, DATE '2025-11-03', DATE '2028-11-03', 'at_maturity', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0005-7000-8000-000000000025', 'CDB-C6BANK-20310406', 'CDB · C6 Bank · 04/2031 · IPCA + 7.20%', 'manual', NULL, '01960000-0002-7000-8000-000000000008', NULL, 'manual', '01960000-0001-7000-8000-000000000005', 'ipca_plus', 7.20, DATE '2026-04-06', DATE '2031-04-06', 'at_maturity', NULL, 'regressive', NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03');
+
+-- ------------------------------------------------- séries sintéticas de preço
+-- Passeio aleatório determinístico: o ruído de cada dia vem de um hash do par
+-- (código, data), então o mesmo seed gera sempre os mesmos números.
+CREATE TEMP TABLE seed_series (code TEXT PRIMARY KEY, p0 NUMERIC, p_end NUMERIC, sigma NUMERIC) ON COMMIT DROP;
+INSERT INTO seed_series VALUES
+  ('ITUB4', 30.5, 46.0, 0.22),
+  ('WEGE3', 36.0, 39.0, 0.26),
+  ('PETR4', 36.5, 38.0, 0.26),
+  ('VALE3', 68.0, 64.0, 0.27),
+  ('BBAS3', 27.5, 24.0, 0.28),
+  ('TAEE11', 34.0, 37.0, 0.18),
+  ('ABEV3', 13.5, 14.0, 0.2),
+  ('RENT3', 54.0, 42.0, 0.32),
+  ('MGLU3', 8.0, 6.4, 0.5),
+  ('KNRI11', 160.0, 165.0, 0.1),
+  ('HGLG11', 160.0, 172.0, 0.1),
+  ('MXRF11', 10.3, 10.4, 0.08),
+  ('XPML11', 105.0, 112.0, 0.11),
+  ('BTLG11', 101.0, 104.0, 0.1),
+  ('BOVA11', 125.0, 165.0, 0.17),
+  ('IVVB11', 290.0, 430.0, 0.17),
+  ('IBOV', 134000.0, 176000.0, 0.15),
+  ('IFIX', 3350.0, 3560.0, 0.08);
+
+CREATE TEMP TABLE seed_days ON COMMIT DROP AS
+  SELECT calendar_date AS d
+    FROM business_day, seed_params
+   WHERE is_business_day AND calendar_date BETWEEN first_day AND as_of;
+
+-- Ponte browniana: o caminho tem a forma do ruído, mas termina exatamente no preço-alvo
+-- da série (p_end), o que mantém cada ativo numa trajetória plausível.
+CREATE TEMP TABLE seed_closes ON COMMIT DROP AS
+SELECT w.code, w.d,
+       s.p0 * EXP(w.w + (LN(s.p_end / s.p0) - w.w_end) * w.n::NUMERIC / w.total) AS close
+  FROM (SELECT x.*, LAST_VALUE(x.w) OVER (PARTITION BY x.code ORDER BY x.d
+                                           ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS w_end,
+               ROW_NUMBER() OVER (PARTITION BY x.code ORDER BY x.d) AS n,
+               COUNT(*) OVER (PARTITION BY x.code) AS total
+          FROM (SELECT s.code, d.d,
+                       SUM(s.sigma / 15.8745
+                           * (((ABS(HASHTEXT(s.code || ':' || d.d::TEXT)::BIGINT) % 100000) / 100000.0) - 0.5) * 3.4641)
+                         OVER (PARTITION BY s.code ORDER BY d.d) AS w
+                  FROM seed_series s CROSS JOIN seed_days d) x) w
+  JOIN seed_series s ON s.code = w.code;
+
+-- Ações, FIIs e ETFs: B3 via COTAHIST no histórico, brapi nos últimos 60 dias.
+INSERT INTO asset_price (asset_id, price_date, close, source, source_kind, fetched_at)
+SELECT a.id, c.d, ROUND(c.close, 2),
+       CASE WHEN c.d < p.as_of - 60 THEN 'cotahist' ELSE 'brapi' END, 'primary',
+       (c.d + time '19:00') at TIME ZONE 'America/Sao_Paulo'
+  FROM seed_closes c
+  JOIN asset a ON a.ticker = c.code, seed_params p;
+
+-- ------------------------------------------------------------ índices (BCB)
+CREATE TEMP TABLE seed_selic (since DATE PRIMARY KEY, rate NUMERIC) ON COMMIT DROP;
+INSERT INTO seed_selic VALUES ('2024-01-01', 11.75), ('2024-02-01', 11.25), ('2024-03-21', 10.75), ('2024-05-09', 10.5), ('2024-09-19', 10.75), ('2024-11-07', 11.25), ('2024-12-12', 12.25), ('2025-01-30', 13.25), ('2025-03-20', 14.25), ('2025-05-08', 14.75), ('2025-06-19', 15.0), ('2026-03-19', 14.75), ('2026-05-07', 14.5), ('2026-06-18', 14.25), ('2026-09-17', 14.0);
+CREATE TEMP TABLE seed_ipca (ref DATE PRIMARY KEY, pct NUMERIC) ON COMMIT DROP;
+INSERT INTO seed_ipca VALUES ('2024-01-01', 0.42), ('2024-02-01', 0.83), ('2024-03-01', 0.16), ('2024-04-01', 0.38), ('2024-05-01', 0.46), ('2024-06-01', 0.21), ('2024-07-01', 0.38), ('2024-08-01', -0.02), ('2024-09-01', 0.44), ('2024-10-01', 0.56), ('2024-11-01', 0.39), ('2024-12-01', 0.52), ('2025-01-01', 0.16), ('2025-02-01', 1.31), ('2025-03-01', 0.56), ('2025-04-01', 0.43), ('2025-05-01', 0.26), ('2025-06-01', 0.24), ('2025-07-01', 0.26), ('2025-08-01', -0.11), ('2025-09-01', 0.48), ('2025-10-01', 0.09), ('2025-11-01', 0.18), ('2025-12-01', 0.33), ('2026-01-01', 0.33), ('2026-02-01', 0.7), ('2026-03-01', 0.45), ('2026-04-01', 0.38), ('2026-05-01', 0.3), ('2026-06-01', 0.25), ('2026-07-01', 0.2), ('2026-08-01', 0.15), ('2026-09-01', 0.4);
+
+-- CDI e Selic: taxa anual vigente → fator diário (1 + i)^(1/252), 12 casas.
+INSERT INTO index_quote (index_code, quote_date, daily_factor, raw_value, source, fetched_at)
+SELECT x.code, d.d, ROUND(f.factor, 12), ROUND((f.factor - 1) * 100, 8), 'bcb',
+       (d.d + time '18:41') at TIME ZONE 'America/Sao_Paulo'
+  FROM seed_days d
+  CROSS JOIN (VALUES ('SELIC', 0.00), ('CDI', 0.10)) AS x(code, spread)
+  CROSS JOIN LATERAL (SELECT s.rate - x.spread AS annual FROM seed_selic s
+                       WHERE s.since <= d.d ORDER BY s.since DESC LIMIT 1) r
+  CROSS JOIN LATERAL (SELECT POWER(1 + r.annual / 100.0, 1.0 / 252) AS factor) f;
+
+-- IPCA: variação mensal distribuída pelos dias úteis do mês (raiz du do fator).
+-- O mês corrente (out/2026) ainda não foi publicado e fica sem linha, de propósito.
+INSERT INTO index_quote (index_code, quote_date, daily_factor, raw_value, source, fetched_at)
+SELECT 'IPCA', d.d, ROUND(POWER(1 + i.pct / 100.0, 1.0 / m.du), 12), i.pct, 'bcb',
+       (d.d + time '18:41') at TIME ZONE 'America/Sao_Paulo'
+  FROM seed_days d
+  JOIN seed_ipca i ON i.ref = DATE_TRUNC('month', d.d)::DATE
+  CROSS JOIN LATERAL (SELECT COUNT(*) AS du FROM seed_days z
+                       WHERE DATE_TRUNC('month', z.d) = DATE_TRUNC('month', d.d)) m;
+
+-- IBOV e IFIX: pontuação de fechamento; o fator do dia é a razão entre fechamentos.
+INSERT INTO index_quote (index_code, quote_date, daily_factor, raw_value, source, fetched_at)
+SELECT c.code, c.d,
+       ROUND(c.close / LAG(c.close, 1, s.p0) OVER (PARTITION BY c.code ORDER BY c.d), 12),
+       ROUND(c.close, 2), 'brapi', (c.d + time '19:00') at TIME ZONE 'America/Sao_Paulo'
+  FROM seed_closes c JOIN seed_series s ON s.code = c.code
+ WHERE c.code IN ('IBOV', 'IFIX');
+
+-- Tesouro Direto: PU marcado a mercado.
+--   Selic 2029: acumula a Selic diária sobre o PU inicial.
+--   IPCA+ (NTN-B principal): acumula IPCA + cupom real, com oscilação de marcação.
+INSERT INTO asset_price (asset_id, price_date, close, source, source_kind, fetched_at)
+SELECT a.id, t.d, ROUND(t.pu, 2),
+       CASE WHEN t.d < p.as_of - 60 THEN 'tesouro-transparente' ELSE 'tesouro-direto' END,
+       CASE WHEN t.d < p.as_of - 60 THEN 'fallback'::price_source_kind ELSE 'primary'::price_source_kind END,
+       (t.d + time '18:41') at TIME ZONE 'America/Sao_Paulo'
+  FROM (SELECT d.d, 14050 * EXP(SUM(LN(sq.daily_factor)) OVER (ORDER BY d.d)) AS pu
+          FROM seed_days d JOIN index_quote sq ON sq.index_code = 'SELIC' AND sq.quote_date = d.d) t
+  JOIN asset a ON a.ticker = 'TESOURO-SELIC-20290301', seed_params p;
+
+INSERT INTO asset_price (asset_id, price_date, close, source, source_kind, fetched_at)
+SELECT a.id, t.d,
+       ROUND(t.p0 * EXP(t.w + (LN(t.p_end / t.p0) - t.w_end) * t.n::NUMERIC / t.total), 2),
+       CASE WHEN t.d < p.as_of - 60 THEN 'tesouro-transparente' ELSE 'tesouro-direto' END,
+       CASE WHEN t.d < p.as_of - 60 THEN 'fallback'::price_source_kind ELSE 'primary'::price_source_kind END,
+       (t.d + time '18:41') at TIME ZONE 'America/Sao_Paulo'
+  FROM (SELECT y.*, LAST_VALUE(y.w) OVER (PARTITION BY y.ticker ORDER BY y.d
+                                           ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS w_end,
+               ROW_NUMBER() OVER (PARTITION BY y.ticker ORDER BY y.d) AS n,
+               COUNT(*) OVER (PARTITION BY y.ticker) AS total
+          FROM (SELECT tk.ticker, tk.p0, tk.p_end, d.d,
+                       SUM(LN(COALESCE(iq.daily_factor, 1.0002)) + LN(1 + tk.carry) / 252
+                           + tk.sigma / 15.8745
+                             * (((ABS(HASHTEXT(tk.ticker || ':' || d.d::TEXT)::BIGINT) % 100000) / 100000.0) - 0.5) * 3.4641)
+                         OVER (PARTITION BY tk.ticker ORDER BY d.d) AS w
+                  FROM (VALUES ('TESOURO-IPCA-20290515', 3050.0, 4000.0, 0.075, 0.045),
+                               ('TESOURO-IPCA-20350515', 1900.0, 2550.0, 0.0725, 0.090))
+                         AS tk(ticker, p0, p_end, carry, sigma)
+                 CROSS JOIN seed_days d
+                  LEFT JOIN index_quote iq ON iq.index_code = 'IPCA' AND iq.quote_date = d.d) y) t
+  JOIN asset a ON a.ticker = t.ticker, seed_params p;
+
+-- --------------------------------------------------- plano de ordens (entrada)
+-- Cada linha é uma intenção: aporte/resgate em reais, compra com orçamento em reais
+-- (a quantidade sai do preço do dia: inteira em renda variável, centésimos no Tesouro,
+-- o próprio valor na renda fixa) ou venda por fração da posição.
+CREATE TEMP TABLE seed_plan (
+  seq INT PRIMARY KEY, portfolio_id UUID, institution_id UUID, kind TEXT, ticker TEXT,
+  trade_date DATE, budget NUMERIC(20,2), fraction NUMERIC(6,4), note TEXT
+) ON COMMIT DROP;
+INSERT INTO seed_plan VALUES
+  (1, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-01-03', 40000, NULL, 'Aporte inicial'),
+  (2, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ITUB4', DATE '2024-01-04', 8800.0, NULL, NULL),
+  (3, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'WEGE3', DATE '2024-01-04', 8800.0, NULL, NULL),
+  (4, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2024-01-04', 4400.0, NULL, NULL),
+  (5, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2024-01-04', 4400.0, NULL, NULL),
+  (6, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2024-01-04', 4800.0, NULL, NULL),
+  (7, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-02-05', 4000, NULL, 'Aporte mensal'),
+  (8, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'PETR4', DATE '2024-02-06', 880.0, NULL, NULL),
+  (9, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TAEE11', DATE '2024-02-06', 880.0, NULL, NULL),
+  (10, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2024-02-06', 440.0, NULL, NULL),
+  (11, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'XPML11', DATE '2024-02-06', 440.0, NULL, NULL),
+  (12, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2024-02-06', 480.0, NULL, NULL),
+  (13, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-03-05', 4000, NULL, 'Aporte mensal'),
+  (14, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'VALE3', DATE '2024-03-06', 880.0, NULL, NULL),
+  (15, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ITUB4', DATE '2024-03-06', 880.0, NULL, NULL),
+  (16, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2024-03-06', 440.0, NULL, NULL),
+  (17, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2024-03-06', 440.0, NULL, NULL),
+  (18, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2024-03-06', 480.0, NULL, NULL),
+  (19, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-04-05', 4000, NULL, 'Aporte mensal'),
+  (20, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BBAS3', DATE '2024-04-08', 880.0, NULL, NULL),
+  (21, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'WEGE3', DATE '2024-04-08', 880.0, NULL, NULL),
+  (22, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2024-04-08', 440.0, NULL, NULL),
+  (23, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BTLG11', DATE '2024-04-08', 440.0, NULL, NULL),
+  (24, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2024-04-08', 480.0, NULL, NULL),
+  (25, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-05-06', 4000, NULL, 'Aporte mensal'),
+  (26, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ABEV3', DATE '2024-05-07', 880.0, NULL, NULL),
+  (27, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'PETR4', DATE '2024-05-07', 880.0, NULL, NULL),
+  (28, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2024-05-07', 440.0, NULL, NULL),
+  (29, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2024-05-07', 440.0, NULL, NULL),
+  (30, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2024-05-07', 480.0, NULL, NULL),
+  (31, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-06-05', 4000, NULL, 'Aporte mensal'),
+  (32, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'RENT3', DATE '2024-06-06', 880.0, NULL, NULL),
+  (33, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TAEE11', DATE '2024-06-06', 880.0, NULL, NULL),
+  (34, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2024-06-06', 440.0, NULL, NULL),
+  (35, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'XPML11', DATE '2024-06-06', 440.0, NULL, NULL),
+  (36, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2024-06-06', 480.0, NULL, NULL),
+  (37, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-07-05', 4000, NULL, 'Aporte mensal'),
+  (38, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ITUB4', DATE '2024-07-08', 880.0, NULL, NULL),
+  (39, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'WEGE3', DATE '2024-07-08', 880.0, NULL, NULL),
+  (40, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2024-07-08', 440.0, NULL, NULL),
+  (41, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2024-07-08', 440.0, NULL, NULL),
+  (42, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2024-07-08', 480.0, NULL, NULL),
+  (43, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-08-05', 4000, NULL, 'Aporte mensal'),
+  (44, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'PETR4', DATE '2024-08-06', 880.0, NULL, NULL),
+  (45, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TAEE11', DATE '2024-08-06', 880.0, NULL, NULL),
+  (46, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2024-08-06', 440.0, NULL, NULL),
+  (47, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BTLG11', DATE '2024-08-06', 440.0, NULL, NULL),
+  (48, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2024-08-06', 480.0, NULL, NULL),
+  (49, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-09-05', 4000, NULL, 'Aporte mensal'),
+  (50, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'VALE3', DATE '2024-09-06', 880.0, NULL, NULL),
+  (51, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ITUB4', DATE '2024-09-06', 880.0, NULL, NULL),
+  (52, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2024-09-06', 440.0, NULL, NULL),
+  (53, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2024-09-06', 440.0, NULL, NULL),
+  (54, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2024-09-06', 480.0, NULL, NULL),
+  (55, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-10-07', 4000, NULL, 'Aporte mensal'),
+  (56, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BBAS3', DATE '2024-10-08', 880.0, NULL, NULL),
+  (57, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'WEGE3', DATE '2024-10-08', 880.0, NULL, NULL),
+  (58, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2024-10-08', 440.0, NULL, NULL),
+  (59, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'XPML11', DATE '2024-10-08', 440.0, NULL, NULL),
+  (60, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2024-10-08', 480.0, NULL, NULL),
+  (61, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-11-05', 4000, NULL, 'Aporte mensal'),
+  (62, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ABEV3', DATE '2024-11-06', 880.0, NULL, NULL),
+  (63, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'PETR4', DATE '2024-11-06', 880.0, NULL, NULL),
+  (64, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2024-11-06', 440.0, NULL, NULL),
+  (65, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2024-11-06', 440.0, NULL, NULL),
+  (66, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2024-11-06', 480.0, NULL, NULL),
+  (67, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-12-05', 4000, NULL, 'Aporte mensal'),
+  (68, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'RENT3', DATE '2024-12-06', 880.0, NULL, NULL),
+  (69, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TAEE11', DATE '2024-12-06', 880.0, NULL, NULL),
+  (70, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2024-12-06', 440.0, NULL, NULL),
+  (71, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BTLG11', DATE '2024-12-06', 440.0, NULL, NULL),
+  (72, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2024-12-06', 480.0, NULL, NULL),
+  (73, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2024-12-20', 12000, NULL, '13º salário'),
+  (74, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ITUB4', DATE '2024-12-23', 2640.0, NULL, NULL),
+  (75, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'WEGE3', DATE '2024-12-23', 2640.0, NULL, NULL),
+  (76, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2024-12-23', 1320.0, NULL, NULL),
+  (77, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2024-12-23', 1320.0, NULL, NULL),
+  (78, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2024-12-23', 1440.0, NULL, NULL),
+  (79, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-01-06', 5000, NULL, 'Aporte mensal'),
+  (80, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'PETR4', DATE '2025-01-07', 1100.0, NULL, NULL),
+  (81, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TAEE11', DATE '2025-01-07', 1100.0, NULL, NULL),
+  (82, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2025-01-07', 550.0, NULL, NULL),
+  (83, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'XPML11', DATE '2025-01-07', 550.0, NULL, NULL),
+  (84, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2025-01-07', 600.0, NULL, NULL),
+  (85, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-02-05', 5000, NULL, 'Aporte mensal'),
+  (86, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'VALE3', DATE '2025-02-06', 1100.0, NULL, NULL),
+  (87, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ITUB4', DATE '2025-02-06', 1100.0, NULL, NULL),
+  (88, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2025-02-06', 550.0, NULL, NULL),
+  (89, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2025-02-06', 550.0, NULL, NULL),
+  (90, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2025-02-06', 600.0, NULL, NULL),
+  (91, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-03-05', 5000, NULL, 'Aporte mensal'),
+  (92, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BBAS3', DATE '2025-03-06', 1100.0, NULL, NULL),
+  (93, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'WEGE3', DATE '2025-03-06', 1100.0, NULL, NULL),
+  (94, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2025-03-06', 550.0, NULL, NULL),
+  (95, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BTLG11', DATE '2025-03-06', 550.0, NULL, NULL),
+  (96, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2025-03-06', 600.0, NULL, NULL),
+  (97, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-04-07', 5000, NULL, 'Aporte mensal'),
+  (98, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ABEV3', DATE '2025-04-08', 1100.0, NULL, NULL),
+  (99, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'PETR4', DATE '2025-04-08', 1100.0, NULL, NULL),
+  (100, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2025-04-08', 550.0, NULL, NULL),
+  (101, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2025-04-08', 550.0, NULL, NULL),
+  (102, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2025-04-08', 600.0, NULL, NULL),
+  (103, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-05-05', 5000, NULL, 'Aporte mensal'),
+  (104, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'RENT3', DATE '2025-05-06', 1100.0, NULL, NULL),
+  (105, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TAEE11', DATE '2025-05-06', 1100.0, NULL, NULL),
+  (106, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2025-05-06', 550.0, NULL, NULL),
+  (107, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'XPML11', DATE '2025-05-06', 550.0, NULL, NULL),
+  (108, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2025-05-06', 600.0, NULL, NULL),
+  (109, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-06-05', 5000, NULL, 'Aporte mensal'),
+  (110, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ITUB4', DATE '2025-06-06', 1100.0, NULL, NULL),
+  (111, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'WEGE3', DATE '2025-06-06', 1100.0, NULL, NULL),
+  (112, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2025-06-06', 550.0, NULL, NULL),
+  (113, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2025-06-06', 550.0, NULL, NULL),
+  (114, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2025-06-06', 600.0, NULL, NULL),
+  (115, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-07-07', 5000, NULL, 'Aporte mensal'),
+  (116, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'PETR4', DATE '2025-07-08', 1100.0, NULL, NULL),
+  (117, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TAEE11', DATE '2025-07-08', 1100.0, NULL, NULL),
+  (118, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2025-07-08', 550.0, NULL, NULL),
+  (119, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BTLG11', DATE '2025-07-08', 550.0, NULL, NULL),
+  (120, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2025-07-08', 600.0, NULL, NULL),
+  (121, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-08-05', 5000, NULL, 'Aporte mensal'),
+  (122, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'VALE3', DATE '2025-08-06', 1100.0, NULL, NULL),
+  (123, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ITUB4', DATE '2025-08-06', 1100.0, NULL, NULL),
+  (124, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2025-08-06', 550.0, NULL, NULL),
+  (125, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2025-08-06', 550.0, NULL, NULL),
+  (126, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2025-08-06', 600.0, NULL, NULL),
+  (127, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-09-05', 5000, NULL, 'Aporte mensal'),
+  (128, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BBAS3', DATE '2025-09-08', 1100.0, NULL, NULL),
+  (129, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'WEGE3', DATE '2025-09-08', 1100.0, NULL, NULL),
+  (130, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2025-09-08', 550.0, NULL, NULL),
+  (131, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'XPML11', DATE '2025-09-08', 550.0, NULL, NULL),
+  (132, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2025-09-08', 600.0, NULL, NULL),
+  (133, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-10-06', 5000, NULL, 'Aporte mensal'),
+  (134, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ABEV3', DATE '2025-10-07', 1100.0, NULL, NULL),
+  (135, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'PETR4', DATE '2025-10-07', 1100.0, NULL, NULL),
+  (136, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2025-10-07', 550.0, NULL, NULL),
+  (137, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2025-10-07', 550.0, NULL, NULL),
+  (138, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2025-10-07', 600.0, NULL, NULL),
+  (139, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-11-05', 5000, NULL, 'Aporte mensal'),
+  (140, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'RENT3', DATE '2025-11-06', 1100.0, NULL, NULL),
+  (141, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TAEE11', DATE '2025-11-06', 1100.0, NULL, NULL),
+  (142, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2025-11-06', 550.0, NULL, NULL),
+  (143, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BTLG11', DATE '2025-11-06', 550.0, NULL, NULL),
+  (144, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2025-11-06', 600.0, NULL, NULL),
+  (145, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-12-05', 5000, NULL, 'Aporte mensal'),
+  (146, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ITUB4', DATE '2025-12-08', 1100.0, NULL, NULL),
+  (147, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'WEGE3', DATE '2025-12-08', 1100.0, NULL, NULL),
+  (148, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2025-12-08', 550.0, NULL, NULL),
+  (149, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2025-12-08', 550.0, NULL, NULL),
+  (150, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2025-12-08', 600.0, NULL, NULL),
+  (151, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2025-12-22', 12000, NULL, '13º salário'),
+  (152, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'PETR4', DATE '2025-12-23', 2640.0, NULL, NULL),
+  (153, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TAEE11', DATE '2025-12-23', 2640.0, NULL, NULL),
+  (154, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2025-12-23', 1320.0, NULL, NULL),
+  (155, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'XPML11', DATE '2025-12-23', 1320.0, NULL, NULL),
+  (156, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2025-12-23', 1440.0, NULL, NULL),
+  (157, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2026-01-05', 6000, NULL, 'Aporte mensal'),
+  (158, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'VALE3', DATE '2026-01-06', 1320.0, NULL, NULL),
+  (159, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ITUB4', DATE '2026-01-06', 1320.0, NULL, NULL),
+  (160, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2026-01-06', 660.0, NULL, NULL),
+  (161, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2026-01-06', 660.0, NULL, NULL),
+  (162, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2026-01-06', 720.0, NULL, NULL),
+  (163, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2026-02-05', 6000, NULL, 'Aporte mensal'),
+  (164, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BBAS3', DATE '2026-02-06', 1320.0, NULL, NULL),
+  (165, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'WEGE3', DATE '2026-02-06', 1320.0, NULL, NULL),
+  (166, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2026-02-06', 660.0, NULL, NULL),
+  (167, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BTLG11', DATE '2026-02-06', 660.0, NULL, NULL),
+  (168, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2026-02-06', 720.0, NULL, NULL),
+  (169, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2026-03-05', 6000, NULL, 'Aporte mensal'),
+  (170, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ABEV3', DATE '2026-03-06', 1320.0, NULL, NULL),
+  (171, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'PETR4', DATE '2026-03-06', 1320.0, NULL, NULL),
+  (172, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2026-03-06', 660.0, NULL, NULL),
+  (173, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2026-03-06', 660.0, NULL, NULL),
+  (174, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2026-03-06', 720.0, NULL, NULL),
+  (175, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2026-04-06', 6000, NULL, 'Aporte mensal'),
+  (176, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'RENT3', DATE '2026-04-07', 1320.0, NULL, NULL),
+  (177, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TAEE11', DATE '2026-04-07', 1320.0, NULL, NULL),
+  (178, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2026-04-07', 660.0, NULL, NULL),
+  (179, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'XPML11', DATE '2026-04-07', 660.0, NULL, NULL),
+  (180, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2026-04-07', 720.0, NULL, NULL),
+  (181, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2026-05-05', 6000, NULL, 'Aporte mensal'),
+  (182, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ITUB4', DATE '2026-05-06', 1320.0, NULL, NULL),
+  (183, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'WEGE3', DATE '2026-05-06', 1320.0, NULL, NULL),
+  (184, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2026-05-06', 660.0, NULL, NULL),
+  (185, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2026-05-06', 660.0, NULL, NULL),
+  (186, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2026-05-06', 720.0, NULL, NULL),
+  (187, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2026-06-05', 6000, NULL, 'Aporte mensal'),
+  (188, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'PETR4', DATE '2026-06-08', 1320.0, NULL, NULL),
+  (189, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TAEE11', DATE '2026-06-08', 1320.0, NULL, NULL),
+  (190, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2026-06-08', 660.0, NULL, NULL),
+  (191, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BTLG11', DATE '2026-06-08', 660.0, NULL, NULL),
+  (192, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2026-06-08', 720.0, NULL, NULL),
+  (193, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2026-07-06', 6000, NULL, 'Aporte mensal'),
+  (194, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'VALE3', DATE '2026-07-07', 1320.0, NULL, NULL),
+  (195, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ITUB4', DATE '2026-07-07', 1320.0, NULL, NULL),
+  (196, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2026-07-07', 660.0, NULL, NULL),
+  (197, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2026-07-07', 660.0, NULL, NULL),
+  (198, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2026-07-07', 720.0, NULL, NULL),
+  (199, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2026-08-05', 6000, NULL, 'Aporte mensal'),
+  (200, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BBAS3', DATE '2026-08-06', 1320.0, NULL, NULL),
+  (201, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'WEGE3', DATE '2026-08-06', 1320.0, NULL, NULL),
+  (202, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2026-08-06', 660.0, NULL, NULL),
+  (203, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'XPML11', DATE '2026-08-06', 660.0, NULL, NULL),
+  (204, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2026-08-06', 720.0, NULL, NULL),
+  (205, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2026-09-08', 6000, NULL, 'Aporte mensal'),
+  (206, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'ABEV3', DATE '2026-09-09', 1320.0, NULL, NULL),
+  (207, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'PETR4', DATE '2026-09-09', 1320.0, NULL, NULL),
+  (208, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'HGLG11', DATE '2026-09-09', 660.0, NULL, NULL),
+  (209, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'KNRI11', DATE '2026-09-09', 660.0, NULL, NULL),
+  (210, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BOVA11', DATE '2026-09-09', 720.0, NULL, NULL),
+  (211, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'deposit', NULL, DATE '2026-10-05', 6000, NULL, 'Aporte mensal'),
+  (212, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'RENT3', DATE '2026-10-06', 1320.0, NULL, NULL),
+  (213, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TAEE11', DATE '2026-10-06', 1320.0, NULL, NULL),
+  (214, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'MXRF11', DATE '2026-10-06', 660.0, NULL, NULL),
+  (215, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'BTLG11', DATE '2026-10-06', 660.0, NULL, NULL),
+  (216, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'IVVB11', DATE '2026-10-06', 720.0, NULL, NULL),
+  (217, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'CDB-C6BANK-20270408', DATE '2024-04-08', 7000, NULL, 'Aplicação em renda fixa'),
+  (218, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'CDB-DAYCOVAL-20300708', DATE '2024-07-08', 7000, NULL, 'Aplicação em renda fixa'),
+  (219, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'CDB-C6BANK-20271007', DATE '2024-10-07', 5500, NULL, 'Aplicação em renda fixa'),
+  (220, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'CDB-DAYCOVAL-20310407', DATE '2025-04-07', 8500, NULL, 'Aplicação em renda fixa'),
+  (221, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'LCI-BANCOINT-20270107', DATE '2025-07-07', 5500, NULL, 'Aplicação em renda fixa'),
+  (222, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'CDB-C6BANK-20280112', DATE '2026-01-12', 7000, NULL, 'Aplicação em renda fixa'),
+  (223, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'CDB-DAYCOVAL-20320608', DATE '2026-06-08', 7000, NULL, 'Aplicação em renda fixa'),
+  (224, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TESOURO-IPCA-20350515', DATE '2025-02-10', 7000, NULL, 'Tesouro Direto'),
+  (225, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TESOURO-IPCA-20350515', DATE '2025-10-06', 5500, NULL, 'Tesouro Direto'),
+  (226, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'buy', 'TESOURO-IPCA-20350515', DATE '2026-03-09', 5500, NULL, 'Tesouro Direto'),
+  (227, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'sell', 'PETR4', DATE '2025-03-12', NULL, 0.30, 'Realização parcial'),
+  (228, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'sell', 'RENT3', DATE '2025-09-15', NULL, 1.00, 'Saída da posição'),
+  (229, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'sell', 'MXRF11', DATE '2025-12-10', NULL, 0.20, 'Rebalanceamento'),
+  (230, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'sell', 'BOVA11', DATE '2026-02-10', NULL, 0.25, 'Rebalanceamento'),
+  (231, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-01-03', 25000, NULL, 'Reserva inicial'),
+  (232, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'CDB-BANCOINT-20290104', DATE '2024-01-04', 15000, NULL, 'CDB liquidez diária'),
+  (233, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2024-01-04', 10000, NULL, 'Tesouro Direto'),
+  (234, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-02-05', 1000, NULL, 'Aporte mensal'),
+  (235, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2024-02-06', 1000, NULL, 'Tesouro Direto'),
+  (236, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-03-05', 1000, NULL, 'Aporte mensal'),
+  (237, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2024-03-06', 1000, NULL, 'Tesouro Direto'),
+  (238, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-04-05', 1000, NULL, 'Aporte mensal'),
+  (239, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2024-04-08', 1000, NULL, 'Tesouro Direto'),
+  (240, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-05-06', 1000, NULL, 'Aporte mensal'),
+  (241, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2024-05-07', 1000, NULL, 'Tesouro Direto'),
+  (242, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-06-05', 1000, NULL, 'Aporte mensal'),
+  (243, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2024-06-06', 1000, NULL, 'Tesouro Direto'),
+  (244, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-07-05', 1000, NULL, 'Aporte mensal'),
+  (245, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2024-07-08', 1000, NULL, 'Tesouro Direto'),
+  (246, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-08-05', 1000, NULL, 'Aporte mensal'),
+  (247, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2024-08-06', 1000, NULL, 'Tesouro Direto'),
+  (248, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-09-05', 1000, NULL, 'Aporte mensal'),
+  (249, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2024-09-06', 1000, NULL, 'Tesouro Direto'),
+  (250, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-10-07', 1000, NULL, 'Aporte mensal'),
+  (251, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2024-10-08', 1000, NULL, 'Tesouro Direto'),
+  (252, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-11-05', 1000, NULL, 'Aporte mensal'),
+  (253, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2024-11-06', 1000, NULL, 'Tesouro Direto'),
+  (254, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-12-05', 1000, NULL, 'Aporte mensal'),
+  (255, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2024-12-06', 1000, NULL, 'Tesouro Direto'),
+  (256, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-01-06', 1000, NULL, 'Aporte mensal'),
+  (257, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2025-01-07', 1000, NULL, 'Tesouro Direto'),
+  (258, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-02-05', 1000, NULL, 'Aporte mensal'),
+  (259, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2025-02-06', 1000, NULL, 'Tesouro Direto'),
+  (260, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-03-05', 1000, NULL, 'Aporte mensal'),
+  (261, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2025-03-06', 1000, NULL, 'Tesouro Direto'),
+  (262, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-04-07', 1000, NULL, 'Aporte mensal'),
+  (263, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2025-04-08', 1000, NULL, 'Tesouro Direto'),
+  (264, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-05-05', 1000, NULL, 'Aporte mensal'),
+  (265, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2025-05-06', 1000, NULL, 'Tesouro Direto'),
+  (266, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-06-05', 1000, NULL, 'Aporte mensal'),
+  (267, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2025-06-06', 1000, NULL, 'Tesouro Direto'),
+  (268, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-07-07', 1000, NULL, 'Aporte mensal'),
+  (269, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2025-07-08', 1000, NULL, 'Tesouro Direto'),
+  (270, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-08-05', 1000, NULL, 'Aporte mensal'),
+  (271, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2025-08-06', 1000, NULL, 'Tesouro Direto'),
+  (272, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-09-05', 1000, NULL, 'Aporte mensal'),
+  (273, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2025-09-08', 1000, NULL, 'Tesouro Direto'),
+  (274, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-10-06', 1000, NULL, 'Aporte mensal'),
+  (275, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2025-10-07', 1000, NULL, 'Tesouro Direto'),
+  (276, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-11-05', 1000, NULL, 'Aporte mensal'),
+  (277, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2025-11-06', 1000, NULL, 'Tesouro Direto'),
+  (278, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-12-05', 1000, NULL, 'Aporte mensal'),
+  (279, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2025-12-08', 1000, NULL, 'Tesouro Direto'),
+  (280, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-01-05', 1000, NULL, 'Aporte mensal'),
+  (281, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2026-01-06', 1000, NULL, 'Tesouro Direto'),
+  (282, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-02-05', 1000, NULL, 'Aporte mensal'),
+  (283, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2026-02-06', 1000, NULL, 'Tesouro Direto'),
+  (284, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-03-05', 1000, NULL, 'Aporte mensal'),
+  (285, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2026-03-06', 1000, NULL, 'Tesouro Direto'),
+  (286, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-04-06', 1000, NULL, 'Aporte mensal'),
+  (287, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2026-04-07', 1000, NULL, 'Tesouro Direto'),
+  (288, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-05-05', 1000, NULL, 'Aporte mensal'),
+  (289, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2026-05-06', 1000, NULL, 'Tesouro Direto'),
+  (290, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-06-05', 1000, NULL, 'Aporte mensal'),
+  (291, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2026-06-08', 1000, NULL, 'Tesouro Direto'),
+  (292, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-07-06', 1000, NULL, 'Aporte mensal'),
+  (293, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2026-07-07', 1000, NULL, 'Tesouro Direto'),
+  (294, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-08-05', 1000, NULL, 'Aporte mensal'),
+  (295, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2026-08-06', 1000, NULL, 'Tesouro Direto'),
+  (296, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-09-08', 1000, NULL, 'Aporte mensal'),
+  (297, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2026-09-09', 1000, NULL, 'Tesouro Direto'),
+  (298, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-10-05', 1000, NULL, 'Aporte mensal'),
+  (299, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-SELIC-20290301', DATE '2026-10-06', 1000, NULL, 'Tesouro Direto'),
+  (300, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000003', 'deposit', NULL, DATE '2024-01-15', 5000, NULL, 'Saldo na conta'),
+  (301, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000003', 'deposit', NULL, DATE '2025-06-02', 10000, NULL, 'Bônus anual'),
+  (302, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000003', 'buy', 'CDB-NUBANK-20270602', DATE '2025-06-02', 10000, NULL, 'CDB liquidez 30 dias'),
+  (303, '01960000-0004-7000-8000-000000000002', '01960000-0001-7000-8000-000000000003', 'withdrawal', NULL, DATE '2025-08-12', 1500, NULL, 'Despesa imprevista'),
+  (304, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-03-05', 17500, NULL, 'Aporte inicial'),
+  (305, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2024-03-06', 1000, NULL, 'Tesouro Direto'),
+  (306, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-04-05', 2500, NULL, 'Aporte mensal'),
+  (307, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2024-04-08', 1000, NULL, 'Tesouro Direto'),
+  (308, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-05-06', 2500, NULL, 'Aporte mensal'),
+  (309, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2024-05-07', 1000, NULL, 'Tesouro Direto'),
+  (310, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-06-05', 2500, NULL, 'Aporte mensal'),
+  (311, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2024-06-06', 1000, NULL, 'Tesouro Direto'),
+  (312, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-07-05', 2500, NULL, 'Aporte mensal'),
+  (313, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2024-07-08', 1000, NULL, 'Tesouro Direto'),
+  (314, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-08-05', 2500, NULL, 'Aporte mensal'),
+  (315, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2024-08-06', 1000, NULL, 'Tesouro Direto'),
+  (316, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-09-05', 2500, NULL, 'Aporte mensal'),
+  (317, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2024-09-06', 1000, NULL, 'Tesouro Direto'),
+  (318, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-10-07', 2500, NULL, 'Aporte mensal'),
+  (319, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2024-10-08', 1000, NULL, 'Tesouro Direto'),
+  (320, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-11-05', 2500, NULL, 'Aporte mensal'),
+  (321, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2024-11-06', 1000, NULL, 'Tesouro Direto'),
+  (322, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2024-12-05', 2500, NULL, 'Aporte mensal'),
+  (323, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2024-12-06', 1000, NULL, 'Tesouro Direto'),
+  (324, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-01-06', 2500, NULL, 'Aporte mensal'),
+  (325, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2025-01-07', 1000, NULL, 'Tesouro Direto'),
+  (326, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-02-05', 2500, NULL, 'Aporte mensal'),
+  (327, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2025-02-06', 1000, NULL, 'Tesouro Direto'),
+  (328, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-03-05', 2500, NULL, 'Aporte mensal'),
+  (329, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2025-03-06', 1000, NULL, 'Tesouro Direto'),
+  (330, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-04-07', 2500, NULL, 'Aporte mensal'),
+  (331, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2025-04-08', 1000, NULL, 'Tesouro Direto'),
+  (332, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-05-05', 2500, NULL, 'Aporte mensal'),
+  (333, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2025-05-06', 1000, NULL, 'Tesouro Direto'),
+  (334, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-06-05', 2500, NULL, 'Aporte mensal'),
+  (335, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2025-06-06', 1000, NULL, 'Tesouro Direto'),
+  (336, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-07-07', 2500, NULL, 'Aporte mensal'),
+  (337, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2025-07-08', 1000, NULL, 'Tesouro Direto'),
+  (338, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-08-05', 2500, NULL, 'Aporte mensal'),
+  (339, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2025-08-06', 1000, NULL, 'Tesouro Direto'),
+  (340, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-09-05', 2500, NULL, 'Aporte mensal'),
+  (341, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2025-09-08', 1000, NULL, 'Tesouro Direto'),
+  (342, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-10-06', 2500, NULL, 'Aporte mensal'),
+  (343, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2025-10-07', 1000, NULL, 'Tesouro Direto'),
+  (344, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-11-05', 2500, NULL, 'Aporte mensal'),
+  (345, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2025-11-06', 1000, NULL, 'Tesouro Direto'),
+  (346, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2025-12-05', 2500, NULL, 'Aporte mensal'),
+  (347, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2025-12-08', 1000, NULL, 'Tesouro Direto'),
+  (348, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-01-05', 2500, NULL, 'Aporte mensal'),
+  (349, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2026-01-06', 1000, NULL, 'Tesouro Direto'),
+  (350, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-02-05', 2500, NULL, 'Aporte mensal'),
+  (351, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2026-02-06', 1000, NULL, 'Tesouro Direto'),
+  (352, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-03-05', 2500, NULL, 'Aporte mensal'),
+  (353, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2026-03-06', 1000, NULL, 'Tesouro Direto'),
+  (354, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-04-06', 2500, NULL, 'Aporte mensal'),
+  (355, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2026-04-07', 1000, NULL, 'Tesouro Direto'),
+  (356, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-05-05', 2500, NULL, 'Aporte mensal'),
+  (357, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2026-05-06', 1000, NULL, 'Tesouro Direto'),
+  (358, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-06-05', 2500, NULL, 'Aporte mensal'),
+  (359, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2026-06-08', 1000, NULL, 'Tesouro Direto'),
+  (360, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-07-06', 2500, NULL, 'Aporte mensal'),
+  (361, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2026-07-07', 1000, NULL, 'Tesouro Direto'),
+  (362, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-08-05', 2500, NULL, 'Aporte mensal'),
+  (363, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2026-08-06', 1000, NULL, 'Tesouro Direto'),
+  (364, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-09-08', 2500, NULL, 'Aporte mensal'),
+  (365, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2026-09-09', 1000, NULL, 'Tesouro Direto'),
+  (366, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'deposit', NULL, DATE '2026-10-05', 2500, NULL, 'Aporte mensal'),
+  (367, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'TESOURO-IPCA-20290515', DATE '2026-10-06', 1000, NULL, 'Tesouro Direto'),
+  (368, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'LCA-C6BANK-20261202', DATE '2024-12-02', 15000, NULL, 'Aplicação em renda fixa'),
+  (369, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'LCI-BANCOINT-20261103', DATE '2025-03-05', 10000, NULL, 'Aplicação em renda fixa'),
+  (370, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'CDB-BANCOPAN-20280505', DATE '2025-05-05', 12000, NULL, 'Aplicação em renda fixa'),
+  (371, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'CDB-DAYCOVAL-20281103', DATE '2025-11-03', 7000, NULL, 'Aplicação em renda fixa'),
+  (372, '01960000-0004-7000-8000-000000000003', '01960000-0001-7000-8000-000000000002', 'buy', 'CDB-C6BANK-20310406', DATE '2026-04-06', 6000, NULL, 'Aplicação em renda fixa'),
+  (373, '01960000-0004-7000-8000-000000000004', '01960000-0001-7000-8000-000000000004', 'deposit', NULL, DATE '2024-05-06', 15000, NULL, 'Capital para swing trade'),
+  (374, '01960000-0004-7000-8000-000000000004', '01960000-0001-7000-8000-000000000004', 'buy', 'MGLU3', DATE '2024-05-07', 6000, NULL, NULL),
+  (375, '01960000-0004-7000-8000-000000000004', '01960000-0001-7000-8000-000000000004', 'buy', 'BBAS3', DATE '2024-06-03', 5000, NULL, NULL),
+  (376, '01960000-0004-7000-8000-000000000004', '01960000-0001-7000-8000-000000000004', 'sell', 'MGLU3', DATE '2024-08-12', NULL, 1.00, 'Stop'),
+  (377, '01960000-0004-7000-8000-000000000004', '01960000-0001-7000-8000-000000000004', 'sell', 'BBAS3', DATE '2024-09-16', NULL, 1.00, 'Alvo atingido');
+
+CREATE TEMP TABLE seed_tx (
+  phase INT, seq INT, kind transaction_kind, trade_date DATE, settlement_date DATE,
+  portfolio_id UUID, asset_id UUID, institution_id UUID,
+  quantity NUMERIC(20,8), unit_price NUMERIC(20,8), fees NUMERIC(20,2), gross_amount NUMERIC(20,2),
+  tax_withheld NUMERIC(20,2) DEFAULT 0, net_amount NUMERIC(20,2),
+  payout_kind payout_kind, record_date DATE, confirmed_at TIMESTAMPTZ,
+  transfer_group_id UUID, note TEXT, expected_net_amount NUMERIC(20,2)
+) ON COMMIT DROP;
+
+-- Fase 0 · aportes e resgates: o caixa é um ativo por instituição, 1 real por real.
+INSERT INTO seed_tx (phase, seq, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
+                     quantity, unit_price, fees, gross_amount, net_amount, note)
+SELECT 0, p.seq, p.kind::transaction_kind, p.trade_date, p.trade_date, p.portfolio_id, cash.id, p.institution_id,
+       p.budget, 1, 0, p.budget, CASE p.kind WHEN 'deposit' THEN p.budget ELSE -p.budget END, p.note
+  FROM seed_plan p
+  JOIN asset cash ON cash.b3_type = 'cash' AND cash.issuer_id = p.institution_id
+ WHERE p.kind IN ('deposit', 'withdrawal');
+
+-- Fase 1 · compras. Corretagem só em renda variável; liquidação D+2 (D+1 no Tesouro,
+-- D+0 na renda fixa de banco).
+INSERT INTO seed_tx (phase, seq, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
+                     quantity, unit_price, fees, gross_amount, net_amount, note)
+SELECT 1, p.seq, 'buy', p.trade_date,
+       CASE WHEN a.origin = 'manual' THEN p.trade_date
+            WHEN a.b3_type = 'treasury' THEN pg_temp.add_bd(p.trade_date, 1)
+            ELSE pg_temp.add_bd(p.trade_date, 2) END,
+       p.portfolio_id, a.id, p.institution_id, qty.v, px.price, px.fee,
+       ROUND(qty.v * px.price, 2), -(ROUND(qty.v * px.price, 2) + px.fee), p.note
+  FROM seed_plan p
+  JOIN asset a ON a.ticker = p.ticker
+  JOIN institution i ON i.id = p.institution_id
+  LEFT JOIN asset_price ap ON ap.asset_id = a.id AND ap.price_date = p.trade_date
+ CROSS JOIN LATERAL (SELECT CASE WHEN a.origin = 'manual' THEN 1::NUMERIC ELSE ap.close END AS price,
+                            CASE WHEN a.origin = 'manual' OR a.b3_type = 'treasury'
+                                 THEN 0 ELSE i.brokerage_per_order END AS fee) px
+ CROSS JOIN LATERAL (SELECT CASE WHEN a.origin = 'manual' THEN p.budget
+                                 WHEN a.b3_type = 'treasury' THEN FLOOR((p.budget - px.fee) / px.price * 100) / 100
+                                 ELSE FLOOR((p.budget - px.fee) / px.price) END AS v) qty
+ WHERE p.kind = 'buy';
+
+-- Fase 2 · vendas: fração da posição que existia na data.
+INSERT INTO seed_tx (phase, seq, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
+                     quantity, unit_price, fees, gross_amount, net_amount, note)
+SELECT 2, p.seq, 'sell', p.trade_date, pg_temp.add_bd(p.trade_date, 2), p.portfolio_id, a.id, p.institution_id,
+       held.qty, ap.close, i.brokerage_per_order, ROUND(held.qty * ap.close, 2),
+       ROUND(held.qty * ap.close, 2) - i.brokerage_per_order, p.note
+  FROM seed_plan p
+  JOIN asset a ON a.ticker = p.ticker
+  JOIN institution i ON i.id = p.institution_id
+  JOIN asset_price ap ON ap.asset_id = a.id AND ap.price_date = p.trade_date
+ CROSS JOIN LATERAL (
+   SELECT FLOOR(COALESCE(SUM(CASE t.kind WHEN 'buy' THEN t.quantity ELSE -t.quantity END), 0) * p.fraction) AS qty
+     FROM seed_tx t
+    WHERE t.portfolio_id = p.portfolio_id AND t.asset_id = a.id
+      AND t.kind IN ('buy', 'sell') AND t.trade_date <= p.trade_date) held
+ WHERE p.kind = 'sell';
+
+-- Fase 0 · encerramento de "Experimentos": resgata todo o saldo que sobrou no BTG.
+INSERT INTO seed_tx (phase, seq, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
+                     quantity, unit_price, fees, gross_amount, net_amount, note)
+SELECT 3, 9000, 'withdrawal', DATE '2024-09-20', DATE '2024-09-20',
+       '01960000-0004-7000-8000-000000000004', cash.id, '01960000-0001-7000-8000-000000000004', bal.v, 1, 0, bal.v, -bal.v, 'Encerramento da carteira'
+  FROM asset cash
+ CROSS JOIN LATERAL (SELECT SUM(net_amount) AS v FROM seed_tx
+                      WHERE portfolio_id = '01960000-0004-7000-8000-000000000004' AND institution_id = '01960000-0001-7000-8000-000000000004') bal
+ WHERE cash.b3_type = 'cash' AND cash.issuer_id = '01960000-0001-7000-8000-000000000004';
+
+-- Fase 0 · "aporte" vindo de outra carteira é transferência de caixa: duas pernas,
+-- mesmo grupo, patrimônio total inalterado.
+INSERT INTO seed_tx (phase, seq, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
+                     quantity, unit_price, fees, gross_amount, net_amount, transfer_group_id, note)
+SELECT 0, 9100 + leg.n, 'transfer', DATE '2025-12-15', DATE '2025-12-15', leg.portfolio_id, cash.id,
+       '01960000-0001-7000-8000-000000000003', 3000, 1, 0, 3000, leg.sign * 3000, '01960000-000b-7000-8000-000000000001', 'Reserva excedente destinada ao imóvel'
+  FROM asset cash
+ CROSS JOIN (VALUES (1, '01960000-0004-7000-8000-000000000002'::UUID, -1), (2, '01960000-0004-7000-8000-000000000003'::UUID, 1)) AS leg(n, portfolio_id, sign)
+ WHERE cash.b3_type = 'cash' AND cash.issuer_id = '01960000-0001-7000-8000-000000000003';
+
+-- ---------------------------------------------------------- proventos (entrada)
+CREATE TEMP TABLE seed_payout_plan (
+  seq INT PRIMARY KEY, portfolio_id UUID, institution_id UUID, ticker TEXT, payout_kind payout_kind,
+  record_date DATE, payment_date DATE, yield_pct NUMERIC, dismissed BOOLEAN, note TEXT
+) ON COMMIT DROP;
+INSERT INTO seed_payout_plan VALUES
+  (1, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2024-01-31', DATE '2024-02-14', 0.72, FALSE, NULL),
+  (2, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2024-01-31', DATE '2024-02-14', 0.78, FALSE, NULL),
+  (3, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2024-01-31', DATE '2024-02-14', 0.95, FALSE, NULL),
+  (4, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2024-01-31', DATE '2024-02-14', 0.8, FALSE, NULL),
+  (5, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2024-01-31', DATE '2024-02-14', 0.75, FALSE, NULL),
+  (6, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2024-02-29', DATE '2024-03-14', 0.72, FALSE, NULL),
+  (7, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2024-02-29', DATE '2024-03-14', 0.78, FALSE, NULL),
+  (8, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2024-02-29', DATE '2024-03-14', 0.95, FALSE, NULL),
+  (9, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2024-02-29', DATE '2024-03-14', 0.8, FALSE, NULL),
+  (10, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2024-02-29', DATE '2024-03-14', 0.75, FALSE, NULL),
+  (11, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2024-03-28', DATE '2024-04-15', 0.72, FALSE, NULL),
+  (12, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2024-03-28', DATE '2024-04-15', 0.78, FALSE, NULL),
+  (13, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2024-03-28', DATE '2024-04-15', 0.95, FALSE, NULL),
+  (14, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2024-03-28', DATE '2024-04-15', 0.8, FALSE, NULL),
+  (15, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2024-03-28', DATE '2024-04-15', 0.75, FALSE, NULL),
+  (16, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2024-04-30', DATE '2024-05-14', 0.72, FALSE, NULL),
+  (17, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2024-04-30', DATE '2024-05-14', 0.78, FALSE, NULL),
+  (18, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2024-04-30', DATE '2024-05-14', 0.95, FALSE, NULL),
+  (19, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2024-04-30', DATE '2024-05-14', 0.8, FALSE, NULL),
+  (20, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2024-04-30', DATE '2024-05-14', 0.75, FALSE, NULL),
+  (21, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2024-05-31', DATE '2024-06-14', 0.72, FALSE, NULL),
+  (22, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2024-05-31', DATE '2024-06-14', 0.78, FALSE, NULL),
+  (23, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2024-05-31', DATE '2024-06-14', 0.95, FALSE, NULL),
+  (24, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2024-05-31', DATE '2024-06-14', 0.8, FALSE, NULL),
+  (25, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2024-05-31', DATE '2024-06-14', 0.75, FALSE, NULL),
+  (26, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2024-06-28', DATE '2024-07-15', 0.72, FALSE, NULL),
+  (27, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2024-06-28', DATE '2024-07-15', 0.78, FALSE, NULL),
+  (28, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2024-06-28', DATE '2024-07-15', 0.95, FALSE, NULL),
+  (29, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2024-06-28', DATE '2024-07-15', 0.8, FALSE, NULL),
+  (30, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2024-06-28', DATE '2024-07-15', 0.75, FALSE, NULL),
+  (31, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2024-07-31', DATE '2024-08-14', 0.72, FALSE, NULL),
+  (32, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2024-07-31', DATE '2024-08-14', 0.78, FALSE, NULL),
+  (33, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2024-07-31', DATE '2024-08-14', 0.95, FALSE, NULL),
+  (34, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2024-07-31', DATE '2024-08-14', 0.8, FALSE, NULL),
+  (35, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2024-07-31', DATE '2024-08-14', 0.75, FALSE, NULL),
+  (36, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2024-08-30', DATE '2024-09-16', 0.72, FALSE, NULL),
+  (37, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2024-08-30', DATE '2024-09-16', 0.78, FALSE, NULL),
+  (38, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2024-08-30', DATE '2024-09-16', 0.95, FALSE, NULL),
+  (39, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2024-08-30', DATE '2024-09-16', 0.8, FALSE, NULL),
+  (40, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2024-08-30', DATE '2024-09-16', 0.75, FALSE, NULL),
+  (41, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2024-09-30', DATE '2024-10-14', 0.72, FALSE, NULL),
+  (42, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2024-09-30', DATE '2024-10-14', 0.78, FALSE, NULL),
+  (43, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2024-09-30', DATE '2024-10-14', 0.95, FALSE, NULL),
+  (44, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2024-09-30', DATE '2024-10-14', 0.8, FALSE, NULL),
+  (45, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2024-09-30', DATE '2024-10-14', 0.75, FALSE, NULL),
+  (46, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2024-10-31', DATE '2024-11-14', 0.72, FALSE, NULL),
+  (47, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2024-10-31', DATE '2024-11-14', 0.78, FALSE, NULL),
+  (48, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2024-10-31', DATE '2024-11-14', 0.95, FALSE, NULL),
+  (49, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2024-10-31', DATE '2024-11-14', 0.8, FALSE, NULL),
+  (50, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2024-10-31', DATE '2024-11-14', 0.75, FALSE, NULL),
+  (51, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2024-11-29', DATE '2024-12-16', 0.72, FALSE, NULL),
+  (52, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2024-11-29', DATE '2024-12-16', 0.78, FALSE, NULL),
+  (53, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2024-11-29', DATE '2024-12-16', 0.95, FALSE, NULL),
+  (54, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2024-11-29', DATE '2024-12-16', 0.8, FALSE, NULL),
+  (55, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2024-11-29', DATE '2024-12-16', 0.75, FALSE, NULL),
+  (56, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2024-12-30', DATE '2025-01-14', 0.72, FALSE, NULL),
+  (57, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2024-12-30', DATE '2025-01-14', 0.78, FALSE, NULL),
+  (58, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2024-12-30', DATE '2025-01-14', 0.95, FALSE, NULL),
+  (59, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2024-12-30', DATE '2025-01-14', 0.8, FALSE, NULL),
+  (60, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2024-12-30', DATE '2025-01-14', 0.75, FALSE, NULL),
+  (61, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2025-01-31', DATE '2025-02-14', 0.72, FALSE, NULL),
+  (62, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2025-01-31', DATE '2025-02-14', 0.78, FALSE, NULL),
+  (63, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2025-01-31', DATE '2025-02-14', 0.95, FALSE, NULL),
+  (64, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2025-01-31', DATE '2025-02-14', 0.8, FALSE, NULL),
+  (65, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2025-01-31', DATE '2025-02-14', 0.75, FALSE, NULL),
+  (66, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2025-02-28', DATE '2025-03-14', 0.72, FALSE, NULL),
+  (67, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2025-02-28', DATE '2025-03-14', 0.78, FALSE, NULL),
+  (68, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2025-02-28', DATE '2025-03-14', 0.95, FALSE, NULL),
+  (69, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2025-02-28', DATE '2025-03-14', 0.8, FALSE, NULL),
+  (70, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2025-02-28', DATE '2025-03-14', 0.75, FALSE, NULL),
+  (71, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2025-03-31', DATE '2025-04-14', 0.72, FALSE, NULL),
+  (72, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2025-03-31', DATE '2025-04-14', 0.78, FALSE, NULL),
+  (73, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2025-03-31', DATE '2025-04-14', 0.95, FALSE, NULL),
+  (74, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2025-03-31', DATE '2025-04-14', 0.8, FALSE, NULL),
+  (75, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2025-03-31', DATE '2025-04-14', 0.75, FALSE, NULL),
+  (76, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2025-04-30', DATE '2025-05-14', 0.72, FALSE, NULL),
+  (77, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2025-04-30', DATE '2025-05-14', 0.78, FALSE, NULL),
+  (78, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2025-04-30', DATE '2025-05-14', 0.95, FALSE, NULL),
+  (79, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2025-04-30', DATE '2025-05-14', 0.8, FALSE, NULL),
+  (80, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2025-04-30', DATE '2025-05-14', 0.75, FALSE, NULL),
+  (81, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2025-05-30', DATE '2025-06-16', 0.72, FALSE, NULL),
+  (82, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2025-05-30', DATE '2025-06-16', 0.78, FALSE, NULL),
+  (83, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2025-05-30', DATE '2025-06-16', 0.95, FALSE, NULL),
+  (84, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2025-05-30', DATE '2025-06-16', 0.8, FALSE, NULL),
+  (85, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2025-05-30', DATE '2025-06-16', 0.75, FALSE, NULL),
+  (86, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2025-06-30', DATE '2025-07-14', 0.72, FALSE, NULL),
+  (87, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2025-06-30', DATE '2025-07-14', 0.78, FALSE, NULL),
+  (88, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2025-06-30', DATE '2025-07-14', 0.95, FALSE, NULL),
+  (89, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2025-06-30', DATE '2025-07-14', 0.8, FALSE, NULL),
+  (90, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2025-06-30', DATE '2025-07-14', 0.75, FALSE, NULL),
+  (91, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2025-07-31', DATE '2025-08-14', 0.72, FALSE, NULL),
+  (92, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2025-07-31', DATE '2025-08-14', 0.78, FALSE, NULL),
+  (93, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2025-07-31', DATE '2025-08-14', 0.95, FALSE, NULL),
+  (94, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2025-07-31', DATE '2025-08-14', 0.8, FALSE, NULL),
+  (95, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2025-07-31', DATE '2025-08-14', 0.75, FALSE, NULL),
+  (96, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2025-08-29', DATE '2025-09-15', 0.72, FALSE, NULL),
+  (97, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2025-08-29', DATE '2025-09-15', 0.78, FALSE, NULL),
+  (98, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2025-08-29', DATE '2025-09-15', 0.95, FALSE, NULL),
+  (99, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2025-08-29', DATE '2025-09-15', 0.8, FALSE, NULL),
+  (100, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2025-08-29', DATE '2025-09-15', 0.75, FALSE, NULL),
+  (101, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2025-09-30', DATE '2025-10-14', 0.72, FALSE, NULL),
+  (102, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2025-09-30', DATE '2025-10-14', 0.78, FALSE, NULL),
+  (103, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2025-09-30', DATE '2025-10-14', 0.95, FALSE, NULL),
+  (104, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2025-09-30', DATE '2025-10-14', 0.8, FALSE, NULL),
+  (105, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2025-09-30', DATE '2025-10-14', 0.75, FALSE, NULL),
+  (106, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2025-10-31', DATE '2025-11-14', 0.72, FALSE, NULL),
+  (107, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2025-10-31', DATE '2025-11-14', 0.78, FALSE, NULL),
+  (108, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2025-10-31', DATE '2025-11-14', 0.95, FALSE, NULL),
+  (109, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2025-10-31', DATE '2025-11-14', 0.8, FALSE, NULL),
+  (110, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2025-10-31', DATE '2025-11-14', 0.75, FALSE, NULL),
+  (111, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2025-11-28', DATE '2025-12-15', 0.72, FALSE, NULL),
+  (112, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2025-11-28', DATE '2025-12-15', 0.78, FALSE, NULL),
+  (113, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2025-11-28', DATE '2025-12-15', 0.95, FALSE, NULL),
+  (114, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2025-11-28', DATE '2025-12-15', 0.8, FALSE, NULL),
+  (115, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2025-11-28', DATE '2025-12-15', 0.75, FALSE, NULL),
+  (116, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2025-12-30', DATE '2026-01-14', 0.72, FALSE, NULL),
+  (117, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2025-12-30', DATE '2026-01-14', 0.78, FALSE, NULL),
+  (118, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2025-12-30', DATE '2026-01-14', 0.95, FALSE, NULL),
+  (119, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2025-12-30', DATE '2026-01-14', 0.8, FALSE, NULL),
+  (120, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2025-12-30', DATE '2026-01-14', 0.75, FALSE, NULL),
+  (121, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2026-01-30', DATE '2026-02-18', 0.72, FALSE, NULL),
+  (122, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2026-01-30', DATE '2026-02-18', 0.78, FALSE, NULL),
+  (123, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2026-01-30', DATE '2026-02-18', 0.95, FALSE, NULL),
+  (124, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2026-01-30', DATE '2026-02-18', 0.8, FALSE, NULL),
+  (125, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2026-01-30', DATE '2026-02-18', 0.75, FALSE, NULL),
+  (126, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2026-02-27', DATE '2026-03-16', 0.72, FALSE, NULL),
+  (127, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2026-02-27', DATE '2026-03-16', 0.78, FALSE, NULL),
+  (128, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2026-02-27', DATE '2026-03-16', 0.95, FALSE, NULL),
+  (129, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2026-02-27', DATE '2026-03-16', 0.8, FALSE, NULL),
+  (130, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2026-02-27', DATE '2026-03-16', 0.75, FALSE, NULL),
+  (131, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2026-03-31', DATE '2026-04-14', 0.72, FALSE, NULL),
+  (132, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2026-03-31', DATE '2026-04-14', 0.78, FALSE, NULL),
+  (133, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2026-03-31', DATE '2026-04-14', 0.95, FALSE, NULL),
+  (134, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2026-03-31', DATE '2026-04-14', 0.8, FALSE, NULL),
+  (135, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2026-03-31', DATE '2026-04-14', 0.75, FALSE, NULL),
+  (136, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2026-04-30', DATE '2026-05-14', 0.72, FALSE, NULL),
+  (137, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2026-04-30', DATE '2026-05-14', 0.78, TRUE, 'Pagamento adiado pelo administrador'),
+  (138, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2026-04-30', DATE '2026-05-14', 0.95, FALSE, NULL),
+  (139, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2026-04-30', DATE '2026-05-14', 0.8, FALSE, NULL),
+  (140, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2026-04-30', DATE '2026-05-14', 0.75, FALSE, NULL),
+  (141, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2026-05-29', DATE '2026-06-15', 0.72, FALSE, NULL),
+  (142, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2026-05-29', DATE '2026-06-15', 0.78, FALSE, NULL),
+  (143, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2026-05-29', DATE '2026-06-15', 0.95, FALSE, NULL),
+  (144, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2026-05-29', DATE '2026-06-15', 0.8, FALSE, NULL),
+  (145, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2026-05-29', DATE '2026-06-15', 0.75, FALSE, NULL),
+  (146, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2026-06-30', DATE '2026-07-14', 0.72, FALSE, NULL),
+  (147, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2026-06-30', DATE '2026-07-14', 0.78, FALSE, NULL),
+  (148, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2026-06-30', DATE '2026-07-14', 0.95, FALSE, NULL),
+  (149, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2026-06-30', DATE '2026-07-14', 0.8, FALSE, NULL),
+  (150, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2026-06-30', DATE '2026-07-14', 0.75, FALSE, NULL),
+  (151, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2026-07-31', DATE '2026-08-14', 0.72, FALSE, NULL),
+  (152, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2026-07-31', DATE '2026-08-14', 0.78, FALSE, NULL),
+  (153, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2026-07-31', DATE '2026-08-14', 0.95, FALSE, NULL),
+  (154, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2026-07-31', DATE '2026-08-14', 0.8, FALSE, NULL),
+  (155, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2026-07-31', DATE '2026-08-14', 0.75, FALSE, NULL),
+  (156, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2026-08-31', DATE '2026-09-14', 0.72, FALSE, NULL),
+  (157, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2026-08-31', DATE '2026-09-14', 0.78, FALSE, NULL),
+  (158, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2026-08-31', DATE '2026-09-14', 0.95, FALSE, NULL),
+  (159, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2026-08-31', DATE '2026-09-14', 0.8, FALSE, NULL),
+  (160, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2026-08-31', DATE '2026-09-14', 0.75, FALSE, NULL),
+  (161, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'KNRI11', 'income', DATE '2026-09-30', DATE '2026-10-14', 0.72, FALSE, NULL),
+  (162, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'HGLG11', 'income', DATE '2026-09-30', DATE '2026-10-14', 0.78, FALSE, NULL),
+  (163, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'MXRF11', 'income', DATE '2026-09-30', DATE '2026-10-14', 0.95, FALSE, NULL),
+  (164, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'XPML11', 'income', DATE '2026-09-30', DATE '2026-10-14', 0.8, FALSE, NULL),
+  (165, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BTLG11', 'income', DATE '2026-09-30', DATE '2026-10-14', 0.75, FALSE, NULL),
+  (166, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ITUB4', 'jcp', DATE '2024-03-28', DATE '2024-04-18', 0.85, FALSE, NULL),
+  (167, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'PETR4', 'dividend', DATE '2024-03-28', DATE '2024-04-18', 2.2, FALSE, NULL),
+  (168, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'VALE3', 'jcp', DATE '2024-03-28', DATE '2024-04-18', 1.6, FALSE, NULL),
+  (169, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BBAS3', 'jcp', DATE '2024-03-28', DATE '2024-04-18', 1.4, FALSE, NULL),
+  (170, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'TAEE11', 'dividend', DATE '2024-03-28', DATE '2024-04-18', 2.4, FALSE, NULL),
+  (171, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ABEV3', 'jcp', DATE '2024-03-28', DATE '2024-04-18', 0.9, FALSE, NULL),
+  (172, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'WEGE3', 'jcp', DATE '2024-03-28', DATE '2024-04-18', 0.45, FALSE, NULL),
+  (173, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ITUB4', 'jcp', DATE '2024-06-28', DATE '2024-07-19', 0.85, FALSE, NULL),
+  (174, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'PETR4', 'dividend', DATE '2024-06-28', DATE '2024-07-19', 2.2, FALSE, NULL),
+  (175, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BBAS3', 'jcp', DATE '2024-06-28', DATE '2024-07-19', 1.4, FALSE, NULL),
+  (176, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'TAEE11', 'dividend', DATE '2024-06-28', DATE '2024-07-19', 2.4, FALSE, NULL),
+  (177, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ABEV3', 'jcp', DATE '2024-06-28', DATE '2024-07-19', 0.9, FALSE, NULL),
+  (178, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'WEGE3', 'jcp', DATE '2024-06-28', DATE '2024-07-19', 0.45, FALSE, NULL),
+  (179, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ITUB4', 'jcp', DATE '2024-09-30', DATE '2024-10-21', 0.85, FALSE, NULL),
+  (180, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'PETR4', 'dividend', DATE '2024-09-30', DATE '2024-10-21', 2.2, FALSE, NULL),
+  (181, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'VALE3', 'jcp', DATE '2024-09-30', DATE '2024-10-21', 1.6, FALSE, NULL),
+  (182, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BBAS3', 'jcp', DATE '2024-09-30', DATE '2024-10-21', 1.4, FALSE, NULL),
+  (183, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'TAEE11', 'dividend', DATE '2024-09-30', DATE '2024-10-21', 2.4, FALSE, NULL),
+  (184, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ABEV3', 'jcp', DATE '2024-09-30', DATE '2024-10-21', 0.9, FALSE, NULL),
+  (185, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'WEGE3', 'jcp', DATE '2024-09-30', DATE '2024-10-21', 0.45, FALSE, NULL),
+  (186, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ITUB4', 'jcp', DATE '2024-12-30', DATE '2025-01-20', 0.85, FALSE, NULL),
+  (187, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'PETR4', 'dividend', DATE '2024-12-30', DATE '2025-01-20', 2.2, FALSE, NULL),
+  (188, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BBAS3', 'jcp', DATE '2024-12-30', DATE '2025-01-20', 1.4, FALSE, NULL),
+  (189, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'TAEE11', 'dividend', DATE '2024-12-30', DATE '2025-01-20', 2.4, FALSE, NULL),
+  (190, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ABEV3', 'jcp', DATE '2024-12-30', DATE '2025-01-20', 0.9, FALSE, NULL),
+  (191, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'WEGE3', 'jcp', DATE '2024-12-30', DATE '2025-01-20', 0.45, FALSE, NULL),
+  (192, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ITUB4', 'jcp', DATE '2025-03-31', DATE '2025-04-22', 0.85, FALSE, NULL),
+  (193, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'PETR4', 'dividend', DATE '2025-03-31', DATE '2025-04-22', 2.2, FALSE, NULL),
+  (194, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'VALE3', 'jcp', DATE '2025-03-31', DATE '2025-04-22', 1.6, FALSE, NULL),
+  (195, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BBAS3', 'jcp', DATE '2025-03-31', DATE '2025-04-22', 1.4, FALSE, NULL),
+  (196, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'TAEE11', 'dividend', DATE '2025-03-31', DATE '2025-04-22', 2.4, FALSE, NULL),
+  (197, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ABEV3', 'jcp', DATE '2025-03-31', DATE '2025-04-22', 0.9, FALSE, NULL),
+  (198, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'WEGE3', 'jcp', DATE '2025-03-31', DATE '2025-04-22', 0.45, FALSE, NULL),
+  (199, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ITUB4', 'jcp', DATE '2025-06-30', DATE '2025-07-21', 0.85, FALSE, NULL),
+  (200, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'PETR4', 'dividend', DATE '2025-06-30', DATE '2025-07-21', 2.2, FALSE, NULL),
+  (201, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BBAS3', 'jcp', DATE '2025-06-30', DATE '2025-07-21', 1.4, FALSE, NULL),
+  (202, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'TAEE11', 'dividend', DATE '2025-06-30', DATE '2025-07-21', 2.4, FALSE, NULL),
+  (203, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ABEV3', 'jcp', DATE '2025-06-30', DATE '2025-07-21', 0.9, FALSE, NULL),
+  (204, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'WEGE3', 'jcp', DATE '2025-06-30', DATE '2025-07-21', 0.45, FALSE, NULL),
+  (205, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ITUB4', 'jcp', DATE '2025-09-30', DATE '2025-10-21', 0.85, FALSE, NULL),
+  (206, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'PETR4', 'dividend', DATE '2025-09-30', DATE '2025-10-21', 2.2, FALSE, NULL),
+  (207, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'VALE3', 'jcp', DATE '2025-09-30', DATE '2025-10-21', 1.6, FALSE, NULL),
+  (208, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BBAS3', 'jcp', DATE '2025-09-30', DATE '2025-10-21', 1.4, FALSE, NULL),
+  (209, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'TAEE11', 'dividend', DATE '2025-09-30', DATE '2025-10-21', 2.4, FALSE, NULL),
+  (210, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ABEV3', 'jcp', DATE '2025-09-30', DATE '2025-10-21', 0.9, FALSE, NULL),
+  (211, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'WEGE3', 'jcp', DATE '2025-09-30', DATE '2025-10-21', 0.45, FALSE, NULL),
+  (212, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ITUB4', 'jcp', DATE '2025-12-30', DATE '2026-01-20', 0.85, FALSE, NULL),
+  (213, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'PETR4', 'dividend', DATE '2025-12-30', DATE '2026-01-20', 2.2, FALSE, NULL),
+  (214, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BBAS3', 'jcp', DATE '2025-12-30', DATE '2026-01-20', 1.4, FALSE, NULL),
+  (215, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'TAEE11', 'dividend', DATE '2025-12-30', DATE '2026-01-20', 2.4, FALSE, NULL),
+  (216, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ABEV3', 'jcp', DATE '2025-12-30', DATE '2026-01-20', 0.9, FALSE, NULL),
+  (217, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'WEGE3', 'jcp', DATE '2025-12-30', DATE '2026-01-20', 0.45, FALSE, NULL),
+  (218, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ITUB4', 'jcp', DATE '2026-03-31', DATE '2026-04-22', 0.85, FALSE, NULL),
+  (219, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'PETR4', 'dividend', DATE '2026-03-31', DATE '2026-04-22', 2.2, FALSE, NULL),
+  (220, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'VALE3', 'jcp', DATE '2026-03-31', DATE '2026-04-22', 1.6, FALSE, NULL),
+  (221, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BBAS3', 'jcp', DATE '2026-03-31', DATE '2026-04-22', 1.4, FALSE, NULL),
+  (222, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'TAEE11', 'dividend', DATE '2026-03-31', DATE '2026-04-22', 2.4, FALSE, NULL),
+  (223, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ABEV3', 'jcp', DATE '2026-03-31', DATE '2026-04-22', 0.9, FALSE, NULL),
+  (224, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'WEGE3', 'jcp', DATE '2026-03-31', DATE '2026-04-22', 0.45, FALSE, NULL),
+  (225, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ITUB4', 'jcp', DATE '2026-06-30', DATE '2026-07-21', 0.85, FALSE, NULL),
+  (226, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'PETR4', 'dividend', DATE '2026-06-30', DATE '2026-07-21', 2.2, FALSE, NULL),
+  (227, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BBAS3', 'jcp', DATE '2026-06-30', DATE '2026-07-21', 1.4, FALSE, NULL),
+  (228, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'TAEE11', 'dividend', DATE '2026-06-30', DATE '2026-07-21', 2.4, FALSE, NULL),
+  (229, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ABEV3', 'jcp', DATE '2026-06-30', DATE '2026-07-21', 0.9, FALSE, NULL),
+  (230, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'WEGE3', 'jcp', DATE '2026-06-30', DATE '2026-07-21', 0.45, FALSE, NULL),
+  (231, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ITUB4', 'jcp', DATE '2026-09-30', DATE '2026-10-21', 0.85, FALSE, NULL),
+  (232, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'PETR4', 'dividend', DATE '2026-09-30', DATE '2026-10-21', 2.2, FALSE, NULL),
+  (233, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'VALE3', 'jcp', DATE '2026-09-30', DATE '2026-10-21', 1.6, FALSE, NULL),
+  (234, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'BBAS3', 'jcp', DATE '2026-09-30', DATE '2026-10-21', 1.4, FALSE, NULL),
+  (235, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'TAEE11', 'dividend', DATE '2026-09-30', DATE '2026-10-21', 2.4, FALSE, NULL),
+  (236, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'ABEV3', 'jcp', DATE '2026-09-30', DATE '2026-10-21', 0.9, FALSE, NULL),
+  (237, '01960000-0004-7000-8000-000000000001', '01960000-0001-7000-8000-000000000001', 'WEGE3', 'jcp', DATE '2026-09-30', DATE '2026-10-21', 0.45, FALSE, NULL);
+
+-- A quantidade que recebe sai dos lançamentos na data-com (nunca é digitada); quem não
+-- tinha posição na data-com não recebe. O valor por cota é o rendimento sobre o preço
+-- do dia, com uma variação determinística de ±10%.
+CREATE TEMP TABLE seed_payout_calc ON COMMIT DROP AS
+SELECT pp.*, a.id AS asset_id, h.qty, ps.per_share, v.gross, v.tax
+  FROM seed_payout_plan pp
+  JOIN asset a ON a.ticker = pp.ticker
+  JOIN asset_price ap ON ap.asset_id = a.id AND ap.price_date = pp.record_date
+ CROSS JOIN LATERAL (
+   SELECT COALESCE(SUM(CASE t.kind WHEN 'buy' THEN t.quantity ELSE -t.quantity END), 0) AS qty
+     FROM seed_tx t
+    WHERE t.portfolio_id = pp.portfolio_id AND t.asset_id = a.id
+      AND t.kind IN ('buy', 'sell') AND t.trade_date <= pp.record_date) h
+ CROSS JOIN LATERAL (
+   SELECT ROUND(ap.close * pp.yield_pct / 100.0
+                * (1 + ((ABS(HASHTEXT(a.ticker || ':' || pp.record_date::TEXT)::BIGINT) % 21) - 10) / 100.0), 4) AS per_share) ps
+ CROSS JOIN LATERAL (
+   SELECT ROUND(h.qty * ps.per_share, 2) AS gross,
+          CASE WHEN pp.payout_kind = 'jcp' THEN ROUND(ROUND(h.qty * ps.per_share, 2) * 0.15, 2) ELSE 0 END AS tax) v
+ WHERE h.qty > 0;
+
+-- Fase 4 · proventos pagos ficam confirmados; os de pagamento futuro nascem "a receber".
+-- Em alguns, o líquido previsto difere do recebido (diferença visível na tela).
+INSERT INTO seed_tx (phase, seq, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
+                     quantity, unit_price, fees, gross_amount, tax_withheld, net_amount,
+                     payout_kind, record_date, confirmed_at, note, expected_net_amount)
+SELECT 4, c.seq, 'payout', c.record_date, c.payment_date, c.portfolio_id, c.asset_id, c.institution_id,
+       c.qty, c.per_share, 0, c.gross, c.tax, c.gross - c.tax, c.payout_kind, c.record_date,
+       CASE WHEN c.payment_date <= p.as_of THEN (c.payment_date + time '10:00') at TIME ZONE 'America/Sao_Paulo' END,
+       c.note,
+       CASE WHEN c.payment_date <= p.as_of AND ABS(HASHTEXT(c.ticker || c.record_date::TEXT)::BIGINT) % 17 = 0
+            THEN ROUND((c.gross - c.tax) * 1.012, 2) END
+  FROM seed_payout_calc c, seed_params p
+ WHERE NOT c.dismissed;
+
+-- "Não foi pago": sai do livro, mas o motivo fica registrado.
+INSERT INTO payout_dismissal (id, portfolio_id, asset_id, payout_kind, record_date, payment_date,
+                              expected_net_amount, reason, created_at)
+SELECT ('01960000-000b-7000-8000-' || LPAD(TO_HEX(c.seq), 12, '0'))::UUID, c.portfolio_id, c.asset_id,
+       c.payout_kind, c.record_date, c.payment_date, c.gross - c.tax,
+       'O administrador adiou o pagamento do rendimento (fato relevante)',
+       (c.payment_date + time '16:00') at TIME ZONE 'America/Sao_Paulo'
+  FROM seed_payout_calc c
+ WHERE c.dismissed;
+
+-- Invariante do caixa: nenhuma carteira fica com saldo negativo numa instituição.
+DO $check$
+DECLARE bad RECORD;
+BEGIN
+  SELECT * INTO bad FROM (
+    SELECT portfolio_id, institution_id, trade_date,
+           SUM(net_amount) OVER (PARTITION BY portfolio_id, institution_id
+                                 ORDER BY trade_date, phase, seq ROWS UNBOUNDED PRECEDING) AS bal
+      FROM seed_tx) s
+   WHERE bal < 0 LIMIT 1;
+  IF found THEN
+    RAISE EXCEPTION 'saldo de caixa negativo em % (carteira %, instituição %): %',
+      bad.trade_date, bad.portfolio_id, bad.institution_id, bad.bal;
+  END IF;
+
+  IF (SELECT COUNT(*) FROM seed_tx WHERE seq < 9000 AND phase <= 2) <> (SELECT COUNT(*) FROM seed_plan) THEN
+    RAISE EXCEPTION 'alguma ordem do plano foi descartada (ticker ou data sem preço)';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM seed_tx WHERE quantity IS NULL OR net_amount IS NULL) THEN
+    RAISE EXCEPTION 'lançamento sem preço do dia: alguma ordem caiu fora do calendário de preços';
+  END IF;
+END
+$check$;
+
+-- -------------------------------------------------------------------- lançamentos
+-- UUID v7 crescente na ordem cronológica: é o desempate do motor para lançamentos
+-- do mesmo dia (aporte antes da compra, compra antes da venda).
+INSERT INTO transaction (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
+                         quantity, unit_price, fees, gross_amount, tax_withheld, net_amount, payout_kind,
+                         record_date, confirmed_at, transfer_group_id, note, expected_net_amount,
+                         created_at, updated_at)
+SELECT ('01960000-0100-7000-8000-' || LPAD(TO_HEX(ROW_NUMBER() OVER (ORDER BY trade_date, phase, seq)), 12, '0'))::UUID,
+       kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
+       quantity, unit_price, fees, gross_amount, tax_withheld, net_amount, payout_kind,
+       record_date, confirmed_at, transfer_group_id, note, expected_net_amount,
+       (trade_date + time '12:00') at TIME ZONE 'America/Sao_Paulo',
+       (trade_date + time '12:00') at TIME ZONE 'America/Sao_Paulo'
+  FROM seed_tx;
+
+-- O cadastro de cada ativo e de cada carteira nasce no primeiro lançamento.
+UPDATE asset a SET created_at = m.first_at
+  FROM (SELECT asset_id, MIN(created_at) AS first_at FROM transaction WHERE asset_id IS NOT NULL GROUP BY asset_id) m
+ WHERE a.id = m.asset_id;
+UPDATE portfolio p SET created_at = m.first_at
+  FROM (SELECT portfolio_id, MIN(created_at) AS first_at FROM transaction GROUP BY portfolio_id) m
+ WHERE p.id = m.portfolio_id;
+
+-- ------------------------------------------------- proventos anunciados e eventos
+-- Os anúncios recentes apontam para o lançamento que geraram ("a receber" ou pago).
+INSERT INTO announced_payout (id, asset_id, payout_kind, record_date, payment_date, amount_per_share, source,
+                              materialized_transaction_id, created_at)
+SELECT ('01960000-0007-7000-8000-' || LPAD(TO_HEX(ROW_NUMBER() OVER (ORDER BY t.record_date, t.asset_id)), 12, '0'))::UUID,
+       t.asset_id, t.payout_kind, t.record_date, t.settlement_date, t.unit_price, 'brapi', t.id,
+       (t.record_date + time '20:00') at TIME ZONE 'America/Sao_Paulo'
+  FROM transaction t
+ WHERE t.kind = 'payout' AND t.settlement_date >= DATE '2026-08-01';
+
+-- Anúncios com data-com futura: ainda não há o que materializar.
+INSERT INTO announced_payout (id, asset_id, payout_kind, record_date, payment_date, amount_per_share, source) VALUES
+  ('01960000-0007-7000-8000-00000000f001', (SELECT id FROM asset WHERE ticker = 'ABEV3'), 'jcp',
+   DATE '2026-10-20', DATE '2026-11-10', 0.0630, 'brapi'),
+  ('01960000-0007-7000-8000-00000000f002', (SELECT id FROM asset WHERE ticker = 'PETR4'), 'dividend',
+   DATE '2026-11-24', DATE '2026-12-19', 0.8540, 'brapi');
+
+-- Bonificação detectada e ainda não confirmada: a quantidade em carteira não muda sozinha.
+INSERT INTO corporate_event (id, asset_id, kind, record_date, ratio_from, ratio_to, confirmed_at) VALUES
+  ('01960000-0008-7000-8000-000000000001', (SELECT id FROM asset WHERE ticker = 'WEGE3'), 'bonus', DATE '2026-09-30', 10, 11, NULL);
+
+-- --------------------------------------------------------------------- objetivos
+INSERT INTO goal (id, name, target_amount, target_date, return_assumption, amount_in_today_brl, closed_at, created_at) VALUES
+  ('01960000-0006-7000-8000-000000000001', 'Independência financeira', 2000000, DATE '2045-12-31', '6% a.a. real', TRUE, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0006-7000-8000-000000000002', 'Entrada do imóvel', 180000, DATE '2029-06-30', '9% a.a. nominal', FALSE, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0006-7000-8000-000000000003', 'Reserva de 12 meses', 90000, DATE '2027-06-30', '10% a.a. nominal', FALSE, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0006-7000-8000-000000000004', 'Primeiros R$ 50 mil investidos', 50000, DATE '2025-06-30', '8% a.a. nominal', FALSE, TIMESTAMPTZ '2025-05-21 10:00:00-03', TIMESTAMPTZ '2024-01-02 09:00:00-03');
+
+INSERT INTO goal_portfolio (goal_id, portfolio_id) VALUES
+  ('01960000-0006-7000-8000-000000000001', '01960000-0004-7000-8000-000000000001'),
+  ('01960000-0006-7000-8000-000000000002', '01960000-0004-7000-8000-000000000003'),
+  ('01960000-0006-7000-8000-000000000003', '01960000-0004-7000-8000-000000000002'),
+  ('01960000-0006-7000-8000-000000000004', '01960000-0004-7000-8000-000000000001');
+
+-- ------------------------------------------------ histórico de coleta de mercado
+INSERT INTO market_source_run (id, source, kind, reference_date, started_at, finished_at, ok, source_kind,
+                               requests, items, missing, error, detail) VALUES
+  ('01960000-0009-7000-8000-000000000001', 'brapi', 'quotes', DATE '2026-10-01', TIMESTAMPTZ '2026-10-01 21:40:00+00', TIMESTAMPTZ '2026-10-01 21:40:03+00', TRUE, 'primary', 2, 16, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000002', 'bcb', 'indices', DATE '2026-10-01', TIMESTAMPTZ '2026-10-01 21:41:00+00', TIMESTAMPTZ '2026-10-01 21:41:02+00', TRUE, 'primary', 3, 3, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000003', 'tesouro-direto', 'treasury', DATE '2026-10-01', TIMESTAMPTZ '2026-10-01 21:41:05+00', TIMESTAMPTZ '2026-10-01 21:41:07+00', TRUE, 'primary', 1, 3, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000004', 'brapi', 'quotes', DATE '2026-10-02', TIMESTAMPTZ '2026-10-02 21:40:00+00', TIMESTAMPTZ '2026-10-02 21:40:10+00', FALSE, NULL, 1, 0, 16, 'Timeout após 10000 ms em GET /api/quote', NULL),
+  ('01960000-0009-7000-8000-000000000005', 'usebolsai', 'quotes', DATE '2026-10-02', TIMESTAMPTZ '2026-10-02 21:40:11+00', TIMESTAMPTZ '2026-10-02 21:40:19+00', TRUE, 'fallback', 16, 16, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000006', 'bcb', 'indices', DATE '2026-10-02', TIMESTAMPTZ '2026-10-02 21:41:00+00', TIMESTAMPTZ '2026-10-02 21:41:02+00', TRUE, 'primary', 3, 3, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000007', 'tesouro-direto', 'treasury', DATE '2026-10-02', TIMESTAMPTZ '2026-10-02 21:41:05+00', TIMESTAMPTZ '2026-10-02 21:41:07+00', TRUE, 'primary', 1, 3, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000008', 'brapi', 'quotes', DATE '2026-10-05', TIMESTAMPTZ '2026-10-05 21:40:00+00', TIMESTAMPTZ '2026-10-05 21:40:03+00', TRUE, 'primary', 2, 16, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000009', 'bcb', 'indices', DATE '2026-10-05', TIMESTAMPTZ '2026-10-05 21:41:00+00', TIMESTAMPTZ '2026-10-05 21:41:02+00', TRUE, 'primary', 3, 3, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-00000000000a', 'tesouro-direto', 'treasury', DATE '2026-10-05', TIMESTAMPTZ '2026-10-05 21:41:05+00', TIMESTAMPTZ '2026-10-05 21:41:07+00', TRUE, 'primary', 1, 3, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-00000000000b', 'brapi', 'quotes', DATE '2026-10-06', TIMESTAMPTZ '2026-10-06 21:40:00+00', TIMESTAMPTZ '2026-10-06 21:40:03+00', TRUE, 'primary', 2, 16, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-00000000000c', 'bcb', 'indices', DATE '2026-10-06', TIMESTAMPTZ '2026-10-06 21:41:00+00', TIMESTAMPTZ '2026-10-06 21:41:02+00', TRUE, 'primary', 3, 3, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-00000000000d', 'tesouro-direto', 'treasury', DATE '2026-10-06', TIMESTAMPTZ '2026-10-06 21:41:05+00', TIMESTAMPTZ '2026-10-06 21:41:07+00', TRUE, 'primary', 1, 3, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-00000000000e', 'brapi', 'quotes', DATE '2026-10-07', TIMESTAMPTZ '2026-10-07 21:40:00+00', TIMESTAMPTZ '2026-10-07 21:40:03+00', TRUE, 'primary', 2, 16, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-00000000000f', 'bcb', 'indices', DATE '2026-10-07', TIMESTAMPTZ '2026-10-07 21:41:00+00', TIMESTAMPTZ '2026-10-07 21:41:02+00', TRUE, 'primary', 3, 3, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000010', 'tesouro-direto', 'treasury', DATE '2026-10-07', TIMESTAMPTZ '2026-10-07 21:41:05+00', TIMESTAMPTZ '2026-10-07 21:41:07+00', TRUE, 'primary', 1, 3, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000011', 'brapi', 'quotes', DATE '2026-10-08', TIMESTAMPTZ '2026-10-08 21:40:00+00', TIMESTAMPTZ '2026-10-08 21:40:03+00', TRUE, 'primary', 2, 16, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000012', 'bcb', 'indices', DATE '2026-10-08', TIMESTAMPTZ '2026-10-08 21:41:00+00', TIMESTAMPTZ '2026-10-08 21:41:02+00', TRUE, 'primary', 3, 3, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000013', 'tesouro-direto', 'treasury', DATE '2026-10-08', TIMESTAMPTZ '2026-10-08 21:41:05+00', TIMESTAMPTZ '2026-10-08 21:41:07+00', TRUE, 'primary', 1, 3, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000014', 'cotahist', 'cotahist', DATE '2025-12-31', TIMESTAMPTZ '2026-01-05 06:00:00+00', TIMESTAMPTZ '2026-01-05 06:00:41+00', TRUE, 'primary', 1, 3250, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000015', 'tesouro-direto', 'contract_check', NULL, TIMESTAMPTZ '2026-10-05 03:00:00+00', TIMESTAMPTZ '2026-10-05 03:00:04+00', FALSE, NULL, 2, 0, 0, 'Campo "TrsrBdTradgList" ausente na resposta', '{"field": "TrsrBdTradgList", "excerpt": "{\"response\":{\"TrsrBdTradgList\":null}}"}'::JSONB),
+  ('01960000-0009-7000-8000-000000000016', 'brapi', 'contract_check', NULL, TIMESTAMPTZ '2026-10-08 03:00:00+00', TIMESTAMPTZ '2026-10-08 03:00:06+00', TRUE, 'primary', 4, 0, 0, NULL, NULL),
+  ('01960000-0009-7000-8000-000000000017', 'bcb', 'contract_check', NULL, TIMESTAMPTZ '2026-10-08 03:00:07+00', TIMESTAMPTZ '2026-10-08 03:00:09+00', TRUE, 'primary', 3, 0, 0, NULL, NULL);
+
+-- ---------------------------------------------------------------------- recálculo
+-- As projeções (position_daily, portfolio_daily, realized_result, tax_month) não são
+-- semeadas: o pedido de recálculo vai para a outbox, no mesmo formato que a api grava,
+-- e o relay do worker o despacha. A carteira fica "queued" até o job terminar.
+UPDATE portfolio p
+   SET recalc_status = 'queued', recalc_from_date = m.first_trade, recalc_updated_at = NOW()
+  FROM (SELECT portfolio_id, MIN(trade_date) AS first_trade FROM transaction GROUP BY portfolio_id) m
+ WHERE p.id = m.portfolio_id;
+
+INSERT INTO pipeline_outbox (id, stage, dedupe_key, payload, available_at, origin_request_id)
+SELECT ('01960000-000a-7000-8000-' || LPAD(TO_HEX(ROW_NUMBER() OVER (ORDER BY p.sort_order)), 12, '0'))::UUID,
+       'recalc', 'recalc:' || p.id::TEXT,
+       JSONB_BUILD_OBJECT('portfolio_id', p.id, 'from_date', p.recalc_from_date::TEXT),
+       NOW(), 'dev-seed'
+  FROM portfolio p
+ WHERE p.recalc_status = 'queued';
+
+DO $report$
+DECLARE r TEXT;
+BEGIN
+  SELECT FORMAT('seed ok: %s carteiras, %s ativos, %s lançamentos, %s preços, %s cotações de índice, %s recálculos na fila',
+                (SELECT COUNT(*) FROM portfolio), (SELECT COUNT(*) FROM asset), (SELECT COUNT(*) FROM transaction),
+                (SELECT COUNT(*) FROM asset_price), (SELECT COUNT(*) FROM index_quote),
+                (SELECT COUNT(*) FROM pipeline_outbox))
+    INTO r;
+  RAISE notice '%', r;
+END
+$report$;
+
+COMMIT;
