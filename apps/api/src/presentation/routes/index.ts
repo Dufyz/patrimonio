@@ -10,6 +10,7 @@ import type { InstitutionDeps } from '../controllers/institution.controller.js';
 import type { MarketDeps } from '../controllers/market.controller.js';
 import type { OverviewDeps } from '../controllers/overview.controller.js';
 import type { AllocationDeps } from '../controllers/allocation.controller.js';
+import type { GoalDeps } from '../controllers/goal.controller.js';
 import type { PerformanceDeps } from '../controllers/performance.controller.js';
 import type { PortfolioDeps } from '../controllers/portfolio.controller.js';
 import type { PositionDeps } from '../controllers/position.controller.js';
@@ -25,6 +26,7 @@ import { institutionRoutes } from './institution.routes.js';
 import { marketRoutes } from './market.routes.js';
 import { overviewRoutes } from './overview.routes.js';
 import { allocationRoutes } from './allocation.routes.js';
+import { goalRoutes } from './goal.routes.js';
 import { performanceRoutes } from './performance.routes.js';
 import { portfolioRoutes } from './portfolio.routes.js';
 import { positionRoutes } from './position.routes.js';
@@ -44,7 +46,8 @@ export type RouteDeps = HealthCheckDeps &
   StatementDeps &
   OverviewDeps &
   PerformanceDeps &
-  AllocationDeps & { readonly version: string };
+  AllocationDeps &
+  GoalDeps & { readonly version: string };
 
 /** Tudo sob `/api`. */
 export const apiRoutes = (deps: RouteDeps): Router => {
@@ -70,6 +73,7 @@ export const apiRoutes = (deps: RouteDeps): Router => {
   router.use(overviewRoutes(deps));
   router.use(performanceRoutes(deps));
   router.use(allocationRoutes(deps));
+  router.use(goalRoutes(deps));
 
   return router;
 };

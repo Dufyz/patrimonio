@@ -11,16 +11,17 @@ pnpm --filter @patrimonio/web dev     # Visão geral em http://localhost:5173
 pnpm --filter @patrimonio/web test
 ```
 
-| Endereço                    | O que é                                          |
-| --------------------------- | ------------------------------------------------ |
-| `/:carteira/visao-geral`    | T-01 · quanto eu tenho hoje, e o que precisa de mim |
-| `/:carteira/posicoes`       | T-02 · a tabela de tudo que está em carteira     |
-| `/todas/visao-geral`        | o mesmo, somando todas as carteiras              |
-| `/:carteira/ativo/:apelido` | T-03 · tudo sobre um ativo em um lugar           |
-| `/:carteira/movimentacoes`  | T-04 · o extrato do livro, onde se corrige o passado |
-| `/:carteira/desempenho`     | T-05 · quanto veio de aporte e quanto de rentabilidade |
+| Endereço                    | O que é                                                   |
+| --------------------------- | --------------------------------------------------------- |
+| `/:carteira/visao-geral`    | T-01 · quanto eu tenho hoje, e o que precisa de mim       |
+| `/:carteira/posicoes`       | T-02 · a tabela de tudo que está em carteira              |
+| `/todas/visao-geral`        | o mesmo, somando todas as carteiras                       |
+| `/:carteira/ativo/:apelido` | T-03 · tudo sobre um ativo em um lugar                    |
+| `/:carteira/movimentacoes`  | T-04 · o extrato do livro, onde se corrige o passado      |
+| `/:carteira/desempenho`     | T-05 · quanto veio de aporte e quanto de rentabilidade    |
 | `/:carteira/estrategia`     | T-06 · o dinheiro está dividido como eu disse que queria? |
-| `/galeria`                  | a galeria do design system (E5)                  |
+| `/:carteira/objetivos`      | T-07 · o ritmo atual chega lá?                            |
+| `/galeria`                  | a galeria do design system (E5)                           |
 
 O escopo é o apelido da carteira, não o identificador: `/longo-prazo/posicoes` é
 um endereço que alguém cola em outra aba. O apelido do ativo segue a mesma
@@ -145,7 +146,7 @@ consultas por pedido: a página com todos os agregados, e o livro dos ativos.
 **Todo agregado vem pronto.** Resumo do período, subtotal de mês e contagem de
 cada pastilha são somados pela `api` sob o filtro, e é por isso que o subtotal
 de setembro continua certo quando setembro atravessa duas páginas. As pastilhas
-contam sob os *outros* filtros: contar sob o tipo já escolhido zeraria todas as
+contam sob os _outros_ filtros: contar sob o tipo já escolhido zeraria todas as
 demais no primeiro clique.
 
 **Excluir oferece desfazer, não confirma.** O aviso diz que o recálculo foi
@@ -177,7 +178,7 @@ mesma cota; cinco rotas deixariam cada tabela escolher o seu "hoje".
 
 **Carteira rende pela cota; classe, por Dietz modificado.** A carteira tem cota
 gravada, e o retorno de qualquer janela é a razão entre dois valores dela — é por
-isso que aporte não vira rentabilidade. No consolidado a cota é *construída* sobre
+isso que aporte não vira rentabilidade. No consolidado a cota é _construída_ sobre
 a história de todas as carteiras, porque somar valores de cota de carteiras
 diferentes não significa nada. A classe não tem cota, e o retorno dela é uma
 aproximação (ganho sobre o capital médio, cada fluxo pesando pelo tempo em que
@@ -251,6 +252,46 @@ Em T-06, contra a prancha 09:
 - **O fundo da barra não é 100%**, e sim o maior valor da tabela arredondado de
   dez em dez: com Ações em 35,3% a barra cheia é 40%, e o desvio de um ponto se
   vê. Uma barra fixa em 100% deixaria toda linha menor que 25% como um traço.
+
+## T-07 · Objetivos
+
+A tela responde: **o ritmo atual chega lá?** `GET /api/goals` entrega, por
+objetivo, progresso, onde deveria estar hoje, projeção, as duas trajetórias e a
+tabela de aportes — tudo sobre o mesmo fechamento e a mesma premissa, numa
+consulta só. O navegador não faz conta.
+
+**A tela trabalha em reais de hoje.** Meta em reais de hoje é uma linha reta, o
+patrimônio cresce à taxa **real** (`IPCA+6` quer dizer 6) e o aporte é em reais
+de hoje. A projeção declara a taxa que usou, a base (real ou nominal) e, quando
+alguém a trocou, qual era a premissa guardada. A taxa trocada vive na URL
+(`?taxa=id:6`) e **nunca é gravada**: simular não edita o objetivo.
+
+**Projeção bloqueada é explicada, nunca zero.** Sem premissa, premissa ilegível,
+sem IPCA para meta nominal ou sem fechamento, não há taxa adivinhada: a tela
+escreve o motivo e deixa informar uma taxa para simular.
+
+**Sem carteira ligada é o patrimônio todo.** O filtro de carteira só seleciona
+objetivos; ele não muda o que cada um mede.
+
+Em T-07, contra as pranchas 10 e 18:
+
+- **"Novo objetivo" e "Editar" estão desabilitados**, com a dica de que chegam
+  com T-10 (escrita). A prancha os desenha; a leitura vem antes.
+- **A barra de estado diz o status** ("No caminho", "Atrás do necessário",
+  "Prazo vencido", "Atingido") em vez de repetir o nome do objetivo, que já é o
+  título do painel.
+- **Os números da prancha são ilustrativos.** O ritmo é a média de aporte líquido
+  dos últimos 12 meses fechados (menos, quando a história é mais curta — dividir
+  por doze subestimaria o ritmo), e a linha de "esperado hoje" aplica o plano
+  desde a criação do objetivo.
+- **Sem projeção para meta atingida ou prazo vencido**: o painel diz isso, em vez
+  de um "chega em —" que parece resultado.
+
+**Para revisar em `projectGoal` (calc):** em modo `amount_in_today_brl` ele infla
+a meta pelo IPCA mas compõe o patrimônio pela taxa recebida. Com taxa real isso
+cobra a inflação do alvo sem pagá-la ao patrimônio. A tela evita o problema
+chamando-o sempre com `amount_in_today_brl: false`; a função em si não foi
+alterada.
 
 ## Divergências registradas
 

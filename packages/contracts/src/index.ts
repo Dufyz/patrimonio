@@ -360,3 +360,26 @@ export type {
   AllocationRulesResource,
   AllocationShareResource,
 } from './allocation/allocation.schema.js';
+
+export {
+  GOAL_BLOCKS,
+  GOAL_STATUSES,
+  getGoalsSchema,
+  goalBlockSchema,
+  goalChartSchema,
+  goalContributionRowSchema,
+  goalPaceSchema,
+  goalPortfolioSchema,
+  goalProjectionSchema,
+  goalRateSchema,
+  goalSchema,
+  goalStatusSchema,
+  goalsSchema,
+} from './goal/goal.schema.js';
+export type {
+  GoalContributionRowResource,
+  GoalProjectionResource,
+  GoalRateResource,
+  GoalResource,
+  GoalsResource,
+} from './goal/goal.schema.js';

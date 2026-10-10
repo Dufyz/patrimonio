@@ -24,6 +24,7 @@ import {
   getMarketHealth,
   getOverview,
   getAllocation,
+  getGoals,
   getPerformance,
   getTransaction,
   interpretTransaction,
@@ -193,6 +194,11 @@ export const createApiUseCases = (deps: {
   // T-06 também lê fora da transação: a estratégia é uma consulta de leitura.
   getAllocation: getAllocation({
     allocation: deps.repositories.allocation,
+    clock: deps.clock,
+  }),
+  // T-07 também lê fora da transação: os objetivos são uma consulta de leitura.
+  getGoals: getGoals({
+    goals: deps.repositories.goals,
     clock: deps.clock,
   }),
 });

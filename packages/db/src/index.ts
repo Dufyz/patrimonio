@@ -26,6 +26,7 @@ export { createPriceRepository } from './repositories/price.repository.js';
 export { createAlertRepository } from './repositories/alert.repository.js';
 export { createOverviewRepository } from './repositories/overview.repository.js';
 export { createAllocationRepository } from './repositories/allocation.repository.js';
+export { createGoalRepository } from './repositories/goal.repository.js';
 export { createPerformanceRepository } from './repositories/performance.repository.js';
 export { createMarketIngestionRepository } from './repositories/market_ingestion.repository.js';
 export { ARRAY_OID } from './support/array_oid.js';
