@@ -30,6 +30,7 @@ import { OverviewScreen } from './views/overview.js';
 import { GoalsScreen } from './views/goals.js';
 import { PerformanceScreen } from './views/performance.js';
 import { PositionsScreen } from './views/positions.js';
+import { SettingsScreen } from './views/settings/index.js';
 import { StatementScreen } from './views/statement.js';
 import { StrategyScreen } from './views/strategy.js';
 
@@ -141,6 +142,10 @@ const Workbench = (): React.ReactElement => {
     asset === undefined
       ? (SCREENS.find((item) => item.path === screen) ?? SCREENS[0])
       : SCREENS[1];
+  // Configurações não está na lista de telas da carteira: ela vale para o app
+  // inteiro, e o botão dela fica no pé da barra lateral. `/:escopo/configuracoes`
+  // mantém o escopo na URL só para a barra lateral continuar a mesma.
+  const onSettings = asset === undefined && screen === 'configuracoes';
   const scopeLabel =
     portfolioId === null
       ? 'Todas as carteiras'
@@ -161,10 +166,13 @@ const Workbench = (): React.ReactElement => {
   );
   useShortcuts(shortcuts);
 
-  /** As telas como a paleta as lista, com o atalho que cada uma realmente tem. */
+  /**
+   * As telas como a paleta as lista, com o atalho que cada uma realmente tem.
+   * Configurações fecha a lista, como fecha a barra lateral, e não tem atalho.
+   */
   const searchScreens = useMemo(
-    () =>
-      SCREENS.map((item) => {
+    () => [
+      ...SCREENS.map((item) => {
         const shortcut = SHORTCUTS.find(
           (candidate) => candidate.id === `go_${SHORTCUT_IDS[item.id] ?? item.id}`,
         );
@@ -175,6 +183,8 @@ const Workbench = (): React.ReactElement => {
           shortcut: shortcut === undefined ? null : describeShortcut(shortcut),
         };
       }),
+      { id: SETTINGS_SCREEN, label: 'Configurações', glyph: '☼', shortcut: null },
+    ],
     [],
   );
 
@@ -201,7 +211,10 @@ const Workbench = (): React.ReactElement => {
     const path = targetPath(target, {
       scope,
       currentScreenPath: current?.path ?? 'visao-geral',
-      screenPaths: Object.fromEntries(SCREENS.map((item) => [item.id, item.path])),
+      screenPaths: {
+        ...Object.fromEntries(SCREENS.map((item) => [item.id, item.path])),
+        [SETTINGS_SCREEN]: 'configuracoes',
+      },
       scopeFor: (portfolioId) =>
         portfolioId === ALL_PORTFOLIOS
           ? ALL_SCOPE
@@ -227,7 +240,7 @@ const Workbench = (): React.ReactElement => {
         ]}
         screens={SCREENS.map(({ id, label, icon }) => ({ id, label, icon }))}
         scope={portfolioId ?? ALL_PORTFOLIOS}
-        screen={current?.id ?? 'visao'}
+        screen={onSettings ? 'configuracoes' : (current?.id ?? 'visao')}
         onNavigate={(nextScope, nextScreen) => {
           const target = SCREENS.find((item) => item.id === nextScreen) ?? SCREENS[0];
           const slug =
@@ -237,7 +250,8 @@ const Workbench = (): React.ReactElement => {
           navigate(`/${slug}/${target?.path ?? 'visao-geral'}`);
         }}
         onOpenSearch={() => setSearchOpen(true)}
-        onOpenSettings={() => navigate('/galeria')}
+        settingsActive={onSettings}
+        onOpenSettings={() => navigate(`/${scope}/configuracoes`)}
       >
         {asset !== undefined ? (
           <AssetScreen
@@ -247,6 +261,8 @@ const Workbench = (): React.ReactElement => {
             onBack={() => navigate(`/${scope}/posicoes`)}
             onOpenStatement={openStatement}
           />
+        ) : onSettings ? (
+          <SettingsScreen />
         ) : current?.id === 'visao' ? (
           <OverviewScreen
             portfolioId={portfolioId}
@@ -295,6 +311,9 @@ const Workbench = (): React.ReactElement => {
  * que as entrega, em vez de abrir um modal que ainda não existe.
  */
 const READY_ACTIONS: ReadonlySet<SearchActionId> = new Set();
+
+/** O identificador de Configurações na paleta: ela não está em `SCREENS`. */
+const SETTINGS_SCREEN = 'configuracoes';
 
 const SHORTCUT_IDS: Readonly<Record<string, string>> = {
   visao: 'overview',

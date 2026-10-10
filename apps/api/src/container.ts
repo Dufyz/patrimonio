@@ -26,6 +26,8 @@ import {
   getOverview,
   getAllocation,
   getGoals,
+  getSettings,
+  requestBackup,
   getPerformance,
   getTransaction,
   interpretTransaction,
@@ -203,6 +205,20 @@ export const createApiUseCases = (deps: {
   getGoals: getGoals({
     goals: deps.repositories.goals,
     clock: deps.clock,
+  }),
+  // T-08 lê fora da transação: o cadastro todo é uma consulta de leitura. O que é
+  // do ambiente — janela do desfazer, alíquota do JCP, backup ligado — entra
+  // aqui, e a tela o mostra como leitura.
+  getSettings: getSettings({
+    settings: deps.repositories.settings,
+    undoWindowSeconds: environment.ledger.undoWindowSeconds,
+    jcpWithholdingPct: environment.tax.jcpWithholdingPct,
+    backupEnabled: environment.backup.enabled,
+  }),
+  requestBackup: requestBackup({
+    unitOfWork: deps.unitOfWork,
+    clock: deps.clock,
+    backupEnabled: environment.backup.enabled,
   }),
 });
 

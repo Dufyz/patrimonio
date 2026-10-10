@@ -21,6 +21,7 @@ pnpm --filter @patrimonio/web test
 | `/:carteira/desempenho`     | T-05 · quanto veio de aporte e quanto de rentabilidade    |
 | `/:carteira/estrategia`     | T-06 · o dinheiro está dividido como eu disse que queria? |
 | `/:carteira/objetivos`      | T-07 · o ritmo atual chega lá?                            |
+| `/:carteira/configuracoes`  | T-08 · onde se ajusta o que as outras telas leem          |
 | `/galeria`                  | a galeria do design system (E5)                           |
 
 O escopo é o apelido da carteira, não o identificador: `/longo-prazo/posicoes` é
@@ -292,6 +293,47 @@ a meta pelo IPCA mas compõe o patrimônio pela taxa recebida. Com taxa real iss
 cobra a inflação do alvo sem pagá-la ao patrimônio. A tela evita o problema
 chamando-o sempre com `amount_in_today_brl: false`; a função em si não foi
 alterada.
+
+## T-08 · Configurações
+
+A tela responde: **o que posso ajustar, e o que me impede de excluir?**
+`GET /api/settings` entrega carteiras, alertas, categorias, instituições,
+benchmarks, os padrões do lançamento e o estado do backup numa consulta só. A
+seção de dados de mercado reaproveita `GET /api/market/health` (M-16), que já tem
+o compasso próprio de releitura durante uma coleta; duplicá-la seria ter dois
+lugares dizendo se o preço é de hoje. A seção aberta vive na URL (`?secao=`).
+
+**Bloqueio de exclusão vem com a contagem.** Carteira, categoria e instituição
+chegam com o que as prende ("41 lançamentos impedem"), e a tela escreve isso em
+vez de deixar o erro explicar. A regra de bloquear é do servidor.
+
+**Renomear categoria não perde lançamento**: o vínculo é pelo identificador,
+não pelo nome.
+
+Em T-08, contra a prancha 11:
+
+- **A tela segue a prancha, com nove painéis, e não o texto do backlog.** O
+  backlog cita "ativos cadastrados à mão"; a prancha não tem essa seção (o
+  cadastro de ativo é do modal de T-10). Ficou a prancha.
+- **Criar, editar e excluir estão desabilitados**, com a dica de que chegam com
+  T-10 (modais).
+- **Alertas são mostrados, não editados.** Os interruptores e limites ficam
+  somente leitura até o motor de alertas (O-01); só as regras de mercado existem
+  na base.
+- **"Lançamentos" é leitura.** Janela do desfazer, IR em JCP e liquidação são
+  configuração de implantação (variáveis de ambiente e regra do domínio), então
+  a seção as mostra e diz que mudá-las é trocar a variável. Não há "Taxas da B3".
+- **Backup**: "Fazer backup agora" funciona (202, mesma fila e mesma chave de
+  deduplicação do diário), recusa quando o backup está desligado, e dois no mesmo
+  dia gravam o mesmo arquivo. O estado vem do `pipeline_outbox`, porque o bucket
+  só o worker enxerga. Exportar tudo, importar e excluir tudo ficam desabilitados
+  (O-06, O-04, O-07). O interruptor de frequência foi omitido.
+- **Preferências de exibição**: tema, densidade e ocultar valores funcionam
+  (guardados no navegador). "Período padrão" e "Tela inicial" da prancha foram
+  omitidos: exigiriam ligar o padrão a Visão geral, Desempenho e à rota inicial.
+- **FGC**: instituição só custodiante não tem barra; Tesouro Direto diz "sem
+  cobertura do FGC", não "garantia do Tesouro".
+- **A navegação lateral destaca a seção clicada**, sem IntersectionObserver.
 
 ## Divergências registradas
 

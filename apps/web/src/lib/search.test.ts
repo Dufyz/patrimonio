@@ -241,6 +241,28 @@ describe('com texto', () => {
     expect(porSinonimo).toEqual(['Desempenho']);
   });
 
+  it('acha Configurações por sinônimo, e ela não tem atalho de teclado', () => {
+    const view = buildModel({
+      query: 'backup',
+      filter: null,
+      local: localItems({
+        screens: [
+          ...SCREENS,
+          { id: 'configuracoes', label: 'Configurações', glyph: '☼', shortcut: null },
+        ],
+        portfolios: PORTFOLIOS,
+        readyActions: none,
+      }),
+      recents: [],
+      server: { kind: 'idle' },
+      readyActions: none,
+    });
+
+    expect(view.sections[0]?.items.map((item) => [item.label, item.shortcut])).toEqual([
+      ['Configurações', null],
+    ]);
+  });
+
   it('acha a carteira pela ação "Ir para"', () => {
     const view = model('longo');
 

@@ -179,6 +179,14 @@ const SCREEN_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
   desempenho: ['rentabilidade', 'retorno', 'benchmark', 'cdi', 'ibov', 'ipca'],
   estrategia: ['alocacao', 'alvo', 'rebalanceamento', 'distribuicao'],
   objetivos: ['metas', 'aposentadoria', 'sonhos'],
+  configuracoes: [
+    'preferencias',
+    'tema',
+    'backup',
+    'categorias',
+    'instituicoes',
+    'fontes',
+  ],
 };
 
 export const localItems = (input: {

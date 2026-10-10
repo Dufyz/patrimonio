@@ -42,6 +42,8 @@ export type AppShellProps = {
   readonly onNavigate: (scope: string, screen: string) => void;
   readonly onOpenSearch: () => void;
   readonly onOpenSettings: () => void;
+  /** Configurações aberta: o botão do pé da barra lateral fica destacado. */
+  readonly settingsActive?: boolean;
   readonly children: React.ReactNode;
   /** Largura imposta, para teste e comparação visual. */
   readonly width?: number | undefined;
@@ -60,6 +62,7 @@ export const AppShell = ({
   onNavigate,
   onOpenSearch,
   onOpenSettings,
+  settingsActive = false,
   children,
   width: forcedWidth,
 }: AppShellProps): React.ReactElement => {
@@ -98,6 +101,7 @@ export const AppShell = ({
       }}
       onOpenSearch={onOpenSearch}
       onOpenSettings={onOpenSettings}
+      settingsActive={settingsActive}
     />
   );
 
@@ -156,6 +160,7 @@ const Sidebar = ({
   onNavigate,
   onOpenSearch,
   onOpenSettings,
+  settingsActive,
 }: {
   readonly portfolios: readonly PortfolioItem[];
   readonly screens: readonly ScreenItem[];
@@ -166,6 +171,7 @@ const Sidebar = ({
   readonly onNavigate: (scope: string, screen: string) => void;
   readonly onOpenSearch: () => void;
   readonly onOpenSettings: () => void;
+  readonly settingsActive: boolean;
 }): React.ReactElement => {
   const list = useRef<HTMLUListElement>(null);
 
@@ -256,7 +262,12 @@ const Sidebar = ({
       <button
         type="button"
         title="Configurações"
-        className="flex h-9 cursor-pointer items-center gap-2.5 rounded-control border-t border-line px-2 text-sm text-ink-2 hover:bg-panel-2"
+        aria-current={settingsActive ? 'page' : undefined}
+        className={`flex h-9 cursor-pointer items-center gap-2.5 rounded-control border-t border-line px-2 text-sm ${
+          settingsActive
+            ? 'bg-accent-soft font-medium text-accent'
+            : 'text-ink-2 hover:bg-panel-2'
+        }`}
         onClick={onOpenSettings}
       >
         <span aria-hidden="true">☼</span>
