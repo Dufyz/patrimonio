@@ -25,3 +25,20 @@ export const fgcHeadroom = (exposure: string, limit: string): FgcHeadroom => {
     over_limit: used.greaterThan(ceiling),
   };
 };
+
+/**
+ * Quanto do teto já foi usado, em pontos percentuais, para a barra de
+ * exposição. Passa de cem quando o emissor passou do limite — a barra se
+ * limita a cem, o número diz o quanto passou. O resultado é string porque a
+ * tela não faz conta com dinheiro: ela só desenha o que recebeu.
+ */
+export const fgcUsedPct = (exposure: string, limit: string): string => {
+  const ceiling = new Decimal(limit);
+  if (ceiling.isZero()) return '0.00';
+
+  return Decimal.max(new Decimal(exposure), 0)
+    .dividedBy(ceiling)
+    .times(100)
+    .toDecimalPlaces(2)
+    .toFixed(2);
+};

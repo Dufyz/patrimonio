@@ -383,3 +383,27 @@ export type {
   GoalResource,
   GoalsResource,
 } from './goal/goal.schema.js';
+
+export {
+  backupQueuedSchema,
+  getSettingsSchema,
+  runBackupSchema,
+  settingsAlertRuleSchema,
+  settingsArchivedPortfolioSchema,
+  settingsBackupSchema,
+  settingsBenchmarkSchema,
+  settingsCategorySchema,
+  settingsInstitutionSchema,
+  settingsLedgerDefaultsSchema,
+  settingsPortfolioSchema,
+  settingsSchema,
+} from './settings/settings.schema.js';
+export type {
+  Settings,
+  SettingsAlertRule,
+  SettingsBackup,
+  SettingsBenchmark,
+  SettingsCategory,
+  SettingsInstitution,
+  SettingsPortfolio,
+} from './settings/settings.schema.js';

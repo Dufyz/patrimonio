@@ -26,6 +26,7 @@ import { OverviewScreen } from './views/overview.js';
 import { GoalsScreen } from './views/goals.js';
 import { PerformanceScreen } from './views/performance.js';
 import { PositionsScreen } from './views/positions.js';
+import { SettingsScreen } from './views/settings/index.js';
 import { StatementScreen } from './views/statement.js';
 import { StrategyScreen } from './views/strategy.js';
 
@@ -136,6 +137,10 @@ const Workbench = (): React.ReactElement => {
     asset === undefined
       ? (SCREENS.find((item) => item.path === screen) ?? SCREENS[0])
       : SCREENS[1];
+  // Configurações não está na lista de telas da carteira: ela vale para o app
+  // inteiro, e o botão dela fica no pé da barra lateral. `/:escopo/configuracoes`
+  // mantém o escopo na URL só para a barra lateral continuar a mesma.
+  const onSettings = asset === undefined && screen === 'configuracoes';
   const scopeLabel =
     portfolioId === null
       ? 'Todas as carteiras'
@@ -175,7 +180,7 @@ const Workbench = (): React.ReactElement => {
       ]}
       screens={SCREENS.map(({ id, label, icon }) => ({ id, label, icon }))}
       scope={portfolioId ?? ALL_PORTFOLIOS}
-      screen={current?.id ?? 'visao'}
+      screen={onSettings ? 'configuracoes' : (current?.id ?? 'visao')}
       onNavigate={(nextScope, nextScreen) => {
         const target = SCREENS.find((item) => item.id === nextScreen) ?? SCREENS[0];
         const slug =
@@ -185,7 +190,8 @@ const Workbench = (): React.ReactElement => {
         navigate(`/${slug}/${target?.path ?? 'visao-geral'}`);
       }}
       onOpenSearch={() => navigate('/galeria')}
-      onOpenSettings={() => navigate('/galeria')}
+      settingsActive={onSettings}
+      onOpenSettings={() => navigate(`/${scope}/configuracoes`)}
     >
       {asset !== undefined ? (
         <AssetScreen
@@ -195,6 +201,8 @@ const Workbench = (): React.ReactElement => {
           onBack={() => navigate(`/${scope}/posicoes`)}
           onOpenStatement={openStatement}
         />
+      ) : onSettings ? (
+        <SettingsScreen />
       ) : current?.id === 'visao' ? (
         <OverviewScreen
           portfolioId={portfolioId}

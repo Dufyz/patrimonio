@@ -124,6 +124,17 @@ export type {
   GoalSnapshotQuery,
 } from './interfaces/goal.repository.js';
 export type {
+  SettingsAlertRuleRow,
+  SettingsArchivedPortfolioRow,
+  SettingsBackupRow,
+  SettingsBenchmarkRow,
+  SettingsCategoryRow,
+  SettingsInstitutionRow,
+  SettingsPortfolioRow,
+  SettingsRepository,
+  SettingsSnapshot,
+} from './interfaces/settings.repository.js';
+export type {
   OverviewAnchors,
   OverviewCategoryRow,
   OverviewDayRow,
@@ -635,3 +646,12 @@ export type {
   GoalStatus,
   GoalsResult,
 } from './usecases/goal/getGoals.usecase.js';
+
+export { getSettings } from './usecases/settings/getSettings.usecase.js';
+export type { GetSettingsDeps } from './usecases/settings/getSettings.usecase.js';
+export { requestBackup } from './usecases/settings/requestBackup.usecase.js';
+export type {
+  RequestBackupDeps,
+  RequestBackupInput,
+  RequestBackupResult,
+} from './usecases/settings/requestBackup.usecase.js';

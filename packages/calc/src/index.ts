@@ -158,11 +158,16 @@ export type {
   ContributionShare,
 } from './allocation/contribution.js';
 
-export { fgcHeadroom } from './allocation/fgc.js';
+export { fgcHeadroom, fgcUsedPct } from './allocation/fgc.js';
 export type { FgcHeadroom } from './allocation/fgc.js';
 
 // ─── Visão geral ─────────────────────────────────────────────────────────────
-export { growthSeries, periodFlows, valueChange, weighByValue } from './overview/summary.js';
+export {
+  growthSeries,
+  periodFlows,
+  valueChange,
+  weighByValue,
+} from './overview/summary.js';
 export type {
   GrowthPoint,
   OverviewDay,
