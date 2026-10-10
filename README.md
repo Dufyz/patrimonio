@@ -14,8 +14,7 @@ Pré-requisitos: Node 22, pnpm 10 e Docker.
 cp .env.example .env     # packages/env valida tudo no boot
 pnpm install
 pnpm infra:up            # Postgres (5433), Postgres de teste (5434) e Redis (6380)
-pnpm migrate up          # cria o schema; a api também faz isso no boot
-pnpm seed:business-days  # calendário da B3, 2000–2035
+pnpm migrate up          # cria o schema e carrega o calendário da B3 (2000–2035); a api também faz isso no boot
 pnpm dev                 # api :3333, worker e web :5173
 ```
 

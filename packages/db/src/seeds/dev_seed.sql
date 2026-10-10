@@ -15,12 +15,12 @@
 -- ordens de grandeza reais, determinísticos (mesmo seed, mesmos números) e sem
 -- valor como informação de mercado. A coleta real sobrescreve o que ela buscar.
 --
--- Pré-requisitos:  pnpm migrate up  &&  pnpm seed:business-days
+-- Pré-requisito:   pnpm migrate up (já carrega o calendário de dias úteis)
 -- (a migration 031 já cria os benchmarks CDI, Selic, IPCA, Ibovespa e IFIX)
 -- Uso:             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f dev_seed.sql
 --
 -- Recusa rodar em banco que já tenha carteira, ativo, instituição ou lançamento:
--- para recomeçar, `pnpm infra:reset && pnpm migrate up && pnpm seed:business-days`.
+-- para recomeçar, `pnpm infra:reset && pnpm migrate up`.
 -- O corte do cenário é 08/10/2026: preços e índices vão até essa data; lançamentos e
 -- proventos têm datas fixas (os de pagamento posterior ficam "a receber").
 -- =============================================================================
@@ -34,7 +34,7 @@ DO $guard$
 BEGIN
   IF (SELECT COUNT(*) FROM business_day
        WHERE calendar_date BETWEEN '2024-01-01' AND '2026-12-31' AND is_business_day) < 600 THEN
-    RAISE EXCEPTION 'calendário de dias úteis vazio: rode `pnpm seed:business-days` antes do seed';
+    RAISE EXCEPTION 'calendário de dias úteis vazio: rode `pnpm migrate up` antes do seed';
   END IF;
 
   IF EXISTS (SELECT 1 FROM portfolio) OR EXISTS (SELECT 1 FROM asset)
