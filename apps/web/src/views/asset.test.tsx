@@ -8,6 +8,15 @@ import { PreferencesProvider } from '../components/preferences.js';
 import { ShortcutProvider } from '../components/shortcuts.js';
 import { AssetScreen } from './asset.js';
 
+const entry = vi.hoisted(() => ({
+  openEntry: vi.fn(),
+  openEdit: vi.fn(),
+  openConfirmPayout: vi.fn(),
+  version: 0,
+}));
+
+vi.mock('../components/entry_provider.js', () => ({ useEntry: () => entry }));
+
 /**
  * T-03 · A página do ativo contra a prancha 06.
  *
@@ -641,13 +650,19 @@ describe('os dados do ativo', () => {
 });
 
 describe('o que ainda não existe', () => {
-  it('as ações de T-10 aparecem desabilitadas, com a história na dica', async () => {
+  it('Lançar abre o modal de compra já neste ativo', async () => {
+    const user = userEvent.setup();
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    const lancar = screen.getByRole('button', { name: /Lançar/ });
-    expect(lancar).toBeDisabled();
-    expect(lancar).toHaveAttribute('title', expect.stringContaining('T-10'));
+    await user.click(screen.getByRole('button', { name: /Lançar/ }));
+
+    expect(entry.openEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tab: 'buy',
+        asset: expect.objectContaining({ label: 'ITUB4' }),
+      }),
+    );
   });
 
   it('o preço manual está de pé: ele é L-14, e já existe', async () => {

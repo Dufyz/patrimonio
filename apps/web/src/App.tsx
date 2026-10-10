@@ -11,6 +11,7 @@ import {
 
 import { fetchPortfolios } from './api/portfolios.js';
 import { fetchPositions } from './api/positions.js';
+import { EntryProvider, useEntry } from './components/entry_provider.js';
 import { SearchPalette } from './components/search_palette.js';
 import { ShortcutProvider, useShortcuts } from './components/shortcuts.js';
 import { ALL_PORTFOLIOS, AppShell } from './components/shell.js';
@@ -221,14 +222,12 @@ const Workbench = (): React.ReactElement => {
           : scopeForPortfolioId(portfolioId, slugs),
     });
 
-    // Sem caminho é uma ação cuja tela ainda não existe. A paleta as mostra
-    // desativadas; quando T-10 chegar, cada uma entra em `READY_ACTIONS` e
-    // ganha aqui o seu ramo.
+    // Ação não é navegação: quem a executa é o `Palette`, que abre o modal.
     if (path !== null) void navigate(path);
   };
 
   return (
-    <>
+    <EntryProvider scopePortfolioId={portfolioId}>
       <AppShell
         portfolios={[
           { id: ALL_PORTFOLIOS, label: 'Todas as carteiras', value: null },
@@ -292,25 +291,66 @@ const Workbench = (): React.ReactElement => {
           <ScreenPending label={current?.label ?? ''} story={current?.story ?? ''} />
         )}
       </AppShell>
-      <SearchPalette
+      <Palette
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
         scopeLabel={scopeLabel}
         screens={searchScreens}
         portfolios={searchPortfolios}
-        readyActions={READY_ACTIONS}
         onSelect={openTarget}
       />
-    </>
+    </EntryProvider>
   );
 };
 
+/** As ações da paleta que o modal de lançamento executa. */
+const READY_ACTIONS: ReadonlySet<SearchActionId> = new Set([
+  'new_transaction',
+  'buy_asset',
+  'payout_asset',
+  'move_asset',
+]);
+
 /**
- * As ações da paleta que já têm tela que as execute. Vazio até T-10: "Novo
- * lançamento" e as ações sobre o ativo aparecem desativadas, dizendo a história
- * que as entrega, em vez de abrir um modal que ainda não existe.
+ * A paleta mora dentro do provedor de lançamento: escolher "Comprar ITUB4" abre
+ * o modal já nesse ativo, em vez de navegar para uma tela.
  */
-const READY_ACTIONS: ReadonlySet<SearchActionId> = new Set();
+const Palette = ({
+  onSelect,
+  ...rest
+}: Omit<React.ComponentProps<typeof SearchPalette>, 'readyActions' | 'onSelect'> & {
+  readonly onSelect: (target: SearchTarget) => void;
+}): React.ReactElement => {
+  const entry = useEntry();
+
+  return (
+    <SearchPalette
+      {...rest}
+      readyActions={READY_ACTIONS}
+      onSelect={(target) => {
+        if (target.kind !== 'action') {
+          onSelect(target);
+          return;
+        }
+
+        const asset =
+          target.assetId === undefined
+            ? null
+            : { id: target.assetId, label: target.title ?? '', name: null, held: null };
+
+        entry.openEntry({
+          tab:
+            target.action === 'payout_asset'
+              ? 'payout'
+              : target.action === 'move_asset'
+                ? 'transfer'
+                : 'buy',
+          asset,
+        });
+      }}
+    />
+  );
+};
 
 /** O identificador de Configurações na paleta: ela não está em `SCREENS`. */
 const SETTINGS_SCREEN = 'configuracoes';

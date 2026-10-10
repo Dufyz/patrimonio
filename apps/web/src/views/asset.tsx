@@ -15,6 +15,8 @@ import {
   Quantity,
 } from '../components/number.js';
 import { Menu } from '../components/overlay.js';
+import { useEntry } from '../components/entry_provider.js';
+import type { OpenEntryRequest } from '../components/entry_provider.js';
 import { KeepPrevious } from '../components/pending.js';
 import { usePreferences } from '../components/preferences.js';
 import {
@@ -69,9 +71,7 @@ import type { ManualPriceTarget } from './manual_price_dialog.js';
  */
 
 /** O que ainda não existe, e qual história o entrega. */
-const PENDING_TRANSACTION = 'o formulário de lançamento chega com T-10';
 const PENDING_ASSET_FORM = 'o cadastro do ativo chega com T-10';
-const PENDING_TRANSFER = 'mover entre carteiras chega com T-10';
 
 export type AssetScreenProps = {
   /** Código ou identificador: o endereço aceita os dois. */
@@ -103,6 +103,7 @@ export const AssetScreen = ({
   const [error, setError] = useState<{ message: string; status: number } | null>(null);
   const [manualPriceOpen, setManualPriceOpen] = useState(false);
   const [reloads, setReloads] = useState(0);
+  const entry = useEntry();
 
   // O padrão nunca é escrito na URL: `/ativo/itub4` é a janela de um ano sem
   // filtro de tipo, e não `/ativo/itub4?janela=1a&tipo=`.
@@ -145,7 +146,7 @@ export const AssetScreen = ({
       });
 
     return () => controller.abort();
-  }, [assetRef, portfolioId, period, kind, reloads]);
+  }, [assetRef, portfolioId, period, kind, reloads, entry.version]);
 
   if (error !== null) {
     return <AssetError assetRef={assetRef} error={error} onBack={onBack} />;
@@ -162,6 +163,18 @@ export const AssetScreen = ({
   const title = assetTitle(resource.asset);
   const state = assetState(resource);
   const stamp = priceStamp(resource);
+
+  /** O modal abre já neste ativo, na carteira do escopo (ou na primeira). */
+  const entryFor = (tab: OpenEntryRequest['tab']): OpenEntryRequest => ({
+    ...(tab === undefined ? {} : { tab }),
+    asset: {
+      id: resource.asset.asset_id,
+      label: title,
+      name: resource.asset.name,
+      held: resource.position?.quantity ?? null,
+    },
+    ...(portfolioId === null ? {} : { portfolioId }),
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -256,9 +269,7 @@ export const AssetScreen = ({
               {
                 id: 'transfer',
                 label: 'Mover entre carteiras',
-                hint: PENDING_TRANSFER,
-                disabled: true,
-                onSelect: () => {},
+                onSelect: () => entry.openEntry(entryFor('transfer')),
               },
               {
                 id: 'transactions',
@@ -272,18 +283,12 @@ export const AssetScreen = ({
           <Button
             variant="primary"
             shortcut="L"
-            disabled
-            title={PENDING_TRANSACTION}
-            aria-describedby="lancamento-pendente"
+            onClick={() => entry.openEntry(entryFor('buy'))}
           >
             Lançar
           </Button>
         </div>
       </header>
-
-      <p id="lancamento-pendente" className="sr-only">
-        {PENDING_TRANSACTION}
-      </p>
 
       <KeepPrevious pending={pending}>
         <div className="flex flex-col gap-4">
@@ -325,6 +330,7 @@ export const AssetScreen = ({
             <AssetDataPanel
               resource={resource}
               onManualPrice={() => setManualPriceOpen(true)}
+              onTransfer={() => entry.openEntry(entryFor('transfer'))}
             />
           </div>
         </div>
@@ -832,9 +838,11 @@ const TransactionsPanel = ({
 const AssetDataPanel = ({
   resource,
   onManualPrice,
+  onTransfer,
 }: {
   readonly resource: AssetPageResource;
   readonly onManualPrice: () => void;
+  readonly onTransfer: () => void;
 }): React.ReactElement => {
   const asset = resource.asset;
   const fixedIncome = fixedIncomeFacts(asset);
@@ -901,9 +909,7 @@ const AssetDataPanel = ({
 
       <footer className="mt-auto flex flex-wrap gap-2 border-t border-line px-4 py-3">
         <Button onClick={onManualPrice}>Preço manual</Button>
-        <Button disabled title={PENDING_TRANSFER}>
-          Mover entre carteiras
-        </Button>
+        <Button onClick={onTransfer}>Mover entre carteiras</Button>
       </footer>
     </Panel>
   );

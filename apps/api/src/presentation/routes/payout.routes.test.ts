@@ -59,6 +59,66 @@ const lancarProvento = (body: Record<string, unknown>) =>
       ...body,
     });
 
+describe('preview do provento', () => {
+  const previsto = (body: Record<string, unknown> = {}) =>
+    request(harness.app)
+      .post('/api/transactions/payouts/preview')
+      .send({
+        portfolio_id: carteira,
+        institution_id: corretora,
+        asset_id: itub4,
+        payout_kind: 'jcp',
+        record_date: '2026-09-30',
+        payment_date: '2026-10-20',
+        amount_per_share: '0.22616',
+        ...body,
+      });
+
+  it('mostra a quantidade na data-com, o bruto e o IR retido sem gravar nada', async () => {
+    const response = await previsto();
+
+    expect(response.status).toBe(200);
+    expect(response.body.quantity_at_record_date).toBe('500.00000000');
+    expect(response.body.gross_amount).toBe('113.08');
+    // JCP: 15% retido na fonte, sobre o bruto.
+    expect(response.body.tax_withheld).toBe('16.96');
+    expect(response.body.net_amount).toBe('96.12');
+
+    const counted = await harness.sql<{ total: string }[]>`
+      select count(*)::text as total from "transaction" where kind = 'payout'
+    `;
+    expect(counted[0]?.total).toBe('0');
+  });
+
+  it('os números do preview são os que a gravação grava', async () => {
+    const preview = await previsto();
+    const gravado = await lancarProvento({ payout_kind: 'jcp' });
+
+    expect(gravado.status).toBe(201);
+    expect(gravado.body.quantity_at_record_date).toBe(
+      preview.body.quantity_at_record_date,
+    );
+    expect(gravado.body.transaction.gross_amount).toBe(preview.body.gross_amount);
+    expect(gravado.body.transaction.tax_withheld).toBe(preview.body.tax_withheld);
+    expect(gravado.body.transaction.net_amount).toBe(preview.body.net_amount);
+    expect(gravado.body.preview).toEqual(preview.body.preview);
+  });
+
+  it('recusa o provento de ativo que não estava em carteira na data-com', async () => {
+    const response = await previsto({ record_date: '2026-05-01' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toContain('data-com');
+  });
+
+  it('o valor por ação e o total chegam ao mesmo bruto', async () => {
+    const total = await previsto({ amount_per_share: undefined, gross_amount: '113.08' });
+
+    expect(total.status).toBe(200);
+    expect(total.body.gross_amount).toBe('113.08');
+  });
+});
+
 describe('provento', () => {
   it('a quantidade na data-com é calculada pelos lançamentos, não digitada', async () => {
     const response = await lancarProvento({});

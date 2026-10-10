@@ -12,6 +12,8 @@ import {
   Quantity,
 } from '../components/number.js';
 import { Menu } from '../components/overlay.js';
+import { useEntry } from '../components/entry_provider.js';
+import type { OpenEntryRequest } from '../components/entry_provider.js';
 import { KeepPrevious } from '../components/pending.js';
 import { usePreferences } from '../components/preferences.js';
 import {
@@ -63,7 +65,6 @@ import { ManualPriceDialog } from './manual_price_dialog.js';
 const SCREEN = 'posicoes';
 
 /** O que ainda não existe, e qual história o entrega. */
-const PENDING_TRANSACTION = 'o formulário de lançamento chega com T-10';
 
 export type PositionsScreenProps = {
   /** Nulo é o escopo de todas as carteiras. */
@@ -99,6 +100,7 @@ export const PositionsScreen = ({
   const [error, setError] = useState<string | null>(null);
   const [manualPriceFor, setManualPriceFor] = useState<PositionResource | null>(null);
   const [reloads, setReloads] = useState(0);
+  const entry = useEntry();
 
   // O padrão nunca é escrito na URL: `/posicoes` é o recorte sem filtro, e não
   // `/posicoes?agrupar=categoria&busca=&classe=`.
@@ -151,7 +153,7 @@ export const PositionsScreen = ({
       });
 
     return () => controller.abort();
-  }, [portfolioId, groupByParam, search, category, reloads]);
+  }, [portfolioId, groupByParam, search, category, reloads, entry.version]);
 
   const groups = useMemo(
     () => (resource === null ? [] : toTableGroups(resource.groups)),
@@ -183,21 +185,11 @@ export const PositionsScreen = ({
           >
             {valuesHidden ? '⦰' : '◉'}
           </IconButton>
-          <Button
-            variant="primary"
-            shortcut="N"
-            disabled
-            title={PENDING_TRANSACTION}
-            aria-describedby="lancamento-pendente"
-          >
+          <Button variant="primary" shortcut="N" onClick={() => entry.openEntry()}>
             Lançamento
           </Button>
         </Toolbar>
       </header>
-
-      <p id="lancamento-pendente" className="sr-only">
-        {PENDING_TRANSACTION}
-      </p>
 
       {resource === null ? null : (
         <dl className="flex flex-wrap gap-x-6 gap-y-1 text-[0.8125rem] text-ink-2">
@@ -311,6 +303,7 @@ export const PositionsScreen = ({
                     onManualPrice={setManualPriceFor}
                     onOpenAsset={onOpenAsset}
                     onOpenStatement={onOpenStatement}
+                    onEntry={entry.openEntry}
                   />
                 )}
                 emptyState={
@@ -500,13 +493,26 @@ const COLUMNS: readonly TableColumn<PositionResource>[] = [
 
 /* -------------------------------------------------------------------------- */
 
+/** O ativo e a carteira da linha: o modal abre já nesse papel, e não em branco. */
+const seedOf = (position: PositionResource): OpenEntryRequest => ({
+  asset: {
+    id: position.asset_id,
+    label: positionTitle(position),
+    name: position.name,
+    held: position.quantity,
+  },
+  portfolioId: position.portfolio_id,
+});
+
 const RowMenu = ({
   position,
   onManualPrice,
   onOpenAsset,
   onOpenStatement,
+  onEntry,
 }: {
   readonly position: PositionResource;
+  readonly onEntry: (request: OpenEntryRequest) => void;
   readonly onManualPrice: (position: PositionResource) => void;
   readonly onOpenAsset: (slug: string) => void;
   readonly onOpenStatement: ((search: string) => void) | undefined;
@@ -523,23 +529,17 @@ const RowMenu = ({
         id: 'buy_sell',
         label: 'Lançar compra ou venda',
         shortcut: 'L',
-        hint: PENDING_TRANSACTION,
-        disabled: true,
-        onSelect: () => {},
+        onSelect: () => onEntry({ tab: 'buy', ...seedOf(position) }),
       },
       {
         id: 'payout',
         label: 'Lançar provento',
-        hint: PENDING_TRANSACTION,
-        disabled: true,
-        onSelect: () => {},
+        onSelect: () => onEntry({ tab: 'payout', ...seedOf(position) }),
       },
       {
         id: 'transfer',
         label: 'Mover para outra carteira',
-        hint: PENDING_TRANSACTION,
-        disabled: true,
-        onSelect: () => {},
+        onSelect: () => onEntry({ tab: 'transfer', ...seedOf(position) }),
       },
       {
         id: 'manual_price',

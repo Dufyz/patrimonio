@@ -335,6 +335,25 @@ Em T-08, contra a prancha 11:
   cobertura do FGC", não "garantia do Tesouro".
 - **A navegação lateral destaca a seção clicada**, sem IntersectionObserver.
 
+## T-10 · Modais de lançamento
+
+Compra, venda, provento, aporte, resgate, mover posição, editar e confirmar recebimento. Código em `src/views/entry/`, lógica pura em `src/lib/entry.ts`, chamadas em `src/api/entry.ts` e o provedor que abre tudo em `src/components/entry_provider.tsx` (atalho `N`, `useEntry()`).
+
+- **O preview é o plano do salvamento.** Compra, venda, aporte e resgate usam `POST /transactions/preview`; edição, `/transactions/:id/preview`; mover posição, `/transactions/transfer/preview`. A tela não calcula dinheiro.
+- **Rota nova na api:** `POST /transactions/payouts/preview` (o provento não tinha preview). `createPayout` e o preview dividem `preparePayout`, e um teste prova que os números do preview são os gravados.
+- **Venda acima da posição** falha no preview e a mensagem aparece no campo da quantidade.
+- **Sem atualização otimista.** Gravar sobe `version` no provedor; Posições, ativo e Movimentações releem com ele.
+
+### Divergências registradas
+
+- **Imposto estimado na venda: não entregue.** Depende das vendas do mês em todas as carteiras e do saldo de prejuízo, que o preview atual não conhece. A tela mostra só o resultado realizado; inventar o imposto no navegador violaria "o preview é o do salvamento". Precisa de extensão do preview na api.
+- **Aba Evento corporativo** aparece desativada, pois não há preview na api.
+- **Cadastros** (carteira, categoria, instituição, benchmark, objetivo, edição do ativo) continuam desabilitados: não fazem parte desta entrega.
+- **Entrada por texto** (colar "compra 100 ITUB4...") não foi feita.
+- **Editar** não se aplica a perna de transferência nem a evento; o modal explica e oferece fechar.
+- **Duplicar** só vale para compra, venda, provento, aporte e resgate; só compra e venda levam os números. Em lote, só com uma linha selecionada.
+- Conformidade visual com as pranchas 13, 14, 15 e 17 **não foi verificada em navegador**.
+
 ## Divergências registradas
 
 A arquitetura declarava **TanStack Table** e **Recharts**. Nenhum dos dois está
