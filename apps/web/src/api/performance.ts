@@ -10,8 +10,7 @@ import { request } from './client.js';
  * cota, porque cada uma pedindo o seu "hoje" faria as quatro discordarem.
  */
 export type PerformanceQuery = {
-  /** Nulo é o consolidado: a carteira é filtro, não rota. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   /** Recorte do gráfico; as tabelas não dependem dele. */
   readonly from?: string | undefined;
   readonly to?: string | undefined;
@@ -24,7 +23,7 @@ export const fetchPerformance = async (
   signal?: AbortSignal,
 ): Promise<PerformanceResource> => {
   const search = new URLSearchParams();
-  if (query.portfolioId !== null) search.set('portfolio_id', query.portfolioId);
+  search.set('portfolio_id', query.portfolioId);
   if (query.from !== undefined) search.set('from', query.from);
   if (query.to !== undefined) search.set('to', query.to);
   if (query.benchmarkIds !== undefined && query.benchmarkIds.length > 0) {

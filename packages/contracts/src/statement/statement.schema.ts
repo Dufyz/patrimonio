@@ -64,8 +64,7 @@ export const STATEMENT_GROUP_KINDS: Readonly<
 export const getStatementSchema = z.object({
   query: pagination
     .extend({
-      /** Ausente significa todas as carteiras ativas. */
-      portfolio_id: uuid.optional(),
+      portfolio_id: uuid,
       institution_id: uuid.optional(),
       /** Ausente é "Todos". */
       group: statementGroupSchema.optional(),
@@ -193,8 +192,7 @@ export type StatementMonth = z.infer<typeof statementMonthSchema>;
 
 export const statementResourceSchema = z.object({
   scope: z.object({
-    /** Nulo é o consolidado: carteira é filtro, não rota. */
-    portfolio_id: uuid.nullable(),
+    portfolio_id: uuid,
     portfolio_name: z.string().nullable(),
     /** Quantos lançamentos o escopo tem, sem filtro nenhum — o "312 desde mar/2021". */
     entries_total: z.number().int().nonnegative(),

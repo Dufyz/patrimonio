@@ -58,19 +58,16 @@ export const BLOCK_REASON: Readonly<
   no_inflation:
     'Falta o IPCA dos últimos 12 meses para projetar uma meta em reais da data alvo.',
   no_history:
-    'Ainda não há fechamento das carteiras deste objetivo: a projeção começa no primeiro.',
+    'Ainda não há fechamento da carteira deste objetivo: a projeção começa no primeiro.',
 };
 
-/** O que vem depois do valor da meta: prazo, premissa e escopo, nessa ordem. */
+/** O que vem depois do valor da meta: prazo e premissa, nessa ordem. */
 export const goalCaptionTail = (goal: GoalResource): string =>
   [
     monthYearLabel(goal.target_date),
     goal.rate === null || goal.rate.assumption === null
       ? 'sem premissa'
       : `premissa ${goal.rate.assumption}`,
-    goal.portfolios.all
-      ? 'conta o patrimônio todo'
-      : `conta só ${goal.portfolios.items.map((item) => item.name).join(', ')}`,
   ].join(' · ');
 
 export const arrivalText = (

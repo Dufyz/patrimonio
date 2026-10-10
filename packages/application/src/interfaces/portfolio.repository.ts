@@ -62,6 +62,9 @@ export type PortfolioRepository = {
     readonly includeArchived: boolean;
   }) => Promise<Either<AppError, Portfolio[]>>;
 
+  /** O valor de cada carteira no último fechamento que ela tem. Sem fechamento, sem entrada. */
+  readonly latestValues: () => Promise<Either<AppError, ReadonlyMap<string, string>>>;
+
   readonly create: (draft: PortfolioDraft) => Promise<Either<AppError, Portfolio>>;
 
   readonly update: (

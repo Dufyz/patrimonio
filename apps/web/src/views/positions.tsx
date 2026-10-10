@@ -31,7 +31,6 @@ import { assetSlug } from '../lib/asset_page.js';
 import type { AssetNaming } from '../lib/asset_page.js';
 import {
   DEFAULT_GROUP_BY,
-  effectiveGroupBy,
   groupByOptions,
   isGroupByParam,
   positionDetail,
@@ -67,8 +66,7 @@ const SCREEN = 'posicoes';
 /** O que ainda não existe, e qual história o entrega. */
 
 export type PositionsScreenProps = {
-  /** Nulo é o escopo de todas as carteiras. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly scopeLabel: string;
   /** Abre a página do ativo (T-03), pelo apelido dele no endereço. */
   readonly onOpenAsset: (slug: string) => void;
@@ -85,12 +83,8 @@ export const PositionsScreen = ({
   const [params, setParams] = useSearchParams();
   const { hidden: valuesHidden, toggleHidden } = usePreferences();
 
-  const allPortfolios = portfolioId === null;
   const rawGroupBy = params.get('agrupar');
-  const groupByParam = effectiveGroupBy(
-    isGroupByParam(rawGroupBy) ? rawGroupBy : DEFAULT_GROUP_BY,
-    allPortfolios,
-  );
+  const groupByParam = isGroupByParam(rawGroupBy) ? rawGroupBy : DEFAULT_GROUP_BY;
   const search = params.get('busca') ?? '';
   const category = params.get('classe');
 
@@ -273,7 +267,7 @@ export const PositionsScreen = ({
             <Segmented<GroupByParam>
               label="Agrupar por"
               value={groupByParam}
-              options={groupByOptions(allPortfolios)}
+              options={groupByOptions}
               onChange={(value) =>
                 update({ agrupar: value === DEFAULT_GROUP_BY ? null : value })
               }

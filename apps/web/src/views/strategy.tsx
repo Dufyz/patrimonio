@@ -50,8 +50,7 @@ import { useResource } from '../lib/use_resource.js';
  * queria?** O alvo se edita na própria tabela, ao lado do que a carteira tem
  * hoje, porque é ali que se vê o que cada ponto de alvo custa em reais.
  *
- * A estratégia é de uma carteira. No escopo "todas as carteiras" não há alvo para
- * mostrar, e a tela diz isso em vez de inventar um consolidado.
+ * A estratégia é de uma carteira.
  *
  * Nenhum valor em reais é calculado aqui. Desvio, valor no alvo e valor a mover
  * chegam prontos; a única conta do navegador é a soma dos alvos digitados, em
@@ -70,21 +69,15 @@ export type StrategyViewProps = {
 };
 
 export type StrategyScreenProps = {
-  /** Nulo é o escopo de todas as carteiras, que não tem estratégia. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
 };
 
 export const StrategyScreen = ({
   portfolioId,
-}: StrategyScreenProps): React.ReactElement =>
-  // O pedido só existe com carteira escolhida: com `null` guardado como
-  // "pronto", a carteira que chega depois seria lida como resposta vazia.
-  portfolioId === null ? (
-    <NoScope />
-  ) : (
-    // Trocar de carteira recomeça a tela: rascunho de uma não é rascunho da outra.
-    <LoadedStrategy key={portfolioId} portfolioId={portfolioId} />
-  );
+}: StrategyScreenProps): React.ReactElement => (
+  // Trocar de carteira recomeça a tela: rascunho de uma não é rascunho da outra.
+  <LoadedStrategy key={portfolioId} portfolioId={portfolioId} />
+);
 
 const LoadedStrategy = ({
   portfolioId,
@@ -113,24 +106,6 @@ const LoadedStrategy = ({
     />
   );
 };
-
-const NoScope = (): React.ReactElement => (
-  <div className="flex flex-col gap-4">
-    <header>
-      <h1 className="text-screen-title font-semibold tracking-tight">Estratégia</h1>
-      <p className="text-[0.8125rem] text-ink-2">
-        Longo prazo · como o dinheiro de cada carteira deve ser dividido
-      </p>
-    </header>
-    <section className="rounded-panel border border-line bg-panel p-8 text-center">
-      <h2 className="text-panel-title font-semibold">A estratégia é de uma carteira</h2>
-      <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
-        Cada carteira tem o seu alvo, e somá-los em um só criaria um alvo que ninguém
-        declarou. Escolha uma carteira na barra lateral.
-      </p>
-    </section>
-  </div>
-);
 
 /* -------------------------------------------------------------------------- */
 /* Regras                                                                      */

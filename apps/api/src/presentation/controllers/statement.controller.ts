@@ -26,7 +26,7 @@ export const createStatementController = (deps: StatementDeps): StatementControl
     const query = validatedQuery<GetStatementQuery>(request);
 
     const result = await deps.usecases.getStatement({
-      portfolioId: query.portfolio_id ?? null,
+      portfolioId: query.portfolio_id,
       institutionId: query.institution_id ?? null,
       group: query.group ?? null,
       search: query.search === undefined || query.search === '' ? null : query.search,

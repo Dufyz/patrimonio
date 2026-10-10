@@ -22,7 +22,7 @@ export type OverviewController = {
 };
 
 type OverviewQuery = {
-  readonly portfolio_id?: string;
+  readonly portfolio_id: string;
   readonly on_date?: string;
   readonly from?: string;
   readonly to?: string;
@@ -33,9 +33,7 @@ export const createOverviewController = (deps: OverviewDeps): OverviewController
     const query = validatedQuery<OverviewQuery>(request);
 
     const result = await deps.usecases.getOverview({
-      // A carteira é filtro, não rota: a ausência do parâmetro é o
-      // consolidado, e não um identificador especial.
-      portfolio_id: query?.portfolio_id ?? null,
+      portfolio_id: String(query?.portfolio_id),
       ...(query?.on_date === undefined ? {} : { on_date: query.on_date }),
       ...(query?.from === undefined ? {} : { from: query.from }),
       ...(query?.to === undefined ? {} : { to: query.to }),

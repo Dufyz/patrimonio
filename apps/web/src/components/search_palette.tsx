@@ -52,6 +52,8 @@ export type SearchPaletteProps = {
   readonly onClose: () => void;
   /** O escopo atual, no canto do campo: é nele que a ação vai acontecer. */
   readonly scopeLabel: string;
+  /** A carteira do escopo: a busca no banco mede a posição nela. Nulo desliga a busca. */
+  readonly portfolioId: string | null;
   readonly screens: readonly SearchScreen[];
   readonly portfolios: readonly SearchPortfolio[];
   /** Quais ações já têm tela que as execute; as outras aparecem desativadas. */
@@ -69,16 +71,26 @@ export const SearchPalette = (props: SearchPaletteProps): React.ReactElement | n
 const PaletteDialog = ({
   onClose,
   scopeLabel,
+  portfolioId,
   screens,
   portfolios,
   readyActions,
   onSelect,
-  search = fetchSearch,
+  search: injectedSearch,
   storage,
 }: SearchPaletteProps): React.ReactElement => {
   const store = useMemo(
     () => (storage === undefined ? browserStorage() : storage),
     [storage],
+  );
+
+  const search = useMemo(
+    () =>
+      injectedSearch ??
+      (portfolioId === null
+        ? null
+        : (text: string, signal: AbortSignal) => fetchSearch(text, portfolioId, signal)),
+    [injectedSearch, portfolioId],
   );
 
   const [query, setQuery] = useState('');
@@ -111,7 +123,7 @@ const PaletteDialog = ({
    */
   useEffect(() => {
     const text = query.trim();
-    if (text === '') {
+    if (text === '' || search === null) {
       setServer({ kind: 'idle' });
       return;
     }

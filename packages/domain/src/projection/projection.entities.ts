@@ -212,12 +212,10 @@ export const assetClassFor = (
  * O agrupamento é escolha de quem olha, não do modelo: a mesma carteira responde
  * perguntas diferentes agrupada por classe de ativo ("estou concentrado em
  * ações?") e por instituição ("quanto está na corretora que vou encerrar?").
- * Por carteira só faz sentido no escopo de todas elas.
  */
 export const POSITION_GROUP_BY = [
   'category',
   'institution',
-  'portfolio',
   'none',
 ] as const;
 

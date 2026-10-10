@@ -44,6 +44,7 @@ const fechar = async (
 const objetivo = async (
   id: string,
   name: string,
+  portfolio: string,
   options: {
     readonly target?: string;
     readonly date?: string;
@@ -53,20 +54,14 @@ const objetivo = async (
 ): Promise<void> => {
   await harness.sql`
     INSERT INTO goal (
-      id, name, target_amount, target_date, return_assumption,
+      id, name, portfolio_id, target_amount, target_date, return_assumption,
       amount_in_today_brl, created_at
     )
     VALUES (
-      ${id}, ${name}, ${options.target ?? '1500000.00'}, ${options.date ?? '2040-01-01'},
+      ${id}, ${name}, ${portfolio}, ${options.target ?? '1500000.00'}, ${options.date ?? '2040-01-01'},
       ${options.assumption === undefined ? 'IPCA+6' : options.assumption},
       TRUE, ${options.createdAt ?? '2026-01-01T12:00:00Z'}
     )
-  `;
-};
-
-const ligar = async (goalId: string, portfolio: string): Promise<void> => {
-  await harness.sql`
-    INSERT INTO goal_portfolio (goal_id, portfolio_id) VALUES (${goalId}, ${portfolio})
   `;
 };
 
@@ -86,8 +81,11 @@ const historia = async (): Promise<void> => {
   }
 };
 
-const objetivos = async (query = ''): Promise<request.Response> =>
-  request(harness.app).get(`/api/goals?on_date=${HOJE}${query}`);
+const objetivos = async (
+  query = '',
+  portfolio: string = longo,
+): Promise<request.Response> =>
+  request(harness.app).get(`/api/goals?on_date=${HOJE}&portfolio_id=${portfolio}${query}`);
 
 beforeAll(async () => {
   harness = await createApiHarness();
@@ -119,14 +117,13 @@ describe('GET /api/goals', () => {
     expect(response.status).toBe(200);
     expect(() => goalsSchema.parse(response.body)).not.toThrow();
     expect(response.body.reference_date).toBe(HOJE);
-    expect(response.body.scope.portfolio_id).toBeNull();
+    expect(response.body.scope.portfolio_id).toBe(longo);
     expect(response.body.goals).toEqual([]);
   });
 
   it('projeta com a taxa da premissa e a declara', async () => {
     await historia();
-    await objetivo(INDEPENDENCIA, 'Independência financeira');
-    await ligar(INDEPENDENCIA, longo);
+    await objetivo(INDEPENDENCIA, 'Independência financeira', longo);
 
     const response = await objetivos();
     expect(response.status).toBe(200);
@@ -135,7 +132,6 @@ describe('GET /api/goals', () => {
     const [meta] = parsed.goals;
     expect(meta?.name).toBe('Independência financeira');
     expect(meta?.current_value).toBe('112000.00');
-    expect(meta?.portfolios.all).toBe(false);
     expect(meta?.rate).toMatchObject({
       assumption: 'IPCA+6',
       kind: 'ipca_plus',
@@ -149,21 +145,9 @@ describe('GET /api/goals', () => {
     expect(meta?.contributions.some((row) => row.kind === 'required')).toBe(true);
   });
 
-  it('sem carteira ligada o objetivo mede o patrimônio todo', async () => {
-    await historia();
-    await fechar(reserva, HOJE, '8000.00');
-    await objetivo(CASA, 'Patrimônio de 1 milhão', { target: '1000000.00' });
-
-    const [meta] = goalsSchema.parse((await objetivos()).body).goals;
-
-    expect(meta?.portfolios.all).toBe(true);
-    expect(meta?.current_value).toBe('120000.00');
-  });
-
   it('a taxa do pedido troca a da premissa e marca a projeção como alterada', async () => {
     await historia();
-    await objetivo(INDEPENDENCIA, 'Independência financeira');
-    await ligar(INDEPENDENCIA, longo);
+    await objetivo(INDEPENDENCIA, 'Independência financeira', longo);
 
     const base = goalsSchema.parse((await objetivos()).body).goals[0];
     const alterada = goalsSchema.parse(
@@ -180,27 +164,36 @@ describe('GET /api/goals', () => {
     );
   });
 
-  it('o filtro de carteira seleciona objetivos e responde 404 para carteira que não existe', async () => {
+  it('cada carteira traz só os objetivos dela, e a que não existe responde 404', async () => {
     await historia();
-    await objetivo(INDEPENDENCIA, 'Independência financeira');
-    await ligar(INDEPENDENCIA, longo);
-    await objetivo(RESERVA_GOAL, 'Reserva de emergência', { date: '2027-06-30' });
-    await ligar(RESERVA_GOAL, reserva);
+    await objetivo(INDEPENDENCIA, 'Independência financeira', longo);
+    await objetivo(RESERVA_GOAL, 'Reserva de emergência', reserva, {
+      date: '2027-06-30',
+    });
 
-    const filtrado = goalsSchema.parse((await objetivos(`&portfolio_id=${longo}`)).body);
-    expect(filtrado.scope).toMatchObject({ portfolio_id: longo, name: 'Longo prazo' });
-    expect(filtrado.goals.map((meta) => meta.name)).toEqual(['Independência financeira']);
+    const doLongo = goalsSchema.parse((await objetivos()).body);
+    expect(doLongo.scope).toMatchObject({ portfolio_id: longo, name: 'Longo prazo' });
+    expect(doLongo.goals.map((meta) => meta.name)).toEqual(['Independência financeira']);
 
-    const ausente = await objetivos('&portfolio_id=019b0000-0000-7000-8000-0000000000ff');
+    const daReserva = goalsSchema.parse((await objetivos('', reserva)).body);
+    expect(daReserva.goals.map((meta) => meta.name)).toEqual(['Reserva de emergência']);
+
+    const ausente = await objetivos('', '019b0000-0000-7000-8000-0000000000ff');
     expect(ausente.status).toBe(404);
+  });
+
+  it('exige a carteira', async () => {
+    const response = await request(harness.app).get(`/api/goals?on_date=${HOJE}`);
+
+    expect(response.status).toBe(400);
   });
 
   it('sem premissa, ou com premissa ilegível, a projeção fica bloqueada e diz por quê', async () => {
     await historia();
-    await objetivo(INDEPENDENCIA, 'Sem premissa', { assumption: null });
-    await ligar(INDEPENDENCIA, longo);
-    await objetivo(CASA, 'Premissa ilegível', { assumption: 'tesouro quando der' });
-    await ligar(CASA, longo);
+    await objetivo(INDEPENDENCIA, 'Sem premissa', longo, { assumption: null });
+    await objetivo(CASA, 'Premissa ilegível', longo, {
+      assumption: 'tesouro quando der',
+    });
 
     const { goals } = goalsSchema.parse((await objetivos()).body);
     const por = (name: string) => goals.find((meta) => meta.name === name);
@@ -221,8 +214,7 @@ describe('GET /api/goals', () => {
 
   it('objetivo já atingido não projeta nada', async () => {
     await historia();
-    await objetivo(INDEPENDENCIA, 'Entrada do carro', { target: '50000.00' });
-    await ligar(INDEPENDENCIA, longo);
+    await objetivo(INDEPENDENCIA, 'Entrada do carro', longo, { target: '50000.00' });
 
     const [meta] = goalsSchema.parse((await objetivos()).body).goals;
 
@@ -234,8 +226,7 @@ describe('GET /api/goals', () => {
 
   it('prazo vencido sem a meta é atrasado, não uma projeção para o passado', async () => {
     await historia();
-    await objetivo(INDEPENDENCIA, 'Viagem', { target: '500000.00', date: '2026-03-01' });
-    await ligar(INDEPENDENCIA, longo);
+    await objetivo(INDEPENDENCIA, 'Viagem', longo, { target: '500000.00', date: '2026-03-01' });
 
     const [meta] = goalsSchema.parse((await objetivos()).body).goals;
 

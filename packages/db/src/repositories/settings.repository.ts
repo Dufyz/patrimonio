@@ -151,8 +151,7 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
                      'goals', COALESCE((
                        SELECT JSONB_AGG(g.name ORDER BY g.target_date, g.name)
                          FROM goal g
-                         JOIN goal_portfolio link ON link.goal_id = g.id
-                        WHERE link.portfolio_id = p.id AND g.closed_at IS NULL
+                        WHERE g.portfolio_id = p.id AND g.closed_at IS NULL
                      ), '[]'::JSONB),
                      'transactions', COALESCE(c.transactions, 0),
                      'assets', COALESCE(c.assets, 0)

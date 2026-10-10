@@ -94,8 +94,8 @@ export const EntryProvider = ({
   search,
   children,
 }: {
-  /** A carteira do escopo atual; "Todas" é `null`, e a primeira carteira entra no lugar. */
-  readonly scopePortfolioId: string | null;
+  /** A carteira do escopo atual. */
+  readonly scopePortfolioId: string;
   /** Troca-se nos testes para não depender da rede. */
   readonly search?: AssetSearch;
   readonly children: React.ReactNode;

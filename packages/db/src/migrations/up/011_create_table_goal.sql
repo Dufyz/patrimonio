@@ -1,5 +1,6 @@
 CREATE TABLE goal (
   id                  UUID PRIMARY KEY,
+  portfolio_id        UUID NOT NULL REFERENCES portfolio (id) ON DELETE CASCADE,
   name                TEXT NOT NULL,
   target_amount       NUMERIC(20,2) NOT NULL,
   target_date         DATE NOT NULL,
@@ -11,7 +12,7 @@ CREATE TABLE goal (
   CONSTRAINT goal_target_amount_positive CHECK (target_amount > 0)
 );
 
-CREATE UNIQUE INDEX goal_name_open_idx ON goal (LOWER(name)) WHERE closed_at IS NULL;
+CREATE UNIQUE INDEX goal_name_open_idx ON goal (portfolio_id, LOWER(name)) WHERE closed_at IS NULL;
 
 CREATE TRIGGER goal_set_updated_at
   BEFORE UPDATE ON goal

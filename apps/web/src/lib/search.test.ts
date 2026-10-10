@@ -37,7 +37,6 @@ const SCREENS = [
   { id: 'desempenho', label: 'Desempenho', glyph: '◹', shortcut: 'G D' },
 ];
 const PORTFOLIOS = [
-  { id: 'todas', label: 'Todas as carteiras' },
   { id: 'longo', label: 'Longo prazo' },
 ];
 
@@ -554,7 +553,7 @@ describe('destinos', () => {
     scope: 'longo-prazo',
     currentScreenPath: 'posicoes',
     screenPaths: { visao: 'visao-geral', posicoes: 'posicoes' },
-    scopeFor: (portfolioId: string) => (portfolioId === 'todas' ? 'todas' : 'reserva'),
+    scopeFor: (_portfolioId: string) => 'reserva',
   };
 
   it('vai para a tela dentro do escopo de agora', () => {
@@ -570,9 +569,6 @@ describe('destinos', () => {
   it('troca de carteira mantendo a tela', () => {
     expect(targetPath({ kind: 'portfolio', portfolioId: 'x' }, context)).toBe(
       '/reserva/posicoes',
-    );
-    expect(targetPath({ kind: 'portfolio', portfolioId: 'todas' }, context)).toBe(
-      '/todas/posicoes',
     );
   });
 

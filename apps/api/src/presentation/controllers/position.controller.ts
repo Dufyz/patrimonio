@@ -26,7 +26,7 @@ export const createPositionController = (deps: PositionDeps): PositionController
     const query = validatedQuery<ListPositionsQuery>(request);
 
     const result = await deps.usecases.listPositions({
-      portfolioId: query.portfolio_id ?? null,
+      portfolioId: query.portfolio_id,
       groupBy: query.group_by,
       search: query.search === undefined || query.search === '' ? null : query.search,
       categoryId: query.category_id ?? null,

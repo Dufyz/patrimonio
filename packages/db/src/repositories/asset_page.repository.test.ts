@@ -49,7 +49,7 @@ const filter = (
 ) => ({
   today: HOJE,
   assetId: ITUB4 as string,
-  portfolioId: CARTEIRA as string | null,
+  portfolioId: CARTEIRA as string,
   period: '1a' as const,
   kind: null,
   ...overrides,
@@ -301,17 +301,11 @@ describe('posição', () => {
     expect(view.position?.value).toBe('16500.00');
   });
 
-  it('o escopo de todas as carteiras soma as duas pontas do mesmo papel', async () => {
-    const view = unwrapSuccess(await open({ portfolioId: null }));
+  it('a posição é a da carteira, sem somar a outra ponta do mesmo papel', async () => {
+    const view = unwrapSuccess(await open());
 
-    expect(view.position?.quantity).toBe('600.00000000');
-    expect(view.position?.value).toBe('22104.00');
-    // Custo sobre quantidade: a média ponderada das duas carteiras.
-    expect(view.position?.avg_price).toBe('29.25000000');
-    expect(view.portfolios.map((item) => item.portfolio_name)).toEqual([
-      'Longo prazo',
-      'Reserva',
-    ]);
+    expect(view.position?.quantity).toBe('500.00000000');
+    expect(view.portfolios.map((item) => item.portfolio_name)).toEqual(['Longo prazo']);
   });
 
   it('sem posição aberta o histórico fica e a posição volta nula', async () => {
@@ -511,13 +505,11 @@ describe('lançamentos', () => {
 
   it('o escopo de uma carteira não vê o lançamento da outra', async () => {
     const uma = unwrapSuccess(await open());
-    const todas = unwrapSuccess(await open({ portfolioId: null }));
+    const outra = unwrapSuccess(await open({ portfolioId: OUTRA }));
 
-    expect(todas.transactions_total).toBe(uma.transactions_total + 1);
+    expect(outra.transactions_total).toBe(1);
+    expect(uma.transactions_total).toBeGreaterThan(outra.transactions_total);
     expect(uma.custodians.map((item) => item.institution_name)).toEqual(['Corretora A']);
-    expect(todas.custodians.map((item) => item.institution_name)).toEqual([
-      'Banco C',
-      'Corretora A',
-    ]);
+    expect(outra.custodians.map((item) => item.institution_name)).toEqual(['Banco C']);
   });
 });

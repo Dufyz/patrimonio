@@ -17,10 +17,10 @@ import type { AppError } from '../errors/app-error.js';
  *
  * Por isso o repositório devolve um instantâneo e não sete listas: quem decide
  * o que exibir é o caso de uso, com `packages/calc`; o que a consulta faz é
- * trazer os fatos do dia — série, posições, alvo e carteiras — de uma vez.
+ * trazer os fatos do dia — série, posições, alvo e a carteira — de uma vez.
  */
 
-/** Um dia da série consolidada do escopo. Soma das carteiras, quando há mais de uma. */
+/** Um dia da série da carteira, como o fechamento o gravou. */
 export type OverviewDayRow = {
   readonly position_date: DateOnly;
   readonly total_value: string;
@@ -28,11 +28,6 @@ export type OverviewDayRow = {
   readonly income: string;
   readonly payouts: string;
   readonly cumulative_contributions: string;
-  /**
-   * A cota do escopo. Existe só quando o escopo é uma carteira: cota
-   * consolidada não é gravada, porque somar cotas de carteiras diferentes não
-   * significa nada.
-   */
   readonly quota_value: string | null;
 };
 
@@ -66,10 +61,7 @@ export type OverviewPositionRow = {
   readonly b3_type: string | null;
   readonly color_token: string | null;
   readonly value: string;
-  /**
-   * O pior estado de preço entre as carteiras do escopo: um papel marcado em
-   * duas carteiras, uma com preço de hoje e outra sem, é um papel sem preço.
-   */
+  /** O estado do preço do papel na carteira. */
   readonly price_source_kind: ComputedPriceKind;
 };
 
@@ -90,19 +82,19 @@ export type OverviewTargetRow = {
 export type OverviewSnapshot = {
   /** O último fechamento em ou antes da data pedida. Nulo antes do primeiro. */
   readonly reference_date: DateOnly | null;
-  /** O primeiro fechamento do escopo: é o que "Início" significa. */
+  /** O primeiro fechamento da carteira: é o que "Início" significa. */
   readonly inception: DateOnly | null;
   readonly days: readonly OverviewDayRow[];
   readonly anchors: OverviewAnchors;
-  readonly portfolios: readonly OverviewPortfolioRow[];
+  /** A carteira pedida. Nulo quando ela não existe ou está arquivada. */
+  readonly portfolio: OverviewPortfolioRow | null;
   readonly positions: readonly OverviewPositionRow[];
   readonly categories: readonly OverviewCategoryRow[];
   readonly targets: readonly OverviewTargetRow[];
 };
 
 export type OverviewQuery = {
-  /** Nulo é o consolidado: "todas as carteiras" é a ausência de escopo. */
-  readonly portfolio_id: string | null;
+  readonly portfolio_id: string;
   readonly on_date: DateOnly;
   readonly from: DateOnly;
   readonly to: DateOnly;

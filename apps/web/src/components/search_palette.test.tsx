@@ -25,7 +25,6 @@ const SCREENS = [
   { id: 'movimentacoes', label: 'Movimentações', glyph: '⇄', shortcut: 'G M' },
 ];
 const PORTFOLIOS = [
-  { id: 'todas', label: 'Todas as carteiras' },
   { id: 'longo', label: 'Longo prazo' },
 ];
 
@@ -104,6 +103,7 @@ const open = (props: Partial<SearchPaletteProps> = {}) => {
         open
         onClose={onClose}
         scopeLabel="Longo prazo"
+        portfolioId="longo"
         screens={SCREENS}
         portfolios={PORTFOLIOS}
         readyActions={NONE}

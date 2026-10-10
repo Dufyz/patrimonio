@@ -20,7 +20,7 @@ export type PerformanceController = {
 };
 
 type PerformanceQuery = {
-  readonly portfolio_id?: string;
+  readonly portfolio_id: string;
   readonly on_date?: string;
   readonly from?: string;
   readonly to?: string;
@@ -39,8 +39,7 @@ export const createPerformanceController = (
         : query.benchmark_ids.split(',');
 
     const result = await deps.usecases.getPerformance({
-      // A carteira é filtro, não rota: a ausência do parâmetro é o consolidado.
-      portfolio_id: query?.portfolio_id ?? null,
+      portfolio_id: String(query?.portfolio_id),
       ...(query?.on_date === undefined ? {} : { on_date: query.on_date }),
       ...(query?.from === undefined ? {} : { from: query.from }),
       ...(query?.to === undefined ? {} : { to: query.to }),

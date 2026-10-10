@@ -597,7 +597,7 @@ export const buildModel = (input: {
 /* Destinos                                                                   */
 
 export type TargetContext = {
-  /** O escopo da URL de agora: o apelido da carteira, ou `todas`. */
+  /** O escopo da URL de agora: o apelido da carteira. */
   readonly scope: string;
   /** O caminho da tela de agora, para trocar de carteira sem trocar de tela. */
   readonly currentScreenPath: string;

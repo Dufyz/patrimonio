@@ -185,15 +185,11 @@ describe('o instantâneo da tela de configurações', () => {
       VALUES (${LONGO}, ${POS_FIXADA}, 60), (${LONGO}, ${ACOES}, 40)
     `;
     await tx`
-      INSERT INTO goal (id, name, target_amount, target_date, return_assumption)
-      VALUES (${OBJETIVO}, 'Independência financeira', '1500000.00', '2040-01-01', 'IPCA+6'),
-             (${ENCERRADO}, 'Já encerrado', '1000.00', '2027-01-01', NULL)
+      INSERT INTO goal (id, portfolio_id, name, target_amount, target_date, return_assumption)
+      VALUES (${OBJETIVO}, ${LONGO}, 'Independência financeira', '1500000.00', '2040-01-01', 'IPCA+6'),
+             (${ENCERRADO}, ${LONGO}, 'Já encerrado', '1000.00', '2027-01-01', NULL)
     `;
     await tx`UPDATE goal SET closed_at = NOW() WHERE id = ${ENCERRADO}`;
-    await tx`
-      INSERT INTO goal_portfolio (goal_id, portfolio_id)
-      VALUES (${OBJETIVO}, ${LONGO}), (${ENCERRADO}, ${LONGO})
-    `;
     await transaction('0191e5a0-0000-7000-8000-00000000e601', {
       kind: 'buy',
       portfolio: LONGO,

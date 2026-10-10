@@ -7,14 +7,11 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
  * **quanto eu tenho hoje** e **o que precisa de mim** — e a forma da resposta
  * é essa ordem.
  *
- * Três coisas que o contrato torna impossíveis de confundir:
+ * Duas coisas que o contrato torna impossíveis de confundir:
  *
  * - **Ausência não é zero.** `value`, `day` e `month` são nulos quando não há
  *   fechamento para comparar, e a tela mostra traço. Zero significa que o
  *   número é zero.
- * - **O retorno declara o método.** Com uma carteira ele sai da cota gravada;
- *   no consolidado, de uma cota construída sobre a janela. São respostas
- *   diferentes para a mesma pergunta, e a tela precisa poder dizer qual é.
  * - **O estado do preço viaja junto da posição.** Um valor marcado com preço
  *   de três dias atrás não pode chegar à tela com a mesma cara de um valor de
  *   hoje.
@@ -26,8 +23,7 @@ export const overviewChangeSchema = z.object({
 });
 
 export const overviewScopeSchema = z.object({
-  /** Nulo é o consolidado: "todas as carteiras" é a ausência de escopo. */
-  portfolio_id: uuid.nullable(),
+  portfolio_id: uuid,
   name: z.string(),
   purpose: z.string().nullable(),
   tolerance_pp: decimalString,
@@ -40,15 +36,13 @@ export const overviewTotalsSchema = z.object({
   value: decimalString.nullable(),
   day: overviewChangeSchema.nullable(),
   month: overviewChangeSchema.nullable(),
-  /** Quanto o escopo é do patrimônio inteiro. Nulo no consolidado. */
-  weight_pct: decimalString.nullable(),
 });
 
 export const overviewPeriodSchema = z.object({
   from: dateOnly,
   to: dateOnly,
   return_pct: decimalString.nullable(),
-  return_method: z.enum(['portfolio_quota', 'window_quota', 'unavailable']),
+  return_method: z.enum(['portfolio_quota', 'unavailable']),
   contributions: decimalString,
   income: decimalString,
   payouts: decimalString,
@@ -111,13 +105,6 @@ export const overviewCompositionSchema = z.object({
   target_rejected: z.boolean(),
 });
 
-export const overviewPortfolioShareSchema = z.object({
-  portfolio_id: uuid,
-  name: z.string(),
-  value: decimalString,
-  weight_pct: decimalString,
-});
-
 export const overviewTopPositionSchema = z.object({
   asset_id: uuid,
   ticker: z.string(),
@@ -142,7 +129,6 @@ export const overviewAttentionItemSchema = z.object({
 
 export const overviewAttentionSchema = z.object({
   total: z.number().int(),
-  total_all_portfolios: z.number().int(),
   /** Grupo sem item não vem: nenhum bloco aparece vazio. */
   groups: z.array(
     z.object({
@@ -161,7 +147,6 @@ export const overviewSchema = z.object({
   period: overviewPeriodSchema,
   series: z.array(overviewPointSchema),
   composition: overviewCompositionSchema,
-  by_portfolio: z.array(overviewPortfolioShareSchema),
   top_positions: z.object({
     total_count: z.number().int(),
     rows: z.array(overviewTopPositionSchema),
@@ -171,8 +156,7 @@ export const overviewSchema = z.object({
 
 export const getOverviewSchema = z.object({
   query: z.object({
-    /** Ausente é o consolidado. A carteira é filtro, não rota. */
-    portfolio_id: uuid.optional(),
+    portfolio_id: uuid,
     on_date: dateOnly.optional(),
     from: dateOnly.optional(),
     to: dateOnly.optional(),
@@ -185,4 +169,3 @@ export type OverviewTopPositionResource = z.infer<typeof overviewTopPositionSche
 export type OverviewCompositionResource = z.infer<typeof overviewCompositionSchema>;
 export type OverviewAttentionResource = z.infer<typeof overviewAttentionSchema>;
 export type OverviewAttentionItemResource = z.infer<typeof overviewAttentionItemSchema>;
-export type OverviewPortfolioShareResource = z.infer<typeof overviewPortfolioShareSchema>;

@@ -1,5 +1,4 @@
 import {
-  buildQuotaSeries,
   composeAllocation,
   growthSeries,
   periodFlows,
@@ -7,7 +6,6 @@ import {
   sumValues,
   valueChange,
   weighByValue,
-  weightPct,
 } from '@patrimonio/calc';
 import type {
   AllocationLine,
@@ -51,20 +49,11 @@ import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
  * na abertura da tela deixaria o painel lento e, pior, faria o mesmo alerta
  * aparecer e sumir conforme a hora em que a tela foi aberta — e adiar e
  * ignorar deixariam de significar alguma coisa.
- *
- * ## Por que a cota consolidada é calculada aqui
- *
- * `portfolio_daily.quota_value` existe por carteira, e somar cota de carteiras
- * diferentes não significa nada. Para "todas as carteiras" a cota é construída
- * sobre a janela pedida, partindo do fechamento anterior a ela: o retorno da
- * janela é uma razão entre duas cotas, então a semente não muda a resposta. A
- * resposta declara qual dos dois métodos usou, porque a tela precisa poder
- * dizê-lo.
  */
 export type OverviewChange = { readonly amount: string; readonly ratio: string | null };
 
 export type OverviewScope = {
-  readonly portfolio_id: string | null;
+  readonly portfolio_id: string;
   readonly name: string;
   readonly purpose: string | null;
   readonly tolerance_pp: string;
@@ -76,16 +65,14 @@ export type OverviewTotals = {
   readonly value: string | null;
   readonly day: OverviewChange | null;
   readonly month: OverviewChange | null;
-  /** Quanto o escopo é do patrimônio inteiro. Nulo no consolidado. */
-  readonly weight_pct: string | null;
 };
 
 export type OverviewPeriod = {
   readonly from: DateOnly;
   readonly to: DateOnly;
   readonly return_pct: string | null;
-  /** `portfolio_quota` é a cota gravada; `window_quota`, a consolidada da janela. */
-  readonly return_method: 'portfolio_quota' | 'window_quota' | 'unavailable';
+  /** `portfolio_quota` é a cota gravada; `unavailable`, a falta de uma das duas pontas. */
+  readonly return_method: 'portfolio_quota' | 'unavailable';
   readonly contributions: string;
   readonly income: string;
   readonly payouts: string;
@@ -100,13 +87,6 @@ export type OverviewTopPosition = {
   readonly value: string;
   readonly weight_pct: string;
   readonly price_source_kind: ComputedPriceKind;
-};
-
-export type OverviewPortfolioShare = {
-  readonly portfolio_id: string;
-  readonly name: string;
-  readonly value: string;
-  readonly weight_pct: string;
 };
 
 export type OverviewAttentionItem = {
@@ -125,8 +105,6 @@ export type OverviewAttentionGroup = {
 
 export type OverviewAttention = {
   readonly total: number;
-  /** O mesmo painel conta as duas leituras: esta carteira e todas. */
-  readonly total_all_portfolios: number;
   readonly groups: readonly OverviewAttentionGroup[];
 };
 
@@ -152,7 +130,6 @@ export type OverviewResult = {
   readonly period: OverviewPeriod;
   readonly series: readonly GrowthPoint[];
   readonly composition: ColoredComposition;
-  readonly by_portfolio: readonly OverviewPortfolioShare[];
   readonly top_positions: {
     readonly total_count: number;
     readonly rows: readonly OverviewTopPosition[];
@@ -161,7 +138,7 @@ export type OverviewResult = {
 };
 
 export type OverviewInput = {
-  readonly portfolio_id?: string | null | undefined;
+  readonly portfolio_id: string;
   readonly on_date?: DateOnly | undefined;
   readonly from?: DateOnly | undefined;
   readonly to?: DateOnly | undefined;
@@ -176,7 +153,6 @@ export type OverviewDeps = {
 
 const DEFAULT_TOP_POSITIONS = 6;
 const DEFAULT_WINDOW_MONTHS = 12;
-const ALL_PORTFOLIOS_NAME = 'Todas as carteiras';
 
 /** Doze meses para trás, pela data civil: a janela padrão da prancha. */
 const twelveMonthsBefore = (date: DateOnly): DateOnly => {
@@ -192,13 +168,12 @@ const lastDayOf = (days: readonly OverviewDayRow[]): OverviewDayRow | null =>
   days.at(-1) ?? null;
 
 /**
- * O retorno da janela. Com uma carteira, as duas cotas gravadas bastam. Sem
- * ela, a cota é reconstruída sobre a janela — e quando não há nem fechamento
- * anterior nem dois dias de série, a resposta é nula e a tela mostra traço.
+ * O retorno da janela: a razão entre as cotas gravadas da carteira. Quando não
+ * há fechamento ou cota em uma das pontas, a resposta é nula e a tela mostra
+ * traço.
  */
 const windowReturn = (
   snapshot: OverviewSnapshot,
-  scoped: boolean,
 ): Pick<OverviewPeriod, 'return_pct' | 'return_method'> => {
   const last = lastDayOf(snapshot.days);
   if (last === null) return { return_pct: null, return_method: 'unavailable' };
@@ -209,39 +184,16 @@ const windowReturn = (
    * retorno é o da história inteira. Devolver nulo aí diria "não dá para
    * medir" sobre a única janela que dá.
    */
-  const first = snapshot.days[0] ?? null;
-  const fromInception = snapshot.anchors.window_base === null;
-  const base = snapshot.anchors.window_base ?? first;
+  const base = snapshot.anchors.window_base ?? snapshot.days[0] ?? null;
 
-  if (base === null) return { return_pct: null, return_method: 'unavailable' };
-
-  if (scoped) {
-    if (base.quota_value === null || last.quota_value === null) {
-      return { return_pct: null, return_method: 'unavailable' };
-    }
-
-    return {
-      return_pct: returnPct(base.quota_value, last.quota_value),
-      return_method: 'portfolio_quota',
-    };
+  if (base === null || base.quota_value === null || last.quota_value === null) {
+    return { return_pct: null, return_method: 'unavailable' };
   }
 
-  // A semente é o fechamento anterior à janela, com cota em 1: o retorno é uma
-  // razão entre cotas, então o valor da semente não entra na resposta.
-  const series = buildQuotaSeries(fromInception ? snapshot.days.slice(1) : snapshot.days, {
-    previous: {
-      position_date: base.position_date,
-      total_value: base.total_value,
-      quota_value: '1',
-      quota_count: base.total_value,
-      cumulative_contributions: base.cumulative_contributions,
-    },
-  });
-
-  const end = series.at(-1);
-  if (end === undefined) return { return_pct: null, return_method: 'unavailable' };
-
-  return { return_pct: returnPct('1', end.quota_value), return_method: 'window_quota' };
+  return {
+    return_pct: returnPct(base.quota_value, last.quota_value),
+    return_method: 'portfolio_quota',
+  };
 };
 
 const FALLBACK_TOKEN = 'class.outros';
@@ -285,43 +237,23 @@ const allocationLines = (snapshot: OverviewSnapshot): readonly AllocationLine[] 
 
 const scopeOf = (
   snapshot: OverviewSnapshot,
-  portfolioId: string | null,
-  portfolio: OverviewPortfolioRow | null,
-): OverviewScope =>
-  portfolio === null
-    ? {
-        portfolio_id: null,
-        name: ALL_PORTFOLIOS_NAME,
-        purpose: null,
-        // Sem carteira não há tolerância declarada: o desvio aparece sem a
-        // marca de "fora da faixa", que é uma decisão de cada carteira.
-        tolerance_pp: '0',
-        recalc_status: snapshot.portfolios.some(
-          (row) => row.recalc_status === 'running' || row.recalc_status === 'queued',
-        )
-          ? 'running'
-          : 'idle',
-        inception: snapshot.inception,
-      }
-    : {
-        portfolio_id: portfolioId,
-        name: portfolio.name,
-        purpose: portfolio.purpose,
-        tolerance_pp: portfolio.tolerance_pp,
-        recalc_status: portfolio.recalc_status,
-        inception: snapshot.inception,
-      };
+  portfolio: OverviewPortfolioRow,
+): OverviewScope => ({
+  portfolio_id: portfolio.portfolio_id,
+  name: portfolio.name,
+  purpose: portfolio.purpose,
+  tolerance_pp: portfolio.tolerance_pp,
+  recalc_status: portfolio.recalc_status,
+  inception: snapshot.inception,
+});
 
 const attentionOf = (
   alerts: readonly AlertInstance[],
-  portfolioId: string | null,
+  portfolioId: string,
 ): OverviewAttention => {
-  const inScope =
-    portfolioId === null
-      ? alerts
-      : alerts.filter(
-          (alert) => alert.portfolio_id === portfolioId || alert.portfolio_id === null,
-        );
+  const inScope = alerts.filter(
+    (alert) => alert.portfolio_id === portfolioId || alert.portfolio_id === null,
+  );
 
   const groups = (['corrigir', 'decidir', 'acompanhar'] as const)
     .map((group): OverviewAttentionGroup => {
@@ -340,11 +272,7 @@ const attentionOf = (
     // Nenhum bloco aparece vazio: grupo sem item sai da tela.
     .filter((group) => group.count > 0);
 
-  return {
-    total: inScope.length,
-    total_all_portfolios: alerts.length,
-    groups,
-  };
+  return { total: inScope.length, groups };
 };
 
 export const getOverview = (deps: OverviewDeps) =>
@@ -353,7 +281,7 @@ export const getOverview = (deps: OverviewDeps) =>
     const onDate = input.on_date ?? today;
     const to = input.to ?? onDate;
     const from = input.from ?? twelveMonthsBefore(to);
-    const portfolioId = input.portfolio_id ?? null;
+    const portfolioId = input.portfolio_id;
     const limit = deps.topPositions ?? DEFAULT_TOP_POSITIONS;
 
     return yield* await deps.unitOfWork.run<AppError, OverviewResult>(
@@ -367,40 +295,24 @@ export const getOverview = (deps: OverviewDeps) =>
         if (read.isFailure()) return read;
 
         const snapshot = read.value;
-        const portfolio =
-          portfolioId === null
-            ? null
-            : (snapshot.portfolios.find((row) => row.portfolio_id === portfolioId) ??
-              null);
+        const portfolio = snapshot.portfolio;
 
-        if (portfolioId !== null && portfolio === null) {
+        if (portfolio === null) {
           return failure(new NotFoundError(`Carteira ${portfolioId} não encontrada`));
         }
 
-        // A segunda consulta da rota. O painel conta as duas leituras — esta
-        // carteira e todas —, então o escopo é aplicado depois de ler.
+        // A segunda consulta da rota: os alertas ativos, filtrados depois de ler.
         const alerts = await repositories.alerts.listActive({ on_date: onDate });
         if (alerts.isFailure()) return alerts;
 
         const referenceDate = snapshot.reference_date;
-
-        // O patrimônio inteiro, somado em decimal: é a base do peso do escopo
-        // e da distribuição por carteira.
-        const everything = sumValues(
-          snapshot.portfolios.map((row) => row.total_value ?? '0'),
-        );
 
         /**
          * O número principal é o do **fechamento**, não o do fim da janela:
          * trocar o período para ver 2024 no gráfico não pode mudar a resposta
          * de "quanto eu tenho hoje", que é a primeira pergunta da tela.
          */
-        const total =
-          referenceDate === null
-            ? null
-            : portfolio === null
-              ? everything
-              : portfolio.total_value;
+        const total = referenceDate === null ? null : portfolio.total_value;
 
         /**
          * O peso das posições é medido contra a soma delas, que é a mesma base
@@ -426,35 +338,20 @@ export const getOverview = (deps: OverviewDeps) =>
           held,
         );
 
-        const shares = weighByValue(
-          snapshot.portfolios
-            .filter((row) => row.total_value !== null)
-            .map((row) => ({
-              id: row.portfolio_id,
-              label: row.name,
-              value: row.total_value ?? '0',
-              portfolio_id: row.portfolio_id,
-              name: row.name,
-            })),
-          everything,
-        );
-
         const flows = periodFlows(snapshot.days);
 
         return success({
           reference_date: referenceDate,
-          scope: scopeOf(snapshot, portfolioId, portfolio),
+          scope: scopeOf(snapshot, portfolio),
           totals: {
             value: total,
             day: valueChange(snapshot.anchors.previous_day?.total_value ?? null, total),
             month: valueChange(snapshot.anchors.month_base?.total_value ?? null, total),
-            weight_pct:
-              portfolio === null || total === null ? null : weightPct(total, everything),
           },
           period: {
             from,
             to,
-            ...windowReturn(snapshot, portfolioId !== null),
+            ...windowReturn(snapshot),
             contributions: flows.contributions,
             income: flows.income,
             payouts: flows.payouts,
@@ -462,18 +359,12 @@ export const getOverview = (deps: OverviewDeps) =>
           series: growthSeries(snapshot.days),
           composition: colorize(
             composeAllocation(allocationLines(snapshot), snapshot.targets, {
-              tolerance_pp: portfolio?.tolerance_pp ?? '0',
+              tolerance_pp: portfolio.tolerance_pp,
             }),
             new Map(
               snapshot.categories.map((row) => [row.category_id, row.color_token]),
             ),
           ),
-          by_portfolio: shares.map((row) => ({
-            portfolio_id: row.portfolio_id,
-            name: row.name,
-            value: row.value,
-            weight_pct: row.weight_pct,
-          })),
           top_positions: {
             total_count: positions.length,
             rows: positions.slice(0, limit).map((row) => ({

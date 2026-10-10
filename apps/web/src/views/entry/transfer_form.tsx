@@ -111,6 +111,7 @@ export const TransferFormView = ({
           <AssetPicker
             control={control}
             invalid={control['aria-invalid']}
+            portfolioId={fromPortfolioId}
             value={asset}
             onChange={setAsset}
             onBlur={touch('asset')}

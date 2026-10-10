@@ -50,8 +50,13 @@ const compra = (
   fees: '0',
 });
 
+const comCarteira = (query: string): string =>
+  query.includes('portfolio_id=')
+    ? query
+    : `portfolio_id=${carteira}${query === '' ? '' : `&${query}`}`;
+
 const extrato = async (query = ''): Promise<StatementResource> => {
-  const response = await request(harness.app).get(`/api/statement?${query}`);
+  const response = await request(harness.app).get(`/api/statement?${comCarteira(query)}`);
   expect(response.status, JSON.stringify(response.body)).toBe(200);
   return statementResourceSchema.parse(response.body);
 };
@@ -295,7 +300,9 @@ describe('o recorte', () => {
       'from=ontem',
       'limit=0',
     ]) {
-      const response = await request(harness.app).get(`/api/statement?${query}`);
+      const response = await request(harness.app).get(
+        `/api/statement?${comCarteira(query)}`,
+      );
       expect(response.status, query).toBe(400);
     }
   });

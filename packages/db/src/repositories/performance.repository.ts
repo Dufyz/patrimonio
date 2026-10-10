@@ -6,7 +6,6 @@ import type {
   PerformanceClassFlow,
   PerformanceClassValue,
   PerformanceDayRow,
-  PerformancePortfolioPoint,
   PerformanceSnapshotPortfolio,
   PerformanceRepository,
   PerformanceSnapshot,
@@ -32,22 +31,15 @@ import type { Connection } from '../postgresql.js';
  * A tela de Desempenho em **duas** consultas, e a divisão não é gosto: a
  * segunda precisa de coisas que só a primeira sabe.
  *
- * A primeira devolve a história do escopo e o catálogo de benchmarks. Com ela o
+ * A primeira devolve a história da carteira e o catálogo de benchmarks. Com ela o
  * caso de uso descobre o último fechamento, o primeiro, as datas-base de cada
  * janela e os índices de que os benchmarks escolhidos dependem — e só então
  * pode pedir à segunda o que depende deles.
  *
- * Duas decisões dentro delas que não são óbvias:
- *
- * - **A série vem inteira, não só o período do gráfico.** A grade mês por ano
- *   mostra todos os anos desde o início, e o consolidado não tem cota gravada:
- *   para construí-la é preciso partir do primeiro dia. Dez anos são cerca de
- *   2.500 linhas de seis colunas, que é o que o banco devolve sem esforço — e é
- *   mais barato que reabrir a conexão para pedir o que faltou.
- * - **O início de cada carteira é o primeiro fechamento dela.** Uma carteira que
- *   abriu depois das outras não tem retorno "desde o início do escopo": o início
- *   dela é o dia em que ela abriu, e a coluna Início da tabela por carteira
- *   mede a carteira, não o escopo.
+ * **A série vem inteira, não só o período do gráfico.** A grade mês por ano
+ * mostra todos os anos desde o início. Dez anos são cerca de 2.500 linhas de
+ * seis colunas, que é o que o banco devolve sem esforço — e é mais barato que
+ * reabrir a conexão para pedir o que faltou.
  */
 const SEM_CATEGORIA = 'sem-categoria';
 
@@ -78,13 +70,6 @@ const parseBenchmark = (row: Row): PerformanceBenchmarkRow => ({
   kind: asString(row, 'kind'),
   rebalance: asString(row, 'rebalance'),
   definition: row['definition'],
-});
-
-const parsePortfolioPoint = (row: Row): PerformancePortfolioPoint => ({
-  portfolio_id: asString(row, 'portfolio_id'),
-  label: asString(row, 'label'),
-  position_date: asDateOnlyOrNull(row, 'position_date'),
-  quota_value: row['quota_value'] === null ? null : asNumeric(row, 'quota_value'),
 });
 
 const parseCategory = (row: Row): PerformanceCategoryRow => ({
@@ -142,7 +127,7 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
           SELECT p.id
             FROM portfolio p
            WHERE p.archived_at IS NULL
-             AND (${scope}::UUID IS NULL OR p.id = ${scope}::UUID)
+             AND p.id = ${scope}::UUID
         ),
         reference AS (
           SELECT MAX(position_date) AS position_date
@@ -157,36 +142,30 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
         ),
         series AS (
           SELECT position_date,
-                 SUM(total_value)::TEXT AS total_value,
-                 SUM(net_flow)::TEXT AS net_flow,
-                 SUM(income)::TEXT AS income,
-                 SUM(payouts)::TEXT AS payouts,
-                 CASE
-                   WHEN ${scope}::UUID IS NULL THEN NULL
-                   ELSE MIN(quota_value)::TEXT
-                 END AS quota_value
+                 total_value::TEXT AS total_value,
+                 net_flow::TEXT AS net_flow,
+                 income::TEXT AS income,
+                 payouts::TEXT AS payouts,
+                 quota_value::TEXT AS quota_value
             FROM portfolio_daily
            WHERE portfolio_id IN (SELECT id FROM scope)
              AND position_date <= (SELECT position_date FROM reference)
-           GROUP BY position_date
         ),
-        portfolios AS (
+        portfolio AS (
           SELECT p.id::TEXT AS portfolio_id,
                  p.name,
                  p.purpose,
                  p.recalc_status,
                  p.benchmark_id::TEXT AS benchmark_id,
-                 -- Cada carteira no último fechamento que ela tem até a
-                 -- referência: recálculo atrasado não pode tirá-la da tabela.
                  (SELECT day.total_value::TEXT
                     FROM portfolio_daily day
                    WHERE day.portfolio_id = p.id
                      AND day.position_date <= (SELECT position_date FROM reference)
                    ORDER BY day.position_date DESC
-                   LIMIT 1) AS total_value,
-                 p.sort_order
+                   LIMIT 1) AS total_value
             FROM portfolio p
            WHERE p.archived_at IS NULL
+             AND p.id = ${scope}::UUID
         ),
         catalog AS (
           SELECT b.id::TEXT AS id,
@@ -202,13 +181,7 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
                  SELECT JSONB_AGG(TO_JSONB(series) ORDER BY series.position_date)
                    FROM series
                ), '[]'::JSONB) AS days,
-               COALESCE((
-                 SELECT JSONB_AGG(
-                          TO_JSONB(portfolios) - 'sort_order'
-                          ORDER BY portfolios.sort_order, portfolios.name
-                        )
-                   FROM portfolios
-               ), '[]'::JSONB) AS portfolios,
+               (SELECT TO_JSONB(portfolio) FROM portfolio) AS portfolio,
                COALESCE((
                  SELECT JSONB_AGG(TO_JSONB(catalog) ORDER BY LOWER(catalog.name))
                    FROM catalog
@@ -225,7 +198,7 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
         reference_date: asDateOnlyOrNull(row, 'reference_date'),
         inception: asDateOnlyOrNull(row, 'inception'),
         days: asRows(row['days']).map(parseDay),
-        portfolios: asRows(row['portfolios']).map(parsePortfolio),
+        portfolio: row['portfolio'] === null ? null : parsePortfolio(row['portfolio'] as Row),
         benchmarks: asRows(row['benchmarks']).map(parseBenchmark),
       };
 
@@ -246,32 +219,11 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
           SELECT p.id
             FROM portfolio p
            WHERE p.archived_at IS NULL
-             AND (${scope}::UUID IS NULL OR p.id = ${scope}::UUID)
+             AND p.id = ${scope}::UUID
         ),
         points AS (
           SELECT t.label, t.point_date
             FROM UNNEST(${labels}::TEXT[], ${dates}::DATE[]) AS t(label, point_date)
-        ),
-        -- A cota de cada carteira em cada ponto: a última em ou antes da data,
-        -- e para o início, a primeira que a carteira tem. Sem linha, a carteira
-        -- ainda não existia, e o retorno daquela janela é traço.
-        portfolio_points AS (
-          SELECT p.id::TEXT AS portfolio_id,
-                 pt.label,
-                 d.position_date,
-                 d.quota_value::TEXT AS quota_value
-            FROM portfolio p
-           CROSS JOIN points pt
-            LEFT JOIN LATERAL (
-              SELECT day.position_date, day.quota_value
-                FROM portfolio_daily day
-               WHERE day.portfolio_id = p.id
-                 AND (pt.label = 'inception' OR day.position_date <= pt.point_date)
-               ORDER BY (CASE WHEN pt.label = 'inception' THEN day.position_date END) ASC NULLS LAST,
-                        day.position_date DESC
-               LIMIT 1
-            ) d ON TRUE
-           WHERE p.archived_at IS NULL
         ),
         -- O valor de cada classe em cada ponto, cada carteira na última data
         -- que ela tem até ele.
@@ -360,8 +312,6 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
                       GROUP BY f.index_code
                    ) by_code
                ), '{}'::JSONB) AS factors,
-               COALESCE((SELECT JSONB_AGG(TO_JSONB(portfolio_points)) FROM portfolio_points),
-                        '[]'::JSONB) AS portfolio_points,
                COALESCE((SELECT JSONB_AGG(TO_JSONB(categories)) FROM categories),
                         '[]'::JSONB) AS categories,
                COALESCE((SELECT JSONB_AGG(TO_JSONB(class_values)) FROM class_values),
@@ -378,7 +328,6 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
 
       const breakdown: PerformanceBreakdown = {
         factors: parseFactors(row['factors']),
-        portfolio_points: asRows(row['portfolio_points']).map(parsePortfolioPoint),
         categories: asRows(row['categories']).map(parseCategory),
         class_values: asRows(row['class_values']).map(parseClassValue),
         class_flows: asRows(row['class_flows']).map(parseClassFlow),

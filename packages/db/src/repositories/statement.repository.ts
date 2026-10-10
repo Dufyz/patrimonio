@@ -72,7 +72,7 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
           SELECT p.id, p.name, p.recalc_status
             FROM portfolio p
            WHERE p.archived_at IS NULL
-             AND (${filter.portfolioId}::UUID IS NULL OR p.id = ${filter.portfolioId}::UUID)
+             AND p.id = ${filter.portfolioId}::UUID
         ),
         scoped AS (
           SELECT t.*,

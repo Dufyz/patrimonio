@@ -21,7 +21,7 @@ import { request } from './client.js';
  * 35/25/40 por 30/30/40 é possível.
  */
 export type AllocationQuery = {
-  /** A estratégia é de uma carteira: o consolidado não tem alvo. */
+  /** A estratégia é de uma carteira. */
   readonly portfolioId: string;
   /** O valor do aporte a distribuir. Ausente é só a leitura. */
   readonly contribution?: string | undefined;

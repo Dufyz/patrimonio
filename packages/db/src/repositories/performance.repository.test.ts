@@ -209,48 +209,48 @@ describe('o instantâneo de desempenho', () => {
     expect(snapshot.reference_date).toBe('2026-06-30');
   });
 
-  it('com uma carteira vem a cota gravada; no consolidado ela é nula', async () => {
+  it('vem a cota gravada da carteira, e só a dela', async () => {
     const repository = createPerformanceRepository(tx);
 
     await close(LONGO, '2026-06-30', '11000.00', '1.100000000000');
     await close(RESERVA, '2026-06-30', '2000.00', '1.020000000000');
 
-    const scoped = unwrapSuccess(
+    const snapshot = unwrapSuccess(
       await repository.snapshot({ portfolio_id: LONGO, on_date: '2026-06-30' }),
     );
-    const all = unwrapSuccess(
-      await repository.snapshot({ portfolio_id: null, on_date: '2026-06-30' }),
-    );
 
-    expect(scoped.days[0]?.quota_value).toBe('1.100000000000');
-    expect(all.days[0]?.quota_value).toBeNull();
-    // Somar cota de carteiras diferentes não significa nada: o total soma, a
-    // cota não.
-    expect(all.days[0]?.total_value).toBe('13000.00');
+    expect(snapshot.days[0]?.quota_value).toBe('1.100000000000');
+    expect(snapshot.days[0]?.total_value).toBe('11000.00');
   });
 
-  it('lista as carteiras ativas, cada uma no último fechamento que tem', async () => {
+  it('traz a carteira no último fechamento que ela tem', async () => {
     const repository = createPerformanceRepository(tx);
 
-    await close(LONGO, '2026-06-30', '11000.00', '1.100000000000');
     await close(RESERVA, '2026-06-26', '2000.00', '1.020000000000');
-    await close(ARQUIVADA, '2026-06-30', '999.00', '1.000000000000');
 
     const snapshot = unwrapSuccess(
-      await repository.snapshot({ portfolio_id: null, on_date: '2026-06-30' }),
+      await repository.snapshot({ portfolio_id: RESERVA, on_date: '2026-06-30' }),
     );
 
-    expect(snapshot.portfolios.map((row) => [row.name, row.total_value])).toEqual([
-      ['Longo prazo', '11000.00'],
-      ['Reserva', '2000.00'],
-    ]);
+    expect(snapshot.portfolio).toMatchObject({ name: 'Reserva', total_value: '2000.00' });
+  });
+
+  it('carteira arquivada não é escopo', async () => {
+    const snapshot = unwrapSuccess(
+      await createPerformanceRepository(tx).snapshot({
+        portfolio_id: ARQUIVADA,
+        on_date: '2026-06-30',
+      }),
+    );
+
+    expect(snapshot.portfolio).toBeNull();
   });
 
   it('o catálogo traz os benchmarks de referência com a definição como o banco guarda', async () => {
     const repository = createPerformanceRepository(tx);
 
     const snapshot = unwrapSuccess(
-      await repository.snapshot({ portfolio_id: null, on_date: '2026-06-30' }),
+      await repository.snapshot({ portfolio_id: LONGO, on_date: '2026-06-30' }),
     );
     const cdi = snapshot.benchmarks.find((row) => row.name === 'CDI');
 
@@ -276,7 +276,7 @@ describe('o instantâneo de desempenho', () => {
 
 describe('o detalhamento', () => {
   const query = {
-    portfolio_id: LONGO as string | null,
+    portfolio_id: LONGO as string,
     reference: '2026-06-30',
     points: [
       { label: 'month', date: '2026-05-29' },
@@ -329,80 +329,16 @@ describe('o detalhamento', () => {
     });
   });
 
-  describe('a cota de cada carteira em cada ponto', () => {
-    beforeEach(async () => {
-      await close(LONGO, '2026-03-31', '10000.00', '1.000000000000');
-      await close(LONGO, '2026-05-29', '10500.00', '1.050000000000');
-      await close(LONGO, '2026-06-30', '11000.00', '1.100000000000');
-      // A Reserva abriu em junho: o início dela não é o do escopo.
-      await close(RESERVA, '2026-06-15', '2000.00', '1.000000000000');
-      await close(RESERVA, '2026-06-30', '2100.00', '1.050000000000');
-    });
-
-    const point = async (portfolio: string, label: string) => {
-      const result = unwrapSuccess(
-        await createPerformanceRepository(tx).breakdown({ ...query, portfolio_id: null }),
-      );
-
-      return result.portfolio_points.find(
-        (row) => row.portfolio_id === portfolio && row.label === label,
-      );
-    };
-
-    it('é a última cota em ou antes da data do ponto', async () => {
-      expect(await point(LONGO, 'month')).toMatchObject({
-        position_date: '2026-05-29',
-        quota_value: '1.050000000000',
-      });
-      expect(await point(LONGO, 'reference')).toMatchObject({
-        position_date: '2026-06-30',
-        quota_value: '1.100000000000',
-      });
-    });
-
-    it('o início é o primeiro fechamento de cada carteira, não o do escopo', async () => {
-      expect(await point(LONGO, 'inception')).toMatchObject({
-        position_date: '2026-03-31',
-        quota_value: '1.000000000000',
-      });
-      expect(await point(RESERVA, 'inception')).toMatchObject({
-        position_date: '2026-06-15',
-        quota_value: '1.000000000000',
-      });
-    });
-
-    it('carteira que ainda não existia na data volta sem linha, e isso é traço', async () => {
-      expect(await point(RESERVA, 'month')).toMatchObject({
-        position_date: null,
-        quota_value: null,
-      });
-    });
-
-    it('carteira arquivada não entra', async () => {
-      await close(ARQUIVADA, '2026-06-30', '999.00', '1.000000000000');
-
-      const result = unwrapSuccess(
-        await createPerformanceRepository(tx).breakdown({ ...query, portfolio_id: null }),
-      );
-
-      expect(result.portfolio_points.some((row) => row.portfolio_id === ARQUIVADA)).toBe(
-        false,
-      );
-    });
-  });
-
   describe('o valor de cada classe', () => {
-    it('soma as posições de cada carteira na última data que ela tem até o ponto', async () => {
+    it('lê a posição da última data que a carteira tem até o ponto', async () => {
       const repository = createPerformanceRepository(tx);
 
-      await close(LONGO, '2026-06-30', '1.00', '1.000000000000');
       await close(RESERVA, '2026-06-26', '1.00', '1.000000000000');
-      await hold(LONGO, ITUB4, '2026-06-30', '10000.00');
       await hold(RESERVA, ITUB4, '2026-06-26', '2500.00');
-      await hold(LONGO, HGLG11, '2026-06-30', '3000.00');
+      await hold(RESERVA, HGLG11, '2026-06-26', '700.00');
 
       const result = unwrapSuccess(
-        await repository.breakdown({ ...query, portfolio_id: null }),
+        await repository.breakdown({ ...query, portfolio_id: RESERVA }),
       );
       const value = (category: string) =>
         result.class_values.find(
@@ -410,8 +346,8 @@ describe('o detalhamento', () => {
         )?.value;
 
       // A Reserva ficou para trás em 26/06 e entra com o que tem.
-      expect(value(ACOES)).toBe('12500.00');
-      expect(value(FIIS)).toBe('3000.00');
+      expect(value(ACOES)).toBe('2500.00');
+      expect(value(FIIS)).toBe('700.00');
     });
 
     it('o escopo de carteira não enxerga a outra', async () => {
@@ -606,7 +542,7 @@ describe('o detalhamento', () => {
       expect((await flows()).map((row) => row.flow)).toEqual(['1500.00']);
     });
 
-    it('só as carteiras do escopo', async () => {
+    it('só a carteira do escopo', async () => {
       await record({
         id: 14,
         kind: 'buy',
@@ -617,7 +553,7 @@ describe('o detalhamento', () => {
       });
 
       expect(await flows()).toEqual([]);
-      expect(await flows({ portfolio_id: null })).toHaveLength(1);
+      expect(await flows({ portfolio_id: RESERVA })).toHaveLength(1);
     });
   });
 });

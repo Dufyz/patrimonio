@@ -71,8 +71,7 @@ const todayIso = (): DateOnly => new Date().toISOString().slice(0, 10) as DateOn
 export type StatementPortfolio = { readonly id: string; readonly name: string };
 
 export type StatementScreenProps = {
-  /** Nulo é o escopo de todas as carteiras. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly scopeLabel: string;
   readonly portfolios: readonly StatementPortfolio[];
   /** Abre a página do ativo (T-03), pelo apelido dele no endereço. */

@@ -49,11 +49,14 @@ const relatorio: Linha[] = [];
 const urlDe = (path: string): string => {
   const base = `/api${path.replace(':asset_id', ativo)}`;
   const query: Record<string, string> = {
-    '/overview': `on_date=${DATA_DE_REFERENCIA}`,
-    '/performance': `on_date=${DATA_DE_REFERENCIA}`,
+    '/overview': `portfolio_id=${carteira}&on_date=${DATA_DE_REFERENCIA}`,
+    '/positions': `portfolio_id=${carteira}`,
+    '/assets/:asset_id/page': `portfolio_id=${carteira}`,
+    '/statement': `portfolio_id=${carteira}`,
+    '/performance': `portfolio_id=${carteira}&on_date=${DATA_DE_REFERENCIA}`,
     '/allocation': `portfolio_id=${carteira}&on_date=${DATA_DE_REFERENCIA}`,
-    '/goals': `on_date=${DATA_DE_REFERENCIA}`,
-    '/search': 'q=WEGE3',
+    '/goals': `portfolio_id=${carteira}&on_date=${DATA_DE_REFERENCIA}`,
+    '/search': `q=WEGE3&portfolio_id=${carteira}`,
   };
 
   const extra = query[path];

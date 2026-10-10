@@ -29,7 +29,6 @@ const overview: OverviewResource = {
     value: '318904.12',
     day: { amount: '1049.20', ratio: '0.33' },
     month: { amount: '1049.20', ratio: '0.33' },
-    weight_pct: '65.40',
   },
   period: {
     from: '2025-10-07',
@@ -89,14 +88,6 @@ const overview: OverviewResource = {
     target_sum: { total_pct: '100.00', missing_pp: '0.00', closes: true },
     target_rejected: false,
   },
-  by_portfolio: [
-    {
-      portfolio_id: '0191e5a0-0000-7000-8000-00000000c001',
-      name: 'Longo prazo',
-      value: '318904.12',
-      weight_pct: '65.40',
-    },
-  ],
   top_positions: {
     total_count: 28,
     rows: [
@@ -112,7 +103,7 @@ const overview: OverviewResource = {
       },
     ],
   },
-  attention: { total: 0, total_all_portfolios: 0, groups: [] },
+  attention: { total: 0, groups: [] },
 };
 
 const ready = (value: OverviewResource): Resource<OverviewResource> => ({
@@ -187,7 +178,6 @@ describe('o que precisa de mim', () => {
         ...overview,
         attention: {
           total: 1,
-          total_all_portfolios: 1,
           groups: [
             {
               group: 'corrigir',
@@ -221,7 +211,7 @@ describe('o que a tela faz quando não há número', () => {
       ready({
         ...overview,
         reference_date: null,
-        totals: { value: null, day: null, month: null, weight_pct: null },
+        totals: { value: null, day: null, month: null },
         series: [],
       }),
     );

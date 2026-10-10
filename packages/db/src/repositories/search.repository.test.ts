@@ -15,9 +15,7 @@ import { createSearchRepository } from './search.repository.js';
 /**
  * T-09 · A busca global.
  *
- * Contra Postgres real, pela razão de sempre: é a consulta que erra. Um `join`
- * que multiplica a posição pelas carteiras faz "500 em Longo prazo" virar
- * "1.000", e uma ordem que desempata pelo alfabeto põe em primeiro o papel que
+ uma ordem que desempata pelo alfabeto põe em primeiro o papel que
  * a pessoa nem tem.
  *
  * O cenário é o da prancha 12: ITUB4 em carteira, ITUB3 só cadastrado.
@@ -44,7 +42,7 @@ type Filter = Parameters<ReturnType<typeof createSearchRepository>['find']>[0];
 
 const filter = (overrides: Partial<Filter> = {}): Filter => ({
   text: 'itu',
-  portfolioId: null,
+  portfolioId: LONGO,
   limit: 5,
   ...overrides,
 });
@@ -150,13 +148,13 @@ describe('ativos', () => {
     expect(view.assets.rows.map((row) => row.ticker)).toEqual(['ITUB4', 'ITUB3']);
   });
 
-  it('soma a posição entre carteiras usando o último dia de cada uma', async () => {
+  it('usa o último dia da carteira, e não o dia antigo', async () => {
     const view = await find();
     const itub4 = view.assets.rows[0];
 
-    expect(itub4?.quantity).toBe('600.00000000');
-    expect(itub4?.market_value).toBe('22104.00');
-    expect(itub4?.portfolio_names).toEqual(['Longo prazo', 'Reserva']);
+    expect(itub4?.quantity).toBe('500.00000000');
+    expect(itub4?.market_value).toBe('18420.00');
+    expect(itub4?.portfolio_names).toEqual(['Longo prazo']);
   });
 
   it('não inventa posição para o ativo que só está cadastrado', async () => {
@@ -247,17 +245,16 @@ describe('lançamentos', () => {
   it('traz o mais recente primeiro, por código, nome e observação', async () => {
     const view = await find();
 
-    // Provento de 20/10, depois o aporte de 01/10 (pela observação), a compra de
-    // 30/09 na WEGE3 (pela observação) e a da Reserva de 10/09; a de março de 2025
-    // fecha a lista, e a da carteira arquivada não entra.
+    // Provento de 20/10, depois o aporte de 01/10 (pela observação) e a compra de
+    // 30/09 na WEGE3 (pela observação); a de março de 2025 fecha a lista, e as
+    // de outras carteiras não entram.
     expect(view.transactions.rows.map((row) => row.id)).toEqual([
       id(2),
       id(6),
       id(3),
-      id(4),
       id(1),
     ]);
-    expect(view.transactions.total).toBe(5);
+    expect(view.transactions.total).toBe(4);
   });
 
   it('diz que o provento ainda está a receber', async () => {
@@ -292,7 +289,7 @@ describe('lançamentos', () => {
     const view = await find({ limit: 2 });
 
     expect(view.transactions.rows).toHaveLength(2);
-    expect(view.transactions.total).toBe(5);
+    expect(view.transactions.total).toBe(4);
   });
 });
 

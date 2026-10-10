@@ -146,7 +146,7 @@ beforeEach(async () => {
   `;
 
   // Outra carteira, e uma arquivada: nenhuma das duas entra no extrato da
-  // Longo prazo, e a arquivada não entra nem no consolidado.
+  // Longo prazo.
   await tx`
     INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
@@ -330,16 +330,15 @@ describe('filtros combináveis', () => {
     expect(view.summary.buys).toBe('3120.00');
   });
 
-  it('o escopo é a carteira, e carteira arquivada não entra no consolidado', async () => {
+  it('o escopo é a carteira, e o extrato de outra não entra', async () => {
     const reserva = await page({ portfolioId: RESERVA });
     expect(reserva.rows.map((row) => row.id)).toEqual([id(20)]);
     expect(reserva.scope.portfolio_name).toBe('Reserva');
 
-    const todas = await page({ portfolioId: null });
-    expect(todas.total).toBe(11);
-    expect(todas.rows.map((row) => row.id)).not.toContain(id(21));
-    expect(todas.scope.portfolio_id).toBeNull();
-    expect(todas.scope.portfolio_name).toBeNull();
+    const longo = await page();
+    expect(longo.rows.map((row) => row.id)).not.toContain(id(20));
+    expect(longo.rows.map((row) => row.id)).not.toContain(id(21));
+    expect(longo.scope.portfolio_id).toBe(CARTEIRA);
   });
 
   it('sem período devolve o livro inteiro', async () => {
@@ -408,13 +407,13 @@ describe('o que o recálculo grava', () => {
     expect(view.rows.find((row) => row.id === id(3))?.transfer_counterpart).toBeNull();
   });
 
-  it('conta as carteiras em recálculo e as que falharam', async () => {
+  it('conta a carteira em recálculo e a que falhou', async () => {
     await tx`UPDATE portfolio SET recalc_status = 'running' WHERE id = ${CARTEIRA}`;
     await tx`UPDATE portfolio SET recalc_status = 'failed' WHERE id = ${RESERVA}`;
 
     expect((await page()).recalculation).toEqual({ pending: 1, failed: 0 });
-    expect((await page({ portfolioId: null })).recalculation).toEqual({
-      pending: 1,
+    expect((await page({ portfolioId: RESERVA })).recalculation).toEqual({
+      pending: 0,
       failed: 1,
     });
   });

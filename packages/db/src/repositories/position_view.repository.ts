@@ -90,7 +90,7 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
         SELECT p.id AS portfolio_id, p.name AS portfolio_name
           FROM portfolio p
          WHERE p.archived_at IS NULL
-           AND (${filter.portfolioId}::UUID IS NULL OR p.id = ${filter.portfolioId}::UUID)
+           AND p.id = ${filter.portfolioId}::UUID
       ),
       as_of AS (
         SELECT MAX(pd.position_date) AS position_date
@@ -249,14 +249,12 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
                    THEN COALESCE(f.category_id::TEXT, 'sem-categoria')
                  WHEN 'institution'
                    THEN COALESCE(f.institution_id::TEXT, 'sem-instituicao')
-                 WHEN 'portfolio' THEN f.portfolio_id::TEXT
                  ELSE 'sem-grupo'
                END AS group_key,
                CASE ${filter.groupBy}::TEXT
                  WHEN 'category' THEN COALESCE(f.category_name, 'Sem categoria')
                  WHEN 'institution'
                    THEN COALESCE(f.institution_name, 'Sem instituição')
-                 WHEN 'portfolio' THEN f.portfolio_name
                  ELSE 'Posições'
                END AS group_label,
                CASE
@@ -367,8 +365,7 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
           quota AS (
             SELECT pd.position_date, pd.quota_value
               FROM portfolio_daily pd
-             WHERE ${filter.portfolioId}::UUID IS NOT NULL
-               AND pd.portfolio_id = ${filter.portfolioId}::UUID
+             WHERE pd.portfolio_id = ${filter.portfolioId}::UUID
                AND pd.position_date <= (SELECT position_date FROM as_of)
           ),
           header AS (

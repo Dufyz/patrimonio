@@ -29,7 +29,7 @@ import type { Connection } from '../postgresql.js';
  * A tela de abertura em **uma** consulta.
  *
  * Ela precisa de sete coisas — série do período, três fechamentos de
- * referência, carteiras, posições, composição por categoria e alvo — e o
+ * referência, carteira, posições, composição por categoria e alvo — e o
  * caminho curto seria sete `select`. O banco está em outra rede: sete idas e
  * voltas é a diferença entre a tela abrir e a tela demorar, e é um custo que
  * nenhuma otimização de índice recupera depois.
@@ -38,16 +38,12 @@ import type { Connection } from '../postgresql.js';
  * esta consulta ser longa; o preço de não fazer assim aparece em toda abertura
  * de tela, todo dia.
  *
- * Três decisões dentro dela que não são óbvias:
+ * Duas decisões dentro dela que não são óbvias:
  *
  * - **A data de referência é o último fechamento, não hoje.** Sábado mostra o
  *   fechamento de sexta, com a data dita na tela, em vez de uma tela vazia.
- * - **Cada carteira é lida na última data que ela tem.** Uma carteira cujo
- *   recálculo ficou para trás entra com o valor dela, e não desaparece do
- *   consolidado — sumir faria o patrimônio total encolher sem explicação.
- * - **Cota só existe com escopo de carteira.** Somar cota de carteiras
- *   diferentes não significa nada, então o consolidado devolve nulo e quem
- *   calcula o retorno da janela é o caso de uso, que declara o método.
+ * - **A carteira é lida na última data que ela tem.** Uma carteira cujo
+ *   recálculo ficou para trás entra com o valor dela.
  */
 const SEM_CATEGORIA = 'sem-categoria';
 
@@ -119,7 +115,7 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
           SELECT p.id
             FROM portfolio p
            WHERE p.archived_at IS NULL
-             AND (${scope}::UUID IS NULL OR p.id = ${scope}::UUID)
+             AND p.id = ${scope}::UUID
         ),
         reference AS (
           SELECT MAX(position_date) AS position_date
@@ -134,19 +130,15 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
         ),
         series AS (
           SELECT position_date,
-                 SUM(total_value)::TEXT AS total_value,
-                 SUM(net_flow)::TEXT AS net_flow,
-                 SUM(income)::TEXT AS income,
-                 SUM(payouts)::TEXT AS payouts,
-                 SUM(cumulative_contributions)::TEXT AS cumulative_contributions,
-                 CASE
-                   WHEN ${scope}::UUID IS NULL THEN NULL
-                   ELSE MIN(quota_value)::TEXT
-                 END AS quota_value
+                 total_value::TEXT AS total_value,
+                 net_flow::TEXT AS net_flow,
+                 income::TEXT AS income,
+                 payouts::TEXT AS payouts,
+                 cumulative_contributions::TEXT AS cumulative_contributions,
+                 quota_value::TEXT AS quota_value
             FROM portfolio_daily
            WHERE portfolio_id IN (SELECT id FROM scope)
              AND position_date BETWEEN ${query.from}::DATE AND ${query.to}::DATE
-           GROUP BY position_date
         ),
         anchor_date AS (
           SELECT 'previous_day' AS kind,
@@ -174,22 +166,18 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
         anchors AS (
           SELECT a.kind,
                  day.position_date,
-                 SUM(day.total_value)::TEXT AS total_value,
-                 SUM(day.net_flow)::TEXT AS net_flow,
-                 SUM(day.income)::TEXT AS income,
-                 SUM(day.payouts)::TEXT AS payouts,
-                 SUM(day.cumulative_contributions)::TEXT AS cumulative_contributions,
-                 CASE
-                   WHEN ${scope}::UUID IS NULL THEN NULL
-                   ELSE MIN(day.quota_value)::TEXT
-                 END AS quota_value
+                 day.total_value::TEXT AS total_value,
+                 day.net_flow::TEXT AS net_flow,
+                 day.income::TEXT AS income,
+                 day.payouts::TEXT AS payouts,
+                 day.cumulative_contributions::TEXT AS cumulative_contributions,
+                 day.quota_value::TEXT AS quota_value
             FROM anchor_date a
             JOIN portfolio_daily day
               ON day.position_date = a.position_date
              AND day.portfolio_id IN (SELECT id FROM scope)
-           GROUP BY a.kind, day.position_date
         ),
-        portfolios AS (
+        portfolio AS (
           SELECT p.id::TEXT AS portfolio_id,
                  p.name,
                  p.purpose,
@@ -200,13 +188,11 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
                    WHERE day.portfolio_id = p.id
                      AND day.position_date <= ${query.on_date}::DATE
                    ORDER BY day.position_date DESC
-                   LIMIT 1) AS total_value,
-                 p.sort_order
+                   LIMIT 1) AS total_value
             FROM portfolio p
            WHERE p.archived_at IS NULL
+             AND p.id = ${scope}::UUID
         ),
-        -- Cada carteira na última data que ela tem até a referência: recálculo
-        -- atrasado em uma carteira não pode sumir com ela do consolidado.
         last_position_date AS (
           SELECT held.portfolio_id, MAX(held.position_date) AS position_date
             FROM position_daily held
@@ -228,8 +214,6 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
                  asset.b3_type,
                  category.color_token,
                  SUM(held.market_value)::TEXT AS value,
-                 -- O pior estado entre as carteiras: um papel sem preço em uma
-                 -- delas é um papel sem preço na tela.
                  MIN(
                    CASE held.price_source_kind
                      WHEN 'missing' THEN 1
@@ -264,8 +248,7 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
           SELECT target.category_id::TEXT AS category_id,
                  target.target_pct::TEXT AS target_pct
             FROM strategy_target target
-           WHERE ${scope}::UUID IS NOT NULL
-             AND target.portfolio_id = ${scope}::UUID
+           WHERE target.portfolio_id = ${scope}::UUID
         )
         SELECT (SELECT position_date FROM reference) AS reference_date,
                (SELECT position_date FROM inception) AS inception,
@@ -276,13 +259,7 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
                COALESCE((
                  SELECT JSONB_AGG(TO_JSONB(anchors)) FROM anchors
                ), '[]'::JSONB) AS anchors,
-               COALESCE((
-                 SELECT JSONB_AGG(
-                          TO_JSONB(portfolios) - 'sort_order'
-                          ORDER BY portfolios.sort_order, portfolios.name
-                        )
-                   FROM portfolios
-               ), '[]'::JSONB) AS portfolios,
+               (SELECT TO_JSONB(portfolio) FROM portfolio) AS portfolio,
                COALESCE((
                  SELECT JSONB_AGG(
                           TO_JSONB(positions) - 'health'
@@ -319,7 +296,7 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
         inception: asDateOnlyOrNull(row, 'inception'),
         days: asRows(row['days']).map(parseDay),
         anchors: anchorsOf(asRows(row['anchors'])),
-        portfolios: asRows(row['portfolios']).map(parsePortfolio),
+        portfolio: row['portfolio'] === null ? null : parsePortfolio(row['portfolio'] as Row),
         positions: asRows(row['positions']).map(parsePosition),
         categories: asRows(row['categories']).map(parseCategory),
         targets: asRows(row['targets']).map(parseTarget),

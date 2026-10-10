@@ -10,24 +10,20 @@ import type { AppError } from '../errors/app-error.js';
  * que só a primeira sabe — qual é o último fechamento, qual é o primeiro, e de
  * que índices os benchmarks escolhidos dependem. Por isso a primeira devolve a
  * série e o catálogo, e a segunda recebe as datas e os códigos já resolvidos e
- * devolve o que depende deles: fatores de índice, cota de cada carteira nas
- * datas-base, e valor e fluxo de cada classe.
+ * devolve o que depende deles: fatores de índice e valor e fluxo de cada
+ * classe.
  *
  * O limite de duas é o mesmo da Visão geral, e pela mesma razão: o banco fica
  * em outra rede, e cada leitura a mais aparece na abertura da tela.
  */
 
-/** Um dia da série do escopo. Soma das carteiras, quando há mais de uma. */
+/** Um dia da série da carteira. */
 export type PerformanceDayRow = {
   readonly position_date: DateOnly;
   readonly total_value: string;
   readonly net_flow: string;
   readonly income: string;
   readonly payouts: string;
-  /**
-   * A cota do escopo. Existe só quando o escopo é uma carteira: cota
-   * consolidada não é gravada, e quem a constrói é o caso de uso.
-   */
   readonly quota_value: string | null;
 };
 
@@ -56,25 +52,23 @@ export type PerformanceBenchmarkRow = {
 export type PerformanceSnapshot = {
   /** O último fechamento em ou antes da data pedida. Nulo antes do primeiro. */
   readonly reference_date: DateOnly | null;
-  /** O primeiro fechamento do escopo: é o que "Início" significa. */
+  /** O primeiro fechamento da carteira: é o que "Início" significa. */
   readonly inception: DateOnly | null;
-  /** A história inteira do escopo até a referência, em ordem de data. */
+  /** A história inteira da carteira até a referência, em ordem de data. */
   readonly days: readonly PerformanceDayRow[];
-  readonly portfolios: readonly PerformanceSnapshotPortfolio[];
+  /** A carteira pedida. Nulo quando ela não existe ou está arquivada. */
+  readonly portfolio: PerformanceSnapshotPortfolio | null;
   readonly benchmarks: readonly PerformanceBenchmarkRow[];
 };
 
 export type PerformanceSnapshotQuery = {
-  /** Nulo é o consolidado: "todas as carteiras" é a ausência de escopo. */
-  readonly portfolio_id: string | null;
+  readonly portfolio_id: string;
   readonly on_date: DateOnly;
 };
 
 /**
  * Um ponto no tempo que a segunda consulta mede. Os rótulos são os das janelas
- * mais `reference`; `inception` é especial: para cada carteira é o **primeiro
- * fechamento dela**, e não a data do escopo, porque o início de uma carteira
- * que abriu depois das outras é o dia em que ela abriu.
+ * mais `reference`.
  */
 export type PerformancePoint = {
   readonly label: string;
@@ -82,7 +76,7 @@ export type PerformancePoint = {
 };
 
 export type PerformanceBreakdownQuery = {
-  readonly portfolio_id: string | null;
+  readonly portfolio_id: string;
   readonly reference: DateOnly;
   readonly points: readonly PerformancePoint[];
   /** Os índices de que os benchmarks escolhidos dependem. Vazio não lê fator. */
@@ -91,14 +85,6 @@ export type PerformanceBreakdownQuery = {
   readonly factors_from: DateOnly;
   /** Fluxos depois desta data e até a referência. */
   readonly flows_from: DateOnly;
-};
-
-export type PerformancePortfolioPoint = {
-  readonly portfolio_id: string;
-  readonly label: string;
-  /** Nulo quando a carteira não tinha fechamento até a data. */
-  readonly position_date: DateOnly | null;
-  readonly quota_value: string | null;
 };
 
 export type PerformanceCategoryRow = {
@@ -129,7 +115,6 @@ export type PerformanceClassFlow = {
 export type PerformanceBreakdown = {
   /** Fator diário por índice e por data, como `index_quote` o guarda. */
   readonly factors: ReadonlyMap<string, ReadonlyMap<string, string>>;
-  readonly portfolio_points: readonly PerformancePortfolioPoint[];
   readonly categories: readonly PerformanceCategoryRow[];
   readonly class_values: readonly PerformanceClassValue[];
   readonly class_flows: readonly PerformanceClassFlow[];

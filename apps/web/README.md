@@ -15,7 +15,6 @@ pnpm --filter @patrimonio/web test
 | --------------------------- | --------------------------------------------------------- |
 | `/:carteira/visao-geral`    | T-01 · quanto eu tenho hoje, e o que precisa de mim       |
 | `/:carteira/posicoes`       | T-02 · a tabela de tudo que está em carteira              |
-| `/todas/visao-geral`        | o mesmo, somando todas as carteiras                       |
 | `/:carteira/ativo/:apelido` | T-03 · tudo sobre um ativo em um lugar                    |
 | `/:carteira/movimentacoes`  | T-04 · o extrato do livro, onde se corrige o passado      |
 | `/:carteira/desempenho`     | T-05 · quanto veio de aporte e quanto de rentabilidade    |
@@ -179,9 +178,7 @@ mesma cota; cinco rotas deixariam cada tabela escolher o seu "hoje".
 
 **Carteira rende pela cota; classe, por Dietz modificado.** A carteira tem cota
 gravada, e o retorno de qualquer janela é a razão entre dois valores dela — é por
-isso que aporte não vira rentabilidade. No consolidado a cota é _construída_ sobre
-a história de todas as carteiras, porque somar valores de cota de carteiras
-diferentes não significa nada. A classe não tem cota, e o retorno dela é uma
+isso que aporte não vira rentabilidade. A classe não tem cota, e o retorno dela é uma
 aproximação (ganho sobre o capital médio, cada fluxo pesando pelo tempo em que
 ficou); o caixa fica de fora, e a tela o mostra como traço.
 
@@ -217,9 +214,8 @@ porque é ali que se vê o que cada ponto de alvo custa em reais. `GET
 de aporte sobre o mesmo fechamento; a escrita do alvo é a que já existia, `PUT
 /portfolios/{id}/strategy`, e a das regras é o `PATCH` da carteira.
 
-**A estratégia é de uma carteira.** Em "todas as carteiras" a tela explica isso
-em vez de mostrar um consolidado: como combinar o alvo de cada carteira é decisão
-de F2-06, e um consolidado pareceria ter um alvo que ninguém declarou.
+**A estratégia é de uma carteira.** Não existe visão consolidada: toda tela tem
+uma carteira como escopo, e o endereço sem carteira cai na primeira.
 
 **Só a soma dos alvos é conta do navegador**, feita em centésimos de ponto
 percentual, em inteiros — `35,1 + 24,9` em ponto flutuante não é garantidamente

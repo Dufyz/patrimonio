@@ -15,7 +15,6 @@ import type { ApiHarness } from '../../testing/harness.js';
  */
 let harness: ApiHarness;
 let longo: string;
-let reserva: string;
 let acoes: string;
 let itub4: string;
 let corretora: string;
@@ -117,8 +116,12 @@ const lancar = async (
   `;
 };
 
-const desempenho = async (query = ''): Promise<request.Response> =>
-  request(harness.app).get(`/api/performance${query}`);
+const desempenho = async (query = ''): Promise<request.Response> => {
+  const params = new URLSearchParams(query.replace(/^\?/, ''));
+  if (!params.has('portfolio_id')) params.set('portfolio_id', longo);
+
+  return request(harness.app).get(`/api/performance?${params.toString()}`);
+};
 
 const doLongo = (extra = ''): string =>
   `?portfolio_id=${longo}&on_date=2026-06-30${extra}`;
@@ -142,11 +145,6 @@ beforeEach(async () => {
     .post('/api/portfolios')
     .send({ name: 'Longo prazo', benchmark_id: CDI });
   longo = criada.body.portfolio.id;
-
-  const outra = await request(harness.app)
-    .post('/api/portfolios')
-    .send({ name: 'Reserva' });
-  reserva = outra.body.portfolio.id;
 
   const categoria = await harness.sql<{ id: string }[]>`
     INSERT INTO category (id, name, color_token)
@@ -403,46 +401,9 @@ describe('GET /api/performance · benchmarks', () => {
   });
 });
 
-describe('GET /api/performance · o consolidado', () => {
-  it('usa a cota construída e declara isso', async () => {
+describe('GET /api/performance · por classe', () => {
+  it('as colunas do detalhamento são mês, ano, doze meses e início', async () => {
     await historiaDoLongo();
-    await fecharDia(reserva, '2026-06-30', '5000.00', '1.020000000000');
-
-    const body = (await desempenho('?on_date=2026-06-30')).body;
-
-    expect(response200(body)).toBe(true);
-    expect(body.scope.portfolio_id).toBeNull();
-    expect(body.scope.name).toBe('Todas as carteiras');
-    expect(body.method.portfolio).toBe('consolidated_quota');
-    // O consolidado não declara benchmark: a referência é o CDI.
-    expect(body.benchmarks.primary_id).toBe(CDI);
-  });
-
-  it('o aporte numa carteira que nasce depois não é rendimento do consolidado', async () => {
-    await fecharDia(longo, '2026-03-31', '10000.00', '1.000000000000', {
-      net_flow: '10000.00',
-    });
-    await fecharDia(longo, '2026-04-30', '10500.00', '1.050000000000');
-    // A reserva nasce em abril com 5.000 de aporte. O patrimônio consolidado
-    // salta de 10.000 para 15.500, mas o aporte entra ao valor de cota do dia
-    // anterior: o rendimento é os 500 sobre as 15.000 cotas, 3,33% — e não os
-    // 55% que a variação do patrimônio sugere.
-    await fecharDia(reserva, '2026-04-30', '5000.00', '1.000000000000', {
-      net_flow: '5000.00',
-    });
-
-    const body = (await desempenho('?on_date=2026-04-30')).body;
-    const carteira = body.windows.rows[0];
-    const inicio = carteira.values.at(-1);
-
-    expect(numero(inicio)).toBeCloseTo(3.33, 1);
-  });
-});
-
-describe('GET /api/performance · por carteira e por classe', () => {
-  it('lista as carteiras com valor, peso e retorno, e marca a do escopo', async () => {
-    await historiaDoLongo();
-    await fecharDia(reserva, '2026-06-30', '5000.00', '1.020000000000');
 
     const { breakdown } = (await desempenho(doLongo())).body;
 
@@ -452,22 +413,7 @@ describe('GET /api/performance · por carteira e por classe', () => {
       '12m',
       'inception',
     ]);
-
-    const linhaDoLongo = breakdown.portfolios.find(
-      (row: { portfolio_id: string }) => row.portfolio_id === longo,
-    );
-    const linhaDaReserva = breakdown.portfolios.find(
-      (row: { portfolio_id: string }) => row.portfolio_id === reserva,
-    );
-
-    expect(linhaDoLongo).toMatchObject({ value: '13000.00', selected: true });
-    expect(linhaDoLongo.returns[3]).toBe('10.00');
-    expect(numero(linhaDoLongo.weight_pct)).toBeCloseTo(72.22, 2);
-    expect(linhaDaReserva.selected).toBe(false);
-    // Um único fechamento: não há com o que comparar.
-    expect(linhaDaReserva.returns.every((value: string | null) => value === null)).toBe(
-      true,
-    );
+    expect(breakdown.portfolios).toBeUndefined();
   });
 
   it('a classe rende por Dietz modificado: o aporte pesa pelo tempo que ficou investido', async () => {
@@ -533,6 +479,14 @@ describe('GET /api/performance · casos limite', () => {
     expect(response.status).toBe(404);
   });
 
+  it('sem carteira a rota recusa com 400', async () => {
+    const response = await request(harness.app).get(
+      '/api/performance?on_date=2026-06-30',
+    );
+
+    expect(response.status).toBe(400);
+  });
+
   it('identificador malformado em benchmark_ids é 400', async () => {
     const response = await desempenho('?benchmark_ids=nao-e-uuid');
 
@@ -553,5 +507,3 @@ describe('GET /api/performance · casos limite', () => {
     ).toBe(true);
   });
 });
-
-const response200 = (body: unknown): boolean => performanceSchema.safeParse(body).success;

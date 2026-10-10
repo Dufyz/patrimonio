@@ -22,7 +22,7 @@ import type { Clock } from '../../interfaces/clock.js';
  */
 export type GetAssetPageInput = {
   readonly assetId: string;
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly period: AssetPagePeriod;
   readonly kind: TransactionKind | null;
 };

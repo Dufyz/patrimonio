@@ -195,8 +195,8 @@ describe('evento corporativo', () => {
 /* -------------------------------------------------------------------------- */
 
 const resource = (overrides: Partial<AssetPageResource> = {}): AssetPageResource => ({
-  portfolio_id: null,
-  portfolio_name: null,
+  portfolio_id: '0191e5a0-0000-7000-8000-00000000c000',
+  portfolio_name: 'Longo prazo',
   as_of: '2026-10-06',
   computed_at: '2026-10-06T21:02:00.000Z',
   asset: identity(),

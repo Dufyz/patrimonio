@@ -11,7 +11,7 @@ import { request } from './client.js';
  * faria descrever só o que a página trouxe.
  */
 export type StatementRequest = {
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly institutionId: string | null;
   readonly group: StatementGroup | null;
   readonly search: string;
@@ -24,7 +24,7 @@ export type StatementRequest = {
 export const statementQuery = (input: StatementRequest): URLSearchParams => {
   const params = new URLSearchParams();
 
-  if (input.portfolioId !== null) params.set('portfolio_id', input.portfolioId);
+  params.set('portfolio_id', input.portfolioId);
   if (input.institutionId !== null) params.set('institution_id', input.institutionId);
   if (input.group !== null) params.set('group', input.group);
   if (input.search.trim() !== '') params.set('search', input.search.trim());

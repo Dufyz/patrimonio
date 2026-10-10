@@ -23,7 +23,7 @@ const money = (value: Decimal): string =>
 
 const pct = (value: Decimal): string => value.toDecimalPlaces(PCT_DP).toFixed(PCT_DP);
 
-/** Um dia da série consolidada do escopo, como o fechamento o gravou. */
+/** Um dia da série da carteira, como o fechamento o gravou. */
 export type OverviewDay = {
   readonly position_date: string;
   readonly total_value: string;

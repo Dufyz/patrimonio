@@ -60,7 +60,7 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
             SELECT p.id, p.name, p.sort_order
               FROM portfolio p
              WHERE p.archived_at IS NULL
-               AND (${filter.portfolioId}::UUID IS NULL OR p.id = ${filter.portfolioId}::UUID)
+               AND p.id = ${filter.portfolioId}::UUID
           ),
           candidates AS (
             SELECT a.id, a.ticker, a.name, a.b3_type,
@@ -123,8 +123,7 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
             FROM transaction t
             JOIN portfolio p ON p.id = t.portfolio_id AND p.archived_at IS NULL
             LEFT JOIN asset a ON a.id = t.asset_id
-           WHERE (${filter.portfolioId}::UUID IS NULL
-                  OR t.portfolio_id = ${filter.portfolioId}::UUID)
+           WHERE t.portfolio_id = ${filter.portfolioId}::UUID
              AND (unaccent(a.ticker) ILIKE unaccent(${contains}::TEXT)
                   OR unaccent(a.name) ILIKE unaccent(${contains}::TEXT)
                   OR unaccent(t.note) ILIKE unaccent(${contains}::TEXT))

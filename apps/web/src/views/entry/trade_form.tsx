@@ -163,6 +163,7 @@ export const TradeFormView = ({
             key={generation}
             control={control}
             invalid={control['aria-invalid']}
+            portfolioId={portfolioId}
             value={asset}
             onChange={setAsset}
             onBlur={touch('asset')}

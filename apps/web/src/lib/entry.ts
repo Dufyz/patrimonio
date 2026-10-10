@@ -1070,7 +1070,7 @@ export const pickInstitution = (
   reference.institutions[0]?.id ??
   null;
 
-/** A carteira do escopo atual, ou a primeira — "Todas" não é uma carteira. */
+/** A carteira do escopo atual, ou a primeira se ela não estiver na lista. */
 export const pickPortfolio = (
   reference: EntryReference,
   scopePortfolioId: string | null,

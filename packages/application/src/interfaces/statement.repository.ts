@@ -21,8 +21,7 @@ import type { AppError } from '../errors/app-error.js';
 export type StatementGroupKey = 'buy' | 'sell' | 'payout' | 'cash' | 'transfer' | 'event';
 
 export type StatementFilter = {
-  /** Nulo significa todas as carteiras ativas. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly institutionId: string | null;
   /** Nulo é "Todos". */
   readonly group: StatementGroupKey | null;
@@ -108,7 +107,7 @@ export type StatementPair = {
 
 export type StatementPageView = {
   readonly scope: {
-    readonly portfolio_id: string | null;
+    readonly portfolio_id: string;
     readonly portfolio_name: string | null;
     readonly entries_total: number;
     readonly first_trade_date: DateOnly | null;

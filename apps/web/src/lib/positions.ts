@@ -30,7 +30,6 @@ import type { GroupSummary, TableGroup } from './table/model.js';
 export const GROUP_BY_PARAM = {
   categoria: 'category',
   instituicao: 'institution',
-  carteira: 'portfolio',
   nenhum: 'none',
 } as const satisfies Readonly<Record<string, PositionGroupBy>>;
 
@@ -47,23 +46,12 @@ export type GroupByOption = {
   readonly label: string;
 };
 
-/**
- * As opções do seletor de agrupamento. "Carteira" só aparece no escopo de todas
- * elas: dentro de uma carteira, agrupar por carteira devolve um grupo só, e uma
- * opção que não faz nada é pior que uma opção a menos.
- */
-export const groupByOptions = (allPortfolios: boolean): readonly GroupByOption[] => [
+/** As opções do seletor de agrupamento. */
+export const groupByOptions: readonly GroupByOption[] = [
   { value: 'categoria', label: 'Categoria' },
   { value: 'instituicao', label: 'Instituição' },
-  ...(allPortfolios ? ([{ value: 'carteira', label: 'Carteira' }] as const) : []),
   { value: 'nenhum', label: 'Sem grupo' },
 ];
-
-/** O agrupamento que vale, dado o escopo: por carteira só com todas elas. */
-export const effectiveGroupBy = (
-  param: GroupByParam,
-  allPortfolios: boolean,
-): GroupByParam => (param === 'carteira' && !allPortfolios ? DEFAULT_GROUP_BY : param);
 
 export const isGroupByParam = (value: unknown): value is GroupByParam =>
   typeof value === 'string' && (GROUP_BY_PARAMS as readonly string[]).includes(value);

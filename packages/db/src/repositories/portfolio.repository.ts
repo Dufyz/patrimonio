@@ -61,6 +61,22 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
     }
   },
 
+  latestValues: async () => {
+    try {
+      const rows = await sql<{ portfolio_id: string; total_value: string }[]>`
+        SELECT DISTINCT ON (portfolio_id)
+               portfolio_id::TEXT AS portfolio_id,
+               total_value::TEXT AS total_value
+          FROM portfolio_daily
+         ORDER BY portfolio_id, position_date DESC
+      `;
+
+      return success(new Map(rows.map((row) => [row.portfolio_id, row.total_value])));
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
   create: async (draft: PortfolioDraft) => {
     const row = definedColumns({
       id: uuidv7(),

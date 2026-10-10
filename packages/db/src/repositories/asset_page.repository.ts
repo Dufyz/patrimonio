@@ -117,7 +117,7 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
       SELECT p.id AS portfolio_id, p.name AS portfolio_name
         FROM portfolio p
        WHERE p.archived_at IS NULL
-         AND (${filter.portfolioId}::UUID IS NULL OR p.id = ${filter.portfolioId}::UUID)
+         AND p.id = ${filter.portfolioId}::UUID
     ),
     as_of AS (
       SELECT MAX(pd.position_date) AS position_date
@@ -391,8 +391,7 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
                               liquidity_days, tax_regime
                          FROM asset_row
                      ) ar),
-            'portfolio_name', (SELECT portfolio_name FROM scope
-                                WHERE ${filter.portfolioId}::UUID IS NOT NULL LIMIT 1),
+            'portfolio_name', (SELECT portfolio_name FROM scope LIMIT 1),
             'as_of', (SELECT position_date FROM as_of),
             'computed_at', (SELECT MAX(computed_at) FROM holdings),
             'price', (

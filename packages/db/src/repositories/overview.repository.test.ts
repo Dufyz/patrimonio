@@ -172,29 +172,6 @@ describe('o instantâneo da tela de abertura', () => {
     expect(snapshot.inception).toBe('2026-10-01');
   });
 
-  it('o consolidado soma as carteiras no mesmo dia', async () => {
-    const repository = createOverviewRepository(tx);
-
-    await writeDays([
-      day(LONGO, '2026-10-02', '10000.00'),
-      day(RESERVA, '2026-10-02', '2500.00'),
-    ]);
-
-    const snapshot = unwrapSuccess(
-      await repository.snapshot({
-        portfolio_id: null,
-        on_date: '2026-10-02',
-        from: '2026-10-01',
-        to: '2026-10-02',
-      }),
-    );
-
-    expect(snapshot.days.at(-1)?.total_value).toBe('12500.00');
-    // Cota consolidada não existe: somar cota de carteiras diferentes não
-    // significa nada, e o nulo é o que obriga quem lê a dizer o método.
-    expect(snapshot.days.at(-1)?.quota_value).toBeNull();
-  });
-
   it('com escopo de carteira, a cota gravada vem junto', async () => {
     const repository = createOverviewRepository(tx);
 
@@ -276,29 +253,6 @@ describe('o instantâneo da tela de abertura', () => {
     expect(snapshot.positions).toEqual([]);
   });
 
-  it('o papel sem preço em uma das carteiras chega sem preço na tela', async () => {
-    const repository = createOverviewRepository(tx);
-
-    await writeDays([
-      day(LONGO, '2026-10-02', '3000.00'),
-      day(RESERVA, '2026-10-02', '3000.00'),
-    ]);
-    await writePosition(LONGO, ITUB4, '2026-10-02', '3000.00', 'fresh');
-    await writePosition(RESERVA, ITUB4, '2026-10-02', '3000.00', 'missing');
-
-    const snapshot = unwrapSuccess(
-      await repository.snapshot({
-        portfolio_id: null,
-        on_date: '2026-10-02',
-        from: '2026-10-01',
-        to: '2026-10-02',
-      }),
-    );
-
-    expect(snapshot.positions[0]?.price_source_kind).toBe('missing');
-    expect(snapshot.positions[0]?.value).toBe('6000.00');
-  });
-
   it('carteira com recálculo atrasado entra com o último dia que ela tem', async () => {
     const repository = createOverviewRepository(tx);
 
@@ -311,17 +265,15 @@ describe('o instantâneo da tela de abertura', () => {
 
     const snapshot = unwrapSuccess(
       await repository.snapshot({
-        portfolio_id: null,
+        portfolio_id: RESERVA,
         on_date: '2026-10-02',
         from: '2026-10-01',
         to: '2026-10-02',
       }),
     );
 
-    expect(snapshot.positions.map((row) => row.ticker)).toEqual(['ITUB4', 'HGLG11']);
-    expect(
-      snapshot.portfolios.find((row) => row.portfolio_id === RESERVA)?.total_value,
-    ).toBe('2000.00');
+    expect(snapshot.positions.map((row) => row.ticker)).toEqual(['HGLG11']);
+    expect(snapshot.portfolio?.total_value).toBe('2000.00');
   });
 
   it('a composição sai por categoria, com o token de cor que a tela usa', async () => {
@@ -376,7 +328,7 @@ describe('o instantâneo da tela de abertura', () => {
     ]);
   });
 
-  it('o alvo lido é o da carteira do escopo; o consolidado não tem alvo', async () => {
+  it('o alvo lido é o da carteira do escopo', async () => {
     const repository = createOverviewRepository(tx);
 
     await tx`
@@ -385,7 +337,7 @@ describe('o instantâneo da tela de abertura', () => {
     `;
     await writeDays([day(LONGO, '2026-10-02', '10000.00')]);
 
-    const scoped = unwrapSuccess(
+    const snapshot = unwrapSuccess(
       await repository.snapshot({
         portfolio_id: LONGO,
         on_date: '2026-10-02',
@@ -393,17 +345,7 @@ describe('o instantâneo da tela de abertura', () => {
         to: '2026-10-02',
       }),
     );
-    const consolidated = unwrapSuccess(
-      await repository.snapshot({
-        portfolio_id: null,
-        on_date: '2026-10-02',
-        from: '2026-10-01',
-        to: '2026-10-02',
-      }),
-    );
-
-    expect(scoped.targets).toHaveLength(2);
-    expect(consolidated.targets).toEqual([]);
+    expect(snapshot.targets).toHaveLength(2);
   });
 
   it('carteira sem fechamento nenhum devolve vazio, não erro', async () => {
@@ -421,8 +363,6 @@ describe('o instantâneo da tela de abertura', () => {
     expect(snapshot.reference_date).toBeNull();
     expect(snapshot.days).toEqual([]);
     expect(snapshot.anchors.previous_day).toBeNull();
-    expect(
-      snapshot.portfolios.find((row) => row.portfolio_id === LONGO)?.total_value,
-    ).toBeNull();
+    expect(snapshot.portfolio?.total_value).toBeNull();
   });
 });

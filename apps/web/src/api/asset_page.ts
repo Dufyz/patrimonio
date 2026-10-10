@@ -14,7 +14,7 @@ import { request } from './client.js';
  */
 export type AssetPageRequest = {
   readonly assetId: string;
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly period: AssetPeriod;
   readonly kind: TransactionKind | null;
 };
@@ -22,7 +22,7 @@ export type AssetPageRequest = {
 export const assetPageQuery = (input: AssetPageRequest): URLSearchParams => {
   const params = new URLSearchParams();
 
-  if (input.portfolioId !== null) params.set('portfolio_id', input.portfolioId);
+  params.set('portfolio_id', input.portfolioId);
   params.set('period', input.period);
   if (input.kind !== null) params.set('kind', input.kind);
 

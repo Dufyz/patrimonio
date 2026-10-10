@@ -109,8 +109,12 @@ const abrirAlerta = async (
   `;
 };
 
-const visaoGeral = async (query = ''): Promise<request.Response> =>
-  request(harness.app).get(`/api/overview${query}`);
+const visaoGeral = async (query = ''): Promise<request.Response> => {
+  const params = new URLSearchParams(query.replace(/^\?/, ''));
+  if (!params.has('portfolio_id')) params.set('portfolio_id', longo);
+
+  return request(harness.app).get(`/api/overview?${params.toString()}`);
+};
 
 beforeAll(async () => {
   harness = await createApiHarness();
@@ -159,18 +163,23 @@ describe('quanto eu tenho hoje', () => {
     expect(response.body.totals.value).toBe('10000.00');
   });
 
-  it('o consolidado soma as carteiras, e o escopo de carteira mostra só ela', async () => {
+  it('cada carteira mostra só o que é dela', async () => {
     await fecharDia(longo, '2026-10-02', '10000.00');
     await fecharDia(reserva, '2026-10-02', '2500.00');
 
-    const todas = await visaoGeral('?on_date=2026-10-02');
-    const uma = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${longo}`);
+    const doLongo = await visaoGeral('?on_date=2026-10-02');
+    const daReserva = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${reserva}`);
 
-    expect(todas.body.totals.value).toBe('12500.00');
-    expect(todas.body.scope.name).toBe('Todas as carteiras');
-    expect(uma.body.totals.value).toBe('10000.00');
-    // O peso da carteira no patrimônio: 10.000 de 12.500.
-    expect(uma.body.totals.weight_pct).toBe('80.00');
+    expect(doLongo.body.totals.value).toBe('10000.00');
+    expect(doLongo.body.scope.name).toBe('Longo prazo');
+    expect(daReserva.body.totals.value).toBe('2500.00');
+    expect(daReserva.body.scope.name).toBe('Reserva');
+  });
+
+  it('sem carteira a rota recusa com 400', async () => {
+    const response = await request(harness.app).get('/api/overview?on_date=2026-10-02');
+
+    expect(response.status).toBe(400);
   });
 
   it('a variação do dia compara com o fechamento anterior', async () => {
@@ -256,19 +265,6 @@ describe('quanto veio de aporte e quanto veio de rentabilidade', () => {
     expect(response.body.period.return_pct).toBe('5.00');
   });
 
-  it('no consolidado a cota é construída sobre a janela, e o método vem declarado', async () => {
-    await fecharDia(longo, '2026-09-30', '10000.00');
-    await fecharDia(reserva, '2026-09-30', '10000.00');
-    await fecharDia(longo, '2026-10-01', '11000.00');
-    await fecharDia(reserva, '2026-10-01', '10000.00');
-
-    const response = await visaoGeral('?on_date=2026-10-01&from=2026-10-01&to=2026-10-01');
-
-    expect(response.body.period.return_method).toBe('window_quota');
-    // 21.000 contra 20.000, sem fluxo no meio.
-    expect(response.body.period.return_pct).toBe('5.00');
-  });
-
   it('aporte no dia não vira rentabilidade', async () => {
     await fecharDia(longo, '2026-09-30', '10000.00');
     await fecharDia(longo, '2026-10-01', '15000.00', { net_flow: '5000.00' });
@@ -332,33 +328,6 @@ describe('como o patrimônio está distribuído', () => {
 
     expect(response.body.composition.nodes[0].deviation_pp).toBeNull();
   });
-
-  it('a distribuição por carteira acompanha, para o consolidado comparar as duas', async () => {
-    await fecharDia(reserva, '2026-10-02', '7000.00');
-
-    const response = await visaoGeral('?on_date=2026-10-02');
-
-    expect(
-      response.body.by_portfolio.map((row: { name: string; weight_pct: string }) => [
-        row.name,
-        row.weight_pct,
-      ]),
-    ).toEqual([
-      ['Longo prazo', '65.00'],
-      ['Reserva', '35.00'],
-    ]);
-  });
-
-  it('o estado do preço viaja com a posição, para a tela não mentir sobre a data', async () => {
-    await manterPosicao(longo, hglg11, '2026-10-02', '3000.00', 'stale');
-
-    const response = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${longo}`);
-    const linha = response.body.top_positions.rows.find(
-      (row: { ticker: string }) => row.ticker === 'HGLG11',
-    );
-
-    expect(linha.price_source_kind).toBe('stale');
-  });
 });
 
 describe('o que precisa de mim', () => {
@@ -383,14 +352,13 @@ describe('o que precisa de mim', () => {
     expect(response.body.attention.groups[0].items[0].rule_kind).toBe('price_stale');
   });
 
-  it('o painel conta as duas leituras: esta carteira e todas', async () => {
+  it('o painel conta só os alertas da carteira', async () => {
     await abrirAlerta('price_stale', itub4, longo);
     await abrirAlerta('price_missing', hglg11, reserva);
 
     const response = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${longo}`);
 
     expect(response.body.attention.total).toBe(1);
-    expect(response.body.attention.total_all_portfolios).toBe(2);
   });
 
   it('alerta ignorado não volta para a frente do usuário', async () => {

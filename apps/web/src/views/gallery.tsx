@@ -449,7 +449,7 @@ export const Gallery = (): React.ReactElement => {
         </header>
 
         <OverviewHeader
-          label="Patrimônio · todas as carteiras"
+          label="Patrimônio · Longo prazo"
           principal="487320.55"
           change={{ amount: '1512.30', ratio: '0.0031', periodLabel: 'em outubro' }}
           caveat="dois preços de 03/10"

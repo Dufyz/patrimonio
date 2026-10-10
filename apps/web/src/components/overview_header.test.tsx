@@ -10,7 +10,7 @@ const header = (props: Partial<React.ComponentProps<typeof OverviewHeader>> = {}
   render(
     <PreferencesProvider storage={null}>
       <OverviewHeader
-        label="Patrimônio · todas as carteiras"
+        label="Patrimônio · Longo prazo"
         principal="318904.12"
         change={{ amount: '1049.20', ratio: '0.0033', periodLabel: 'em outubro' }}
         metrics={[

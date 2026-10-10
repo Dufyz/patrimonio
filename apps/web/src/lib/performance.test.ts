@@ -148,12 +148,6 @@ describe('o método', () => {
     ]);
     expect(lines[3]?.text).toMatch(/nada é anualizado/);
   });
-
-  it('o consolidado diz que a cota é construída', () => {
-    const [carteira] = methodLines({ ...method, portfolio: 'consolidated_quota' });
-
-    expect(carteira?.text).toMatch(/cota construída/);
-  });
 });
 
 describe('o CSV', () => {

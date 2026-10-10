@@ -72,8 +72,7 @@ export type OverviewViewProps = {
 };
 
 export type OverviewScreenProps = {
-  /** Nulo é o escopo de todas as carteiras. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   /** Abre a página do ativo (T-03), pelo mesmo apelido que Posições usa. */
   readonly onOpenAsset?: ((slug: string) => void) | undefined;
 };
@@ -381,10 +380,7 @@ const Attention = ({
   if (overview.attention.groups.length === 0) return null;
 
   const nameOf = (portfolioId: string | null): string | null =>
-    portfolioId === null
-      ? null
-      : (overview.by_portfolio.find((row) => row.portfolio_id === portfolioId)?.name ??
-        null);
+    portfolioId === null ? null : overview.scope.name;
 
   return (
     <Panel
@@ -515,11 +511,7 @@ export const OverviewView = ({
       ) : (
         <KeepPrevious pending={pending} className="flex flex-col gap-4">
           <OverviewHeader
-            label={
-              overview.scope.portfolio_id === null
-                ? 'Patrimônio · todas as carteiras'
-                : 'Valor da carteira'
-            }
+            label="Valor da carteira"
             principal={overview.totals.value}
             {...(overview.totals.month === null
               ? {}
@@ -547,20 +539,10 @@ export const OverviewView = ({
                 label: `Rendimento ${periodSuffix(period)}`,
                 value: <MoneyChange value={overview.period.income} />,
               },
-              overview.totals.weight_pct === null
-                ? {
-                    label: 'Variação do dia',
-                    value: <MoneyChange value={overview.totals.day?.amount ?? null} />,
-                  }
-                : {
-                    label: 'Peso no patrimônio',
-                    value: (
-                      <Percent
-                        value={percentAsRatio(overview.totals.weight_pct)}
-                        decimals={1}
-                      />
-                    ),
-                  },
+              {
+                label: 'Variação do dia',
+                value: <MoneyChange value={overview.totals.day?.amount ?? null} />,
+              },
             ]}
             chart={
               <div className="flex flex-col gap-2">
@@ -580,11 +562,6 @@ export const OverviewView = ({
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <Panel
               title="Distribuição por categoria"
-              hint={
-                overview.scope.portfolio_id === null
-                  ? 'o alvo é declarado por carteira'
-                  : undefined
-              }
             >
               <Distribution overview={overview} />
             </Panel>

@@ -4,7 +4,6 @@ import {
   addMonths,
   benchmarkCumulative,
   benchmarkPeriodReturn,
-  buildQuotaSeries,
   cumulativeReturns,
   decomposeByMonth,
   differencePp,
@@ -54,13 +53,6 @@ import type {
  * qualquer janela é a razão entre duas cotas. É também o que mantém esta rota
  * barata: cada janela sai de duas linhas da série.
  *
- * ## O que muda no consolidado
- *
- * `portfolio_daily.quota_value` é por carteira, e somar cotas de carteiras
- * diferentes não significa nada. Com "todas as carteiras" a cota é **construída**
- * sobre a história inteira do escopo, partindo de 1. A resposta declara qual dos
- * dois métodos usou, e o texto da tela sai dessa declaração.
- *
  * ## Por que a classe de ativo usa outro método
  *
  * Uma classe não tem cota: as ações recebem dinheiro quando se compra e devolvem
@@ -77,7 +69,7 @@ import type {
  */
 
 export type PerformanceScope = {
-  readonly portfolio_id: string | null;
+  readonly portfolio_id: string;
   readonly name: string;
   readonly purpose: string | null;
   readonly recalc_status: RecalcStatus;
@@ -91,7 +83,7 @@ export type PerformanceBenchmark = {
 };
 
 export type PerformanceMethod = {
-  readonly portfolio: 'portfolio_quota' | 'consolidated_quota';
+  readonly portfolio: 'portfolio_quota';
   readonly class: 'modified_dietz';
   readonly benchmark: 'compound_daily_factors';
   readonly annualized: false;
@@ -145,15 +137,6 @@ export type PerformanceDecompositionTotal = Omit<PerformanceDecompositionRow, 'm
 
 export type BreakdownKey = 'month' | 'ytd' | '12m' | 'inception';
 
-export type PerformancePortfolioRow = {
-  readonly portfolio_id: string;
-  readonly name: string;
-  readonly value: string | null;
-  readonly weight_pct: string | null;
-  readonly selected: boolean;
-  readonly returns: readonly (string | null)[];
-};
-
 export type PerformanceClassRow = {
   readonly category_id: string;
   readonly name: string;
@@ -189,13 +172,12 @@ export type PerformanceResult = {
   };
   readonly breakdown: {
     readonly columns: readonly { readonly key: BreakdownKey; readonly base_date: DateOnly | null }[];
-    readonly portfolios: readonly PerformancePortfolioRow[];
     readonly classes: readonly PerformanceClassRow[];
   };
 };
 
 export type PerformanceInput = {
-  readonly portfolio_id?: string | null | undefined;
+  readonly portfolio_id: string;
   readonly on_date?: DateOnly | undefined;
   readonly from?: DateOnly | undefined;
   readonly to?: DateOnly | undefined;
@@ -208,7 +190,6 @@ export type PerformanceDeps = {
   readonly clock: Clock;
 };
 
-const ALL_PORTFOLIOS_NAME = 'Todas as carteiras';
 const CHART_DEFAULT_MONTHS = 24;
 const DECOMPOSITION_MONTHS = 12;
 const BREAKDOWN_KEYS: readonly BreakdownKey[] = ['month', 'ytd', '12m', 'inception'];
@@ -301,27 +282,12 @@ const emptyResult = (
   decomposition: { benchmark_name: null, rows: [], total: null },
   breakdown: {
     columns: BREAKDOWN_KEYS.map((key) => ({ key, base_date: null })),
-    portfolios: [],
     classes: [],
   },
 });
 
-const toQuotaDays = (
-  days: readonly PerformanceDayRow[],
-  scoped: boolean,
-): readonly DecompositionDay[] => {
-  if (!scoped) {
-    return buildQuotaSeries(
-      days.map((day) => ({
-        position_date: day.position_date,
-        total_value: day.total_value,
-        net_flow: day.net_flow,
-        payouts: day.payouts,
-      })),
-    );
-  }
-
-  return days.map((day) => ({
+const toQuotaDays = (days: readonly PerformanceDayRow[]): readonly DecompositionDay[] =>
+  days.map((day) => ({
     position_date: day.position_date,
     total_value: day.total_value,
     net_flow: day.net_flow,
@@ -331,7 +297,6 @@ const toQuotaDays = (
     // tipo, e é o valor inicial da série, não um número inventado.
     quota_value: day.quota_value ?? QUOTA_FALLBACK,
   }));
-};
 
 const pointOf = (day: DecompositionDay): QuotaPoint => ({
   position_date: day.position_date,
@@ -343,20 +308,6 @@ const diff = (portfolio: string | null, benchmark: string | null): string | null
 
 const returnOf = (window: WindowReturn | null): string | null =>
   window === null ? null : window.return_pct;
-
-/** O retorno entre dois pontos de cota de uma carteira; nulo sem as duas pontas. */
-const portfolioReturn = (
-  base: { readonly position_date: string | null; readonly quota_value: string | null } | undefined,
-  end: { readonly position_date: string | null; readonly quota_value: string | null } | undefined,
-): string | null => {
-  if (base === undefined || end === undefined) return null;
-  if (base.position_date === null || base.quota_value === null) return null;
-  if (end.position_date === null || end.quota_value === null) return null;
-  // Uma só data não é um período: é o mesmo critério de `resolveWindow`.
-  if (base.position_date === end.position_date) return null;
-
-  return returnPct(base.quota_value, end.quota_value);
-};
 
 const classReturns = (
   breakdown: PerformanceBreakdown,
@@ -394,45 +345,29 @@ const classReturns = (
 export const getPerformance = (deps: PerformanceDeps) =>
   either(async function* (input: PerformanceInput) {
     const onDate = input.on_date ?? deps.clock.today();
-    const portfolioId = input.portfolio_id ?? null;
+    const portfolioId = input.portfolio_id;
 
     const snapshot = yield* await deps.performance.snapshot({
       portfolio_id: portfolioId,
       on_date: onDate,
     });
 
-    const portfolio =
-      portfolioId === null
-        ? null
-        : (snapshot.portfolios.find((row) => row.portfolio_id === portfolioId) ?? null);
+    const portfolio = snapshot.portfolio;
 
-    if (portfolioId !== null && portfolio === null) {
+    if (portfolio === null) {
       return yield* failure(new NotFoundError(`Carteira ${portfolioId} não encontrada`));
     }
 
-    const scope: PerformanceScope =
-      portfolio === null
-        ? {
-            portfolio_id: null,
-            name: ALL_PORTFOLIOS_NAME,
-            purpose: null,
-            recalc_status: snapshot.portfolios.some(
-              (row) => row.recalc_status === 'running' || row.recalc_status === 'queued',
-            )
-              ? 'running'
-              : 'idle',
-            inception: snapshot.inception,
-          }
-        : {
-            portfolio_id: portfolioId,
-            name: portfolio.name,
-            purpose: portfolio.purpose,
-            recalc_status: portfolio.recalc_status,
-            inception: snapshot.inception,
-          };
+    const scope: PerformanceScope = {
+      portfolio_id: portfolioId,
+      name: portfolio.name,
+      purpose: portfolio.purpose,
+      recalc_status: portfolio.recalc_status,
+      inception: snapshot.inception,
+    };
 
     const method: PerformanceMethod = {
-      portfolio: portfolioId === null ? 'consolidated_quota' : 'portfolio_quota',
+      portfolio: 'portfolio_quota',
       class: 'modified_dietz',
       benchmark: 'compound_daily_factors',
       annualized: false,
@@ -446,7 +381,7 @@ export const getPerformance = (deps: PerformanceDeps) =>
     }
 
     // ── A série de cota do escopo ──────────────────────────────────────────
-    const quotaDays = toQuotaDays(snapshot.days, portfolioId !== null);
+    const quotaDays = toQuotaDays(snapshot.days);
     const points = quotaDays.map(pointOf);
     const first = points[0];
     const lastPoint = points[points.length - 1];
@@ -466,7 +401,7 @@ export const getPerformance = (deps: PerformanceDeps) =>
     const selected = chooseBenchmarks(
       catalog,
       input.benchmark_ids ?? [],
-      portfolio?.benchmark_id ?? null,
+      portfolio.benchmark_id,
     );
     const referenceBenchmark = selected[0] ?? null;
 
@@ -702,32 +637,10 @@ export const getPerformance = (deps: PerformanceDeps) =>
       };
     })();
 
-    // ── Por carteira e por classe ──────────────────────────────────────────
+    // ── Por classe ──────────────────────────────────────────
     const breakdownColumns = BREAKDOWN_KEYS.map((key) => ({
       key,
       base_date: (windowOf(key)?.from.position_date ?? null) as DateOnly | null,
-    }));
-
-    const portfolioTotal = sumValues(snapshot.portfolios.map((row) => row.total_value ?? '0'));
-
-    const pointOfPortfolio = (id: string, label: string) =>
-      breakdown.portfolio_points.find(
-        (row) => row.portfolio_id === id && row.label === label,
-      );
-
-    const portfolioRows: PerformancePortfolioRow[] = snapshot.portfolios.map((row) => ({
-      portfolio_id: row.portfolio_id,
-      name: row.name,
-      value: row.total_value,
-      weight_pct:
-        row.total_value === null ? null : weightPct(row.total_value, portfolioTotal),
-      selected: row.portfolio_id === portfolioId,
-      returns: BREAKDOWN_KEYS.map((key) =>
-        portfolioReturn(
-          pointOfPortfolio(row.portfolio_id, key),
-          pointOfPortfolio(row.portfolio_id, 'reference'),
-        ),
-      ),
     }));
 
     const classValue = (categoryId: string): string =>
@@ -777,7 +690,6 @@ export const getPerformance = (deps: PerformanceDeps) =>
       },
       breakdown: {
         columns: breakdownColumns,
-        portfolios: portfolioRows,
         classes: classRows,
       },
     } satisfies PerformanceResult;

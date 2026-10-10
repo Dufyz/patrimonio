@@ -46,7 +46,7 @@ const filter = (
   > = {},
 ) => ({
   today: HOJE,
-  portfolioId: CARTEIRA as string | null,
+  portfolioId: CARTEIRA as string,
   groupBy: 'category' as const,
   search: null as string | null,
   categoryId: null as string | null,
@@ -169,10 +169,11 @@ describe('posições abertas', () => {
 
   it('o escopo de uma carteira não vê a posição da outra', async () => {
     const uma = unwrapSuccess(await open());
-    const todas = unwrapSuccess(await open({ portfolioId: null }));
+    const outra = unwrapSuccess(await open({ portfolioId: OUTRA }));
 
     expect(uma.rows.filter((row) => row.ticker === 'ITUB4')).toHaveLength(1);
-    expect(todas.rows.filter((row) => row.ticker === 'ITUB4')).toHaveLength(2);
+    expect(outra.rows.filter((row) => row.ticker === 'ITUB4')).toHaveLength(1);
+    expect(uma.rows.every((row) => row.portfolio_id === CARTEIRA)).toBe(true);
   });
 
   it('o custodiante vem do lançamento, não da projeção', async () => {
@@ -285,13 +286,6 @@ describe('agrupamento', () => {
     expect(cdb?.group_color_token).toBeNull();
   });
 
-  it('por carteira, cada carteira é um grupo', async () => {
-    const view = unwrapSuccess(await open({ portfolioId: null, groupBy: 'portfolio' }));
-    const chaves = new Set(view.rows.map((row) => row.group_key));
-
-    expect(chaves).toEqual(new Set([CARTEIRA, OUTRA]));
-  });
-
   it('sem grupo, tudo cai num grupo só e o subtotal é o total', async () => {
     const view = unwrapSuccess(await open({ groupBy: 'none' }));
     const grupo = view.summaries.find((summary) => summary.group_key !== null);
@@ -370,12 +364,6 @@ describe('cabeçalho', () => {
 
     expect(Number(view.header.day_change_ratio)).toBeCloseTo(0.001901, 5);
     expect(Number(view.header.return_12m_ratio)).toBeCloseTo(0.1592, 4);
-  });
-
-  it('no escopo de todas as carteiras não há cota, e o retorno fica em branco', async () => {
-    const view = unwrapSuccess(await open({ portfolioId: null }));
-
-    expect(view.header.return_12m_ratio).toBeNull();
   });
 
   it('os proventos do cabeçalho cobrem doze meses, e só os confirmados', async () => {

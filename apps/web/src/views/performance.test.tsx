@@ -15,7 +15,6 @@ import { PERFORMANCE_DEFAULT_PERIOD, PerformanceView } from './performance.js';
 const CDI = '019b0000-0000-7000-8000-000000000001';
 const IBOV = '019b0000-0000-7000-8000-000000000004';
 const LONGO = '0191e5a0-0000-7000-8000-00000000c001';
-const RESERVA = '0191e5a0-0000-7000-8000-00000000c002';
 
 const year = {
   year: 2026,
@@ -119,24 +118,6 @@ const performance: PerformanceResource = {
       { key: 'ytd', base_date: '2025-12-31' },
       { key: '12m', base_date: '2025-09-30' },
       { key: 'inception', base_date: '2021-03-15' },
-    ],
-    portfolios: [
-      {
-        portfolio_id: LONGO,
-        name: 'Longo prazo',
-        value: '313854.92',
-        weight_pct: '72.20',
-        selected: true,
-        returns: ['0.98', '11.58', '15.92', '102.96'],
-      },
-      {
-        portfolio_id: RESERVA,
-        name: 'Reserva',
-        value: '5000.00',
-        weight_pct: '27.80',
-        selected: false,
-        returns: [null, null, null, null],
-      },
     ],
     classes: [
       {

@@ -106,7 +106,6 @@ export const resetSourceTables = async (sql: Sql): Promise<void> => {
                    transaction_undo,
                    payout_dismissal,
                    strategy_target,
-                   goal_portfolio,
                    goal,
                    manual_price,
                    asset,

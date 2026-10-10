@@ -22,7 +22,7 @@ export type SupportMetric = {
 };
 
 export type OverviewHeaderProps = {
-  /** `PATRIMÔNIO · TODAS AS CARTEIRAS`. */
+  /** `PATRIMÔNIO · LONGO PRAZO`. */
   readonly label: string;
   readonly principal: string | null;
   readonly change?:

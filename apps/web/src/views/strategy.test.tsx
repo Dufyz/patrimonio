@@ -434,16 +434,6 @@ describe('estados', () => {
 });
 
 describe('a tela como a rota a monta', () => {
-  it('sem carteira escolhida explica que a estratégia é de uma carteira', () => {
-    render(
-      <PreferencesProvider storage={null}>
-        <StrategyScreen portfolioId={null} />
-      </PreferencesProvider>,
-    );
-
-    expect(screen.getByText('A estratégia é de uma carteira')).toBeInTheDocument();
-  });
-
   it('a carteira que chega depois do primeiro desenho é lida, e não vira resposta vazia', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -452,12 +442,12 @@ describe('a tela como a rota a monta', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     try {
-      const view = (id: string | null) => (
+      const view = (id: string) => (
         <PreferencesProvider storage={null}>
           <StrategyScreen portfolioId={id} />
         </PreferencesProvider>
       );
-      const { rerender } = render(view(null));
+      const { rerender } = render(view('0191e5a0-0000-7000-8000-00000000c000'));
       rerender(view('0191e5a0-0000-7000-8000-00000000c001'));
 
       expect(await screen.findByText('Distribuição por categoria')).toBeInTheDocument();
