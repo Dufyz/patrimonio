@@ -5,6 +5,7 @@ import type {
   createCashMovement,
   createPayout,
   dismissPayout,
+  previewPayout,
   previewTransfer,
   createTransaction,
   getTransaction,
@@ -37,6 +38,7 @@ export type TransactionDeps = {
     readonly confirmPayout: ReturnType<typeof confirmPayout>;
     readonly dismissPayout: ReturnType<typeof dismissPayout>;
     readonly transferPosition: ReturnType<typeof transferPosition>;
+    readonly previewPayout: ReturnType<typeof previewPayout>;
     readonly previewTransfer: ReturnType<typeof previewTransfer>;
     readonly previewTransaction: ReturnType<typeof previewTransaction>;
     readonly listTransactions: ReturnType<typeof listTransactions>;
@@ -56,6 +58,7 @@ export type TransactionController = {
   readonly confirm: RequestHandler;
   readonly dismiss: RequestHandler;
   readonly transfer: RequestHandler;
+  readonly previewPayout: RequestHandler;
   readonly previewTransfer: RequestHandler;
   readonly preview: RequestHandler;
   readonly list: RequestHandler;
@@ -275,6 +278,24 @@ export const createTransactionController = (
         ? 'Transferência já havia sido feita'
         : 'Posição movida',
     });
+  },
+
+  /**
+   * O provento antes de salvar: a quantidade na data-com, o bruto e o IR retido
+   * saem do mesmo cálculo da gravação, e nada é criado.
+   */
+  previewPayout: async (request, response) => {
+    const result = await deps.usecases.previewPayout({
+      ...(request.body as CreatePayoutBody),
+      origin_request_id: request.requestId,
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json(result.value);
   },
 
   previewTransfer: async (request, response) => {

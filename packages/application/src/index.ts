@@ -299,11 +299,15 @@ export type {
   CashMovementInput,
   CashMovementResult,
 } from './usecases/transaction/cashMovement.usecase.js';
-export { createPayout } from './usecases/transaction/createPayout.usecase.js';
+export {
+  createPayout,
+  previewPayout,
+} from './usecases/transaction/createPayout.usecase.js';
 export type {
   CreatePayoutDeps,
   CreatePayoutInput,
   PayoutResult,
+  PreviewPayoutResult,
 } from './usecases/transaction/createPayout.usecase.js';
 export {
   confirmCorporateEvent,

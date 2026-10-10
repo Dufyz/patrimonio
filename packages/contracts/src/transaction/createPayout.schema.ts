@@ -2,12 +2,13 @@ import { z } from 'zod';
 
 import {
   dateOnly,
+  decimalString,
   nonNegativeDecimal,
   optionalText,
   positiveDecimal,
   uuid,
 } from '../support/primitives.schema.js';
-import { payoutKindSchema } from './transaction.schema.js';
+import { payoutKindSchema, transactionPreviewSchema } from './transaction.schema.js';
 
 /**
  * A quantidade não entra aqui de propósito: ela é calculada pelos lançamentos
@@ -38,5 +39,27 @@ export const createPayoutSchema = z.object({
       },
     ),
 });
+
+/**
+ * O mesmo corpo da gravação: o preview roda o mesmo cálculo — quantidade na
+ * data-com, bruto, IR retido — e não grava nada.
+ */
+export const previewPayoutSchema = createPayoutSchema;
+
+/**
+ * O que o modal de provento mostra antes de salvar. A quantidade não é
+ * digitada: ela vem dos lançamentos na data-com, e o bruto e o IR retido vêm do
+ * mesmo cálculo que a gravação usa.
+ */
+export const payoutPreviewSchema = z.object({
+  preview: transactionPreviewSchema,
+  quantity_at_record_date: decimalString,
+  unit_price: decimalString,
+  gross_amount: decimalString,
+  tax_withheld: decimalString,
+  net_amount: decimalString,
+});
+
+export type PayoutPreviewResource = z.infer<typeof payoutPreviewSchema>;
 
 export type CreatePayoutBody = z.infer<typeof createPayoutSchema>['body'];
