@@ -83,12 +83,11 @@ INSERT INTO benchmark (id, name, kind, definition, rebalance, created_at) VALUES
   ('01960000-0003-7000-8000-000000000004', '70% CDI + 30% Ibovespa', 'blend', '{"parts": [{"index": "CDI", "weight": 0.7}, {"index": "IBOV", "weight": 0.3}]}'::JSONB, 'monthly', TIMESTAMPTZ '2024-01-02 09:00:00-03');
 
 -- ------------------------------------------------------------------- carteiras
-INSERT INTO portfolio (id, name, purpose, benchmark_id, tolerance_pp, max_asset_weight_pct, rebalance_mode,
-                       review_every_months, sort_order, archived_at, created_at) VALUES
-  ('01960000-0004-7000-8000-000000000001', 'Longo prazo', 'Independência financeira', '01960000-0003-7000-8000-000000000004', 5.00, 12.00, 'contributions_only', 6, 10, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0004-7000-8000-000000000002', 'Reserva de emergência', 'Seis a doze meses de despesas, liquidez diária', '019b0000-0000-7000-8000-000000000001', 10.00, NULL, 'contributions_only', 12, 20, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0004-7000-8000-000000000003', 'Entrada do imóvel', 'Entrada e custos de aquisição até 2029', '01960000-0003-7000-8000-000000000002', 7.50, 35.00, 'contributions_only', 6, 30, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0004-7000-8000-000000000004', 'Experimentos', 'Operações de curto prazo (encerrada)', '019b0000-0000-7000-8000-000000000004', 5.00, NULL, 'buy_and_sell', NULL, 40, TIMESTAMPTZ '2024-09-30 12:00:00-03', TIMESTAMPTZ '2024-01-02 09:00:00-03');
+INSERT INTO portfolio (id, name, benchmark_id, sort_order, archived_at, created_at) VALUES
+  ('01960000-0004-7000-8000-000000000001', 'Longo prazo', '01960000-0003-7000-8000-000000000004', 10, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0004-7000-8000-000000000002', 'Reserva de emergência', '019b0000-0000-7000-8000-000000000001', 20, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0004-7000-8000-000000000003', 'Entrada do imóvel', '01960000-0003-7000-8000-000000000002', 30, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0004-7000-8000-000000000004', 'Experimentos', '019b0000-0000-7000-8000-000000000004', 40, TIMESTAMPTZ '2024-09-30 12:00:00-03', TIMESTAMPTZ '2024-01-02 09:00:00-03');
 
 -- Estratégia: o alvo de cada carteira soma 100 (a restrição é verificada no commit).
 INSERT INTO strategy_target (portfolio_id, category_id, target_pct) VALUES

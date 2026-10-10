@@ -112,8 +112,8 @@ beforeEach(async () => {
   tx = await beginTestTransaction(sql);
 
   await tx`
-    INSERT INTO portfolio (id, name, tolerance_pp, sort_order)
-    VALUES (${LONGO}, 'Longo prazo', '3', 1), (${RESERVA}, 'Reserva', '5', 2)
+    INSERT INTO portfolio (id, name, sort_order)
+    VALUES (${LONGO}, 'Longo prazo', 1), (${RESERVA}, 'Reserva', 2)
   `;
   await tx`
     INSERT INTO category (id, name, color_token, sort_order)

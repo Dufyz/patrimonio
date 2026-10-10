@@ -234,10 +234,8 @@ dele e o rascunho fica. `⌘S` salva de qualquer campo.
 
 Em T-06, contra a prancha 09:
 
-- **O benchmark não se edita aqui.** O lápis está desabilitado, com a dica
-  dizendo onde: escolher benchmark pede a lista de índices e as definições
-  compostas (`IPCA + 6%`), que nascem em Configurações. Tolerância, peso máximo,
-  rebalanceamento e revisão editam em um diálogo pequeno.
+- **Regras são só leitura.** A tolerância é fixa em 5 pp e o benchmark se escolhe
+  em Configurações; a tela só mostra os dois.
 - **O botão Categorias está desabilitado**, pela razão de T-02: criar e
   reorganizar categorias é Configurações, e fingir que a ação existe custa mais
   confiança do que dizer que ela não existe.

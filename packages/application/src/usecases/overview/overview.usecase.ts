@@ -13,7 +13,7 @@ import type {
   CompositionNode,
   GrowthPoint,
 } from '@patrimonio/calc';
-import { alertGroupFor } from '@patrimonio/domain';
+import { alertGroupFor, TOLERANCE_PP } from '@patrimonio/domain';
 import type {
   AlertGroup,
   AlertInstance,
@@ -55,7 +55,6 @@ export type OverviewChange = { readonly amount: string; readonly ratio: string |
 export type OverviewScope = {
   readonly portfolio_id: string;
   readonly name: string;
-  readonly purpose: string | null;
   readonly tolerance_pp: string;
   readonly recalc_status: RecalcStatus;
   readonly inception: DateOnly | null;
@@ -241,8 +240,7 @@ const scopeOf = (
 ): OverviewScope => ({
   portfolio_id: portfolio.portfolio_id,
   name: portfolio.name,
-  purpose: portfolio.purpose,
-  tolerance_pp: portfolio.tolerance_pp,
+  tolerance_pp: TOLERANCE_PP,
   recalc_status: portfolio.recalc_status,
   inception: snapshot.inception,
 });
@@ -359,7 +357,7 @@ export const getOverview = (deps: OverviewDeps) =>
           series: growthSeries(snapshot.days),
           composition: colorize(
             composeAllocation(allocationLines(snapshot), snapshot.targets, {
-              tolerance_pp: portfolio.tolerance_pp,
+              tolerance_pp: TOLERANCE_PP,
             }),
             new Map(
               snapshot.categories.map((row) => [row.category_id, row.color_token]),

@@ -132,7 +132,7 @@ beforeEach(async () => {
 
   const criada = await request(harness.app)
     .post('/api/portfolios')
-    .send({ name: 'Longo prazo', purpose: 'independência financeira', tolerance_pp: '3' });
+    .send({ name: 'Longo prazo' });
   longo = criada.body.portfolio.id;
 
   const outra = await request(harness.app).post('/api/portfolios').send({ name: 'Reserva' });

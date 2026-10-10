@@ -1,4 +1,3 @@
-import { REBALANCE_MODES } from '@patrimonio/domain';
 import { z } from 'zod';
 
 import { overviewCompositionSchema } from '../overview/overview.schema.js';
@@ -26,21 +25,14 @@ import {
 export const allocationRulesSchema = z.object({
   /** Acima disso em pontos percentuais, a linha fica em destaque. */
   tolerance_pp: decimalString,
-  /** Acima disso o ativo entra em Requer atenção. Nulo é sem limite. */
-  max_asset_weight_pct: decimalString.nullable(),
-  rebalance_mode: z.enum(REBALANCE_MODES),
-  review_every_months: z.number().int().nullable(),
   /** O dia em que a estratégia foi salva pela última vez. Nulo sem estratégia. */
   reviewed_on: dateOnly.nullable(),
-  /** `reviewed_on` mais `review_every_months`. Nulo se um dos dois falta. */
-  next_review_on: dateOnly.nullable(),
   benchmark: z.object({ id: uuid, name: z.string() }).nullable(),
 });
 
 export const allocationPortfolioSchema = z.object({
   id: uuid,
   name: z.string(),
-  purpose: z.string().nullable(),
   recalc_status: recalcStatusSchema,
 });
 

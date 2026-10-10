@@ -30,7 +30,6 @@ export type { QueuedWork } from './support/primitives.schema.js';
 export {
   portfolioResourceSchema,
   portfolioWritableSchema,
-  rebalanceModeSchema,
   recalcStatusSchema,
   strategyTargetResourceSchema,
 } from './portfolio/portfolio.schema.js';

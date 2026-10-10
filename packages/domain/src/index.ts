@@ -168,12 +168,8 @@ export {
 } from './projection/projection.parsers.js';
 
 // ─── Carteira ────────────────────────────────────────────────────────────────
-export { REBALANCE_MODES, isRebalanceMode } from './portfolio/portfolio.entities.js';
-export type {
-  Portfolio,
-  RebalanceMode,
-  StrategyTarget,
-} from './portfolio/portfolio.entities.js';
+export { TOLERANCE_PP } from './portfolio/portfolio.entities.js';
+export type { Portfolio, StrategyTarget } from './portfolio/portfolio.entities.js';
 export {
   parsePortfolioFromDB,
   parseStrategyTargetFromDB,

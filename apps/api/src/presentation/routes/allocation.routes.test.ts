@@ -140,13 +140,7 @@ beforeEach(async () => {
 
   const criada = await request(harness.app)
     .post('/api/portfolios')
-    .send({
-      name: 'Longo prazo',
-      purpose: 'Independência financeira',
-      tolerance_pp: '2',
-      max_asset_weight_pct: '15',
-      review_every_months: 6,
-    });
+    .send({ name: 'Longo prazo' });
   longo = criada.body.portfolio.id;
 
   renda_variavel = await categoria('Renda variável', 'class.renda-variavel', 1);
@@ -172,14 +166,8 @@ describe('GET /api/allocation · a estratégia lida', () => {
     expect(response.body.portfolio).toMatchObject({
       id: longo,
       name: 'Longo prazo',
-      purpose: 'Independência financeira',
     });
-    expect(response.body.rules).toMatchObject({
-      tolerance_pp: '2.00',
-      max_asset_weight_pct: '15.00',
-      rebalance_mode: 'contributions_only',
-      review_every_months: 6,
-    });
+    expect(response.body.rules).toMatchObject({ tolerance_pp: '5.00' });
     expect(response.body.strategy_defined).toBe(true);
   });
 
@@ -243,12 +231,12 @@ describe('GET /api/allocation · a estratégia lida', () => {
 
     const nodes = (await estrategia()).body.composition.nodes as Node[];
 
-    // Tolerância de 2 pp: Ações (−5) e Prefixada (+3) passam; FIIs (−5)... também.
-    expect(achar(nodes, 'Ações').over_tolerance).toBe(true);
-    expect(achar(nodes, 'Prefixada').over_tolerance).toBe(true);
+    // Tolerância de 5 pp: Ações (−5) está no limite e Prefixada (+3) dentro dele.
+    expect(achar(nodes, 'Ações').over_tolerance).toBe(false);
+    expect(achar(nodes, 'Prefixada').over_tolerance).toBe(false);
     // Inflação: 25,00 contra 25 — no alvo.
     expect(achar(nodes, 'Inflação')).toMatchObject({ deviation_pp: '0.00', over_tolerance: false });
-    // Caixa: 10,00 contra 3.
+    // Caixa: 10,00 contra 3, 7 pp acima.
     expect(achar(nodes, 'Caixa').over_tolerance).toBe(true);
   });
 
@@ -293,7 +281,6 @@ describe('GET /api/allocation · a estratégia lida', () => {
 
     expect(response.body.strategy_defined).toBe(false);
     expect(response.body.rules.reviewed_on).toBeNull();
-    expect(response.body.rules.next_review_on).toBeNull();
     expect(response.body.composition.target_sum).toMatchObject({ total_pct: '0.00', closes: true });
 
     for (const nome of ['Ações', 'FIIs', 'Caixa', 'Renda variável']) {
@@ -376,28 +363,13 @@ describe('GET /api/allocation · a estratégia lida', () => {
     });
   });
 
-  it('a revisão é contada do dia em que a estratégia foi salva', async () => {
+  it('a revisão é o dia em que a estratégia foi salva', async () => {
     await carteiraDaPrancha();
     await estrategiaDaPrancha();
 
     const { rules } = (await estrategia()).body;
-    const meses = await harness.sql<{ next: string }[]>`
-      SELECT (${rules.reviewed_on}::DATE + INTERVAL '6 months')::DATE::TEXT AS next
-    `;
 
     expect(rules.reviewed_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(rules.next_review_on).toBe(meses[0]?.next);
-  });
-
-  it('carteira sem período de revisão não tem próxima revisão', async () => {
-    await carteiraDaPrancha();
-    await estrategiaDaPrancha();
-    await harness.sql`UPDATE portfolio SET review_every_months = NULL`;
-
-    const { rules } = (await estrategia()).body;
-
-    expect(rules.reviewed_on).not.toBeNull();
-    expect(rules.next_review_on).toBeNull();
   });
 
   it('o benchmark da carteira vem com o nome', async () => {

@@ -30,7 +30,6 @@ const performance: PerformanceResource = {
   scope: {
     portfolio_id: LONGO,
     name: 'Longo prazo',
-    purpose: null,
     recalc_status: 'idle',
     inception: '2021-03-15',
   },

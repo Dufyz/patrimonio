@@ -71,7 +71,6 @@ import type {
 export type PerformanceScope = {
   readonly portfolio_id: string;
   readonly name: string;
-  readonly purpose: string | null;
   readonly recalc_status: RecalcStatus;
   readonly inception: DateOnly | null;
 };
@@ -361,7 +360,6 @@ export const getPerformance = (deps: PerformanceDeps) =>
     const scope: PerformanceScope = {
       portfolio_id: portfolioId,
       name: portfolio.name,
-      purpose: portfolio.purpose,
       recalc_status: portfolio.recalc_status,
       inception: snapshot.inception,
     };

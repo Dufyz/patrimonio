@@ -20,7 +20,6 @@ const overview: OverviewResource = {
   scope: {
     portfolio_id: '0191e5a0-0000-7000-8000-00000000c001',
     name: 'Longo prazo',
-    purpose: 'independência financeira',
     tolerance_pp: '3',
     recalc_status: 'idle',
     inception: '2021-03-15',

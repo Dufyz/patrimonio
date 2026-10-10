@@ -50,18 +50,7 @@ describe('carteira', () => {
     const portfolio = unwrapSuccess(await portfolios.create({ name: 'Longo prazo' }));
 
     expect(portfolio.recalc_status).toBe('idle');
-    expect(portfolio.rebalance_mode).toBe('contributions_only');
     expect(portfolio.archived_at).toBeNull();
-  });
-
-  it('percentual volta como string, com as casas que o banco guarda', async () => {
-    const portfolio = unwrapSuccess(
-      await portfolios.create({ name: 'Longo prazo', tolerance_pp: '3.5' }),
-    );
-
-    // NUMERIC não vira number em nenhum ponto do caminho.
-    expect(portfolio.tolerance_pp).toBe('3.50');
-    expect(typeof portfolio.tolerance_pp).toBe('string');
   });
 
   it('nome repetido entre ativas vira conflito, não erro de banco', async () => {
@@ -86,15 +75,6 @@ describe('carteira', () => {
     const igual = unwrapSuccess(await portfolios.update(criada.id, {}));
 
     expect(igual?.name).toBe('Longo prazo');
-  });
-
-  it('tolerância acima de 100 é recusada pelo banco como erro de cliente', async () => {
-    const recusada = await portfolios.create({
-      name: 'Longo prazo',
-      tolerance_pp: '140',
-    });
-
-    expect(unwrapFailure(recusada).statusCode).toBe(400);
   });
 });
 

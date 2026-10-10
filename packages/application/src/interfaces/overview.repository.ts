@@ -46,8 +46,6 @@ export type OverviewAnchors = {
 export type OverviewPortfolioRow = {
   readonly portfolio_id: string;
   readonly name: string;
-  readonly purpose: string | null;
-  readonly tolerance_pp: string;
   readonly recalc_status: RecalcStatus;
   /** O valor da carteira na data de referência. Nulo quando nunca fechou. */
   readonly total_value: string | null;

@@ -62,12 +62,7 @@ export const createPortfolio = (deps: CreatePortfolioDeps) =>
 
     const draft: PortfolioDraft = {
       name: input.name,
-      purpose: input.purpose,
       benchmark_id: input.benchmark_id,
-      tolerance_pp: input.tolerance_pp,
-      max_asset_weight_pct: input.max_asset_weight_pct,
-      rebalance_mode: input.rebalance_mode,
-      review_every_months: input.review_every_months,
       sort_order: input.sort_order,
     };
 

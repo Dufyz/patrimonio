@@ -12,9 +12,7 @@ import {
   groupTotal,
   inputText,
   isZeroDecimal,
-  monthYear,
   parseAmount,
-  reviewEvery,
   saveState,
   targetLabel,
   toHundredths,
@@ -312,22 +310,6 @@ describe('geometria das barras', () => {
   it('sem alvo ou sem tolerância não há faixa', () => {
     expect(toleranceBand(null, '3.00', 40)).toBeNull();
     expect(toleranceBand('20.00', '0.00', 40)).toBeNull();
-  });
-});
-
-describe('regras da estratégia', () => {
-  it('o mês de revisão sai da data, sem passar por Date', () => {
-    expect(monthYear('2027-01-09')).toBe('jan/2027');
-    expect(monthYear('2026-12-31')).toBe('dez/2026');
-    expect(monthYear(null)).toBeNull();
-    expect(monthYear('lixo')).toBeNull();
-  });
-
-  it('o período de revisão', () => {
-    expect(reviewEvery(6)).toBe('A cada 6 meses');
-    expect(reviewEvery(1)).toBe('Todo mês');
-    expect(reviewEvery(12)).toBe('Todo ano');
-    expect(reviewEvery(null)).toBe('Sem revisão');
   });
 });
 

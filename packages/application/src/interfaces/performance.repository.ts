@@ -30,7 +30,6 @@ export type PerformanceDayRow = {
 export type PerformanceSnapshotPortfolio = {
   readonly portfolio_id: string;
   readonly name: string;
-  readonly purpose: string | null;
   readonly recalc_status: RecalcStatus;
   readonly benchmark_id: string | null;
   /** O valor na data de referência, ou no último fechamento da carteira. */

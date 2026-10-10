@@ -15,7 +15,6 @@ import {
   asNumericOrNull,
   asString,
   asStringOrNull,
-  REBALANCE_MODES,
   RECALC_STATUSES,
 } from '@patrimonio/domain';
 import type { Row } from '@patrimonio/domain';
@@ -50,16 +49,10 @@ const AFTER_CATALOG = 1_000_000;
 const parsePortfolio = (row: Row): AllocationPortfolioRow => ({
   portfolio_id: asString(row, 'portfolio_id'),
   name: asString(row, 'name'),
-  purpose: asStringOrNull(row, 'purpose'),
   recalc_status: asEnum(row, 'recalc_status', RECALC_STATUSES),
-  tolerance_pp: asNumeric(row, 'tolerance_pp'),
-  max_asset_weight_pct: asNumericOrNull(row, 'max_asset_weight_pct'),
-  rebalance_mode: asEnum(row, 'rebalance_mode', REBALANCE_MODES),
-  review_every_months: asIntegerOrNull(row, 'review_every_months'),
   benchmark_id: asStringOrNull(row, 'benchmark_id'),
   benchmark_name: asStringOrNull(row, 'benchmark_name'),
   reviewed_on: asDateOnlyOrNull(row, 'reviewed_on'),
-  next_review_on: asDateOnlyOrNull(row, 'next_review_on'),
   total_value: asNumericOrNull(row, 'total_value'),
 });
 
@@ -95,21 +88,12 @@ export const createAllocationRepository = (sql: Connection): AllocationRepositor
         portfolio_row AS (
           SELECT p.id::TEXT AS portfolio_id,
                  p.name,
-                 p.purpose,
                  p.recalc_status,
-                 p.tolerance_pp::TEXT AS tolerance_pp,
-                 p.max_asset_weight_pct::TEXT AS max_asset_weight_pct,
-                 p.rebalance_mode,
-                 p.review_every_months,
                  p.benchmark_id::TEXT AS benchmark_id,
                  benchmark.name AS benchmark_name,
                  (SELECT MAX(target.updated_at)::DATE
                     FROM strategy_target target
                    WHERE target.portfolio_id = p.id) AS reviewed_on,
-                 (SELECT (MAX(target.updated_at)::DATE
-                          + MAKE_INTERVAL(months => p.review_every_months::INT))::DATE
-                    FROM strategy_target target
-                   WHERE target.portfolio_id = p.id) AS next_review_on,
                  (SELECT day.total_value::TEXT
                     FROM portfolio_daily day
                    WHERE day.portfolio_id = p.id

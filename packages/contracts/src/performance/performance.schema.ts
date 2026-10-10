@@ -50,7 +50,6 @@ export const performanceBenchmarkSchema = z.object({
 export const performanceScopeSchema = z.object({
   portfolio_id: uuid,
   name: z.string(),
-  purpose: z.string().nullable(),
   recalc_status: z.enum(['idle', 'queued', 'running', 'failed']),
   /** O primeiro fechamento do escopo: é o que o período "Início" significa. */
   inception: dateOnly.nullable(),

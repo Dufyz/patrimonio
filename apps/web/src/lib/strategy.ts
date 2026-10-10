@@ -1,5 +1,4 @@
 import type { AllocationResource, PutStrategyBody } from '@patrimonio/contracts';
-import type { RebalanceMode } from '@patrimonio/domain';
 
 import { parseDecimal } from './decimal.js';
 
@@ -310,51 +309,6 @@ export const toleranceBand = (
   const right = barPosition(String(center + radius), scale);
 
   return { left, width: right - left };
-};
-
-/* -------------------------------------------------------------------------- */
-/* Regras da estratégia                                                        */
-
-export const REBALANCE_LABEL: Readonly<Record<RebalanceMode, string>> = {
-  contributions_only: 'Só com aportes',
-  buy_and_sell: 'Comprar e vender',
-};
-
-export const REBALANCE_HINT: Readonly<Record<RebalanceMode, string>> = {
-  contributions_only:
-    'O plano de aporte compra o que está abaixo do alvo; nunca sugere venda.',
-  buy_and_sell: 'O plano pode sugerir vender o que passou do alvo, além de comprar.',
-};
-
-const MONTHS = [
-  'jan',
-  'fev',
-  'mar',
-  'abr',
-  'mai',
-  'jun',
-  'jul',
-  'ago',
-  'set',
-  'out',
-  'nov',
-  'dez',
-] as const;
-
-/** `2027-01-09` → `jan/2027`. Data de negócio lida da string, sem `Date`. */
-export const monthYear = (date: string | null): string | null => {
-  if (date === null) return null;
-
-  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(date);
-  const month = match === null ? undefined : MONTHS[Number(match[2]) - 1];
-
-  return match === null || month === undefined ? null : `${month}/${match[1]}`;
-};
-
-export const reviewEvery = (months: number | null): string => {
-  if (months === null) return 'Sem revisão';
-  if (months === 12) return 'Todo ano';
-  return months === 1 ? 'Todo mês' : `A cada ${months} meses`;
 };
 
 /* -------------------------------------------------------------------------- */

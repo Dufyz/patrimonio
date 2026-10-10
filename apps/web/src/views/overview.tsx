@@ -471,7 +471,6 @@ export const OverviewView = ({
 
   const subtitle = [
     overview.scope.name,
-    overview.scope.purpose,
     overview.reference_date === null
       ? null
       : `fechamento de ${formatDate(overview.reference_date as DateOnly)}`,

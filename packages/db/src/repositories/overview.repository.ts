@@ -62,8 +62,6 @@ const parseDay = (row: Row): OverviewDayRow => ({
 const parsePortfolio = (row: Row): OverviewPortfolioRow => ({
   portfolio_id: asString(row, 'portfolio_id'),
   name: asString(row, 'name'),
-  purpose: asStringOrNull(row, 'purpose'),
-  tolerance_pp: asNumeric(row, 'tolerance_pp'),
   recalc_status: asEnum(row, 'recalc_status', RECALC_STATUSES),
   total_value: row['total_value'] === null ? null : asNumeric(row, 'total_value'),
 });
@@ -180,8 +178,6 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
         portfolio AS (
           SELECT p.id::TEXT AS portfolio_id,
                  p.name,
-                 p.purpose,
-                 p.tolerance_pp::TEXT AS tolerance_pp,
                  p.recalc_status,
                  (SELECT day.total_value::TEXT
                     FROM portfolio_daily day

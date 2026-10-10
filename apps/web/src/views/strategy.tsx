@@ -2,11 +2,10 @@ import type {
   AllocationContributionResource,
   AllocationResource,
   PutStrategyBody,
-  UpdatePortfolioBody,
 } from '@patrimonio/contracts';
 import { useEffect, useMemo, useState } from 'react';
 
-import { fetchAllocation, patchRules, putStrategy } from '../api/allocation.js';
+import { fetchAllocation, putStrategy } from '../api/allocation.js';
 import { Money, MoneyChange, Percent, Points } from '../components/number.js';
 import { Modal } from '../components/overlay.js';
 import { KeepPrevious } from '../components/pending.js';
@@ -15,8 +14,6 @@ import { Button, IconButton, Kbd, Label, Panel } from '../components/primitives.
 import { formatDate, percentAsRatio } from '../lib/overview.js';
 import {
   EMPTY_DRAFT,
-  REBALANCE_HINT,
-  REBALANCE_LABEL,
   WHOLE,
   barPosition,
   barScale,
@@ -27,13 +24,9 @@ import {
   groupTotal,
   isZeroDecimal,
   inputText,
-  monthYear,
   parseAmount,
-  reviewEvery,
   saveState,
   targetLabel,
-  toHundredths,
-  toPercentString,
   toleranceBand,
   valueText,
   withEdit,
@@ -63,7 +56,6 @@ type Line = Node | Node['children'][number];
 export type StrategyViewProps = {
   readonly resource: Resource<AllocationResource>;
   readonly onSave: (body: PutStrategyBody) => Promise<void>;
-  readonly onSaveRules: (body: UpdatePortfolioBody) => Promise<void>;
   /** O plano de um aporte: a mesma leitura, com o valor. Nulo se a `api` não devolve plano. */
   readonly onPlan: (amount: string) => Promise<AllocationContributionResource | null>;
 };
@@ -96,10 +88,6 @@ const LoadedStrategy = ({
         await putStrategy(portfolioId, body);
         resource.reload();
       }}
-      onSaveRules={async (body) => {
-        await patchRules(portfolioId, body);
-        resource.reload();
-      }}
       onPlan={async (amount) =>
         (await fetchAllocation({ portfolioId, contribution: amount })).contribution
       }
@@ -110,264 +98,34 @@ const LoadedStrategy = ({
 /* -------------------------------------------------------------------------- */
 /* Regras                                                                      */
 
-type RuleKey = 'tolerance' | 'weight' | 'rebalance' | 'review';
-
-const RULE_HINT_SUFFIX = 'Requer atenção.';
-
-const RuleCard = ({
-  label,
-  value,
-  hint,
-  editLabel,
-  onEdit,
-  disabledHint,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly hint: string;
-  readonly editLabel: string;
-  readonly onEdit?: () => void;
-  readonly disabledHint?: string;
-}): React.ReactElement => (
-  <div className="flex flex-col gap-1 border-line p-4 not-first:border-l">
-    <Label>{label}</Label>
-    <div className="flex items-center justify-between gap-2">
-      <span className="tabular text-base font-semibold">{value}</span>
-      <IconButton
-        label={disabledHint ?? editLabel}
-        disabled={onEdit === undefined}
-        onClick={onEdit}
-        className="size-7 border-transparent"
-      >
-        <span aria-hidden="true">✎</span>
-      </IconButton>
-    </div>
-    <p className="text-[0.8125rem] text-ink-2">{hint}</p>
-  </div>
-);
-
 const Rules = ({
   rules,
-  onEdit,
 }: {
   readonly rules: AllocationResource['rules'];
-  readonly onEdit: (key: RuleKey) => void;
 }): React.ReactElement => {
   const tolerance = inputText(fromPercent(rules.tolerance_pp));
-  const next = monthYear(rules.next_review_on);
 
   return (
     <Panel title="Regras da estratégia">
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5">
-        <RuleCard
-          label="Tolerância"
-          value={`± ${tolerance} pp`}
-          hint={`Acima disso a categoria entra em ${RULE_HINT_SUFFIX}`}
-          editLabel="Editar tolerância"
-          onEdit={() => onEdit('tolerance')}
-        />
-        <RuleCard
-          label="Peso máximo por ativo"
-          value={
-            rules.max_asset_weight_pct === null
-              ? 'Sem limite'
-              : targetLabel(fromPercent(rules.max_asset_weight_pct))
-          }
-          hint={`Acima disso o ativo entra em ${RULE_HINT_SUFFIX}`}
-          editLabel="Editar peso máximo"
-          onEdit={() => onEdit('weight')}
-        />
-        <RuleCard
-          label="Rebalanceamento"
-          value={REBALANCE_LABEL[rules.rebalance_mode]}
-          hint={REBALANCE_HINT[rules.rebalance_mode]}
-          editLabel="Editar rebalanceamento"
-          onEdit={() => onEdit('rebalance')}
-        />
-        <RuleCard
-          label="Revisão"
-          value={reviewEvery(rules.review_every_months)}
-          hint={
-            next === null
-              ? 'Sem data de revisão: salvar a estratégia marca o dia.'
-              : `Próxima revisão em ${next}; vira alerta na data.`
-          }
-          editLabel="Editar revisão"
-          onEdit={() => onEdit('review')}
-        />
-        <RuleCard
-          label="Benchmark"
-          value={rules.benchmark?.name ?? 'Sem benchmark'}
-          hint="Usado em Desempenho quando esta carteira está selecionada."
-          editLabel="Editar benchmark"
-          disabledHint="Escolher o benchmark chega com Configurações"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2">
+        <div className="flex flex-col gap-1 border-line p-4">
+          <Label>Tolerância</Label>
+          <span className="tabular text-base font-semibold">{`± ${tolerance} pp`}</span>
+          <p className="text-[0.8125rem] text-ink-2">
+            Acima disso a categoria entra em Requer atenção.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1 border-line p-4 md:border-l">
+          <Label>Benchmark</Label>
+          <span className="tabular text-base font-semibold">
+            {rules.benchmark?.name ?? 'Sem benchmark'}
+          </span>
+          <p className="text-[0.8125rem] text-ink-2">
+            Usado em Desempenho quando esta carteira está selecionada.
+          </p>
+        </div>
       </div>
     </Panel>
-  );
-};
-
-const REVIEW_OPTIONS: readonly (number | null)[] = [null, 1, 3, 6, 12];
-
-const RuleDialog = ({
-  rule,
-  rules,
-  onClose,
-  onSave,
-}: {
-  readonly rule: RuleKey;
-  readonly rules: AllocationResource['rules'];
-  readonly onClose: () => void;
-  readonly onSave: (body: UpdatePortfolioBody) => Promise<void>;
-}): React.ReactElement => {
-  const [text, setText] = useState(() =>
-    rule === 'tolerance'
-      ? inputText(fromPercent(rules.tolerance_pp))
-      : rule === 'weight'
-        ? rules.max_asset_weight_pct === null
-          ? ''
-          : inputText(fromPercent(rules.max_asset_weight_pct))
-        : '',
-  );
-  const [mode, setMode] = useState(rules.rebalance_mode);
-  const [months, setMonths] = useState(rules.review_every_months);
-  const [failure, setFailure] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  const typed = toHundredths(text);
-  const invalid =
-    (rule === 'tolerance' && (typed === null || typed === 0)) ||
-    (rule === 'weight' && (typed === null || (text.trim() !== '' && typed === 0)));
-
-  const body = (): UpdatePortfolioBody => {
-    if (rule === 'tolerance') return { tolerance_pp: toPercentString(typed ?? 0) };
-    if (rule === 'weight') {
-      return {
-        max_asset_weight_pct:
-          text.trim() === '' || typed === null ? null : toPercentString(typed),
-      };
-    }
-    if (rule === 'rebalance') return { rebalance_mode: mode };
-    return { review_every_months: months };
-  };
-
-  const submit = async (): Promise<void> => {
-    setSaving(true);
-    setFailure(null);
-    try {
-      await onSave(body());
-      onClose();
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : 'Não foi possível salvar');
-      setSaving(false);
-    }
-  };
-
-  const title = {
-    tolerance: 'Tolerância',
-    weight: 'Peso máximo por ativo',
-    rebalance: 'Rebalanceamento',
-    review: 'Revisão',
-  }[rule];
-
-  return (
-    <Modal
-      open
-      title={title}
-      onClose={onClose}
-      footer={
-        <>
-          <span role="alert" className="text-[0.8125rem] text-negative">
-            {failure}
-          </span>
-          <span className="flex gap-2">
-            <Button onClick={onClose}>Cancelar</Button>
-            <Button
-              variant="primary"
-              disabled={invalid || saving}
-              onClick={() => void submit()}
-            >
-              Salvar
-            </Button>
-          </span>
-        </>
-      }
-    >
-      {rule === 'tolerance' || rule === 'weight' ? (
-        <label className="flex flex-col gap-2 text-[0.8125rem]">
-          <span className="text-ink-2">
-            {rule === 'tolerance'
-              ? 'Quantos pontos percentuais de desvio a categoria aguenta antes de pedir atenção.'
-              : 'Quanto da carteira um ativo sozinho pode pesar. Vazio é sem limite.'}
-          </span>
-          <input
-            data-autofocus
-            inputMode="decimal"
-            aria-label={title}
-            aria-invalid={invalid}
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            className="tabular h-control w-32 rounded-control border border-line bg-panel px-3 text-right"
-          />
-          {invalid ? (
-            <span className="text-negative">
-              {rule === 'tolerance'
-                ? 'Use um número acima de 0 e até 100, com até duas casas'
-                : 'Use um número acima de 0 e até 100, ou deixe vazio'}
-            </span>
-          ) : null}
-        </label>
-      ) : null}
-
-      {rule === 'rebalance' ? (
-        <div
-          role="radiogroup"
-          aria-label="Rebalanceamento"
-          className="flex flex-col gap-2"
-        >
-          {(Object.keys(REBALANCE_LABEL) as (keyof typeof REBALANCE_LABEL)[]).map(
-            (option) => (
-              <button
-                key={option}
-                type="button"
-                role="radio"
-                aria-checked={mode === option}
-                onClick={() => setMode(option)}
-                className={`cursor-pointer rounded-control border p-3 text-left text-[0.8125rem] ${
-                  mode === option
-                    ? 'border-accent bg-accent-soft'
-                    : 'border-line hover:bg-panel-2'
-                }`}
-              >
-                <span className="font-semibold">{REBALANCE_LABEL[option]}</span>
-                <span className="block text-ink-2">{REBALANCE_HINT[option]}</span>
-              </button>
-            ),
-          )}
-        </div>
-      ) : null}
-
-      {rule === 'review' ? (
-        <div role="radiogroup" aria-label="Revisão" className="flex flex-wrap gap-2">
-          {REVIEW_OPTIONS.map((option) => (
-            <button
-              key={String(option)}
-              type="button"
-              role="radio"
-              aria-checked={months === option}
-              onClick={() => setMonths(option)}
-              className={`h-control cursor-pointer rounded-control border px-3 text-[0.8125rem] ${
-                months === option
-                  ? 'border-accent bg-accent-soft font-medium'
-                  : 'border-line hover:bg-panel-2'
-              }`}
-            >
-              {reviewEvery(option)}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </Modal>
   );
 };
 
@@ -934,7 +692,6 @@ const Failed = ({
 export const StrategyView = ({
   resource,
   onSave,
-  onSaveRules,
   onPlan,
 }: StrategyViewProps): React.ReactElement => {
   const { state, pending, reload } = resource;
@@ -943,7 +700,6 @@ export const StrategyView = ({
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const [rule, setRule] = useState<RuleKey | null>(null);
   const [planning, setPlanning] = useState(false);
 
   const data = state.kind === 'ready' ? state.value : null;
@@ -990,7 +746,7 @@ export const StrategyView = ({
   const value = state.value;
   const subtitle = [
     value.portfolio.name,
-    value.portfolio.purpose ?? 'como o dinheiro desta carteira deve ser dividido',
+    'como o dinheiro desta carteira deve ser dividido',
     value.reference_date === null
       ? null
       : `fechamento de ${formatDate(value.reference_date as never)}`,
@@ -1028,7 +784,7 @@ export const StrategyView = ({
         </div>
       </header>
 
-      <Rules rules={value.rules} onEdit={setRule} />
+      <Rules rules={value.rules} />
 
       {value.reference_date === null ? (
         <section className="rounded-panel border border-line bg-panel p-8 text-center">
@@ -1068,14 +824,6 @@ export const StrategyView = ({
         }}
       />
 
-      {rule === null ? null : (
-        <RuleDialog
-          rule={rule}
-          rules={value.rules}
-          onClose={() => setRule(null)}
-          onSave={onSaveRules}
-        />
-      )}
       {planning ? (
         <PlanDialog
           onClose={() => setPlanning(false)}

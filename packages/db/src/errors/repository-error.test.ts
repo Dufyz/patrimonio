@@ -91,8 +91,8 @@ describe('getRepositoryError', () => {
   it('regra do banco não satisfeita vira BadRequestError', async () => {
     const error = getRepositoryError(
       await errorOf(`
-        INSERT INTO portfolio (id, name, tolerance_pp)
-        VALUES ('0191e5a0-0000-7000-8000-0000000000b4', 'Fora da Faixa', 200)
+        INSERT INTO strategy_target (portfolio_id, category_id, target_pct)
+        VALUES ('0191e5a0-0000-7000-8000-0000000000b4', '0191e5a0-0000-7000-8000-0000000000b6', 200)
       `),
     );
 
