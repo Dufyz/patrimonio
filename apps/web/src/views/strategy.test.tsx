@@ -394,7 +394,7 @@ describe('a tela como a rota a monta', () => {
       rerender(view('0191e5a0-0000-7000-8000-00000000c001'));
 
       expect(await screen.findByText('Distribuição por categoria')).toBeInTheDocument();
-      expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain(
         'portfolio_id=0191e5a0-0000-7000-8000-00000000c001',
       );
     } finally {

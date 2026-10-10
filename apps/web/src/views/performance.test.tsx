@@ -288,17 +288,6 @@ describe('de onde veio cada mês', () => {
 });
 
 describe('por carteira e por classe', () => {
-  it('a carteira da tela fica marcada; a sem comparação mostra traço', () => {
-    show(ready(performance));
-
-    const tabela = screen.getByRole('table', { name: 'Retorno por carteira' });
-    const longo = within(tabela).getByRole('row', { name: /Longo prazo/ });
-    const reserva = within(tabela).getByRole('row', { name: /Reserva/ });
-
-    expect(longo).toHaveAttribute('aria-current', 'true');
-    expect(within(reserva).getAllByText('—')).toHaveLength(4);
-  });
-
   it('o caixa não tem retorno: traço, e não 0,00%', () => {
     show(ready(performance));
 

@@ -26,7 +26,7 @@ const overview: OverviewResource = {
   },
   totals: {
     value: '318904.12',
-    day: { amount: '1049.20', ratio: '0.33' },
+    day: { amount: '312.40', ratio: '0.10' },
     month: { amount: '1049.20', ratio: '0.33' },
   },
   period: {
