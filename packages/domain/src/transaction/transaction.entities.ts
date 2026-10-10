@@ -12,7 +12,6 @@ export const TRANSACTION_KINDS = [
   'payout',
   'deposit',
   'withdrawal',
-  'transfer',
   'corporate_event',
 ] as const;
 
@@ -55,7 +54,6 @@ export type Transaction = {
   readonly record_date: DateOnly | null;
   /** Nulo enquanto o provento está "a receber". */
   readonly confirmed_at: string | null;
-  readonly transfer_group_id: string | null;
   readonly event_ratio_from: string | null;
   readonly event_ratio_to: string | null;
   readonly note: string | null;

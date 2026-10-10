@@ -531,11 +531,6 @@ const RowMenu = ({
         onSelect: () => onEntry({ tab: 'payout', ...seedOf(position) }),
       },
       {
-        id: 'transfer',
-        label: 'Mover para outra carteira',
-        onSelect: () => onEntry({ tab: 'transfer', ...seedOf(position) }),
-      },
-      {
         id: 'manual_price',
         label: 'Definir preço manual',
         onSelect: () => onManualPrice(position),

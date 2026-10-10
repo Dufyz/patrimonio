@@ -27,11 +27,6 @@ export type StatementEffectView =
   | { readonly type: 'cash_in' }
   | { readonly type: 'cash_out' }
   | {
-      readonly type: 'transfer';
-      readonly direction: 'in' | 'out';
-      readonly counterpart: string | null;
-    }
-  | {
       readonly type: 'corporate_event';
       readonly ratio_from: string;
       readonly ratio_to: string;
@@ -79,14 +74,6 @@ export const statementEffect = (
 
     case 'withdrawal':
       return { type: 'cash_out' };
-
-    case 'transfer':
-      return {
-        type: 'transfer',
-        // A perna que sai tem valor líquido negativo — a mesma convenção do motor.
-        direction: row.net_amount.startsWith('-') ? 'out' : 'in',
-        counterpart: row.transfer_counterpart,
-      };
 
     case 'corporate_event':
       if (

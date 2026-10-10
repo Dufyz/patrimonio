@@ -294,7 +294,6 @@ const READY_ACTIONS: ReadonlySet<SearchActionId> = new Set([
   'new_transaction',
   'buy_asset',
   'payout_asset',
-  'move_asset',
 ]);
 
 /**
@@ -325,12 +324,7 @@ const Palette = ({
             : { id: target.assetId, label: target.title ?? '', name: null, held: null };
 
         entry.openEntry({
-          tab:
-            target.action === 'payout_asset'
-              ? 'payout'
-              : target.action === 'move_asset'
-                ? 'transfer'
-                : 'buy',
+          tab: target.action === 'payout_asset' ? 'payout' : 'buy',
           asset,
         });
       }}

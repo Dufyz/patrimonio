@@ -356,7 +356,7 @@ Subir um limite é editar `query-budget.ts`, e isso aparece na revisão.
 
 Compra, venda, provento, aporte, resgate, mover posição, editar e confirmar recebimento. Código em `src/views/entry/`, lógica pura em `src/lib/entry.ts`, chamadas em `src/api/entry.ts` e o provedor que abre tudo em `src/components/entry_provider.tsx` (atalho `N`, `useEntry()`).
 
-- **O preview é o plano do salvamento.** Compra, venda, aporte e resgate usam `POST /transactions/preview`; edição, `/transactions/:id/preview`; mover posição, `/transactions/transfer/preview`. A tela não calcula dinheiro.
+- **O preview é o plano do salvamento.** Compra, venda, aporte e resgate usam `POST /transactions/preview`; edição, `/transactions/:id/preview`. A tela não calcula dinheiro.
 - **Rota nova na api:** `POST /transactions/payouts/preview` (o provento não tinha preview). `createPayout` e o preview dividem `preparePayout`, e um teste prova que os números do preview são os gravados.
 - **Venda acima da posição** falha no preview e a mensagem aparece no campo da quantidade.
 - **Sem atualização otimista.** Gravar sobe `version` no provedor; Posições, ativo e Movimentações releem com ele.
@@ -367,7 +367,7 @@ Compra, venda, provento, aporte, resgate, mover posição, editar e confirmar re
 - **Aba Evento corporativo** aparece desativada, pois não há preview na api.
 - **Cadastros** (carteira, categoria, instituição, benchmark, objetivo, edição do ativo) continuam desabilitados: não fazem parte desta entrega.
 - **Entrada por texto** (colar "compra 100 ITUB4...") não foi feita.
-- **Editar** não se aplica a perna de transferência nem a evento; o modal explica e oferece fechar.
+- **Editar** não se aplica a evento; o modal explica e oferece fechar.
 - **Duplicar** só vale para compra, venda, provento, aporte e resgate; só compra e venda levam os números. Em lote, só com uma linha selecionada.
 - **Conferência visual (Chromium, contra as pranchas 13, 15 e 17):** abas no `Segmented` da prancha, modal estreito, campo de ativo com lupa e nome, rodapé cinza, "O que muda", "antes: 31,40", "Salvar alterações" e "Não foi pago" em vermelho. Diferenças que ficaram: a liquidação abre em branco (a prancha a mostra preenchida; o cálculo D+N é da api), a tabela de efeito traz também custo da posição e da carteira (a prancha só traz quantidade, preço médio, % e classe, mas o critério da história pede custo), "Resultado aberto" e "Rent. 12M" na edição não existem no preview, "Recebido em" na confirmação não existe na api e o rodapé da edição não tem "editado N vez · ver histórico".
 
@@ -400,7 +400,7 @@ Em T-02, mais quatro, todas contra a prancha 05:
   da tela, que é a especificação de layout, mostra outra coisa, e ela ganha.
 - **O botão de exportar CSV da prancha não está aqui.** A exportação é O-06, em
   E7, e um botão que não exporta nada é pior que um botão a menos.
-- **Lançar compra, provento e transferência aparecem desabilitados**, com a
+- **Lançar compra e provento aparecem desabilitados**, com a
   história que os entrega na própria dica. O formulário com preview é T-10, e
   fingir que a ação existe custa mais confiança do que dizer que ela não existe.
 

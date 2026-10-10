@@ -92,15 +92,13 @@ const record = async (entry: Entry): Promise<void> => {
   await tx`
     INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
-       quantity, unit_price, fees, gross_amount, net_amount, payout_kind, confirmed_at,
-       transfer_group_id)
+       quantity, unit_price, fees, gross_amount, net_amount, payout_kind, confirmed_at)
     VALUES
       (${`0191e5a0-0000-7000-8000-0000000d${String(entry.id).padStart(4, '0')}`},
        ${entry.kind}::transaction_kind, ${entry.date}, ${entry.date},
        ${entry.portfolio ?? LONGO}, ${entry.asset}, ${CORRETORA}, '1', '1', '0',
        ${entry.net}, ${entry.net}, ${entry.payoutKind ?? null}::payout_kind,
-       ${entry.confirmed === false ? null : tx`NOW()`},
-       ${entry.kind === 'transfer' ? '0191e5a0-0000-7000-8000-0000000e0001' : null})
+       ${entry.confirmed === false ? null : tx`NOW()`})
   `;
 };
 
@@ -416,25 +414,6 @@ describe('o detalhamento', () => {
         { category_id: ACOES, trade_date: '2026-04-10', flow: '1000.00', income: '0.00' },
         { category_id: ACOES, trade_date: '2026-04-20', flow: '-400.00', income: '0.00' },
       ]);
-    });
-
-    it('a perna de uma transferência entra com o próprio sinal', async () => {
-      await record({
-        id: 3,
-        kind: 'transfer',
-        date: '2026-05-05',
-        asset: ITUB4,
-        net: '800.00',
-      });
-      await record({
-        id: 4,
-        kind: 'transfer',
-        date: '2026-05-06',
-        asset: ITUB4,
-        net: '-300.00',
-      });
-
-      expect((await flows()).map((row) => row.flow)).toEqual(['800.00', '-300.00']);
     });
 
     it('provento é rendimento da classe, e não fluxo', async () => {

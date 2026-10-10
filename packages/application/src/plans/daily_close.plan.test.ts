@@ -345,48 +345,6 @@ describe('a linha da carteira', () => {
     expect(plan.portfolio.payouts).toBe('120.00');
   });
 
-  it('transferência não entra como aporte: o patrimônio total não muda', () => {
-    const plan = planDailyClose(
-      context({
-        entries: [
-          deposit('2024-03-01', '10000.00'),
-          buy('2024-03-04', 'itub4', '100', '30.00'),
-          {
-            id: 'transf',
-            kind: 'transfer',
-            trade_date: '2024-03-08',
-            quantity: '20',
-            unit_price: '30.00',
-            fees: '0',
-            net_amount: '600.00',
-            asset_id: 'itub4',
-            institution_id: INSTITUTION,
-          },
-        ],
-        previous: {
-          position_date: '2024-03-07',
-          total_value: '10000.00',
-          quota_value: '1.000000000000',
-          quota_count: '10000.000000000000',
-          cumulative_contributions: '10000.00',
-        },
-      }),
-    );
-
-    expect(plan.portfolio.net_flow).toBe('0.00');
-    expect(plan.portfolio.cumulative_contributions).toBe('10000.00');
-
-    // A perna que entra traz o custo da posição, não dinheiro: o caixa fica onde
-    // estava, e o patrimônio sobe pelo ativo recebido.
-    expect(plan.positions.find((row) => row.asset_id === 'caixa')?.market_value).toBe(
-      '7000.00',
-    );
-    expect(plan.positions.find((row) => row.asset_id === 'itub4')?.cost_basis).toBe(
-      '3600.00',
-    );
-    expect(plan.portfolio.total_value).toBe('10840.00');
-  });
-
   it('carteira sem posição nenhuma fecha com zero, não com erro', () => {
     const plan = planDailyClose(
       context({ entries: [], assets: new Map(), prices: new Map() }),

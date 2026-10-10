@@ -43,11 +43,10 @@ const GROUP_KINDS: Readonly<Record<string, readonly string[]>> = {
   sell: ['sell'],
   payout: ['payout'],
   cash: ['deposit', 'withdrawal'],
-  transfer: ['transfer'],
   event: ['corporate_event'],
 };
 
-const FACET_ORDER = ['buy', 'sell', 'payout', 'cash', 'transfer', 'event'] as const;
+const FACET_ORDER = ['buy', 'sell', 'payout', 'cash', 'event'] as const;
 
 /** `%` e `_` digitados pela pessoa são texto, não curinga. */
 const likePattern = (term: string): string =>
@@ -156,7 +155,6 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
                          WHEN 'payout' THEN 'payout'
                          WHEN 'deposit' THEN 'cash'
                          WHEN 'withdrawal' THEN 'cash'
-                         WHEN 'transfer' THEN 'transfer'
                          ELSE 'event'
                        END AS grp,
                        COUNT(*) AS total
@@ -220,20 +218,10 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
                        'net_amount', p.net_amount::TEXT,
                        'expected_net_amount', p.expected_net_amount::TEXT,
                        'confirmed_at', p.confirmed_at,
-                       'transfer_group_id', p.transfer_group_id,
                        'event_ratio_from', p.event_ratio_from::TEXT,
                        'event_ratio_to', p.event_ratio_to::TEXT,
                        'note', p.note,
-                       'realized_exempt', r.exempt,
-                       'transfer_counterpart', (
-                         SELECT s2.name
-                           FROM transaction t2
-                           JOIN portfolio s2 ON s2.id = t2.portfolio_id
-                          WHERE p.transfer_group_id IS NOT NULL
-                            AND t2.transfer_group_id = p.transfer_group_id
-                            AND t2.id <> p.id
-                          LIMIT 1
-                       )
+                       'realized_exempt', r.exempt
                      )
                      ORDER BY p.trade_date DESC, p.id DESC
                    )

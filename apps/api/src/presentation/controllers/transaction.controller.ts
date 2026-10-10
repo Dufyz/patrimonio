@@ -6,13 +6,11 @@ import type {
   createPayout,
   dismissPayout,
   previewPayout,
-  previewTransfer,
   createTransaction,
   getTransaction,
   listTransactions,
   previewTransaction,
   previewUpdate,
-  transferPosition,
   undoDeletion,
   updateTransaction,
 } from '@patrimonio/application';
@@ -20,7 +18,6 @@ import type {
   ConfirmPayoutBody,
   CreateCashMovementBody,
   DismissPayoutBody,
-  TransferPositionBody,
   CreatePayoutBody,
   CreateTransactionBody,
   InterpretTransactionBody,
@@ -37,9 +34,7 @@ export type TransactionDeps = {
     readonly createPayout: ReturnType<typeof createPayout>;
     readonly confirmPayout: ReturnType<typeof confirmPayout>;
     readonly dismissPayout: ReturnType<typeof dismissPayout>;
-    readonly transferPosition: ReturnType<typeof transferPosition>;
     readonly previewPayout: ReturnType<typeof previewPayout>;
-    readonly previewTransfer: ReturnType<typeof previewTransfer>;
     readonly previewTransaction: ReturnType<typeof previewTransaction>;
     readonly listTransactions: ReturnType<typeof listTransactions>;
     readonly getTransaction: ReturnType<typeof getTransaction>;
@@ -57,9 +52,7 @@ export type TransactionController = {
   readonly payout: RequestHandler;
   readonly confirm: RequestHandler;
   readonly dismiss: RequestHandler;
-  readonly transfer: RequestHandler;
   readonly previewPayout: RequestHandler;
-  readonly previewTransfer: RequestHandler;
   readonly preview: RequestHandler;
   readonly list: RequestHandler;
   readonly detail: RequestHandler;
@@ -247,40 +240,6 @@ export const createTransactionController = (
   },
 
   /**
-   * Mover uma posição entre carteiras. As duas pernas nascem na mesma
-   * transação: uma perna sozinha quebraria o patrimônio total.
-   */
-  transfer: async (request, response) => {
-    const body = request.body as TransferPositionBody;
-
-    const result = await deps.usecases.transferPosition({
-      ...body,
-      ...(idempotencyKey(request) === undefined
-        ? {}
-        : { idempotency_key: idempotencyKey(request) }),
-      origin_request_id: request.requestId,
-    });
-
-    if (result.isFailure()) {
-      sendFailure(request, response, result.value);
-      return;
-    }
-
-    response.status(result.value.replayed ? 200 : 201).json({
-      transactions: result.value.transactions,
-      preview: result.value.preview,
-      recalculation: result.value.queued.map((event) => ({
-        job_id: event.id,
-        dedupe_key: event.dedupe_key,
-        already_queued: event.already_queued,
-      })),
-      message: result.value.replayed
-        ? 'Transferência já havia sido feita'
-        : 'Posição movida',
-    });
-  },
-
-  /**
    * O provento antes de salvar: a quantidade na data-com, o bruto e o IR retido
    * saem do mesmo cálculo da gravação, e nada é criado.
    */
@@ -296,20 +255,6 @@ export const createTransactionController = (
     }
 
     response.status(200).json(result.value);
-  },
-
-  previewTransfer: async (request, response) => {
-    const result = await deps.usecases.previewTransfer({
-      ...(request.body as TransferPositionBody),
-      origin_request_id: request.requestId,
-    });
-
-    if (result.isFailure()) {
-      sendFailure(request, response, result.value);
-      return;
-    }
-
-    response.status(200).json({ preview: result.value });
   },
 
   preview: async (request, response) => {

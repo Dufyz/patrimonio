@@ -45,7 +45,6 @@ const all = new Set<SearchActionId>([
   'new_transaction',
   'buy_asset',
   'payout_asset',
-  'move_asset',
 ]);
 
 const local = (ready: ReadonlySet<SearchActionId> = none) =>
@@ -295,14 +294,13 @@ describe('com texto', () => {
     expect(order).toEqual(['screens', 'assets', 'asset_actions']);
   });
 
-  it('só oferece provento e transferência de quem tem posição', () => {
+  it('só oferece provento de quem tem posição', () => {
     const held = assetActionItems(itub4, all).items.map((item) => item.label);
     const notHeld = assetActionItems(itub3, all).items.map((item) => item.label);
 
     expect(held).toEqual([
       'Lançar compra de ITUB4',
       'Lançar provento de ITUB4',
-      'Mover ITUB4 para outra carteira',
     ]);
     expect(notHeld).toEqual(['Lançar compra de ITUB3']);
   });

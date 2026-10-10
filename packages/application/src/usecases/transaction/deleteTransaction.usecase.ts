@@ -48,7 +48,6 @@ const asWrite = (transaction: Transaction): TransactionWrite => ({
   expected_net_amount: transaction.expected_net_amount,
   record_date: transaction.record_date,
   confirmed_at: transaction.confirmed_at,
-  transfer_group_id: transaction.transfer_group_id,
   event_ratio_from: transaction.event_ratio_from,
   event_ratio_to: transaction.event_ratio_to,
   note: transaction.note,
@@ -101,10 +100,6 @@ export const deleteTransaction = (deps: DeleteTransactionDeps) =>
 
     return yield* await deps.unitOfWork.run<AppError, DeleteTransactionResult>(
       async (repositories) => {
-        // As duas pernas de uma transferência saem juntas: deixar uma sozinha
-        // mudaria o patrimônio total de um lado só.
-        const group = current.transfer_group_id;
-
         const assetId = current.asset_id;
         let asset: ContextAsset | null = null;
 
@@ -121,14 +116,6 @@ export const deleteTransaction = (deps: DeleteTransactionDeps) =>
           }
         }
 
-        const toDelete =
-          group === null
-            ? [current]
-            : await (async () => {
-                const legs = await repositories.transactions.findByTransferGroup(group);
-                return legs.isSuccess() ? legs.value : [current];
-              })();
-
         const planContext = await loadPlanContext(repositories, {
           portfolio_id: current.portfolio_id,
           asset,
@@ -136,24 +123,15 @@ export const deleteTransaction = (deps: DeleteTransactionDeps) =>
         });
         if (planContext.isFailure()) return planContext;
 
-        const impact = planDeletion(planContext.value, toDelete);
+        const impact = planDeletion(planContext.value, [current]);
 
-        const removed =
-          group === null
-            ? await repositories.transactions.remove(id)
-            : await repositories.transactions.removeByTransferGroup(group);
+        const removed = await repositories.transactions.remove(id);
         if (removed.isFailure()) return removed;
-
-        const deleted: Transaction[] =
-          removed.value === null
-            ? []
-            : Array.isArray(removed.value)
-              ? removed.value
-              : [removed.value];
-
-        if (deleted.length === 0) {
+        if (removed.value === null) {
           return failure(new NotFoundError(`Lançamento ${id} não encontrado`));
         }
+
+        const deleted: Transaction[] = [removed.value];
 
         const expiresAt = new Date(
           deps.clock.now().getTime() + deps.undoWindowSeconds * 1_000,

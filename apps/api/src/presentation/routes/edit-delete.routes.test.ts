@@ -208,30 +208,4 @@ describe('excluir com desfazer', () => {
 
     expect(resposta.status).toBe(409);
   });
-
-  it('excluir uma perna de transferência leva as duas, e o desfazer traz as duas', async () => {
-    const outra = await request(harness.app)
-      .post('/api/portfolios')
-      .send({ name: 'Curto prazo' });
-
-    const movida = await request(harness.app).post('/api/transactions/transfer').send({
-      from_portfolio_id: carteira,
-      to_portfolio_id: outra.body.portfolio.id,
-      asset_id: itub4,
-      institution_id: corretora,
-      trade_date: '2026-10-06',
-      quantity: '40',
-    });
-
-    const perna = movida.body.transactions[0].id;
-    const excluido = await request(harness.app).delete(`/api/transactions/${perna}`);
-
-    expect(excluido.body.deleted).toHaveLength(2);
-
-    const desfeito = await request(harness.app)
-      .post(`/api/transactions/undo/${excluido.body.undo.undo_id}`)
-      .send({});
-
-    expect(desfeito.body.transactions).toHaveLength(2);
-  });
 });

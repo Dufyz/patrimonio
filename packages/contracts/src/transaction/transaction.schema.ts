@@ -31,7 +31,6 @@ export const transactionResourceSchema = z.object({
   expected_net_amount: decimalString.nullable(),
   record_date: dateOnly.nullable(),
   confirmed_at: z.string().nullable(),
-  transfer_group_id: uuid.nullable(),
   event_ratio_from: decimalString.nullable(),
   event_ratio_to: decimalString.nullable(),
   note: z.string().nullable(),

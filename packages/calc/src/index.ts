@@ -20,7 +20,6 @@ export {
   cashBalance,
   ledgerEffects,
   positionAt,
-  proportionalCost,
   sortEntries,
 } from './average_price/ledger.js';
 export type {

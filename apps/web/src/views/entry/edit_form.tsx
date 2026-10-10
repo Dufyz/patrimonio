@@ -117,9 +117,7 @@ export const EditEntry = ({
     return (
       <div className="flex flex-col gap-3">
         <Callout tone="info">
-          {loaded.transaction.transfer_group_id === null
-            ? 'Eventos corporativos não são editados aqui.'
-            : 'Este lançamento é uma perna de transferência: editar só uma ponta desfaria o total. Exclua a transferência e lance de novo.'}
+          Eventos corporativos não são editados aqui.
         </Callout>
         <div className="flex justify-end">
           <Button onClick={onCancel}>Fechar</Button>

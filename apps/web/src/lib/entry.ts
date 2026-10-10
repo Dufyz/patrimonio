@@ -3,7 +3,6 @@ import {
   createCashMovementSchema,
   createPayoutSchema,
   createTransactionSchema,
-  transferPositionSchema,
   updateTransactionSchema,
 } from '@patrimonio/contracts';
 import type {
@@ -14,7 +13,6 @@ import type {
   CreateTransactionBody,
   TransactionPreviewResource,
   TransactionResource,
-  TransferPositionBody,
   UpdateTransactionBody,
 } from '@patrimonio/contracts';
 import type { PayoutKind } from '@patrimonio/domain';
@@ -54,8 +52,6 @@ export type EntryField =
   | 'gross'
   | 'tax'
   | 'amount'
-  | 'fromPortfolio'
-  | 'toPortfolio'
   | 'payoutKind'
   | 'netAmount';
 
@@ -83,8 +79,6 @@ const FIELD_OF_KEY: Readonly<Record<string, EntryField>> = {
   amount_per_share: 'perShare',
   gross_amount: 'gross',
   amount: 'amount',
-  from_portfolio_id: 'fromPortfolio',
-  to_portfolio_id: 'toPortfolio',
   payout_kind: 'payoutKind',
   net_amount: 'netAmount',
 };
@@ -317,9 +311,6 @@ export type CashForm = {
   readonly institutionId: string | null;
   readonly date: string;
   readonly amount: string;
-  /** De fora do app é aporte; de outra carteira é transferência. */
-  readonly source: 'external' | 'other_portfolio';
-  readonly fromPortfolioId: string | null;
   readonly note: string;
 };
 
@@ -363,16 +354,6 @@ export const buildCashBody = (
   const parts = readCash(form);
   const errors = parts.errors;
 
-  const fromPortfolioId =
-    form.source === 'other_portfolio'
-      ? requireId(
-          errors,
-          'fromPortfolio',
-          form.fromPortfolioId,
-          'Escolha a carteira de origem.',
-        )
-      : null;
-
   if (
     parts.portfolioId === null ||
     parts.institutionId === null ||
@@ -389,8 +370,6 @@ export const buildCashBody = (
     institution_id: parts.institutionId,
     trade_date: parts.date,
     amount: parts.amount,
-    source: form.source,
-    ...(fromPortfolioId === null ? {} : { from_portfolio_id: fromPortfolioId }),
     ...(form.note.trim() === '' ? {} : { note: form.note.trim() }),
   };
 
@@ -399,15 +378,12 @@ export const buildCashBody = (
 
 /**
  * O preview do aporte é o do lançamento de caixa: o caixa vale um real por real,
- * então a quantidade é o próprio valor. De outra carteira não há preview aqui —
- * é uma transferência de duas pernas, e o patrimônio total não muda.
+ * então a quantidade é o próprio valor.
  */
 export const buildCashPreviewBody = (
   kind: CashKind,
   form: CashForm,
 ): Built<CreateTransactionBody> | null => {
-  if (form.source === 'other_portfolio') return null;
-
   const parts = readCash(form);
 
   if (
@@ -520,78 +496,6 @@ export const buildPayoutBody = (form: PayoutForm): Built<CreatePayoutBody> => {
   };
 
   return validated(createPayoutSchema.safeParse({ body }), 1);
-};
-
-/* -------------------------------------------------------------------------- */
-/* Mover posição entre carteiras                                              */
-
-export type TransferForm = {
-  readonly assetId: string | null;
-  readonly fromPortfolioId: string | null;
-  readonly toPortfolioId: string | null;
-  readonly institutionId: string | null;
-  readonly date: string;
-  readonly quantity: string;
-  /** "Tudo": move o que houver na data, sem digitar a quantidade. */
-  readonly all: boolean;
-  readonly note: string;
-};
-
-export const buildTransferBody = (form: TransferForm): Built<TransferPositionBody> => {
-  const errors: Partial<Record<EntryField, string>> = {};
-
-  const assetId = requireId(errors, 'asset', form.assetId, 'Escolha o ativo.');
-  const from = requireId(
-    errors,
-    'fromPortfolio',
-    form.fromPortfolioId,
-    'Escolha a origem.',
-  );
-  const to = requireId(errors, 'toPortfolio', form.toPortfolioId, 'Escolha o destino.');
-  const institutionId = requireId(
-    errors,
-    'institution',
-    form.institutionId,
-    'Escolha a instituição.',
-  );
-  const date = requireDate(errors, 'date', form.date);
-
-  const quantity = form.all
-    ? null
-    : collect(
-        errors,
-        'quantity',
-        read(form.quantity, {
-          required: true,
-          missing: 'Informe a quantidade ou use "Tudo".',
-          invalid: 'Informe uma quantidade como 100.',
-          parse: parseQuantityInput,
-        }),
-      );
-
-  if (
-    assetId === null ||
-    from === null ||
-    to === null ||
-    institutionId === null ||
-    date === null ||
-    (!form.all && quantity === null) ||
-    Object.keys(errors).length > 0
-  ) {
-    return { ok: false, errors };
-  }
-
-  const body = {
-    from_portfolio_id: from,
-    to_portfolio_id: to,
-    asset_id: assetId,
-    institution_id: institutionId,
-    trade_date: date,
-    ...(form.all || quantity === null ? { all: true } : { quantity }),
-    ...(form.note.trim() === '' ? {} : { note: form.note.trim() }),
-  };
-
-  return validated(transferPositionSchema.safeParse({ body }), 1);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -751,9 +655,9 @@ export const buildUpdateBody = (
     : { ok: false, errors: issuesToErrors(parsed.error.issues, 1) };
 };
 
-/** Transferência tem duas pernas ligadas: editar uma sozinha quebraria o total. */
+/** Evento corporativo não se edita aqui. */
 export const isEditable = (transaction: TransactionResource): boolean =>
-  transaction.transfer_group_id === null && transaction.kind !== 'corporate_event';
+  transaction.kind !== 'corporate_event';
 
 /* -------------------------------------------------------------------------- */
 /* Confirmar recebimento                                                      */
@@ -891,33 +795,6 @@ export const effectRows = (
 };
 
 /**
- * O efeito de mover uma posição, como a prancha 15C o desenha: o valor de cada
- * carteira e o total, que a transferência nunca altera e por isso diz "sem
- * mudança". O preço médio mantido é dito no aviso do formulário.
- */
-export const transferRows = (
-  preview: {
-    readonly origin: TransferSideRows;
-    readonly destination: TransferSideRows;
-    readonly total: { readonly before: string; readonly after: string };
-  },
-  names: { readonly origin: string; readonly destination: string },
-): readonly EffectRow[] => [
-  pair('origin', names.origin, 'money', preview.origin.portfolio_cost_basis),
-  pair(
-    'destination',
-    names.destination,
-    'money',
-    preview.destination.portfolio_cost_basis,
-  ),
-  pair('total', 'Patrimônio total', 'money', preview.total),
-];
-
-type TransferSideRows = {
-  readonly portfolio_cost_basis: { readonly before: string; readonly after: string };
-};
-
-/**
  * O total da operação como a prancha o escreve: valor absoluto, sem o sinal de
  * saída de caixa. Tirar o `-` é formatação, não aritmética — o número é o que a
  * `api` calculou.
@@ -937,7 +814,7 @@ export const TOTAL_LABEL: Readonly<Record<EffectKind, string>> = {
 /* Tipos de lançamento da janela                                              */
 
 export type EntryTab =
-  'buy' | 'sell' | 'payout' | 'deposit' | 'withdrawal' | 'transfer' | 'event';
+  'buy' | 'sell' | 'payout' | 'deposit' | 'withdrawal' | 'event';
 
 export const ENTRY_TABS: readonly {
   readonly id: EntryTab;
@@ -950,7 +827,6 @@ export const ENTRY_TABS: readonly {
   { id: 'payout', label: 'Provento' },
   { id: 'deposit', label: 'Aporte' },
   { id: 'withdrawal', label: 'Resgate' },
-  { id: 'transfer', label: 'Transferência' },
   {
     id: 'event',
     label: 'Evento',
@@ -962,7 +838,7 @@ export const ENTRY_TABS: readonly {
  * "Duplicar": abre um lançamento novo já com o ativo, a carteira e os números
  * do que se duplica — a data volta a ser hoje. Só compra e venda carregam os
  * números; as demais abas abrem no tipo certo, no mesmo ativo e carteira. Evento
- * e transferência não se duplicam: sem aba que os lance, a ação não existe.
+ * não se duplica: sem aba que o lance, a ação não existe.
  */
 export type DuplicableRow = {
   readonly kind: string;
@@ -974,7 +850,6 @@ export type DuplicableRow = {
   readonly unit_price: string;
   readonly fees: string;
   readonly note: string | null;
-  readonly transfer_group_id: string | null;
 };
 
 export type DuplicateRequest = {
@@ -997,7 +872,7 @@ export type DuplicateRequest = {
 const DUPLICABLE: readonly string[] = ['buy', 'sell', 'payout', 'deposit', 'withdrawal'];
 
 export const duplicateRequest = (row: DuplicableRow): DuplicateRequest | null => {
-  if (!DUPLICABLE.includes(row.kind) || row.transfer_group_id !== null) return null;
+  if (!DUPLICABLE.includes(row.kind)) return null;
 
   const asset =
     row.asset_id === null

@@ -43,8 +43,6 @@ export type DailyTotals = {
   readonly total_value: string;
   /**
    * Dinheiro que cruzou a fronteira do patrimônio no dia: aporte menos resgate.
-   * Transferência entre carteiras não entra aqui — ela não é dinheiro novo, e
-   * contá-la inventaria aporte e apagaria rentabilidade.
    */
   readonly net_flow: string;
   /** Quanto do dia veio de provento, destacado dentro do rendimento. */

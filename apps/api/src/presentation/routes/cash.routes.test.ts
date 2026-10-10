@@ -10,7 +10,6 @@ import type { ApiHarness } from '../../testing/harness.js';
 
 let harness: ApiHarness;
 let longoPrazo: string;
-let reserva: string;
 let corretora: string;
 
 beforeAll(async () => {
@@ -27,12 +26,8 @@ beforeEach(async () => {
   const primeira = await request(harness.app)
     .post('/api/portfolios')
     .send({ name: 'Longo prazo' });
-  const segunda = await request(harness.app)
-    .post('/api/portfolios')
-    .send({ name: 'Reserva' });
 
   longoPrazo = primeira.body.portfolio.id;
-  reserva = segunda.body.portfolio.id;
   corretora = await seedInstitution(harness.sql, 'Corretora A');
 });
 
@@ -114,69 +109,5 @@ describe('aporte', () => {
     const response = await movimentar({});
 
     expect(response.body.recalculation[0].dedupe_key).toBe(`recalc:${longoPrazo}`);
-  });
-});
-
-describe('dinheiro vindo de outra carteira', () => {
-  it('vira transferência de duas pernas, e não aporte novo', async () => {
-    await movimentar({ portfolio_id: reserva, amount: '10000.00' });
-
-    const response = await movimentar({
-      source: 'other_portfolio',
-      from_portfolio_id: reserva,
-      amount: '4000.00',
-    });
-
-    expect(response.status).toBe(201);
-    expect(response.body.transactions).toHaveLength(2);
-    expect(
-      response.body.transactions.every((t: { kind: string }) => t.kind === 'transfer'),
-    ).toBe(true);
-
-    const aportes = await request(harness.app).get('/api/transactions?kind=deposit');
-    // Só o aporte de verdade conta como aporte.
-    expect(aportes.body.total).toBe(1);
-  });
-
-  it('as duas pernas ficam no mesmo grupo e se anulam no patrimônio total', async () => {
-    await movimentar({ portfolio_id: reserva, amount: '10000.00' });
-
-    const response = await movimentar({
-      source: 'other_portfolio',
-      from_portfolio_id: reserva,
-      amount: '4000.00',
-    });
-
-    const [saida, entrada] = response.body.transactions as {
-      net_amount: string;
-      transfer_group_id: string;
-      portfolio_id: string;
-    }[];
-
-    expect(saida?.transfer_group_id).toBe(entrada?.transfer_group_id);
-    expect(Number(saida?.net_amount) + Number(entrada?.net_amount)).toBe(0);
-  });
-
-  it('as duas carteiras ganham recálculo', async () => {
-    await movimentar({ portfolio_id: reserva, amount: '10000.00' });
-
-    const response = await movimentar({
-      source: 'other_portfolio',
-      from_portfolio_id: reserva,
-      amount: '4000.00',
-    });
-
-    const chaves = (response.body.recalculation as { dedupe_key: string }[]).map(
-      (event) => event.dedupe_key,
-    );
-
-    expect(chaves).toContain(`recalc:${reserva}`);
-    expect(chaves).toContain(`recalc:${longoPrazo}`);
-  });
-
-  it('sem a carteira de origem é recusado', async () => {
-    const response = await movimentar({ source: 'other_portfolio' });
-
-    expect(response.status).toBe(400);
   });
 });

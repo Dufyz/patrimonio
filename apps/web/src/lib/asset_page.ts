@@ -90,7 +90,6 @@ export const TRANSACTION_KIND_LABELS: Readonly<Record<TransactionKind, string>> 
   payout: 'Provento',
   deposit: 'Aporte',
   withdrawal: 'Resgate',
-  transfer: 'Transferência',
   corporate_event: 'Evento',
 };
 

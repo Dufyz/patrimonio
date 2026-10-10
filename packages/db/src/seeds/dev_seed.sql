@@ -660,7 +660,7 @@ CREATE TEMP TABLE seed_tx (
   quantity NUMERIC(20,8), unit_price NUMERIC(20,8), fees NUMERIC(20,2), gross_amount NUMERIC(20,2),
   tax_withheld NUMERIC(20,2) DEFAULT 0, net_amount NUMERIC(20,2),
   payout_kind payout_kind, record_date DATE, confirmed_at TIMESTAMPTZ,
-  transfer_group_id UUID, note TEXT, expected_net_amount NUMERIC(20,2)
+  note TEXT, expected_net_amount NUMERIC(20,2)
 ) ON COMMIT DROP;
 
 -- Fase 0 · aportes e resgates: o caixa é um ativo por instituição, 1 real por real.
@@ -721,14 +721,13 @@ SELECT 3, 9000, 'withdrawal', DATE '2024-09-20', DATE '2024-09-20',
                       WHERE portfolio_id = '01960000-0004-7000-8000-000000000004' AND institution_id = '01960000-0001-7000-8000-000000000004') bal
  WHERE cash.b3_type = 'cash' AND cash.issuer_id = '01960000-0001-7000-8000-000000000004';
 
--- Fase 0 · "aporte" vindo de outra carteira é transferência de caixa: duas pernas,
--- mesmo grupo, patrimônio total inalterado.
+-- Fase 0 · reserva excedente destinada ao imóvel: resgate numa carteira e aporte na outra.
 INSERT INTO seed_tx (phase, seq, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
-                     quantity, unit_price, fees, gross_amount, net_amount, transfer_group_id, note)
-SELECT 0, 9100 + leg.n, 'transfer', DATE '2025-12-15', DATE '2025-12-15', leg.portfolio_id, cash.id,
-       '01960000-0001-7000-8000-000000000003', 3000, 1, 0, 3000, leg.sign * 3000, '01960000-000b-7000-8000-000000000001', 'Reserva excedente destinada ao imóvel'
+                     quantity, unit_price, fees, gross_amount, net_amount, note)
+SELECT 0, 9100 + leg.n, leg.kind::transaction_kind, DATE '2025-12-15', DATE '2025-12-15', leg.portfolio_id, cash.id,
+       '01960000-0001-7000-8000-000000000003', 3000, 1, 0, 3000, leg.sign * 3000, 'Reserva excedente destinada ao imóvel'
   FROM asset cash
- CROSS JOIN (VALUES (1, '01960000-0004-7000-8000-000000000002'::UUID, -1), (2, '01960000-0004-7000-8000-000000000003'::UUID, 1)) AS leg(n, portfolio_id, sign)
+ CROSS JOIN (VALUES (1, 'withdrawal', '01960000-0004-7000-8000-000000000002'::UUID, -1), (2, 'deposit', '01960000-0004-7000-8000-000000000003'::UUID, 1)) AS leg(n, kind, portfolio_id, sign)
  WHERE cash.b3_type = 'cash' AND cash.issuer_id = '01960000-0001-7000-8000-000000000003';
 
 -- ---------------------------------------------------------- proventos (entrada)
@@ -1050,12 +1049,12 @@ $check$;
 -- do mesmo dia (aporte antes da compra, compra antes da venda).
 INSERT INTO transaction (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
                          quantity, unit_price, fees, gross_amount, tax_withheld, net_amount, payout_kind,
-                         record_date, confirmed_at, transfer_group_id, note, expected_net_amount,
+                         record_date, confirmed_at, note, expected_net_amount,
                          created_at, updated_at)
 SELECT ('01960000-0100-7000-8000-' || LPAD(TO_HEX(ROW_NUMBER() OVER (ORDER BY trade_date, phase, seq)), 12, '0'))::UUID,
        kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
        quantity, unit_price, fees, gross_amount, tax_withheld, net_amount, payout_kind,
-       record_date, confirmed_at, transfer_group_id, note, expected_net_amount,
+       record_date, confirmed_at, note, expected_net_amount,
        (trade_date + time '12:00') at TIME ZONE 'America/Sao_Paulo',
        (trade_date + time '12:00') at TIME ZONE 'America/Sao_Paulo'
   FROM seed_tx;

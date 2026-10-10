@@ -43,7 +43,6 @@ const KINDS: ReadonlyArray<readonly [RegExp, TransactionKind, PayoutKind | null]
   [/^(provento|proventos)$/i, 'payout', 'dividend'],
   [/^(aporte|aportar|deposito|depósito)$/i, 'deposit', null],
   [/^(resgate|resgatar|saque|retirada)$/i, 'withdrawal', null],
-  [/^(transferencia|transferência|transferir|mover)$/i, 'transfer', null],
   [
     /^(desdobramento|grupamento|bonificacao|bonificação|evento)$/i,
     'corporate_event',
@@ -57,7 +56,6 @@ const KIND_LABELS: Record<TransactionKind, string> = {
   payout: 'Provento',
   deposit: 'Aporte',
   withdrawal: 'Resgate',
-  transfer: 'Transferência',
   corporate_event: 'Evento',
 };
 
@@ -108,7 +106,6 @@ const NEEDS_ASSET: ReadonlySet<TransactionKind> = new Set<TransactionKind>([
   'buy',
   'sell',
   'payout',
-  'transfer',
   'corporate_event',
 ]);
 

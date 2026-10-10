@@ -189,12 +189,6 @@ export type {
   DismissPayoutBody,
 } from './transaction/confirmPayout.schema.js';
 export {
-  previewTransferSchema,
-  transferPositionSchema,
-  transferPreviewSchema,
-} from './transaction/transferPosition.schema.js';
-export type { TransferPositionBody } from './transaction/transferPosition.schema.js';
-export {
   confirmCorporateEventSchema,
   corporateEventKindSchema,
   corporateEventResourceSchema,

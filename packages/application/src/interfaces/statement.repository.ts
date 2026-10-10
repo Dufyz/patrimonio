@@ -18,7 +18,7 @@ import type { AppError } from '../errors/app-error.js';
  */
 
 /** Os tipos como as pastilhas os agrupam. A fonte da verdade é o contrato. */
-export type StatementGroupKey = 'buy' | 'sell' | 'payout' | 'cash' | 'transfer' | 'event';
+export type StatementGroupKey = 'buy' | 'sell' | 'payout' | 'cash' | 'event';
 
 export type StatementFilter = {
   readonly portfolioId: string;
@@ -35,8 +35,7 @@ export type StatementFilter = {
 
 /**
  * Uma linha como o banco a entrega: o lançamento, o nome de quem ele aponta e
- * dois fatos que só o recálculo grava — se a venda ficou isenta e qual é a
- * carteira do outro lado de uma transferência.
+ * um fato que só o recálculo grava: se a venda ficou isenta.
  */
 export type StatementLedgerRow = {
   readonly id: string;
@@ -60,14 +59,11 @@ export type StatementLedgerRow = {
   readonly net_amount: string;
   readonly expected_net_amount: string | null;
   readonly confirmed_at: string | null;
-  readonly transfer_group_id: string | null;
   readonly event_ratio_from: string | null;
   readonly event_ratio_to: string | null;
   readonly note: string | null;
   /** Nulo quando a venda ainda não passou pelo recálculo. */
   readonly realized_exempt: boolean | null;
-  /** A carteira da outra perna de uma transferência. */
-  readonly transfer_counterpart: string | null;
 };
 
 export type StatementSummaryRow = {

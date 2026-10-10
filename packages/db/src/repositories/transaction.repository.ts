@@ -103,8 +103,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
   },
 
   /**
-   * Uma consulta para N linhas. A lista entra como jsonb e volta expandida: as
-   * duas pernas de uma transferência precisam nascer na mesma escrita, e laço
+   * Uma consulta para N linhas. A lista entra como jsonb e volta expandida: laço
    * de `await` com uma escrita por iteração não é aceito em repositório nenhum.
    */
   insertMany: async (rows: readonly TransactionWrite[]) => {
@@ -129,7 +128,6 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
         expected_net_amount: row.expected_net_amount ?? null,
         record_date: row.record_date ?? null,
         confirmed_at: row.confirmed_at ?? null,
-        transfer_group_id: row.transfer_group_id ?? null,
         event_ratio_from: row.event_ratio_from ?? null,
         event_ratio_to: row.event_ratio_to ?? null,
         note: row.note ?? null,
@@ -143,7 +141,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
           (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
            quantity, unit_price, fees, gross_amount, tax_withheld, net_amount,
            payout_kind, expected_net_amount, record_date, confirmed_at,
-           transfer_group_id, event_ratio_from, event_ratio_to, note, idempotency_key)
+           event_ratio_from, event_ratio_to, note, idempotency_key)
         SELECT (entry ->> 'id')::UUID,
                (entry ->> 'kind')::transaction_kind,
                (entry ->> 'trade_date')::DATE,
@@ -161,7 +159,6 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
                (entry ->> 'expected_net_amount')::NUMERIC,
                (entry ->> 'record_date')::DATE,
                (entry ->> 'confirmed_at')::TIMESTAMPTZ,
-               (entry ->> 'transfer_group_id')::UUID,
                (entry ->> 'event_ratio_from')::NUMERIC,
                (entry ->> 'event_ratio_to')::NUMERIC,
                entry ->> 'note',
@@ -201,30 +198,6 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
       const row = rows[0];
 
       return success(row === undefined ? null : parseTransactionFromDB(row));
-    } catch (error) {
-      return failure(getRepositoryError(error));
-    }
-  },
-
-  removeByTransferGroup: async (groupId: string) => {
-    try {
-      const rows = await sql<Row[]>`
-        DELETE FROM transaction WHERE transfer_group_id = ${groupId} RETURNING *
-      `;
-
-      return success(rows.map((row) => parseTransactionFromDB(row)));
-    } catch (error) {
-      return failure(getRepositoryError(error));
-    }
-  },
-
-  findByTransferGroup: async (groupId: string) => {
-    try {
-      const rows = await sql<Row[]>`
-        SELECT * FROM transaction WHERE transfer_group_id = ${groupId} ORDER BY net_amount
-      `;
-
-      return success(rows.map((row) => parseTransactionFromDB(row)));
     } catch (error) {
       return failure(getRepositoryError(error));
     }

@@ -125,8 +125,7 @@ cadastrados à mão.
 Os sete tipos de lançamento gravam, editam e excluem com o efeito calculado
 antes de salvar: compra e venda com liquidação sugerida em dia útil, aporte e
 resgate sobre um caixa que é ativo sintético por instituição, provento com
-quantidade apurada na data-com e recebimento confirmado depois, transferência de
-duas pernas que preserva o preço médio, e evento corporativo aplicado só por
+quantidade apurada na data-com e recebimento confirmado depois, e evento corporativo aplicado só por
 confirmação.
 
 Toda escrita aceita `Idempotency-Key`, toda exclusão deixa desfazer por alguns
@@ -139,7 +138,7 @@ divergir do que fica salvo, a confiança no app acaba ali.
 Enquanto a projeção diária e o preço de mercado não existem, peso e alocação
 saem do custo, e a resposta diz isso no campo `basis`. O motor de preço médio
 vive em `packages/calc` e cobre compra, venda com resultado realizado,
-transferência, evento corporativo e amortização; o resto de `calc` — cota,
+evento corporativo e amortização; o resto de `calc` — cota,
 marcação na curva, IR e projeção — chega em E3.
 
 O que está declarado e ainda não calcula nada: os estágios `alerts` e `import`

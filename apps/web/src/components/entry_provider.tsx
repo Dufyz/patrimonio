@@ -28,7 +28,6 @@ import { EditEntry } from '../views/entry/edit_form.js';
 import { PayoutFormView } from '../views/entry/payout_form.js';
 import { TradeFormView } from '../views/entry/trade_form.js';
 import type { TradeSeed } from '../views/entry/trade_form.js';
-import { TransferFormView } from '../views/entry/transfer_form.js';
 import { Modal } from './overlay.js';
 import { Button, Segmented } from './primitives.js';
 import { useShortcuts } from './shortcuts.js';
@@ -378,14 +377,6 @@ export const EntryForms = ({
           kind={tab}
           reference={reference}
           seed={{ portfolioId, institutionId, date: today }}
-          onSaved={onSaved}
-          onCancel={onCancel}
-        />
-      ) : tab === 'transfer' ? (
-        <TransferFormView
-          reference={reference}
-          seed={{ asset, fromPortfolioId: portfolioId, institutionId, date: today }}
-          {...searchProps}
           onSaved={onSaved}
           onCancel={onCancel}
         />

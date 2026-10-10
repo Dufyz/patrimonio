@@ -191,7 +191,6 @@ describe('resumo, pastilhas e subtotais', () => {
       sell: 1,
       payout: 4,
       cash: 2,
-      transfer: 0,
       event: 0,
     });
     expect(view.facets_total).toBe(10);
@@ -259,7 +258,7 @@ describe('resumo, pastilhas e subtotais', () => {
     );
   });
 
-  it('resgate entra em módulo, e transferência e evento ficam fora dos valores', async () => {
+  it('resgate entra em módulo, e evento fica fora dos valores', async () => {
     await tx`
       INSERT INTO transaction
         (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
@@ -383,28 +382,6 @@ describe('o que o recálculo grava', () => {
 
     expect(view.rows.find((row) => row.id === id(5))?.realized_exempt).toBe(true);
     expect(view.rows.find((row) => row.id === id(3))?.realized_exempt).toBeNull();
-  });
-
-  it('nomeia a carteira do outro lado de uma transferência', async () => {
-    const grupo = '0191e5a0-0000-7000-8000-0000000f0001';
-
-    await tx`
-      INSERT INTO transaction
-        (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
-         institution_id, quantity, unit_price, gross_amount, net_amount,
-         transfer_group_id)
-      VALUES
-        (${id(40)}, 'transfer', '2026-10-04', '2026-10-04', ${CARTEIRA}, ${VALE3},
-         ${CORRETORA}, '10', '60.00', '600.00', '-600.00', ${grupo}),
-        (${id(41)}, 'transfer', '2026-10-04', '2026-10-04', ${RESERVA}, ${VALE3},
-         ${CORRETORA}, '10', '60.00', '600.00', '600.00', ${grupo})
-    `;
-
-    const view = await page();
-    const saida = view.rows.find((row) => row.id === id(40));
-
-    expect(saida?.transfer_counterpart).toBe('Reserva');
-    expect(view.rows.find((row) => row.id === id(3))?.transfer_counterpart).toBeNull();
   });
 
   it('conta a carteira em recálculo e a que falhou', async () => {

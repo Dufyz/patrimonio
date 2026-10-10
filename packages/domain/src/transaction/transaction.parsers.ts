@@ -32,7 +32,6 @@ export const parseTransactionFromDB = (row: Row): Transaction => ({
   expected_net_amount: asNumericOrNull(row, 'expected_net_amount'),
   record_date: asDateOnlyOrNull(row, 'record_date'),
   confirmed_at: asIsoStringOrNull(row, 'confirmed_at'),
-  transfer_group_id: asStringOrNull(row, 'transfer_group_id'),
   event_ratio_from: asNumericOrNull(row, 'event_ratio_from'),
   event_ratio_to: asNumericOrNull(row, 'event_ratio_to'),
   note: asStringOrNull(row, 'note'),

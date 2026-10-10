@@ -218,25 +218,8 @@ const cashPosition = (
 } => {
   const institutionId = asset?.institution_id ?? null;
 
-  // Transferir uma ação não move dinheiro: o valor líquido da perna é o custo que
-  // viajou, não caixa. Já transferir o próprio caixa move, e é assim que "aporte
-  // vindo de outra carteira" é lançado — então o filtro é pelo ativo da perna, não
-  // pelo tipo do lançamento.
-  const cashAssets = new Set(
-    [...context.assets]
-      .filter(([, candidate]) => candidate.b3_type === 'cash')
-      .map(([id]) => id),
-  );
-
   const relevant = context.entries.filter((entry) => {
     if (entry.trade_date > context.reference_date) return false;
-
-    if (
-      entry.kind === 'transfer' &&
-      (entry.asset_id === null || !cashAssets.has(entry.asset_id))
-    ) {
-      return false;
-    }
 
     // Sem instituição declarada no ativo de caixa, o saldo é só dos lançamentos
     // que apontam para ele: somar a carteira inteira contaria o mesmo real duas

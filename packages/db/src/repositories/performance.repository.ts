@@ -247,8 +247,7 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
            GROUP BY pt.label, c.id
         ),
         -- O que entrou na classe e o que ela pagou, por dia. Compra e venda
-        -- movem a classe com o sinal contrário ao do caixa; a perna de uma
-        -- transferência entra com o próprio sinal; a amortização devolve
+        -- movem a classe com o sinal contrário ao do caixa; a amortização devolve
         -- principal e sai como fluxo, não como rendimento. Caixa fica de fora:
         -- ele não rende por si.
         flows AS (
@@ -258,7 +257,6 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
                    CASE t.kind
                      WHEN 'buy' THEN -t.net_amount
                      WHEN 'sell' THEN -t.net_amount
-                     WHEN 'transfer' THEN t.net_amount
                      WHEN 'payout' THEN
                        CASE WHEN t.payout_kind = 'amortization' THEN -t.net_amount ELSE 0 END
                      ELSE 0

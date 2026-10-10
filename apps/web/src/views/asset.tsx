@@ -266,11 +266,6 @@ export const AssetScreen = ({
                 onSelect: () => setManualPriceOpen(true),
               },
               {
-                id: 'transfer',
-                label: 'Mover entre carteiras',
-                onSelect: () => entry.openEntry(entryFor('transfer')),
-              },
-              {
                 id: 'transactions',
                 label: 'Ver todos os lançamentos',
                 disabled: onOpenStatement === undefined,
@@ -329,7 +324,6 @@ export const AssetScreen = ({
             <AssetDataPanel
               resource={resource}
               onManualPrice={() => setManualPriceOpen(true)}
-              onTransfer={() => entry.openEntry(entryFor('transfer'))}
             />
           </div>
         </div>
@@ -837,11 +831,9 @@ const TransactionsPanel = ({
 const AssetDataPanel = ({
   resource,
   onManualPrice,
-  onTransfer,
 }: {
   readonly resource: AssetPageResource;
   readonly onManualPrice: () => void;
-  readonly onTransfer: () => void;
 }): React.ReactElement => {
   const asset = resource.asset;
   const fixedIncome = fixedIncomeFacts(asset);
@@ -908,7 +900,6 @@ const AssetDataPanel = ({
 
       <footer className="mt-auto flex flex-wrap gap-2 border-t border-line px-4 py-3">
         <Button onClick={onManualPrice}>Preço manual</Button>
-        <Button onClick={onTransfer}>Mover entre carteiras</Button>
       </footer>
     </Panel>
   );

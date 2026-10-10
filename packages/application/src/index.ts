@@ -254,13 +254,6 @@ export type { ListPortfoliosDeps } from './usecases/portfolio/listPortfolios.use
 export { putStrategy } from './usecases/portfolio/putStrategy.usecase.js';
 export type { PutStrategyDeps } from './usecases/portfolio/putStrategy.usecase.js';
 // ─── Planos ──────────────────────────────────────────────────────────────────
-export { planTransfer } from './plans/transfer.plan.js';
-export type {
-  TransferContext,
-  TransferLeg,
-  TransferPlan,
-  TransferPreview,
-} from './plans/transfer.plan.js';
 export { planDeletion, planEvents, planTransaction } from './plans/transaction.plan.js';
 export type {
   DeletionPreview,
@@ -330,15 +323,6 @@ export type {
   DismissPayoutResult,
 } from './usecases/transaction/dismissPayout.usecase.js';
 export {
-  previewTransfer,
-  transferPosition,
-} from './usecases/transaction/transferPosition.usecase.js';
-export type {
-  TransferDeps,
-  TransferInput,
-  TransferResult,
-} from './usecases/transaction/transferPosition.usecase.js';
-export {
   previewUpdate,
   updateTransaction,
 } from './usecases/transaction/updateTransaction.usecase.js';
@@ -359,7 +343,6 @@ export type {
 export {
   IDEMPOTENCY_TTL_HOURS,
   findReplay,
-  replayGroup,
 } from './usecases/transaction/idempotency.js';
 export { interpretTransactionText } from './usecases/transaction/interpretText.js';
 export type {

@@ -46,7 +46,6 @@ const row = (overrides: Partial<StatementRow> = {}): StatementRow => ({
   tax_withheld: '0.00',
   net_amount: '-3120.00',
   confirmed_at: null,
-  transfer_group_id: null,
   note: null,
   effect: { type: 'average_price', before: '38.20', after: '36.80' },
   ...overrides,
@@ -167,15 +166,6 @@ describe('efeito', () => {
     );
   });
 
-  it('transferência diz de onde veio e para onde foi', () => {
-    expect(text({ type: 'transfer', direction: 'in', counterpart: 'Reserva' })).toBe(
-      'vindo de Reserva',
-    );
-    expect(text({ type: 'transfer', direction: 'out', counterpart: null })).toBe(
-      'indo para outra carteira',
-    );
-  });
-
   it('desdobramento mostra o fator e a quantidade', () => {
     expect(
       text({
@@ -237,9 +227,6 @@ describe('seleção', () => {
         row({ kind: 'corporate_event' }),
       ]),
     ).toBe('2 eventos');
-    expect(selectionKinds([row({ kind: 'transfer' }), row({ kind: 'transfer' })])).toBe(
-      '2 transferências',
-    );
   });
 });
 
