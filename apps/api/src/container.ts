@@ -20,6 +20,7 @@ import {
   getAsset,
   getAssetPage,
   getStatement,
+  searchGlobal,
   getAssetPriceSeries,
   getMarketHealth,
   getOverview,
@@ -186,6 +187,8 @@ export const createApiUseCases = (deps: {
   }),
   // T-04 também lê fora da transação: o extrato só consulta.
   getStatement: getStatement({ statements: deps.repositories.statements }),
+  // T-09 lê fora da transação: a busca são duas consultas de leitura.
+  searchGlobal: searchGlobal({ search: deps.repositories.search }),
   // A tela de abertura: uma rota, duas consultas — o instantâneo e os alertas.
   getOverview: getOverview({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
   // T-05 lê fora da transação, como T-02 a T-04: são duas consultas de leitura.

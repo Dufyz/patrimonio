@@ -46,6 +46,13 @@ export type {
   PositionViewSummaryRow,
 } from './interfaces/position_view.repository.js';
 export type {
+  SearchAssetRow,
+  SearchFilter,
+  SearchPageView,
+  SearchRepository,
+  SearchTransactionRow,
+} from './interfaces/search.repository.js';
+export type {
   StatementFilter,
   StatementGroupKey,
   StatementHistoryRow,
@@ -374,6 +381,8 @@ export type {
   ListPositionsDeps,
   ListPositionsInput,
 } from './usecases/position/listPositions.usecase.js';
+export { searchGlobal } from './usecases/search/searchGlobal.usecase.js';
+export type { SearchGlobalDeps } from './usecases/search/searchGlobal.usecase.js';
 export { getStatement } from './usecases/statement/getStatement.usecase.js';
 export type { GetStatementDeps } from './usecases/statement/getStatement.usecase.js';
 export { statementEffect } from './usecases/statement/statementEffect.js';

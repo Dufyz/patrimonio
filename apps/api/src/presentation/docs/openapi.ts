@@ -10,6 +10,7 @@ import type { ZodType } from 'zod';
 
 import { ASSET_ROUTE_DOCS } from './asset.docs.js';
 import { ASSET_PAGE_ROUTE_DOCS } from './asset-page.docs.js';
+import { SEARCH_ROUTE_DOCS } from './search.docs.js';
 import { STATEMENT_ROUTE_DOCS } from './statement.docs.js';
 import { CATEGORY_ROUTE_DOCS } from './category.docs.js';
 import { CORPORATE_EVENT_ROUTE_DOCS } from './corporate-event.docs.js';
@@ -77,6 +78,7 @@ export const ROUTE_DOCS: readonly RouteDoc[] = [
   ...ASSET_ROUTE_DOCS,
   ...ASSET_PAGE_ROUTE_DOCS,
   ...STATEMENT_ROUTE_DOCS,
+  ...SEARCH_ROUTE_DOCS,
   ...TRANSACTION_ROUTE_DOCS,
   ...CORPORATE_EVENT_ROUTE_DOCS,
   ...MARKET_ROUTE_DOCS,

@@ -297,6 +297,23 @@ export type {
 } from './overview/overview.schema.js';
 
 export {
+  SEARCH_GROUP_LIMIT_DEFAULT,
+  SEARCH_GROUP_LIMIT_MAX,
+  getSearchSchema,
+  searchAssetSchema,
+  searchHoldingSchema,
+  searchResourceSchema,
+  searchTransactionSchema,
+} from './search/search.schema.js';
+export type {
+  GetSearchQuery,
+  SearchAsset,
+  SearchHolding,
+  SearchResource,
+  SearchTransaction,
+} from './search/search.schema.js';
+
+export {
   STATEMENT_GROUPS,
   STATEMENT_GROUP_KINDS,
   getStatementSchema,

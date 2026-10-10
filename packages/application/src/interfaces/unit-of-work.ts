@@ -5,6 +5,7 @@ import type { AlertRepository } from './alert.repository.js';
 import type { BusinessDayRepository } from './business_day.repository.js';
 import type { AssetRepository } from './asset.repository.js';
 import type { AssetPageRepository } from './asset_page.repository.js';
+import type { SearchRepository } from './search.repository.js';
 import type { StatementRepository } from './statement.repository.js';
 import type { CategoryRepository } from './category.repository.js';
 import type { CorporateEventRepository } from './corporate_event.repository.js';
@@ -56,6 +57,8 @@ export type TransactionalRepositories = {
   readonly assetPages: AssetPageRepository;
   /** Leitura: o extrato do livro de lançamentos, em duas consultas. */
   readonly statements: StatementRepository;
+  /** Leitura: a busca global, em duas consultas independentes. */
+  readonly search: SearchRepository;
   readonly prices: PriceRepository;
   readonly alerts: AlertRepository;
   /** Só leitura: o instantâneo da tela de abertura, numa consulta. */

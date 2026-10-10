@@ -11,6 +11,7 @@ import {
 
 import { fetchPortfolios } from './api/portfolios.js';
 import { fetchPositions } from './api/positions.js';
+import { SearchPalette } from './components/search_palette.js';
 import { ShortcutProvider, useShortcuts } from './components/shortcuts.js';
 import { ALL_PORTFOLIOS, AppShell } from './components/shell.js';
 import type { ScreenItem } from './components/shell.js';
@@ -20,6 +21,9 @@ import {
   portfolioSlugs,
   scopeForPortfolioId,
 } from './lib/scope.js';
+import { describeShortcut, SHORTCUTS } from './lib/shortcuts.js';
+import { targetPath } from './lib/search.js';
+import type { SearchActionId, SearchTarget } from './lib/search.js';
 import { AssetScreen } from './views/asset.js';
 import { Gallery } from './views/gallery.js';
 import { OverviewScreen } from './views/overview.js';
@@ -93,6 +97,7 @@ const Workbench = (): React.ReactElement => {
 
   const [portfolios, setPortfolios] = useState<readonly PortfolioResource[]>([]);
   const [values, setValues] = useState<ReadonlyMap<string, string>>(new Map());
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -147,16 +152,49 @@ const Workbench = (): React.ReactElement => {
       : (portfolios.find((item) => item.id === portfolioId)?.name ?? 'Carteira');
 
   const shortcuts = useMemo(
-    () =>
-      Object.fromEntries(
+    () => ({
+      ...Object.fromEntries(
         SCREENS.map((item) => [
           `go_${SHORTCUT_IDS[item.id] ?? item.id}`,
           () => navigate(`/${scope}/${item.path}`),
         ]),
       ),
+      // ⌘K abre e fecha: quem a abriu sem querer não precisa procurar o Esc.
+      search: () => setSearchOpen((open) => !open),
+    }),
     [navigate, scope],
   );
   useShortcuts(shortcuts);
+
+  /**
+   * As telas como a paleta as lista, com o atalho que cada uma realmente tem.
+   * Configurações fecha a lista, como fecha a barra lateral, e não tem atalho.
+   */
+  const searchScreens = useMemo(
+    () => [
+      ...SCREENS.map((item) => {
+        const shortcut = SHORTCUTS.find(
+          (candidate) => candidate.id === `go_${SHORTCUT_IDS[item.id] ?? item.id}`,
+        );
+        return {
+          id: item.id,
+          label: item.label,
+          glyph: String(item.icon),
+          shortcut: shortcut === undefined ? null : describeShortcut(shortcut),
+        };
+      }),
+      { id: SETTINGS_SCREEN, label: 'Configurações', glyph: '☼', shortcut: null },
+    ],
+    [],
+  );
+
+  const searchPortfolios = useMemo(
+    () => [
+      { id: ALL_PORTFOLIOS, label: 'Todas as carteiras' },
+      ...portfolios.map((portfolio) => ({ id: portfolio.id, label: portfolio.name })),
+    ],
+    [portfolios],
+  );
 
   /**
    * "Ver lançamentos" de um ativo abre o extrato todo, e não os últimos três
@@ -168,72 +206,114 @@ const Workbench = (): React.ReactElement => {
     );
   };
 
+  /** O que a paleta faz com o destino escolhido. As regras estão em `targetPath`. */
+  const openTarget = (target: SearchTarget): void => {
+    const path = targetPath(target, {
+      scope,
+      currentScreenPath: current?.path ?? 'visao-geral',
+      screenPaths: {
+        ...Object.fromEntries(SCREENS.map((item) => [item.id, item.path])),
+        [SETTINGS_SCREEN]: 'configuracoes',
+      },
+      scopeFor: (portfolioId) =>
+        portfolioId === ALL_PORTFOLIOS
+          ? ALL_SCOPE
+          : scopeForPortfolioId(portfolioId, slugs),
+    });
+
+    // Sem caminho é uma ação cuja tela ainda não existe. A paleta as mostra
+    // desativadas; quando T-10 chegar, cada uma entra em `READY_ACTIONS` e
+    // ganha aqui o seu ramo.
+    if (path !== null) void navigate(path);
+  };
+
   return (
-    <AppShell
-      portfolios={[
-        { id: ALL_PORTFOLIOS, label: 'Todas as carteiras', value: null },
-        ...portfolios.map((portfolio) => ({
-          id: portfolio.id,
-          label: portfolio.name,
-          value: values.get(portfolio.id) ?? null,
-        })),
-      ]}
-      screens={SCREENS.map(({ id, label, icon }) => ({ id, label, icon }))}
-      scope={portfolioId ?? ALL_PORTFOLIOS}
-      screen={onSettings ? 'configuracoes' : (current?.id ?? 'visao')}
-      onNavigate={(nextScope, nextScreen) => {
-        const target = SCREENS.find((item) => item.id === nextScreen) ?? SCREENS[0];
-        const slug =
-          nextScope === ALL_PORTFOLIOS
-            ? ALL_SCOPE
-            : scopeForPortfolioId(nextScope, slugs);
-        navigate(`/${slug}/${target?.path ?? 'visao-geral'}`);
-      }}
-      onOpenSearch={() => navigate('/galeria')}
-      settingsActive={onSettings}
-      onOpenSettings={() => navigate(`/${scope}/configuracoes`)}
-    >
-      {asset !== undefined ? (
-        <AssetScreen
-          assetRef={asset}
-          portfolioId={portfolioId}
-          scopeLabel={scopeLabel}
-          onBack={() => navigate(`/${scope}/posicoes`)}
-          onOpenStatement={openStatement}
-        />
-      ) : onSettings ? (
-        <SettingsScreen />
-      ) : current?.id === 'visao' ? (
-        <OverviewScreen
-          portfolioId={portfolioId}
-          onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
-        />
-      ) : current?.id === 'posicoes' ? (
-        <PositionsScreen
-          portfolioId={portfolioId}
-          scopeLabel={scopeLabel}
-          onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
-          onOpenStatement={openStatement}
-        />
-      ) : current?.id === 'movimentacoes' ? (
-        <StatementScreen
-          portfolioId={portfolioId}
-          scopeLabel={scopeLabel}
-          portfolios={portfolios}
-          onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
-        />
-      ) : current?.id === 'desempenho' ? (
-        <PerformanceScreen portfolioId={portfolioId} />
-      ) : current?.id === 'estrategia' ? (
-        <StrategyScreen portfolioId={portfolioId} />
-      ) : current?.id === 'objetivos' ? (
-        <GoalsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
-      ) : (
-        <ScreenPending label={current?.label ?? ''} story={current?.story ?? ''} />
-      )}
-    </AppShell>
+    <>
+      <AppShell
+        portfolios={[
+          { id: ALL_PORTFOLIOS, label: 'Todas as carteiras', value: null },
+          ...portfolios.map((portfolio) => ({
+            id: portfolio.id,
+            label: portfolio.name,
+            value: values.get(portfolio.id) ?? null,
+          })),
+        ]}
+        screens={SCREENS.map(({ id, label, icon }) => ({ id, label, icon }))}
+        scope={portfolioId ?? ALL_PORTFOLIOS}
+        screen={onSettings ? 'configuracoes' : (current?.id ?? 'visao')}
+        onNavigate={(nextScope, nextScreen) => {
+          const target = SCREENS.find((item) => item.id === nextScreen) ?? SCREENS[0];
+          const slug =
+            nextScope === ALL_PORTFOLIOS
+              ? ALL_SCOPE
+              : scopeForPortfolioId(nextScope, slugs);
+          navigate(`/${slug}/${target?.path ?? 'visao-geral'}`);
+        }}
+        onOpenSearch={() => setSearchOpen(true)}
+        settingsActive={onSettings}
+        onOpenSettings={() => navigate(`/${scope}/configuracoes`)}
+      >
+        {asset !== undefined ? (
+          <AssetScreen
+            assetRef={asset}
+            portfolioId={portfolioId}
+            scopeLabel={scopeLabel}
+            onBack={() => navigate(`/${scope}/posicoes`)}
+            onOpenStatement={openStatement}
+          />
+        ) : onSettings ? (
+          <SettingsScreen />
+        ) : current?.id === 'visao' ? (
+          <OverviewScreen
+            portfolioId={portfolioId}
+            onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
+          />
+        ) : current?.id === 'posicoes' ? (
+          <PositionsScreen
+            portfolioId={portfolioId}
+            scopeLabel={scopeLabel}
+            onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
+            onOpenStatement={openStatement}
+          />
+        ) : current?.id === 'movimentacoes' ? (
+          <StatementScreen
+            portfolioId={portfolioId}
+            scopeLabel={scopeLabel}
+            portfolios={portfolios}
+            onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
+          />
+        ) : current?.id === 'desempenho' ? (
+          <PerformanceScreen portfolioId={portfolioId} />
+        ) : current?.id === 'estrategia' ? (
+          <StrategyScreen portfolioId={portfolioId} />
+        ) : current?.id === 'objetivos' ? (
+          <GoalsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
+        ) : (
+          <ScreenPending label={current?.label ?? ''} story={current?.story ?? ''} />
+        )}
+      </AppShell>
+      <SearchPalette
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        scopeLabel={scopeLabel}
+        screens={searchScreens}
+        portfolios={searchPortfolios}
+        readyActions={READY_ACTIONS}
+        onSelect={openTarget}
+      />
+    </>
   );
 };
+
+/**
+ * As ações da paleta que já têm tela que as execute. Vazio até T-10: "Novo
+ * lançamento" e as ações sobre o ativo aparecem desativadas, dizendo a história
+ * que as entrega, em vez de abrir um modal que ainda não existe.
+ */
+const READY_ACTIONS: ReadonlySet<SearchActionId> = new Set();
+
+/** O identificador de Configurações na paleta: ela não está em `SCREENS`. */
+const SETTINGS_SCREEN = 'configuracoes';
 
 const SHORTCUT_IDS: Readonly<Record<string, string>> = {
   visao: 'overview',
