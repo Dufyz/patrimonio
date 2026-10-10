@@ -37,7 +37,6 @@ const SCREENS = [
   { id: 'desempenho', label: 'Desempenho', glyph: '◹', shortcut: 'G D' },
 ];
 const PORTFOLIOS = [
-  { id: 'todas', label: 'Todas as carteiras' },
   { id: 'longo', label: 'Longo prazo' },
 ];
 
@@ -46,7 +45,6 @@ const all = new Set<SearchActionId>([
   'new_transaction',
   'buy_asset',
   'payout_asset',
-  'move_asset',
 ]);
 
 const local = (ready: ReadonlySet<SearchActionId> = none) =>
@@ -296,14 +294,13 @@ describe('com texto', () => {
     expect(order).toEqual(['screens', 'assets', 'asset_actions']);
   });
 
-  it('só oferece provento e transferência de quem tem posição', () => {
+  it('só oferece provento de quem tem posição', () => {
     const held = assetActionItems(itub4, all).items.map((item) => item.label);
     const notHeld = assetActionItems(itub3, all).items.map((item) => item.label);
 
     expect(held).toEqual([
       'Lançar compra de ITUB4',
       'Lançar provento de ITUB4',
-      'Mover ITUB4 para outra carteira',
     ]);
     expect(notHeld).toEqual(['Lançar compra de ITUB3']);
   });
@@ -554,7 +551,7 @@ describe('destinos', () => {
     scope: 'longo-prazo',
     currentScreenPath: 'posicoes',
     screenPaths: { visao: 'visao-geral', posicoes: 'posicoes' },
-    scopeFor: (portfolioId: string) => (portfolioId === 'todas' ? 'todas' : 'reserva'),
+    scopeFor: (_portfolioId: string) => 'reserva',
   };
 
   it('vai para a tela dentro do escopo de agora', () => {
@@ -570,9 +567,6 @@ describe('destinos', () => {
   it('troca de carteira mantendo a tela', () => {
     expect(targetPath({ kind: 'portfolio', portfolioId: 'x' }, context)).toBe(
       '/reserva/posicoes',
-    );
-    expect(targetPath({ kind: 'portfolio', portfolioId: 'todas' }, context)).toBe(
-      '/todas/posicoes',
     );
   });
 

@@ -12,10 +12,10 @@ export const createBusinessDayRepository = (sql: Connection): BusinessDayReposit
   listBetween: async (from: DateOnly, to: DateOnly) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from business_day
-         where calendar_date between ${from} and ${to}
-         order by calendar_date
+        SELECT *
+          FROM business_day
+         WHERE calendar_date BETWEEN ${from} AND ${to}
+         ORDER BY calendar_date
       `;
 
       return success(rows.map((row) => parseBusinessDayFromDB(row)));
@@ -27,10 +27,10 @@ export const createBusinessDayRepository = (sql: Connection): BusinessDayReposit
   countBetween: async (from: DateOnly, to: DateOnly) => {
     try {
       const rows = await sql<{ total: string }[]>`
-        select count(*)::text as total
-          from business_day
-         where calendar_date between ${from} and ${to}
-           and is_business_day
+        SELECT COUNT(*)::TEXT AS total
+          FROM business_day
+         WHERE calendar_date BETWEEN ${from} AND ${to}
+           AND is_business_day
       `;
 
       return success(Number(rows[0]?.total ?? 0));
@@ -42,7 +42,7 @@ export const createBusinessDayRepository = (sql: Connection): BusinessDayReposit
   isBusinessDay: async (date: DateOnly) => {
     try {
       const rows = await sql<{ is_business_day: boolean }[]>`
-        select is_business_day from business_day where calendar_date = ${date}
+        SELECT is_business_day FROM business_day WHERE calendar_date = ${date}
       `;
 
       // Fora do calendário carregado a resposta é "não sei", e chutar aqui
@@ -63,12 +63,12 @@ export const createBusinessDayRepository = (sql: Connection): BusinessDayReposit
   nextBusinessDay: async (date: DateOnly) => {
     try {
       const rows = await sql<{ calendar_date: string }[]>`
-        select calendar_date
-          from business_day
-         where calendar_date > ${date}
-           and is_business_day
-         order by calendar_date
-         limit 1
+        SELECT calendar_date
+          FROM business_day
+         WHERE calendar_date > ${date}
+           AND is_business_day
+         ORDER BY calendar_date
+         LIMIT 1
       `;
 
       return success(rows[0]?.calendar_date ?? null);
@@ -83,12 +83,12 @@ export const createBusinessDayRepository = (sql: Connection): BusinessDayReposit
 
     try {
       const rows = await sql<{ calendar_date: string }[]>`
-        select calendar_date
-          from business_day
-         where calendar_date > ${date}
-           and is_business_day
-         order by calendar_date
-         limit ${days}
+        SELECT calendar_date
+          FROM business_day
+         WHERE calendar_date > ${date}
+           AND is_business_day
+         ORDER BY calendar_date
+         LIMIT ${days}
       `;
 
       const last = rows[rows.length - 1]?.calendar_date;
@@ -108,12 +108,12 @@ export const createBusinessDayRepository = (sql: Connection): BusinessDayReposit
   previousBusinessDay: async (date: DateOnly) => {
     try {
       const rows = await sql<{ calendar_date: string }[]>`
-        select calendar_date
-          from business_day
-         where calendar_date < ${date}
-           and is_business_day
-         order by calendar_date desc
-         limit 1
+        SELECT calendar_date
+          FROM business_day
+         WHERE calendar_date < ${date}
+           AND is_business_day
+         ORDER BY calendar_date DESC
+         LIMIT 1
       `;
 
       return success(rows[0]?.calendar_date ?? null);

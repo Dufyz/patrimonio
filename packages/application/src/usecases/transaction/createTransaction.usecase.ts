@@ -206,7 +206,7 @@ export const resolveSettlement = async (
   return repositories.businessDays.shiftBusinessDays(input.trade_date, days);
 };
 
-/** Taxas sugeridas pela regra da instituição, e sobrescritíveis pelo corpo. */
+/** As taxas vêm do corpo; sem elas, a instituição precisa existir e a taxa é zero. */
 export const resolveFees = async (
   repositories: TransactionalRepositories,
   input: {
@@ -224,7 +224,7 @@ export const resolveFees = async (
     return failure(new BadRequestError('A instituição informada não existe'));
   }
 
-  return success(institution.value.brokerage_per_order);
+  return success('0');
 };
 
 export const createTransaction = (deps: CreateTransactionDeps) =>

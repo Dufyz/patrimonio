@@ -31,7 +31,7 @@ export const createAssetPageController = (deps: AssetPageDeps): AssetPageControl
 
     const result = await deps.usecases.getAssetPage({
       assetId: String(request.params['asset_id']),
-      portfolioId: query.portfolio_id ?? null,
+      portfolioId: query.portfolio_id,
       period: query.period,
       kind: query.kind ?? null,
     });

@@ -36,7 +36,7 @@ export const prepareTestDatabase = async (sql: Sql): Promise<void> => {
   await runMigrations(testConnectionString());
 
   const [existing] = await sql<{ total: string }[]>`
-    select count(*)::text as total from business_day
+    SELECT COUNT(*)::TEXT AS total FROM business_day
   `;
 
   if (Number(existing?.total ?? 0) === 0) await loadBusinessDays(sql);
@@ -51,12 +51,12 @@ export type TestTransaction = postgres.ReservedSql<CustomTypes>;
  */
 export const beginTestTransaction = async (sql: Sql): Promise<TestTransaction> => {
   const reserved = await sql.reserve();
-  await reserved.unsafe('begin');
+  await reserved.unsafe('BEGIN');
   return reserved;
 };
 
 export const rollbackTestTransaction = async (tx: TestTransaction): Promise<void> => {
-  await tx.unsafe('rollback');
+  await tx.unsafe('ROLLBACK');
   tx.release();
 };
 
@@ -83,7 +83,7 @@ export const createScratchDatabase = async (): Promise<ScratchDatabase> => {
     applicationName: 'patrimonio-test-admin',
   });
 
-  await admin.unsafe(`create database ${name}`);
+  await admin.unsafe(`CREATE DATABASE ${name}`);
 
   const url = new URL(base);
   url.pathname = `/${name}`;
@@ -93,9 +93,9 @@ export const createScratchDatabase = async (): Promise<ScratchDatabase> => {
     drop: async () => {
       try {
         await admin.unsafe(
-          `select pg_terminate_backend(pid) from pg_stat_activity where datname = '${name}'`,
+          `SELECT PG_TERMINATE_BACKEND(pid) FROM pg_stat_activity WHERE datname = '${name}'`,
         );
-        await admin.unsafe(`drop database if exists ${name}`);
+        await admin.unsafe(`DROP DATABASE IF EXISTS ${name}`);
       } finally {
         await admin.end({ timeout: 5 });
       }

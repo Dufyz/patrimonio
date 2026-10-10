@@ -1,7 +1,6 @@
 import {
   createInstitutionSchema,
   deleteInstitutionSchema,
-  getFgcExposureSchema,
   listInstitutionsSchema,
   updateInstitutionSchema,
 } from '@patrimonio/contracts';
@@ -26,11 +25,6 @@ export const institutionRoutes = (deps: InstitutionDeps): Router => {
     '/institutions/:institution_id',
     validate(deleteInstitutionSchema),
     controller.remove,
-  );
-  router.get(
-    '/institutions/:institution_id/fgc-exposure',
-    validate(getFgcExposureSchema),
-    controller.fgcExposure,
   );
 
   return router;

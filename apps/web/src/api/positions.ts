@@ -12,7 +12,7 @@ import { request } from './client.js';
  * lá descreveria linhas que a tela escondeu.
  */
 export type PositionsRequest = {
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly groupBy: PositionGroupBy;
   readonly search: string;
   readonly categoryId: string | null;
@@ -21,7 +21,7 @@ export type PositionsRequest = {
 export const positionsQuery = (input: PositionsRequest): URLSearchParams => {
   const params = new URLSearchParams();
 
-  if (input.portfolioId !== null) params.set('portfolio_id', input.portfolioId);
+  params.set('portfolio_id', input.portfolioId);
   params.set('group_by', input.groupBy);
   if (input.search.trim() !== '') params.set('search', input.search.trim());
   if (input.categoryId !== null) params.set('category_id', input.categoryId);

@@ -12,10 +12,9 @@ import { PERFORMANCE_DEFAULT_PERIOD, PerformanceView } from './performance.js';
  * a diferença é em pontos, o método está escrito na tela e a escolha de
  * benchmark volta para quem a guarda.
  */
-const CDI = '019b0000-0000-7000-8000-000000000001';
-const IBOV = '019b0000-0000-7000-8000-000000000004';
+const CDI = 'CDI';
+const IBOV = 'IBOV';
 const LONGO = '0191e5a0-0000-7000-8000-00000000c001';
-const RESERVA = '0191e5a0-0000-7000-8000-00000000c002';
 
 const year = {
   year: 2026,
@@ -31,7 +30,6 @@ const performance: PerformanceResource = {
   scope: {
     portfolio_id: LONGO,
     name: 'Longo prazo',
-    purpose: null,
     recalc_status: 'idle',
     inception: '2021-03-15',
   },
@@ -65,19 +63,19 @@ const performance: PerformanceResource = {
     rows: [
       {
         kind: 'portfolio',
-        benchmark_id: null,
+        benchmark: null,
         name: 'Longo prazo',
         values: ['0.98', '15.92', null, '102.96'],
       },
       {
         kind: 'benchmark',
-        benchmark_id: CDI,
+        benchmark: CDI,
         name: 'CDI',
         values: ['1.14', '14.52', null, '84.90'],
       },
       {
         kind: 'difference',
-        benchmark_id: null,
+        benchmark: null,
         name: 'Diferença',
         values: ['-0.16', '1.40', null, '18.06'],
       },
@@ -119,24 +117,6 @@ const performance: PerformanceResource = {
       { key: 'ytd', base_date: '2025-12-31' },
       { key: '12m', base_date: '2025-09-30' },
       { key: 'inception', base_date: '2021-03-15' },
-    ],
-    portfolios: [
-      {
-        portfolio_id: LONGO,
-        name: 'Longo prazo',
-        value: '313854.92',
-        weight_pct: '72.20',
-        selected: true,
-        returns: ['0.98', '11.58', '15.92', '102.96'],
-      },
-      {
-        portfolio_id: RESERVA,
-        name: 'Reserva',
-        value: '5000.00',
-        weight_pct: '27.80',
-        selected: false,
-        returns: [null, null, null, null],
-      },
     ],
     classes: [
       {
@@ -308,17 +288,6 @@ describe('de onde veio cada mês', () => {
 });
 
 describe('por carteira e por classe', () => {
-  it('a carteira da tela fica marcada; a sem comparação mostra traço', () => {
-    show(ready(performance));
-
-    const tabela = screen.getByRole('table', { name: 'Retorno por carteira' });
-    const longo = within(tabela).getByRole('row', { name: /Longo prazo/ });
-    const reserva = within(tabela).getByRole('row', { name: /Reserva/ });
-
-    expect(longo).toHaveAttribute('aria-current', 'true');
-    expect(within(reserva).getAllByText('—')).toHaveLength(4);
-  });
-
   it('o caixa não tem retorno: traço, e não 0,00%', () => {
     show(ready(performance));
 

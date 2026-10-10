@@ -31,7 +31,7 @@ beforeEach(async () => {
     .post('/api/portfolios')
     .send({ name: 'Longo prazo' });
   carteira = criada.body.portfolio.id;
-  corretora = await seedInstitution(harness.sql, 'Corretora A', { brokerage: '4.90' });
+  corretora = await seedInstitution(harness.sql, 'Corretora A');
 });
 
 const lancar = (body: Record<string, unknown>) =>
@@ -83,16 +83,16 @@ describe('compra', () => {
     expect(response.body.transaction.net_amount).toBe('-3688.90');
   });
 
-  it('a taxa vem da regra da instituição quando não é informada', async () => {
+  it('sem taxa informada, a taxa é zero', async () => {
     const response = await lancar({});
 
-    expect(response.body.transaction.fees).toBe('4.90');
+    expect(response.body.transaction.fees).toBe('0.00');
   });
 
-  it('a taxa informada no corpo sobrescreve a sugestão', async () => {
-    const response = await lancar({ fees: '0' });
+  it('a taxa informada no corpo é a gravada', async () => {
+    const response = await lancar({ fees: '2.50' });
 
-    expect(response.body.transaction.fees).toBe('0.00');
+    expect(response.body.transaction.fees).toBe('2.50');
   });
 
   it('a liquidação de ação é sugerida em D+2 dias úteis', async () => {
@@ -121,8 +121,8 @@ describe('compra', () => {
     expect(response.body.recalculation.already_queued).toBe(false);
 
     const [evento] = await harness.sql<{ from_date: string; stage: string }[]>`
-      select stage, payload ->> 'from_date' as from_date
-        from pipeline_outbox where stage = 'recalc'
+      SELECT stage, payload ->> 'from_date' AS from_date
+        FROM pipeline_outbox WHERE stage = 'recalc'
     `;
     expect(evento?.from_date).toBe('2026-10-06');
   });
@@ -133,14 +133,14 @@ describe('compra', () => {
     await lancar({ trade_date: '2026-10-02' });
 
     const [recalcs] = await harness.sql<{ total: string }[]>`
-      select count(*)::text as total from pipeline_outbox where stage = 'recalc'
+      SELECT COUNT(*)::TEXT AS total FROM pipeline_outbox WHERE stage = 'recalc'
     `;
     expect(Number(recalcs?.total)).toBe(1);
 
     // E o from_date recua para a data mais antiga pedida na rajada.
     const [evento] = await harness.sql<{ from_date: string }[]>`
-      select payload ->> 'from_date' as from_date
-        from pipeline_outbox where stage = 'recalc'
+      SELECT payload ->> 'from_date' AS from_date
+        FROM pipeline_outbox WHERE stage = 'recalc'
     `;
     expect(evento?.from_date).toBe('2026-10-02');
   });
@@ -149,8 +149,8 @@ describe('compra', () => {
     await lancar({});
 
     const [backfills] = await harness.sql<{ total: string }[]>`
-      select count(*)::text as total
-        from pipeline_outbox where dedupe_key like 'backfill:%'
+      SELECT COUNT(*)::TEXT AS total
+        FROM pipeline_outbox WHERE dedupe_key LIKE 'backfill:%'
     `;
     expect(Number(backfills?.total)).toBe(1);
   });

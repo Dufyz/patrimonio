@@ -1,12 +1,10 @@
 import {
   allocationSchema,
   putStrategySchema,
-  updatePortfolioSchema,
 } from '@patrimonio/contracts';
 import type {
   AllocationResource,
   PutStrategyBody,
-  UpdatePortfolioBody,
 } from '@patrimonio/contracts';
 
 import { request } from './client.js';
@@ -21,7 +19,7 @@ import { request } from './client.js';
  * 35/25/40 por 30/30/40 é possível.
  */
 export type AllocationQuery = {
-  /** A estratégia é de uma carteira: o consolidado não tem alvo. */
+  /** A estratégia é de uma carteira. */
   readonly portfolioId: string;
   /** O valor do aporte a distribuir. Ausente é só a leitura. */
   readonly contribution?: string | undefined;
@@ -58,24 +56,6 @@ export const putStrategy = async (
 
   await request(`/api/portfolios/${portfolioId}/strategy`, anyObject, {
     method: 'PUT',
-    headers: { 'Idempotency-Key': key() },
-    body: JSON.stringify(parsed),
-  });
-};
-
-/**
- * As regras da estratégia — tolerância, peso máximo, rebalanceamento, revisão —
- * moram na carteira, e a escrita é a edição parcial dela: o que não vai no corpo
- * não é tocado. O corpo é validado com o schema da própria `api` antes de sair.
- */
-export const patchRules = async (
-  portfolioId: string,
-  body: UpdatePortfolioBody,
-): Promise<void> => {
-  const parsed = updatePortfolioSchema.shape.body.parse(body);
-
-  await request(`/api/portfolios/${portfolioId}`, anyObject, {
-    method: 'PATCH',
     headers: { 'Idempotency-Key': key() },
     body: JSON.stringify(parsed),
   });

@@ -27,6 +27,7 @@
     "migrate": "tsx src/scripts/migrate.ts",
     "migrate:test": "tsx src/scripts/migrate.ts --test",
     "seed:business-days": "tsx src/scripts/seed-business-days.ts",
+    "seed:institutions": "tsx src/scripts/seed-institutions.ts",
     "holidays:report": "tsx src/scripts/holidays.ts report",
     "holidays:generate": "tsx src/scripts/holidays.ts generate"
   },

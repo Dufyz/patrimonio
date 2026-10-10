@@ -241,8 +241,7 @@ export const assetPageCustodianSchema = z.object({
 });
 
 export const assetPageResourceSchema = z.object({
-  /** Nulo é o escopo de todas as carteiras. */
-  portfolio_id: uuid.nullable(),
+  portfolio_id: uuid,
   portfolio_name: z.string().nullable(),
   /** O dia de projeção mostrado — o último fechado em ou antes de hoje. */
   as_of: dateOnly.nullable(),
@@ -291,8 +290,7 @@ export const assetRefSchema = z.union([
 export const getAssetPageSchema = z.object({
   params: z.object({ asset_id: assetRefSchema }),
   query: z.object({
-    /** Ausente significa todas as carteiras ativas. */
-    portfolio_id: uuid.optional(),
+    portfolio_id: uuid,
     period: assetPeriodSchema.default('1a'),
     /** Ausente é todos os tipos. */
     kind: z.enum(TRANSACTION_KINDS).optional(),

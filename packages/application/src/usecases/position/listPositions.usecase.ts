@@ -21,7 +21,7 @@ import type {
  * filtrar nada.
  */
 export type ListPositionsInput = {
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly groupBy: PositionGroupBy;
   readonly search: string | null;
   readonly categoryId: string | null;

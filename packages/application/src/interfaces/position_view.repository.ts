@@ -27,8 +27,7 @@ import type { AppError } from '../errors/app-error.js';
 export type PositionViewFilter = {
   /** O dia limite: a tela mostra o último fechamento em ou antes dele. */
   readonly today: DateOnly;
-  /** Nulo significa todas as carteiras ativas. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly groupBy: PositionGroupBy;
   readonly search: string | null;
   readonly categoryId: string | null;

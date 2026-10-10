@@ -82,12 +82,7 @@ export type { Category, ClassifiableAsset } from './category/category.entities.j
 export { parseCategoryFromDB } from './category/category.parsers.js';
 
 // ─── Instituição ─────────────────────────────────────────────────────────────
-export {
-  FGC_LIMIT_BRL,
-  INSTITUTION_ROLES,
-  isInstitutionRole,
-} from './institution/institution.entities.js';
-export type { Institution, InstitutionRole } from './institution/institution.entities.js';
+export type { Institution } from './institution/institution.entities.js';
 export { parseInstitutionFromDB } from './institution/institution.parsers.js';
 
 // ─── Lançamento ──────────────────────────────────────────────────────────────
@@ -168,12 +163,17 @@ export {
 } from './projection/projection.parsers.js';
 
 // ─── Carteira ────────────────────────────────────────────────────────────────
-export { REBALANCE_MODES, isRebalanceMode } from './portfolio/portfolio.entities.js';
-export type {
-  Portfolio,
-  RebalanceMode,
-  StrategyTarget,
-} from './portfolio/portfolio.entities.js';
+export { TOLERANCE_PP } from './portfolio/portfolio.entities.js';
+export {
+  INDEX_LABELS,
+  benchmarkLabel,
+  describeBenchmark,
+  formatBenchmark,
+  normalizeBenchmark,
+  parseBenchmark,
+} from './portfolio/benchmark.js';
+export type { BenchmarkValue } from './portfolio/benchmark.js';
+export type { Portfolio, StrategyTarget } from './portfolio/portfolio.entities.js';
 export {
   parsePortfolioFromDB,
   parseStrategyTargetFromDB,

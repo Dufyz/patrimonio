@@ -41,7 +41,6 @@ const GROUP_PARAMS: Readonly<Record<StatementGroup, string>> = {
   sell: 'vendas',
   payout: 'proventos',
   cash: 'caixa',
-  transfer: 'transferencias',
   event: 'eventos',
 };
 
@@ -50,7 +49,6 @@ export const GROUP_LABELS: Readonly<Record<StatementGroup, string>> = {
   sell: 'Vendas',
   payout: 'Proventos',
   cash: 'Aportes e resgates',
-  transfer: 'Transferências',
   event: 'Eventos',
 };
 
@@ -231,13 +229,6 @@ export const effectView = (effect: StatementEffect, hidden = false): EffectView 
       return { text: 'vindo de fora do app', tone: 'neutral' };
     case 'cash_out':
       return { text: 'saindo do app', tone: 'neutral' };
-    case 'transfer': {
-      const place = effect.counterpart === null ? 'outra carteira' : effect.counterpart;
-      return {
-        text: effect.direction === 'in' ? `vindo de ${place}` : `indo para ${place}`,
-        tone: 'neutral',
-      };
-    }
     case 'corporate_event':
       return {
         text: `${ratio(effect.ratio_from)}:${ratio(effect.ratio_to)} · ${ratio(

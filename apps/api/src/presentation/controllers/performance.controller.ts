@@ -20,11 +20,11 @@ export type PerformanceController = {
 };
 
 type PerformanceQuery = {
-  readonly portfolio_id?: string;
+  readonly portfolio_id: string;
   readonly on_date?: string;
   readonly from?: string;
   readonly to?: string;
-  readonly benchmark_ids?: string;
+  readonly benchmarks?: string;
 };
 
 export const createPerformanceController = (
@@ -33,18 +33,17 @@ export const createPerformanceController = (
   performance: async (request, response) => {
     const query = validatedQuery<PerformanceQuery>(request);
 
-    const benchmarkIds =
-      query?.benchmark_ids === undefined || query.benchmark_ids === ''
+    const benchmarkList =
+      query?.benchmarks === undefined || query.benchmarks === ''
         ? []
-        : query.benchmark_ids.split(',');
+        : query.benchmarks.split(',');
 
     const result = await deps.usecases.getPerformance({
-      // A carteira é filtro, não rota: a ausência do parâmetro é o consolidado.
-      portfolio_id: query?.portfolio_id ?? null,
+      portfolio_id: String(query?.portfolio_id),
       ...(query?.on_date === undefined ? {} : { on_date: query.on_date }),
       ...(query?.from === undefined ? {} : { from: query.from }),
       ...(query?.to === undefined ? {} : { to: query.to }),
-      benchmark_ids: benchmarkIds,
+      benchmarks: benchmarkList,
     });
 
     if (result.isFailure()) {

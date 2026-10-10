@@ -22,6 +22,7 @@ import { AssetPicker } from './asset_picker.js';
 import { EffectPanel } from './effect_table.js';
 import { Field, Input, Select, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
+import { InstitutionPicker } from './institution_picker.js';
 import { previewValue, useSave, usePreview } from './hooks.js';
 
 /**
@@ -163,6 +164,7 @@ export const TradeFormView = ({
             key={generation}
             control={control}
             invalid={control['aria-invalid']}
+            portfolioId={portfolioId}
             value={asset}
             onChange={setAsset}
             onBlur={touch('asset')}
@@ -265,14 +267,13 @@ export const TradeFormView = ({
         </Field>
         <Field label="Instituição" error={visible.show('institution')}>
           {(control) => (
-            <Select
-              {...control}
+            <InstitutionPicker
+              control={control}
               invalid={control['aria-invalid']}
               options={reference.institutions}
-              placeholder="Escolha"
-              value={institutionId ?? ''}
+              value={institutionId}
               onBlur={touch('institution')}
-              onChange={(event) => setInstitutionId(event.target.value || null)}
+              onChange={setInstitutionId}
             />
           )}
         </Field>

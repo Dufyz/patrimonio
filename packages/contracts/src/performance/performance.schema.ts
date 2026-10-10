@@ -1,3 +1,4 @@
+import { parseBenchmark } from '@patrimonio/domain';
 import { z } from 'zod';
 
 import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
@@ -42,16 +43,15 @@ export const performanceBreakdownKeySchema = z.enum(PERFORMANCE_BREAKDOWN_KEYS);
 const returnOrNull = decimalString.nullable();
 
 export const performanceBenchmarkSchema = z.object({
-  id: uuid,
+  /** O texto canônico (`CDI`, `IPCA+6`, `110%CDI`): é a identidade e o que a URL carrega. */
+  id: z.string(),
   name: z.string(),
-  kind: z.enum(['index', 'index_plus_rate', 'blend']),
+  kind: z.enum(['index', 'index_plus_rate', 'percent_of_index']),
 });
 
 export const performanceScopeSchema = z.object({
-  /** Nulo é o consolidado: "todas as carteiras" é a ausência de escopo. */
-  portfolio_id: uuid.nullable(),
+  portfolio_id: uuid,
   name: z.string(),
-  purpose: z.string().nullable(),
   recalc_status: z.enum(['idle', 'queued', 'running', 'failed']),
   /** O primeiro fechamento do escopo: é o que o período "Início" significa. */
   inception: dateOnly.nullable(),
@@ -62,12 +62,8 @@ export const performanceScopeSchema = z.object({
  * valores, e é por isso que eles são enumeração e não frase.
  */
 export const performanceMethodSchema = z.object({
-  /**
-   * `portfolio_quota`: a cota gravada da carteira. `consolidated_quota`: uma
-   * cota construída sobre a história de todas as carteiras, porque somar cota
-   * de carteiras diferentes não significa nada.
-   */
-  portfolio: z.enum(['portfolio_quota', 'consolidated_quota']),
+  /** `portfolio_quota`: a cota gravada da carteira. */
+  portfolio: z.literal('portfolio_quota'),
   /** Classe de ativo não tem cota: o retorno é Dietz modificado. */
   class: z.literal('modified_dietz'),
   /** O índice é o produto dos fatores diários, e não uma soma de variações. */
@@ -84,7 +80,7 @@ export const performanceChartSchema = z.object({
   portfolio: z.array(decimalString),
   benchmarks: z.array(
     z.object({
-      id: uuid,
+      id: z.string(),
       values: z.array(decimalString),
     }),
   ),
@@ -99,7 +95,7 @@ export const performanceWindowColumnSchema = z.object({
 export const performanceWindowRowSchema = z.object({
   kind: z.enum(['portfolio', 'benchmark', 'difference']),
   /** O benchmark da linha; nulo na carteira e na diferença. */
-  benchmark_id: uuid.nullable(),
+  benchmark: z.string().nullable(),
   name: z.string(),
   /** Um por coluna. Retorno em %, diferença em pontos percentuais. */
   values: z.array(returnOrNull),
@@ -164,16 +160,6 @@ export const performanceBreakdownColumnSchema = z.object({
   base_date: dateOnly.nullable(),
 });
 
-export const performancePortfolioRowSchema = z.object({
-  portfolio_id: uuid,
-  name: z.string(),
-  value: decimalString.nullable(),
-  weight_pct: decimalString.nullable(),
-  /** Verdadeiro na carteira que é o escopo da tela. */
-  selected: z.boolean(),
-  returns: z.array(returnOrNull),
-});
-
 export const performanceClassRowSchema = z.object({
   category_id: z.string(),
   name: z.string(),
@@ -188,7 +174,6 @@ export const performanceClassRowSchema = z.object({
 
 export const performanceBreakdownSchema = z.object({
   columns: z.array(performanceBreakdownColumnSchema),
-  portfolios: z.array(performancePortfolioRowSchema),
   classes: z.array(performanceClassRowSchema),
 });
 
@@ -198,16 +183,15 @@ export const performanceSchema = z.object({
   scope: performanceScopeSchema,
   method: performanceMethodSchema,
   benchmarks: z.object({
-    /** Tudo o que existe para escolher, na ordem do nome. */
+    /** Os índices simples e o benchmark da própria carteira; qualquer outro valor também vale. */
     available: z.array(performanceBenchmarkSchema),
     /** O que está na tela, na ordem das linhas e das cores. */
     selected: z.array(performanceBenchmarkSchema),
     /**
      * A referência da grade mensal e da decomposição: o benchmark declarado da
-     * carteira e, no consolidado — que não declara um —, o primeiro da lista,
-     * o CDI quando nada foi pedido. Nulo só sem benchmark nenhum no catálogo.
+     * carteira e, sem ele, o CDI.
      */
-    primary_id: uuid.nullable(),
+    primary_id: z.string(),
   }),
   chart: performanceChartSchema,
   windows: performanceWindowsSchema,
@@ -216,25 +200,24 @@ export const performanceSchema = z.object({
   breakdown: performanceBreakdownSchema,
 });
 
-/** `a,b,c` → lista de identificadores; vazio ou ausente é "usar o padrão". */
-const uuidList = z
+/** `CDI,IPCA+6` → lista de benchmarks; vazio ou ausente é "usar o padrão". */
+const benchmarkList = z
   .string()
   .refine(
     (value) =>
-      value === '' || value.split(',').every((part) => uuid.safeParse(part).success),
-    'informe identificadores separados por vírgula',
+      value === '' || value.split(',').every((part) => parseBenchmark(part) !== null),
+    'informe benchmarks separados por vírgula, como CDI,IPCA+6',
   );
 
 export const getPerformanceSchema = z.object({
   query: z.object({
-    /** Ausente é o consolidado. A carteira é filtro, não rota. */
-    portfolio_id: uuid.optional(),
+    portfolio_id: uuid,
     on_date: dateOnly.optional(),
     /** O recorte do gráfico. As tabelas não dependem dele. */
     from: dateOnly.optional(),
     to: dateOnly.optional(),
     /** Benchmarks na tela; ausente é o padrão da carteira. */
-    benchmark_ids: uuidList.optional(),
+    benchmarks: benchmarkList.optional(),
   }),
 });
 

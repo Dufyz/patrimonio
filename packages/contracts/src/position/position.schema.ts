@@ -139,9 +139,8 @@ export const positionsResourceSchema = z.object({
   groups: z.array(positionGroupSchema),
   total: positionSummarySchema,
   /**
-   * O retorno do recorte inteiro, quando ele é uma carteira só: sai da série de
-   * cota, que é a única medida que aporte e resgate não contaminam. Nulo quando
-   * o recorte são todas as carteiras, porque a cota é por carteira.
+   * O retorno da carteira: sai da série de cota, que é a única medida que aporte
+   * e resgate não contaminam. Nulo quando a carteira não tem cota para comparar.
    */
   day_change_ratio: decimalString.nullable(),
   return_12m_ratio: decimalString.nullable(),

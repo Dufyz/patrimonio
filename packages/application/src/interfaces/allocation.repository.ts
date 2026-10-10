@@ -1,4 +1,4 @@
-import type { DateOnly, RebalanceMode, RecalcStatus } from '@patrimonio/domain';
+import type { DateOnly, RecalcStatus } from '@patrimonio/domain';
 import type { Either } from '@patrimonio/shared';
 
 import type { AppError } from '../errors/app-error.js';
@@ -20,22 +20,10 @@ import type { AppError } from '../errors/app-error.js';
 export type AllocationPortfolioRow = {
   readonly portfolio_id: string;
   readonly name: string;
-  readonly purpose: string | null;
   readonly recalc_status: RecalcStatus;
-  readonly tolerance_pp: string;
-  readonly max_asset_weight_pct: string | null;
-  readonly rebalance_mode: RebalanceMode;
-  readonly review_every_months: number | null;
-  readonly benchmark_id: string | null;
-  readonly benchmark_name: string | null;
+  readonly benchmark: string | null;
   /** O dia em que o alvo foi salvo pela última vez. Nulo sem alvo. */
   readonly reviewed_on: DateOnly | null;
-  /**
-   * `reviewed_on` mais `review_every_months`, somado pelo banco: `date + interval`
-   * encosta no fim do mês (31/ago + 6 meses é 28/fev), e somar mês em JavaScript
-   * transborda para março.
-   */
-  readonly next_review_on: DateOnly | null;
   /** O valor total da carteira no fechamento. Nulo quando nunca fechou. */
   readonly total_value: string | null;
 };

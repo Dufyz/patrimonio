@@ -20,7 +20,7 @@ export type GoalController = {
 };
 
 type GoalQuery = {
-  readonly portfolio_id?: string;
+  readonly portfolio_id: string;
   readonly on_date?: string;
   readonly rates?: string;
 };
@@ -46,8 +46,7 @@ export const createGoalController = (deps: GoalDeps): GoalController => ({
     const rates = parseRates(query?.rates);
 
     const result = await deps.usecases.getGoals({
-      // A carteira é filtro, não rota: a ausência do parâmetro é o consolidado.
-      portfolio_id: query?.portfolio_id ?? null,
+      portfolio_id: String(query?.portfolio_id),
       ...(query?.on_date === undefined ? {} : { on_date: query.on_date }),
       ...(rates === undefined ? {} : { rates }),
     });

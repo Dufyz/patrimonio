@@ -11,7 +11,6 @@ import {
   buildConfirmBody,
   buildPayoutBody,
   buildTradeBody,
-  buildTransferBody,
   buildUpdateBody,
   editFormOf,
   effectRows,
@@ -26,7 +25,7 @@ import {
   pickPortfolio,
   todayDateOnly,
 } from './entry.js';
-import type { CashForm, PayoutForm, TradeForm, TransferForm } from './entry.js';
+import type { CashForm, PayoutForm, TradeForm } from './entry.js';
 
 const LONGO = '0191e5a0-0000-7000-8000-00000000c001';
 const RESERVA = '0191e5a0-0000-7000-8000-00000000c002';
@@ -143,8 +142,6 @@ describe('buildCashBody', () => {
     institutionId: CORRETORA,
     date: '2026-10-01',
     amount: '4.000,00',
-    source: 'external',
-    fromPortfolioId: null,
     note: '',
   };
 
@@ -157,17 +154,7 @@ describe('buildCashBody', () => {
         institution_id: CORRETORA,
         trade_date: '2026-10-01',
         amount: '4000.00',
-        source: 'external',
       },
-    });
-  });
-
-  it('dinheiro de outra carteira pede a origem', () => {
-    const built = buildCashBody('deposit', { ...cash, source: 'other_portfolio' });
-
-    expect(built).toEqual({
-      ok: false,
-      errors: { fromPortfolio: 'Escolha a carteira de origem.' },
     });
   });
 
@@ -185,16 +172,6 @@ describe('buildCashBody', () => {
         unit_price: '1',
       },
     });
-  });
-
-  it('de outra carteira não há preview de aporte', () => {
-    expect(
-      buildCashPreviewBody('deposit', {
-        ...cash,
-        source: 'other_portfolio',
-        fromPortfolioId: RESERVA,
-      }),
-    ).toBeNull();
   });
 });
 
@@ -252,49 +229,6 @@ describe('buildPayoutBody', () => {
   });
 });
 
-describe('buildTransferBody', () => {
-  const transfer: TransferForm = {
-    assetId: ITUB4,
-    fromPortfolioId: LONGO,
-    toPortfolioId: RESERVA,
-    institutionId: CORRETORA,
-    date: '2026-10-06',
-    quantity: '100',
-    all: false,
-    note: '',
-  };
-
-  it('monta a transferência com a quantidade', () => {
-    const built = buildTransferBody(transfer);
-
-    expect(built.ok && built.body.quantity).toBe('100');
-    expect(built.ok && 'all' in built.body).toBe(false);
-  });
-
-  it('"Tudo" manda `all` e não a quantidade', () => {
-    const built = buildTransferBody({ ...transfer, all: true, quantity: '' });
-
-    expect(built.ok && built.body.all).toBe(true);
-    expect(built.ok && 'quantity' in built.body).toBe(false);
-  });
-
-  it('origem e destino iguais são recusados no destino', () => {
-    const built = buildTransferBody({ ...transfer, toPortfolioId: LONGO });
-
-    expect(!built.ok && built.errors.toPortfolio).toBe(
-      'a carteira de origem e a de destino precisam ser diferentes',
-    );
-  });
-
-  it('sem quantidade nem "Tudo", pede uma das duas', () => {
-    const built = buildTransferBody({ ...transfer, quantity: '' });
-
-    expect(!built.ok && built.errors.quantity).toBe(
-      'Informe a quantidade ou use "Tudo".',
-    );
-  });
-});
-
 const original: TransactionResource = {
   id: LANCAMENTO,
   kind: 'buy',
@@ -313,7 +247,6 @@ const original: TransactionResource = {
   expected_net_amount: null,
   record_date: null,
   confirmed_at: null,
-  transfer_group_id: null,
   event_ratio_from: null,
   event_ratio_to: null,
   note: null,
@@ -414,9 +347,8 @@ describe('buildUpdateBody', () => {
 });
 
 describe('isEditable e isPendingPayout', () => {
-  it('perna de transferência não se edita sozinha', () => {
+  it('evento corporativo não se edita', () => {
     expect(isEditable(original)).toBe(true);
-    expect(isEditable({ ...original, transfer_group_id: RESERVA })).toBe(false);
     expect(isEditable({ ...original, kind: 'corporate_event' })).toBe(false);
   });
 
@@ -625,8 +557,7 @@ describe('duplicar', () => {
     unit_price: '31.04000000',
     fees: '0.00000000',
     note: null,
-    transfer_group_id: null,
-  };
+    };
 
   it('compra leva ativo, carteira e números; a data não vai', () => {
     expect(duplicateRequest(row)).toEqual({
@@ -637,8 +568,7 @@ describe('duplicar', () => {
     });
   });
 
-  it('perna de transferência e evento corporativo não se duplicam', () => {
-    expect(duplicateRequest({ ...row, transfer_group_id: 't1' })).toBeNull();
+  it('evento corporativo não se duplica', () => {
     expect(duplicateRequest({ ...row, kind: 'corporate_event' })).toBeNull();
   });
 });

@@ -43,11 +43,10 @@ const GROUP_KINDS: Readonly<Record<string, readonly string[]>> = {
   sell: ['sell'],
   payout: ['payout'],
   cash: ['deposit', 'withdrawal'],
-  transfer: ['transfer'],
   event: ['corporate_event'],
 };
 
-const FACET_ORDER = ['buy', 'sell', 'payout', 'cash', 'transfer', 'event'] as const;
+const FACET_ORDER = ['buy', 'sell', 'payout', 'cash', 'event'] as const;
 
 /** `%` e `_` digitados pela pessoa são texto, não curinga. */
 const likePattern = (term: string): string =>
@@ -68,142 +67,141 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
       const groupKinds = kinds === null ? null : sql.array(kinds);
 
       const aggregates = await sql<AggregateRow[]>`
-        with scope as (
-          select p.id, p.name, p.recalc_status
-            from portfolio p
-           where p.archived_at is null
-             and (${filter.portfolioId}::uuid is null or p.id = ${filter.portfolioId}::uuid)
+        WITH scope AS (
+          SELECT p.id, p.name, p.recalc_status
+            FROM portfolio p
+           WHERE p.archived_at IS NULL
+             AND p.id = ${filter.portfolioId}::UUID
         ),
-        scoped as (
-          select t.*,
-                 s.name as portfolio_name,
-                 i.name as institution_name,
+        scoped AS (
+          SELECT t.*,
+                 s.name AS portfolio_name,
+                 i.name AS institution_name,
                  a.ticker,
-                 a.name as asset_name,
+                 a.name AS asset_name,
                  a.b3_type
-            from transaction t
-            join scope s on s.id = t.portfolio_id
-            join institution i on i.id = t.institution_id
-            left join asset a on a.id = t.asset_id
+            FROM transaction t
+            JOIN scope s ON s.id = t.portfolio_id
+            JOIN institution i ON i.id = t.institution_id
+            LEFT JOIN asset a ON a.id = t.asset_id
         ),
-        matching as (
-          select *
-            from scoped
-           where (${filter.institutionId}::uuid is null
-                  or institution_id = ${filter.institutionId}::uuid)
-             and (${pattern}::text is null
-                  or ticker ilike ${pattern}::text
-                  or asset_name ilike ${pattern}::text)
+        matching AS (
+          SELECT *
+            FROM scoped
+           WHERE (${filter.institutionId}::UUID IS NULL
+                  OR institution_id = ${filter.institutionId}::UUID)
+             AND (${pattern}::TEXT IS NULL
+                  OR ticker ILIKE ${pattern}::TEXT
+                  OR asset_name ILIKE ${pattern}::TEXT)
         ),
-        narrowed as (
-          select *
-            from matching
-           where (${filter.from}::date is null or trade_date >= ${filter.from}::date)
-             and (${filter.to}::date is null or trade_date <= ${filter.to}::date)
+        narrowed AS (
+          SELECT *
+            FROM matching
+           WHERE (${filter.from}::DATE IS NULL OR trade_date >= ${filter.from}::DATE)
+             AND (${filter.to}::DATE IS NULL OR trade_date <= ${filter.to}::DATE)
         ),
-        filtered as (
-          select *
-            from narrowed
-           where ${groupKinds}::text[] is null
-              or kind::text = any(${groupKinds}::text[])
+        filtered AS (
+          SELECT *
+            FROM narrowed
+           WHERE ${groupKinds}::TEXT[] IS NULL
+              OR kind::TEXT = ANY(${groupKinds}::TEXT[])
         ),
-        unbounded as (
-          select *
-            from matching
-           where ${groupKinds}::text[] is null
-              or kind::text = any(${groupKinds}::text[])
+        UNBOUNDED AS (
+          SELECT *
+            FROM matching
+           WHERE ${groupKinds}::TEXT[] IS NULL
+              OR kind::TEXT = ANY(${groupKinds}::TEXT[])
         ),
-        before_period as (
-          select max(trade_date) as last_date
-            from unbounded
-           where ${filter.from}::date is not null
-             and trade_date < ${filter.from}::date
+        before_period AS (
+          SELECT MAX(trade_date) AS last_date
+            FROM UNBOUNDED
+           WHERE ${filter.from}::DATE IS NOT NULL
+             AND trade_date < ${filter.from}::DATE
         ),
-        paged as (
-          select f.*
-            from filtered f
-           order by f.trade_date desc, f.id desc
-          offset ${offset} limit ${filter.limit}
+        paged AS (
+          SELECT f.*
+            FROM filtered f
+           ORDER BY f.trade_date DESC, f.id DESC
+          OFFSET ${offset} LIMIT ${filter.limit}
         )
-        select jsonb_build_object(
-          'scope', jsonb_build_object(
-            'portfolio_id', ${filter.portfolioId}::uuid,
+        SELECT JSONB_BUILD_OBJECT(
+          'scope', JSONB_BUILD_OBJECT(
+            'portfolio_id', ${filter.portfolioId}::UUID,
             'portfolio_name', (
-              select s.name from scope s where s.id = ${filter.portfolioId}::uuid
+              SELECT s.name FROM scope s WHERE s.id = ${filter.portfolioId}::UUID
             ),
-            'entries_total', (select count(*) from scoped),
-            'first_trade_date', (select min(trade_date)::text from scoped)
+            'entries_total', (SELECT COUNT(*) FROM scoped),
+            'first_trade_date', (SELECT MIN(trade_date)::TEXT FROM scoped)
           ),
           'summary', (
-            select jsonb_build_object(
-              'count', count(*),
-              'deposits', coalesce(sum(net_amount) filter (where kind = 'deposit'), 0)::numeric(20,2)::text,
-              'withdrawals', coalesce(sum(abs(net_amount)) filter (where kind = 'withdrawal'), 0)::numeric(20,2)::text,
-              'buys', coalesce(sum(abs(net_amount)) filter (where kind = 'buy'), 0)::numeric(20,2)::text,
-              'sells', coalesce(sum(net_amount) filter (where kind = 'sell'), 0)::numeric(20,2)::text,
-              'payouts', coalesce(sum(net_amount) filter (
-                where kind = 'payout' and confirmed_at is not null
-              ), 0)::numeric(20,2)::text
+            SELECT JSONB_BUILD_OBJECT(
+              'count', COUNT(*),
+              'deposits', COALESCE(SUM(net_amount) FILTER (WHERE kind = 'deposit'), 0)::NUMERIC(20,2)::TEXT,
+              'withdrawals', COALESCE(SUM(ABS(net_amount)) FILTER (WHERE kind = 'withdrawal'), 0)::NUMERIC(20,2)::TEXT,
+              'buys', COALESCE(SUM(ABS(net_amount)) FILTER (WHERE kind = 'buy'), 0)::NUMERIC(20,2)::TEXT,
+              'sells', COALESCE(SUM(net_amount) FILTER (WHERE kind = 'sell'), 0)::NUMERIC(20,2)::TEXT,
+              'payouts', COALESCE(SUM(net_amount) FILTER (
+                WHERE kind = 'payout' AND confirmed_at IS NOT NULL
+              ), 0)::NUMERIC(20,2)::TEXT
             )
-            from filtered
+            FROM filtered
           ),
           'facet_counts', (
-            select coalesce(jsonb_object_agg(g.grp, g.total), '{}'::jsonb)
-              from (
-                select case kind::text
-                         when 'buy' then 'buy'
-                         when 'sell' then 'sell'
-                         when 'payout' then 'payout'
-                         when 'deposit' then 'cash'
-                         when 'withdrawal' then 'cash'
-                         when 'transfer' then 'transfer'
-                         else 'event'
-                       end as grp,
-                       count(*) as total
-                  from narrowed
-                 group by 1
+            SELECT COALESCE(JSONB_OBJECT_AGG(g.grp, g.total), '{}'::JSONB)
+              FROM (
+                SELECT CASE kind::TEXT
+                         WHEN 'buy' THEN 'buy'
+                         WHEN 'sell' THEN 'sell'
+                         WHEN 'payout' THEN 'payout'
+                         WHEN 'deposit' THEN 'cash'
+                         WHEN 'withdrawal' THEN 'cash'
+                         ELSE 'event'
+                       END AS grp,
+                       COUNT(*) AS total
+                  FROM narrowed
+                 GROUP BY 1
               ) g
           ),
-          'facets_total', (select count(*) from narrowed),
-          'institutions', coalesce((
-            select jsonb_agg(
-                     jsonb_build_object('id', x.id, 'name', x.name, 'count', x.total)
-                     order by x.name
+          'facets_total', (SELECT COUNT(*) FROM narrowed),
+          'institutions', COALESCE((
+            SELECT JSONB_AGG(
+                     JSONB_BUILD_OBJECT('id', x.id, 'name', x.name, 'count', x.total)
+                     ORDER BY x.name
                    )
-              from (
-                select institution_id as id, institution_name as name, count(*) as total
-                  from scoped
-                 group by institution_id, institution_name
+              FROM (
+                SELECT institution_id AS id, institution_name AS name, COUNT(*) AS total
+                  FROM scoped
+                 GROUP BY institution_id, institution_name
               ) x
-          ), '[]'::jsonb),
-          'months', coalesce((
-            select jsonb_agg(m.item order by m.month desc)
-              from (
-                select to_char(trade_date, 'YYYY-MM') as month,
-                       jsonb_build_object(
-                         'month', to_char(trade_date, 'YYYY-MM'),
-                         'count', count(*),
-                         'deposits', coalesce(sum(net_amount) filter (where kind = 'deposit'), 0)::numeric(20,2)::text,
-                         'withdrawals', coalesce(sum(abs(net_amount)) filter (where kind = 'withdrawal'), 0)::numeric(20,2)::text,
-                         'buys', coalesce(sum(abs(net_amount)) filter (where kind = 'buy'), 0)::numeric(20,2)::text,
-                         'sells', coalesce(sum(net_amount) filter (where kind = 'sell'), 0)::numeric(20,2)::text,
-                         'payouts', coalesce(sum(net_amount) filter (
-                           where kind = 'payout' and confirmed_at is not null
-                         ), 0)::numeric(20,2)::text
-                       ) as item
-                  from filtered
-                 group by to_char(trade_date, 'YYYY-MM')
+          ), '[]'::JSONB),
+          'months', COALESCE((
+            SELECT JSONB_AGG(m.item ORDER BY m.month DESC)
+              FROM (
+                SELECT TO_CHAR(trade_date, 'YYYY-MM') AS month,
+                       JSONB_BUILD_OBJECT(
+                         'month', TO_CHAR(trade_date, 'YYYY-MM'),
+                         'count', COUNT(*),
+                         'deposits', COALESCE(SUM(net_amount) FILTER (WHERE kind = 'deposit'), 0)::NUMERIC(20,2)::TEXT,
+                         'withdrawals', COALESCE(SUM(ABS(net_amount)) FILTER (WHERE kind = 'withdrawal'), 0)::NUMERIC(20,2)::TEXT,
+                         'buys', COALESCE(SUM(ABS(net_amount)) FILTER (WHERE kind = 'buy'), 0)::NUMERIC(20,2)::TEXT,
+                         'sells', COALESCE(SUM(net_amount) FILTER (WHERE kind = 'sell'), 0)::NUMERIC(20,2)::TEXT,
+                         'payouts', COALESCE(SUM(net_amount) FILTER (
+                           WHERE kind = 'payout' AND confirmed_at IS NOT NULL
+                         ), 0)::NUMERIC(20,2)::TEXT
+                       ) AS item
+                  FROM filtered
+                 GROUP BY TO_CHAR(trade_date, 'YYYY-MM')
               ) m
-          ), '[]'::jsonb),
-          'total', (select count(*) from filtered),
-          'rows', coalesce((
-            select jsonb_agg(
-                     jsonb_build_object(
+          ), '[]'::JSONB),
+          'total', (SELECT COUNT(*) FROM filtered),
+          'rows', COALESCE((
+            SELECT JSONB_AGG(
+                     JSONB_BUILD_OBJECT(
                        'id', p.id,
-                       'kind', p.kind::text,
-                       'payout_kind', p.payout_kind::text,
-                       'trade_date', p.trade_date::text,
-                       'settlement_date', p.settlement_date::text,
+                       'kind', p.kind::TEXT,
+                       'payout_kind', p.payout_kind::TEXT,
+                       'trade_date', p.trade_date::TEXT,
+                       'settlement_date', p.settlement_date::TEXT,
                        'portfolio_id', p.portfolio_id,
                        'portfolio_name', p.portfolio_name,
                        'institution_id', p.institution_id,
@@ -211,56 +209,46 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
                        'asset_id', p.asset_id,
                        'ticker', p.ticker,
                        'asset_name', p.asset_name,
-                       'b3_type', p.b3_type::text,
-                       'quantity', p.quantity::text,
-                       'unit_price', p.unit_price::text,
-                       'fees', p.fees::text,
-                       'gross_amount', p.gross_amount::text,
-                       'tax_withheld', p.tax_withheld::text,
-                       'net_amount', p.net_amount::text,
-                       'expected_net_amount', p.expected_net_amount::text,
+                       'b3_type', p.b3_type::TEXT,
+                       'quantity', p.quantity::TEXT,
+                       'unit_price', p.unit_price::TEXT,
+                       'fees', p.fees::TEXT,
+                       'gross_amount', p.gross_amount::TEXT,
+                       'tax_withheld', p.tax_withheld::TEXT,
+                       'net_amount', p.net_amount::TEXT,
+                       'expected_net_amount', p.expected_net_amount::TEXT,
                        'confirmed_at', p.confirmed_at,
-                       'transfer_group_id', p.transfer_group_id,
-                       'event_ratio_from', p.event_ratio_from::text,
-                       'event_ratio_to', p.event_ratio_to::text,
+                       'event_ratio_from', p.event_ratio_from::TEXT,
+                       'event_ratio_to', p.event_ratio_to::TEXT,
                        'note', p.note,
-                       'realized_exempt', r.exempt,
-                       'transfer_counterpart', (
-                         select s2.name
-                           from transaction t2
-                           join portfolio s2 on s2.id = t2.portfolio_id
-                          where p.transfer_group_id is not null
-                            and t2.transfer_group_id = p.transfer_group_id
-                            and t2.id <> p.id
-                          limit 1
-                       )
+                       'realized_exempt', r.exempt
                      )
-                     order by p.trade_date desc, p.id desc
+                     ORDER BY p.trade_date DESC, p.id DESC
                    )
-              from paged p
-              left join realized_result r on r.transaction_id = p.id
-          ), '[]'::jsonb),
+              FROM paged p
+              LEFT JOIN realized_result r ON r.transaction_id = p.id
+          ), '[]'::JSONB),
           'earlier', (
-            select jsonb_build_object(
-                     'month', to_char(b.last_date, 'YYYY-MM'),
+            SELECT JSONB_BUILD_OBJECT(
+                     'month', TO_CHAR(b.last_date, 'YYYY-MM'),
                      'count', (
-                       select count(*)
-                         from unbounded u
-                        where to_char(u.trade_date, 'YYYY-MM') = to_char(b.last_date, 'YYYY-MM')
-                          and u.trade_date < ${filter.from}::date
+                       SELECT COUNT(*)
+                         FROM UNBOUNDED u
+                        WHERE TO_CHAR(u.trade_date, 'YYYY-MM') = TO_CHAR(b.last_date, 'YYYY-MM')
+                          AND u.trade_date < ${filter.from}::DATE
                      )
                    )
-              from before_period b
-             where b.last_date is not null
+              FROM before_period b
+             WHERE b.last_date IS NOT NULL
           ),
           'recalculation', (
-            select jsonb_build_object(
-                     'pending', count(*) filter (where recalc_status in ('queued', 'running')),
-                     'failed', count(*) filter (where recalc_status = 'failed')
+            SELECT JSONB_BUILD_OBJECT(
+                     'pending', COUNT(*) FILTER (WHERE recalc_status IN ('queued', 'running')),
+                     'failed', COUNT(*) FILTER (WHERE recalc_status = 'failed')
                    )
-              from scope
+              FROM scope
           )
-        ) as page
+        ) AS page
       `;
 
       const page = aggregates[0]?.page;
@@ -285,27 +273,27 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
 
     try {
       const rows = await sql<StatementHistoryRow[]>`
-        select t.id,
+        SELECT t.id,
                t.portfolio_id,
                t.asset_id,
-               t.kind::text as kind,
-               t.trade_date::text as trade_date,
-               t.quantity::text as quantity,
-               t.unit_price::text as unit_price,
-               t.fees::text as fees,
-               t.net_amount::text as net_amount,
-               t.payout_kind::text as payout_kind,
-               t.event_ratio_from::text as event_ratio_from,
-               t.event_ratio_to::text as event_ratio_to
-          from transaction t
-          join unnest(
-                 ${sql.array(pairs.map((pair) => pair.portfolio_id))}::uuid[],
-                 ${sql.array(pairs.map((pair) => pair.asset_id))}::uuid[]
-               ) as wanted(portfolio_id, asset_id)
-            on wanted.portfolio_id = t.portfolio_id
-           and wanted.asset_id = t.asset_id
-         where t.trade_date <= ${until}::date
-         order by t.trade_date, t.id
+               t.kind::TEXT AS kind,
+               t.trade_date::TEXT AS trade_date,
+               t.quantity::TEXT AS quantity,
+               t.unit_price::TEXT AS unit_price,
+               t.fees::TEXT AS fees,
+               t.net_amount::TEXT AS net_amount,
+               t.payout_kind::TEXT AS payout_kind,
+               t.event_ratio_from::TEXT AS event_ratio_from,
+               t.event_ratio_to::TEXT AS event_ratio_to
+          FROM transaction t
+          JOIN UNNEST(
+                 ${sql.array(pairs.map((pair) => pair.portfolio_id))}::UUID[],
+                 ${sql.array(pairs.map((pair) => pair.asset_id))}::UUID[]
+               ) AS wanted(portfolio_id, asset_id)
+            ON wanted.portfolio_id = t.portfolio_id
+           AND wanted.asset_id = t.asset_id
+         WHERE t.trade_date <= ${until}::DATE
+         ORDER BY t.trade_date, t.id
       `;
 
       return success(rows as readonly StatementHistoryRow[]);

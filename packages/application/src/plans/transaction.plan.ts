@@ -65,7 +65,6 @@ export type TransactionDraft = {
   readonly event_ratio_from?: string | undefined;
   readonly event_ratio_to?: string | undefined;
   readonly note?: string | undefined;
-  readonly outgoing?: boolean | undefined;
 };
 
 export type BeforeAfter = {
@@ -164,7 +163,6 @@ export const planTransaction = (
     unit_price: draft.unit_price,
     fees: draft.fees,
     tax_withheld: draft.tax_withheld,
-    outgoing: draft.outgoing,
   });
 
   const entry = asEntry(draft, amounts.net_amount);

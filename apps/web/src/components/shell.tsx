@@ -20,8 +20,6 @@ import { Kbd, Label } from './primitives.js';
  * ser colada em outro lugar.
  */
 
-export const ALL_PORTFOLIOS = 'todas';
-
 export type ScreenItem = {
   readonly id: string;
   readonly label: string;
@@ -83,9 +81,7 @@ export const AppShell = ({
   const iconsOnly = !asDrawer && width < ICONS_BELOW;
 
   const scopeLabel =
-    scope === ALL_PORTFOLIOS
-      ? 'Todas as carteiras'
-      : (portfolios.find((portfolio) => portfolio.id === scope)?.label ?? 'Carteira');
+    portfolios.find((portfolio) => portfolio.id === scope)?.label ?? 'Carteira';
 
   const sidebar = (
     <Sidebar

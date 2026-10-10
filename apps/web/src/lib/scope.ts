@@ -11,8 +11,6 @@
  * cadastrada fica com o apelido limpo, e o endereço de ninguém quebra.
  */
 
-export const ALL_SCOPE = 'todas';
-
 export type ScopePortfolio = { readonly id: string; readonly name: string };
 
 export const slugify = (name: string): string =>
@@ -40,17 +38,17 @@ export const portfolioSlugs = (
   return slugs;
 };
 
-/** O identificador que o escopo da URL nomeia. `todas` e desconhecido dão nulo. */
+/** O identificador que o escopo da URL nomeia. Apelido desconhecido dá nulo. */
 export const portfolioIdForScope = (
-  scope: string,
+  scope: string | undefined,
   slugs: ReadonlyMap<string, string>,
 ): string | null => {
-  if (scope === ALL_SCOPE) return null;
   for (const [id, slug] of slugs) if (slug === scope) return id;
   return null;
 };
 
+/** O apelido da carteira na URL. Nulo quando a carteira não existe. */
 export const scopeForPortfolioId = (
-  id: string | null,
+  id: string,
   slugs: ReadonlyMap<string, string>,
-): string => (id === null ? ALL_SCOPE : (slugs.get(id) ?? ALL_SCOPE));
+): string | null => slugs.get(id) ?? null;

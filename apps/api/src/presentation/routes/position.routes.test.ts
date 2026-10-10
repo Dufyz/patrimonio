@@ -28,12 +28,12 @@ let itub4: string;
 /** O fechamento é do worker; aqui ele é escrito à mão, que é o que a tela lê. */
 const fecharDia = async (date: string): Promise<void> => {
   await harness.sql`
-    insert into position_daily
+    INSERT INTO position_daily
       (portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
        market_value, price_source_kind)
-    values
+    VALUES
       (${carteira}, ${itub4}, ${date}, '500', '29.10', '14550.00', '18420.00', 'fresh')
-    on conflict (portfolio_id, asset_id, position_date) do nothing
+    ON CONFLICT (portfolio_id, asset_id, position_date) DO NOTHING
   `;
 };
 
@@ -141,15 +141,14 @@ describe('GET /api/positions', () => {
     expect(body.payouts_12m).toBe('0');
   });
 
-  it('sem carteira, o escopo é todas elas', async () => {
-    await fecharDia(hoje());
-    const body = positionsResourceSchema.parse((await listar()).body);
+  it('sem carteira a rota recusa com 400', async () => {
+    const response = await listar();
 
-    expect(body.total.count).toBe(1);
+    expect(response.status).toBe(400);
   });
 
   it('agrupamento desconhecido é recusado com 400, e não ignorado', async () => {
-    const response = await listar('group_by=setor');
+    const response = await listar(`portfolio_id=${carteira}&group_by=setor`);
 
     expect(response.status).toBe(400);
   });

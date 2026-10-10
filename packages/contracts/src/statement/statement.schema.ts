@@ -41,7 +41,6 @@ export const STATEMENT_GROUPS = [
   'sell',
   'payout',
   'cash',
-  'transfer',
   'event',
 ] as const;
 
@@ -57,15 +56,13 @@ export const STATEMENT_GROUP_KINDS: Readonly<
   sell: ['sell'],
   payout: ['payout'],
   cash: ['deposit', 'withdrawal'],
-  transfer: ['transfer'],
   event: ['corporate_event'],
 };
 
 export const getStatementSchema = z.object({
   query: pagination
     .extend({
-      /** Ausente significa todas as carteiras ativas. */
-      portfolio_id: uuid.optional(),
+      portfolio_id: uuid,
       institution_id: uuid.optional(),
       /** Ausente é "Todos". */
       group: statementGroupSchema.optional(),
@@ -119,12 +116,6 @@ export const statementEffectSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('cash_in') }),
   z.object({ type: z.literal('cash_out') }),
   z.object({
-    type: z.literal('transfer'),
-    direction: z.enum(['in', 'out']),
-    /** A carteira do outro lado; nula quando a outra perna não é mais visível. */
-    counterpart: z.string().nullable(),
-  }),
-  z.object({
     type: z.literal('corporate_event'),
     ratio_from: decimalString,
     ratio_to: decimalString,
@@ -160,7 +151,6 @@ export const statementRowSchema = z.object({
   net_amount: decimalString,
   /** Nulo enquanto o provento está "a receber". */
   confirmed_at: z.string().nullable(),
-  transfer_group_id: uuid.nullable(),
   note: z.string().nullable(),
   effect: statementEffectSchema,
 });
@@ -193,8 +183,7 @@ export type StatementMonth = z.infer<typeof statementMonthSchema>;
 
 export const statementResourceSchema = z.object({
   scope: z.object({
-    /** Nulo é o consolidado: carteira é filtro, não rota. */
-    portfolio_id: uuid.nullable(),
+    portfolio_id: uuid,
     portfolio_name: z.string().nullable(),
     /** Quantos lançamentos o escopo tem, sem filtro nenhum — o "312 desde mar/2021". */
     entries_total: z.number().int().nonnegative(),

@@ -81,7 +81,7 @@ describe('enqueue', () => {
     expect(second[0]?.id).toBe(first[0]?.id);
 
     const [pending] = await tx<{ total: string }[]>`
-      select count(*)::text as total from pipeline_outbox where dedupe_key = ${key}
+      SELECT COUNT(*)::TEXT AS total FROM pipeline_outbox WHERE dedupe_key = ${key}
     `;
     expect(Number(pending?.total)).toBe(1);
   });
@@ -107,8 +107,8 @@ describe('enqueue', () => {
     ]);
 
     const [row] = await tx<{ from_date: string }[]>`
-      select payload ->> 'from_date' as from_date
-        from pipeline_outbox where dedupe_key = ${key}
+      SELECT payload ->> 'from_date' AS from_date
+        FROM pipeline_outbox WHERE dedupe_key = ${key}
     `;
 
     expect(row?.from_date).toBe('2021-03-12');
@@ -140,8 +140,8 @@ describe('enqueue', () => {
     ]);
 
     const [row] = await tx<{ available_at: Date; debounce_until: Date }[]>`
-      select available_at, debounce_until
-        from pipeline_outbox where dedupe_key = ${key}
+      SELECT available_at, debounce_until
+        FROM pipeline_outbox WHERE dedupe_key = ${key}
     `;
 
     expect(row?.available_at.getTime()).toBe(ceiling.getTime());

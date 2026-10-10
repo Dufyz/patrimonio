@@ -17,10 +17,6 @@ const goal: GoalResource = {
   target_date: '2040-01-01',
   amount_in_today_brl: true,
   created_on: '2025-01-01',
-  portfolios: {
-    all: false,
-    items: [{ id: LONGO, name: 'Longo prazo', value: '318904.00' }],
-  },
   current_value: '318904.00',
   as_of: '2026-09-30',
   progress_pct: '21.26',

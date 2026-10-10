@@ -1,19 +1,19 @@
-create table goal (
-  id                  uuid primary key,
-  name                text not null,
-  target_amount       numeric(20,2) not null,
-  target_date         date not null,
-  return_assumption   text,
-  -- Quando verdadeiro, a projeção corrige a meta pelo IPCA.
-  amount_in_today_brl boolean not null default false,
-  closed_at           timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint goal_target_amount_positive check (target_amount > 0)
+CREATE TABLE goal (
+  id                  UUID PRIMARY KEY,
+  portfolio_id        UUID NOT NULL REFERENCES portfolio (id) ON DELETE CASCADE,
+  name                TEXT NOT NULL,
+  target_amount       NUMERIC(20,2) NOT NULL,
+  target_date         DATE NOT NULL,
+  return_assumption   TEXT,
+  amount_in_today_brl BOOLEAN NOT NULL DEFAULT FALSE,
+  closed_at           TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT goal_target_amount_positive CHECK (target_amount > 0)
 );
 
-create unique index goal_name_open_idx on goal (lower(name)) where closed_at is null;
+CREATE UNIQUE INDEX goal_name_open_idx ON goal (portfolio_id, LOWER(name)) WHERE closed_at IS NULL;
 
-create trigger goal_set_updated_at
-  before update on goal
-  for each row execute function set_updated_at();
+CREATE TRIGGER goal_set_updated_at
+  BEFORE UPDATE ON goal
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();

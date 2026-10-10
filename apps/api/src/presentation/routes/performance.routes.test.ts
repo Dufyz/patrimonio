@@ -15,14 +15,13 @@ import type { ApiHarness } from '../../testing/harness.js';
  */
 let harness: ApiHarness;
 let longo: string;
-let reserva: string;
 let acoes: string;
 let itub4: string;
 let corretora: string;
 
-const CDI = '019b0000-0000-7000-8000-000000000001';
-const IPCA = '019b0000-0000-7000-8000-000000000003';
-const IBOV = '019b0000-0000-7000-8000-000000000004';
+const CDI = 'CDI';
+const IPCA = 'IPCA';
+const IBOV = 'IBOV';
 
 const fecharDia = async (
   portfolio: string,
@@ -36,11 +35,11 @@ const fecharDia = async (
   } = {},
 ): Promise<void> => {
   await harness.sql`
-    insert into portfolio_daily (
+    INSERT INTO portfolio_daily (
       portfolio_id, position_date, total_value, net_flow, income, payouts,
       quota_value, quota_count, cumulative_contributions
     )
-    values (
+    VALUES (
       ${portfolio}, ${date}, ${total}, ${options.net_flow ?? '0.00'},
       ${options.income ?? '0.00'}, ${options.payouts ?? '0.00'},
       ${quota}, '1000.000000000000', '0.00'
@@ -70,19 +69,19 @@ const fatores = async (
   daily: string,
 ): Promise<void> => {
   await harness.sql`
-    insert into index_quote (index_code, quote_date, daily_factor, raw_value, source)
-    select ${code}, calendar_date, ${daily}, '0', 'teste'
-      from business_day
-     where is_business_day and calendar_date between ${from}::date and ${to}::date
-    on conflict (index_code, quote_date) do nothing
+    INSERT INTO index_quote (index_code, quote_date, daily_factor, raw_value, source)
+    SELECT ${code}, calendar_date, ${daily}, '0', 'teste'
+      FROM business_day
+     WHERE is_business_day AND calendar_date BETWEEN ${from}::DATE AND ${to}::DATE
+    ON CONFLICT (index_code, quote_date) DO NOTHING
   `;
 };
 
 const diasUteis = async (after: string, until: string): Promise<number> => {
   const rows = await harness.sql<{ total: string }[]>`
-    select count(*)::text as total
-      from business_day
-     where is_business_day and calendar_date > ${after}::date and calendar_date <= ${until}::date
+    SELECT COUNT(*)::TEXT AS total
+      FROM business_day
+     WHERE is_business_day AND calendar_date > ${after}::DATE AND calendar_date <= ${until}::DATE
   `;
 
   return Number(rows[0]?.total ?? 0);
@@ -90,11 +89,11 @@ const diasUteis = async (after: string, until: string): Promise<number> => {
 
 const posicao = async (asset: string, date: string, value: string): Promise<void> => {
   await harness.sql`
-    insert into position_daily (
+    INSERT INTO position_daily (
       portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
       market_value, price_source_kind, accrued_interest
     )
-    values (${longo}, ${asset}, ${date}, '100.00000000', '10.00000000', '1000.00',
+    VALUES (${longo}, ${asset}, ${date}, '100.00000000', '10.00000000', '1000.00',
             ${value}, 'fresh', '0.00')
   `;
 };
@@ -107,18 +106,22 @@ const lancar = async (
   payoutKind: string | null = null,
 ): Promise<void> => {
   await harness.sql`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
        quantity, unit_price, fees, gross_amount, net_amount, payout_kind, confirmed_at)
-    values
+    VALUES
       (${`0191e5a0-0000-7000-8000-0000000d${String(n).padStart(4, '0')}`},
        ${kind}::transaction_kind, ${date}, ${date}, ${longo}, ${itub4}, ${corretora},
-       '1', '1', '0', ${net}, ${net}, ${payoutKind}::payout_kind, now())
+       '1', '1', '0', ${net}, ${net}, ${payoutKind}::payout_kind, NOW())
   `;
 };
 
-const desempenho = async (query = ''): Promise<request.Response> =>
-  request(harness.app).get(`/api/performance${query}`);
+const desempenho = async (query = ''): Promise<request.Response> => {
+  const params = new URLSearchParams(query.replace(/^\?/, ''));
+  if (!params.has('portfolio_id')) params.set('portfolio_id', longo);
+
+  return request(harness.app).get(`/api/performance?${params.toString()}`);
+};
 
 const doLongo = (extra = ''): string =>
   `?portfolio_id=${longo}&on_date=2026-06-30${extra}`;
@@ -135,37 +138,32 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetSourceTables(harness.sql);
-  await harness.sql`delete from portfolio_daily`;
-  await harness.sql`delete from position_daily`;
+  await harness.sql`DELETE FROM portfolio_daily`;
+  await harness.sql`DELETE FROM position_daily`;
 
   const criada = await request(harness.app)
     .post('/api/portfolios')
-    .send({ name: 'Longo prazo', benchmark_id: CDI });
+    .send({ name: 'Longo prazo', benchmark: 'cdi' });
   longo = criada.body.portfolio.id;
 
-  const outra = await request(harness.app)
-    .post('/api/portfolios')
-    .send({ name: 'Reserva' });
-  reserva = outra.body.portfolio.id;
-
   const categoria = await harness.sql<{ id: string }[]>`
-    insert into category (id, name, color_token)
-    values (gen_random_uuid(), 'Ações', 'class.acoes')
-    returning id
+    INSERT INTO category (id, name, color_token)
+    VALUES (GEN_RANDOM_UUID(), 'Ações', 'class.acoes')
+    RETURNING id
   `;
   acoes = categoria[0]?.id ?? '';
 
   const ativo = await harness.sql<{ id: string }[]>`
-    insert into asset (id, ticker, name, origin, b3_type, category_id)
-    values (gen_random_uuid(), 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', ${acoes})
-    returning id
+    INSERT INTO asset (id, ticker, name, origin, b3_type, category_id)
+    VALUES (GEN_RANDOM_UUID(), 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', ${acoes})
+    RETURNING id
   `;
   itub4 = ativo[0]?.id ?? '';
 
   const instituicao = await harness.sql<{ id: string }[]>`
-    insert into institution (id, name, role)
-    values (gen_random_uuid(), 'Corretora A', 'custodian')
-    returning id
+    INSERT INTO institution (id, name)
+    VALUES (GEN_RANDOM_UUID(), 'Corretora A')
+    RETURNING id
   `;
   corretora = instituicao[0]?.id ?? '';
 });
@@ -333,7 +331,7 @@ describe('GET /api/performance · benchmarks', () => {
     const { windows } = (await desempenho(doLongo())).body;
     const [carteira, cdi, diferenca] = windows.rows;
 
-    expect(cdi).toMatchObject({ kind: 'benchmark', benchmark_id: CDI, name: 'CDI' });
+    expect(cdi).toMatchObject({ kind: 'benchmark', benchmark: CDI, name: 'CDI' });
     expect(numero(cdi.values[6])).toBeCloseTo(esperado, 2);
     expect(diferenca.kind).toBe('difference');
     expect(numero(diferenca.values[6])).toBeCloseTo(
@@ -357,13 +355,13 @@ describe('GET /api/performance · benchmarks', () => {
     ]);
   });
 
-  it('benchmark_ids acrescenta à tela, atrás do benchmark da carteira, na ordem pedida', async () => {
+  it('benchmarks acrescenta à tela, atrás do benchmark da carteira, na ordem pedida', async () => {
     await historiaDoLongo();
     await fatores('CDI', '2026-04-01', '2026-06-30', '1.000500000000');
     await fatores('IPCA', '2026-04-01', '2026-06-30', '1.000100000000');
     await fatores('IBOV', '2026-04-01', '2026-06-30', '1.001000000000');
 
-    const body = (await desempenho(doLongo(`&benchmark_ids=${IBOV},${IPCA}`))).body;
+    const body = (await desempenho(doLongo(`&benchmarks=${IBOV},${IPCA}`))).body;
 
     expect(body.benchmarks.primary_id).toBe(CDI);
     expect(body.benchmarks.selected.map((item: { id: string }) => item.id)).toEqual([
@@ -374,7 +372,7 @@ describe('GET /api/performance · benchmarks', () => {
     expect(
       body.windows.rows
         .filter((row: { kind: string }) => row.kind === 'benchmark')
-        .map((row: { benchmark_id: string }) => row.benchmark_id),
+        .map((row: { benchmark: string }) => row.benchmark),
     ).toEqual([CDI, IBOV, IPCA]);
     expect(body.chart.benchmarks.map((item: { id: string }) => item.id)).toEqual([
       CDI,
@@ -390,6 +388,26 @@ describe('GET /api/performance · benchmarks', () => {
     ]);
   });
 
+  it('o benchmark da carteira pode ser IPCA+6 ou 110%CDI, e entra na lista e à frente', async () => {
+    await historiaDoLongo();
+    await fatores('CDI', '2026-04-01', '2026-06-30', '1.000500000000');
+    await fatores('IPCA', '2026-04-01', '2026-06-30', '1.000100000000');
+    await harness.sql`UPDATE portfolio SET benchmark = '110%CDI' WHERE id = ${longo}::UUID`;
+
+    const body = (await desempenho(doLongo(`&benchmarks=${encodeURIComponent('IPCA+6')}`))).body;
+
+    expect(body.benchmarks.primary_id).toBe('110%CDI');
+    expect(body.benchmarks.selected.map((item: { id: string }) => item.id)).toEqual([
+      '110%CDI',
+      'IPCA+6',
+    ]);
+    expect(body.benchmarks.selected.map((item: { name: string }) => item.name)).toEqual([
+      '110% do CDI',
+      'IPCA + 6%',
+    ]);
+    expect(body.benchmarks.available.map((item: { id: string }) => item.id)).toContain('110%CDI');
+  });
+
   it('o gráfico do benchmark tem o comprimento da carteira e parte de zero', async () => {
     await historiaDoLongo();
     await fatores('CDI', '2026-04-01', '2026-06-30', '1.000500000000');
@@ -403,46 +421,9 @@ describe('GET /api/performance · benchmarks', () => {
   });
 });
 
-describe('GET /api/performance · o consolidado', () => {
-  it('usa a cota construída e declara isso', async () => {
+describe('GET /api/performance · por classe', () => {
+  it('as colunas do detalhamento são mês, ano, doze meses e início', async () => {
     await historiaDoLongo();
-    await fecharDia(reserva, '2026-06-30', '5000.00', '1.020000000000');
-
-    const body = (await desempenho('?on_date=2026-06-30')).body;
-
-    expect(response200(body)).toBe(true);
-    expect(body.scope.portfolio_id).toBeNull();
-    expect(body.scope.name).toBe('Todas as carteiras');
-    expect(body.method.portfolio).toBe('consolidated_quota');
-    // O consolidado não declara benchmark: a referência é o CDI.
-    expect(body.benchmarks.primary_id).toBe(CDI);
-  });
-
-  it('o aporte numa carteira que nasce depois não é rendimento do consolidado', async () => {
-    await fecharDia(longo, '2026-03-31', '10000.00', '1.000000000000', {
-      net_flow: '10000.00',
-    });
-    await fecharDia(longo, '2026-04-30', '10500.00', '1.050000000000');
-    // A reserva nasce em abril com 5.000 de aporte. O patrimônio consolidado
-    // salta de 10.000 para 15.500, mas o aporte entra ao valor de cota do dia
-    // anterior: o rendimento é os 500 sobre as 15.000 cotas, 3,33% — e não os
-    // 55% que a variação do patrimônio sugere.
-    await fecharDia(reserva, '2026-04-30', '5000.00', '1.000000000000', {
-      net_flow: '5000.00',
-    });
-
-    const body = (await desempenho('?on_date=2026-04-30')).body;
-    const carteira = body.windows.rows[0];
-    const inicio = carteira.values.at(-1);
-
-    expect(numero(inicio)).toBeCloseTo(3.33, 1);
-  });
-});
-
-describe('GET /api/performance · por carteira e por classe', () => {
-  it('lista as carteiras com valor, peso e retorno, e marca a do escopo', async () => {
-    await historiaDoLongo();
-    await fecharDia(reserva, '2026-06-30', '5000.00', '1.020000000000');
 
     const { breakdown } = (await desempenho(doLongo())).body;
 
@@ -452,22 +433,7 @@ describe('GET /api/performance · por carteira e por classe', () => {
       '12m',
       'inception',
     ]);
-
-    const linhaDoLongo = breakdown.portfolios.find(
-      (row: { portfolio_id: string }) => row.portfolio_id === longo,
-    );
-    const linhaDaReserva = breakdown.portfolios.find(
-      (row: { portfolio_id: string }) => row.portfolio_id === reserva,
-    );
-
-    expect(linhaDoLongo).toMatchObject({ value: '13000.00', selected: true });
-    expect(linhaDoLongo.returns[3]).toBe('10.00');
-    expect(numero(linhaDoLongo.weight_pct)).toBeCloseTo(72.22, 2);
-    expect(linhaDaReserva.selected).toBe(false);
-    // Um único fechamento: não há com o que comparar.
-    expect(linhaDaReserva.returns.every((value: string | null) => value === null)).toBe(
-      true,
-    );
+    expect(breakdown.portfolios).toBeUndefined();
   });
 
   it('a classe rende por Dietz modificado: o aporte pesa pelo tempo que ficou investido', async () => {
@@ -500,8 +466,8 @@ describe('GET /api/performance · por carteira e por classe', () => {
 
     expect(numero(comProvento.returns[3])).toBeCloseTo(10, 0);
 
-    await harness.sql`delete from transaction`;
-    await harness.sql`delete from position_daily where position_date = '2026-06-30'`;
+    await harness.sql`DELETE FROM transaction`;
+    await harness.sql`DELETE FROM position_daily WHERE position_date = '2026-06-30'`;
     await posicao(itub4, '2026-06-30', '900.00');
     await lancar(3, 'payout', '2026-05-15', '100.00', 'amortization');
 
@@ -533,8 +499,16 @@ describe('GET /api/performance · casos limite', () => {
     expect(response.status).toBe(404);
   });
 
-  it('identificador malformado em benchmark_ids é 400', async () => {
-    const response = await desempenho('?benchmark_ids=nao-e-uuid');
+  it('sem carteira a rota recusa com 400', async () => {
+    const response = await request(harness.app).get(
+      '/api/performance?on_date=2026-06-30',
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it('benchmark malformado em benchmarks é 400', async () => {
+    const response = await desempenho(`?portfolio_id=${longo}&benchmarks=nao-e-indice`);
 
     expect(response.status).toBe(400);
   });
@@ -553,5 +527,3 @@ describe('GET /api/performance · casos limite', () => {
     ).toBe(true);
   });
 });
-
-const response200 = (body: unknown): boolean => performanceSchema.safeParse(body).success;

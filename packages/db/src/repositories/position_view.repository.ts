@@ -86,21 +86,21 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
     const category = filter.categoryId;
 
     return sql`
-      with scope as (
-        select p.id as portfolio_id, p.name as portfolio_name
-          from portfolio p
-         where p.archived_at is null
-           and (${filter.portfolioId}::uuid is null or p.id = ${filter.portfolioId}::uuid)
+      WITH scope AS (
+        SELECT p.id AS portfolio_id, p.name AS portfolio_name
+          FROM portfolio p
+         WHERE p.archived_at IS NULL
+           AND p.id = ${filter.portfolioId}::UUID
       ),
-      as_of as (
-        select max(pd.position_date) as position_date
-          from position_daily pd
-          join scope s on s.portfolio_id = pd.portfolio_id
-         where pd.position_date <= ${filter.today}::date
+      as_of AS (
+        SELECT MAX(pd.position_date) AS position_date
+          FROM position_daily pd
+          JOIN scope s ON s.portfolio_id = pd.portfolio_id
+         WHERE pd.position_date <= ${filter.today}::DATE
       ),
       -- Posição zerada fica no histórico e sai de Posições (O-09).
-      open_positions as (
-        select pd.portfolio_id,
+      open_positions AS (
+        SELECT pd.portfolio_id,
                pd.asset_id,
                pd.quantity,
                pd.avg_price,
@@ -109,28 +109,28 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
                pd.price_source_kind,
                pd.computed_at,
                pd.position_date
-          from position_daily pd
-          join scope s on s.portfolio_id = pd.portfolio_id
-          join as_of a on a.position_date = pd.position_date
-         where pd.quantity <> 0 or pd.market_value <> 0
+          FROM position_daily pd
+          JOIN scope s ON s.portfolio_id = pd.portfolio_id
+          JOIN as_of a ON a.position_date = pd.position_date
+         WHERE pd.quantity <> 0 OR pd.market_value <> 0
       ),
       -- Onde o papel está custodiado: a instituição do lançamento mais recente
       -- daquela carteira para aquele ativo. A projeção não tem a coluna,
       -- e não deveria ter: custódia é fato do livro, não da projeção.
-      custodian as (
-        select distinct on (t.portfolio_id, t.asset_id)
+      custodian AS (
+        SELECT DISTINCT ON (t.portfolio_id, t.asset_id)
                t.portfolio_id,
                t.asset_id,
                t.institution_id,
-               i.name as institution_name
-          from transaction t
-          join scope s on s.portfolio_id = t.portfolio_id
-          join institution i on i.id = t.institution_id
-         where t.asset_id is not null
-         order by t.portfolio_id, t.asset_id, t.trade_date desc, t.created_at desc
+               i.name AS institution_name
+          FROM transaction t
+          JOIN scope s ON s.portfolio_id = t.portfolio_id
+          JOIN institution i ON i.id = t.institution_id
+         WHERE t.asset_id IS NOT NULL
+         ORDER BY t.portfolio_id, t.asset_id, t.trade_date DESC, t.created_at DESC
       ),
-      decorated as (
-        select op.portfolio_id,
+      decorated AS (
+        SELECT op.portfolio_id,
                s.portfolio_name,
                op.asset_id,
                a.ticker,
@@ -143,7 +143,7 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
                cu.institution_id,
                cu.institution_name,
                a.category_id,
-               c.name as category_name,
+               c.name AS category_name,
                c.color_token,
                op.position_date,
                op.computed_at,
@@ -154,116 +154,114 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
                op.market_value,
                -- Título de banco marcado na curva: a quantidade dele não diz
                -- nada a quem lê, e a tela mostra traço em vez dela.
-               case
-                 when a.origin = 'manual' and a.indexer is not null then 'curve'
-                 else 'quantity'
-               end as unit,
-               case
-                 when op.quantity <> 0 then op.market_value / op.quantity
-               end as unit_value,
-               previous.unit_value as previous_unit_value,
-               year_ago.unit_value as year_ago_unit_value,
-               coalesce(payouts.amount, 0) as payouts_12m,
-               case
-                 when op.price_source_kind = 'manual' then (
-                   select max(mp.price_date)
-                     from manual_price mp
-                    where mp.asset_id = op.asset_id
-                      and mp.price_date <= op.position_date
+               CASE
+                 WHEN a.origin = 'manual' AND a.indexer IS NOT NULL THEN 'curve'
+                 ELSE 'quantity'
+               END AS unit,
+               CASE
+                 WHEN op.quantity <> 0 THEN op.market_value / op.quantity
+               END AS unit_value,
+               previous.unit_value AS previous_unit_value,
+               year_ago.unit_value AS year_ago_unit_value,
+               COALESCE(payouts.amount, 0) AS payouts_12m,
+               CASE
+                 WHEN op.price_source_kind = 'manual' THEN (
+                   SELECT MAX(mp.price_date)
+                     FROM manual_price mp
+                    WHERE mp.asset_id = op.asset_id
+                      AND mp.price_date <= op.position_date
                  )
-                 else (
-                   select max(ap.price_date)
-                     from asset_price ap
-                    where ap.asset_id = op.asset_id
-                      and ap.price_date <= op.position_date
+                 ELSE (
+                   SELECT MAX(ap.price_date)
+                     FROM asset_price ap
+                    WHERE ap.asset_id = op.asset_id
+                      AND ap.price_date <= op.position_date
                  )
-               end as price_date
-          from open_positions op
-          join scope s on s.portfolio_id = op.portfolio_id
-          join asset a on a.id = op.asset_id
-          left join category c on c.id = a.category_id
-          left join custodian cu
-            on cu.portfolio_id = op.portfolio_id
-           and cu.asset_id = op.asset_id
+               END AS price_date
+          FROM open_positions op
+          JOIN scope s ON s.portfolio_id = op.portfolio_id
+          JOIN asset a ON a.id = op.asset_id
+          LEFT JOIN category c ON c.id = a.category_id
+          LEFT JOIN custodian cu
+            ON cu.portfolio_id = op.portfolio_id
+           AND cu.asset_id = op.asset_id
           -- A janela de dez dias cobre feriado prolongado sem varrer a série
           -- inteira: o fechamento grava todo dia útil, então o anterior está
           -- sempre dentro dela.
-          left join lateral (
-            select case when p.quantity <> 0 then p.market_value / p.quantity end
-                     as unit_value
-              from position_daily p
-             where p.portfolio_id = op.portfolio_id
-               and p.asset_id = op.asset_id
-               and p.position_date < op.position_date
-               and p.position_date >= op.position_date - 10
-             order by p.position_date desc
-             limit 1
-          ) previous on true
-          left join lateral (
-            select case when p.quantity <> 0 then p.market_value / p.quantity end
-                     as unit_value
-              from position_daily p
-             where p.portfolio_id = op.portfolio_id
-               and p.asset_id = op.asset_id
-               and p.position_date <= (op.position_date - interval '12 months')::date
-               and p.position_date
-                     >= (op.position_date - interval '12 months')::date - 10
-             order by p.position_date desc
-             limit 1
-          ) year_ago on true
-          left join lateral (
-            select sum(t.net_amount) as amount
-              from transaction t
-             where t.portfolio_id = op.portfolio_id
-               and t.asset_id = op.asset_id
-               and t.kind = 'payout'
-               and t.confirmed_at is not null
-               and t.settlement_date <= op.position_date
-               and t.settlement_date > (op.position_date - interval '12 months')::date
-          ) payouts on true
+          LEFT JOIN LATERAL (
+            SELECT CASE WHEN p.quantity <> 0 THEN p.market_value / p.quantity END
+                     AS unit_value
+              FROM position_daily p
+             WHERE p.portfolio_id = op.portfolio_id
+               AND p.asset_id = op.asset_id
+               AND p.position_date < op.position_date
+               AND p.position_date >= op.position_date - 10
+             ORDER BY p.position_date DESC
+             LIMIT 1
+          ) previous ON TRUE
+          LEFT JOIN LATERAL (
+            SELECT CASE WHEN p.quantity <> 0 THEN p.market_value / p.quantity END
+                     AS unit_value
+              FROM position_daily p
+             WHERE p.portfolio_id = op.portfolio_id
+               AND p.asset_id = op.asset_id
+               AND p.position_date <= (op.position_date - INTERVAL '12 months')::DATE
+               AND p.position_date
+                     >= (op.position_date - INTERVAL '12 months')::DATE - 10
+             ORDER BY p.position_date DESC
+             LIMIT 1
+          ) year_ago ON TRUE
+          LEFT JOIN LATERAL (
+            SELECT SUM(t.net_amount) AS amount
+              FROM transaction t
+             WHERE t.portfolio_id = op.portfolio_id
+               AND t.asset_id = op.asset_id
+               AND t.kind = 'payout'
+               AND t.confirmed_at IS NOT NULL
+               AND t.settlement_date <= op.position_date
+               AND t.settlement_date > (op.position_date - INTERVAL '12 months')::DATE
+          ) payouts ON TRUE
       ),
-      searched as (
-        select *
-          from decorated d
-         where ${
+      searched AS (
+        SELECT *
+          FROM decorated d
+         WHERE ${
            search === null
-             ? sql`true`
-             : sql`(d.ticker ilike ${search} or d.name ilike ${search})`
+             ? sql`TRUE`
+             : sql`(d.ticker ILIKE ${search} OR d.name ILIKE ${search})`
          }
       ),
-      filtered as (
-        select *
-          from searched f
-         where ${
+      filtered AS (
+        SELECT *
+          FROM searched f
+         WHERE ${
            category === null
-             ? sql`true`
+             ? sql`TRUE`
              : category === 'sem-categoria'
-               ? sql`f.category_id is null`
-               : sql`f.category_id = ${category}::uuid`
+               ? sql`f.category_id IS NULL`
+               : sql`f.category_id = ${category}::UUID`
          }
       ),
-      grouped as (
-        select f.*,
-               case ${filter.groupBy}::text
-                 when 'category'
-                   then coalesce(f.category_id::text, 'sem-categoria')
-                 when 'institution'
-                   then coalesce(f.institution_id::text, 'sem-instituicao')
-                 when 'portfolio' then f.portfolio_id::text
-                 else 'sem-grupo'
-               end as group_key,
-               case ${filter.groupBy}::text
-                 when 'category' then coalesce(f.category_name, 'Sem categoria')
-                 when 'institution'
-                   then coalesce(f.institution_name, 'Sem instituição')
-                 when 'portfolio' then f.portfolio_name
-                 else 'Posições'
-               end as group_label,
-               case
-                 when ${filter.groupBy}::text = 'category' then f.color_token
-               end as group_color_token,
-               sum(f.market_value) over () as scope_value
-          from filtered f
+      grouped AS (
+        SELECT f.*,
+               CASE ${filter.groupBy}::TEXT
+                 WHEN 'category'
+                   THEN COALESCE(f.category_id::TEXT, 'sem-categoria')
+                 WHEN 'institution'
+                   THEN COALESCE(f.institution_id::TEXT, 'sem-instituicao')
+                 ELSE 'sem-grupo'
+               END AS group_key,
+               CASE ${filter.groupBy}::TEXT
+                 WHEN 'category' THEN COALESCE(f.category_name, 'Sem categoria')
+                 WHEN 'institution'
+                   THEN COALESCE(f.institution_name, 'Sem instituição')
+                 ELSE 'Posições'
+               END AS group_label,
+               CASE
+                 WHEN ${filter.groupBy}::TEXT = 'category' THEN f.color_token
+               END AS group_color_token,
+               SUM(f.market_value) OVER () AS scope_value
+          FROM filtered f
       )
     `;
   };
@@ -273,7 +271,7 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
       try {
         const rows = await sql<PositionViewRow[]>`
           ${scope(filter)}
-          select g.group_key,
+          SELECT g.group_key,
                  g.group_label,
                  g.group_color_token,
                  g.portfolio_id,
@@ -289,157 +287,156 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
                  g.category_name,
                  g.color_token,
                  g.unit,
-                 case when g.unit = 'quantity' then g.quantity::text end as quantity,
-                 case when g.unit = 'quantity' then g.avg_price::text end as avg_price,
-                 case
-                   when g.unit = 'quantity'
-                   then round(g.unit_value, ${PRICE_SCALE})::text
-                 end as price,
-                 g.price_source_kind as price_health,
+                 CASE WHEN g.unit = 'quantity' THEN g.quantity::TEXT END AS quantity,
+                 CASE WHEN g.unit = 'quantity' THEN g.avg_price::TEXT END AS avg_price,
+                 CASE
+                   WHEN g.unit = 'quantity'
+                   THEN ROUND(g.unit_value, ${PRICE_SCALE})::TEXT
+                 END AS price,
+                 g.price_source_kind AS price_health,
                  g.price_date,
-                 g.market_value::text as value,
-                 g.cost_basis::text as cost_basis,
-                 (g.market_value - g.cost_basis)::text as open_result,
-                 round(
-                   (g.market_value - g.cost_basis) / nullif(g.cost_basis, 0),
+                 g.market_value::TEXT AS value,
+                 g.cost_basis::TEXT AS cost_basis,
+                 (g.market_value - g.cost_basis)::TEXT AS open_result,
+                 ROUND(
+                   (g.market_value - g.cost_basis) / NULLIF(g.cost_basis, 0),
                    ${RATIO_SCALE}
-                 )::text as open_result_ratio,
-                 round(
-                   g.market_value / nullif(g.scope_value, 0),
+                 )::TEXT AS open_result_ratio,
+                 ROUND(
+                   g.market_value / NULLIF(g.scope_value, 0),
                    ${RATIO_SCALE}
-                 )::text as weight,
-                 round(
-                   g.unit_value / nullif(g.previous_unit_value, 0) - 1,
+                 )::TEXT AS weight,
+                 ROUND(
+                   g.unit_value / NULLIF(g.previous_unit_value, 0) - 1,
                    ${RATIO_SCALE}
-                 )::text as day_change_ratio,
-                 round(
-                   g.unit_value / nullif(g.year_ago_unit_value, 0) - 1,
+                 )::TEXT AS day_change_ratio,
+                 ROUND(
+                   g.unit_value / NULLIF(g.year_ago_unit_value, 0) - 1,
                    ${RATIO_SCALE}
-                 )::text as return_12m_ratio,
+                 )::TEXT AS return_12m_ratio,
                  -- Nenhum provento em doze meses é ausência de provento, e
                  -- não rendimento de zero por cento: a tela mostra o detalhe
                  -- do papel em vez de um "DY 0,0%" que não quer dizer nada.
-                 round(
-                   nullif(g.payouts_12m, 0) / nullif(g.market_value, 0),
+                 ROUND(
+                   NULLIF(g.payouts_12m, 0) / NULLIF(g.market_value, 0),
                    ${RATIO_SCALE}
-                 )::text as dividend_yield_12m,
+                 )::TEXT AS dividend_yield_12m,
                  g.indexer,
-                 g.rate::text as rate,
+                 g.rate::TEXT AS rate,
                  g.maturity_date
-            from grouped g
-           order by sum(g.market_value) over (partition by g.group_key) desc,
+            FROM grouped g
+           ORDER BY SUM(g.market_value) OVER (PARTITION BY g.group_key) DESC,
                     g.group_key,
-                    g.market_value desc,
+                    g.market_value DESC,
                     g.ticker
         `;
 
         const aggregates = await sql<AggregateRow[]>`
           ${scope(filter)},
-          summaries as (
-            select g.group_key,
-                   count(*)::int as count,
-                   coalesce(sum(g.market_value), 0)::text as value,
-                   coalesce(sum(g.cost_basis), 0)::text as cost_basis,
-                   coalesce(sum(g.market_value - g.cost_basis), 0)::text as open_result,
-                   round(
-                     sum(g.market_value - g.cost_basis) / nullif(sum(g.cost_basis), 0),
+          summaries AS (
+            SELECT g.group_key,
+                   COUNT(*)::INT AS count,
+                   COALESCE(SUM(g.market_value), 0)::TEXT AS value,
+                   COALESCE(SUM(g.cost_basis), 0)::TEXT AS cost_basis,
+                   COALESCE(SUM(g.market_value - g.cost_basis), 0)::TEXT AS open_result,
+                   ROUND(
+                     SUM(g.market_value - g.cost_basis) / NULLIF(SUM(g.cost_basis), 0),
                      ${RATIO_SCALE}
-                   )::text as open_result_ratio,
-                   round(
-                     coalesce(sum(g.market_value), 0) / nullif(max(g.scope_value), 0),
+                   )::TEXT AS open_result_ratio,
+                   ROUND(
+                     COALESCE(SUM(g.market_value), 0) / NULLIF(MAX(g.scope_value), 0),
                      ${RATIO_SCALE}
-                   )::text as weight,
+                   )::TEXT AS weight,
                    -- O total geral vem do mesmo lugar que os subtotais, para
                    -- não haver dois caminhos somando o mesmo dinheiro.
-                   grouping(g.group_key) as is_total
-              from grouped g
-             group by grouping sets ((g.group_key), ())
+                   GROUPING(g.group_key) AS is_total
+              FROM grouped g
+             GROUP BY GROUPING SETS ((g.group_key), ())
           ),
-          facets as (
-            select coalesce(s.category_id::text, 'sem-categoria') as id,
-                   coalesce(s.category_name, 'Sem categoria') as label,
+          facets AS (
+            SELECT COALESCE(s.category_id::TEXT, 'sem-categoria') AS id,
+                   COALESCE(s.category_name, 'Sem categoria') AS label,
                    s.color_token,
-                   count(*)::int as count,
-                   sum(s.market_value) as value
-              from searched s
-             group by 1, 2, 3
+                   COUNT(*)::INT AS count,
+                   SUM(s.market_value) AS value
+              FROM searched s
+             GROUP BY 1, 2, 3
           ),
-          quota as (
-            select pd.position_date, pd.quota_value
-              from portfolio_daily pd
-             where ${filter.portfolioId}::uuid is not null
-               and pd.portfolio_id = ${filter.portfolioId}::uuid
-               and pd.position_date <= (select position_date from as_of)
+          quota AS (
+            SELECT pd.position_date, pd.quota_value
+              FROM portfolio_daily pd
+             WHERE pd.portfolio_id = ${filter.portfolioId}::UUID
+               AND pd.position_date <= (SELECT position_date FROM as_of)
           ),
-          header as (
-            select (select position_date from as_of) as as_of,
-                   (select max(computed_at) from open_positions) as computed_at,
-                   coalesce((
-                     select sum(t.net_amount)
-                       from transaction t
-                       join scope s on s.portfolio_id = t.portfolio_id
-                      where t.kind = 'payout'
-                        and t.confirmed_at is not null
-                        and t.settlement_date <= (select position_date from as_of)
-                        and t.settlement_date
-                              > ((select position_date from as_of)
-                                 - interval '12 months')::date
-                   ), 0)::text as payouts_12m,
-                   round(
-                     (select quota_value from quota order by position_date desc limit 1)
-                     / nullif((
-                         select quota_value from quota
-                          where position_date < (select position_date from as_of)
-                          order by position_date desc limit 1
+          header AS (
+            SELECT (SELECT position_date FROM as_of) AS as_of,
+                   (SELECT MAX(computed_at) FROM open_positions) AS computed_at,
+                   COALESCE((
+                     SELECT SUM(t.net_amount)
+                       FROM transaction t
+                       JOIN scope s ON s.portfolio_id = t.portfolio_id
+                      WHERE t.kind = 'payout'
+                        AND t.confirmed_at IS NOT NULL
+                        AND t.settlement_date <= (SELECT position_date FROM as_of)
+                        AND t.settlement_date
+                              > ((SELECT position_date FROM as_of)
+                                 - INTERVAL '12 months')::DATE
+                   ), 0)::TEXT AS payouts_12m,
+                   ROUND(
+                     (SELECT quota_value FROM quota ORDER BY position_date DESC LIMIT 1)
+                     / NULLIF((
+                         SELECT quota_value FROM quota
+                          WHERE position_date < (SELECT position_date FROM as_of)
+                          ORDER BY position_date DESC LIMIT 1
                        ), 0) - 1,
                      ${RATIO_SCALE}
-                   )::text as day_change_ratio,
-                   round(
-                     (select quota_value from quota order by position_date desc limit 1)
-                     / nullif((
-                         select quota_value from quota
-                          where position_date
-                                  <= ((select position_date from as_of)
-                                      - interval '12 months')::date
-                          order by position_date desc limit 1
+                   )::TEXT AS day_change_ratio,
+                   ROUND(
+                     (SELECT quota_value FROM quota ORDER BY position_date DESC LIMIT 1)
+                     / NULLIF((
+                         SELECT quota_value FROM quota
+                          WHERE position_date
+                                  <= ((SELECT position_date FROM as_of)
+                                      - INTERVAL '12 months')::DATE
+                          ORDER BY position_date DESC LIMIT 1
                        ), 0) - 1,
                      ${RATIO_SCALE}
-                   )::text as return_12m_ratio,
-                   count(*) filter (where o.price_source_kind = 'fresh')::int as fresh,
-                   count(*) filter (where o.price_source_kind = 'stale')::int as stale,
-                   count(*) filter (where o.price_source_kind = 'manual')::int as manual,
-                   count(*) filter (where o.price_source_kind = 'missing')::int
-                     as missing
-              from open_positions o
+                   )::TEXT AS return_12m_ratio,
+                   COUNT(*) FILTER (WHERE o.price_source_kind = 'fresh')::INT AS fresh,
+                   COUNT(*) FILTER (WHERE o.price_source_kind = 'stale')::INT AS stale,
+                   COUNT(*) FILTER (WHERE o.price_source_kind = 'manual')::INT AS manual,
+                   COUNT(*) FILTER (WHERE o.price_source_kind = 'missing')::INT
+                     AS missing
+              FROM open_positions o
           )
-          select (
-                   select json_agg(
-                            json_build_object(
-                              'group_key', case when s.is_total = 1 then null
-                                                else s.group_key end,
+          SELECT (
+                   SELECT JSON_AGG(
+                            JSON_BUILD_OBJECT(
+                              'group_key', CASE WHEN s.is_total = 1 THEN NULL
+                                                ELSE s.group_key END,
                               'count', s.count,
                               'value', s.value,
                               'cost_basis', s.cost_basis,
                               'open_result', s.open_result,
                               'open_result_ratio', s.open_result_ratio,
-                              'weight', coalesce(s.weight, '0')
+                              'weight', COALESCE(s.weight, '0')
                             )
                           )
-                     from summaries s
-                 ) as summaries,
+                     FROM summaries s
+                 ) AS summaries,
                  (
-                   select json_agg(
-                            json_build_object(
+                   SELECT JSON_AGG(
+                            JSON_BUILD_OBJECT(
                               'id', f.id,
                               'label', f.label,
                               'color_token', f.color_token,
                               'count', f.count
                             )
-                            order by f.value desc
+                            ORDER BY f.value DESC
                           )
-                     from facets f
-                 ) as facets,
-                 (select row_to_json(h) from header h) as header
+                     FROM facets f
+                 ) AS facets,
+                 (SELECT ROW_TO_JSON(h) FROM header h) AS header
         `;
 
         const aggregate = aggregates[0];

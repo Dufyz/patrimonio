@@ -6,7 +6,7 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
  * T-08 · Configurações: as oito seções de ajuste, cada uma resolvendo uma coisa.
  *
  * A resposta é uma só para a tela inteira — carteiras, alertas, categorias,
- * instituições, benchmarks, o que o lançamento preenche sozinho e o backup — e
+ * instituições, o que o lançamento preenche sozinho e o backup — e
  * não oito, porque a prancha mostra tudo na mesma rolagem e o banco fica em outra
  * rede. A seção de dados de mercado **não** está aqui: ela já tem a sua rota
  * (`GET /market/health`, M-16), com compasso próprio de releitura enquanto uma
@@ -18,9 +18,8 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
  *   instituição trazem o que as prende (`blocking`), e a tela escreve "41
  *   lançamentos impedem" em vez de deixar o usuário descobrir pelo erro. A
  *   regra de bloquear é do servidor; a contagem é só para explicá-la.
- * - **Dinheiro e percentual são string.** Caixa, exposição e limite do FGC
- *   chegam prontos, inclusive o percentual da barra, porque a tela não faz
- *   conta com dinheiro.
+ * - **Dinheiro e percentual são string.** O caixa e os totais chegam
+ *   prontos, porque a tela não faz conta com dinheiro.
  * - **Alerta traz o limite como veio.** `threshold` é o `jsonb` da regra, sem
  *   interpretação: cada regra tem a forma dela, e quem a traduz em texto é a
  *   tela, a partir do `kind`. Regra "da carteira" vem com `scope:
@@ -34,7 +33,7 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
 export const settingsPortfolioSchema = z.object({
   id: uuid,
   name: z.string(),
-  benchmark: z.object({ id: uuid, name: z.string() }).nullable(),
+  benchmark: z.object({ value: z.string(), name: z.string() }).nullable(),
   /** Quantas categorias a estratégia da carteira usa. */
   strategy_categories: z.number().int(),
   /** Os objetivos abertos que a medem, por nome. */
@@ -77,42 +76,16 @@ export const settingsCategorySchema = z.object({
 export const settingsInstitutionSchema = z.object({
   id: uuid,
   name: z.string(),
-  role: z.enum(['custodian', 'issuer', 'both']),
-  fgc_covered: z.boolean(),
-  brokerage_per_order: decimalString,
-  custody_monthly_fee: decimalString,
+  country: z.string(),
   /** As carteiras com lançamento nesta instituição, por nome. */
   portfolios: z.array(z.string()),
   /** O saldo de caixa que a instituição guarda. Nulo quando ela não guarda. */
   cash: decimalString.nullable(),
-  /**
-   * A exposição de quem a instituição emite contra o limite do FGC. Nulo quando
-   * ela não é emissora, ou não é coberta — e `fgc_covered` diz qual dos dois.
-   */
-  fgc: z
-    .object({
-      exposure: decimalString,
-      limit: decimalString,
-      /** Exposição sobre o limite, em pontos percentuais, para a barra. */
-      used_pct: decimalString,
-      over_limit: z.boolean(),
-    })
-    .nullable(),
   /** O que impede a exclusão. */
   blocking: z.object({
     transactions: z.number().int(),
     assets: z.number().int(),
   }),
-});
-
-export const settingsBenchmarkSchema = z.object({
-  id: uuid,
-  name: z.string(),
-  kind: z.enum(['index', 'index_plus_rate', 'blend']),
-  rebalance: z.enum(['monthly', 'daily', 'never']),
-  definition: z.record(z.string(), z.unknown()),
-  /** Carteiras que o usam como régua. */
-  used_by: z.number().int(),
 });
 
 export const settingsBackupSchema = z.object({
@@ -139,7 +112,6 @@ export const settingsSchema = z.object({
   alerts: z.array(settingsAlertRuleSchema),
   categories: z.array(settingsCategorySchema),
   institutions: z.array(settingsInstitutionSchema),
-  benchmarks: z.array(settingsBenchmarkSchema),
   ledger_defaults: settingsLedgerDefaultsSchema,
   backup: settingsBackupSchema,
 });
@@ -158,6 +130,5 @@ export type Settings = z.infer<typeof settingsSchema>;
 export type SettingsPortfolio = z.infer<typeof settingsPortfolioSchema>;
 export type SettingsCategory = z.infer<typeof settingsCategorySchema>;
 export type SettingsInstitution = z.infer<typeof settingsInstitutionSchema>;
-export type SettingsBenchmark = z.infer<typeof settingsBenchmarkSchema>;
 export type SettingsAlertRule = z.infer<typeof settingsAlertRuleSchema>;
 export type SettingsBackup = z.infer<typeof settingsBackupSchema>;

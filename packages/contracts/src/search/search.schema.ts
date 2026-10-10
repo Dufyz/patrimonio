@@ -31,8 +31,7 @@ export const getSearchSchema = z.object({
   query: z.object({
     /** O texto digitado. Casa com código, nome e observação, sem distinguir maiúscula. */
     q: z.string().trim().min(1).max(80),
-    /** Ausente significa todas as carteiras ativas. */
-    portfolio_id: uuid.optional(),
+    portfolio_id: uuid,
     limit: z.coerce
       .number()
       .int()

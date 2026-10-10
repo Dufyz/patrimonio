@@ -10,14 +10,12 @@ import {
 } from 'react-router';
 
 import { fetchPortfolios } from './api/portfolios.js';
-import { fetchPositions } from './api/positions.js';
 import { EntryProvider, useEntry } from './components/entry_provider.js';
 import { SearchPalette } from './components/search_palette.js';
 import { ShortcutProvider, useShortcuts } from './components/shortcuts.js';
-import { ALL_PORTFOLIOS, AppShell } from './components/shell.js';
+import { AppShell } from './components/shell.js';
 import type { ScreenItem } from './components/shell.js';
 import {
-  ALL_SCOPE,
   portfolioIdForScope,
   portfolioSlugs,
   scopeForPortfolioId,
@@ -88,49 +86,32 @@ const Workspace = (): React.ReactElement => (
         ela mora sob o escopo e mantém Posições destacada na navegação. */}
     <Route path="/:scope/ativo/:asset" element={<Workbench />} />
     <Route path="/:scope/:screen" element={<Workbench />} />
-    <Route path="*" element={<Navigate to={`/${ALL_SCOPE}/visao-geral`} replace />} />
+    <Route path="*" element={<Workbench />} />
   </Routes>
 );
 
 const Workbench = (): React.ReactElement => {
-  const { scope = ALL_SCOPE, screen = 'visao-geral', asset } = useParams();
+  const { scope = '', screen = 'visao-geral', asset } = useParams();
   const navigate = useNavigate();
 
   const [portfolios, setPortfolios] = useState<readonly PortfolioResource[]>([]);
-  const [values, setValues] = useState<ReadonlyMap<string, string>>(new Map());
+  const [values, setValues] = useState<Readonly<Record<string, string>>>({});
+  const [loaded, setLoaded] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchPortfolios(controller.signal)
-      .then(setPortfolios)
-      .catch(() => setPortfolios([]));
-    return () => controller.abort();
-  }, []);
-
-  /**
-   * O valor de cada carteira na barra lateral vem de um pedido só, agrupado por
-   * carteira: o subtotal de cada grupo é exatamente o número que a barra mostra,
-   * e ele é somado onde todos os outros são somados — na `api`.
-   */
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchPositions(
-      { portfolioId: null, groupBy: 'portfolio', search: '', categoryId: null },
-      controller.signal,
-    )
-      .then((resource) =>
-        setValues(
-          new Map(
-            resource.groups.flatMap((group) =>
-              group.positions[0] === undefined
-                ? []
-                : [[group.positions[0].portfolio_id, group.summary.value] as const],
-            ),
-          ),
-        ),
-      )
-      .catch(() => setValues(new Map()));
+      .then((list) => {
+        setPortfolios(list.portfolios);
+        setValues(list.values);
+        setLoaded(true);
+      })
+      .catch(() => {
+        setPortfolios([]);
+        setValues({});
+        setLoaded(controller.signal.aborted ? false : true);
+      });
     return () => controller.abort();
   }, []);
 
@@ -148,9 +129,7 @@ const Workbench = (): React.ReactElement => {
   // mantém o escopo na URL só para a barra lateral continuar a mesma.
   const onSettings = asset === undefined && screen === 'configuracoes';
   const scopeLabel =
-    portfolioId === null
-      ? 'Todas as carteiras'
-      : (portfolios.find((item) => item.id === portfolioId)?.name ?? 'Carteira');
+    portfolios.find((item) => item.id === portfolioId)?.name ?? 'Carteira';
 
   const shortcuts = useMemo(
     () => ({
@@ -191,7 +170,6 @@ const Workbench = (): React.ReactElement => {
 
   const searchPortfolios = useMemo(
     () => [
-      { id: ALL_PORTFOLIOS, label: 'Todas as carteiras' },
       ...portfolios.map((portfolio) => ({ id: portfolio.id, label: portfolio.name })),
     ],
     [portfolios],
@@ -216,36 +194,43 @@ const Workbench = (): React.ReactElement => {
         ...Object.fromEntries(SCREENS.map((item) => [item.id, item.path])),
         [SETTINGS_SCREEN]: 'configuracoes',
       },
-      scopeFor: (portfolioId) =>
-        portfolioId === ALL_PORTFOLIOS
-          ? ALL_SCOPE
-          : scopeForPortfolioId(portfolioId, slugs),
+      scopeFor: (id) => scopeForPortfolioId(id, slugs) ?? scope,
     });
 
     // Ação não é navegação: quem a executa é o `Palette`, que abre o modal.
     if (path !== null) void navigate(path);
   };
 
+  if (!loaded) return <div className="p-6 text-[0.8125rem] text-ink-3">Carregando…</div>;
+
+  const first = portfolios[0];
+  if (first === undefined) {
+    return (
+      <div className="p-6">
+        <SettingsScreen />
+      </div>
+    );
+  }
+  if (portfolioId === null) {
+    const firstSlug = slugs.get(first.id) ?? 'carteira';
+    const target = asset === undefined ? screen : 'posicoes';
+    return <Navigate to={`/${firstSlug}/${target}`} replace />;
+  }
+
   return (
     <EntryProvider scopePortfolioId={portfolioId}>
       <AppShell
-        portfolios={[
-          { id: ALL_PORTFOLIOS, label: 'Todas as carteiras', value: null },
-          ...portfolios.map((portfolio) => ({
-            id: portfolio.id,
-            label: portfolio.name,
-            value: values.get(portfolio.id) ?? null,
-          })),
-        ]}
+        portfolios={portfolios.map((portfolio) => ({
+          id: portfolio.id,
+          label: portfolio.name,
+          value: values[portfolio.id] ?? null,
+        }))}
         screens={SCREENS.map(({ id, label, icon }) => ({ id, label, icon }))}
-        scope={portfolioId ?? ALL_PORTFOLIOS}
+        scope={portfolioId}
         screen={onSettings ? 'configuracoes' : (current?.id ?? 'visao')}
         onNavigate={(nextScope, nextScreen) => {
           const target = SCREENS.find((item) => item.id === nextScreen) ?? SCREENS[0];
-          const slug =
-            nextScope === ALL_PORTFOLIOS
-              ? ALL_SCOPE
-              : scopeForPortfolioId(nextScope, slugs);
+          const slug = scopeForPortfolioId(nextScope, slugs) ?? scope;
           navigate(`/${slug}/${target?.path ?? 'visao-geral'}`);
         }}
         onOpenSearch={() => setSearchOpen(true)}
@@ -295,6 +280,7 @@ const Workbench = (): React.ReactElement => {
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
         scopeLabel={scopeLabel}
+        portfolioId={portfolioId}
         screens={searchScreens}
         portfolios={searchPortfolios}
         onSelect={openTarget}
@@ -308,7 +294,6 @@ const READY_ACTIONS: ReadonlySet<SearchActionId> = new Set([
   'new_transaction',
   'buy_asset',
   'payout_asset',
-  'move_asset',
 ]);
 
 /**
@@ -339,12 +324,7 @@ const Palette = ({
             : { id: target.assetId, label: target.title ?? '', name: null, held: null };
 
         entry.openEntry({
-          tab:
-            target.action === 'payout_asset'
-              ? 'payout'
-              : target.action === 'move_asset'
-                ? 'transfer'
-                : 'buy',
+          tab: target.action === 'payout_asset' ? 'payout' : 'buy',
           asset,
         });
       }}

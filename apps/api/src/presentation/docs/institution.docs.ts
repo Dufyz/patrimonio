@@ -2,8 +2,6 @@ import {
   createInstitutionSchema,
   deleteInstitutionSchema,
   errorResponseSchema,
-  fgcExposureResourceSchema,
-  getFgcExposureSchema,
   institutionResourceSchema,
   listInstitutionsSchema,
   updateInstitutionSchema,
@@ -24,7 +22,7 @@ export const INSTITUTION_ROUTE_DOCS: readonly RouteDoc[] = [
     method: 'get',
     path: '/institutions',
     tag: TAG,
-    summary: 'Custodiantes e emissores cadastrados',
+    summary: 'Instituições cadastradas',
     request: listInstitutionsSchema,
     responses: {
       200: {
@@ -79,24 +77,6 @@ export const INSTITUTION_ROUTE_DOCS: readonly RouteDoc[] = [
       409: {
         description:
           'Há lançamentos ou ativos ligados a ela: a mensagem traz a contagem do que impede.',
-        schema: errorResponseSchema,
-      },
-    },
-  },
-  {
-    method: 'get',
-    path: '/institutions/:institution_id/fgc-exposure',
-    tag: TAG,
-    summary: 'Quanto do teto do FGC já está usado neste emissor',
-    request: getFgcExposureSchema,
-    responses: {
-      200: {
-        description:
-          'Exposição por emissor e quanto sobra dos R$ 250 mil. A base é o custo enquanto a marcação na curva não entra.',
-        schema: z.object({ exposure: fgcExposureResourceSchema }),
-      },
-      404: {
-        description: 'Não existe instituição com esse id.',
         schema: errorResponseSchema,
       },
     },

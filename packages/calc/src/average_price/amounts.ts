@@ -14,8 +14,6 @@ export type AmountInput = {
   readonly unit_price: string;
   readonly fees: string;
   readonly tax_withheld?: string | undefined;
-  /** Transferência: a perna que sai leva o sinal negativo. */
-  readonly outgoing?: boolean | undefined;
 };
 
 export type Amounts = {
@@ -62,8 +60,6 @@ export const amountsFor = (input: AmountInput): Amounts => {
       case 'payout':
         // JCP tem IR retido na fonte: o que entra é o líquido.
         return gross.minus(tax).minus(fees);
-      case 'transfer':
-        return input.outgoing === true ? gross.negated() : gross;
       case 'corporate_event':
         // Evento corporativo não move dinheiro: muda quantidade e preço médio.
         return new Decimal(0);

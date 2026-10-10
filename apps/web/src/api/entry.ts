@@ -2,7 +2,6 @@ import {
   payoutPreviewSchema,
   transactionPreviewSchema,
   transactionResourceSchema,
-  transferPreviewSchema,
 } from '@patrimonio/contracts';
 import type {
   ConfirmPayoutBody,
@@ -13,7 +12,6 @@ import type {
   PayoutPreviewResource,
   TransactionPreviewResource,
   TransactionResource,
-  TransferPositionBody,
   UpdateTransactionBody,
 } from '@patrimonio/contracts';
 
@@ -29,8 +27,6 @@ import type { Parser } from './client.js';
  * `Idempotency-Key` e enfileira o recálculo. Nenhuma das duas é otimista: o
  * lançamento só aparece na tela depois que a `api` confirma.
  */
-
-export type TransferPreview = ReturnType<typeof transferPreviewSchema.parse>;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -124,16 +120,6 @@ export const previewUpdate = (
     post(body, signal),
   );
 
-export const previewTransfer = (
-  body: TransferPositionBody,
-  signal?: AbortSignal,
-): Promise<TransferPreview> =>
-  request(
-    '/api/transactions/transfer/preview',
-    inside('preview', transferPreviewSchema),
-    post(body, signal),
-  );
-
 /* -------------------------------------------------------------------------- */
 /* Gravação                                                                   */
 
@@ -157,11 +143,6 @@ export const updateTransaction = (
   body: UpdateTransactionBody,
   attemptKey: string,
 ): Promise<SaveReceipt> => save(`/api/transactions/${id}`, 'PATCH', body, attemptKey);
-
-export const transferPosition = (
-  body: TransferPositionBody,
-  attemptKey: string,
-): Promise<SaveReceipt> => save('/api/transactions/transfer', 'POST', body, attemptKey);
 
 export const confirmPayout = (
   id: string,

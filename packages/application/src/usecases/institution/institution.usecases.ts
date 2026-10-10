@@ -1,5 +1,3 @@
-import { fgcHeadroom } from '@patrimonio/calc';
-import { FGC_LIMIT_BRL } from '@patrimonio/domain';
 import type { Institution } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
 
@@ -81,46 +79,4 @@ export const deleteInstitution = (deps: InstitutionWriteDeps) =>
         return success({ id });
       },
     );
-  });
-
-export type FgcExposure = {
-  readonly institution_id: string;
-  readonly institution_name: string;
-  readonly fgc_covered: boolean;
-  readonly limit_brl: string;
-  readonly exposure_brl: string;
-  readonly available_brl: string;
-  readonly over_limit: boolean;
-  readonly basis: 'cost';
-};
-
-/**
- * Quanto do teto do FGC já está usado neste emissor. A base é o custo enquanto
- * a marcação na curva não existe (E3), e o campo `basis` diz isso em vez de
- * deixar a tela apresentar um número como se fosse valor de mercado.
- */
-export const getFgcExposure = (deps: InstitutionDeps) =>
-  either(async function* (id: string) {
-    const institution = yield* await deps.institutions.findById(id);
-
-    if (institution === null) {
-      return yield* failure(new NotFoundError(`Instituição ${id} não encontrada`));
-    }
-
-    const exposure = yield* await deps.institutions.issuerExposure(id);
-
-    const headroom = fgcHeadroom(exposure.exposure_brl, FGC_LIMIT_BRL);
-
-    const result: FgcExposure = {
-      institution_id: institution.id,
-      institution_name: institution.name,
-      fgc_covered: institution.fgc_covered,
-      limit_brl: headroom.limit_brl,
-      exposure_brl: headroom.exposure_brl,
-      available_brl: headroom.available_brl,
-      over_limit: headroom.over_limit,
-      basis: 'cost',
-    };
-
-    return result;
   });

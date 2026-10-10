@@ -17,10 +17,14 @@ export const SEARCH_TEXT_MAX = 80;
 
 export const fetchSearch = async (
   text: string,
+  portfolioId: string,
   signal?: AbortSignal,
 ): Promise<SearchResource> =>
   request(
-    `/api/search?${new URLSearchParams({ q: text.trim().slice(0, SEARCH_TEXT_MAX) }).toString()}`,
+    `/api/search?${new URLSearchParams({
+      q: text.trim().slice(0, SEARCH_TEXT_MAX),
+      portfolio_id: portfolioId,
+    }).toString()}`,
     searchResourceSchema,
     { ...(signal === undefined ? {} : { signal }) },
   );

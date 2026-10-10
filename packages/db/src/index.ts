@@ -40,6 +40,7 @@ export {
   rollbackMigrations,
   runMigrations,
 } from './migrations/runner.js';
+export { migrateDatabase } from './migrations/migrate.js';
 export type {
   AppliedMigration,
   Migration,

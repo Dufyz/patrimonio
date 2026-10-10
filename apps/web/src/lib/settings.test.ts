@@ -1,7 +1,6 @@
 import type {
   Settings,
   SettingsBackup,
-  SettingsBenchmark,
   SettingsCategory,
   SettingsInstitution,
 } from '@patrimonio/contracts';
@@ -13,17 +12,12 @@ import {
   alertLimit,
   autoRuleText,
   backupSummary,
-  benchmarkHow,
-  benchmarkSource,
-  benchmarkUse,
   categoryHold,
-  fgcNote,
   formatInstant,
   groupCategories,
   isEmptyInstallation,
   missingPricesText,
   portfolioHold,
-  ratioToPercentText,
   sectionFromParam,
   sortAlerts,
 } from './settings.js';
@@ -41,26 +35,12 @@ const category = (overrides: Partial<SettingsCategory>): SettingsCategory => ({
   ...overrides,
 });
 
-const benchmark = (overrides: Partial<SettingsBenchmark>): SettingsBenchmark => ({
-  id: 'b',
-  name: 'CDI',
-  kind: 'index',
-  rebalance: 'never',
-  definition: { index: 'CDI' },
-  used_by: 0,
-  ...overrides,
-});
-
 const institution = (overrides: Partial<SettingsInstitution>): SettingsInstitution => ({
   id: 'i',
   name: 'Banco',
-  role: 'both',
-  fgc_covered: true,
-  brokerage_per_order: '0.00',
-  custody_monthly_fee: '0.00',
+  country: 'BR',
   portfolios: [],
   cash: null,
-  fgc: null,
   blocking: { transactions: 0, assets: 0 },
   ...overrides,
 });
@@ -169,66 +149,6 @@ describe('as categorias', () => {
       'Prefixada',
     ]);
     expect(groups[1]?.children).toEqual([]);
-  });
-});
-
-describe('as instituições', () => {
-  it('sem barra de FGC a coluna diz por quê', () => {
-    expect(fgcNote(institution({ role: 'custodian', fgc_covered: false }))).toBe(
-      'não se aplica',
-    );
-    expect(fgcNote(institution({ role: 'issuer', fgc_covered: false }))).toBe(
-      'sem cobertura do FGC',
-    );
-    expect(fgcNote(institution({ role: 'both', fgc_covered: true }))).toBe('—');
-  });
-});
-
-describe('os benchmarks', () => {
-  it('descreve como cada um é calculado e de onde vem', () => {
-    expect(benchmarkHow(benchmark({}))).toBe('Série diária acumulada');
-    expect(benchmarkSource(benchmark({}))).toBe('Banco Central');
-    expect(benchmarkHow(benchmark({ definition: { index: 'IPCA' }, name: 'IPCA' }))).toBe(
-      'Mensal, distribuída por dia útil',
-    );
-    expect(benchmarkSource(benchmark({ definition: { index: 'IPCA' } }))).toBe(
-      'IBGE, via Banco Central',
-    );
-    expect(benchmarkSource(benchmark({ definition: { index: 'IBOV' } }))).toBe('B3');
-  });
-
-  it('o composto declara a taxa e o rebalanceamento, e a fonte é "Calculado"', () => {
-    const plus = benchmark({
-      kind: 'index_plus_rate',
-      definition: { index: 'IPCA', rate: 0.06 },
-    });
-    const blend = benchmark({
-      kind: 'blend',
-      rebalance: 'monthly',
-      definition: { parts: [{ index: 'CDI', weight: 0.5 }] },
-    });
-
-    expect(benchmarkHow(plus)).toBe('IPCA + 6% a.a., por dia útil');
-    expect(benchmarkSource(plus)).toBe('Calculado');
-    expect(benchmarkHow(blend)).toBe('Rebalanceado todo mês');
-    expect(benchmarkHow(benchmark({ kind: 'blend', rebalance: 'never' }))).toBe(
-      'Rebalanceado nunca',
-    );
-  });
-
-  it('a taxa é convertida sobre o texto, sem ponto flutuante', () => {
-    expect(ratioToPercentText('0.06')).toBe('6');
-    expect(ratioToPercentText('0.055')).toBe('5,5');
-    expect(ratioToPercentText('0.1')).toBe('10');
-    expect(ratioToPercentText('0.0725')).toBe('7,25');
-    expect(ratioToPercentText('0')).toBe('0');
-    expect(ratioToPercentText('1e-7')).toBeNull();
-  });
-
-  it('o uso diz quantas carteiras, ou que é comparação opcional', () => {
-    expect(benchmarkUse(0)).toBe('Comparação opcional');
-    expect(benchmarkUse(1)).toBe('1 carteira');
-    expect(benchmarkUse(3)).toBe('3 carteiras');
   });
 });
 

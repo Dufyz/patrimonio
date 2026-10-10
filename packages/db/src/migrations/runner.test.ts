@@ -36,7 +36,7 @@ const pairDirectory = async (
 describe('carregamento das migrations', () => {
   it('recusa um up/ sem par de mesmo nome em down/', async () => {
     const directory = await pairDirectory([
-      { name: '001_cria_tabela', up: 'create table t (id int);' },
+      { name: '001_cria_tabela', up: 'CREATE TABLE t (id INT);' },
     ]);
 
     await expect(loadMigrations(directory)).rejects.toThrow(/não tem par em down/);
@@ -44,17 +44,17 @@ describe('carregamento das migrations', () => {
 
   it('recusa um down/ sem par em up/', async () => {
     const directory = await pairDirectory([
-      { name: '001_cria_tabela', up: 'create table t (id int);', down: 'drop table t;' },
+      { name: '001_cria_tabela', up: 'CREATE TABLE t (id INT);', down: 'DROP TABLE t;' },
     ]);
-    await writeFile(join(directory, 'down', '002_sozinho.sql'), 'drop table nada;');
+    await writeFile(join(directory, 'down', '002_sozinho.sql'), 'DROP TABLE nada;');
 
     await expect(loadMigrations(directory)).rejects.toThrow(/sem par em up/);
   });
 
   it('carrega os pares em ordem de nome, com checksum', async () => {
     const directory = await pairDirectory([
-      { name: '002_segunda', up: 'select 2;', down: 'select -2;' },
-      { name: '001_primeira', up: 'select 1;', down: 'select -1;' },
+      { name: '002_segunda', up: 'SELECT 2;', down: 'SELECT -2;' },
+      { name: '001_primeira', up: 'SELECT 1;', down: 'SELECT -1;' },
     ]);
 
     const migrations = await loadMigrations(directory);
@@ -70,7 +70,7 @@ describe('carregamento das migrations', () => {
     const migrations = await loadMigrations();
 
     expect(migrations.length).toBeGreaterThan(0);
-    expect(migrations[0]?.name).toBe('001_create_function_set_updated_at');
+    expect(migrations[0]?.name).toBe('001_enable_unaccent');
   });
 });
 
@@ -78,7 +78,7 @@ describe('aplicação das migrations', () => {
   it('migration já aplicada que mudou de conteúdo falha', async () => {
     await withScratchDatabase(async (connection) => {
       const first = await pairDirectory([
-        { name: '001_t', up: 'create table t (id int);', down: 'drop table t;' },
+        { name: '001_t', up: 'CREATE TABLE t (id INT);', down: 'DROP TABLE t;' },
       ]);
 
       await runMigrations(connection, { directory: first });
@@ -86,8 +86,8 @@ describe('aplicação das migrations', () => {
       const changed = await pairDirectory([
         {
           name: '001_t',
-          up: 'create table t (id int, extra text);',
-          down: 'drop table t;',
+          up: 'CREATE TABLE t (id INT, extra TEXT);',
+          down: 'DROP TABLE t;',
         },
       ]);
 
@@ -105,8 +105,8 @@ describe('aplicação das migrations', () => {
       const directory = await pairDirectory([
         {
           name: '001_meia_falha',
-          up: 'create table a (id int); create table a (id int);',
-          down: 'drop table if exists a;',
+          up: 'CREATE TABLE a (id INT); CREATE TABLE a (id INT);',
+          down: 'DROP TABLE IF EXISTS a;',
         },
       ]);
 
@@ -120,7 +120,7 @@ describe('aplicação das migrations', () => {
 
       try {
         const [row] = await sql<{ exists: boolean }[]>`
-          select exists (select 1 from pg_tables where tablename = 'a') as exists
+          SELECT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'a') AS EXISTS
         `;
         expect(row?.exists).toBe(false);
 
@@ -135,8 +135,8 @@ describe('aplicação das migrations', () => {
   it('status lista aplicadas e pendentes em ordem', async () => {
     await withScratchDatabase(async (connection) => {
       const directory = await pairDirectory([
-        { name: '001_a', up: 'create table a (id int);', down: 'drop table a;' },
-        { name: '002_b', up: 'create table b (id int);', down: 'drop table b;' },
+        { name: '001_a', up: 'CREATE TABLE a (id INT);', down: 'DROP TABLE a;' },
+        { name: '002_b', up: 'CREATE TABLE b (id INT);', down: 'DROP TABLE b;' },
       ]);
 
       await runMigrations(connection, { directory });
@@ -185,35 +185,35 @@ describe('o schema do projeto', () => {
 
   it('position_daily nasce particionada por ano', async () => {
     const [parent] = await sql<{ relkind: string }[]>`
-      select relkind::text from pg_class where relname = 'position_daily'
+      SELECT relkind::TEXT FROM pg_class WHERE relname = 'position_daily'
     `;
     expect(parent?.relkind).toBe('p');
 
     const [strategy] = await sql<{ strategy: string }[]>`
-      select partstrat::text as strategy
-        from pg_partitioned_table
-        join pg_class on pg_class.oid = pg_partitioned_table.partrelid
-       where relname = 'position_daily'
+      SELECT partstrat::TEXT AS strategy
+        FROM pg_partitioned_table
+        JOIN pg_class ON pg_class.oid = pg_partitioned_table.partrelid
+       WHERE relname = 'position_daily'
     `;
     // 'r' é range: a partição é por intervalo de position_date.
     expect(strategy?.strategy).toBe('r');
 
     const [partitions] = await sql<{ total: string }[]>`
-      select count(*)::text as total
-        from pg_inherits
-        join pg_class parent on parent.oid = pg_inherits.inhparent
-       where parent.relname = 'position_daily'
+      SELECT COUNT(*)::TEXT AS total
+        FROM pg_inherits
+        JOIN pg_class parent ON parent.oid = pg_inherits.inhparent
+       WHERE parent.relname = 'position_daily'
     `;
     expect(Number(partitions?.total)).toBe(36);
   });
 
   it('todo valor monetário é NUMERIC com a escala do documento de entidades', async () => {
     const rows = await sql<{ table_name: string; column_name: string; scale: number }[]>`
-      select table_name::text, column_name::text, numeric_scale as scale
-        from information_schema.columns
-       where table_schema = 'public'
-         and data_type = 'numeric'
-       order by table_name, column_name
+      SELECT table_name::TEXT, column_name::TEXT, numeric_scale AS scale
+        FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND data_type = 'numeric'
+       ORDER BY table_name, column_name
     `;
 
     const scaleOf = (table: string, column: string): number | undefined =>
@@ -229,10 +229,10 @@ describe('o schema do projeto', () => {
 
     // Nunca double precision, nunca float.
     const [floats] = await sql<{ total: string }[]>`
-      select count(*)::text as total
-        from information_schema.columns
-       where table_schema = 'public'
-         and data_type in ('double precision', 'real')
+      SELECT COUNT(*)::TEXT AS total
+        FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND data_type IN ('double precision', 'real')
     `;
     expect(Number(floats?.total)).toBe(0);
   });
@@ -247,16 +247,15 @@ describe('o schema do projeto', () => {
       'strategy_target',
       'goal',
       'alert_rule',
-      'benchmark',
       'announced_payout',
       'corporate_event',
     ];
 
     const rows = await sql<{ table_name: string; column_name: string }[]>`
-      select table_name::text, column_name::text
-        from information_schema.columns
-       where table_schema = 'public'
-         and column_name in ('created_at', 'updated_at')
+      SELECT table_name::TEXT, column_name::TEXT
+        FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND column_name IN ('created_at', 'updated_at')
     `;
 
     for (const table of cadastro) {
@@ -271,11 +270,11 @@ describe('o schema do projeto', () => {
 
   it('tabela de ingestão e de projeção não têm updated_at', async () => {
     const rows = await sql<{ table_name: string }[]>`
-      select table_name::text
-        from information_schema.columns
-       where table_schema = 'public'
-         and column_name = 'updated_at'
-         and table_name in (
+      SELECT table_name::TEXT
+        FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND column_name = 'updated_at'
+         AND table_name IN (
            'asset_price', 'index_quote', 'position_daily',
            'portfolio_daily', 'realized_result', 'tax_month'
          )
@@ -286,25 +285,25 @@ describe('o schema do projeto', () => {
 
   it('um UPDATE sem tocar em updated_at ainda atualiza a coluna', async () => {
     await sql`
-      insert into institution (id, name, role)
-      values ('0191e5a0-0000-7000-8000-00000000f001', 'Corretora de Teste', 'custodian')
+      INSERT INTO institution (id, name)
+      VALUES ('0191e5a0-0000-7000-8000-00000000f001', 'Corretora de Teste')
     `;
 
     const [before] = await sql<{ updated_at: Date }[]>`
-      select updated_at from institution
-       where id = '0191e5a0-0000-7000-8000-00000000f001'
+      SELECT updated_at FROM institution
+       WHERE id = '0191e5a0-0000-7000-8000-00000000f001'
     `;
 
     await new Promise((resolve) => setTimeout(resolve, 15));
 
     await sql`
-      update institution set name = 'Corretora Renomeada'
-       where id = '0191e5a0-0000-7000-8000-00000000f001'
+      UPDATE institution SET name = 'Corretora Renomeada'
+       WHERE id = '0191e5a0-0000-7000-8000-00000000f001'
     `;
 
     const [after] = await sql<{ updated_at: Date }[]>`
-      select updated_at from institution
-       where id = '0191e5a0-0000-7000-8000-00000000f001'
+      SELECT updated_at FROM institution
+       WHERE id = '0191e5a0-0000-7000-8000-00000000f001'
     `;
 
     expect(after?.updated_at.getTime()).toBeGreaterThan(before!.updated_at.getTime());
@@ -315,24 +314,24 @@ describe('o schema do projeto', () => {
     await rollbackMigrations(connection, applied);
 
     const [tables] = await sql<{ total: string }[]>`
-      select count(*)::text as total
-        from pg_class c
-        join pg_namespace n on n.oid = c.relnamespace
-       where n.nspname = 'public'
-         and c.relkind in ('r', 'p')
-         and c.relname <> 'schema_migrations'
+      SELECT COUNT(*)::TEXT AS total
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'public'
+         AND c.relkind IN ('r', 'p')
+         AND c.relname <> 'schema_migrations'
     `;
     const [types] = await sql<{ total: string }[]>`
-      select count(*)::text as total
-        from pg_type t
-        join pg_namespace n on n.oid = t.typnamespace
-       where n.nspname = 'public' and t.typtype = 'e'
+      SELECT COUNT(*)::TEXT AS total
+        FROM pg_type t
+        JOIN pg_namespace n ON n.oid = t.typnamespace
+       WHERE n.nspname = 'public' AND t.typtype = 'e'
     `;
     const [functions] = await sql<{ total: string }[]>`
-      select count(*)::text as total
-        from pg_proc p
-        join pg_namespace n on n.oid = p.pronamespace
-       where n.nspname = 'public'
+      SELECT COUNT(*)::TEXT AS total
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'public'
     `;
 
     expect(Number(tables?.total)).toBe(0);

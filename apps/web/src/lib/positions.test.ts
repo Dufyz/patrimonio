@@ -2,7 +2,6 @@ import type { PositionResource } from '@patrimonio/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
-  effectiveGroupBy,
   formatFullDate,
   formatShortDate,
   groupByOptions,
@@ -54,25 +53,17 @@ const position = (overrides: Partial<PositionResource> = {}): PositionResource =
 });
 
 describe('agrupamento', () => {
-  it('agrupar por carteira só é oferecido no escopo de todas elas', () => {
-    expect(groupByOptions(false).map((option) => option.value)).toEqual([
+  it('as opções do seletor são categoria, instituição e sem grupo', () => {
+    expect(groupByOptions.map((option) => option.value)).toEqual([
       'categoria',
       'instituicao',
       'nenhum',
     ]);
-    expect(groupByOptions(true).map((option) => option.value)).toContain('carteira');
-  });
-
-  it('uma URL pedindo agrupamento por carteira dentro de uma carteira volta ao padrão', () => {
-    expect(effectiveGroupBy('carteira', false)).toBe('categoria');
-    expect(effectiveGroupBy('carteira', true)).toBe('carteira');
-    expect(effectiveGroupBy('instituicao', false)).toBe('instituicao');
   });
 
   it('a URL é em português e o campo da api é o nome do campo', () => {
     expect(toGroupBy('categoria')).toBe('category');
     expect(toGroupBy('instituicao')).toBe('institution');
-    expect(toGroupBy('carteira')).toBe('portfolio');
     expect(toGroupBy('nenhum')).toBe('none');
   });
 

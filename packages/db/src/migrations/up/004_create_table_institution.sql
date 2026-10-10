@@ -1,20 +1,14 @@
-create type institution_role as enum ('custodian', 'issuer', 'both');
-
-create table institution (
-  id                  uuid primary key,
-  name                text not null,
-  role                institution_role not null,
-  fgc_covered         boolean not null default false,
-  brokerage_per_order numeric(20,2) not null default 0,
-  custody_monthly_fee numeric(20,2) not null default 0,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint institution_fees_non_negative
-    check (brokerage_per_order >= 0 and custody_monthly_fee >= 0)
+CREATE TABLE institution (
+  id         UUID PRIMARY KEY,
+  name       TEXT NOT NULL,
+  country    CHAR(2) NOT NULL DEFAULT 'BR',
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT institution_country_format CHECK (country ~ '^[A-Z]{2}$')
 );
 
-create unique index institution_name_idx on institution (lower(name));
+CREATE UNIQUE INDEX institution_name_idx ON institution (LOWER(name));
 
-create trigger institution_set_updated_at
-  before update on institution
-  for each row execute function set_updated_at();
+CREATE TRIGGER institution_set_updated_at
+  BEFORE UPDATE ON institution
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();

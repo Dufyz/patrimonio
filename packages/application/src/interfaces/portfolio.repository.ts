@@ -1,7 +1,6 @@
 import type {
   DateOnly,
   Portfolio,
-  RebalanceMode,
   RecalcStatus,
   StrategyTarget,
 } from '@patrimonio/domain';
@@ -15,12 +14,7 @@ import type { AppError } from '../errors/app-error.js';
  */
 export type PortfolioWrite = {
   readonly name?: string | undefined;
-  readonly purpose?: string | null | undefined;
-  readonly benchmark_id?: string | null | undefined;
-  readonly tolerance_pp?: string | undefined;
-  readonly max_asset_weight_pct?: string | null | undefined;
-  readonly rebalance_mode?: RebalanceMode | undefined;
-  readonly review_every_months?: number | null | undefined;
+  readonly benchmark?: string | null | undefined;
   readonly sort_order?: number | undefined;
 };
 
@@ -61,6 +55,9 @@ export type PortfolioRepository = {
   readonly list: (options: {
     readonly includeArchived: boolean;
   }) => Promise<Either<AppError, Portfolio[]>>;
+
+  /** O valor de cada carteira no último fechamento que ela tem. Sem fechamento, sem entrada. */
+  readonly latestValues: () => Promise<Either<AppError, ReadonlyMap<string, string>>>;
 
   readonly create: (draft: PortfolioDraft) => Promise<Either<AppError, Portfolio>>;
 

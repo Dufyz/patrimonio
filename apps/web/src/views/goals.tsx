@@ -49,8 +49,7 @@ export type GoalsViewProps = {
 };
 
 export type GoalsScreenProps = {
-  /** Nulo é o escopo de todas as carteiras. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly scopeLabel: string;
 };
 

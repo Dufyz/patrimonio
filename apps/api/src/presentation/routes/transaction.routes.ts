@@ -6,8 +6,6 @@ import {
   interpretTransactionSchema,
   previewUpdateSchema,
   previewPayoutSchema,
-  previewTransferSchema,
-  transferPositionSchema,
   undoDeletionSchema,
   updateTransactionSchema,
   dismissPayoutSchema,
@@ -40,16 +38,6 @@ export const transactionRoutes = (deps: TransactionDeps): Router => {
     '/transactions/payouts/preview',
     validate(previewPayoutSchema),
     controller.previewPayout,
-  );
-  router.post(
-    '/transactions/transfer',
-    validate(transferPositionSchema),
-    controller.transfer,
-  );
-  router.post(
-    '/transactions/transfer/preview',
-    validate(previewTransferSchema),
-    controller.previewTransfer,
   );
   router.post(
     '/transactions/:transaction_id/confirm',

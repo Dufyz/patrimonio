@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  ALL_SCOPE,
   portfolioIdForScope,
   portfolioSlugs,
   scopeForPortfolioId,
@@ -30,11 +29,12 @@ describe('escopo na URL', () => {
     expect(slugs.get('1')).toBe('carteira');
   });
 
-  it('todas as carteiras e um apelido desconhecido são o mesmo escopo: nenhuma', () => {
+  it('um apelido desconhecido não nomeia carteira nenhuma', () => {
     const slugs = portfolioSlugs([{ id: '1', name: 'Longo prazo' }]);
 
-    expect(portfolioIdForScope(ALL_SCOPE, slugs)).toBeNull();
+    expect(portfolioIdForScope('todas', slugs)).toBeNull();
     expect(portfolioIdForScope('inexistente', slugs)).toBeNull();
+    expect(portfolioIdForScope(undefined, slugs)).toBeNull();
     expect(portfolioIdForScope('longo-prazo', slugs)).toBe('1');
   });
 
@@ -42,7 +42,6 @@ describe('escopo na URL', () => {
     const slugs = portfolioSlugs([{ id: '1', name: 'Longo prazo' }]);
 
     expect(scopeForPortfolioId('1', slugs)).toBe('longo-prazo');
-    expect(scopeForPortfolioId(null, slugs)).toBe(ALL_SCOPE);
-    expect(scopeForPortfolioId('99', slugs)).toBe(ALL_SCOPE);
+    expect(scopeForPortfolioId('99', slugs)).toBeNull();
   });
 });

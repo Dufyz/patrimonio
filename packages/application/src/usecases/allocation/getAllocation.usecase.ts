@@ -5,7 +5,8 @@ import type {
   CompositionNode,
   ContributionPlan,
 } from '@patrimonio/calc';
-import type { DateOnly, RebalanceMode, RecalcStatus } from '@patrimonio/domain';
+import { TOLERANCE_PP, describeBenchmark } from '@patrimonio/domain';
+import type { DateOnly, RecalcStatus } from '@patrimonio/domain';
 import { either, failure } from '@patrimonio/shared';
 
 import { NotFoundError } from '../../errors/app-error.js';
@@ -70,12 +71,8 @@ export type AllocationContribution = Omit<ContributionPlan, 'shares'> & {
 
 export type AllocationRules = {
   readonly tolerance_pp: string;
-  readonly max_asset_weight_pct: string | null;
-  readonly rebalance_mode: RebalanceMode;
-  readonly review_every_months: number | null;
   readonly reviewed_on: DateOnly | null;
-  readonly next_review_on: DateOnly | null;
-  readonly benchmark: { readonly id: string; readonly name: string } | null;
+  readonly benchmark: { readonly value: string; readonly name: string } | null;
 };
 
 export type AllocationResult = {
@@ -83,7 +80,6 @@ export type AllocationResult = {
   readonly portfolio: {
     readonly id: string;
     readonly name: string;
-    readonly purpose: string | null;
     readonly recalc_status: RecalcStatus;
   };
   readonly rules: AllocationRules;
@@ -191,7 +187,7 @@ export const getAllocation = (deps: GetAllocationDeps) =>
     });
 
     const composition = composeAllocation(snapshot.categories.map(toLine), targets, {
-      tolerance_pp: portfolio.tolerance_pp,
+      tolerance_pp: TOLERANCE_PP,
     });
 
     const colors = new Map(
@@ -228,20 +224,12 @@ export const getAllocation = (deps: GetAllocationDeps) =>
       portfolio: {
         id: portfolio.portfolio_id,
         name: portfolio.name,
-        purpose: portfolio.purpose,
         recalc_status: portfolio.recalc_status,
       },
       rules: {
-        tolerance_pp: portfolio.tolerance_pp,
-        max_asset_weight_pct: portfolio.max_asset_weight_pct,
-        rebalance_mode: portfolio.rebalance_mode,
-        review_every_months: portfolio.review_every_months,
+        tolerance_pp: TOLERANCE_PP,
         reviewed_on: portfolio.reviewed_on,
-        next_review_on: portfolio.next_review_on,
-        benchmark:
-          portfolio.benchmark_id === null || portfolio.benchmark_name === null
-            ? null
-            : { id: portfolio.benchmark_id, name: portfolio.benchmark_name },
+        benchmark: describeBenchmark(portfolio.benchmark),
       },
       strategy_defined: strategyDefined,
       composition: arrange(composition, snapshot.categories),

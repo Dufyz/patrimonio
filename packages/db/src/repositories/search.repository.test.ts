@@ -15,9 +15,7 @@ import { createSearchRepository } from './search.repository.js';
 /**
  * T-09 · A busca global.
  *
- * Contra Postgres real, pela razão de sempre: é a consulta que erra. Um `join`
- * que multiplica a posição pelas carteiras faz "500 em Longo prazo" virar
- * "1.000", e uma ordem que desempata pelo alfabeto põe em primeiro o papel que
+ uma ordem que desempata pelo alfabeto põe em primeiro o papel que
  * a pessoa nem tem.
  *
  * O cenário é o da prancha 12: ITUB4 em carteira, ITUB3 só cadastrado.
@@ -44,7 +42,7 @@ type Filter = Parameters<ReturnType<typeof createSearchRepository>['find']>[0];
 
 const filter = (overrides: Partial<Filter> = {}): Filter => ({
   text: 'itu',
-  portfolioId: null,
+  portfolioId: LONGO,
   limit: 5,
   ...overrides,
 });
@@ -85,32 +83,32 @@ beforeEach(async () => {
   tx = await beginTestTransaction(sql);
 
   await tx`
-    insert into portfolio (id, name, sort_order, archived_at) values
-      (${LONGO}, 'Longo prazo', 1, null),
-      (${RESERVA}, 'Reserva', 2, null),
-      (${ARQUIVADA}, 'Antiga', 3, now())
+    INSERT INTO portfolio (id, name, sort_order, archived_at) VALUES
+      (${LONGO}, 'Longo prazo', 1, NULL),
+      (${RESERVA}, 'Reserva', 2, NULL),
+      (${ARQUIVADA}, 'Antiga', 3, NOW())
   `;
   await tx`
-    insert into institution (id, name, role)
-    values (${CORRETORA}, 'Corretora A', 'custodian')
+    INSERT INTO institution (id, name)
+    VALUES (${CORRETORA}, 'Corretora A')
   `;
   await tx`
-    insert into asset (id, ticker, name, origin, b3_type, archived_at) values
-      (${ITUB4}, 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', null),
-      (${ITUB3}, 'ITUB3', 'Itaú Unibanco ON', 'market', 'stock', null),
-      (${WEGE3}, 'WEGE3', 'WEG ON', 'market', 'stock', null),
-      (${VALE3}, 'VALE3', 'Vale ON', 'market', 'stock', null),
-      (${ITAUSA}, 'ITSA4', 'Itaúsa PN', 'market', 'stock', null),
-      (${ANTIGO}, 'ITUB9', 'Itaú Antigo', 'market', 'stock', now())
+    INSERT INTO asset (id, ticker, name, origin, b3_type, archived_at) VALUES
+      (${ITUB4}, 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', NULL),
+      (${ITUB3}, 'ITUB3', 'Itaú Unibanco ON', 'market', 'stock', NULL),
+      (${WEGE3}, 'WEGE3', 'WEG ON', 'market', 'stock', NULL),
+      (${VALE3}, 'VALE3', 'Vale ON', 'market', 'stock', NULL),
+      (${ITAUSA}, 'ITSA4', 'Itaúsa PN', 'market', 'stock', NULL),
+      (${ANTIGO}, 'ITUB9', 'Itaú Antigo', 'market', 'stock', NOW())
   `;
 
   // ITUB4: 500 na Longo prazo e 100 na Reserva, e um dia antigo com outra
   // quantidade — só o último dia de cada carteira conta.
   await tx`
-    insert into position_daily
+    INSERT INTO position_daily
       (portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
        market_value, price_source_kind)
-    values
+    VALUES
       (${LONGO}, ${ITUB4}, '2026-10-07', '300', '30.00', '9000.00', '10000.00', 'fresh'),
       (${LONGO}, ${ITUB4}, '2026-10-08', '500', '30.00', '15000.00', '18420.00', 'fresh'),
       (${RESERVA}, ${ITUB4}, '2026-10-08', '100', '31.00', '3100.00', '3684.00', 'fresh'),
@@ -120,24 +118,24 @@ beforeEach(async () => {
   `;
 
   await tx`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
        institution_id, quantity, unit_price, fees, gross_amount, net_amount,
        payout_kind, confirmed_at, note)
-    values
+    VALUES
       (${id(1)}, 'buy', '2025-03-12', '2025-03-14', ${LONGO}, ${ITUB4},
-       ${CORRETORA}, '100', '30.00', '0', '3000.00', '-3000.00', null, null, null),
+       ${CORRETORA}, '100', '30.00', '0', '3000.00', '-3000.00', NULL, NULL, NULL),
       (${id(2)}, 'payout', '2026-10-20', '2026-10-20', ${LONGO}, ${ITUB4},
-       ${CORRETORA}, '500', '0.19', '0', '96.12', '96.12', 'jcp', null, null),
+       ${CORRETORA}, '500', '0.19', '0', '96.12', '96.12', 'jcp', NULL, NULL),
       (${id(3)}, 'buy', '2026-09-30', '2026-10-02', ${LONGO}, ${WEGE3},
-       ${CORRETORA}, '100', '31.20', '0', '3120.00', '-3120.00', null, null,
+       ${CORRETORA}, '100', '31.20', '0', '3120.00', '-3120.00', NULL, NULL,
        'comprei pela dica do itu'),
       (${id(4)}, 'buy', '2026-09-10', '2026-09-12', ${RESERVA}, ${ITUB4},
-       ${CORRETORA}, '100', '31.00', '0', '3100.00', '-3100.00', null, null, null),
+       ${CORRETORA}, '100', '31.00', '0', '3100.00', '-3100.00', NULL, NULL, NULL),
       (${id(5)}, 'buy', '2026-09-11', '2026-09-13', ${ARQUIVADA}, ${ITUB4},
-       ${CORRETORA}, '10', '31.00', '0', '310.00', '-310.00', null, null, null),
-      (${id(6)}, 'deposit', '2026-10-01', '2026-10-01', ${LONGO}, null,
-       ${CORRETORA}, '0', '0', '0', '4000.00', '4000.00', null, null, 'aporte itu')
+       ${CORRETORA}, '10', '31.00', '0', '310.00', '-310.00', NULL, NULL, NULL),
+      (${id(6)}, 'deposit', '2026-10-01', '2026-10-01', ${LONGO}, NULL,
+       ${CORRETORA}, '0', '0', '0', '4000.00', '4000.00', NULL, NULL, 'aporte itu')
   `;
 });
 
@@ -150,13 +148,13 @@ describe('ativos', () => {
     expect(view.assets.rows.map((row) => row.ticker)).toEqual(['ITUB4', 'ITUB3']);
   });
 
-  it('soma a posição entre carteiras usando o último dia de cada uma', async () => {
+  it('usa o último dia da carteira, e não o dia antigo', async () => {
     const view = await find();
     const itub4 = view.assets.rows[0];
 
-    expect(itub4?.quantity).toBe('600.00000000');
-    expect(itub4?.market_value).toBe('22104.00');
-    expect(itub4?.portfolio_names).toEqual(['Longo prazo', 'Reserva']);
+    expect(itub4?.quantity).toBe('500.00000000');
+    expect(itub4?.market_value).toBe('18420.00');
+    expect(itub4?.portfolio_names).toEqual(['Longo prazo']);
   });
 
   it('não inventa posição para o ativo que só está cadastrado', async () => {
@@ -247,17 +245,16 @@ describe('lançamentos', () => {
   it('traz o mais recente primeiro, por código, nome e observação', async () => {
     const view = await find();
 
-    // Provento de 20/10, depois o aporte de 01/10 (pela observação), a compra de
-    // 30/09 na WEGE3 (pela observação) e a da Reserva de 10/09; a de março de 2025
-    // fecha a lista, e a da carteira arquivada não entra.
+    // Provento de 20/10, depois o aporte de 01/10 (pela observação) e a compra de
+    // 30/09 na WEGE3 (pela observação); a de março de 2025 fecha a lista, e as
+    // de outras carteiras não entram.
     expect(view.transactions.rows.map((row) => row.id)).toEqual([
       id(2),
       id(6),
       id(3),
-      id(4),
       id(1),
     ]);
-    expect(view.transactions.total).toBe(5);
+    expect(view.transactions.total).toBe(4);
   });
 
   it('diz que o provento ainda está a receber', async () => {
@@ -292,7 +289,7 @@ describe('lançamentos', () => {
     const view = await find({ limit: 2 });
 
     expect(view.transactions.rows).toHaveLength(2);
-    expect(view.transactions.total).toBe(5);
+    expect(view.transactions.total).toBe(4);
   });
 });
 

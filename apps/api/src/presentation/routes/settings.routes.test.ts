@@ -11,8 +11,7 @@ import type { ApiHarness } from '../../testing/harness.js';
 /**
  * A tela de Configurações, pela rota, contra Postgres de verdade. O que está sob
  * teste é a leitura inteira — banco, caso de uso, contrato — e o que a tela não
- * pode inventar: bloqueio de exclusão sem contagem, barra de FGC para quem não
- * emite, e botão de backup que promete um arquivo que não vai existir.
+ * pode inventar: bloqueio de exclusão sem contagem, e botão de backup que promete um arquivo que não vai existir.
  */
 let harness: ApiHarness;
 
@@ -42,12 +41,9 @@ describe('GET /api/settings', () => {
     expect(response.body.institutions).toEqual([]);
   });
 
-  it('os benchmarks de referência e as regras de mercado vêm semeados', async () => {
+  it('as regras de mercado vêm semeadas', async () => {
     const response = await configuracoes();
 
-    expect(
-      response.body.benchmarks.map((benchmark: { name: string }) => benchmark.name),
-    ).toEqual(expect.arrayContaining(['CDI', 'IPCA', 'Ibovespa']));
     expect(response.body.alerts.map((rule: { kind: string }) => rule.kind)).toEqual(
       expect.arrayContaining(['price_stale', 'price_missing']),
     );
@@ -79,30 +75,21 @@ describe('GET /api/settings', () => {
     });
   });
 
-  it('só quem emite e é coberto pelo FGC tem exposição, e ela vem com o percentual do teto', async () => {
-    const custodiante = await request(harness.app)
+  it('só aparece a instituição em uso ou estrangeira; o catálogo brasileiro parado fica de fora', async () => {
+    const brasileira = await request(harness.app)
       .post('/api/institutions')
-      .send({ name: 'Corretora A', role: 'custodian' });
-    const emissor = await request(harness.app)
+      .send({ name: 'Corretora A' });
+    const estrangeira = await request(harness.app)
       .post('/api/institutions')
-      .send({ name: 'Banco B', role: 'both', fgc_covered: true });
-    const uniao = await request(harness.app)
-      .post('/api/institutions')
-      .send({ name: 'Tesouro Direto', role: 'issuer' });
-    expect([custodiante.status, emissor.status, uniao.status]).toEqual([201, 201, 201]);
+      .send({ name: 'Interactive Brokers', country: 'US' });
+    expect([brasileira.status, estrangeira.status]).toEqual([201, 201]);
 
     const response = await configuracoes();
-    const byName = new Map(
-      response.body.institutions.map(
-        (institution: { name: string }) => [institution.name, institution] as const,
-      ),
-    );
 
-    expect(byName.get('Corretora A')).toMatchObject({ fgc: null });
-    expect(byName.get('Tesouro Direto')).toMatchObject({ fgc: null });
-    expect(byName.get('Banco B')).toMatchObject({
-      fgc: { exposure: '0.00', limit: '250000.00', used_pct: '0.00', over_limit: false },
-    });
+    expect(
+      response.body.institutions.map((institution: { name: string }) => institution.name),
+    ).toEqual(['Interactive Brokers']);
+    expect(response.body.institutions[0]).toMatchObject({ country: 'US' });
   });
 
   it('a carteira arquivada sai da lista e a categoria renomeada continua a mesma', async () => {
@@ -141,7 +128,7 @@ describe('POST /api/backup', () => {
     expect(JSON.stringify(response.body)).toContain('desligado');
 
     const [pedidos] = await harness.sql<{ total: string }[]>`
-      select count(*)::text as total from pipeline_outbox where stage = 'backup'
+      SELECT COUNT(*)::TEXT AS total FROM pipeline_outbox WHERE stage = 'backup'
     `;
     expect(pedidos?.total).toBe('0');
   });
@@ -171,7 +158,7 @@ describe('o pedido de backup com o backup ligado', () => {
     expect(segundo.isSuccess() && segundo.value.queued.already_queued).toBe(true);
 
     const [pedidos] = await harness.sql<{ total: string }[]>`
-      select count(*)::text as total from pipeline_outbox where stage = 'backup'
+      SELECT COUNT(*)::TEXT AS total FROM pipeline_outbox WHERE stage = 'backup'
     `;
     expect(pedidos?.total).toBe('1');
   });

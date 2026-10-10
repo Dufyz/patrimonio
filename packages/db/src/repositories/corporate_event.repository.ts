@@ -16,7 +16,7 @@ export const createCorporateEventRepository = (
 ): CorporateEventRepository => ({
   findById: async (id: string) => {
     try {
-      const rows = await sql<Row[]>`select * from corporate_event where id = ${id}`;
+      const rows = await sql<Row[]>`SELECT * FROM corporate_event WHERE id = ${id}`;
       const row = rows[0];
 
       return success(row === undefined ? null : parseCorporateEventFromDB(row));
@@ -28,15 +28,15 @@ export const createCorporateEventRepository = (
   list: async (filter) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from corporate_event
-         where ${filter.pending === true ? sql`confirmed_at is null` : sql`true`}
-           and ${
+        SELECT *
+          FROM corporate_event
+         WHERE ${filter.pending === true ? sql`confirmed_at IS NULL` : sql`TRUE`}
+           AND ${
              filter.asset_id === undefined
-               ? sql`true`
+               ? sql`TRUE`
                : sql`asset_id = ${filter.asset_id}`
            }
-         order by record_date desc
+         ORDER BY record_date DESC
       `;
 
       return success(rows.map((row) => parseCorporateEventFromDB(row)));
@@ -49,12 +49,12 @@ export const createCorporateEventRepository = (
   upsert: async (draft: CorporateEventDraft) => {
     try {
       const rows = await sql<Row[]>`
-        insert into corporate_event (id, asset_id, kind, record_date, ratio_from, ratio_to)
-        values (${uuidv7()}, ${draft.asset_id}, ${draft.kind}, ${draft.record_date},
+        INSERT INTO corporate_event (id, asset_id, kind, record_date, ratio_from, ratio_to)
+        VALUES (${uuidv7()}, ${draft.asset_id}, ${draft.kind}, ${draft.record_date},
                 ${draft.ratio_from}, ${draft.ratio_to})
-        on conflict (asset_id, kind, record_date)
-        do update set ratio_from = excluded.ratio_from, ratio_to = excluded.ratio_to
-        returning *
+        ON CONFLICT (asset_id, kind, record_date)
+        DO UPDATE SET ratio_from = EXCLUDED.ratio_from, ratio_to = EXCLUDED.ratio_to
+        RETURNING *
       `;
 
       const row = rows[0];
@@ -71,11 +71,11 @@ export const createCorporateEventRepository = (
   confirm: async (id: string, confirmedAt: string) => {
     try {
       const rows = await sql<Row[]>`
-        update corporate_event
-           set confirmed_at = ${confirmedAt}
-         where id = ${id}
-           and confirmed_at is null
-        returning *
+        UPDATE corporate_event
+           SET confirmed_at = ${confirmedAt}
+         WHERE id = ${id}
+           AND confirmed_at IS NULL
+        RETURNING *
       `;
 
       const row = rows[0];

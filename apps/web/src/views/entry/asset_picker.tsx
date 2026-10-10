@@ -1,5 +1,5 @@
 import type { SearchAsset, SearchResource } from '@patrimonio/contracts';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { fetchSearch } from '../../api/search.js';
 import { holdingLabel, assetName } from '../../lib/search.js';
@@ -48,7 +48,8 @@ export const AssetPicker = ({
   onBlur,
   control,
   invalid,
-  search = fetchSearch,
+  portfolioId,
+  search,
   autoFocus = false,
 }: {
   readonly value: PickedAsset | null;
@@ -56,6 +57,8 @@ export const AssetPicker = ({
   readonly onBlur?: () => void;
   readonly control: ControlProps;
   readonly invalid: boolean;
+  /** A carteira em que o lançamento vai: é nela que a busca mede o que a pessoa tem. */
+  readonly portfolioId: string | null;
   /** A busca no banco. Troca-se nos testes; a identidade precisa ser estável. */
   readonly search?: AssetSearch;
   readonly autoFocus?: boolean;
@@ -79,14 +82,22 @@ export const AssetPicker = ({
   useDismiss(container, open, () => setOpen(false));
 
   const text = query.trim();
-  const searching = open && value === null && text !== '';
+  const run = useMemo<AssetSearch | null>(
+    () =>
+      search ??
+      (portfolioId === null
+        ? null
+        : (query, signal) => fetchSearch(query, portfolioId, signal)),
+    [search, portfolioId],
+  );
+  const searching = open && value === null && text !== '' && run !== null;
 
   useEffect(() => {
-    if (!searching) return;
+    if (!searching || run === null) return;
 
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      search(text, controller.signal)
+      run(text, controller.signal)
         .then((resource) => {
           if (controller.signal.aborted) return;
           setResults(resource.assets.items);
@@ -102,7 +113,7 @@ export const AssetPicker = ({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [searching, text, search]);
+  }, [searching, text, run]);
 
   const choose = (asset: SearchAsset): void => {
     const picked = pickedFromSearch(asset);

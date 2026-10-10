@@ -12,11 +12,11 @@ export const createManualPriceRepository = (sql: Connection): ManualPriceReposit
   upsert: async (draft: ManualPriceDraft) => {
     try {
       const rows = await sql<Row[]>`
-        insert into manual_price (asset_id, price_date, price)
-        values (${draft.asset_id}, ${draft.price_date}, ${draft.price})
-        on conflict (asset_id, price_date)
-        do update set price = excluded.price
-        returning *
+        INSERT INTO manual_price (asset_id, price_date, price)
+        VALUES (${draft.asset_id}, ${draft.price_date}, ${draft.price})
+        ON CONFLICT (asset_id, price_date)
+        DO UPDATE SET price = EXCLUDED.price
+        RETURNING *
       `;
 
       const row = rows[0];
@@ -33,7 +33,7 @@ export const createManualPriceRepository = (sql: Connection): ManualPriceReposit
   listByAsset: async (assetId: string) => {
     try {
       const rows = await sql<Row[]>`
-        select * from manual_price where asset_id = ${assetId} order by price_date desc
+        SELECT * FROM manual_price WHERE asset_id = ${assetId} ORDER BY price_date DESC
       `;
 
       return success(rows.map((row) => parseManualPriceFromDB(row)));
@@ -45,12 +45,12 @@ export const createManualPriceRepository = (sql: Connection): ManualPriceReposit
   latestUntil: async (assetId: string, date: DateOnly) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from manual_price
-         where asset_id = ${assetId}
-           and price_date <= ${date}
-         order by price_date desc
-         limit 1
+        SELECT *
+          FROM manual_price
+         WHERE asset_id = ${assetId}
+           AND price_date <= ${date}
+         ORDER BY price_date DESC
+         LIMIT 1
       `;
       const row = rows[0];
 
@@ -63,9 +63,9 @@ export const createManualPriceRepository = (sql: Connection): ManualPriceReposit
   remove: async (assetId: string, date: DateOnly) => {
     try {
       const rows = await sql<{ asset_id: string }[]>`
-        delete from manual_price
-         where asset_id = ${assetId} and price_date = ${date}
-        returning asset_id
+        DELETE FROM manual_price
+         WHERE asset_id = ${assetId} AND price_date = ${date}
+        RETURNING asset_id
       `;
 
       return success(rows.length > 0);

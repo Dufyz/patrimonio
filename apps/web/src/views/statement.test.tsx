@@ -50,7 +50,6 @@ const row = (n: number, overrides: Partial<StatementRow>): StatementRow => ({
   tax_withheld: '0.00',
   net_amount: '-3120.00',
   confirmed_at: null,
-  transfer_group_id: null,
   note: null,
   effect: { type: 'average_price', before: '38.20', after: '36.80' },
   ...overrides,
@@ -126,7 +125,6 @@ const resource = (overrides: Partial<StatementResource> = {}): StatementResource
     { group: 'sell', count: 1 },
     { group: 'payout', count: 4 },
     { group: 'cash', count: 2 },
-    { group: 'transfer', count: 0 },
     { group: 'event', count: 0 },
   ],
   facets_total: 10,
@@ -296,7 +294,7 @@ describe('tela de Movimentações', () => {
       within(group).getByRole('button', { name: /Proventos\s*4/ }),
     ).toBeInTheDocument();
     expect(
-      within(group).getByRole('button', { name: /Transferências\s*0/ }),
+      within(group).getByRole('button', { name: /Aportes e resgates\s*2/ }),
     ).toBeInTheDocument();
     expect(within(group).queryByRole('button', { name: /Eventos/ })).toBeNull();
   });

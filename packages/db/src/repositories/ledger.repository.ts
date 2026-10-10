@@ -50,11 +50,11 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
   entriesForPortfolioAsset: async (portfolioId: string, assetId: string) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from transaction
-         where portfolio_id = ${portfolioId}
-           and asset_id = ${assetId}
-         order by trade_date, id
+        SELECT *
+          FROM transaction
+         WHERE portfolio_id = ${portfolioId}
+           AND asset_id = ${assetId}
+         ORDER BY trade_date, id
       `;
 
       return success(rows.map((row) => parseLedgerRowFromDB(row)));
@@ -66,10 +66,10 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
   entriesForAsset: async (assetId: string) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from transaction
-         where asset_id = ${assetId}
-         order by portfolio_id, trade_date, id
+        SELECT *
+          FROM transaction
+         WHERE asset_id = ${assetId}
+         ORDER BY portfolio_id, trade_date, id
       `;
 
       return success(rows.map((row) => parseLedgerRowFromDB(row)));
@@ -81,11 +81,11 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
   entriesForPortfolioInstitution: async (portfolioId: string, institutionId: string) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from transaction
-         where portfolio_id = ${portfolioId}
-           and institution_id = ${institutionId}
-         order by trade_date, id
+        SELECT *
+          FROM transaction
+         WHERE portfolio_id = ${portfolioId}
+           AND institution_id = ${institutionId}
+         ORDER BY trade_date, id
       `;
 
       return success(rows.map((row) => parseLedgerRowFromDB(row)));
@@ -101,11 +101,11 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
   allEntries: async (untilDate) => {
     try {
       const rows = await sql<Row[]>`
-        select transaction.*, asset.b3_type
-          from transaction
-          left join asset on asset.id = transaction.asset_id
-         where transaction.trade_date <= ${untilDate}
-         order by transaction.portfolio_id, transaction.asset_id,
+        SELECT transaction.*, asset.b3_type
+          FROM transaction
+          LEFT JOIN asset ON asset.id = transaction.asset_id
+         WHERE transaction.trade_date <= ${untilDate}
+         ORDER BY transaction.portfolio_id, transaction.asset_id,
                   transaction.trade_date, transaction.id
       `;
 
@@ -118,11 +118,11 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
   entriesForPortfolio: async (portfolioId: string, untilDate: string) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from transaction
-         where portfolio_id = ${portfolioId}
-           and trade_date <= ${untilDate}
-         order by trade_date, id
+        SELECT *
+          FROM transaction
+         WHERE portfolio_id = ${portfolioId}
+           AND trade_date <= ${untilDate}
+         ORDER BY trade_date, id
       `;
 
       return success(rows.map((row) => parseLedgerRowFromDB(row)));
@@ -134,10 +134,10 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
   assetCategories: async (portfolioId: string) => {
     try {
       const rows = await sql<{ asset_id: string; category_id: string | null }[]>`
-        select distinct a.id as asset_id, a.category_id
-          from transaction t
-          join asset a on a.id = t.asset_id
-         where t.portfolio_id = ${portfolioId}
+        SELECT DISTINCT a.id AS asset_id, a.category_id
+          FROM transaction t
+          JOIN asset a ON a.id = t.asset_id
+         WHERE t.portfolio_id = ${portfolioId}
       `;
 
       return success(new Map(rows.map((row) => [row.asset_id, row.category_id])));
@@ -150,10 +150,10 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
   portfoliosHoldingAsset: async (assetId: string) => {
     try {
       const rows = await sql<{ portfolio_id: string; from_date: string | Date }[]>`
-        select portfolio_id, min(trade_date) as from_date
-          from transaction
-         where asset_id = ${assetId}
-         group by portfolio_id
+        SELECT portfolio_id, MIN(trade_date) AS from_date
+          FROM transaction
+         WHERE asset_id = ${assetId}
+         GROUP BY portfolio_id
       `;
 
       return success(

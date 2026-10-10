@@ -30,7 +30,7 @@ export type { QueuedWork } from './support/primitives.schema.js';
 export {
   portfolioResourceSchema,
   portfolioWritableSchema,
-  rebalanceModeSchema,
+  benchmarkSchema,
   recalcStatusSchema,
   strategyTargetResourceSchema,
 } from './portfolio/portfolio.schema.js';
@@ -55,13 +55,11 @@ export { getStrategySchema, putStrategySchema } from './portfolio/putStrategy.sc
 export type { PutStrategyBody } from './portfolio/putStrategy.schema.js';
 
 export {
-  fgcExposureResourceSchema,
+  countrySchema,
   institutionResourceSchema,
-  institutionRoleSchema,
   institutionWritableSchema,
 } from './institution/institution.schema.js';
 export type {
-  FgcExposureResource,
   InstitutionResource,
   InstitutionWritable,
 } from './institution/institution.schema.js';
@@ -71,7 +69,6 @@ export { updateInstitutionSchema } from './institution/updateInstitution.schema.
 export type { UpdateInstitutionBody } from './institution/updateInstitution.schema.js';
 export {
   deleteInstitutionSchema,
-  getFgcExposureSchema,
   listInstitutionsSchema,
 } from './institution/listInstitutions.schema.js';
 
@@ -189,12 +186,6 @@ export type {
   DismissPayoutBody,
 } from './transaction/confirmPayout.schema.js';
 export {
-  previewTransferSchema,
-  transferPositionSchema,
-  transferPreviewSchema,
-} from './transaction/transferPosition.schema.js';
-export type { TransferPositionBody } from './transaction/transferPosition.schema.js';
-export {
   confirmCorporateEventSchema,
   corporateEventKindSchema,
   corporateEventResourceSchema,
@@ -287,7 +278,6 @@ export {
   overviewCompositionSchema,
   overviewPeriodSchema,
   overviewPointSchema,
-  overviewPortfolioShareSchema,
   overviewSchema,
   overviewScopeSchema,
   overviewTopPositionSchema,
@@ -298,7 +288,6 @@ export type {
   OverviewAttentionResource,
   OverviewCompositionResource,
   OverviewPointResource,
-  OverviewPortfolioShareResource,
   OverviewResource,
   OverviewTopPositionResource,
 } from './overview/overview.schema.js';
@@ -353,7 +342,6 @@ export {
   performanceDecompositionSchema,
   performanceMethodSchema,
   performanceMonthlySchema,
-  performancePortfolioRowSchema,
   performanceSchema,
   performanceScopeSchema,
   performanceWindowKeySchema,
@@ -393,7 +381,6 @@ export {
   goalChartSchema,
   goalContributionRowSchema,
   goalPaceSchema,
-  goalPortfolioSchema,
   goalProjectionSchema,
   goalRateSchema,
   goalSchema,
@@ -415,7 +402,6 @@ export {
   settingsAlertRuleSchema,
   settingsArchivedPortfolioSchema,
   settingsBackupSchema,
-  settingsBenchmarkSchema,
   settingsCategorySchema,
   settingsInstitutionSchema,
   settingsLedgerDefaultsSchema,
@@ -426,7 +412,6 @@ export type {
   Settings,
   SettingsAlertRule,
   SettingsBackup,
-  SettingsBenchmark,
   SettingsCategory,
   SettingsInstitution,
   SettingsPortfolio,

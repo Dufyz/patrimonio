@@ -1,44 +1,40 @@
-create type asset_origin as enum ('market', 'manual');
-create type price_source as enum ('auto', 'manual');
-create type indexer as enum ('cdi_pct', 'ipca_plus', 'prefixed', 'selic_plus');
-create type liquidity_kind as enum ('daily', 'at_maturity', 'd_plus_n');
-create type tax_regime as enum ('regressive', 'exempt');
+CREATE TYPE asset_origin AS ENUM ('market', 'manual');
+CREATE TYPE price_source AS ENUM ('auto', 'manual');
+CREATE TYPE indexer AS ENUM ('cdi_pct', 'ipca_plus', 'prefixed', 'selic_plus');
+CREATE TYPE liquidity_kind AS ENUM ('daily', 'at_maturity', 'd_plus_n');
+CREATE TYPE tax_regime AS ENUM ('regressive', 'exempt');
 
--- Uma só tabela para ativo listado e título cadastrado à mão. A diferença está
--- em origin e nas colunas de renda fixa, nulas no ativo listado.
-create table asset (
-  id             uuid primary key,
-  ticker         text not null,
-  name           text not null,
-  origin         asset_origin not null,
-  category_id    uuid references category (id) on delete set null,
-  sector         text,
-  price_source   price_source not null default 'auto',
-  issuer_id      uuid references institution (id) on delete restrict,
+CREATE TABLE asset (
+  id             UUID PRIMARY KEY,
+  ticker         TEXT NOT NULL,
+  name           TEXT NOT NULL,
+  origin         asset_origin NOT NULL,
+  category_id    UUID REFERENCES category (id) ON DELETE SET NULL,
+  sector         TEXT,
+  price_source   price_source NOT NULL DEFAULT 'auto',
+  issuer_id      UUID REFERENCES institution (id) ON DELETE RESTRICT,
   indexer        indexer,
-  rate           numeric(12,8),
-  issued_at      date,
-  maturity_date  date,
+  rate           NUMERIC(12,8),
+  issued_at      DATE,
+  maturity_date  DATE,
   liquidity      liquidity_kind,
-  -- d_plus_n sem o n não diz nada.
-  liquidity_days smallint,
+  liquidity_days SMALLINT,
   tax_regime     tax_regime,
-  archived_at    timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint asset_ticker_unique unique (ticker),
-  constraint asset_manual_has_issuer
-    check (origin <> 'manual' or issuer_id is not null),
-  constraint asset_liquidity_days_declared
-    check (liquidity is distinct from 'd_plus_n' or liquidity_days is not null),
-  constraint asset_maturity_after_issue
-    check (maturity_date is null or issued_at is null or maturity_date >= issued_at)
+  archived_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT asset_ticker_unique UNIQUE (ticker),
+  CONSTRAINT asset_manual_has_issuer
+    CHECK (origin <> 'manual' OR issuer_id IS NOT NULL),
+  CONSTRAINT asset_liquidity_days_declared
+    CHECK (liquidity IS DISTINCT FROM 'd_plus_n' OR liquidity_days IS NOT NULL),
+  CONSTRAINT asset_maturity_after_issue
+    CHECK (maturity_date IS NULL OR issued_at IS NULL OR maturity_date >= issued_at)
 );
 
--- Parcial porque só renda fixa tem vencimento: o índice não carrega 300 ações nulas.
-create index asset_maturity_idx on asset (maturity_date) where maturity_date is not null;
-create index asset_category_idx on asset (category_id) where category_id is not null;
+CREATE INDEX asset_maturity_idx ON asset (maturity_date) WHERE maturity_date IS NOT NULL;
+CREATE INDEX asset_category_idx ON asset (category_id) WHERE category_id IS NOT NULL;
 
-create trigger asset_set_updated_at
-  before update on asset
-  for each row execute function set_updated_at();
+CREATE TRIGGER asset_set_updated_at
+  BEFORE UPDATE ON asset
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();

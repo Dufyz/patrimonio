@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyLedger, cashBalance, positionAt, proportionalCost } from './ledger.js';
+import { applyLedger, cashBalance, positionAt } from './ledger.js';
 import type { LedgerEntry } from './ledger.js';
 
 const compra = (
@@ -162,74 +162,6 @@ describe('preço médio', () => {
     ]);
 
     expect(position.cost_basis).toBe('1000.00');
-  });
-});
-
-describe('transferência entre carteiras', () => {
-  const saida: LedgerEntry = {
-    kind: 'transfer',
-    trade_date: '2024-05-10',
-    quantity: '40',
-    unit_price: '30.00',
-    fees: '0',
-    net_amount: '-1200.00',
-  };
-
-  const entrada: LedgerEntry = { ...saida, net_amount: '1200.00' };
-
-  it('a perna que sai leva o custo pelo preço médio e não gera resultado', () => {
-    const resultado = applyLedger([compra('2024-01-10', '100', '30.00'), saida]);
-
-    expect(resultado.position.quantity).toBe('60.00000000');
-    expect(resultado.position.avg_price).toBe('30.00000000');
-    expect(resultado.realized).toHaveLength(0);
-  });
-
-  it('a perna que entra preserva o preço médio da origem', () => {
-    const resultado = applyLedger([entrada]);
-
-    expect(resultado.position.quantity).toBe('40.00000000');
-    expect(resultado.position.avg_price).toBe('30.00000000');
-    expect(resultado.position.cost_basis).toBe('1200.00');
-  });
-
-  it('as duas pernas usam o mesmo custo, e a soma das carteiras não muda', () => {
-    const inicial = compra('2024-01-10', '100', '30.00');
-
-    const antes = applyLedger([inicial]);
-    const origem = applyLedger([inicial, saida]);
-    const destino = applyLedger([entrada]);
-
-    expect(Number(origem.position.cost_basis) + Number(destino.position.cost_basis)).toBe(
-      Number(antes.position.cost_basis),
-    );
-  });
-
-  it('o custo que viaja é proporcional, e é o custo inteiro quando tudo sai', () => {
-    // Um custo que não divide redondo: 1.000,01 em 3 cotas.
-    expect(proportionalCost('1000.01', '1', '3')).toBe('333.34');
-    expect(proportionalCost('1000.01', '3', '3')).toBe('1000.01');
-    // Pedir mais do que existe não inventa custo além do que há.
-    expect(proportionalCost('1000.01', '5', '3')).toBe('1000.01');
-    expect(proportionalCost('1000.01', '1', '0')).toBe('1000.01');
-  });
-
-  it('transferir a posição toda zera o custo da origem', () => {
-    const resultado = applyLedger([
-      compra('2024-01-10', '100', '30.00'),
-      {
-        kind: 'transfer',
-        trade_date: '2024-05-10',
-        quantity: '100',
-        unit_price: '30.00',
-        fees: '0',
-        net_amount: '-3000.00',
-      },
-    ]);
-
-    expect(resultado.position.quantity).toBe('0.00000000');
-    expect(resultado.position.cost_basis).toBe('0.00');
-    expect(resultado.realized).toHaveLength(0);
   });
 });
 

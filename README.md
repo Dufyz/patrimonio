@@ -14,8 +14,7 @@ Pré-requisitos: Node 22, pnpm 10 e Docker.
 cp .env.example .env     # packages/env valida tudo no boot
 pnpm install
 pnpm infra:up            # Postgres (5433), Postgres de teste (5434) e Redis (6380)
-pnpm migrate up          # cria o schema; a api também faz isso no boot
-pnpm seed:business-days  # calendário da B3, 2000–2035
+pnpm migrate up          # cria o schema e carrega o calendário da B3 (2000–2035); a api também faz isso no boot
 pnpm dev                 # api :3333, worker e web :5173
 ```
 
@@ -44,6 +43,7 @@ autenticar: ela entra na Fase 2, junto com a publicação.
 | `pnpm verify`                             | Lint, typecheck e testes, na ordem do CI           |
 | `pnpm migrate [up \| down [n] \| status]` | Runner de migration; `--test` usa o banco de teste |
 | `pnpm infra:up` / `infra:reset`           | Sobe o ambiente / apaga os volumes e recria        |
+| `pnpm seed:institutions`                  | Carrega as instituições do STR e da CVM (baixa os CSVs; `--str=`/`--cvm=` aceitam arquivo) |
 
 ## Estrutura
 
@@ -118,16 +118,15 @@ imprime o ano para comparação, e cada divergência encontrada vira uma linha e
 
 ## Fase 2 · Livro de lançamentos
 
-O livro inteiro, pela API: carteiras com alvo de alocação, instituições com
-exposição ao FGC por emissor, categorias em dois níveis com regra automática,
+O livro inteiro, pela API: carteiras com alvo de alocação, instituições
+com país, categorias em dois níveis com regra automática,
 ativos de mercado que nascem no primeiro lançamento e títulos de renda fixa
 cadastrados à mão.
 
 Os sete tipos de lançamento gravam, editam e excluem com o efeito calculado
 antes de salvar: compra e venda com liquidação sugerida em dia útil, aporte e
 resgate sobre um caixa que é ativo sintético por instituição, provento com
-quantidade apurada na data-com e recebimento confirmado depois, transferência de
-duas pernas que preserva o preço médio, e evento corporativo aplicado só por
+quantidade apurada na data-com e recebimento confirmado depois, e evento corporativo aplicado só por
 confirmação.
 
 Toda escrita aceita `Idempotency-Key`, toda exclusão deixa desfazer por alguns
@@ -140,7 +139,7 @@ divergir do que fica salvo, a confiança no app acaba ali.
 Enquanto a projeção diária e o preço de mercado não existem, peso e alocação
 saem do custo, e a resposta diz isso no campo `basis`. O motor de preço médio
 vive em `packages/calc` e cobre compra, venda com resultado realizado,
-transferência, evento corporativo e amortização; o resto de `calc` — cota,
+evento corporativo e amortização; o resto de `calc` — cota,
 marcação na curva, IR e projeção — chega em E3.
 
 O que está declarado e ainda não calcula nada: os estágios `alerts` e `import`

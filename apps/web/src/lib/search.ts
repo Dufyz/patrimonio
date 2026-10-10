@@ -64,7 +64,7 @@ export const GROUP_TITLES: Readonly<Record<SearchGroupId, string>> = {
 };
 
 export type SearchActionId =
-  'new_transaction' | 'buy_asset' | 'payout_asset' | 'move_asset';
+  'new_transaction' | 'buy_asset' | 'payout_asset';
 
 /**
  * Os glifos são os da barra lateral e do resto da aplicação: um ícone que muda
@@ -285,8 +285,7 @@ export const assetItems = (assets: readonly SearchAsset[]): readonly SearchItem[
 /**
  * As ações sobre o ativo que está em primeiro. Só o primeiro: o resto são
  * variações do mesmo texto, e uma lista de nove ações para três ativos é a
- * paleta virando menu. Provento e transferência exigem posição — não se
- * recebe nem se move o que não se tem.
+ * paleta virando menu. Provento exige posição — não se recebe o que não se tem.
  */
 export const assetActionItems = (
   asset: SearchAsset,
@@ -318,7 +317,6 @@ export const assetActionItems = (
       ...(held
         ? [
             make('payout_asset', `Lançar provento de ${title}`, null),
-            make('move_asset', `Mover ${title} para outra carteira`, null),
           ]
         : []),
     ],
@@ -597,7 +595,7 @@ export const buildModel = (input: {
 /* Destinos                                                                   */
 
 export type TargetContext = {
-  /** O escopo da URL de agora: o apelido da carteira, ou `todas`. */
+  /** O escopo da URL de agora: o apelido da carteira. */
   readonly scope: string;
   /** O caminho da tela de agora, para trocar de carteira sem trocar de tela. */
   readonly currentScreenPath: string;

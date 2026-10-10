@@ -2,12 +2,11 @@ import type { Settings, SettingsBackup } from '@patrimonio/contracts';
 import { useState } from 'react';
 
 import { runBackup } from '../../api/settings.js';
-import { Money } from '../../components/number.js';
 import { usePreferences } from '../../components/preferences.js';
 import { Button, Segmented } from '../../components/primitives.js';
 import type { Density, ThemePreference } from '../../lib/theme.js';
 import { backupSummary } from '../../lib/settings.js';
-import { ActionNote, Muted, SettingsSection, StatusDot, Switch } from './parts.js';
+import { ActionNote, SettingsSection, StatusDot, Switch } from './parts.js';
 
 /**
  * Lançamentos, Exibição e Dados e backup: as três seções que são ajuste do
@@ -54,9 +53,6 @@ export const LedgerSection = ({
   readonly settings: Settings;
 }): React.ReactElement => {
   const defaults = settings.ledger_defaults;
-  const withBrokerage = settings.institutions.filter(
-    (institution) => institution.brokerage_per_order !== '0.00',
-  );
 
   return (
     <SettingsSection
@@ -72,23 +68,6 @@ export const LedgerSection = ({
       </Row>
       <Row title="IR retido em JCP" hint="Calcula o líquido a partir do bruto informado">
         <span className="tabular">{defaults.jcp_withholding_pct.replace('.', ',')}%</span>
-      </Row>
-      <Row
-        title="Corretagem por instituição"
-        hint="Valor fixo somado a cada compra ou venda; editável na instituição"
-      >
-        {withBrokerage.length === 0 ? (
-          <Muted>nenhuma cobra corretagem</Muted>
-        ) : (
-          <span className="tabular">
-            {withBrokerage.map((institution, index) => (
-              <span key={institution.id}>
-                {index === 0 ? '' : ' · '}
-                {institution.name} <Money value={institution.brokerage_per_order} />
-              </span>
-            ))}
-          </span>
-        )}
       </Row>
       <Row title="Desfazer" hint="Tempo para desfazer depois de excluir um lançamento">
         <span className="tabular">{defaults.undo_window_seconds} s</span>

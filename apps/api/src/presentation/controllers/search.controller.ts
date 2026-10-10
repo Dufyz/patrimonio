@@ -23,7 +23,7 @@ export const createSearchController = (deps: SearchDeps): SearchController => ({
 
     const result = await deps.usecases.searchGlobal({
       text: query.q,
-      portfolioId: query.portfolio_id ?? null,
+      portfolioId: query.portfolio_id,
       limit: query.limit,
     });
 

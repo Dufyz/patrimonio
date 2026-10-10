@@ -13,7 +13,6 @@ import { MarketSection } from './market.js';
 import { BackupSection, DisplaySection, LedgerSection } from './preferences.js';
 import {
   AlertsSection,
-  BenchmarksSection,
   CategoriesSection,
   InstitutionsSection,
   PortfoliosSection,
@@ -187,7 +186,6 @@ export const SettingsView = ({
           <AlertsSection settings={settings} />
           <CategoriesSection settings={settings} />
           <InstitutionsSection settings={settings} />
-          <BenchmarksSection settings={settings} />
           <MarketSection resource={market} />
           <LedgerSection settings={settings} />
           <DisplaySection />

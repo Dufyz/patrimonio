@@ -151,10 +151,7 @@ export const methodLines = (
 ): readonly { readonly label: string; readonly text: string }[] => [
   {
     label: 'Carteira',
-    text:
-      method.portfolio === 'portfolio_quota'
-        ? 'variação da cota gravada da carteira. Aporte e resgate criam ou desfazem cotas e não mexem no valor delas — por isso aporte não vira rentabilidade.'
-        : 'variação de uma cota construída sobre a história somada de todas as carteiras. Somar o valor das cotas de carteiras diferentes não significa nada, então o consolidado tem a sua.',
+    text: 'variação da cota gravada da carteira. Aporte e resgate criam ou desfazem cotas e não mexem no valor delas — por isso aporte não vira rentabilidade.',
   },
   {
     label: 'Classes',

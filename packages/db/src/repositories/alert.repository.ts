@@ -33,7 +33,7 @@ const parseRule = (
 export const createAlertRepository = (sql: Connection): AlertRepository => ({
   listRules: async () => {
     try {
-      const rows = await sql<Row[]>`select * from alert_rule order by kind`;
+      const rows = await sql<Row[]>`SELECT * FROM alert_rule ORDER BY kind`;
 
       return success(rows.map((row) => parseRule(row)));
     } catch (error) {
@@ -44,7 +44,7 @@ export const createAlertRepository = (sql: Connection): AlertRepository => ({
   setRuleEnabled: async (kind: string, enabled: boolean) => {
     try {
       const rows = await sql<Row[]>`
-        update alert_rule set enabled = ${enabled} where kind = ${kind} returning *
+        UPDATE alert_rule SET enabled = ${enabled} WHERE kind = ${kind} RETURNING *
       `;
 
       const row = rows[0];
@@ -58,10 +58,10 @@ export const createAlertRepository = (sql: Connection): AlertRepository => ({
   setRuleThreshold: async (kind: string, threshold: Record<string, unknown> | null) => {
     try {
       const rows = await sql<Row[]>`
-        update alert_rule
-           set threshold = ${threshold === null ? null : JSON.stringify(threshold)}::jsonb
-         where kind = ${kind}
-        returning *
+        UPDATE alert_rule
+           SET threshold = ${threshold === null ? null : JSON.stringify(threshold)}::JSONB
+         WHERE kind = ${kind}
+        RETURNING *
       `;
 
       const row = rows[0];
@@ -79,11 +79,11 @@ export const createAlertRepository = (sql: Connection): AlertRepository => ({
 
     try {
       const rows = await sql<Row[]>`
-        select *
-          from alert_instance
-         where rule_kind = any(${sql.array([...scope.rule_kinds])}::text[])
-           and (${portfolioId}::uuid is null or portfolio_id = ${portfolioId})
-         order by rule_kind, subject_id
+        SELECT *
+          FROM alert_instance
+         WHERE rule_kind = ANY(${sql.array([...scope.rule_kinds])}::TEXT[])
+           AND (${portfolioId}::UUID IS NULL OR portfolio_id = ${portfolioId})
+         ORDER BY rule_kind, subject_id
       `;
 
       return success(rows.map((row) => parseAlertInstanceFromDB(row)));
@@ -101,34 +101,34 @@ export const createAlertRepository = (sql: Connection): AlertRepository => ({
         upserts.length === 0
           ? []
           : await sql<{ rule_kind: string }[]>`
-              insert into alert_instance
+              INSERT INTO alert_instance
                 (rule_kind, subject_id, portfolio_id, status, snooze_until, payload)
-              select entry ->> 'rule_kind',
+              SELECT entry ->> 'rule_kind',
                      entry ->> 'subject_id',
-                     (entry ->> 'portfolio_id')::uuid,
+                     (entry ->> 'portfolio_id')::UUID,
                      (entry ->> 'status')::alert_status,
-                     (entry ->> 'snooze_until')::date,
+                     (entry ->> 'snooze_until')::DATE,
                      entry -> 'payload'
-                from jsonb_array_elements(${JSON.stringify(upserts)}::text::jsonb) as entry
-              on conflict (rule_kind, subject_id) do update set
-                portfolio_id = excluded.portfolio_id,
+                FROM JSONB_ARRAY_ELEMENTS(${JSON.stringify(upserts)}::TEXT::JSONB) AS entry
+              ON CONFLICT (rule_kind, subject_id) DO UPDATE SET
+                portfolio_id = EXCLUDED.portfolio_id,
                 -- O payload é do motor; o status é do usuário, e o plano devolve o
                 -- que já estava gravado. Reconciliar não desfaz decisão.
-                payload = excluded.payload,
-                status = excluded.status,
-                snooze_until = excluded.snooze_until
-              returning rule_kind
+                payload = EXCLUDED.payload,
+                status = EXCLUDED.status,
+                snooze_until = EXCLUDED.snooze_until
+              RETURNING rule_kind
             `;
 
       const removed =
         resolved.length === 0
           ? []
           : await sql<{ rule_kind: string }[]>`
-              delete from alert_instance
-               using jsonb_array_elements(${JSON.stringify(resolved)}::text::jsonb) as entry
-               where alert_instance.rule_kind = entry ->> 'rule_kind'
-                 and alert_instance.subject_id = entry ->> 'subject_id'
-              returning alert_instance.rule_kind
+              DELETE FROM alert_instance
+               USING JSONB_ARRAY_ELEMENTS(${JSON.stringify(resolved)}::TEXT::JSONB) AS entry
+               WHERE alert_instance.rule_kind = entry ->> 'rule_kind'
+                 AND alert_instance.subject_id = entry ->> 'subject_id'
+              RETURNING alert_instance.rule_kind
             `;
 
       return success({ written: written.length, removed: removed.length });
@@ -147,12 +147,12 @@ export const createAlertRepository = (sql: Connection): AlertRepository => ({
 
     try {
       const rows = await sql<Row[]>`
-        select *
-          from alert_instance
-         where (status = 'open'
-                or (status = 'snoozed' and snooze_until <= ${options.on_date}))
-           and (${portfolioId}::uuid is null or portfolio_id = ${portfolioId})
-         order by first_seen_at
+        SELECT *
+          FROM alert_instance
+         WHERE (status = 'open'
+                OR (status = 'snoozed' AND snooze_until <= ${options.on_date}))
+           AND (${portfolioId}::UUID IS NULL OR portfolio_id = ${portfolioId})
+         ORDER BY first_seen_at
       `;
 
       return success(rows.map((row) => parseAlertInstanceFromDB(row)));
@@ -164,7 +164,7 @@ export const createAlertRepository = (sql: Connection): AlertRepository => ({
   listByStatus: async (status: AlertStatus) => {
     try {
       const rows = await sql<Row[]>`
-        select * from alert_instance where status = ${status} order by updated_at desc
+        SELECT * FROM alert_instance WHERE status = ${status} ORDER BY updated_at DESC
       `;
 
       return success(rows.map((row) => parseAlertInstanceFromDB(row)));
@@ -180,14 +180,14 @@ export const createAlertRepository = (sql: Connection): AlertRepository => ({
   ) => {
     try {
       const rows = await sql<Row[]>`
-        update alert_instance
-           set status = ${status},
+        UPDATE alert_instance
+           SET status = ${status},
                -- Adiado sem data até quando é um alerta que nunca volta: o banco
                -- recusa, e aqui a data é limpa quando o status sai de adiado.
                snooze_until = ${status === 'snoozed' ? snoozeUntil : null}
-         where rule_kind = ${key.rule_kind}
-           and subject_id = ${key.subject_id}
-        returning *
+         WHERE rule_kind = ${key.rule_kind}
+           AND subject_id = ${key.subject_id}
+        RETURNING *
       `;
 
       const row = rows[0];

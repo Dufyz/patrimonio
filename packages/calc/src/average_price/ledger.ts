@@ -14,7 +14,6 @@ export const LEDGER_KINDS = [
   'payout',
   'deposit',
   'withdrawal',
-  'transfer',
   'corporate_event',
 ] as const;
 
@@ -101,10 +100,6 @@ export const sortEntries = (entries: readonly LedgerEntry[]): LedgerEntry[] =>
     return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
   });
 
-/** Quantidade move para fora quando o dinheiro — ou o ativo — sai da carteira. */
-const isOutgoing = (entry: LedgerEntry): boolean =>
-  decimal(entry.net_amount).isNegative();
-
 const applyBuy = (state: Internal, entry: LedgerEntry): void => {
   const quantity = decimal(entry.quantity);
   // Taxas entram no custo, não no preço unitário: o preço unitário continua
@@ -141,54 +136,6 @@ const applySell = (state: Internal, entry: LedgerEntry): void => {
     cost_consumed: consumed.toFixed(MONEY_DP),
     result: proceeds.minus(consumed).toFixed(MONEY_DP),
   });
-};
-
-/**
- * Transferência preserva o preço médio nas duas pontas e não gera resultado
- * realizado: é reclassificação interna, não venda.
- *
- * As duas pernas usam **o mesmo número** — o valor líquido gravado no
- * lançamento, que é a parcela do custo que viajou. Recalcular o custo em cada
- * ponta a partir do preço médio arredondado deixaria um centavo de diferença
- * entre o que saiu e o que entrou, e a invariante "transferência preserva
- * patrimônio total" tem tolerância zero.
- */
-const applyTransfer = (state: Internal, entry: LedgerEntry): void => {
-  const quantity = decimal(entry.quantity);
-  const cost = decimal(entry.net_amount).abs().toDecimalPlaces(MONEY_DP);
-
-  if (isOutgoing(entry)) {
-    const moving = Decimal.min(quantity, state.quantity);
-    if (quantity.greaterThan(state.quantity)) state.oversold = true;
-
-    state.quantity = state.quantity.minus(moving);
-    state.cost = state.quantity.isZero()
-      ? zero
-      : Decimal.max(state.cost.minus(cost), zero);
-    return;
-  }
-
-  state.quantity = state.quantity.plus(quantity);
-  state.cost = state.cost.plus(cost);
-};
-
-/**
- * A parcela do custo que viaja numa transferência: proporcional à quantidade
- * movida, e o custo inteiro quando a posição toda sai. É o que faz a soma das
- * duas carteiras ser idêntica à de antes, sem sobra de centavo.
- */
-export const proportionalCost = (
-  costBasis: string,
-  quantity: string,
-  available: string,
-): string => {
-  const total = new Decimal(costBasis);
-  const moving = new Decimal(quantity);
-  const held = new Decimal(available);
-
-  if (held.isZero() || moving.greaterThanOrEqualTo(held)) return total.toFixed(MONEY_DP);
-
-  return total.times(moving).dividedBy(held).toDecimalPlaces(MONEY_DP).toFixed(MONEY_DP);
 };
 
 /**
@@ -257,9 +204,6 @@ const applyEntry = (state: Internal, entry: LedgerEntry): void => {
       break;
     case 'sell':
       applySell(state, entry);
-      break;
-    case 'transfer':
-      applyTransfer(state, entry);
       break;
     case 'corporate_event':
       applyCorporateEvent(state, entry);

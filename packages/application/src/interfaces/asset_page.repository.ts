@@ -36,8 +36,7 @@ export type AssetPageFilter = {
   readonly today: DateOnly;
   /** O código do papel ou o identificador dele: a leitura aceita os dois. */
   readonly assetId: string;
-  /** Nulo significa todas as carteiras ativas. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly period: AssetPagePeriod;
   /** Nulo é todos os tipos de lançamento. */
   readonly kind: TransactionKind | null;

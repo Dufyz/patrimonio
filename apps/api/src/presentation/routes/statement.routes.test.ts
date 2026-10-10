@@ -22,7 +22,6 @@ import type { ApiHarness } from '../../testing/harness.js';
 
 let harness: ApiHarness;
 let carteira: string;
-let reserva: string;
 let corretora: string;
 let wege3: string;
 let vale3: string;
@@ -50,8 +49,13 @@ const compra = (
   fees: '0',
 });
 
+const comCarteira = (query: string): string =>
+  query.includes('portfolio_id=')
+    ? query
+    : `portfolio_id=${carteira}${query === '' ? '' : `&${query}`}`;
+
 const extrato = async (query = ''): Promise<StatementResource> => {
-  const response = await request(harness.app).get(`/api/statement?${query}`);
+  const response = await request(harness.app).get(`/api/statement?${comCarteira(query)}`);
   expect(response.status, JSON.stringify(response.body)).toBe(200);
   return statementResourceSchema.parse(response.body);
 };
@@ -73,8 +77,6 @@ beforeEach(async () => {
   carteira = (
     await request(harness.app).post('/api/portfolios').send({ name: 'Longo prazo' })
   ).body.portfolio.id;
-  reserva = (await request(harness.app).post('/api/portfolios').send({ name: 'Reserva' }))
-    .body.portfolio.id;
   corretora = await seedInstitution(harness.sql, 'Corretora A');
 });
 
@@ -198,36 +200,6 @@ describe('o efeito de cada lançamento', () => {
     // Só o que já caiu na conta: 140 × 0,91.
     expect(body.summary.payouts).toBe('127.40');
   });
-
-  it('a transferência diz o sentido e a carteira do outro lado, nas duas pernas', async () => {
-    const abertura = await lancar(compra('PETR4', '2026-08-10', '100', '30.00'));
-
-    await request(harness.app)
-      .post('/api/transactions/transfer')
-      .send({
-        from_portfolio_id: carteira,
-        to_portfolio_id: reserva,
-        asset_id: abertura.asset_id,
-        institution_id: corretora,
-        trade_date: '2026-09-15',
-        quantity: '40',
-      })
-      .expect(201);
-
-    const origem = await extrato(`portfolio_id=${carteira}&group=transfer`);
-    const destino = await extrato(`portfolio_id=${reserva}&group=transfer`);
-
-    expect(origem.rows[0]?.effect).toEqual({
-      type: 'transfer',
-      direction: 'out',
-      counterpart: 'Reserva',
-    });
-    expect(destino.rows[0]?.effect).toEqual({
-      type: 'transfer',
-      direction: 'in',
-      counterpart: 'Longo prazo',
-    });
-  });
 });
 
 describe('o recorte', () => {
@@ -246,7 +218,6 @@ describe('o recorte', () => {
       'sell',
       'payout',
       'cash',
-      'transfer',
       'event',
     ]);
     expect(body.institutions.map((item) => item.name)).toEqual(['Corretora A']);
@@ -295,7 +266,9 @@ describe('o recorte', () => {
       'from=ontem',
       'limit=0',
     ]) {
-      const response = await request(harness.app).get(`/api/statement?${query}`);
+      const response = await request(harness.app).get(
+        `/api/statement?${comCarteira(query)}`,
+      );
       expect(response.status, query).toBe(400);
     }
   });

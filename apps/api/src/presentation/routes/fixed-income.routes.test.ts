@@ -124,17 +124,4 @@ describe('título de renda fixa cadastrado à mão', () => {
 
     expect(response.status).toBe(400);
   });
-
-  it('a exposição ao emissor é consultável na tela de cadastro', async () => {
-    await cadastrarTitulo({});
-
-    const response = await request(harness.app).get(
-      `/api/institutions/${bancoC}/fgc-exposure`,
-    );
-
-    expect(response.status).toBe(200);
-    // Sem aplicação lançada ainda, o que existe é o cadastro do papel.
-    expect(response.body.exposure.exposure_brl).toBe('0.00');
-    expect(response.body.exposure.limit_brl).toBe('250000.00');
-  });
 });

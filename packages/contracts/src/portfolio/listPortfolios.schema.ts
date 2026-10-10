@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { uuid } from '../support/primitives.schema.js';
+import { decimalString, uuid } from '../support/primitives.schema.js';
 import { portfolioResourceSchema } from './portfolio.schema.js';
 
 export const listPortfoliosSchema = z.object({
@@ -24,4 +24,6 @@ export const getPortfolioSchema = z.object({
  */
 export const listPortfoliosResponseSchema = z.object({
   portfolios: z.array(portfolioResourceSchema),
+  /** O valor de cada carteira no último fechamento, por identificador. */
+  values: z.record(uuid, decimalString),
 });

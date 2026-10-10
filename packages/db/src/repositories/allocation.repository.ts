@@ -15,7 +15,6 @@ import {
   asNumericOrNull,
   asString,
   asStringOrNull,
-  REBALANCE_MODES,
   RECALC_STATUSES,
 } from '@patrimonio/domain';
 import type { Row } from '@patrimonio/domain';
@@ -50,16 +49,9 @@ const AFTER_CATALOG = 1_000_000;
 const parsePortfolio = (row: Row): AllocationPortfolioRow => ({
   portfolio_id: asString(row, 'portfolio_id'),
   name: asString(row, 'name'),
-  purpose: asStringOrNull(row, 'purpose'),
   recalc_status: asEnum(row, 'recalc_status', RECALC_STATUSES),
-  tolerance_pp: asNumeric(row, 'tolerance_pp'),
-  max_asset_weight_pct: asNumericOrNull(row, 'max_asset_weight_pct'),
-  rebalance_mode: asEnum(row, 'rebalance_mode', REBALANCE_MODES),
-  review_every_months: asIntegerOrNull(row, 'review_every_months'),
-  benchmark_id: asStringOrNull(row, 'benchmark_id'),
-  benchmark_name: asStringOrNull(row, 'benchmark_name'),
+  benchmark: asStringOrNull(row, 'benchmark'),
   reviewed_on: asDateOnlyOrNull(row, 'reviewed_on'),
-  next_review_on: asDateOnlyOrNull(row, 'next_review_on'),
   total_value: asNumericOrNull(row, 'total_value'),
 });
 
@@ -86,135 +78,124 @@ export const createAllocationRepository = (sql: Connection): AllocationRepositor
   snapshot: async (query: AllocationQuery) => {
     try {
       const [row] = await sql<Row[]>`
-        with reference as (
-          select max(position_date) as position_date
-            from portfolio_daily
-           where portfolio_id = ${query.portfolio_id}::uuid
-             and position_date <= ${query.on_date}::date
+        WITH reference AS (
+          SELECT MAX(position_date) AS position_date
+            FROM portfolio_daily
+           WHERE portfolio_id = ${query.portfolio_id}::UUID
+             AND position_date <= ${query.on_date}::DATE
         ),
-        portfolio_row as (
-          select p.id::text as portfolio_id,
+        portfolio_row AS (
+          SELECT p.id::TEXT AS portfolio_id,
                  p.name,
-                 p.purpose,
                  p.recalc_status,
-                 p.tolerance_pp::text as tolerance_pp,
-                 p.max_asset_weight_pct::text as max_asset_weight_pct,
-                 p.rebalance_mode,
-                 p.review_every_months,
-                 p.benchmark_id::text as benchmark_id,
-                 benchmark.name as benchmark_name,
-                 (select max(target.updated_at)::date
-                    from strategy_target target
-                   where target.portfolio_id = p.id) as reviewed_on,
-                 (select (max(target.updated_at)::date
-                          + make_interval(months => p.review_every_months::int))::date
-                    from strategy_target target
-                   where target.portfolio_id = p.id) as next_review_on,
-                 (select day.total_value::text
-                    from portfolio_daily day
-                   where day.portfolio_id = p.id
-                     and day.position_date <= ${query.on_date}::date
-                   order by day.position_date desc
-                   limit 1) as total_value
-            from portfolio p
-            left join benchmark on benchmark.id = p.benchmark_id
-           where p.id = ${query.portfolio_id}::uuid
-             and p.archived_at is null
+                 p.benchmark,
+                 (SELECT MAX(target.updated_at)::DATE
+                    FROM strategy_target target
+                   WHERE target.portfolio_id = p.id) AS reviewed_on,
+                 (SELECT day.total_value::TEXT
+                    FROM portfolio_daily day
+                   WHERE day.portfolio_id = p.id
+                     AND day.position_date <= ${query.on_date}::DATE
+                   ORDER BY day.position_date DESC
+                   LIMIT 1) AS total_value
+            FROM portfolio p
+           WHERE p.id = ${query.portfolio_id}::UUID
+             AND p.archived_at IS NULL
         ),
         -- A carteira na última data que ela tem até a referência: recálculo
         -- atrasado não pode esvaziar a tela.
-        last_position as (
-          select max(position_date) as position_date
-            from position_daily
-           where portfolio_id = ${query.portfolio_id}::uuid
-             and position_date <= (select position_date from reference)
+        last_position AS (
+          SELECT MAX(position_date) AS position_date
+            FROM position_daily
+           WHERE portfolio_id = ${query.portfolio_id}::UUID
+             AND position_date <= (SELECT position_date FROM reference)
         ),
-        held as (
-          select pos.asset_id, pos.market_value
-            from position_daily pos
-           where pos.portfolio_id = ${query.portfolio_id}::uuid
-             and pos.position_date = (select position_date from last_position)
-             and pos.quantity <> 0
+        held AS (
+          SELECT pos.asset_id, pos.market_value
+            FROM position_daily pos
+           WHERE pos.portfolio_id = ${query.portfolio_id}::UUID
+             AND pos.position_date = (SELECT position_date FROM last_position)
+             AND pos.quantity <> 0
         ),
-        category_values as (
-          select asset.category_id, sum(held.market_value) as value
-            from held
-            join asset on asset.id = held.asset_id
-           group by asset.category_id
+        category_values AS (
+          SELECT asset.category_id, SUM(held.market_value) AS value
+            FROM held
+            JOIN asset ON asset.id = held.asset_id
+           GROUP BY asset.category_id
         ),
-        catalog as (
-          select c.id,
+        catalog AS (
+          SELECT c.id,
                  c.name,
                  c.parent_id,
                  c.color_token,
                  c.sort_order,
-                 exists (
-                   select 1 from category child where child.parent_id = c.id
-                 ) as is_group
-            from category c
+                 EXISTS (
+                   SELECT 1 FROM category child WHERE child.parent_id = c.id
+                 ) AS is_group
+            FROM category c
         ),
-        lines as (
-          select c.id::text as category_id,
-                 c.name as category_name,
-                 parent.id::text as group_id,
-                 parent.name as group_name,
-                 parent.sort_order as group_sort_order,
+        lines AS (
+          SELECT c.id::TEXT AS category_id,
+                 c.name AS category_name,
+                 parent.id::TEXT AS group_id,
+                 parent.name AS group_name,
+                 parent.sort_order AS group_sort_order,
                  c.color_token,
                  c.sort_order,
-                 coalesce(v.value, 0)::text as value
-            from catalog c
-            left join catalog parent on parent.id = c.parent_id
-            left join category_values v on v.category_id = c.id
-           where not c.is_group
+                 COALESCE(v.value, 0)::TEXT AS value
+            FROM catalog c
+            LEFT JOIN catalog parent ON parent.id = c.parent_id
+            LEFT JOIN category_values v ON v.category_id = c.id
+           WHERE NOT c.is_group
 
-          union all
+          UNION ALL
 
-          select c.id::text,
+          SELECT c.id::TEXT,
                  'Outros',
-                 c.id::text,
+                 c.id::TEXT,
                  c.name,
                  c.sort_order,
                  c.color_token,
-                 ${AFTER_CATALOG}::int,
-                 v.value::text
-            from catalog c
-            join category_values v on v.category_id = c.id
-           where c.is_group and v.value <> 0
+                 ${AFTER_CATALOG}::INT,
+                 v.value::TEXT
+            FROM catalog c
+            JOIN category_values v ON v.category_id = c.id
+           WHERE c.is_group AND v.value <> 0
 
-          union all
+          UNION ALL
 
-          select ${SEM_CATEGORIA},
+          SELECT ${SEM_CATEGORIA},
                  'Sem categoria',
-                 null,
-                 null,
-                 null,
+                 NULL,
+                 NULL,
+                 NULL,
                  'class.outros',
-                 ${AFTER_CATALOG}::int,
-                 v.value::text
-            from category_values v
-           where v.category_id is null and v.value <> 0
+                 ${AFTER_CATALOG}::INT,
+                 v.value::TEXT
+            FROM category_values v
+           WHERE v.category_id IS NULL AND v.value <> 0
         )
-        select (select position_date from reference) as reference_date,
-               (select to_jsonb(portfolio_row) from portfolio_row) as portfolio,
-               coalesce((
-                 select jsonb_agg(
-                          to_jsonb(lines)
-                          order by lines.group_sort_order nulls last,
+        SELECT (SELECT position_date FROM reference) AS reference_date,
+               (SELECT TO_JSONB(portfolio_row) FROM portfolio_row) AS portfolio,
+               COALESCE((
+                 SELECT JSONB_AGG(
+                          TO_JSONB(lines)
+                          ORDER BY lines.group_sort_order NULLS LAST,
                                    lines.sort_order,
                                    lines.category_name
                         )
-                   from lines
-               ), '[]'::jsonb) as categories,
-               coalesce((
-                 select jsonb_agg(
-                          jsonb_build_object(
-                            'category_id', target.category_id::text,
-                            'target_pct', target.target_pct::text
+                   FROM lines
+               ), '[]'::JSONB) AS categories,
+               COALESCE((
+                 SELECT JSONB_AGG(
+                          JSONB_BUILD_OBJECT(
+                            'category_id', target.category_id::TEXT,
+                            'target_pct', target.target_pct::TEXT
                           )
                         )
-                   from strategy_target target
-                  where target.portfolio_id = ${query.portfolio_id}::uuid
-               ), '[]'::jsonb) as targets
+                   FROM strategy_target target
+                  WHERE target.portfolio_id = ${query.portfolio_id}::UUID
+               ), '[]'::JSONB) AS targets
       `;
 
       if (row === undefined) {

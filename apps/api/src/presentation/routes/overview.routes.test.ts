@@ -23,9 +23,9 @@ let hglg11: string;
 
 const seedCategoria = async (name: string, token: string): Promise<string> => {
   const rows = await harness.sql<{ id: string }[]>`
-    insert into category (id, name, color_token)
-    values (gen_random_uuid(), ${name}, ${token})
-    returning id
+    INSERT INTO category (id, name, color_token)
+    VALUES (GEN_RANDOM_UUID(), ${name}, ${token})
+    RETURNING id
   `;
 
   return rows[0]?.id ?? '';
@@ -38,9 +38,9 @@ const seedAtivo = async (
   category: string,
 ): Promise<string> => {
   const rows = await harness.sql<{ id: string }[]>`
-    insert into asset (id, ticker, name, origin, b3_type, category_id)
-    values (gen_random_uuid(), ${ticker}, ${name}, 'market', ${b3Type}, ${category})
-    returning id
+    INSERT INTO asset (id, ticker, name, origin, b3_type, category_id)
+    VALUES (GEN_RANDOM_UUID(), ${ticker}, ${name}, 'market', ${b3Type}, ${category})
+    RETURNING id
   `;
 
   return rows[0]?.id ?? '';
@@ -59,20 +59,20 @@ const fecharDia = async (
   } = {},
 ): Promise<void> => {
   await harness.sql`
-    insert into portfolio_daily (
+    INSERT INTO portfolio_daily (
       portfolio_id, position_date, total_value, net_flow, income, payouts,
       quota_value, quota_count, cumulative_contributions
     )
-    values (
+    VALUES (
       ${portfolio}, ${date}, ${total}, ${options.net_flow ?? '0.00'},
       ${options.income ?? '0.00'}, ${options.payouts ?? '0.00'},
       ${options.quota_value ?? '1.000000000000'}, '1000.000000000000',
       ${options.contributions ?? '0.00'}
     )
-    on conflict (portfolio_id, position_date) do update
-      set total_value = excluded.total_value,
-          quota_value = excluded.quota_value,
-          cumulative_contributions = excluded.cumulative_contributions
+    ON CONFLICT (portfolio_id, position_date) DO UPDATE
+      SET total_value = EXCLUDED.total_value,
+          quota_value = EXCLUDED.quota_value,
+          cumulative_contributions = EXCLUDED.cumulative_contributions
   `;
 };
 
@@ -84,17 +84,17 @@ const manterPosicao = async (
   kind: 'fresh' | 'stale' | 'manual' | 'missing' = 'fresh',
 ): Promise<void> => {
   await harness.sql`
-    insert into position_daily (
+    INSERT INTO position_daily (
       portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
       market_value, price_source_kind, accrued_interest
     )
-    values (
+    VALUES (
       ${portfolio}, ${asset}, ${date}, '100.00000000', '30.00000000', '3000.00',
       ${value}, ${kind}::computed_price_kind, '0.00'
     )
-    on conflict (portfolio_id, asset_id, position_date) do update
-      set market_value = excluded.market_value,
-          price_source_kind = excluded.price_source_kind
+    ON CONFLICT (portfolio_id, asset_id, position_date) DO UPDATE
+      SET market_value = EXCLUDED.market_value,
+          price_source_kind = EXCLUDED.price_source_kind
   `;
 };
 
@@ -104,13 +104,17 @@ const abrirAlerta = async (
   portfolio: string | null,
 ): Promise<void> => {
   await harness.sql`
-    insert into alert_instance (rule_kind, subject_id, portfolio_id, status, payload)
-    values (${ruleKind}, ${subject}, ${portfolio}, 'open', '{"ticker":"ITUB4"}'::jsonb)
+    INSERT INTO alert_instance (rule_kind, subject_id, portfolio_id, status, payload)
+    VALUES (${ruleKind}, ${subject}, ${portfolio}, 'open', '{"ticker":"ITUB4"}'::JSONB)
   `;
 };
 
-const visaoGeral = async (query = ''): Promise<request.Response> =>
-  request(harness.app).get(`/api/overview${query}`);
+const visaoGeral = async (query = ''): Promise<request.Response> => {
+  const params = new URLSearchParams(query.replace(/^\?/, ''));
+  if (!params.has('portfolio_id')) params.set('portfolio_id', longo);
+
+  return request(harness.app).get(`/api/overview?${params.toString()}`);
+};
 
 beforeAll(async () => {
   harness = await createApiHarness();
@@ -122,13 +126,13 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetSourceTables(harness.sql);
-  await harness.sql`delete from alert_instance`;
-  await harness.sql`delete from portfolio_daily`;
-  await harness.sql`delete from position_daily`;
+  await harness.sql`DELETE FROM alert_instance`;
+  await harness.sql`DELETE FROM portfolio_daily`;
+  await harness.sql`DELETE FROM position_daily`;
 
   const criada = await request(harness.app)
     .post('/api/portfolios')
-    .send({ name: 'Longo prazo', purpose: 'independência financeira', tolerance_pp: '3' });
+    .send({ name: 'Longo prazo' });
   longo = criada.body.portfolio.id;
 
   const outra = await request(harness.app).post('/api/portfolios').send({ name: 'Reserva' });
@@ -159,18 +163,23 @@ describe('quanto eu tenho hoje', () => {
     expect(response.body.totals.value).toBe('10000.00');
   });
 
-  it('o consolidado soma as carteiras, e o escopo de carteira mostra só ela', async () => {
+  it('cada carteira mostra só o que é dela', async () => {
     await fecharDia(longo, '2026-10-02', '10000.00');
     await fecharDia(reserva, '2026-10-02', '2500.00');
 
-    const todas = await visaoGeral('?on_date=2026-10-02');
-    const uma = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${longo}`);
+    const doLongo = await visaoGeral('?on_date=2026-10-02');
+    const daReserva = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${reserva}`);
 
-    expect(todas.body.totals.value).toBe('12500.00');
-    expect(todas.body.scope.name).toBe('Todas as carteiras');
-    expect(uma.body.totals.value).toBe('10000.00');
-    // O peso da carteira no patrimônio: 10.000 de 12.500.
-    expect(uma.body.totals.weight_pct).toBe('80.00');
+    expect(doLongo.body.totals.value).toBe('10000.00');
+    expect(doLongo.body.scope.name).toBe('Longo prazo');
+    expect(daReserva.body.totals.value).toBe('2500.00');
+    expect(daReserva.body.scope.name).toBe('Reserva');
+  });
+
+  it('sem carteira a rota recusa com 400', async () => {
+    const response = await request(harness.app).get('/api/overview?on_date=2026-10-02');
+
+    expect(response.status).toBe(400);
   });
 
   it('a variação do dia compara com o fechamento anterior', async () => {
@@ -256,19 +265,6 @@ describe('quanto veio de aporte e quanto veio de rentabilidade', () => {
     expect(response.body.period.return_pct).toBe('5.00');
   });
 
-  it('no consolidado a cota é construída sobre a janela, e o método vem declarado', async () => {
-    await fecharDia(longo, '2026-09-30', '10000.00');
-    await fecharDia(reserva, '2026-09-30', '10000.00');
-    await fecharDia(longo, '2026-10-01', '11000.00');
-    await fecharDia(reserva, '2026-10-01', '10000.00');
-
-    const response = await visaoGeral('?on_date=2026-10-01&from=2026-10-01&to=2026-10-01');
-
-    expect(response.body.period.return_method).toBe('window_quota');
-    // 21.000 contra 20.000, sem fluxo no meio.
-    expect(response.body.period.return_pct).toBe('5.00');
-  });
-
   it('aporte no dia não vira rentabilidade', async () => {
     await fecharDia(longo, '2026-09-30', '10000.00');
     await fecharDia(longo, '2026-10-01', '15000.00', { net_flow: '5000.00' });
@@ -313,8 +309,8 @@ describe('como o patrimônio está distribuído', () => {
 
   it('a composição aponta o desvio contra o alvo declarado da carteira', async () => {
     await harness.sql`
-      insert into strategy_target (portfolio_id, category_id, target_pct)
-      values (${longo}, ${acoes}, '60'), (${longo}, ${fiis}, '40')
+      INSERT INTO strategy_target (portfolio_id, category_id, target_pct)
+      VALUES (${longo}, ${acoes}, '60'), (${longo}, ${fiis}, '40')
     `;
 
     const response = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${longo}`);
@@ -331,33 +327,6 @@ describe('como o patrimônio está distribuído', () => {
     const response = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${longo}`);
 
     expect(response.body.composition.nodes[0].deviation_pp).toBeNull();
-  });
-
-  it('a distribuição por carteira acompanha, para o consolidado comparar as duas', async () => {
-    await fecharDia(reserva, '2026-10-02', '7000.00');
-
-    const response = await visaoGeral('?on_date=2026-10-02');
-
-    expect(
-      response.body.by_portfolio.map((row: { name: string; weight_pct: string }) => [
-        row.name,
-        row.weight_pct,
-      ]),
-    ).toEqual([
-      ['Longo prazo', '65.00'],
-      ['Reserva', '35.00'],
-    ]);
-  });
-
-  it('o estado do preço viaja com a posição, para a tela não mentir sobre a data', async () => {
-    await manterPosicao(longo, hglg11, '2026-10-02', '3000.00', 'stale');
-
-    const response = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${longo}`);
-    const linha = response.body.top_positions.rows.find(
-      (row: { ticker: string }) => row.ticker === 'HGLG11',
-    );
-
-    expect(linha.price_source_kind).toBe('stale');
   });
 });
 
@@ -383,20 +352,19 @@ describe('o que precisa de mim', () => {
     expect(response.body.attention.groups[0].items[0].rule_kind).toBe('price_stale');
   });
 
-  it('o painel conta as duas leituras: esta carteira e todas', async () => {
+  it('o painel conta só os alertas da carteira', async () => {
     await abrirAlerta('price_stale', itub4, longo);
     await abrirAlerta('price_missing', hglg11, reserva);
 
     const response = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${longo}`);
 
     expect(response.body.attention.total).toBe(1);
-    expect(response.body.attention.total_all_portfolios).toBe(2);
   });
 
   it('alerta ignorado não volta para a frente do usuário', async () => {
     await abrirAlerta('price_stale', itub4, longo);
     await harness.sql`
-      update alert_instance set status = 'ignored' where rule_kind = 'price_stale'
+      UPDATE alert_instance SET status = 'ignored' WHERE rule_kind = 'price_stale'
     `;
 
     const response = await visaoGeral('?on_date=2026-10-02');
@@ -407,9 +375,9 @@ describe('o que precisa de mim', () => {
   it('alerta adiado some até a data escolhida e volta depois dela', async () => {
     await abrirAlerta('price_stale', itub4, longo);
     await harness.sql`
-      update alert_instance
-         set status = 'snoozed', snooze_until = '2026-10-05'
-       where rule_kind = 'price_stale'
+      UPDATE alert_instance
+         SET status = 'snoozed', snooze_until = '2026-10-05'
+       WHERE rule_kind = 'price_stale'
     `;
 
     const escondido = await visaoGeral('?on_date=2026-10-02');

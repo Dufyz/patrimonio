@@ -56,36 +56,36 @@ export const createMarketIngestionRepository = (
 
     try {
       const written = await sql<{ asset_id: string }[]>`
-        insert into asset_price (asset_id, price_date, close, source, source_kind, fetched_at)
-        select * , now()
-          from unnest(
+        INSERT INTO asset_price (asset_id, price_date, close, source, source_kind, fetched_at)
+        SELECT * , NOW()
+          FROM UNNEST(
             ${sql.array(
               rows.map((row) => row.asset_id),
               ARRAY_OID.uuid,
-            )}::uuid[],
+            )}::UUID[],
             ${sql.array(
               rows.map((row) => row.price_date),
               ARRAY_OID.date,
-            )}::date[],
+            )}::DATE[],
             ${sql.array(
               rows.map((row) => row.close),
               ARRAY_OID.numeric,
-            )}::numeric[],
+            )}::NUMERIC[],
             ${sql.array(
               rows.map((row) => row.source),
               ARRAY_OID.text,
-            )}::text[],
+            )}::TEXT[],
             ${sql.array(
               rows.map((row) => row.source_kind),
               ARRAY_OID.text,
             )}::price_source_kind[]
           )
-        on conflict (asset_id, price_date) do update set
-          close       = excluded.close,
-          source      = excluded.source,
-          source_kind = excluded.source_kind,
-          fetched_at  = excluded.fetched_at
-        returning asset_id
+        ON CONFLICT (asset_id, price_date) DO UPDATE SET
+          close       = EXCLUDED.close,
+          source      = EXCLUDED.source,
+          source_kind = EXCLUDED.source_kind,
+          fetched_at  = EXCLUDED.fetched_at
+        RETURNING asset_id
       `;
 
       return success(written.length);
@@ -104,36 +104,36 @@ export const createMarketIngestionRepository = (
 
     try {
       const written = await sql<{ index_code: string }[]>`
-        insert into index_quote (index_code, quote_date, daily_factor, raw_value, source, fetched_at)
-        select *, now()
-          from unnest(
+        INSERT INTO index_quote (index_code, quote_date, daily_factor, raw_value, source, fetched_at)
+        SELECT *, NOW()
+          FROM UNNEST(
             ${sql.array(
               rows.map((row) => row.index_code),
               ARRAY_OID.text,
-            )}::text[],
+            )}::TEXT[],
             ${sql.array(
               rows.map((row) => row.quote_date),
               ARRAY_OID.date,
-            )}::date[],
+            )}::DATE[],
             ${sql.array(
               rows.map((row) => row.daily_factor),
               ARRAY_OID.numeric,
-            )}::numeric[],
+            )}::NUMERIC[],
             ${sql.array(
               rows.map((row) => row.raw_value),
               ARRAY_OID.numeric,
-            )}::numeric[],
+            )}::NUMERIC[],
             ${sql.array(
               rows.map((row) => row.source),
               ARRAY_OID.text,
-            )}::text[]
+            )}::TEXT[]
           )
-        on conflict (index_code, quote_date) do update set
-          daily_factor = excluded.daily_factor,
-          raw_value    = excluded.raw_value,
-          source       = excluded.source,
-          fetched_at   = excluded.fetched_at
-        returning index_code
+        ON CONFLICT (index_code, quote_date) DO UPDATE SET
+          daily_factor = EXCLUDED.daily_factor,
+          raw_value    = EXCLUDED.raw_value,
+          source       = EXCLUDED.source,
+          fetched_at   = EXCLUDED.fetched_at
+        RETURNING index_code
       `;
 
       return success(written.length);
@@ -154,21 +154,21 @@ export const createMarketIngestionRepository = (
   priceableAssets: async (date: DateOnly) => {
     try {
       const rows = await sql<Row[]>`
-        select asset.id        as asset_id,
-               asset.ticker    as ticker,
-               asset.b3_type   as b3_type,
-               asset.indexer   as indexer,
-               asset.maturity_date as maturity_date,
-               min(transaction.trade_date) as first_trade_date
-          from transaction
-          join asset on asset.id = transaction.asset_id
-         where transaction.trade_date <= ${date}
-           and asset.price_source = 'auto'
-           and asset.archived_at is null
-           and asset.b3_type is not null
-           and asset.b3_type <> 'cash'
-         group by asset.id, asset.ticker, asset.b3_type, asset.indexer, asset.maturity_date
-         order by asset.ticker
+        SELECT asset.id        AS asset_id,
+               asset.ticker    AS ticker,
+               asset.b3_type   AS b3_type,
+               asset.indexer   AS indexer,
+               asset.maturity_date AS maturity_date,
+               MIN(transaction.trade_date) AS first_trade_date
+          FROM transaction
+          JOIN asset ON asset.id = transaction.asset_id
+         WHERE transaction.trade_date <= ${date}
+           AND asset.price_source = 'auto'
+           AND asset.archived_at IS NULL
+           AND asset.b3_type IS NOT NULL
+           AND asset.b3_type <> 'cash'
+         GROUP BY asset.id, asset.ticker, asset.b3_type, asset.indexer, asset.maturity_date
+         ORDER BY asset.ticker
       `;
 
       return success(rows.map((row) => parsePriceableAssetFromDB(row)));
@@ -180,16 +180,16 @@ export const createMarketIngestionRepository = (
   priceableAsset: async (assetId: string) => {
     try {
       const rows = await sql<Row[]>`
-        select asset.id        as asset_id,
-               asset.ticker    as ticker,
-               asset.b3_type   as b3_type,
-               asset.indexer   as indexer,
-               asset.maturity_date as maturity_date,
-               coalesce(min(transaction.trade_date), current_date) as first_trade_date
-          from asset
-          left join transaction on transaction.asset_id = asset.id
-         where asset.id = ${assetId}
-         group by asset.id, asset.ticker, asset.b3_type, asset.indexer, asset.maturity_date
+        SELECT asset.id        AS asset_id,
+               asset.ticker    AS ticker,
+               asset.b3_type   AS b3_type,
+               asset.indexer   AS indexer,
+               asset.maturity_date AS maturity_date,
+               COALESCE(MIN(transaction.trade_date), CURRENT_DATE) AS first_trade_date
+          FROM asset
+          LEFT JOIN transaction ON transaction.asset_id = asset.id
+         WHERE asset.id = ${assetId}
+         GROUP BY asset.id, asset.ticker, asset.b3_type, asset.indexer, asset.maturity_date
       `;
 
       const row = rows[0];
@@ -203,11 +203,11 @@ export const createMarketIngestionRepository = (
   pricedDates: async (assetId: string, from: DateOnly, to: DateOnly) => {
     try {
       const rows = await sql<{ price_date: string }[]>`
-        select price_date
-          from asset_price
-         where asset_id = ${assetId}
-           and price_date between ${from} and ${to}
-         order by price_date
+        SELECT price_date
+          FROM asset_price
+         WHERE asset_id = ${assetId}
+           AND price_date BETWEEN ${from} AND ${to}
+         ORDER BY price_date
       `;
 
       return success(rows.map((row) => row.price_date as DateOnly));
@@ -219,18 +219,18 @@ export const createMarketIngestionRepository = (
   recordRun: async (draft) => {
     try {
       const rows = await sql<Row[]>`
-        insert into market_source_run (
+        INSERT INTO market_source_run (
           id, source, kind, reference_date, started_at, finished_at, ok,
           source_kind, requests, items, missing, error, detail
         )
-        values (
+        VALUES (
           ${uuidv7()}, ${draft.source}, ${draft.kind}, ${draft.reference_date ?? null},
           ${draft.started_at}, ${draft.finished_at}, ${draft.ok},
           ${draft.source_kind ?? null}, ${draft.requests ?? 0}, ${draft.items ?? 0},
           ${draft.missing ?? 0}, ${draft.error ?? null},
-          ${draft.detail === null || draft.detail === undefined ? null : JSON.stringify(draft.detail)}::jsonb
+          ${draft.detail === null || draft.detail === undefined ? null : JSON.stringify(draft.detail)}::JSONB
         )
-        returning *
+        RETURNING *
       `;
 
       const row = rows[0];
@@ -255,21 +255,21 @@ export const createMarketIngestionRepository = (
   sourceStatuses: async (options) => {
     try {
       const rows = await sql<Row[]>`
-        with ultimo as (
-          select distinct on (source, kind) *
-            from market_source_run
-           order by source, kind, finished_at desc
+        WITH ultimo AS (
+          SELECT DISTINCT ON (source, kind) *
+            FROM market_source_run
+           ORDER BY source, kind, finished_at DESC
         ),
-        consumo as (
-          select source, sum(requests)::integer as requests
-            from market_source_run
-           where started_at >= ${options.requests_since}
-           group by source
+        consumo AS (
+          SELECT source, SUM(requests)::INTEGER AS requests
+            FROM market_source_run
+           WHERE started_at >= ${options.requests_since}
+           GROUP BY source
         )
-        select ultimo.*, coalesce(consumo.requests, 0) as requests_in_window
-          from ultimo
-          left join consumo on consumo.source = ultimo.source
-         order by ultimo.source, ultimo.kind
+        SELECT ultimo.*, COALESCE(consumo.requests, 0) AS requests_in_window
+          FROM ultimo
+          LEFT JOIN consumo ON consumo.source = ultimo.source
+         ORDER BY ultimo.source, ultimo.kind
       `;
 
       const statuses: SourceStatus[] = rows.map((row) => ({
@@ -288,11 +288,11 @@ export const createMarketIngestionRepository = (
   recentFailures: async (limit: number) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from market_source_run
-         where ok = false
-         order by finished_at desc
-         limit ${limit}
+        SELECT *
+          FROM market_source_run
+         WHERE ok = FALSE
+         ORDER BY finished_at DESC
+         LIMIT ${limit}
       `;
 
       return success(rows.map((row) => parseMarketSourceRunFromDB(row)));
@@ -304,11 +304,11 @@ export const createMarketIngestionRepository = (
   lastRunOf: async (source: string, kind: MarketRunKind) => {
     try {
       const rows = await sql<Row[]>`
-        select *
-          from market_source_run
-         where source = ${source} and kind = ${kind}
-         order by finished_at desc
-         limit 1
+        SELECT *
+          FROM market_source_run
+         WHERE source = ${source} AND kind = ${kind}
+         ORDER BY finished_at DESC
+         LIMIT 1
       `;
 
       const row = rows[0];
@@ -334,19 +334,19 @@ export const createMarketIngestionRepository = (
 
     try {
       const written = await sql<{ id: string }[]>`
-        insert into announced_payout (
+        INSERT INTO announced_payout (
           id, asset_id, payout_kind, record_date, payment_date, amount_per_share, source
         )
-        select *
-          from unnest(
+        SELECT *
+          FROM UNNEST(
             ${sql.array(
               rows.map(() => uuidv7()),
               ARRAY_OID.uuid,
-            )}::uuid[],
+            )}::UUID[],
             ${sql.array(
               rows.map((row) => row.asset_id),
               ARRAY_OID.uuid,
-            )}::uuid[],
+            )}::UUID[],
             ${sql.array(
               rows.map((row) => row.payout_kind),
               ARRAY_OID.text,
@@ -354,25 +354,25 @@ export const createMarketIngestionRepository = (
             ${sql.array(
               rows.map((row) => row.record_date),
               ARRAY_OID.date,
-            )}::date[],
+            )}::DATE[],
             ${sql.array(
               rows.map((row) => row.payment_date),
               ARRAY_OID.date,
-            )}::date[],
+            )}::DATE[],
             ${sql.array(
               rows.map((row) => row.amount_per_share),
               ARRAY_OID.numeric,
-            )}::numeric[],
+            )}::NUMERIC[],
             ${sql.array(
               rows.map((row) => row.source),
               ARRAY_OID.text,
-            )}::text[]
+            )}::TEXT[]
           )
-        on conflict (asset_id, payout_kind, record_date) do update set
-          payment_date     = excluded.payment_date,
-          amount_per_share = excluded.amount_per_share,
-          source           = excluded.source
-        returning id
+        ON CONFLICT (asset_id, payout_kind, record_date) DO UPDATE SET
+          payment_date     = EXCLUDED.payment_date,
+          amount_per_share = EXCLUDED.amount_per_share,
+          source           = EXCLUDED.source
+        RETURNING id
       `;
 
       return success(written.length);
@@ -384,10 +384,10 @@ export const createMarketIngestionRepository = (
   pendingAnnouncedPayouts: async () => {
     try {
       const rows = await sql<Row[]>`
-        select id, asset_id, payout_kind, record_date, payment_date, amount_per_share
-          from announced_payout
-         where materialized_transaction_id is null
-         order by record_date
+        SELECT id, asset_id, payout_kind, record_date, payment_date, amount_per_share
+          FROM announced_payout
+         WHERE materialized_transaction_id IS NULL
+         ORDER BY record_date
       `;
 
       return success(
@@ -408,11 +408,11 @@ export const createMarketIngestionRepository = (
   markPayoutMaterialized: async (announcedId: string, transactionId: string) => {
     try {
       const rows = await sql<{ id: string }[]>`
-        update announced_payout
-           set materialized_transaction_id = ${transactionId}
-         where id = ${announcedId}
-           and materialized_transaction_id is null
-        returning id
+        UPDATE announced_payout
+           SET materialized_transaction_id = ${transactionId}
+         WHERE id = ${announcedId}
+           AND materialized_transaction_id IS NULL
+        RETURNING id
       `;
 
       return success(rows.length > 0);

@@ -9,6 +9,7 @@ import {
 
 import type { DeletionReceipt } from '../api/transactions.js';
 import { undoDeletion } from '../api/transactions.js';
+import { fetchInstitutions } from '../api/institutions.js';
 import { fetchSettings } from '../api/settings.js';
 import type { SaveReceipt } from '../api/entry.js';
 import {
@@ -28,7 +29,6 @@ import { EditEntry } from '../views/entry/edit_form.js';
 import { PayoutFormView } from '../views/entry/payout_form.js';
 import { TradeFormView } from '../views/entry/trade_form.js';
 import type { TradeSeed } from '../views/entry/trade_form.js';
-import { TransferFormView } from '../views/entry/transfer_form.js';
 import { Modal } from './overlay.js';
 import { Button, Segmented } from './primitives.js';
 import { useShortcuts } from './shortcuts.js';
@@ -94,8 +94,8 @@ export const EntryProvider = ({
   search,
   children,
 }: {
-  /** A carteira do escopo atual; "Todas" é `null`, e a primeira carteira entra no lugar. */
-  readonly scopePortfolioId: string | null;
+  /** A carteira do escopo atual. */
+  readonly scopePortfolioId: string;
   /** Troca-se nos testes para não depender da rede. */
   readonly search?: AssetSearch;
   readonly children: React.ReactNode;
@@ -113,10 +113,10 @@ export const EntryProvider = ({
     const controller = new AbortController();
     setReference({ status: 'loading' });
 
-    fetchSettings(controller.signal)
-      .then((settings) => {
+    Promise.all([fetchSettings(controller.signal), fetchInstitutions(controller.signal)])
+      .then(([settings, institutions]) => {
         if (!controller.signal.aborted) {
-          setReference({ status: 'ready', reference: referenceOf(settings) });
+          setReference({ status: 'ready', reference: referenceOf(settings, institutions) });
         }
       })
       .catch((cause: unknown) => {
@@ -378,14 +378,6 @@ export const EntryForms = ({
           kind={tab}
           reference={reference}
           seed={{ portfolioId, institutionId, date: today }}
-          onSaved={onSaved}
-          onCancel={onCancel}
-        />
-      ) : tab === 'transfer' ? (
-        <TransferFormView
-          reference={reference}
-          seed={{ asset, fromPortfolioId: portfolioId, institutionId, date: today }}
-          {...searchProps}
           onSaved={onSaved}
           onCancel={onCancel}
         />

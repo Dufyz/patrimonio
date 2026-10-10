@@ -19,8 +19,7 @@ import type { AppError } from '../errors/app-error.js';
 export type SearchFilter = {
   /** O texto já aparado. Nunca vazio: busca sem texto não vai ao banco. */
   readonly text: string;
-  /** Nulo significa todas as carteiras ativas. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   /** Quantos resultados cabem por grupo. */
   readonly limit: number;
 };

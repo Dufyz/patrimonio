@@ -105,7 +105,6 @@ export const getStatement = (deps: GetStatementDeps) =>
         tax_withheld: row.tax_withheld,
         net_amount: row.net_amount,
         confirmed_at: row.confirmed_at,
-        transfer_group_id: row.transfer_group_id,
         note: row.note,
         effect: statementEffect(row, effects.get(row.id)),
       })),

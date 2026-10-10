@@ -4,6 +4,7 @@ import type {
   PerformanceResource,
   PerformanceWindowsResource,
 } from '@patrimonio/contracts';
+import { normalizeBenchmark } from '@patrimonio/domain';
 import type { DateOnly } from '@patrimonio/domain';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -81,8 +82,7 @@ export type PerformanceViewProps = {
 };
 
 export type PerformanceScreenProps = {
-  /** Nulo é o escopo de todas as carteiras. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
 };
 
 const todayIso = (): DateOnly => new Date().toISOString().slice(0, 10) as DateOnly;
@@ -131,7 +131,7 @@ export const PerformanceScreen = ({
   const resource = useResource(
     (signal) =>
       fetchPerformance(
-        { portfolioId, from: range.from, to: range.to, benchmarkIds: extraIds },
+        { portfolioId, from: range.from, to: range.to, benchmarks: extraIds },
         signal,
       ),
     [portfolioId, range.from, range.to, extraIds.join(',')],
@@ -169,7 +169,14 @@ const BenchmarkPicker = ({
   const container = useRef<HTMLDivElement>(null);
   useDismiss(container, open, () => setOpen(false));
 
-  if (options.length === 0) return null;
+  const [draft, setDraft] = useState('');
+  const typed = normalizeBenchmark(draft);
+
+  const add = (id: string): void => {
+    onPick(id);
+    setDraft('');
+    setOpen(false);
+  };
 
   return (
     <div ref={container} className="relative">
@@ -193,15 +200,34 @@ const BenchmarkPicker = ({
                 type="button"
                 role="menuitem"
                 className="w-full cursor-pointer rounded-control px-3 py-1.5 text-left text-[0.8125rem] hover:bg-panel-2"
-                onClick={() => {
-                  onPick(option.id);
-                  setOpen(false);
-                }}
+                onClick={() => add(option.id)}
               >
                 {option.name}
               </button>
             </li>
           ))}
+          <li role="none" className="mt-1 border-t border-line px-2 pt-2 pb-1">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (typed !== null) add(typed);
+              }}
+            >
+              <input
+                type="text"
+                aria-label="Outro benchmark"
+                placeholder="IPCA+6 ou 110%CDI"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                className="h-control w-full rounded-control border border-line bg-panel px-2 text-[0.8125rem]"
+              />
+              {draft !== '' && typed === null ? (
+                <p role="alert" className="mt-1 text-[0.75rem] text-ink-3">
+                  Use CDI, IPCA+6 ou 110%CDI.
+                </p>
+              ) : null}
+            </form>
+          </li>
         </ul>
       ) : null}
     </div>
@@ -259,7 +285,7 @@ const WindowsTable = ({
 
             return (
               <tr
-                key={`${row.kind}:${row.benchmark_id ?? ''}`}
+                key={`${row.kind}:${row.benchmark ?? ''}`}
                 className="h-(--row-height) border-b border-line"
               >
                 <th scope="row" className="px-4 text-left font-normal">
@@ -407,13 +433,13 @@ const Monthly = ({
 }: {
   readonly data: PerformanceResource;
 }): React.ReactElement => {
-  const { monthly, scope } = data;
+  const { monthly } = data;
   const reference = monthly.benchmark_name;
 
   return (
     <Panel
       title="Retornos mensais"
-      hint={`Rentabilidade da cota${scope.portfolio_id === null ? ' consolidada' : ' da carteira'}${
+      hint={`Rentabilidade da cota da carteira${
         reference === null ? '' : ` · última coluna compara com ${reference} no ano`
       }`}
     >
@@ -582,67 +608,7 @@ const Breakdown = ({
   const { breakdown } = data;
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      <Panel title="Por carteira" hint="cota de cada carteira">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-120 border-collapse text-[0.8125rem]">
-            <caption className="sr-only">Retorno por carteira</caption>
-            <thead>
-              <tr className="border-b border-line bg-panel-2 text-label tracking-wide text-ink-3 uppercase">
-                <th scope="col" className="px-4 py-2 text-left font-medium">
-                  Carteira
-                </th>
-                <th scope="col" className="px-4 py-2 text-right font-medium">
-                  Valor
-                </th>
-                <th scope="col" className="px-4 py-2 text-right font-medium">
-                  Peso
-                </th>
-                <ReturnHeads
-                  columns={breakdown.columns}
-                  referenceDate={data.reference_date}
-                  inception={data.scope.inception}
-                />
-              </tr>
-            </thead>
-            <tbody>
-              {breakdown.portfolios.map((row) => (
-                <tr
-                  key={row.portfolio_id}
-                  aria-current={row.selected ? 'true' : undefined}
-                  className={`h-(--row-height) border-b border-line ${
-                    row.selected ? 'bg-accent-soft' : ''
-                  }`}
-                >
-                  <th scope="row" className="px-4 text-left font-normal">
-                    {row.name}
-                  </th>
-                  <td className="px-4 text-right">
-                    <Money value={row.value} bare />
-                  </td>
-                  <td className="px-4 text-right text-ink-2">
-                    <Percent value={percentAsRatio(row.weight_pct)} decimals={1} />
-                  </td>
-                  {row.returns.map((value, index) => (
-                    <td
-                      key={breakdown.columns[index]?.key ?? index}
-                      className="px-4 text-right"
-                    >
-                      <Percent
-                        value={percentAsRatio(value)}
-                        decimals={2}
-                        signed
-                        tone="signed"
-                      />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
-
+    <div className="grid grid-cols-1 gap-4">
       <Panel
         title="Por classe de ativo"
         hint="Dietz modificado · aproximação, a classe não tem cota"
@@ -809,9 +775,7 @@ export const PerformanceView = ({
 
   const subtitle = [
     data.scope.name,
-    data.scope.portfolio_id === null
-      ? 'rentabilidade pela cota consolidada'
-      : 'rentabilidade pela cota, sem distorção de aportes',
+    'rentabilidade pela cota, sem distorção de aportes',
     data.reference_date === null
       ? null
       : `fechamento de ${formatDate(data.reference_date as DateOnly)}`,

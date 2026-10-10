@@ -37,36 +37,36 @@ const clock: Clock = { now: () => new Date(), today: () => '2026-10-06' };
 
 const seed = async (): Promise<void> => {
   await sql`
-    insert into institution (id, name, role)
-    values (${INSTITUTION}, 'Corretora E3', 'custodian')
+    INSERT INTO institution (id, name)
+    VALUES (${INSTITUTION}, 'Corretora E3')
   `;
   await sql`
-    insert into portfolio (id, name) values (${PORTFOLIO}, 'Carteira E3')
+    INSERT INTO portfolio (id, name) VALUES (${PORTFOLIO}, 'Carteira E3')
   `;
   await sql`
-    insert into asset (id, ticker, name, origin, b3_type)
-    values (${ASSET}, 'E3TEST3', 'Ativo de teste', 'market', 'stock')
+    INSERT INTO asset (id, ticker, name, origin, b3_type)
+    VALUES (${ASSET}, 'E3TEST3', 'Ativo de teste', 'market', 'stock')
   `;
   await sql`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
        quantity, unit_price, fees, gross_amount, net_amount)
-    values (${TRANSACTION}, 'buy', '2026-10-01', '2026-10-05', ${PORTFOLIO}, ${ASSET},
+    VALUES (${TRANSACTION}, 'buy', '2026-10-01', '2026-10-05', ${PORTFOLIO}, ${ASSET},
             ${INSTITUTION}, 100, 30, 0, 3000, -3000)
   `;
 };
 
 const cleanup = async (): Promise<void> => {
-  await sql`delete from alert_instance where subject_id like 'e3-%'`;
-  await sql`delete from alert_rule where kind like 'e3_%'`;
-  await sql`delete from pipeline_outbox`;
-  await sql`delete from position_daily where portfolio_id = ${PORTFOLIO}`;
-  await sql`delete from portfolio_daily where portfolio_id = ${PORTFOLIO}`;
-  await sql`delete from realized_result where portfolio_id = ${PORTFOLIO}`;
-  await sql`delete from transaction where portfolio_id = ${PORTFOLIO}`;
-  await sql`delete from portfolio where id = ${PORTFOLIO}`;
-  await sql`delete from asset where id = ${ASSET}`;
-  await sql`delete from institution where id = ${INSTITUTION}`;
+  await sql`DELETE FROM alert_instance WHERE subject_id LIKE 'e3-%'`;
+  await sql`DELETE FROM alert_rule WHERE kind LIKE 'e3_%'`;
+  await sql`DELETE FROM pipeline_outbox`;
+  await sql`DELETE FROM position_daily WHERE portfolio_id = ${PORTFOLIO}`;
+  await sql`DELETE FROM portfolio_daily WHERE portfolio_id = ${PORTFOLIO}`;
+  await sql`DELETE FROM realized_result WHERE portfolio_id = ${PORTFOLIO}`;
+  await sql`DELETE FROM transaction WHERE portfolio_id = ${PORTFOLIO}`;
+  await sql`DELETE FROM portfolio WHERE id = ${PORTFOLIO}`;
+  await sql`DELETE FROM asset WHERE id = ${ASSET}`;
+  await sql`DELETE FROM institution WHERE id = ${INSTITUTION}`;
 };
 
 beforeAll(async () => {
@@ -132,10 +132,10 @@ describe('atomicidade', () => {
     expect(result.isFailure()).toBe(true);
 
     const [positions] = await sql<{ total: string }[]>`
-      select count(*)::text as total from position_daily where portfolio_id = ${PORTFOLIO}
+      SELECT COUNT(*)::TEXT AS total FROM position_daily WHERE portfolio_id = ${PORTFOLIO}
     `;
     const [events] = await sql<{ total: string }[]>`
-      select count(*)::text as total from pipeline_outbox
+      SELECT COUNT(*)::TEXT AS total FROM pipeline_outbox
     `;
 
     expect(positions?.total).toBe('0');
@@ -159,7 +159,7 @@ describe('atomicidade', () => {
     );
 
     const rows = await sql<{ stage: string; dedupe_key: string }[]>`
-      select stage, dedupe_key from pipeline_outbox
+      SELECT stage, dedupe_key FROM pipeline_outbox
     `;
 
     // Recálculo concluído pede a reconciliação de alertas, para o painel refletir
@@ -187,7 +187,7 @@ describe('atomicidade', () => {
     );
 
     const [row] = await sql<{ recalc_status: string; recalc_error: string | null }[]>`
-      select recalc_status, recalc_error from portfolio where id = ${PORTFOLIO}
+      SELECT recalc_status, recalc_error FROM portfolio WHERE id = ${PORTFOLIO}
     `;
 
     expect(row?.recalc_status).toBe('failed');
@@ -253,7 +253,7 @@ describe('trava por carteira', () => {
 
     // E só uma linha ficou, com o valor de quem escreveu por último.
     const rows = await sql<{ total_value: string }[]>`
-      select total_value from portfolio_daily where portfolio_id = ${PORTFOLIO}
+      SELECT total_value FROM portfolio_daily WHERE portfolio_id = ${PORTFOLIO}
     `;
     expect(rows).toHaveLength(1);
   });
@@ -267,16 +267,16 @@ describe('idempotência do recálculo', () => {
 
     unwrapSuccess(await usecase({ portfolio_id: PORTFOLIO, from_date: '2026-10-01' }));
     const first = await sql<Record<string, unknown>[]>`
-      select portfolio_id, position_date, total_value, net_flow, income, payouts,
+      SELECT portfolio_id, position_date, total_value, net_flow, income, payouts,
              quota_value, quota_count, cumulative_contributions
-        from portfolio_daily where portfolio_id = ${PORTFOLIO} order by position_date
+        FROM portfolio_daily WHERE portfolio_id = ${PORTFOLIO} ORDER BY position_date
     `;
 
     unwrapSuccess(await usecase({ portfolio_id: PORTFOLIO, from_date: '2026-10-01' }));
     const second = await sql<Record<string, unknown>[]>`
-      select portfolio_id, position_date, total_value, net_flow, income, payouts,
+      SELECT portfolio_id, position_date, total_value, net_flow, income, payouts,
              quota_value, quota_count, cumulative_contributions
-        from portfolio_daily where portfolio_id = ${PORTFOLIO} order by position_date
+        FROM portfolio_daily WHERE portfolio_id = ${PORTFOLIO} ORDER BY position_date
     `;
 
     expect(second).toEqual(first);
@@ -290,25 +290,25 @@ describe('idempotência do recálculo', () => {
 
     unwrapSuccess(await usecase({ reference_date: '2026-10-06' }));
     const first = await sql<Record<string, unknown>[]>`
-      select asset_id, quantity, market_value, price_source_kind
-        from position_daily
-       where portfolio_id = ${PORTFOLIO} and position_date = '2026-10-06'
-       order by asset_id
+      SELECT asset_id, quantity, market_value, price_source_kind
+        FROM position_daily
+       WHERE portfolio_id = ${PORTFOLIO} AND position_date = '2026-10-06'
+       ORDER BY asset_id
     `;
 
     unwrapSuccess(await usecase({ reference_date: '2026-10-06' }));
     const second = await sql<Record<string, unknown>[]>`
-      select asset_id, quantity, market_value, price_source_kind
-        from position_daily
-       where portfolio_id = ${PORTFOLIO} and position_date = '2026-10-06'
-       order by asset_id
+      SELECT asset_id, quantity, market_value, price_source_kind
+        FROM position_daily
+       WHERE portfolio_id = ${PORTFOLIO} AND position_date = '2026-10-06'
+       ORDER BY asset_id
     `;
 
     expect(second).toEqual(first);
   });
 
   it('a carteira sem lançamento nenhum não é erro: não há o que reconstruir', async () => {
-    await sql`insert into portfolio (id, name) values (${PORTFOLIO}, 'Carteira vazia')`;
+    await sql`INSERT INTO portfolio (id, name) VALUES (${PORTFOLIO}, 'Carteira vazia')`;
 
     const result = unwrapSuccess(
       await recalculatePortfolio({ unitOfWork, clock })({
@@ -342,7 +342,7 @@ describe('coalescência e espera', () => {
     }
 
     const rows = await sql<{ total: string }[]>`
-      select count(*)::text as total from pipeline_outbox where dispatched_at is null
+      SELECT COUNT(*)::TEXT AS total FROM pipeline_outbox WHERE dispatched_at IS NULL
     `;
 
     expect(rows[0]?.total).toBe('1');
@@ -356,7 +356,7 @@ describe('coalescência e espera', () => {
     unwrapSuccess(await repositories.outbox.enqueue([draft('2026-10-06')]));
 
     const [row] = await sql<{ from_date: string }[]>`
-      select payload ->> 'from_date' as from_date from pipeline_outbox
+      SELECT payload ->> 'from_date' AS from_date FROM pipeline_outbox
     `;
 
     // Editar um lançamento de 2015 no meio da rajada reescreve dez anos, e o
@@ -372,14 +372,14 @@ describe('coalescência e espera', () => {
     unwrapSuccess(await repositories.outbox.enqueue([draft('2026-10-01')]));
 
     const [first] = await sql<{ available_at: Date; debounce_until: Date }[]>`
-      select available_at, debounce_until from pipeline_outbox
+      SELECT available_at, debounce_until FROM pipeline_outbox
     `;
 
     now = new Date('2026-10-06T12:00:04.000Z');
     unwrapSuccess(await repositories.outbox.enqueue([draft('2026-10-02')]));
 
     const [second] = await sql<{ available_at: Date; debounce_until: Date }[]>`
-      select available_at, debounce_until from pipeline_outbox
+      SELECT available_at, debounce_until FROM pipeline_outbox
     `;
 
     // O segundo pedido empurra a espera.
@@ -411,7 +411,7 @@ describe('coalescência e espera', () => {
     );
 
     const [row] = await sql<{ available_at: Date; debounce_until: Date | null }[]>`
-      select available_at, debounce_until from pipeline_outbox
+      SELECT available_at, debounce_until FROM pipeline_outbox
     `;
 
     expect(row?.debounce_until).toBeNull();
@@ -424,12 +424,12 @@ describe('reconciliação de alertas', () => {
 
   const seedAlert = async (status: string, snoozeUntil: string | null): Promise<void> => {
     await sql`
-      insert into alert_rule (kind, enabled, scope) values (${RULE}, true, 'global')
+      INSERT INTO alert_rule (kind, enabled, scope) VALUES (${RULE}, TRUE, 'global')
     `;
     await sql`
-      insert into alert_instance (rule_kind, subject_id, status, snooze_until, payload)
-      values (${RULE}, 'e3-itub4', ${status}::alert_status, ${snoozeUntil},
-              '{"dias": 3}'::jsonb)
+      INSERT INTO alert_instance (rule_kind, subject_id, status, snooze_until, payload)
+      VALUES (${RULE}, 'e3-itub4', ${status}::alert_status, ${snoozeUntil},
+              '{"dias": 3}'::JSONB)
     `;
   };
 
@@ -460,7 +460,7 @@ describe('reconciliação de alertas', () => {
     const [row] = await sql<
       { status: string; snooze_until: string; payload: { dias: number } }[]
     >`
-      select status, snooze_until, payload from alert_instance where rule_kind = ${RULE}
+      SELECT status, snooze_until, payload FROM alert_instance WHERE rule_kind = ${RULE}
     `;
 
     expect(row?.status).toBe('snoozed');
@@ -500,7 +500,7 @@ describe('reconciliação de alertas', () => {
 
     const repositories = createRepositories(sql);
     const [before] = await sql<{ first_seen_at: Date }[]>`
-      select first_seen_at from alert_instance where rule_kind = ${RULE}
+      SELECT first_seen_at FROM alert_instance WHERE rule_kind = ${RULE}
     `;
 
     const existing = unwrapSuccess(
@@ -523,7 +523,7 @@ describe('reconciliação de alertas', () => {
     );
 
     const [after] = await sql<{ first_seen_at: Date }[]>`
-      select first_seen_at from alert_instance where rule_kind = ${RULE}
+      SELECT first_seen_at FROM alert_instance WHERE rule_kind = ${RULE}
     `;
 
     // O alerta que aparece todo dia desde março continua dizendo março.
@@ -535,7 +535,7 @@ describe('reconciliação de alertas', () => {
     );
 
     const [total] = await sql<{ total: string }[]>`
-      select count(*)::text as total from alert_instance where rule_kind = ${RULE}
+      SELECT COUNT(*)::TEXT AS total FROM alert_instance WHERE rule_kind = ${RULE}
     `;
     expect(total?.total).toBe('0');
   });
@@ -562,23 +562,23 @@ describe('do zero é igual ao incremental, contra o banco', () => {
     // Uma venda no meio: ela move preço médio, resultado realizado e caixa, que
     // são as três coisas que um recálculo parcial poderia deixar fora de sincronia.
     await sql`
-      insert into transaction
+      INSERT INTO transaction
         (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
          quantity, unit_price, fees, gross_amount, net_amount)
-      values (${SELL}, 'sell', '2026-10-05', '2026-10-07', ${PORTFOLIO}, ${ASSET},
+      VALUES (${SELL}, 'sell', '2026-10-05', '2026-10-07', ${PORTFOLIO}, ${ASSET},
               ${INSTITUTION}, 40, 31.5, 4.9, 1260, 1255.10)
     `;
 
     await sql`
-      insert into asset_price (asset_id, price_date, close, source, source_kind)
-      select ${ASSET}::uuid, entry.price_date::date, entry.close::numeric,
+      INSERT INTO asset_price (asset_id, price_date, close, source, source_kind)
+      SELECT ${ASSET}::UUID, entry.price_date::DATE, entry.close::NUMERIC,
                'teste', 'primary'::price_source_kind
-        from jsonb_to_recordset(${JSON.stringify([
+        FROM JSONB_TO_RECORDSET(${JSON.stringify([
           { price_date: '2026-10-01', close: '30.00' },
           { price_date: '2026-10-02', close: '31.00' },
           { price_date: '2026-10-05', close: '29.50' },
           { price_date: '2026-10-06', close: '32.00' },
-        ])}::text::jsonb) as entry(price_date text, close text)
+        ])}::TEXT::JSONB) AS entry(price_date TEXT, close TEXT)
     `;
   };
 
@@ -590,21 +590,21 @@ describe('do zero é igual ao incremental, contra o banco', () => {
     // `computed_at` fica fora da comparação: ele diz quando a linha foi gravada,
     // não o que ela vale, e é a única coluna que muda entre duas execuções iguais.
     positions: await sql<Record<string, unknown>[]>`
-      select asset_id, position_date, quantity, avg_price, cost_basis, market_value,
+      SELECT asset_id, position_date, quantity, avg_price, cost_basis, market_value,
              price_source_kind, accrued_interest
-        from position_daily where portfolio_id = ${PORTFOLIO}
-       order by position_date, asset_id
+        FROM position_daily WHERE portfolio_id = ${PORTFOLIO}
+       ORDER BY position_date, asset_id
     `,
     days: await sql<Record<string, unknown>[]>`
-      select position_date, total_value, net_flow, income, payouts, quota_value,
+      SELECT position_date, total_value, net_flow, income, payouts, quota_value,
              quota_count, cumulative_contributions
-        from portfolio_daily where portfolio_id = ${PORTFOLIO}
-       order by position_date
+        FROM portfolio_daily WHERE portfolio_id = ${PORTFOLIO}
+       ORDER BY position_date
     `,
     realized: await sql<Record<string, unknown>[]>`
-      select transaction_id, trade_date, proceeds, cost_consumed, result, exempt,
+      SELECT transaction_id, trade_date, proceeds, cost_consumed, result, exempt,
              loss_offset
-        from realized_result where portfolio_id = ${PORTFOLIO} order by trade_date
+        FROM realized_result WHERE portfolio_id = ${PORTFOLIO} ORDER BY trade_date
     `,
   });
 
@@ -622,9 +622,9 @@ describe('do zero é igual ao incremental, contra o banco', () => {
     expect(incremental.realized).toHaveLength(1);
 
     // Truncar a projeção e reconstruir do livro, de uma vez.
-    await sql`delete from position_daily where portfolio_id = ${PORTFOLIO}`;
-    await sql`delete from portfolio_daily where portfolio_id = ${PORTFOLIO}`;
-    await sql`delete from realized_result where portfolio_id = ${PORTFOLIO}`;
+    await sql`DELETE FROM position_daily WHERE portfolio_id = ${PORTFOLIO}`;
+    await sql`DELETE FROM portfolio_daily WHERE portfolio_id = ${PORTFOLIO}`;
+    await sql`DELETE FROM realized_result WHERE portfolio_id = ${PORTFOLIO}`;
 
     unwrapSuccess(
       await recalculatePortfolio({ unitOfWork, clock })({
@@ -655,8 +655,8 @@ describe('do zero é igual ao incremental, contra o banco', () => {
     );
     const first = await snapshot();
 
-    await sql`delete from position_daily where portfolio_id = ${PORTFOLIO}`;
-    await sql`delete from portfolio_daily where portfolio_id = ${PORTFOLIO}`;
+    await sql`DELETE FROM position_daily WHERE portfolio_id = ${PORTFOLIO}`;
+    await sql`DELETE FROM portfolio_daily WHERE portfolio_id = ${PORTFOLIO}`;
 
     unwrapSuccess(
       await usecase({
@@ -736,9 +736,9 @@ describe('do zero é igual ao incremental, contra o banco', () => {
     // E o estado é o de uma execução só, não o de duas sobrepostas.
     const concorrente = await snapshot();
 
-    await sql`delete from position_daily where portfolio_id = ${PORTFOLIO}`;
-    await sql`delete from portfolio_daily where portfolio_id = ${PORTFOLIO}`;
-    await sql`delete from realized_result where portfolio_id = ${PORTFOLIO}`;
+    await sql`DELETE FROM position_daily WHERE portfolio_id = ${PORTFOLIO}`;
+    await sql`DELETE FROM portfolio_daily WHERE portfolio_id = ${PORTFOLIO}`;
+    await sql`DELETE FROM realized_result WHERE portfolio_id = ${PORTFOLIO}`;
 
     unwrapSuccess(
       await recalculatePortfolio({ unitOfWork, clock })({

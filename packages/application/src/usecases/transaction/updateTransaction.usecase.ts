@@ -3,7 +3,7 @@ import type { DateOnly, Transaction } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
 
-import { BadRequestError, NotFoundError } from '../../errors/app-error.js';
+import { NotFoundError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
 import type { EnqueuedEvent } from '../../interfaces/outbox.repository.js';
 import type { TransactionPatch } from '../../interfaces/transaction.repository.js';
@@ -76,16 +76,6 @@ const loadForUpdate = async (
   if (found.isFailure()) return found;
   if (found.value === null) {
     return failure(new NotFoundError(`Lançamento ${id} não encontrado`));
-  }
-
-  // A transferência tem duas pernas ligadas: editar uma sozinha deixaria o
-  // patrimônio total diferente dos dois lados.
-  if (found.value.transfer_group_id !== null) {
-    return failure(
-      new BadRequestError(
-        'Transferência é editada excluindo e refazendo: as duas pernas precisam mudar juntas',
-      ),
-    );
   }
 
   return success(found.value);

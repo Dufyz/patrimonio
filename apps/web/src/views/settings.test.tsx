@@ -29,14 +29,13 @@ const TESOURO = '0191e5a0-0000-7000-8000-00000000e103';
 const RF = '0191e5a0-0000-7000-8000-00000000e201';
 const POS = '0191e5a0-0000-7000-8000-00000000e202';
 const ACOES = '0191e5a0-0000-7000-8000-00000000e205';
-const CDI = '019b0000-0000-7000-8000-000000000001';
 
 const settings: Settings = {
   portfolios: [
     {
       id: LONGO,
       name: 'Longo prazo',
-      benchmark: { id: CDI, name: 'CDI' },
+      benchmark: { value: 'CDI', name: 'CDI' },
       strategy_categories: 5,
       goals: ['Independência financeira'],
       blocking: { transactions: 41, assets: 9 },
@@ -94,61 +93,26 @@ const settings: Settings = {
     {
       id: CORRETORA,
       name: 'Corretora A',
-      role: 'custodian',
-      fgc_covered: false,
-      brokerage_per_order: '0.00',
-      custody_monthly_fee: '0.00',
+      country: 'BR',
       portfolios: ['Longo prazo', 'Entrada do imóvel'],
       cash: '7192.87',
-      fgc: null,
       blocking: { transactions: 12, assets: 1 },
     },
     {
       id: BANCO,
       name: 'Banco B',
-      role: 'both',
-      fgc_covered: true,
-      brokerage_per_order: '4.90',
-      custody_monthly_fee: '0.00',
+      country: 'BR',
       portfolios: ['Entrada do imóvel'],
       cash: '4120.08',
-      fgc: {
-        exposure: '93260.00',
-        limit: '250000.00',
-        used_pct: '37.30',
-        over_limit: false,
-      },
       blocking: { transactions: 3, assets: 2 },
     },
     {
       id: TESOURO,
       name: 'Tesouro Direto',
-      role: 'issuer',
-      fgc_covered: false,
-      brokerage_per_order: '0.00',
-      custody_monthly_fee: '0.00',
+      country: 'BR',
       portfolios: [],
       cash: null,
-      fgc: null,
       blocking: { transactions: 0, assets: 0 },
-    },
-  ],
-  benchmarks: [
-    {
-      id: CDI,
-      name: 'CDI',
-      kind: 'index',
-      rebalance: 'never',
-      definition: { index: 'CDI' },
-      used_by: 1,
-    },
-    {
-      id: 'b2',
-      name: 'IPCA + 6%',
-      kind: 'index_plus_rate',
-      rebalance: 'never',
-      definition: { index: 'IPCA', rate: 0.06 },
-      used_by: 0,
     },
   ],
   ledger_defaults: {
@@ -269,7 +233,6 @@ describe('SettingsView', () => {
       'Alertas',
       'Categorias de ativo',
       'Instituições',
-      'Benchmarks',
       'Dados de mercado',
       'Lançamentos',
       'Exibição',
@@ -297,7 +260,6 @@ describe('SettingsView', () => {
       '+ Nova carteira',
       '+ Categoria',
       '+ Instituição',
-      '+ Benchmark composto',
     ]) {
       expect(
         (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
@@ -338,29 +300,12 @@ describe('SettingsView', () => {
     expect(screen.getByText('Tipo B3: ação ou unit')).toBeTruthy();
   });
 
-  it('só quem emite e é coberto tem barra de FGC; os outros dizem por que não', () => {
+  it('a instituição mostra o país, as carteiras e o caixa', () => {
     montar();
 
-    const meter = screen.getByRole('meter', { name: /Banco B contra o limite do FGC/ });
-    expect(meter.getAttribute('aria-valuenow')).toBe('37');
-
-    expect(
-      within(screen.getByRole('row', { name: /Corretora A/ })).getByText('não se aplica'),
-    ).toBeTruthy();
-    expect(
-      within(screen.getByRole('row', { name: /Tesouro Direto/ })).getByText(
-        'sem cobertura do FGC',
-      ),
-    ).toBeTruthy();
-  });
-
-  it('o benchmark composto declara a taxa e a fonte é "Calculado"', () => {
-    montar();
-
-    const row = screen.getByRole('row', { name: /IPCA \+ 6%/ });
-    expect(within(row).getByText('IPCA + 6% a.a., por dia útil')).toBeTruthy();
-    expect(within(row).getByText('Calculado')).toBeTruthy();
-    expect(within(row).getByText('Comparação opcional')).toBeTruthy();
+    const row = within(screen.getByRole('row', { name: /Banco B/ }));
+    expect(row.getByText('BR')).toBeTruthy();
+    expect(row.getByText('Entrada do imóvel')).toBeTruthy();
   });
 
   it('dados de mercado mostram cobertura, falha com a mensagem e os papéis sem preço', () => {
@@ -400,7 +345,6 @@ describe('SettingsView', () => {
     ).toBeTruthy();
     expect(screen.getByText('15%')).toBeTruthy();
     expect(screen.getByText('8 s')).toBeTruthy();
-    expect(screen.getByText(/Banco B/, { selector: 'span span' })).toBeTruthy();
   });
 
   it('exibição troca o tema e a densidade sem recarregar', async () => {

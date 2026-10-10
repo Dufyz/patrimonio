@@ -26,6 +26,7 @@ import { formatShortDate } from '../../lib/positions.js';
 import { EffectPanel } from './effect_table.js';
 import { Callout, Field, Input, Select, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
+import { InstitutionPicker } from './institution_picker.js';
 import { usePreview, useSave } from './hooks.js';
 
 /**
@@ -117,9 +118,7 @@ export const EditEntry = ({
     return (
       <div className="flex flex-col gap-3">
         <Callout tone="info">
-          {loaded.transaction.transfer_group_id === null
-            ? 'Eventos corporativos não são editados aqui.'
-            : 'Este lançamento é uma perna de transferência: editar só uma ponta desfaria o total. Exclua a transferência e lance de novo.'}
+          Eventos corporativos não são editados aqui.
         </Callout>
         <div className="flex justify-end">
           <Button onClick={onCancel}>Fechar</Button>
@@ -441,14 +440,14 @@ export const EditFormView = ({
             )}
           >
             {(control) => (
-              <Select
-                {...control}
+              <InstitutionPicker
+                control={control}
                 invalid={control['aria-invalid']}
                 changed={changed('institution')}
                 options={reference.institutions}
-                value={form.institutionId}
+                value={form.institutionId === '' ? null : form.institutionId}
                 onBlur={touch('institution')}
-                onChange={(event) => set('institutionId', event.target.value)}
+                onChange={(id) => set('institutionId', id ?? '')}
               />
             )}
           </Field>

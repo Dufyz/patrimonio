@@ -47,17 +47,12 @@ const allocation = (overrides: Partial<AllocationResource> = {}): AllocationReso
   portfolio: {
     id: '0191e5a0-0000-7000-8000-00000000c001',
     name: 'Longo prazo',
-    purpose: 'Longo prazo',
     recalc_status: 'idle',
   },
   rules: {
     tolerance_pp: '3.00',
-    max_asset_weight_pct: '15.00',
-    rebalance_mode: 'contributions_only',
-    review_every_months: 6,
     reviewed_on: '2026-07-09',
-    next_review_on: '2027-01-09',
-    benchmark: { id: '019b0000-0000-7000-8000-000000000009', name: 'IPCA + 6%' },
+    benchmark: { value: 'IPCA+6', name: 'IPCA + 6%' },
   },
   strategy_defined: true,
   composition: {
@@ -88,23 +83,21 @@ const ready = (value: AllocationResource): Resource<AllocationResource> => ({
 const show = (
   value: AllocationResource,
   props: Partial<StrategyViewProps> = {},
-): { onSave: ReturnType<typeof vi.fn>; onSaveRules: ReturnType<typeof vi.fn> } => {
+): { onSave: ReturnType<typeof vi.fn> } => {
   const onSave = vi.fn().mockResolvedValue(undefined);
-  const onSaveRules = vi.fn().mockResolvedValue(undefined);
 
   render(
     <PreferencesProvider storage={null}>
       <StrategyView
         resource={ready(value)}
         onSave={onSave}
-        onSaveRules={onSaveRules}
         onPlan={vi.fn().mockResolvedValue(null)}
         {...props}
       />
     </PreferencesProvider>,
   );
 
-  return { onSave, onSaveRules };
+  return { onSave };
 };
 
 const field = (name: string): HTMLInputElement =>
@@ -117,60 +110,11 @@ const retype = async (name: string, text: string): Promise<void> => {
 };
 
 describe('as regras', () => {
-  it('mostra as cinco, com o valor de cada uma', () => {
+  it('mostra a tolerância e o benchmark', () => {
     show(allocation());
 
     expect(screen.getByText('± 3 pp')).toBeInTheDocument();
-    expect(screen.getByText('15%')).toBeInTheDocument();
-    expect(screen.getByText('Só com aportes')).toBeInTheDocument();
-    expect(screen.getByText('A cada 6 meses')).toBeInTheDocument();
-    expect(screen.getByText(/Próxima revisão em jan\/2027/)).toBeInTheDocument();
     expect(screen.getByText('IPCA + 6%')).toBeInTheDocument();
-  });
-
-  it('salva só a regra que foi editada', async () => {
-    const { onSaveRules } = show(allocation());
-
-    await userEvent.click(screen.getByRole('button', { name: 'Editar tolerância' }));
-    const dialog = screen.getByRole('dialog', { name: 'Tolerância' });
-    const input = within(dialog).getByRole('textbox', { name: 'Tolerância' });
-    await userEvent.clear(input);
-    await userEvent.type(input, '2,5');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
-
-    await waitFor(() =>
-      expect(onSaveRules).toHaveBeenCalledWith({ tolerance_pp: '2.50' }),
-    );
-  });
-
-  it('tolerância zero não salva, e peso máximo vazio é sem limite', async () => {
-    const { onSaveRules } = show(allocation());
-
-    await userEvent.click(screen.getByRole('button', { name: 'Editar tolerância' }));
-    const first = screen.getByRole('dialog', { name: 'Tolerância' });
-    await userEvent.clear(within(first).getByRole('textbox', { name: 'Tolerância' }));
-    await userEvent.type(within(first).getByRole('textbox', { name: 'Tolerância' }), '0');
-    expect(within(first).getByRole('button', { name: 'Salvar' })).toBeDisabled();
-    await userEvent.click(within(first).getByRole('button', { name: 'Cancelar' }));
-
-    await userEvent.click(screen.getByRole('button', { name: 'Editar peso máximo' }));
-    const second = screen.getByRole('dialog', { name: 'Peso máximo por ativo' });
-    await userEvent.clear(
-      within(second).getByRole('textbox', { name: 'Peso máximo por ativo' }),
-    );
-    await userEvent.click(within(second).getByRole('button', { name: 'Salvar' }));
-
-    await waitFor(() =>
-      expect(onSaveRules).toHaveBeenCalledWith({ max_asset_weight_pct: null }),
-    );
-  });
-
-  it('o benchmark ainda não se edita aqui, e a dica diz onde', () => {
-    show(allocation());
-
-    expect(
-      screen.getByRole('button', { name: /chega com Configurações/ }),
-    ).toBeDisabled();
   });
 });
 
@@ -396,7 +340,6 @@ describe('estados', () => {
   it('carregando e erro têm tela própria', () => {
     const base = {
       onSave: vi.fn(),
-      onSaveRules: vi.fn(),
       onPlan: vi.fn(),
     };
 
@@ -434,16 +377,6 @@ describe('estados', () => {
 });
 
 describe('a tela como a rota a monta', () => {
-  it('sem carteira escolhida explica que a estratégia é de uma carteira', () => {
-    render(
-      <PreferencesProvider storage={null}>
-        <StrategyScreen portfolioId={null} />
-      </PreferencesProvider>,
-    );
-
-    expect(screen.getByText('A estratégia é de uma carteira')).toBeInTheDocument();
-  });
-
   it('a carteira que chega depois do primeiro desenho é lida, e não vira resposta vazia', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -452,16 +385,16 @@ describe('a tela como a rota a monta', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     try {
-      const view = (id: string | null) => (
+      const view = (id: string) => (
         <PreferencesProvider storage={null}>
           <StrategyScreen portfolioId={id} />
         </PreferencesProvider>
       );
-      const { rerender } = render(view(null));
+      const { rerender } = render(view('0191e5a0-0000-7000-8000-00000000c000'));
       rerender(view('0191e5a0-0000-7000-8000-00000000c001'));
 
       expect(await screen.findByText('Distribuição por categoria')).toBeInTheDocument();
-      expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain(
         'portfolio_id=0191e5a0-0000-7000-8000-00000000c001',
       );
     } finally {

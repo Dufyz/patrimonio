@@ -25,7 +25,6 @@ const SCREENS = [
   { id: 'movimentacoes', label: 'Movimentações', glyph: '⇄', shortcut: 'G M' },
 ];
 const PORTFOLIOS = [
-  { id: 'todas', label: 'Todas as carteiras' },
   { id: 'longo', label: 'Longo prazo' },
 ];
 
@@ -104,6 +103,7 @@ const open = (props: Partial<SearchPaletteProps> = {}) => {
         open
         onClose={onClose}
         scopeLabel="Longo prazo"
+        portfolioId="longo"
         screens={SCREENS}
         portfolios={PORTFOLIOS}
         readyActions={NONE}
@@ -212,7 +212,7 @@ describe('busca', () => {
     await user.type(field(), 'itu');
     await screen.findByText('Ativos');
 
-    // 2 ativos + 2 ações (compra; ITUB4 tem posição → + provento + mover = 3) + 1 lançamento.
+    // 2 ativos + 2 ações (compra; ITUB4 tem posição → + provento = 2) + 1 lançamento.
     expect(screen.getByText(/mostrando \d+ de \d+/)).toBeInTheDocument();
   });
 
@@ -419,7 +419,7 @@ describe('ações que ainda não existem', () => {
     expect(onSelect).toHaveBeenCalledWith({ kind: 'action', action: 'new_transaction' });
   });
 
-  it('oferece provento e transferência só de quem tem posição', async () => {
+  it('oferece provento só de quem tem posição', async () => {
     const { user } = open();
 
     await user.type(field(), 'itu');
@@ -431,7 +431,6 @@ describe('ações que ainda não existem', () => {
     expect(
       screen.getByRole('option', { name: /Lançar provento de ITUB4/ }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /Mover ITUB4/ })).toBeInTheDocument();
   });
 });
 

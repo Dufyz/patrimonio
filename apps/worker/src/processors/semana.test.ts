@@ -60,18 +60,18 @@ let queues: Queues;
 let unitOfWork: UnitOfWork;
 
 const limpar = async (): Promise<void> => {
-  await sql`delete from asset_price`;
-  await sql`delete from index_quote`;
-  await sql`delete from market_source_run`;
-  await sql`delete from position_daily`;
-  await sql`delete from portfolio_daily`;
-  await sql`delete from realized_result`;
-  await sql`delete from alert_instance`;
-  await sql`delete from pipeline_outbox`;
-  await sql`delete from transaction`;
-  await sql`delete from asset where id in (${ACAO}, ${CDB})`;
-  await sql`delete from portfolio where id = ${PORTFOLIO}`;
-  await sql`delete from institution where id = ${INSTITUTION}`;
+  await sql`DELETE FROM asset_price`;
+  await sql`DELETE FROM index_quote`;
+  await sql`DELETE FROM market_source_run`;
+  await sql`DELETE FROM position_daily`;
+  await sql`DELETE FROM portfolio_daily`;
+  await sql`DELETE FROM realized_result`;
+  await sql`DELETE FROM alert_instance`;
+  await sql`DELETE FROM pipeline_outbox`;
+  await sql`DELETE FROM transaction`;
+  await sql`DELETE FROM asset WHERE id IN (${ACAO}, ${CDB})`;
+  await sql`DELETE FROM portfolio WHERE id = ${PORTFOLIO}`;
+  await sql`DELETE FROM institution WHERE id = ${INSTITUTION}`;
 };
 
 const waitFor = async (
@@ -115,32 +115,32 @@ beforeEach(async () => {
   );
 
   await sql`
-    insert into institution (id, name, role)
-    values (${INSTITUTION}, 'Corretora Semana', 'custodian')
+    INSERT INTO institution (id, name)
+    VALUES (${INSTITUTION}, 'Corretora Semana')
   `;
-  await sql`insert into portfolio (id, name) values (${PORTFOLIO}, 'Carteira Semana')`;
+  await sql`INSERT INTO portfolio (id, name) VALUES (${PORTFOLIO}, 'Carteira Semana')`;
   await sql`
-    insert into asset (id, ticker, name, origin, b3_type, price_source)
-    values (${ACAO}, 'SEMA4', 'Ação da semana', 'market', 'stock', 'auto')
+    INSERT INTO asset (id, ticker, name, origin, b3_type, price_source)
+    VALUES (${ACAO}, 'SEMA4', 'Ação da semana', 'market', 'stock', 'auto')
   `;
   await sql`
-    insert into asset (
+    INSERT INTO asset (
       id, ticker, name, origin, b3_type, issuer_id, indexer, rate, issued_at,
       maturity_date, liquidity, tax_regime
     )
-    values (
-      ${CDB}, 'SEM-CDB-2028', 'CDB da semana', 'manual', null, ${INSTITUTION},
+    VALUES (
+      ${CDB}, 'SEM-CDB-2028', 'CDB da semana', 'manual', NULL, ${INSTITUTION},
       'cdi_pct', 112, '2026-09-25', '2028-10-10', 'at_maturity', 'regressive'
     )
   `;
 
   // Compra na sexta anterior: a semana inteira tem posição aberta nos dois.
   await sql`
-    insert into transaction (
+    INSERT INTO transaction (
       id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
       quantity, unit_price, fees, gross_amount, net_amount
     )
-    values
+    VALUES
       ('0191e5a0-0000-7000-8000-0000000b0001', 'buy', '2026-09-25', '2026-09-25',
        ${PORTFOLIO}, ${ACAO}, ${INSTITUTION}, 100, 29, 0, 2900, -2900),
       ('0191e5a0-0000-7000-8000-0000000b0002', 'buy', '2026-09-25', '2026-09-25',
@@ -217,8 +217,8 @@ describe('critério de saída do épico', () => {
 
         await waitFor(async () => {
           const [row] = await sql<{ completed_at: Date | null }[]>`
-              select completed_at from pipeline_outbox
-               where dedupe_key = ${dedupeKey.market(day)}
+              SELECT completed_at FROM pipeline_outbox
+               WHERE dedupe_key = ${dedupeKey.market(day)}
             `;
 
           return row?.completed_at !== null && row?.completed_at !== undefined;
@@ -234,8 +234,8 @@ describe('critério de saída do épico', () => {
 
         await waitFor(async () => {
           const [row] = await sql<{ total: string }[]>`
-              select count(*)::text as total from portfolio_daily
-               where portfolio_id = ${PORTFOLIO} and position_date = ${day}
+              SELECT COUNT(*)::TEXT AS total FROM portfolio_daily
+               WHERE portfolio_id = ${PORTFOLIO} AND position_date = ${day}
             `;
 
           return Number(row?.total ?? 0) > 0;
@@ -248,8 +248,8 @@ describe('critério de saída do épico', () => {
 
     // ── A série da semana ────────────────────────────────────────────────────
     const precos = await sql<{ price_date: string; close: string }[]>`
-        select price_date, close from asset_price
-         where asset_id = ${ACAO} order by price_date
+        SELECT price_date, close FROM asset_price
+         WHERE asset_id = ${ACAO} ORDER BY price_date
       `;
 
     expect(precos.map((row) => row.price_date)).toEqual([...SEMANA]);
@@ -257,10 +257,10 @@ describe('critério de saída do épico', () => {
     const dias = await sql<
       { position_date: string; total_value: string; quota_value: string }[]
     >`
-        select position_date, total_value, quota_value
-          from portfolio_daily
-         where portfolio_id = ${PORTFOLIO}
-         order by position_date
+        SELECT position_date, total_value, quota_value
+          FROM portfolio_daily
+         WHERE portfolio_id = ${PORTFOLIO}
+         ORDER BY position_date
       `;
 
     // Cinco dias, um por dia útil, sem buraco.
@@ -276,10 +276,10 @@ describe('critério de saída do épico', () => {
 
     // ── A saúde do dado ─────────────────────────────────────────────────────
     const posicoes = await sql<{ price_source_kind: string; total: string }[]>`
-        select price_source_kind, count(*)::text as total
-          from position_daily
-         where portfolio_id = ${PORTFOLIO}
-         group by price_source_kind
+        SELECT price_source_kind, COUNT(*)::TEXT AS total
+          FROM position_daily
+         WHERE portfolio_id = ${PORTFOLIO}
+         GROUP BY price_source_kind
       `;
 
     // Dez linhas — dois papéis em cinco dias — e todas confiáveis: preço do
@@ -288,7 +288,7 @@ describe('critério de saída do épico', () => {
 
     // ── O registro da coleta ────────────────────────────────────────────────
     const coletas = await sql<{ source: string; kind: string; ok: boolean }[]>`
-        select source, kind, ok from market_source_run order by started_at, kind
+        SELECT source, kind, ok FROM market_source_run ORDER BY started_at, kind
       `;
 
     // Três fontes por dia, cinco dias, todas bem.
@@ -297,8 +297,8 @@ describe('critério de saída do épico', () => {
 
     // ── E nenhum evento ficou pendente ou falhado ───────────────────────────
     const pendentes = await sql<{ total: string }[]>`
-        select count(*)::text as total from pipeline_outbox
-         where stage in ('market', 'close') and completed_at is null
+        SELECT COUNT(*)::TEXT AS total FROM pipeline_outbox
+         WHERE stage IN ('market', 'close') AND completed_at IS NULL
       `;
     expect(Number(pendentes[0]?.total)).toBe(0);
   }, 120_000);

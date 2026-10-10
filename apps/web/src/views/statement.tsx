@@ -71,8 +71,7 @@ const todayIso = (): DateOnly => new Date().toISOString().slice(0, 10) as DateOn
 export type StatementPortfolio = { readonly id: string; readonly name: string };
 
 export type StatementScreenProps = {
-  /** Nulo é o escopo de todas as carteiras. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly scopeLabel: string;
   readonly portfolios: readonly StatementPortfolio[];
   /** Abre a página do ativo (T-03), pelo apelido dele no endereço. */
@@ -612,7 +611,6 @@ const KIND_PILL: Readonly<Record<StatementRow['kind'], string>> = {
   payout: 'bg-positive-soft text-positive',
   deposit: 'bg-panel-2 text-ink-2',
   withdrawal: 'bg-panel-2 text-ink-2',
-  transfer: 'bg-panel-2 text-ink-2',
   corporate_event: 'bg-panel-2 text-ink-2',
 };
 
@@ -820,7 +818,7 @@ const StatementLine = ({
   const value = valueCell(row);
   const effect = effectView(row.effect, hidden);
   const detail = typeDetail(row);
-  const editable = row.transfer_group_id === null && row.kind !== 'corporate_event';
+  const editable = row.kind !== 'corporate_event';
 
   return (
     <tr
@@ -893,8 +891,8 @@ const StatementLine = ({
               id: 'edit',
               label: 'Editar',
               shortcut: 'E',
-              // Perna de transferência e evento corporativo não se editam aqui.
-              hint: editable ? undefined : 'Transferência e evento não são editados aqui',
+              // Evento corporativo não se edita aqui.
+              hint: editable ? undefined : 'Evento não é editado aqui',
               disabled: !editable,
               onSelect: onEdit,
             },

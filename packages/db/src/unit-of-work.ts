@@ -112,7 +112,7 @@ export const createUnitOfWork = (
     try {
       const value = await sql.begin(async (tx) => {
         if (options?.lock !== undefined) {
-          await tx`select pg_advisory_xact_lock(hashtextextended(${options.lock}, 0))`;
+          await tx`SELECT PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(${options.lock}, 0))`;
         }
 
         const result = await work(createRepositories(tx, repositoryOptions));

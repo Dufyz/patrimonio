@@ -48,8 +48,8 @@ const errorOf = async (statement: string): Promise<unknown> => {
 };
 
 const INSTITUTION = `
-  insert into institution (id, name, role)
-  values ('0191e5a0-0000-7000-8000-0000000000b1', 'Corretora Traduzida', 'custodian')
+  INSERT INTO institution (id, name)
+  VALUES ('0191e5a0-0000-7000-8000-0000000000b1', 'Corretora Traduzida')
 `;
 
 describe('getRepositoryError', () => {
@@ -64,9 +64,9 @@ describe('getRepositoryError', () => {
   it('chave estrangeira vira BadRequestError', async () => {
     const error = getRepositoryError(
       await errorOf(`
-        insert into transaction (
+        INSERT INTO transaction (
           id, kind, trade_date, settlement_date, portfolio_id, institution_id, net_amount
-        ) values (
+        ) VALUES (
           '0191e5a0-0000-7000-8000-0000000000b2', 'deposit', '2024-01-10', '2024-01-10',
           '0191e5a0-0000-7000-8000-00000000dead', '0191e5a0-0000-7000-8000-00000000beef', 100
         )
@@ -80,8 +80,8 @@ describe('getRepositoryError', () => {
   it('valor fora do enum vira BadRequestError', async () => {
     const error = getRepositoryError(
       await errorOf(`
-        insert into institution (id, name, role)
-        values ('0191e5a0-0000-7000-8000-0000000000b3', 'Papel Inválido', 'intermediario')
+        INSERT INTO portfolio (id, name, recalc_status)
+        VALUES ('0191e5a0-0000-7000-8000-0000000000b3', 'Status Inválido', 'inexistente')
       `),
     );
 
@@ -91,8 +91,8 @@ describe('getRepositoryError', () => {
   it('regra do banco não satisfeita vira BadRequestError', async () => {
     const error = getRepositoryError(
       await errorOf(`
-        insert into portfolio (id, name, tolerance_pp)
-        values ('0191e5a0-0000-7000-8000-0000000000b4', 'Fora da Faixa', 200)
+        INSERT INTO strategy_target (portfolio_id, category_id, target_pct)
+        VALUES ('0191e5a0-0000-7000-8000-0000000000b4', '0191e5a0-0000-7000-8000-0000000000b6', 200)
       `),
     );
 
@@ -102,8 +102,8 @@ describe('getRepositoryError', () => {
   it('campo obrigatório ausente vira BadRequestError', async () => {
     const error = getRepositoryError(
       await errorOf(`
-        insert into institution (id, role)
-        values ('0191e5a0-0000-7000-8000-0000000000b5', 'custodian')
+        INSERT INTO institution (id)
+        VALUES ('0191e5a0-0000-7000-8000-0000000000b5')
       `),
     );
 
@@ -111,7 +111,7 @@ describe('getRepositoryError', () => {
   });
 
   it('qualquer outro erro do driver vira DatabaseError', async () => {
-    const error = getRepositoryError(await errorOf('select * from tabela_inexistente'));
+    const error = getRepositoryError(await errorOf('SELECT * FROM tabela_inexistente'));
 
     expect(error).toBeInstanceOf(DatabaseError);
     expect(error.statusCode).toBe(500);

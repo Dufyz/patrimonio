@@ -58,7 +58,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await sql`delete from pipeline_outbox`;
+  await sql`DELETE FROM pipeline_outbox`;
   await Promise.all(
     Object.values(queues).map((queue) => queue.obliterate({ force: true })),
   );
@@ -105,7 +105,7 @@ describe('relay', () => {
     });
 
     const [row] = await sql<{ dispatched_at: Date | null }[]>`
-      select dispatched_at from pipeline_outbox where id = ${event!.id}
+      SELECT dispatched_at FROM pipeline_outbox WHERE id = ${event!.id}
     `;
     expect(row?.dispatched_at).not.toBeNull();
   });
@@ -127,7 +127,7 @@ describe('relay', () => {
     // Simula o despacho que chegou ao Redis e cujo commit não aconteceu:
     // o evento volta a ser pendente e o relay tenta de novo.
     await runRelayOnce(deps);
-    await sql`update pipeline_outbox set dispatched_at = null where id = ${event!.id}`;
+    await sql`UPDATE pipeline_outbox SET dispatched_at = NULL WHERE id = ${event!.id}`;
 
     await runRelayOnce(deps);
 
@@ -173,7 +173,7 @@ describe('critério de saída do épico', () => {
       // é o Postgres que responde "quando foi o último fechamento".
       await waitFor(async () => {
         const [row] = await sql<{ completed_at: Date | null; started_at: Date | null }[]>`
-          select completed_at, started_at from pipeline_outbox where id = ${event!.id}
+          SELECT completed_at, started_at FROM pipeline_outbox WHERE id = ${event!.id}
         `;
         return row?.completed_at !== null;
       });
@@ -181,8 +181,8 @@ describe('critério de saída do épico', () => {
       const [row] = await sql<
         { started_at: Date | null; completed_at: Date | null; attempts: number }[]
       >`
-        select started_at, completed_at, attempts
-          from pipeline_outbox where id = ${event!.id}
+        SELECT started_at, completed_at, attempts
+          FROM pipeline_outbox WHERE id = ${event!.id}
       `;
 
       expect(row?.started_at).not.toBeNull();

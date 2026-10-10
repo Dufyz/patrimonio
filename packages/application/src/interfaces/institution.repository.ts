@@ -1,28 +1,15 @@
-import type { Institution, InstitutionRole } from '@patrimonio/domain';
+import type { Institution } from '@patrimonio/domain';
 import type { Either } from '@patrimonio/shared';
 
 import type { AppError } from '../errors/app-error.js';
 
 export type InstitutionWrite = {
   readonly name?: string | undefined;
-  readonly role?: InstitutionRole | undefined;
-  readonly fgc_covered?: boolean | undefined;
-  readonly brokerage_per_order?: string | undefined;
-  readonly custody_monthly_fee?: string | undefined;
+  readonly country?: string | undefined;
 };
 
 export type InstitutionDraft = InstitutionWrite & {
   readonly name: string;
-  readonly role: InstitutionRole;
-};
-
-/**
- * A soma por emissor é o que o limite de R$ 250 mil mede, e ela sai do livro:
- * quanto foi aplicado menos quanto foi resgatado nos títulos daquele emissor.
- */
-export type IssuerExposure = {
-  readonly exposure_brl: string;
-  readonly assets: number;
 };
 
 export type InstitutionUsage = {
@@ -47,6 +34,4 @@ export type InstitutionRepository = {
   readonly remove: (id: string) => Promise<Either<AppError, boolean>>;
 
   readonly usage: (id: string) => Promise<Either<AppError, InstitutionUsage>>;
-
-  readonly issuerExposure: (id: string) => Promise<Either<AppError, IssuerExposure>>;
 };
