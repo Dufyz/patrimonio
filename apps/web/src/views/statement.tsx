@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router';
 import { fetchStatement } from '../api/statement.js';
 import { deleteTransaction, moveTransaction, undoDeletion } from '../api/transactions.js';
 import { Toolbar } from '../components/controls.js';
+import { useEntry } from '../components/entry_provider.js';
 import { Money, MoneyChange, Quantity } from '../components/number.js';
 import { Menu, Modal } from '../components/overlay.js';
 import { KeepPrevious } from '../components/pending.js';
@@ -48,6 +49,7 @@ import {
   typeLabel,
   valueCell,
 } from '../lib/statement.js';
+import { duplicateRequest } from '../lib/entry.js';
 import { useResource } from '../lib/use_resource.js';
 
 /**
@@ -63,8 +65,6 @@ import { useResource } from '../lib/use_resource.js';
  * pastilhas e Efeito vêm da `api`, com o filtro já aplicado; é o que mantém o
  * subtotal de setembro certo quando setembro atravessa duas páginas.
  */
-
-const PENDING_ENTRY = 'o formulário de lançamento chega com T-10';
 
 const todayIso = (): DateOnly => new Date().toISOString().slice(0, 10) as DateOnly;
 
@@ -114,6 +114,7 @@ export const StatementScreen = ({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [moving, setMoving] = useState<readonly StatementRow[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const entry = useEntry();
 
   const range = resolvePeriod(period, today, inception);
 
@@ -160,7 +161,16 @@ export const StatementScreen = ({
         },
         signal,
       ),
-    [portfolioId, institutionId, group, search, range.from, range.to, pageNumber],
+    [
+      portfolioId,
+      institutionId,
+      group,
+      search,
+      range.from,
+      range.to,
+      pageNumber,
+      entry.version,
+    ],
   );
 
   const data: StatementResource | null =
@@ -187,6 +197,18 @@ export const StatementScreen = ({
     return () => clearInterval(timer);
   }, [recalculating, reload]);
 
+  /** Duplicar abre um lançamento novo com os números da linha; a data volta a ser hoje. */
+  const duplicate = (row: StatementRow | undefined): void => {
+    const request = row === undefined ? null : duplicateRequest(row);
+    if (request === null) return;
+    entry.openEntry({
+      tab: request.tab,
+      asset: request.asset,
+      portfolioId: request.portfolioId,
+      ...(request.seed === undefined ? {} : { seed: request.seed }),
+    });
+  };
+
   const selectedRows = useMemo(
     () => (data === null ? [] : data.rows.filter((row) => selected.has(row.id))),
     [data, selected],
@@ -194,6 +216,12 @@ export const StatementScreen = ({
 
   const onPeriodChange = (next: Period): void =>
     update({ periodo: periodToParam(next) }, true);
+
+  const duplicating =
+    selectedRows.length === 1 &&
+    duplicateRequest(selectedRows[0] as StatementRow) !== null
+      ? selectedRows[0]
+      : null;
 
   const removeRows = async (rows: readonly StatementRow[]): Promise<void> => {
     setBusy(true);
@@ -295,7 +323,7 @@ export const StatementScreen = ({
           >
             {valuesHidden ? '⦰' : '◉'}
           </IconButton>
-          <Button variant="primary" shortcut="N" disabled title={PENDING_ENTRY}>
+          <Button variant="primary" shortcut="N" onClick={() => entry.openEntry()}>
             Lançamento
           </Button>
         </Toolbar>
@@ -436,7 +464,15 @@ export const StatementScreen = ({
               <Button disabled={busy} onClick={() => setMoving(selectedRows)}>
                 Mover para carteira
               </Button>
-              <Button disabled title="Duplicar chega com T-10">
+              <Button
+                disabled={busy || duplicating === null}
+                title={
+                  duplicating === null
+                    ? 'Selecione um único lançamento de compra, venda, provento, aporte ou resgate'
+                    : undefined
+                }
+                onClick={() => duplicate(selectedRows[0])}
+              >
                 Duplicar
               </Button>
               <Button disabled={busy} onClick={() => exportRows(selectedRows)}>
@@ -475,6 +511,8 @@ export const StatementScreen = ({
                     setSelected((current) => toggleAll(data.rows, current))
                   }
                   onMove={(row) => setMoving([row])}
+                  onEdit={(row) => entry.openEdit(row.id, assetLabel(row))}
+                  onDuplicate={duplicate}
                   onDelete={(row) => void removeRows([row])}
                   onOpenAsset={(row) =>
                     onOpenAsset(
@@ -589,6 +627,8 @@ const StatementTable = ({
   onToggle,
   onToggleAll,
   onMove,
+  onEdit,
+  onDuplicate,
   onDelete,
   onOpenAsset,
   onClear,
@@ -601,6 +641,8 @@ const StatementTable = ({
   readonly onToggle: (id: string) => void;
   readonly onToggleAll: () => void;
   readonly onMove: (row: StatementRow) => void;
+  readonly onEdit: (row: StatementRow) => void;
+  readonly onDuplicate: (row: StatementRow) => void;
   readonly onDelete: (row: StatementRow) => void;
   readonly onOpenAsset: (row: StatementRow) => void;
   readonly onClear: () => void;
@@ -732,6 +774,8 @@ const StatementTable = ({
                 showInstitution={showInstitution}
                 onToggle={() => onToggle(row.id)}
                 onMove={() => onMove(row)}
+                onEdit={() => onEdit(row)}
+                onDuplicate={() => onDuplicate(row)}
                 onDelete={() => onDelete(row)}
                 onOpenAsset={() => onOpenAsset(row)}
               />
@@ -753,6 +797,8 @@ const StatementLine = ({
   showInstitution,
   onToggle,
   onMove,
+  onEdit,
+  onDuplicate,
   onDelete,
   onOpenAsset,
 }: {
@@ -765,6 +811,8 @@ const StatementLine = ({
   readonly showInstitution: boolean;
   readonly onToggle: () => void;
   readonly onMove: () => void;
+  readonly onEdit: () => void;
+  readonly onDuplicate: () => void;
   readonly onDelete: () => void;
   readonly onOpenAsset: () => void;
 }): React.ReactElement => {
@@ -772,6 +820,7 @@ const StatementLine = ({
   const value = valueCell(row);
   const effect = effectView(row.effect, hidden);
   const detail = typeDetail(row);
+  const editable = row.transfer_group_id === null && row.kind !== 'corporate_event';
 
   return (
     <tr
@@ -844,17 +893,17 @@ const StatementLine = ({
               id: 'edit',
               label: 'Editar',
               shortcut: 'E',
-              hint: PENDING_ENTRY,
-              disabled: true,
-              onSelect: () => {},
+              // Perna de transferência e evento corporativo não se editam aqui.
+              hint: editable ? undefined : 'Transferência e evento não são editados aqui',
+              disabled: !editable,
+              onSelect: onEdit,
             },
             {
               id: 'duplicate',
               label: 'Duplicar',
               shortcut: 'D',
-              hint: PENDING_ENTRY,
-              disabled: true,
-              onSelect: () => {},
+              disabled: duplicateRequest(row) === null,
+              onSelect: onDuplicate,
             },
             { id: 'move', label: 'Mover para outra carteira', onSelect: onMove },
             ...(row.asset_id === null

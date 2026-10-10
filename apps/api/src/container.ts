@@ -43,6 +43,7 @@ import {
   listPositions,
   putStrategy,
   setPortfolioArchived,
+  previewPayout,
   previewTransaction,
   previewTransfer,
   previewUpdate,
@@ -127,6 +128,10 @@ export const createApiUseCases = (deps: {
   createPayout: createPayout({
     unitOfWork: deps.unitOfWork,
     clock: deps.clock,
+    jcpWithholdingPct: String(environment.tax.jcpWithholdingPct),
+  }),
+  previewPayout: previewPayout({
+    unitOfWork: deps.unitOfWork,
     jcpWithholdingPct: String(environment.tax.jcpWithholdingPct),
   }),
   previewTransaction: previewTransaction({ unitOfWork: deps.unitOfWork }),

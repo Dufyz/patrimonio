@@ -8,6 +8,15 @@ import { PreferencesProvider } from '../components/preferences.js';
 import { ShortcutProvider } from '../components/shortcuts.js';
 import { StatementScreen } from './statement.js';
 
+const entry = vi.hoisted(() => ({
+  openEntry: vi.fn(),
+  openEdit: vi.fn(),
+  openConfirmPayout: vi.fn(),
+  version: 0,
+}));
+
+vi.mock('../components/entry_provider.js', () => ({ useEntry: () => entry }));
+
 /**
  * T-04 · A tela contra a prancha 07.
  *
@@ -466,7 +475,7 @@ describe('tela de Movimentações', () => {
     expect(items.at(-1)).toHaveTextContent('Excluir');
     expect(
       within(screen.getByRole('menu')).getByRole('menuitem', { name: /Editar/ }),
-    ).toBeDisabled();
+    ).toBeEnabled();
 
     await user.click(
       within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Abrir ativo' }),

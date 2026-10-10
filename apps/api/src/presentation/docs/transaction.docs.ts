@@ -2,6 +2,8 @@ import {
   confirmPayoutSchema,
   createCashMovementSchema,
   createPayoutSchema,
+  payoutPreviewSchema,
+  previewPayoutSchema,
   deleteTransactionSchema,
   interpretTransactionSchema,
   deletionImpactSchema,
@@ -187,6 +189,28 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
       },
       409: {
         description: 'Uma das carteiras está arquivada.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'post',
+    path: '/transactions/payouts/preview',
+    tag: TAG,
+    summary: 'O efeito do provento, antes de salvar',
+    request: previewPayoutSchema,
+    responses: {
+      200: {
+        description:
+          'A quantidade na data-com, o bruto, o IR retido e o líquido — os mesmos que a gravação calcula — e o efeito no caixa. Nada é criado.',
+        schema: payoutPreviewSchema,
+      },
+      400: {
+        description: 'O provento não é válido, ou não havia posição na data-com.',
+        schema: errorResponseSchema,
+      },
+      404: {
+        description: 'Carteira ou ativo não encontrado.',
         schema: errorResponseSchema,
       },
     },

@@ -5,6 +5,7 @@ import {
   deleteTransactionSchema,
   interpretTransactionSchema,
   previewUpdateSchema,
+  previewPayoutSchema,
   previewTransferSchema,
   transferPositionSchema,
   undoDeletionSchema,
@@ -34,6 +35,12 @@ export const transactionRoutes = (deps: TransactionDeps): Router => {
   );
   router.post('/transactions/cash', validate(createCashMovementSchema), controller.cash);
   router.post('/transactions/payouts', validate(createPayoutSchema), controller.payout);
+  // Antes de `/transactions/:id/preview`, senão "payouts" vira um id.
+  router.post(
+    '/transactions/payouts/preview',
+    validate(previewPayoutSchema),
+    controller.previewPayout,
+  );
   router.post(
     '/transactions/transfer',
     validate(transferPositionSchema),

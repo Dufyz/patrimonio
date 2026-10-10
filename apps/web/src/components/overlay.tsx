@@ -199,8 +199,10 @@ export const Modal = ({
   open,
   onClose,
   footer,
+  narrow = false,
   children,
 }: {
+  readonly narrow?: boolean;
   readonly title: string;
   readonly subtitle?: string | undefined;
   readonly open: boolean;
@@ -233,7 +235,7 @@ export const Modal = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-2xl rounded-panel border border-line bg-panel shadow-xl"
+        className={`w-full ${narrow ? 'max-w-[35rem]' : 'max-w-2xl'} rounded-panel border border-line bg-panel shadow-xl`}
         onKeyDown={(event) => trapTab(event, panel.current)}
       >
         <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
