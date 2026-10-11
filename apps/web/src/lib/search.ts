@@ -307,9 +307,6 @@ export const INSTRUMENT_TYPE_LABELS: Readonly<
   treasury: 'Tesouro Direto',
 };
 
-/** Quando o papel aparece na paleta mas o lançamento a partir dele ainda não chegou. */
-export const INSTRUMENT_PENDING_REASON = 'o lançamento chega com R-04';
-
 /**
  * Os papéis do mercado que a pessoa ainda não tem como ativo. O detalhe diz o
  * tipo e, quando o papel veio da fonte ao vivo e não do catálogo, de onde veio:
@@ -339,7 +336,7 @@ export const instrumentItems = (
       name: instrument.name,
       b3_type: instrument.b3_type,
     },
-    disabled: INSTRUMENT_PENDING_REASON,
+    disabled: null,
   }));
 
 /**

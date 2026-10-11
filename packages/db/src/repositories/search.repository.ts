@@ -32,6 +32,8 @@ import { likeContains, likePrefix } from '../support/like.js';
  *   todo ativo que contém "a" faria uma busca de uma letra custar mais que o
  *   extrato inteiro. O total, porém, é contado sobre todos os que casam.
  *
+ * A mesma consulta devolve uma linha de estado: o catálogo tem ou não papel ativo.
+ *
  * A comparação ignora acento (`unaccent`, migration 031): "itau" acha "Itaú", como
  * a paleta pontua. O `ilike` sozinho os trataria como letras diferentes.
  *
@@ -43,7 +45,7 @@ import { likeContains, likePrefix } from '../support/like.js';
 const CANDIDATES = 50;
 
 type AssetResultRow = Omit<SearchAssetRow, 'portfolio_names' | 'id' | 'b3_type'> & {
-  readonly row_kind: 'asset' | 'catalog';
+  readonly row_kind: 'asset' | 'catalog' | 'catalog_state';
   readonly id: string | null;
   readonly b3_type: string | null;
   readonly maturity_date: string | null;
@@ -137,6 +139,13 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
             FROM listed_catalog k
            ORDER BY k.match_rank, k.ticker
            LIMIT ${filter.limit})
+          UNION ALL
+          (SELECT 'catalog_state' AS row_kind, NULL::UUID AS id, '' AS ticker, '' AS name,
+                 NULL::TEXT AS b3_type, NULL::TEXT AS maturity_date,
+                 (CASE WHEN EXISTS (SELECT 1 FROM listed_instrument WHERE active)
+                       THEN 1 ELSE 0 END) AS total,
+                 NULL::TEXT AS quantity, NULL::TEXT AS market_value,
+                 NULL::TEXT[] AS portfolio_names)
         `,
         sql<TransactionResultRow[]>`
           SELECT t.id,
@@ -167,6 +176,7 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
 
       const assetRows = assets.filter((row) => row.row_kind === 'asset');
       const catalogRows = assets.filter((row) => row.row_kind === 'catalog');
+      const catalogState = assets.find((row) => row.row_kind === 'catalog_state');
 
       const view: SearchPageView = {
         assets: {
@@ -190,6 +200,7 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
         },
         instruments: {
           total: catalogRows[0]?.total ?? 0,
+          catalog_empty: (catalogState?.total ?? 0) === 0,
           rows: catalogRows.map((row): SearchInstrumentRow => ({
             ticker: row.ticker,
             name: row.name,

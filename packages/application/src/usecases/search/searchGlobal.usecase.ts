@@ -68,7 +68,12 @@ const monthStart = (today: DateOnly): string => `${today.slice(0, 7)}-01T00:00:0
 const EMPTY = {
   query: '',
   assets: { total: 0, items: [] },
-  instruments: { total: 0, items: [], fallback: 'none' as SearchFallback },
+  instruments: {
+    total: 0,
+    items: [],
+    fallback: 'none' as SearchFallback,
+    catalog_empty: false,
+  },
   transactions: { total: 0, items: [] },
 };
 
@@ -171,6 +176,7 @@ export const searchGlobal = (deps: SearchGlobalDeps) =>
         total: instrumentsTotal,
         items: instruments,
         fallback,
+        catalog_empty: view.instruments.catalog_empty,
       },
       transactions: {
         total: view.transactions.total,

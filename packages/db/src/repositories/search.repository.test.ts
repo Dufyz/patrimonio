@@ -284,6 +284,14 @@ describe('papéis do catálogo', () => {
     expect(view.instruments).toEqual({ total: 0, rows: [] });
   });
 
+  it('diz que o catálogo está vazio, e que deixou de estar', async () => {
+    expect((await find({ text: 'bov' })).instruments.catalog_empty).toBe(true);
+
+    await catalogar();
+
+    expect((await find({ text: 'bov' })).instruments.catalog_empty).toBe(false);
+  });
+
   it('continua pagando duas consultas por busca', async () => {
     await catalogar();
     const { connection, count } = counting();

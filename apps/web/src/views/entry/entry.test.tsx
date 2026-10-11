@@ -7,6 +7,7 @@ import { PreferencesProvider } from '../../components/preferences.js';
 import { ShortcutProvider } from '../../components/shortcuts.js';
 import { Modal } from '../../components/overlay.js';
 import type { EntryReference } from '../../lib/entry.js';
+import type { AssetSearch, PickedAsset } from './asset_picker.js';
 import { TradeFormView } from './trade_form.js';
 
 vi.mock('../../api/entry.js', () => ({
@@ -61,13 +62,32 @@ const search = vi.fn(
           },
         ],
       },
+      instruments: { total: 0, items: [], fallback: 'none', catalog_empty: false },
     }) as unknown as SearchResource,
 );
+
+const searchWith = (instruments: Partial<SearchResource['instruments']>) =>
+  vi.fn(
+    async (): Promise<SearchResource> =>
+      ({
+        assets: { items: [] },
+        instruments: {
+          total: 0,
+          items: [],
+          fallback: 'none',
+          catalog_empty: false,
+          ...instruments,
+        },
+      }) as unknown as SearchResource,
+  );
 
 const onSaved = vi.fn();
 const onCancel = vi.fn();
 
-const show = (kind: 'buy' | 'sell' = 'buy') =>
+const show = (
+  kind: 'buy' | 'sell' = 'buy',
+  options: { asset?: PickedAsset | null; search?: AssetSearch } = {},
+) =>
   render(
     <PreferencesProvider>
       <ShortcutProvider>
@@ -76,12 +96,15 @@ const show = (kind: 'buy' | 'sell' = 'buy') =>
             kind={kind}
             reference={reference}
             seed={{
-              asset: { id: ASSET, label: 'ITUB4', name: 'Itaú Unibanco', held: '500' },
+              asset:
+                options.asset === undefined
+                  ? { id: ASSET, label: 'ITUB4', name: 'Itaú Unibanco', held: '500' }
+                  : options.asset,
               portfolioId: PORTFOLIO,
               institutionId: INSTITUTION,
               date: '2026-10-10',
             }}
-            search={search}
+            search={options.search ?? search}
             onSaved={onSaved}
             onCancel={onCancel}
           />
@@ -189,5 +212,68 @@ describe('lançamento de compra e venda', () => {
 
     expect(onCancel).toHaveBeenCalled();
     expect(createTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('papel do mercado no seletor', () => {
+  const bova = {
+    ticker: 'BOVA11',
+    name: 'ISHARES BOVA',
+    b3_type: 'etf' as const,
+    maturity_date: null,
+    source: 'catalog' as const,
+  };
+
+  it('lança o papel do catálogo sem cadastro prévio', async () => {
+    const user = userEvent.setup();
+    show('buy', {
+      asset: null,
+      search: searchWith({ total: 1, items: [bova] }),
+    });
+
+    await user.type(screen.getByPlaceholderText('Código ou nome do ativo'), 'bova');
+    await user.click(await screen.findByRole('option', { name: /BOVA11/ }));
+    await user.type(screen.getByLabelText('Quantidade'), '10');
+    await user.type(screen.getByLabelText('Preço unitário'), '120,50');
+
+    await waitFor(() => expect(previewTransaction).toHaveBeenCalled());
+    const body = previewTransaction.mock.calls.at(-1)?.[0];
+    expect(body).toMatchObject({
+      asset: { ticker: 'BOVA11', name: 'ISHARES BOVA', b3_type: 'etf' },
+    });
+    expect(body).not.toHaveProperty('asset_id');
+  });
+
+  it('diz que a carga inicial não foi executada quando o catálogo está vazio', async () => {
+    const user = userEvent.setup();
+    show('buy', { asset: null, search: searchWith({ catalog_empty: true }) });
+
+    await user.type(screen.getByPlaceholderText('Código ou nome do ativo'), 'bova');
+
+    expect(
+      await screen.findByText(/carga inicial não foi executada/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/pnpm seed:instruments/)).toBeInTheDocument();
+  });
+
+  it('não oferece cadastrar título de renda fixa', async () => {
+    const user = userEvent.setup();
+    show('buy', { asset: null, search: searchWith({}) });
+
+    await user.type(screen.getByPlaceholderText('Código ou nome do ativo'), 'cdb');
+    await screen.findByText(/Nenhum papel encontrado/);
+
+    expect(screen.queryByText('Cadastrar título de renda fixa')).not.toBeInTheDocument();
+  });
+
+  it('não vale com o ticker só digitado', async () => {
+    const user = userEvent.setup();
+    show('buy', { asset: null, search: searchWith({ total: 1, items: [bova] }) });
+
+    await user.type(screen.getByPlaceholderText('Código ou nome do ativo'), 'BOVA11');
+    await user.type(screen.getByLabelText('Quantidade'), '10');
+    await user.type(screen.getByLabelText('Preço unitário'), '120,50');
+
+    expect(previewTransaction).not.toHaveBeenCalled();
   });
 });

@@ -8,7 +8,6 @@ import { describe, expect, it } from 'vitest';
 import type { Storageish } from './preferences.js';
 import {
   ACTION_PENDING_REASON,
-  INSTRUMENT_PENDING_REASON,
   LOOKUP_UNAVAILABLE_NOTICE,
   RECENT_LIMIT,
   assetActionItems,
@@ -95,7 +94,12 @@ const ready = (
   assets: readonly SearchAsset[],
   transactions: readonly SearchTransaction[],
   totals?: { assets?: number; transactions?: number },
-  instruments: SearchResource['instruments'] = { total: 0, items: [], fallback: 'none' },
+  instruments: SearchResource['instruments'] = {
+    total: 0,
+    items: [],
+    fallback: 'none',
+    catalog_empty: false,
+  },
 ): SearchServerState => {
   const resource: SearchResource = {
     query: 'q',
@@ -616,7 +620,7 @@ describe('papéis do mercado', () => {
     expect(catalogo?.label).toBe('BOVA11');
     expect(catalogo?.detail).toBe('ISHARES BOVA · ETF');
     expect(aoVivo?.detail).toBe('IT NOW BOVV · ETF · brapi');
-    expect(catalogo?.disabled).toBe(INSTRUMENT_PENDING_REASON);
+    expect(catalogo?.disabled).toBeNull();
   });
 
   it('aparece abaixo dos ativos e dentro do filtro de ativos', () => {
@@ -624,6 +628,7 @@ describe('papéis do mercado', () => {
       total: 1,
       items: [bova],
       fallback: 'none',
+      catalog_empty: false,
     });
 
     expect(groups('itu', server)).toEqual(['assets', 'asset_actions', 'instruments']);
@@ -635,7 +640,12 @@ describe('papéis do mercado', () => {
   it('conta o que a api cortou', () => {
     const view = model(
       'bova',
-      ready([], [], undefined, { total: 7, items: [bova], fallback: 'none' }),
+      ready([], [], undefined, {
+        total: 7,
+        items: [bova],
+        fallback: 'none',
+        catalog_empty: false,
+      }),
     );
 
     expect(view.shown).toBe(1);
@@ -645,11 +655,21 @@ describe('papéis do mercado', () => {
   it('avisa quando a fonte ao vivo não respondeu, e só então', () => {
     const quiet = model(
       'zzz',
-      ready([], [], undefined, { total: 0, items: [], fallback: 'none' }),
+      ready([], [], undefined, {
+        total: 0,
+        items: [],
+        fallback: 'none',
+        catalog_empty: false,
+      }),
     );
     const failed = model(
       'zzz',
-      ready([], [], undefined, { total: 0, items: [], fallback: 'unavailable' }),
+      ready([], [], undefined, {
+        total: 0,
+        items: [],
+        fallback: 'unavailable',
+        catalog_empty: false,
+      }),
     );
 
     expect(quiet.notice).toBeNull();

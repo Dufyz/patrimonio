@@ -167,6 +167,7 @@ export const PayoutFormView = ({
             portfolioId={portfolioId}
             value={asset}
             onChange={setAsset}
+            allowNew={false}
             onBlur={touch('asset')}
             autoFocus={asset === null}
             {...(search === undefined ? {} : { search })}

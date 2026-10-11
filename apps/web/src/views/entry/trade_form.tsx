@@ -84,6 +84,7 @@ export const TradeFormView = ({
     () =>
       buildTradeBody(kind, {
         assetId: asset?.id ?? null,
+        newAsset: asset?.instrument ?? null,
         date,
         settlement,
         quantity,

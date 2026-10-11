@@ -15,7 +15,7 @@ import type {
   TransactionResource,
   UpdateTransactionBody,
 } from '@patrimonio/contracts';
-import type { PayoutKind } from '@patrimonio/domain';
+import type { B3Type, PayoutKind } from '@patrimonio/domain';
 
 import { compareDecimal, parseDecimal } from './decimal.js';
 import { parseAmountInput } from './positions.js';
@@ -200,8 +200,17 @@ const requireId = (
 
 export type TradeKind = 'buy' | 'sell';
 
+/** O papel do catálogo que ainda não é ativo: nasce junto com o lançamento. */
+export type NewAssetDraft = {
+  readonly ticker: string;
+  readonly name: string;
+  readonly b3_type: B3Type;
+};
+
 export type TradeForm = {
   readonly assetId: string | null;
+  /** Escolhido do catálogo: no lugar de `assetId`, nunca junto. */
+  readonly newAsset: NewAssetDraft | null;
   readonly date: string;
   /** Vazio deixa a `api` sugerir pelo tipo do ativo, em dia útil. */
   readonly settlement: string;
@@ -220,7 +229,10 @@ export const buildTradeBody = (
 ): Built<CreateTransactionBody> => {
   const errors: Partial<Record<EntryField, string>> = {};
 
-  const assetId = requireId(errors, 'asset', form.assetId, 'Escolha o ativo.');
+  const assetId =
+    form.newAsset === null
+      ? requireId(errors, 'asset', form.assetId, 'Escolha o ativo.')
+      : null;
   const portfolioId = requireId(
     errors,
     'portfolio',
@@ -261,7 +273,7 @@ export const buildTradeBody = (
   );
 
   if (
-    assetId === null ||
+    (assetId === null && form.newAsset === null) ||
     portfolioId === null ||
     institutionId === null ||
     date === null ||
@@ -276,7 +288,15 @@ export const buildTradeBody = (
     kind,
     portfolio_id: portfolioId,
     institution_id: institutionId,
-    asset_id: assetId,
+    ...(form.newAsset === null
+      ? { asset_id: assetId }
+      : {
+          asset: {
+            ticker: form.newAsset.ticker,
+            name: form.newAsset.name,
+            b3_type: form.newAsset.b3_type,
+          },
+        }),
     trade_date: date,
     quantity,
     unit_price: price,
@@ -813,8 +833,7 @@ export const TOTAL_LABEL: Readonly<Record<EffectKind, string>> = {
 /* -------------------------------------------------------------------------- */
 /* Tipos de lançamento da janela                                              */
 
-export type EntryTab =
-  'buy' | 'sell' | 'payout' | 'deposit' | 'withdrawal' | 'event';
+export type EntryTab = 'buy' | 'sell' | 'payout' | 'deposit' | 'withdrawal' | 'event';
 
 export const ENTRY_TABS: readonly {
   readonly id: EntryTab;

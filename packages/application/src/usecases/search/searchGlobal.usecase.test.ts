@@ -19,7 +19,7 @@ const PORTFOLIO = '0191e5a0-0000-7000-8000-000000000001';
 
 const view = (overrides: Partial<SearchPageView> = {}): SearchPageView => ({
   assets: { total: 0, rows: [] },
-  instruments: { total: 0, rows: [] },
+  instruments: { total: 0, rows: [], catalog_empty: false },
   transactions: { total: 0, rows: [] },
   ...overrides,
 });
@@ -81,7 +81,9 @@ describe('searchGlobal · papéis do mercado', () => {
     const { unitOfWork, runs } = harness();
 
     const result = await searchGlobal({
-      search: searching(view({ instruments: { total: 1, rows: [catalogRow] } })),
+      search: searching(
+        view({ instruments: { total: 1, rows: [catalogRow], catalog_empty: false } }),
+      ),
       lookup: {
         source: lookupOf(async () => ((asked += 1), success([]))),
         unitOfWork,

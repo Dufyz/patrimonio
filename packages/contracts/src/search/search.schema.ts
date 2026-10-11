@@ -112,6 +112,8 @@ export const searchResourceSchema = z.object({
     total: z.number().int().nonnegative(),
     items: z.array(searchInstrumentSchema),
     fallback: searchFallbackSchema,
+    /** Nenhum papel ativo no catálogo: a carga inicial não foi executada. */
+    catalog_empty: z.boolean(),
   }),
   transactions: z.object({
     total: z.number().int().nonnegative(),

@@ -35,6 +35,7 @@ const LANCAMENTO = '0191e5a0-0000-7000-8000-00000000b001';
 
 const trade: TradeForm = {
   assetId: ITUB4,
+  newAsset: null,
   date: '2026-10-06',
   settlement: '',
   quantity: '100',
@@ -98,6 +99,21 @@ describe('buildTradeBody', () => {
     expect(built.ok && built.body.fees).toBe('4.90');
     expect(built.ok && built.body.settlement_date).toBe('2026-10-08');
     expect(built.ok && built.body.kind).toBe('sell');
+  });
+
+  it('leva o papel do catálogo no lugar do id do ativo', () => {
+    const built = buildTradeBody('buy', {
+      ...trade,
+      assetId: null,
+      newAsset: { ticker: 'BOVA11', name: 'ISHARES BOVA', b3_type: 'etf' },
+    });
+
+    expect(built.ok && built.body.asset).toEqual({
+      ticker: 'BOVA11',
+      name: 'ISHARES BOVA',
+      b3_type: 'etf',
+    });
+    expect(built.ok && built.body.asset_id).toBeUndefined();
   });
 
   it('diz o que falta no campo de cada um', () => {
@@ -557,7 +573,7 @@ describe('duplicar', () => {
     unit_price: '31.04000000',
     fees: '0.00000000',
     note: null,
-    };
+  };
 
   it('compra leva ativo, carteira e números; a data não vai', () => {
     expect(duplicateRequest(row)).toEqual({

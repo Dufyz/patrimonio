@@ -51,7 +51,7 @@ const RESOURCE: SearchResource = {
       },
     ],
   },
-  instruments: { total: 0, items: [], fallback: 'none' },
+  instruments: { total: 0, items: [], fallback: 'none', catalog_empty: false },
   transactions: {
     total: 24,
     items: [
@@ -252,7 +252,12 @@ describe('busca', () => {
       .mockImplementation(async () => ({
         query: 'wege',
         assets: { total: 0, items: [] },
-        instruments: { total: 0, items: [], fallback: 'none' as const },
+        instruments: {
+          total: 0,
+          items: [],
+          fallback: 'none' as const,
+          catalog_empty: false,
+        },
         transactions: { total: 0, items: [] },
       }));
     const { user } = open({ search });
@@ -273,7 +278,12 @@ describe('busca', () => {
     const empty = vi.fn(async () => ({
       query: 'zzz',
       assets: { total: 0, items: [] },
-      instruments: { total: 0, items: [], fallback: 'none' as const },
+      instruments: {
+        total: 0,
+        items: [],
+        fallback: 'none' as const,
+        catalog_empty: false,
+      },
       transactions: { total: 0, items: [] },
     }));
     const { user } = open({ search: empty });

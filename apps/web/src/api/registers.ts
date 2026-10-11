@@ -1,4 +1,4 @@
-import type { AssetResource, CategoryResource } from '@patrimonio/contracts';
+import type { CategoryResource } from '@patrimonio/contracts';
 
 import { request } from './client.js';
 import type { Parser } from './client.js';
@@ -78,33 +78,3 @@ export const archiveAsset = (id: string, archived: boolean): Promise<unknown> =>
 
 export const deleteAsset = (id: string): Promise<unknown> =>
   send('DELETE', `/api/assets/${id}`);
-
-export type FixedIncomeBody = {
-  readonly origin: 'manual';
-  readonly kind: 'cdb' | 'lci' | 'lca' | 'cri' | 'cra' | 'debenture' | 'outro';
-  readonly issuer_id: string;
-  readonly indexer: 'cdi_pct' | 'ipca_plus' | 'prefixed' | 'selic_plus';
-  readonly rate: string;
-  readonly issued_at: string;
-  readonly maturity_date: string;
-  readonly liquidity: 'daily' | 'at_maturity' | 'd_plus_n';
-  readonly liquidity_days?: number;
-  readonly tax_regime: 'regressive' | 'exempt';
-  readonly name?: string;
-};
-
-const assetParser: Parser<AssetResource> = {
-  parse: (value) => {
-    const asset =
-      typeof value === 'object' && value !== null
-        ? (value as Record<string, unknown>)['asset']
-        : undefined;
-    if (typeof asset !== 'object' || asset === null) {
-      throw new Error('A api respondeu o ativo fora do contrato');
-    }
-    return asset as AssetResource;
-  },
-};
-
-export const createFixedIncomeAsset = (body: FixedIncomeBody): Promise<AssetResource> =>
-  request('/api/assets', assetParser, { method: 'POST', body: JSON.stringify(body) });

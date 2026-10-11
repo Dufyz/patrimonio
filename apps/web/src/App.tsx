@@ -337,6 +337,24 @@ const Palette = ({
       {...rest}
       readyActions={READY_ACTIONS}
       onSelect={(target) => {
+        if (target.kind === 'instrument') {
+          entry.openEntry({
+            tab: 'buy',
+            asset: {
+              id: null,
+              instrument: {
+                ticker: target.ticker,
+                name: target.name,
+                b3_type: target.b3_type,
+              },
+              label: target.ticker,
+              name: target.name,
+              held: null,
+            },
+          });
+          return;
+        }
+
         if (target.kind !== 'action') {
           onSelect(target);
           return;
@@ -345,7 +363,13 @@ const Palette = ({
         const asset =
           target.assetId === undefined
             ? null
-            : { id: target.assetId, label: target.title ?? '', name: null, held: null };
+            : {
+                id: target.assetId,
+                instrument: null,
+                label: target.title ?? '',
+                name: null,
+                held: null,
+              };
 
         entry.openEntry({
           tab: target.action === 'payout_asset' ? 'payout' : 'buy',

@@ -77,6 +77,8 @@ export type SearchPageView = {
   readonly instruments: {
     readonly total: number;
     readonly rows: readonly SearchInstrumentRow[];
+    /** Nenhum papel ativo no catálogo: a carga inicial não foi executada. */
+    readonly catalog_empty: boolean;
   };
   readonly transactions: {
     readonly total: number;
