@@ -256,14 +256,14 @@ describe('papel do mercado no seletor', () => {
     expect(screen.getByText(/pnpm bootstrap/)).toBeInTheDocument();
   });
 
-  it('não oferece cadastrar título de renda fixa', async () => {
+  it('oferece cadastrar título de renda fixa quando a busca não acha', async () => {
     const user = userEvent.setup();
     show('buy', { asset: null, search: searchWith({}) });
 
     await user.type(screen.getByPlaceholderText('Código ou nome do ativo'), 'cdb');
     await screen.findByText(/Nenhum papel encontrado/);
 
-    expect(screen.queryByText('Cadastrar título de renda fixa')).not.toBeInTheDocument();
+    expect(screen.getByText('Cadastrar título de renda fixa')).toBeInTheDocument();
   });
 
   it('não vale com o ticker só digitado', async () => {

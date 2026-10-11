@@ -12,6 +12,7 @@ import { useDismiss } from '../../components/use_dismiss.js';
 import type { ControlProps } from './fields.js';
 import { Input } from './fields.js';
 import { Icon } from '../../components/icon.js';
+import { FixedIncomeDialog } from '../registers/fixed_income_dialog.js';
 
 /**
  * T-10 · O ativo do lançamento.
@@ -132,6 +133,7 @@ export const AssetPicker = ({
   const [active, setActive] = useState(0);
   const [results, setResults] = useState<Found | null>(null);
   const [failed, setFailed] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const listId = useId();
 
@@ -319,7 +321,41 @@ export const AssetPicker = ({
               </li>
             ))
           )}
+          {allowNew ? (
+            <li role="presentation" className="mt-1 border-t border-line pt-1">
+              <button
+                type="button"
+                tabIndex={-1}
+                className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-[0.8125rem] text-accent hover:bg-panel-2"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  setOpen(false);
+                  setRegistering(true);
+                }}
+              >
+                <Icon name="plus" />
+                Cadastrar título de renda fixa
+              </button>
+            </li>
+          ) : null}
         </ul>
+      ) : null}
+
+      {registering ? (
+        <FixedIncomeDialog
+          onClose={() => setRegistering(false)}
+          onCreated={(asset) => {
+            setRegistering(false);
+            setQuery(asset.name);
+            onChange({
+              id: asset.id,
+              instrument: null,
+              label: asset.name,
+              name: asset.name,
+              held: null,
+            });
+          }}
+        />
       ) : null}
     </div>
   );
