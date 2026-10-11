@@ -10,7 +10,6 @@ import {
   monthItems,
   monthName,
   monthTitle,
-  pageFromParam,
   periodFromParam,
   periodToParam,
   pruneSelection,
@@ -64,15 +63,6 @@ describe('URL', () => {
     expect(periodToParam({ kind: 'preset', preset: '12m' })).toBe('12m');
   });
 
-  it('página inválida volta para a primeira', () => {
-    expect(pageFromParam('3')).toBe(3);
-    expect(pageFromParam('0')).toBe(1);
-    expect(pageFromParam('abc')).toBe(1);
-    expect(pageFromParam(null)).toBe(1);
-  });
-});
-
-describe('rótulos', () => {
   it('escreve mês e data como a prancha', () => {
     expect(monthTitle('2026-10')).toBe('Outubro 2026');
     expect(monthName('2026-08')).toBe('agosto');

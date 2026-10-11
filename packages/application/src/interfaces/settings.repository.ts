@@ -6,13 +6,12 @@ import type { AppError } from '../errors/app-error.js';
 /**
  * A leitura da tela de Configurações, em **uma** consulta.
  *
- * As carteiras, as categorias e as instituições são cadastros, e
- * cada um precisa do que o prende — quantos lançamentos, quantos ativos, quantas
- * estratégias — para a tela explicar um bloqueio antes de o usuário esbarrar
- * nele. Uma consulta por cadastro, e por linha de cadastro, faria a abertura
+ * A carteira é um cadastro e precisa do que a prende — quantos lançamentos,
+ * quantos ativos, quantas estratégias — para a tela explicar um bloqueio antes de o usuário esbarrar
+ * nele. Uma consulta por linha de cadastro faria a abertura
  * crescer com o tamanho do livro; o banco fica em outra rede.
  *
- * O repositório entrega fatos e contagens. A ordem dos grupos e
+ * O repositório entrega fatos e contagens. A ordem e
  * o texto de cada bloqueio são do caso de uso e da tela.
  */
 export type SettingsPortfolioRow = {
@@ -29,31 +28,6 @@ export type SettingsArchivedPortfolioRow = {
   readonly id: string;
   readonly name: string;
   readonly archived_on: DateOnly;
-};
-
-export type SettingsCategoryRow = {
-  readonly id: string;
-  readonly parent_id: string | null;
-  readonly name: string;
-  readonly color_token: string;
-  readonly auto_rule: Record<string, unknown> | null;
-  readonly sort_order: number;
-  /** Ativos nesta categoria; no grupo, nas categorias dentro dele. */
-  readonly assets: number;
-  /** Carteiras com alvo nesta categoria; no grupo, as distintas dentro dele. */
-  readonly strategies: number;
-  readonly children: number;
-};
-
-export type SettingsInstitutionRow = {
-  readonly id: string;
-  readonly name: string;
-  readonly country: string;
-  readonly portfolios: readonly string[];
-  /** A soma do último valor de cada caixa da instituição. Nulo sem caixa. */
-  readonly cash: string | null;
-  readonly transactions: number;
-  readonly assets: number;
 };
 
 export type SettingsAlertRuleRow = {
@@ -74,8 +48,6 @@ export type SettingsBackupRow = {
 export type SettingsSnapshot = {
   readonly portfolios: readonly SettingsPortfolioRow[];
   readonly archived_portfolios: readonly SettingsArchivedPortfolioRow[];
-  readonly categories: readonly SettingsCategoryRow[];
-  readonly institutions: readonly SettingsInstitutionRow[];
   readonly alerts: readonly SettingsAlertRuleRow[];
   readonly backup: SettingsBackupRow;
 };

@@ -232,19 +232,20 @@ describe('procedência do número', () => {
     return_12m_ratio: null,
     payouts_12m: '0',
     facets: [],
+    institution_facets: [],
     price_health: { fresh: 0, stale: 0, manual: 0, missing: 0 },
     ...overrides,
   });
 
-  it('sem fechamento não há o que datar', () => {
+  it('sem consolidação não há o que datar', () => {
     expect(priceStamp(resource({ as_of: null }))).toBeNull();
   });
 
-  it('com fechamento, a linha diz de quando é o número', () => {
+  it('com consolidação, a linha diz de quando é o número', () => {
     expect(priceStamp(resource())).toContain('Posições de 06/10');
   });
 
-  it('fechamento sem hora registrada ainda diz o dia', () => {
+  it('consolidação sem hora registrada ainda diz o dia', () => {
     expect(priceStamp(resource({ computed_at: null }))).toBe('Posições de 06/10.');
   });
 });

@@ -6,6 +6,8 @@ import { holdingLabel, assetName } from '../../lib/search.js';
 import { useDismiss } from '../../components/use_dismiss.js';
 import type { ControlProps } from './fields.js';
 import { Input } from './fields.js';
+import { Icon } from '../../components/icon.js';
+import { FixedIncomeDialog } from '../registers/fixed_income_dialog.js';
 
 /**
  * T-10 · O ativo do lançamento.
@@ -68,6 +70,7 @@ export const AssetPicker = ({
   const [active, setActive] = useState(0);
   const [results, setResults] = useState<readonly SearchAsset[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const listId = useId();
 
@@ -168,9 +171,9 @@ export const AssetPicker = ({
 
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute top-0 left-3 flex h-control items-center text-ink-3"
+        className="pointer-events-none absolute top-0 left-3 flex h-[38px] items-center text-ink-3"
       >
-        ⌕
+        <Icon name="search" />
       </span>
 
       {value === null ? null : (
@@ -229,7 +232,33 @@ export const AssetPicker = ({
               </li>
             ))
           )}
+          <li role="presentation" className="mt-1 border-t border-line pt-1">
+            <button
+              type="button"
+              tabIndex={-1}
+              className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-[0.8125rem] text-accent hover:bg-panel-2"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                setOpen(false);
+                setRegistering(true);
+              }}
+            >
+              <Icon name="plus" />
+              Cadastrar título de renda fixa
+            </button>
+          </li>
         </ul>
+      ) : null}
+
+      {registering ? (
+        <FixedIncomeDialog
+          onClose={() => setRegistering(false)}
+          onCreated={(asset) => {
+            setRegistering(false);
+            setQuery(asset.name);
+            onChange({ id: asset.id, label: asset.name, name: asset.name, held: null });
+          }}
+        />
       ) : null}
     </div>
   );

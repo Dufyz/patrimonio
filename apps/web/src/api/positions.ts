@@ -15,7 +15,9 @@ export type PositionsRequest = {
   readonly portfolioId: string;
   readonly groupBy: PositionGroupBy;
   readonly search: string;
-  readonly categoryId: string | null;
+  /** Qualquer uma delas; vazio não filtra. */
+  readonly categoryIds: readonly string[];
+  readonly institutionIds: readonly string[];
 };
 
 export const positionsQuery = (input: PositionsRequest): URLSearchParams => {
@@ -24,7 +26,11 @@ export const positionsQuery = (input: PositionsRequest): URLSearchParams => {
   params.set('portfolio_id', input.portfolioId);
   params.set('group_by', input.groupBy);
   if (input.search.trim() !== '') params.set('search', input.search.trim());
-  if (input.categoryId !== null) params.set('category_id', input.categoryId);
+  if (input.categoryIds.length > 0)
+    params.set('category_id', input.categoryIds.join(','));
+  if (input.institutionIds.length > 0) {
+    params.set('institution_id', input.institutionIds.join(','));
+  }
 
   return params;
 };

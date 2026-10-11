@@ -3,7 +3,6 @@ import type {
   Settings,
   SettingsAlertRule,
   SettingsBackup,
-  SettingsCategory,
 } from '@patrimonio/contracts';
 
 /**
@@ -16,8 +15,6 @@ import type {
 export const SECTIONS = [
   { id: 'carteiras', label: 'Carteiras' },
   { id: 'alertas', label: 'Alertas' },
-  { id: 'categorias', label: 'Categorias de ativo' },
-  { id: 'instituicoes', label: 'Instituições' },
   { id: 'mercado', label: 'Dados de mercado' },
   { id: 'lancamentos', label: 'Lançamentos' },
   { id: 'exibicao', label: 'Exibição' },
@@ -37,7 +34,7 @@ export const plural = (count: number, one: string, many: string): string =>
   `${count} ${count === 1 ? one : many}`;
 
 /* -------------------------------------------------------------------------- */
-/* Carteiras, categorias e instituições: o que impede excluir                  */
+/* Carteira: o que impede excluir                                             */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -51,24 +48,6 @@ export const portfolioHold = (blocking: {
   blocking.transactions === 0
     ? null
     : `${plural(blocking.transactions, 'lançamento', 'lançamentos')} · ${plural(blocking.assets, 'ativo', 'ativos')}`;
-
-export const institutionHold = portfolioHold;
-
-export const categoryHold = (
-  category: Pick<SettingsCategory, 'assets' | 'strategies' | 'children'>,
-): string | null => {
-  const parts = [
-    category.children > 0
-      ? plural(category.children, 'categoria dentro', 'categorias dentro')
-      : null,
-    category.assets > 0 ? plural(category.assets, 'ativo', 'ativos') : null,
-    category.strategies > 0
-      ? plural(category.strategies, 'estratégia', 'estratégias')
-      : null,
-  ].filter((part): part is string => part !== null);
-
-  return parts.length === 0 ? null : parts.join(' · ');
-};
 
 export const portfolioCount = (count: number): string =>
   plural(count, 'carteira', 'carteiras');
@@ -191,77 +170,6 @@ export const sortAlerts = (rules: readonly SettingsAlertRule[]): SettingsAlertRu
 };
 
 /* -------------------------------------------------------------------------- */
-/* Categorias                                                                 */
-/* -------------------------------------------------------------------------- */
-
-const B3_TYPE_LABEL: Readonly<Record<string, string>> = {
-  stock: 'ação ou unit',
-  fii: 'fundo imobiliário',
-  etf: 'ETF',
-  bdr: 'BDR',
-  treasury: 'Tesouro',
-  cash: 'saldo em conta',
-};
-
-const INDEXER_LABEL: Readonly<Record<string, string>> = {
-  cdi_pct: 'CDI ou Selic',
-  selic_plus: 'CDI ou Selic',
-  ipca_plus: 'IPCA',
-  prefixed: 'prefixado',
-};
-
-/**
- * A regra automática em palavras: `Tipo B3: ação ou unit`, `Indexador IPCA`.
- * As chaves que a regra pode olhar são fechadas (L-03), então o que não for
- * delas é descartado em vez de impresso cru.
- */
-export const autoRuleText = (rule: Record<string, unknown> | null): string => {
-  if (rule === null) return '—';
-
-  const parts: string[] = [];
-  const b3 = rule['b3_type'];
-  const indexer = rule['indexer'];
-  const origin = rule['origin'];
-  const sector = rule['sector'];
-
-  if (typeof b3 === 'string') parts.push(`Tipo B3: ${B3_TYPE_LABEL[b3] ?? b3}`);
-  if (typeof indexer === 'string')
-    parts.push(`Indexador ${INDEXER_LABEL[indexer] ?? indexer}`);
-  if (origin === 'manual') parts.push('Cadastrado à mão');
-  if (origin === 'market') parts.push('Da base de mercado');
-  if (typeof sector === 'string') parts.push(`Setor: ${sector}`);
-
-  return parts.length === 0 ? '—' : parts.join(' · ');
-};
-
-export type CategoryGroup = {
-  readonly group: SettingsCategory;
-  readonly children: readonly SettingsCategory[];
-};
-
-/** Grupos de topo, cada um com as categorias de dentro, na ordem do cadastro. */
-export const groupCategories = (
-  categories: readonly SettingsCategory[],
-): CategoryGroup[] => {
-  const bySort = (a: SettingsCategory, b: SettingsCategory): number =>
-    a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'pt-BR');
-
-  return categories
-    .filter((category) => category.parent_id === null)
-    .sort(bySort)
-    .map((group) => ({
-      group,
-      children: categories
-        .filter((category) => category.parent_id === group.id)
-        .sort(bySort),
-    }));
-};
-
-/* -------------------------------------------------------------------------- */
-/* Instituições                                                               */
-/* -------------------------------------------------------------------------- */
-
-/* -------------------------------------------------------------------------- */
 /* Dados de mercado                                                           */
 /* -------------------------------------------------------------------------- */
 
@@ -377,6 +285,4 @@ export const backupSummary = (backup: SettingsBackup): BackupSummary => {
 
 /** Settings pode estar vazio, e a tela diz isso em vez de abrir sem seção. */
 export const isEmptyInstallation = (settings: Settings): boolean =>
-  settings.portfolios.length === 0 &&
-  settings.categories.length === 0 &&
-  settings.institutions.length === 0;
+  settings.portfolios.length === 0;

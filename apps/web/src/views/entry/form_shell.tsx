@@ -38,7 +38,11 @@ export const FormShell = ({
 }): React.ReactElement => (
   <form
     noValidate
-    className="flex flex-col gap-4"
+    // `contents`: o formulário não gera caixa, e o rodapé gruda no fundo do corpo
+    // rolável do modal em vez de ficar preso ao fim do formulário. O `bottom`
+    // negativo cancela o respiro (`py-[18px]`) do corpo: `sticky` respeita o
+    // padding do contêiner de rolagem e, com `bottom-0`, pararia 18 px acima.
+    className="contents"
     onSubmit={(event) => event.preventDefault()}
     onKeyDown={submitKeys(onSave, onSaveAgain)}
   >
@@ -48,7 +52,7 @@ export const FormShell = ({
       <Callout tone="error">{error}</Callout>
     )}
 
-    <div className="-mx-5 -mb-4 flex flex-wrap items-center justify-between gap-3 rounded-b-panel border-t border-line bg-panel-2 px-5 py-3">
+    <div className="sticky -bottom-[18px] z-10 -mx-5 -mb-[18px] flex flex-wrap items-center justify-between gap-3 border-t border-line bg-panel-2 px-5 py-3.5">
       <div className="flex items-center gap-2">
         {destructive}
         {onSaveAgain === undefined ? null : (

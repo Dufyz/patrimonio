@@ -48,8 +48,8 @@ type Filter = Parameters<ReturnType<typeof createStatementRepository>['page']>[0
 
 const filter = (overrides: Partial<Filter> = {}): Filter => ({
   portfolioId: CARTEIRA,
-  institutionId: null,
-  group: null,
+  institutionIds: [] as readonly string[],
+  groups: [] as readonly ('buy' | 'sell' | 'payout' | 'cash' | 'event')[],
   search: null,
   from: '2026-09-01',
   to: '2026-10-31',
@@ -197,7 +197,7 @@ describe('resumo, pastilhas e subtotais', () => {
   });
 
   it('escolher um tipo muda o resumo e a tabela, mas não as pastilhas', async () => {
-    const view = await page({ group: 'payout' });
+    const view = await page({ groups: ['payout'] });
     const counts = Object.fromEntries(view.facets.map((f) => [f.group, f.count]));
 
     expect(view.total).toBe(4);
@@ -268,7 +268,7 @@ describe('resumo, pastilhas e subtotais', () => {
          ${CORRETORA}, '0', '0', '500.00', '-500.00')
     `;
 
-    const view = await page({ group: 'cash' });
+    const view = await page({ groups: ['cash'] });
 
     expect(view.summary.withdrawals).toBe('500.00');
     expect(view.summary.deposits).toBe('11400.00');
@@ -313,7 +313,7 @@ describe('filtros combináveis', () => {
   });
 
   it('filtra por instituição sem encolher a lista de instituições', async () => {
-    const view = await page({ institutionId: TESOURO });
+    const view = await page({ institutionIds: [TESOURO] });
 
     expect(view.rows.map((row) => row.ticker)).toEqual(['TESOURO-IPCA-2045']);
     expect(view.institutions.map((item) => item.name)).toEqual([
@@ -322,8 +322,16 @@ describe('filtros combináveis', () => {
     ]);
   });
 
+  it('vários tipos e várias instituições valem como "qualquer um"', async () => {
+    const tipos = await page({ groups: ['buy', 'payout'] });
+    expect(tipos.rows.every((row) => ['buy', 'payout'].includes(row.kind))).toBe(true);
+
+    const todas = await page({ institutionIds: [CORRETORA, TESOURO] });
+    expect(todas.rows.length).toBe((await page({})).rows.length);
+  });
+
   it('combina tipo, instituição e busca', async () => {
-    const view = await page({ group: 'buy', institutionId: CORRETORA, search: 'wege' });
+    const view = await page({ groups: ['buy'], institutionIds: [CORRETORA], search: 'wege' });
 
     expect(view.rows.map((row) => row.id)).toEqual([id(3)]);
     expect(view.summary.buys).toBe('3120.00');
@@ -350,7 +358,7 @@ describe('filtros combináveis', () => {
 
 describe('escopo e "ampliar o período"', () => {
   it('diz quantos lançamentos o escopo tem e quando começou, sem filtro', async () => {
-    const view = await page({ group: 'sell', search: 'xyz' });
+    const view = await page({ groups: ['sell'], search: 'xyz' });
 
     expect(view.scope.entries_total).toBe(13);
     expect(view.scope.first_trade_date).toBe('2026-03-02');
@@ -363,7 +371,7 @@ describe('escopo e "ampliar o período"', () => {
   });
 
   it('respeita os outros filtros ao procurar o que há antes', async () => {
-    const view = await page({ group: 'sell' });
+    const view = await page({ groups: ['sell'] });
 
     // Não existe venda antes de setembro: o link não pode oferecer agosto.
     expect(view.earlier).toBeNull();

@@ -286,28 +286,37 @@ describe('tela de Movimentações', () => {
     expect(within(line).getAllByText('—').length).toBeGreaterThanOrEqual(3);
   });
 
-  it('as pastilhas mostram a contagem e escondem Eventos quando não há', async () => {
-    show();
-    const group = await screen.findByRole('group', { name: 'Filtrar por tipo' });
-    expect(within(group).getByRole('button', { name: /Todos\s*10/ })).toBeInTheDocument();
-    expect(
-      within(group).getByRole('button', { name: /Proventos\s*4/ }),
-    ).toBeInTheDocument();
-    expect(
-      within(group).getByRole('button', { name: /Aportes e resgates\s*2/ }),
-    ).toBeInTheDocument();
-    expect(within(group).queryByRole('button', { name: /Eventos/ })).toBeNull();
-  });
-
-  it('o filtro de tipo vai para a api, e não para um filtro local', async () => {
+  it('o filtro de tipo é uma lista com a contagem de cada tipo, sem Eventos vazios', async () => {
     const user = userEvent.setup();
     show();
     await screen.findByText('Outubro 2026');
 
-    await user.click(screen.getByRole('button', { name: /Compras\s*3/ }));
+    await user.click(screen.getByRole('button', { name: /^Tipo/ }));
+    const list = screen.getByRole('group', { name: 'Tipo' });
+    expect(
+      within(list).getByRole('checkbox', { name: /Proventos\s*4/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(list).getByRole('checkbox', { name: /Aportes e resgates\s*2/ }),
+    ).toBeInTheDocument();
+    expect(within(list).queryByRole('checkbox', { name: /Eventos/ })).toBeNull();
+  });
 
+  it('o filtro de tipo vai para a api, e vários tipos viajam juntos', async () => {
+    const user = userEvent.setup();
+    show();
+    await screen.findByText('Outubro 2026');
+
+    await user.click(screen.getByRole('button', { name: /^Tipo/ }));
+    const list = screen.getByRole('group', { name: 'Tipo' });
+    await user.click(within(list).getByRole('checkbox', { name: /Compras\s*3/ }));
     await waitFor(() =>
-      expect(gets().some((url) => url.includes('group=buy'))).toBe(true),
+      expect(gets().some((url) => /group=buy(&|$)/.test(url))).toBe(true),
+    );
+
+    await user.click(within(list).getByRole('checkbox', { name: /Proventos\s*4/ }));
+    await waitFor(() =>
+      expect(gets().some((url) => url.includes('group=buy%2Cpayout'))).toBe(true),
     );
     expect(gets().at(-1)).toContain('portfolio_id=');
   });
@@ -528,14 +537,15 @@ describe('tela de Movimentações', () => {
     ).toBeInTheDocument();
   });
 
-  it('com mais de uma página, o rodapé navega e pede a página certa', async () => {
-    const user = userEvent.setup();
-    answer(resource({ page: { number: 1, limit: 50, total: 120 } }));
+  it('o extrato traz o período inteiro de uma vez, sem paginação nem "carregar mais"', async () => {
+    answer(resource({ page: { number: 1, limit: 2000, total: 120 } }));
     show();
 
-    expect(await screen.findByText(/Página 1 de 3/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Próxima' }));
-    await waitFor(() => expect(gets().some((url) => url.includes('page=2'))).toBe(true));
+    await screen.findByText('Outubro 2026');
+    expect(screen.queryByRole('navigation', { name: 'Páginas' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Próxima' })).toBeNull();
+    expect(gets().some((url) => url.includes('limit=2000'))).toBe(true);
+    expect(gets().every((url) => url.includes('page=1'))).toBe(true);
   });
 
   it('api fora do ar vira erro nomeado, não tabela vazia', async () => {

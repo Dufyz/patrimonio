@@ -12,8 +12,8 @@ import { request } from './client.js';
  */
 export type StatementRequest = {
   readonly portfolioId: string;
-  readonly institutionId: string | null;
-  readonly group: StatementGroup | null;
+  readonly institutionIds: readonly string[];
+  readonly groups: readonly StatementGroup[];
   readonly search: string;
   readonly from: string | null;
   readonly to: string | null;
@@ -25,8 +25,10 @@ export const statementQuery = (input: StatementRequest): URLSearchParams => {
   const params = new URLSearchParams();
 
   params.set('portfolio_id', input.portfolioId);
-  if (input.institutionId !== null) params.set('institution_id', input.institutionId);
-  if (input.group !== null) params.set('group', input.group);
+  if (input.institutionIds.length > 0) {
+    params.set('institution_id', input.institutionIds.join(','));
+  }
+  if (input.groups.length > 0) params.set('group', input.groups.join(','));
   if (input.search.trim() !== '') params.set('search', input.search.trim());
   if (input.from !== null) params.set('from', input.from);
   if (input.to !== null) params.set('to', input.to);

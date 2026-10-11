@@ -25,6 +25,7 @@ import type {
   SearchServerState,
   SearchTarget,
 } from '../lib/search.js';
+import { Icon, iconFor } from './icon.js';
 import { Money } from './number.js';
 import { Kbd, Label } from './primitives.js';
 import { useDismiss } from './use_dismiss.js';
@@ -217,11 +218,11 @@ const PaletteDialog = ({
         role="dialog"
         aria-modal="true"
         aria-label="Busca global"
-        className="flex max-h-[32rem] w-full max-w-xl flex-col overflow-hidden rounded-panel border border-line bg-panel shadow-xl"
+        className="flex max-h-[min(35rem,calc(100dvh-12vh-2rem))] w-full max-w-[40rem] flex-col overflow-hidden rounded-xl border border-line-2 bg-panel shadow-dialog"
       >
-        <div className="flex items-center gap-3 border-b border-line px-4 py-3">
-          <span aria-hidden="true" className="text-ink-3">
-            ⌕
+        <div className="flex items-center gap-2.5 border-b border-line px-4 py-3.5">
+          <span aria-hidden="true" className="text-ink">
+            <Icon name="search" />
           </span>
           <input
             ref={input}
@@ -239,7 +240,9 @@ const PaletteDialog = ({
             autoComplete="off"
             spellCheck={false}
             value={query}
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-ink-3"
+            className={`min-w-0 flex-1 bg-transparent text-[0.9375rem] caret-accent outline-none focus-visible:outline-none! placeholder:text-ink-3 ${
+              query === '' ? '' : 'tabular'
+            }`}
             onChange={(event) => {
               setQuery(event.target.value);
               setActiveId(null);
@@ -251,7 +254,7 @@ const PaletteDialog = ({
               {FILTER_LABELS[filter]}
             </span>
           )}
-          <span className="rounded-full border border-line px-2.5 py-0.5 text-[0.75rem] font-medium">
+          <span className="inline-flex min-h-6 items-center rounded-full border border-line-2 px-3 text-[0.71875rem] font-medium">
             {scopeLabel}
           </span>
           <Kbd>esc</Kbd>
@@ -261,11 +264,15 @@ const PaletteDialog = ({
           id={listId}
           role="listbox"
           aria-label="Resultados"
-          className="min-h-0 flex-1 overflow-y-auto px-2 py-1"
+          className="min-h-0 flex-1 overflow-y-auto"
         >
           {model.sections.map((section) => (
-            <section key={section.group} aria-label={section.title} className="py-1">
-              <div className="px-2 pt-1 pb-1">
+            <section
+              key={section.group}
+              aria-label={section.title}
+              className="flex flex-col gap-px px-2 py-1.5"
+            >
+              <div className="px-2.5 pt-1.5 pb-1">
                 <Label>{section.title}</Label>
               </div>
               {section.items.map((item) => (
@@ -273,6 +280,7 @@ const PaletteDialog = ({
                   key={item.id}
                   id={optionId(listId, item.id)}
                   item={item}
+                  query={query.trim()}
                   active={item.id === active?.id}
                   onHover={() => item.disabled === null && setActiveId(item.id)}
                   onChoose={() => choose(item)}
@@ -321,6 +329,25 @@ const PaletteDialog = ({
   );
 };
 
+/** O começo que casa com o texto digitado vem em negrito: `**ITU**B4`. */
+const Highlight = ({
+  text,
+  query,
+}: {
+  readonly text: string;
+  readonly query: string;
+}): React.ReactElement => {
+  if (query !== '' && text.toLowerCase().startsWith(query.toLowerCase())) {
+    return (
+      <>
+        <b className="font-semibold">{text.slice(0, query.length)}</b>
+        {text.slice(query.length)}
+      </>
+    );
+  }
+  return <>{text}</>;
+};
+
 const optionId = (listId: string, itemId: string): string =>
   `${listId}-${itemId.replace(/[^A-Za-z0-9_-]/g, '_')}`;
 
@@ -330,7 +357,9 @@ const Option = ({
   active,
   onHover,
   onChoose,
+  query,
 }: {
+  readonly query: string;
   readonly id: string;
   readonly item: SearchItem;
   readonly active: boolean;
@@ -342,7 +371,7 @@ const Option = ({
     role="option"
     aria-selected={active}
     aria-disabled={item.disabled !== null ? true : undefined}
-    className={`flex h-9 items-center gap-3 rounded-control px-2 text-sm ${
+    className={`flex min-h-[38px] items-center justify-between gap-3 rounded-[6px] px-2.5 py-2 text-[0.84375rem] ${
       item.disabled !== null
         ? 'cursor-not-allowed text-ink-3'
         : active
@@ -355,18 +384,18 @@ const Option = ({
     onMouseDown={(event) => event.preventDefault()}
     onClick={onChoose}
   >
-    <span aria-hidden="true" className="w-4 shrink-0 text-center text-ink-3">
-      {item.glyph}
+    <span aria-hidden="true" className="flex shrink-0 justify-center text-ink-2">
+      <Icon name={iconFor(item.glyph)} />
     </span>
     <span className="min-w-0 flex-1 truncate">
-      <span className={item.group === 'assets' ? 'tabular font-semibold' : ''}>
-        {item.label}
+      <span className={item.group === 'assets' ? 'tabular' : ''}>
+        <Highlight text={item.label} query={query} />
       </span>
       {item.detail === null ? null : (
         <>
           {/* Espaço de verdade, e não só margem: o leitor de tela junta os dois
               textos, e "ITUB4Itaú" não é uma palavra. */}{' '}
-          <span className="ml-1 text-[0.8125rem] text-ink-3">{item.detail}</span>
+          <span className="ml-1.5 text-xs text-ink-3">{item.detail}</span>
         </>
       )}
     </span>

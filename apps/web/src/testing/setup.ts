@@ -41,3 +41,16 @@ if (typeof globalThis.ResizeObserver !== 'function') {
     },
   });
 }
+
+/**
+ * O Radix (menus, diálogos, seletores) usa três coisas que o jsdom não traz:
+ * captura de ponteiro, `scrollIntoView` e `DOMRect` de elemento. Os stubs não
+ * fingem comportamento — só deixam o código do Radix rodar até o fim.
+ */
+const prototype = globalThis.Element?.prototype;
+if (prototype !== undefined) {
+  prototype.hasPointerCapture ??= () => false;
+  prototype.setPointerCapture ??= () => {};
+  prototype.releasePointerCapture ??= () => {};
+  prototype.scrollIntoView ??= () => {};
+}

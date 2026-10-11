@@ -77,6 +77,12 @@ export type {
 export { parseAssetFromDB } from './asset/asset.parsers.js';
 
 // ─── Categoria ───────────────────────────────────────────────────────────────
+export {
+  CATEGORY_CATALOG,
+  CATEGORY_IDS,
+  fixedIncomeCategoryId,
+} from './category/category.catalog.js';
+export type { CatalogCategory } from './category/category.catalog.js';
 export { classifyAsset, isColorToken, isRuleKey } from './category/category.entities.js';
 export type { Category, ClassifiableAsset } from './category/category.entities.js';
 export { parseCategoryFromDB } from './category/category.parsers.js';

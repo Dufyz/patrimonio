@@ -1,6 +1,6 @@
 import type { StatementResource, StatementRow } from '@patrimonio/contracts';
 import type { DateOnly } from '@patrimonio/domain';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { fetchStatement } from '../api/statement.js';
@@ -10,9 +10,16 @@ import { useEntry } from '../components/entry_provider.js';
 import { Money, MoneyChange, Quantity } from '../components/number.js';
 import { Menu, Modal } from '../components/overlay.js';
 import { KeepPrevious } from '../components/pending.js';
-import { PeriodControl } from '../components/period_control.js';
+import { FilterDropdown } from '../components/filter_dropdown.js';
+import { PeriodRangeButton } from '../components/period_control.js';
 import { usePreferences } from '../components/preferences.js';
-import { Button, Chip, IconButton, Label, Panel } from '../components/primitives.js';
+import {
+  Button,
+  IconButton,
+  Label,
+  Panel,
+  SearchInput,
+} from '../components/primitives.js';
 import { useViewportWidth } from '../components/use_element_width.js';
 import { assetSlug } from '../lib/asset_page.js';
 import { formatRange, resolvePeriod } from '../lib/period.js';
@@ -22,18 +29,19 @@ import {
   CSV_BOM,
   GROUP_LABELS,
   RECALCULATION_POLL_MS,
-  STATEMENT_PAGE_SIZE,
+  STATEMENT_LIMIT,
   assetLabel,
   csvFilename,
   effectView,
   entriesLabel,
-  groupFromParam,
   groupToParam,
+  groupsFromParam,
+  listFromParam,
+  listToParam,
   hasMarketColumns,
   monthItems,
   monthName,
   monthTitle,
-  pageFromParam,
   periodFromParam,
   periodToParam,
   pruneSelection,
@@ -51,6 +59,8 @@ import {
 } from '../lib/statement.js';
 import { duplicateRequest } from '../lib/entry.js';
 import { useResource } from '../lib/use_resource.js';
+import { Icon } from '../components/icon.js';
+import { Checkbox } from '../components/ui/checkbox.js';
 
 /**
  * T-04 · Movimentações.
@@ -101,11 +111,12 @@ export const StatementScreen = ({
   const width = useViewportWidth(1440);
 
   const today = todayIso();
-  const group = groupFromParam(params.get('grupo'));
+  const rawGroup = params.get('grupo');
+  const rawInstitution = params.get('instituicao');
+  const groups = useMemo(() => groupsFromParam(rawGroup), [rawGroup]);
+  const institutionIds = useMemo(() => listFromParam(rawInstitution), [rawInstitution]);
   const period = periodFromParam(params.get('periodo'));
   const search = params.get('busca') ?? '';
-  const institutionId = params.get('instituicao');
-  const pageNumber = pageFromParam(params.get('pagina'));
 
   const [draft, setDraft] = useState(search);
   const [inception, setInception] = useState<DateOnly | null>(null);
@@ -117,17 +128,15 @@ export const StatementScreen = ({
 
   const range = resolvePeriod(period, today, inception);
 
-  /** Mudar qualquer filtro volta para a primeira página, e o padrão some da URL. */
+  /** O padrão nunca é escrito na URL. */
   const update = useCallback(
     (changes: Readonly<Record<string, string | null>>, replace = false): void => {
       setParams(
         (current) => {
           const next = new URLSearchParams(current);
-          if (!('pagina' in changes)) next.delete('pagina');
           for (const [key, value] of Object.entries(changes)) {
-            if (value === null || value === '' || (key === 'pagina' && value === '1')) {
-              next.delete(key);
-            } else next.set(key, value);
+            if (value === null || value === '') next.delete(key);
+            else next.set(key, value);
           }
           return next;
         },
@@ -150,26 +159,17 @@ export const StatementScreen = ({
       fetchStatement(
         {
           portfolioId,
-          institutionId,
-          group,
+          institutionIds,
+          groups,
           search,
           from: range.from,
           to: range.to,
-          page: pageNumber,
-          limit: STATEMENT_PAGE_SIZE,
+          page: 1,
+          limit: STATEMENT_LIMIT,
         },
         signal,
       ),
-    [
-      portfolioId,
-      institutionId,
-      group,
-      search,
-      range.from,
-      range.to,
-      pageNumber,
-      entry.version,
-    ],
+    [portfolioId, institutionIds, groups, search, range.from, range.to, entry.version],
   );
 
   const data: StatementResource | null =
@@ -297,14 +297,14 @@ export const StatementScreen = ({
     URL.revokeObjectURL(url);
   };
 
-  const filtered = group !== null || search !== '' || institutionId !== null;
+  const filtered = groups.length > 0 || search !== '' || institutionIds.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-0.5">
-          <h1 className="text-[1.375rem] leading-7 font-semibold">Movimentações</h1>
-          <p className="text-[0.8125rem] text-ink-3">
+          <h1 className="text-screen-title leading-7 font-semibold">Movimentações</h1>
+          <p className="text-xs text-ink-3">
             {scopeLabel}
             {data === null || data.scope.first_trade_date === null
               ? ''
@@ -320,9 +320,14 @@ export const StatementScreen = ({
             aria-pressed={valuesHidden}
             onClick={toggleHidden}
           >
-            {valuesHidden ? '⦰' : '◉'}
+            <Icon name={valuesHidden ? 'eye-off' : 'eye'} />
           </IconButton>
-          <Button variant="primary" shortcut="N" onClick={() => entry.openEntry()}>
+          <Button
+            variant="primary"
+            icon="plus"
+            shortcut="N"
+            onClick={() => entry.openEntry()}
+          >
             Lançamento
           </Button>
         </Toolbar>
@@ -377,93 +382,104 @@ export const StatementScreen = ({
       />
 
       <Panel>
-        <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
-          <PeriodControl
-            value={period}
-            onChange={onPeriodChange}
-            today={today}
-            inception={inception}
-          />
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line px-4 py-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-2">
+            <SearchInput
+              value={draft}
+              label="Buscar lançamento"
+              placeholder="Ativo"
+              className="w-40 shrink-0"
+              onChange={setDraft}
+            />
 
-          {data === null ? null : (
-            <div
-              role="group"
-              aria-label="Filtrar por tipo"
-              className="flex flex-wrap gap-2"
-            >
-              <Chip
-                selected={group === null}
-                count={data.facets_total}
-                onClick={() => update({ grupo: null })}
-              >
-                Todos
-              </Chip>
-              {data.facets
-                .filter(
-                  (facet) =>
-                    facet.group !== 'event' || facet.count > 0 || group === 'event',
-                )
-                .map((facet) => (
-                  <Chip
-                    key={facet.group}
-                    selected={group === facet.group}
-                    count={facet.count}
+            <PeriodRangeButton
+              value={period}
+              onChange={onPeriodChange}
+              today={today}
+              inception={inception}
+            />
+
+            {data === null ? null : (
+              <>
+                <FilterDropdown
+                  label="Tipo"
+                  selected={groups.map((group) => groupToParam(group))}
+                  options={data.facets
+                    .filter(
+                      (facet) =>
+                        facet.group !== 'event' ||
+                        facet.count > 0 ||
+                        groups.includes('event'),
+                    )
+                    .map((facet) => ({
+                      id: groupToParam(facet.group),
+                      label: GROUP_LABELS[facet.group],
+                      count: facet.count,
+                    }))}
+                  onChange={(ids) => update({ grupo: listToParam(ids) })}
+                />
+                <FilterDropdown
+                  label="Instituição"
+                  selected={institutionIds}
+                  options={data.institutions.map((institution) => ({
+                    id: institution.id,
+                    label: institution.name,
+                    count: institution.count,
+                  }))}
+                  onChange={(ids) => update({ instituicao: listToParam(ids) })}
+                />
+                {filtered ? (
+                  <Button
+                    variant="ghost"
+                    aria-label="Limpar todos os filtros"
                     onClick={() =>
-                      update({
-                        grupo: group === facet.group ? null : groupToParam(facet.group),
-                      })
+                      update({ grupo: null, busca: null, instituicao: null })
                     }
                   >
-                    {GROUP_LABELS[facet.group]}
-                  </Chip>
-                ))}
-            </div>
-          )}
+                    Limpar
+                  </Button>
+                ) : null}
+              </>
+            )}
+          </div>
 
-          <input
-            type="search"
-            value={draft}
-            aria-label="Buscar lançamento"
-            placeholder="Ativo"
-            className="h-control w-40 rounded-control border border-line bg-panel px-3 text-sm"
-            onChange={(event) => setDraft(event.target.value)}
+          <IconButton
+            label="Exportar CSV"
+            icon="export"
+            disabled={data === null || data.rows.length === 0}
+            onClick={() =>
+              data !== null &&
+              exportRows(selectedRows.length > 0 ? selectedRows : data.rows)
+            }
           />
-
-          {data === null || data.institutions.length < 2 ? null : (
-            <select
-              aria-label="Instituição"
-              value={institutionId ?? ''}
-              className="h-control rounded-control border border-line bg-panel px-2 text-sm"
-              onChange={(event) => update({ instituicao: event.target.value })}
-            >
-              <option value="">Todas as instituições</option>
-              {data.institutions.map((institution) => (
-                <option key={institution.id} value={institution.id}>
-                  {institution.name} · {institution.count}
-                </option>
-              ))}
-            </select>
-          )}
         </div>
 
         {selectedRows.length === 0 ? null : (
           <div
             role="toolbar"
             aria-label="Ações em lote"
-            className="flex flex-wrap items-center justify-between gap-3 bg-accent-soft px-4 py-2"
+            className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-accent-soft px-4 py-2"
           >
-            <p className="text-sm">
+            <p className="text-[0.8125rem]">
               <strong className="font-semibold">
                 {selectedRows.length}{' '}
                 {selectedRows.length === 1 ? 'selecionado' : 'selecionados'}
               </strong>
-              <span className="text-ink-3"> · {selectionKinds(selectedRows)}</span>
+              <span className="tabular text-xs text-ink-3">
+                {' '}
+                · {selectionKinds(selectedRows)}
+              </span>
             </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button disabled={busy} onClick={() => setMoving(selectedRows)}>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                icon="arrow-right"
+                disabled={busy}
+                onClick={() => setMoving(selectedRows)}
+              >
                 Mover para carteira
               </Button>
               <Button
+                icon="copy"
                 disabled={busy || duplicating === null}
                 title={
                   duplicating === null
@@ -474,11 +490,9 @@ export const StatementScreen = ({
               >
                 Duplicar
               </Button>
-              <Button disabled={busy} onClick={() => exportRows(selectedRows)}>
-                Exportar CSV
-              </Button>
               <Button
-                variant="destructive"
+                icon="trash"
+                className="text-negative hover:text-negative"
                 disabled={busy}
                 onClick={() => void removeRows(selectedRows)}
               >
@@ -491,7 +505,7 @@ export const StatementScreen = ({
           </div>
         )}
 
-        <div className="py-1">
+        <div>
           {resource.state.kind === 'error' ? (
             <p role="alert" className="px-4 py-6 text-sm text-negative">
               {resource.state.error.message}
@@ -552,21 +566,14 @@ export const StatementScreen = ({
                 </button>
               </div>
             )}
-
-            <Pagination
-              page={data.page.number}
-              limit={data.page.limit}
-              total={data.page.total}
-              onChange={(next) => update({ pagina: String(next) })}
-            />
           </>
         )}
-      </Panel>
 
-      <footer className="px-1 text-[0.75rem] text-ink-3">
-        A coluna Efeito mostra o que o lançamento mudou: preço médio, resultado realizado
-        ou isenção.
-      </footer>
+        <footer className="border-t border-line px-4 py-3 text-xs text-ink-3">
+          A coluna Efeito mostra o que o lançamento mudou: preço médio, resultado
+          realizado ou isenção.
+        </footer>
+      </Panel>
 
       <MoveDialog
         rows={moving}
@@ -645,12 +652,7 @@ const StatementTable = ({
   readonly onOpenAsset: (row: StatementRow) => void;
   readonly onClear: () => void;
 }): React.ReactElement => {
-  const master = useRef<HTMLInputElement>(null);
   const state = selectionState(data.rows, selected);
-
-  useEffect(() => {
-    if (master.current !== null) master.current.indeterminate = state === 'some';
-  }, [state]);
 
   // A prancha 18: coluna secundária some em etapas, a tabela não rola de lado.
   const showQuantity = width >= 1000;
@@ -678,20 +680,20 @@ const StatementTable = ({
   }
 
   const header =
-    'px-2.5 pb-2 text-label font-medium tracking-wide whitespace-nowrap text-ink-3 uppercase';
+    'px-3 py-[9px] tabular text-label font-medium tracking-[0.06em] whitespace-nowrap text-ink-3 uppercase';
 
   return (
     <table className="w-full table-auto border-collapse text-cell">
       <caption className="sr-only">Lançamentos do período</caption>
       <thead>
         <tr className="border-b border-line">
-          <th scope="col" className="w-9 pb-2 pl-4">
-            <input
-              ref={master}
-              type="checkbox"
+          <th scope="col" className="w-10 py-[9px] pr-0 pl-4">
+            <Checkbox
               aria-label="Selecionar todos os lançamentos da página"
-              checked={state === 'all'}
-              onChange={onToggleAll}
+              checked={
+                state === 'all' ? true : state === 'some' ? 'indeterminate' : false
+              }
+              onCheckedChange={onToggleAll}
             />
           </th>
           <th scope="col" className={`${header} text-left`}>
@@ -729,7 +731,7 @@ const StatementTable = ({
           <th scope="col" className={`${header} text-left`}>
             Efeito
           </th>
-          <th scope="col" className="w-8" />
+          <th scope="col" className="w-11" />
         </tr>
       </thead>
 
@@ -737,17 +739,17 @@ const StatementTable = ({
         const total = monthTotals.get(section.month);
         return (
           <tbody key={section.month}>
-            <tr className="bg-panel-2">
+            <tr className="border-b border-line bg-panel-2">
               <th
                 scope="colgroup"
                 colSpan={4}
-                className="h-(--row-height-group) px-4 text-left font-semibold"
+                className="py-(--row-pad) px-4 text-left font-semibold"
               >
                 {monthTitle(section.month)}
               </th>
               <td
                 colSpan={columns - 3}
-                className="tabular px-2.5 text-right text-[0.75rem] font-normal text-ink-3"
+                className="tabular px-4 text-right text-xs font-normal text-ink-3"
               >
                 {total === undefined
                   ? null
@@ -820,53 +822,69 @@ const StatementLine = ({
   const detail = typeDetail(row);
   const editable = row.kind !== 'corporate_event';
 
+  // Os atalhos que o menu anuncia: E edita, D duplica, ⌫ exclui, X marca.
+  const onKeyDown = (event: React.KeyboardEvent<HTMLTableRowElement>): void => {
+    if (event.target !== event.currentTarget || event.metaKey || event.ctrlKey) return;
+    const key = event.key.toLowerCase();
+    if (key === 'e' && editable) onEdit();
+    else if (key === 'd' && duplicateRequest(row) !== null) onDuplicate();
+    else if (key === 'x') onToggle();
+    else if (key === 'backspace' || key === 'delete') onDelete();
+    else return;
+    event.preventDefault();
+  };
+
   return (
     <tr
       data-row-id={row.id}
       aria-label={rowLabel(row)}
       aria-selected={checked}
-      className={`group border-b border-line/60 ${checked ? 'bg-accent-soft' : 'hover:bg-panel-2'}`}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      className={`group border-b border-line outline-offset-[-2px] ${checked ? 'bg-accent-soft' : 'hover:bg-panel-2'}`}
     >
-      <td className="h-(--row-height) pl-4">
-        <input
-          type="checkbox"
+      <td className="py-(--row-pad) pr-0 pl-4">
+        <Checkbox
           aria-label={`Selecionar ${rowLabel(row)}`}
           checked={checked}
-          onChange={onToggle}
+          onCheckedChange={onToggle}
         />
       </td>
-      <td className="tabular px-2.5 whitespace-nowrap" title={row.trade_date}>
+      <td
+        className="tabular px-3 py-(--row-pad) whitespace-nowrap"
+        title={row.trade_date}
+      >
         {formatShortDate(row.trade_date)}
       </td>
-      <td className="px-2.5 whitespace-nowrap">
+      <td className="px-3 py-(--row-pad) whitespace-nowrap">
         <span
-          className={`rounded-xs px-1.5 py-0.5 text-[0.75rem] font-medium ${KIND_PILL[row.kind]}`}
+          className={`inline-flex items-center rounded-[4px] px-2 py-0.5 text-[0.71875rem] font-medium ${KIND_PILL[row.kind]}`}
         >
           {typeLabel(row)}
         </span>
         {detail === null ? null : <span className="ml-2 text-ink-3">{detail}</span>}
       </td>
-      <td className="max-w-0 min-w-32 px-2.5 font-medium">
+      <td className="max-w-0 min-w-32 px-3 py-(--row-pad) font-medium">
         <span className="block truncate" title={row.asset_name ?? undefined}>
           {assetLabel(row)}
         </span>
       </td>
       {showQuantity ? (
-        <td className="px-2.5 text-right whitespace-nowrap">
+        <td className="px-3 py-(--row-pad) text-right whitespace-nowrap">
           {market ? <Quantity value={row.quantity} /> : <Dash />}
         </td>
       ) : null}
       {showPrice ? (
-        <td className="px-2.5 text-right whitespace-nowrap">
+        <td className="px-3 py-(--row-pad) text-right whitespace-nowrap">
           {market ? <Money value={row.unit_price} bare /> : <Dash />}
         </td>
       ) : null}
       {showFees ? (
-        <td className="px-2.5 text-right whitespace-nowrap">
+        <td className="px-3 py-(--row-pad) text-right whitespace-nowrap">
           {market && row.kind !== 'payout' ? <Money value={row.fees} bare /> : <Dash />}
         </td>
       ) : null}
-      <td className="px-2.5 text-right font-medium whitespace-nowrap">
+      <td className="px-3 py-(--row-pad) text-right font-medium whitespace-nowrap">
         {value.signed ? (
           <MoneyChange value={value.value} bare />
         ) : (
@@ -874,22 +892,23 @@ const StatementLine = ({
         )}
       </td>
       {showInstitution ? (
-        <td className="max-w-0 min-w-24 px-2.5 text-ink-2">
+        <td className="max-w-0 min-w-24 px-3 py-(--row-pad) text-ink-2">
           <span className="block truncate">{row.institution_name ?? '—'}</span>
         </td>
       ) : null}
-      <td className={`max-w-0 min-w-40 px-2.5 ${TONE_CLASS[effect.tone]}`}>
+      <td className={`max-w-0 min-w-40 px-3 py-(--row-pad) ${TONE_CLASS[effect.tone]}`}>
         <span className="block truncate" title={effect.text}>
           {effect.text}
         </span>
       </td>
-      <td className="px-1 opacity-0 focus-within:opacity-100 group-hover:opacity-100">
+      <td className="w-11 px-1.5 py-1">
         <Menu
           label={`Ações de ${rowLabel(row)}`}
           items={[
             {
               id: 'edit',
               label: 'Editar',
+              icon: <Icon name="pencil" />,
               shortcut: 'E',
               // Evento corporativo não se edita aqui.
               hint: editable ? undefined : 'Evento não é editado aqui',
@@ -899,15 +918,35 @@ const StatementLine = ({
             {
               id: 'duplicate',
               label: 'Duplicar',
+              icon: <Icon name="copy" />,
               shortcut: 'D',
               disabled: duplicateRequest(row) === null,
               onSelect: onDuplicate,
             },
-            { id: 'move', label: 'Mover para outra carteira', onSelect: onMove },
+            {
+              id: 'move',
+              label: 'Mover para outra carteira',
+              icon: <Icon name="arrow-right" />,
+              onSelect: onMove,
+            },
             ...(row.asset_id === null
               ? []
-              : [{ id: 'open_asset', label: 'Abrir ativo', onSelect: onOpenAsset }]),
-            { id: 'delete', label: 'Excluir', destructive: true, onSelect: onDelete },
+              : [
+                  {
+                    id: 'open_asset',
+                    label: 'Abrir ativo',
+                    icon: <Icon name="tag" />,
+                    onSelect: onOpenAsset,
+                  },
+                ]),
+            {
+              id: 'delete',
+              label: 'Excluir',
+              icon: <Icon name="trash" />,
+              shortcut: '⌫',
+              destructive: true,
+              onSelect: onDelete,
+            },
           ]}
         />
       </td>
@@ -916,40 +955,6 @@ const StatementLine = ({
 };
 
 /* -------------------------------------------------------------------------- */
-
-const Pagination = ({
-  page,
-  limit,
-  total,
-  onChange,
-}: {
-  readonly page: number;
-  readonly limit: number;
-  readonly total: number;
-  readonly onChange: (page: number) => void;
-}): React.ReactElement | null => {
-  const pages = Math.max(1, Math.ceil(total / limit));
-  if (pages === 1) return null;
-
-  return (
-    <nav
-      aria-label="Páginas"
-      className="flex items-center justify-between gap-3 border-t border-line px-4 py-2 text-[0.8125rem] text-ink-2"
-    >
-      <span>
-        Página {page} de {pages} · {entriesLabel(total)}
-      </span>
-      <span className="flex gap-2">
-        <Button disabled={page <= 1} onClick={() => onChange(page - 1)}>
-          Anterior
-        </Button>
-        <Button disabled={page >= pages} onClick={() => onChange(page + 1)}>
-          Próxima
-        </Button>
-      </span>
-    </nav>
-  );
-};
 
 /**
  * Excluir não pede confirmação: oferece desfazer. A confirmação protege de um

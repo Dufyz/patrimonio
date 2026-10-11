@@ -239,7 +239,7 @@ const resource = (overrides: Partial<AssetPageResource> = {}): AssetPageResource
 });
 
 describe('o estado em que a tela abre', () => {
-  it('distingue em carteira, zerado e sem fechamento nenhum', () => {
+  it('distingue em carteira, zerado e sem consolidação nenhuma', () => {
     // As três frases são diferentes, e dizer a errada manda a pessoa procurar
     // o problema no lugar errado (O-08).
     expect(assetState(resource())).toBe('held');

@@ -19,6 +19,13 @@ export type PositionDeps = {
   readonly usecases: { readonly listPositions: ReturnType<typeof listPositions> };
 };
 
+/** `a,b,c` → `['a','b','c']`, sem vazios. */
+const splitList = (raw: string | undefined): readonly string[] =>
+  (raw ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part !== '');
+
 export type PositionController = { readonly list: RequestHandler };
 
 export const createPositionController = (deps: PositionDeps): PositionController => ({
@@ -29,7 +36,8 @@ export const createPositionController = (deps: PositionDeps): PositionController
       portfolioId: query.portfolio_id,
       groupBy: query.group_by,
       search: query.search === undefined || query.search === '' ? null : query.search,
-      categoryId: query.category_id ?? null,
+      categoryIds: splitList(query.category_id),
+      institutionIds: splitList(query.institution_id),
     });
 
     if (result.isFailure()) {

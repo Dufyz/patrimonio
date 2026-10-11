@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -55,39 +55,13 @@ describe('o seletor de instituição', () => {
     expect((campo as HTMLInputElement).value).toBe('XP INVESTIMENTOS');
   });
 
-  it('texto sem correspondência oferece criar, com o país', async () => {
-    const create = vi.fn().mockResolvedValue({ id: 'z', name: 'Interactive Brokers' });
-    const { campo, onChange } = montar({ create });
-
-    await userEvent.type(campo, 'Interactive Brokers');
-    await userEvent.click(screen.getByRole('button', { name: 'Criar “Interactive Brokers”' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Criar' }));
-
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith('z'));
-    expect(create).toHaveBeenCalledWith({ name: 'Interactive Brokers', country: 'US' });
-  });
-
-  it('país que não tem duas letras não chega à api', async () => {
-    const create = vi.fn();
-    const { campo } = montar({ create });
-
-    await userEvent.type(campo, 'Outro Banco');
-    await userEvent.click(screen.getByRole('button', { name: 'Criar “Outro Banco”' }));
-    const pais = screen.getByLabelText('País da instituição');
-    await userEvent.clear(pais);
-    await userEvent.type(pais, 'U');
-    await userEvent.click(screen.getByRole('button', { name: 'Criar' }));
-
-    expect(create).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert').textContent).toContain('duas letras');
-  });
-
-  it('nome que já existe não oferece criar', async () => {
+  it('texto sem correspondência diz que nada foi encontrado e não oferece criar', async () => {
     const { campo } = montar();
 
-    await userEvent.type(campo, 'btg pactual');
+    await userEvent.type(campo, 'Interactive Brokers');
 
-    expect(screen.queryByRole('button', { name: /Criar “/ })).toBeNull();
+    expect(screen.getByRole('listbox').textContent).toContain('Nenhuma instituição encontrada');
+    expect(screen.queryByRole('button', { name: /Criar/ })).toBeNull();
   });
 
   it('digitar depois de escolher desfaz a escolha', async () => {

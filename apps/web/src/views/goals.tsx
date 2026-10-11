@@ -29,6 +29,7 @@ import {
 import { formatDate, monthTicks, percentAsRatio } from '../lib/overview.js';
 import type { Resource } from '../lib/use_resource.js';
 import { useResource } from '../lib/use_resource.js';
+import { Icon } from '../components/icon.js';
 
 /**
  * T-07 · Objetivos — a prancha `10 · Objetivos`.
@@ -187,7 +188,7 @@ const ContributionTable = ({
     <table className="mt-2 w-full border-collapse border border-line text-[0.8125rem]">
       <caption className="sr-only">Aporte mensal e data de chegada</caption>
       <thead>
-        <tr className="bg-panel-2 text-label tracking-wide text-ink-3 uppercase">
+        <tr className="bg-panel-2 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
           <th scope="col" className="px-3 py-2 text-left font-medium">
             Aporte
           </th>
@@ -276,7 +277,7 @@ const GoalPanel = ({
               {' '}
               · <Percent value={percentAsRatio(goal.progress_pct)} decimals={1} />
               {goal.as_of === null
-                ? ' · sem fechamento'
+                ? ' · sem consolidação'
                 : ` · ${formatDate(goal.as_of as DateOnly)}`}
             </span>
           </span>
@@ -428,8 +429,8 @@ export const GoalsView = ({
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-screen-title font-semibold tracking-tight">Objetivos</h1>
-          <p className="truncate text-[0.8125rem] text-ink-2">
+          <h1 className="text-screen-title leading-7 font-semibold">Objetivos</h1>
+          <p className="truncate text-xs text-ink-3">
             {scopeLabel} · metas de valor e prazo · posição de{' '}
             {formatDate(data.reference_date as DateOnly)}
           </p>
@@ -440,7 +441,7 @@ export const GoalsView = ({
             aria-pressed={hidden}
             onClick={toggleHidden}
           >
-            <span aria-hidden="true">{hidden ? '◌' : '◉'}</span>
+            <Icon name={hidden ? 'eye-off' : 'eye'} />
           </IconButton>
           <Button variant="primary" disabled title="Criar objetivo chega com T-10">
             + Novo objetivo

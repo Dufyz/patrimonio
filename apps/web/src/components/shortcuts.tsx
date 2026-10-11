@@ -145,7 +145,7 @@ const ShortcutHelp = ({
     <div className="grid gap-6 sm:grid-cols-2">
       {groupShortcuts().map((group) => (
         <section key={group.scope}>
-          <h3 className="mb-2 text-label tracking-wide text-ink-3 uppercase">
+          <h3 className="mb-2 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
             {SCOPE_TITLES[group.scope]}
           </h3>
           <dl className="flex flex-col gap-1">

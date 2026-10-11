@@ -2,7 +2,7 @@ import { institutionResourceSchema } from '@patrimonio/contracts';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { createApiHarness, resetSourceTables } from '../../testing/harness.js';
+import { createApiHarness, resetSourceTables, seedInstitution } from '../../testing/harness.js';
 import type { ApiHarness } from '../../testing/harness.js';
 
 let harness: ApiHarness;
@@ -19,46 +19,29 @@ beforeEach(async () => {
   await resetSourceTables(harness.sql);
 });
 
-const criar = (body: Record<string, unknown>) =>
-  request(harness.app).post('/api/institutions').send(body);
+describe('catálogo de instituições', () => {
+  it('lista o catálogo em ordem alfabética, sem acento nem caixa', async () => {
+    await seedInstitution(harness.sql, 'Banco Inter');
+    await seedInstitution(harness.sql, 'Ágora Corretora');
 
-describe('cadastro de instituição', () => {
-  it('sem país, a instituição é brasileira', async () => {
-    const response = await criar({ name: 'Corretora A' });
-
-    expect(response.status).toBe(201);
-    expect(institutionResourceSchema.parse(response.body.institution).country).toBe('BR');
-  });
-
-  it('o país estrangeiro é aceito, e minúsculas viram maiúsculas', async () => {
-    const response = await criar({ name: 'Interactive Brokers', country: 'us' });
-
-    expect(response.status).toBe(201);
-    expect(response.body.institution.country).toBe('US');
-  });
-
-  it('país que não é de duas letras é recusado', async () => {
-    const response = await criar({ name: 'Corretora C', country: 'USA' });
-
-    expect(response.status).toBe(400);
-  });
-
-  it('nome repetido vira conflito', async () => {
-    await criar({ name: 'Banco C' });
-    const repetido = await criar({ name: 'banco c' });
-
-    expect(repetido.status).toBe(409);
-  });
-});
-
-describe('excluir instituição', () => {
-  it('sem histórico, é excluída', async () => {
-    const criada = await criar({ name: 'Corretora A' });
-
-    const response = await request(harness.app).delete(
-      `/api/institutions/${criada.body.institution.id}`,
-    );
+    const response = await request(harness.app).get('/api/institutions');
 
     expect(response.status).toBe(200);
+    const names = (response.body.institutions as unknown[]).map(
+      (item) => institutionResourceSchema.parse(item).name,
+    );
+    expect(names).toEqual(['Ágora Corretora', 'Banco Inter']);
+  });
+
+  it('não aceita cadastro, edição nem exclusão pela api', async () => {
+    const criar = await request(harness.app).post('/api/institutions').send({ name: 'X' });
+    const editar = await request(harness.app)
+      .patch('/api/institutions/00000000-0000-7000-8000-000000000000')
+      .send({ name: 'Y' });
+    const excluir = await request(harness.app).delete(
+      '/api/institutions/00000000-0000-7000-8000-000000000000',
+    );
+
+    expect([criar.status, editar.status, excluir.status]).toEqual([404, 404, 404]);
   });
 });

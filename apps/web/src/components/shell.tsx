@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Compact } from './number.js';
-import { Kbd, Label } from './primitives.js';
+import { Icon, Logo } from './icon.js';
+import { Kbd } from './primitives.js';
 
 /**
  * D-10 · A moldura da aplicação.
@@ -102,12 +103,12 @@ export const AppShell = ({
   );
 
   return (
-    <div className="flex min-h-screen bg-bg">
+    <div className="flex min-h-dvh bg-bg">
       {asDrawer ? (
         <>
           {drawerOpen ? (
             <div className="fixed inset-0 z-40 flex">
-              <div className="w-64 border-r border-line bg-panel">{sidebar}</div>
+              <div className="h-dvh w-64 border-r border-line bg-panel">{sidebar}</div>
               <button
                 type="button"
                 aria-label="Fechar a barra lateral"
@@ -118,9 +119,16 @@ export const AppShell = ({
           ) : null}
         </>
       ) : (
+        /*
+         * A barra lateral tem a altura da janela e fica presa ao topo: a página
+         * rola, ela não. Sem isso ela crescia com o conteúdo e o botão de
+         * Configurações, no pé dela, ia parar no fim de uma tabela comprida.
+         */
         <nav
           aria-label="Navegação"
-          className={`shrink-0 border-r border-line bg-panel ${iconsOnly ? 'w-14' : 'w-64'}`}
+          className={`sticky top-0 h-dvh shrink-0 self-start border-r border-line bg-panel ${
+            iconsOnly ? 'w-14' : 'w-[248px]'
+          }`}
         >
           {sidebar}
         </nav>
@@ -128,23 +136,42 @@ export const AppShell = ({
 
       <div className="flex min-w-0 flex-1 flex-col">
         {asDrawer ? (
-          <div className="border-b border-line bg-panel px-4 py-2">
+          <div className="flex items-center gap-2 border-b border-line bg-panel px-4 py-2">
             <button
               type="button"
               aria-label="Abrir a barra lateral"
               aria-expanded={drawerOpen}
-              className="cursor-pointer text-ink-2"
+              className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-ink-2"
               onClick={() => setDrawerOpen(true)}
             >
-              ☰ {scopeLabel}
+              <Icon name="list" />
+              {scopeLabel}
             </button>
           </div>
         ) : null}
-        <main className="min-w-0 flex-1 p-5">{children}</main>
+        <main className="min-w-0 flex-1 px-7 pt-5 pb-10">{children}</main>
       </div>
     </div>
   );
 };
+
+const NAV_BASE =
+  'flex w-full cursor-pointer items-center gap-2.5 rounded-control px-2.5 py-[7px] text-left text-[0.84375rem] outline-none focus-visible:ring-2 focus-visible:ring-focus/40';
+
+/** O título de bloco da barra lateral: mono 10,5, peso 600, caixa alta. */
+const GroupTitle = ({
+  children,
+  className,
+}: {
+  readonly children: React.ReactNode;
+  readonly className?: string;
+}): React.ReactElement => (
+  <div
+    className={`tabular flex items-center gap-2 px-2.5 pt-2 pb-1.5 text-label font-semibold tracking-[0.1em] text-ink-3 uppercase ${className ?? ''}`}
+  >
+    {children}
+  </div>
+);
 
 const Sidebar = ({
   portfolios,
@@ -168,107 +195,113 @@ const Sidebar = ({
   readonly onOpenSearch: () => void;
   readonly onOpenSettings: () => void;
   readonly settingsActive: boolean;
-}): React.ReactElement => {
-  const list = useRef<HTMLUListElement>(null);
-
-  return (
-    <div className="flex h-full flex-col gap-3 p-2">
-      <div className="flex items-center gap-2 px-2 pt-1">
-        <span
-          aria-hidden="true"
-          className="grid size-6 place-items-center rounded-xs bg-accent text-accent-ink"
-        >
-          ▮
-        </span>
-        {iconsOnly ? null : (
-          <span className="tabular text-sm font-semibold">patrimônio</span>
-        )}
-      </div>
-
-      <button
-        type="button"
-        className="flex h-control cursor-pointer items-center gap-2 rounded-control border border-line px-2 text-sm text-ink-3 hover:bg-panel-2"
-        onClick={onOpenSearch}
-      >
-        <span aria-hidden="true">⌕</span>
-        {iconsOnly ? null : (
-          <>
-            <span className="flex-1 text-left">Buscar</span>
-            <Kbd>⌘K</Kbd>
-          </>
-        )}
-      </button>
-
+}): React.ReactElement => (
+  <div className="flex h-full flex-col px-3 pt-3.5 pb-3">
+    <div className="flex items-center gap-2.5 px-2 pt-0.5 pb-2.5">
+      <Logo />
       {iconsOnly ? null : (
-        <div className="px-2">
-          <Label>Carteiras</Label>
-        </div>
+        <span className="tabular text-[0.84375rem] font-semibold tracking-[0.02em]">
+          patrimônio
+        </span>
       )}
+    </div>
 
-      <ul ref={list} className="flex flex-col">
+    <button
+      type="button"
+      aria-label="Buscar"
+      className="mb-1.5 inline-flex h-control w-full cursor-pointer items-center justify-between gap-2 rounded-control border border-line-2 bg-panel px-[11px] text-[0.78125rem] font-medium text-ink-3 hover:bg-panel-2"
+      onClick={onOpenSearch}
+    >
+      <span className="flex items-center gap-2">
+        <Icon name="search" />
+        {iconsOnly ? null : 'Buscar'}
+      </span>
+      {iconsOnly ? null : <Kbd>⌘K</Kbd>}
+    </button>
+
+    {/* Só esta região rola: o logo, a busca e Configurações ficam onde estão. */}
+    <div className="-mx-1 flex min-h-0 flex-1 flex-col overflow-y-auto px-1">
+      {iconsOnly ? null : <GroupTitle>Carteiras</GroupTitle>}
+
+      <ul className="flex flex-col gap-px">
         {portfolios.map((portfolio) => (
           <li key={portfolio.id}>
             <button
               type="button"
               aria-current={portfolio.id === scope ? 'true' : undefined}
               title={portfolio.label}
-              className={`flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-control px-2 text-sm ${
+              className={`${NAV_BASE} min-h-9 justify-between py-1.5 ${
                 portfolio.id === scope
-                  ? 'bg-accent-soft font-medium'
-                  : 'text-ink-2 hover:bg-panel-2'
+                  ? 'bg-accent-soft font-semibold text-ink'
+                  : 'text-ink hover:bg-panel-2'
               }`}
               onClick={() => onNavigate(portfolio.id, screen)}
             >
-              <span className="truncate">
+              <span className="min-w-0 flex-1 truncate">
                 {iconsOnly ? portfolio.label.slice(0, 1) : portfolio.label}
               </span>
-              {iconsOnly ? null : <Compact value={portfolio.value} />}
+              {iconsOnly ? null : (
+                <span className="text-xs font-normal text-ink-3">
+                  <Compact value={portfolio.value} />
+                </span>
+              )}
             </button>
           </li>
         ))}
       </ul>
 
-      {iconsOnly ? null : (
-        <div className="px-2 pt-1">
-          <Label>{scopeLabel}</Label>
-        </div>
+      {iconsOnly ? (
+        <div className="mt-2.5 border-t border-line pt-2" />
+      ) : (
+        <GroupTitle className="mt-2.5 truncate border-t border-line pt-4">
+          {scopeLabel}
+        </GroupTitle>
       )}
 
-      <ul className="flex flex-1 flex-col">
+      <ul className="flex flex-col gap-0.5">
         {screens.map((item) => (
           <li key={item.id}>
             <button
               type="button"
               aria-current={item.id === screen ? 'page' : undefined}
               title={item.label}
-              className={`flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-control px-2 text-sm ${
+              className={`${NAV_BASE} ${
                 item.id === screen
-                  ? 'bg-accent-soft font-medium text-accent'
-                  : 'text-ink-2 hover:bg-panel-2'
+                  ? 'bg-accent-soft font-medium text-ink'
+                  : 'text-ink-2 hover:bg-panel-2 hover:text-ink'
               }`}
               onClick={() => onNavigate(scope, item.id)}
             >
-              <span aria-hidden="true">{item.icon}</span>
+              <span
+                aria-hidden="true"
+                className={item.id === screen ? 'text-accent' : undefined}
+              >
+                {item.icon}
+              </span>
               {iconsOnly ? null : item.label}
             </button>
           </li>
         ))}
       </ul>
+    </div>
 
+    <div className="mt-2 border-t border-line pt-2">
       <button
         type="button"
         title="Configurações"
         aria-current={settingsActive ? 'page' : undefined}
-        className={`flex h-9 cursor-pointer items-center gap-2.5 rounded-control border-t border-line px-2 text-sm ${
+        className={`${NAV_BASE} ${
           settingsActive
-            ? 'bg-accent-soft font-medium text-accent'
-            : 'text-ink-2 hover:bg-panel-2'
+            ? 'bg-accent-soft font-medium text-ink'
+            : 'text-ink-2 hover:bg-panel-2 hover:text-ink'
         }`}
         onClick={onOpenSettings}
       >
-        <span aria-hidden="true">☼</span>
+        <span className={settingsActive ? 'text-accent' : undefined}>
+          <Icon name="settings" />
+        </span>
         {iconsOnly ? null : 'Configurações'}
       </button>
     </div>
-  );
-};
+  </div>
+);

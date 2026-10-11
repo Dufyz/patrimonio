@@ -95,15 +95,19 @@ export const Switch = ({
   </button>
 );
 
-/** O lápis de editar. Vale T-10: a edição acontece em modal, e o modal é dela. */
-export const EditButton = ({ label }: { readonly label: string }): React.ReactElement => (
-  <IconButton label={`Editar ${label} chega com T-10`} disabled>
-    <span aria-hidden="true">✎</span>
-  </IconButton>
+/** O lápis de editar: abre o modal do cadastro, onde também mora o excluir. */
+export const EditButton = ({
+  label,
+  onClick,
+}: {
+  readonly label: string;
+  readonly onClick: () => void;
+}): React.ReactElement => (
+  <IconButton row label={`Editar ${label}`} icon="pencil" onClick={onClick} />
 );
 
 export const TH =
-  'px-4 py-2 text-left text-label font-medium tracking-wide whitespace-nowrap text-ink-3 uppercase';
+  'px-4 py-2 text-left tabular text-label font-medium tracking-[0.06em] whitespace-nowrap text-ink-3 uppercase';
 export const TH_RIGHT = `${TH} text-right`;
 export const TD = 'px-4';
 export const ROW = 'h-(--row-height) border-t border-line';

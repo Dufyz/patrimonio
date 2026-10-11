@@ -1,6 +1,6 @@
+import { Icon } from '../../components/icon.js';
 import { useId, useMemo, useRef, useState } from 'react';
 
-import { createInstitution } from '../../api/institutions.js';
 import { useDismiss } from '../../components/use_dismiss.js';
 import type { ControlProps } from './fields.js';
 import { Input } from './fields.js';
@@ -9,8 +9,8 @@ import { Input } from './fields.js';
  * A instituição do lançamento.
  *
  * O catálogo brasileiro tem centenas de linhas, então a escolha é uma busca, e
- * não uma lista. A estrangeira não está no catálogo: quando o texto não bate
- * com nenhuma, a lista oferece "Criar «X»" e pergunta só o país.
+ * não uma lista. A pessoa só escolhe: o catálogo vem da carga, e não se cria
+ * instituição por aqui.
  *
  * Como no ativo, o campo não guarda texto solto: digitar desfaz a escolha, e o
  * formulário só vale de novo quando uma instituição da lista é escolhida.
@@ -18,13 +18,7 @@ import { Input } from './fields.js';
 
 export type InstitutionOption = { readonly id: string; readonly name: string };
 
-export type CreateInstitution = (body: {
-  readonly name: string;
-  readonly country: string;
-}) => Promise<InstitutionOption>;
-
 const MAX_ITEMS = 50;
-const DEFAULT_COUNTRY = 'US';
 
 const fold = (text: string): string =>
   text
@@ -41,7 +35,6 @@ export const InstitutionPicker = ({
   control,
   invalid,
   changed = false,
-  create = createInstitution,
 }: {
   readonly options: readonly InstitutionOption[];
   readonly value: string | null;
@@ -50,69 +43,33 @@ export const InstitutionPicker = ({
   readonly control: ControlProps;
   readonly invalid: boolean;
   readonly changed?: boolean;
-  /** Troca-se nos testes; a identidade precisa ser estável. */
-  readonly create?: CreateInstitution;
 }): React.ReactElement => {
-  const [created, setCreated] = useState<readonly InstitutionOption[]>([]);
-  const all = useMemo(() => [...options, ...created], [options, created]);
-  const selected = all.find((option) => option.id === value) ?? null;
+  const selected = options.find((option) => option.id === value) ?? null;
 
   const [query, setQuery] = useState(selected?.name ?? '');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  const [creating, setCreating] = useState(false);
-  const [country, setCountry] = useState(DEFAULT_COUNTRY);
-  const [failure, setFailure] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const listId = useId();
 
-  useDismiss(container, open, () => {
-    setOpen(false);
-    setCreating(false);
-  });
+  useDismiss(container, open, () => setOpen(false));
 
-  const text = query.trim();
-  const needle = fold(text);
+  const needle = fold(query.trim());
 
   const items = useMemo(
     () =>
-      all
+      options
         .filter((option) => needle === '' || fold(option.name).includes(needle))
         .slice(0, MAX_ITEMS),
-    [all, needle],
+    [options, needle],
   );
 
-  const exact = all.some((option) => fold(option.name) === needle);
-  const canCreate = text !== '' && !exact;
   const showList = open && value === null;
 
   const choose = (option: InstitutionOption): void => {
     setQuery(option.name);
     setOpen(false);
-    setCreating(false);
     onChange(option.id);
-  };
-
-  const confirmCreate = async (): Promise<void> => {
-    if (saving) return;
-    if (!/^[A-Za-z]{2}$/.test(country)) {
-      setFailure('Informe o país com duas letras, como US.');
-      return;
-    }
-
-    setSaving(true);
-    setFailure(null);
-
-    try {
-      const institution = await create({ name: text, country: country.toUpperCase() });
-      setCreated((current) => [...current, institution]);
-      choose(institution);
-    } catch (cause) {
-      setFailure(cause instanceof Error ? cause.message : 'A api não respondeu');
-    } finally {
-      setSaving(false);
-    }
   };
 
   return (
@@ -124,6 +81,7 @@ export const InstitutionPicker = ({
         aria-controls={listId}
         aria-autocomplete="list"
         autoComplete="off"
+        className="pl-9"
         invalid={invalid}
         changed={changed}
         value={query}
@@ -132,7 +90,6 @@ export const InstitutionPicker = ({
         onChange={(event) => {
           setQuery(event.target.value);
           setOpen(true);
-          setCreating(false);
           setActive(0);
           if (value !== null) onChange(null);
         }}
@@ -153,6 +110,13 @@ export const InstitutionPicker = ({
         }}
       />
 
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute top-0 left-3 flex h-[38px] items-center text-ink-3"
+      >
+        <Icon name="search" />
+      </span>
+
       {showList ? (
         <ul
           id={listId}
@@ -160,8 +124,8 @@ export const InstitutionPicker = ({
           aria-label="Instituições encontradas"
           className="absolute top-[calc(var(--spacing-control)+0.25rem)] right-0 left-0 z-30 max-h-64 overflow-y-auto rounded-panel border border-line bg-panel py-1 shadow-lg"
         >
-          {items.length === 0 && !canCreate ? (
-            <li className="px-3 py-2 text-sm text-ink-3">Nenhuma instituição cadastrada.</li>
+          {items.length === 0 ? (
+            <li className="px-3 py-2 text-sm text-ink-3">Nenhuma instituição encontrada.</li>
           ) : null}
 
           {items.map((option, index) => (
@@ -183,55 +147,6 @@ export const InstitutionPicker = ({
             </li>
           ))}
 
-          {canCreate ? (
-            <li role="presentation" className="border-t border-line">
-              {creating ? (
-                <div className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
-                  <span className="text-ink-2">País</span>
-                  <input
-                    aria-label="País da instituição"
-                    value={country}
-                    maxLength={2}
-                    className="h-control w-14 rounded-control border border-line bg-panel px-2 text-center uppercase"
-                    onChange={(event) => setCountry(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        void confirmCreate();
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    disabled={saving}
-                    className="h-control cursor-pointer rounded-control bg-accent px-3 text-sm font-medium text-white disabled:opacity-50"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => void confirmCreate()}
-                  >
-                    Criar
-                  </button>
-                  {failure === null ? null : (
-                    <span role="alert" className="basis-full text-[0.75rem] text-negative">
-                      {failure}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="w-full cursor-pointer px-3 py-2 text-left text-sm text-accent hover:bg-panel-2"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    setCreating(true);
-                    setFailure(null);
-                  }}
-                >
-                  Criar “{text}”
-                </button>
-              )}
-            </li>
-          ) : null}
         </ul>
       ) : null}
     </div>

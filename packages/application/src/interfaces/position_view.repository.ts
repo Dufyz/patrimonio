@@ -30,7 +30,10 @@ export type PositionViewFilter = {
   readonly portfolioId: string;
   readonly groupBy: PositionGroupBy;
   readonly search: string | null;
-  readonly categoryId: string | null;
+  /** Qualquer uma delas; `sem-categoria` é a ausência. Vazio não filtra. */
+  readonly categoryIds: readonly string[];
+  /** Qualquer uma delas; `sem-instituicao` é a ausência. Vazio não filtra. */
+  readonly institutionIds: readonly string[];
 };
 
 export type PositionViewRow = {
@@ -87,6 +90,12 @@ export type PositionViewFacetRow = {
   readonly count: number;
 };
 
+export type PositionViewInstitutionFacetRow = {
+  readonly id: string;
+  readonly label: string;
+  readonly count: number;
+};
+
 export type PositionViewHeader = {
   readonly as_of: DateOnly | null;
   readonly computed_at: string | null;
@@ -104,6 +113,7 @@ export type PositionView = {
   readonly rows: readonly PositionViewRow[];
   readonly summaries: readonly PositionViewSummaryRow[];
   readonly facets: readonly PositionViewFacetRow[];
+  readonly institution_facets: readonly PositionViewInstitutionFacetRow[];
   readonly header: PositionViewHeader;
 };
 

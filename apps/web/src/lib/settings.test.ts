@@ -1,8 +1,6 @@
 import type {
   Settings,
   SettingsBackup,
-  SettingsCategory,
-  SettingsInstitution,
 } from '@patrimonio/contracts';
 import { describe, expect, it } from 'vitest';
 
@@ -10,40 +8,14 @@ import {
   ALERT_COPY,
   alertCopy,
   alertLimit,
-  autoRuleText,
   backupSummary,
-  categoryHold,
   formatInstant,
-  groupCategories,
   isEmptyInstallation,
   missingPricesText,
   portfolioHold,
   sectionFromParam,
   sortAlerts,
 } from './settings.js';
-
-const category = (overrides: Partial<SettingsCategory>): SettingsCategory => ({
-  id: 'c',
-  parent_id: null,
-  name: 'Categoria',
-  color_token: 'class.rf',
-  auto_rule: null,
-  sort_order: 0,
-  assets: 0,
-  strategies: 0,
-  children: 0,
-  ...overrides,
-});
-
-const institution = (overrides: Partial<SettingsInstitution>): SettingsInstitution => ({
-  id: 'i',
-  name: 'Banco',
-  country: 'BR',
-  portfolios: [],
-  cash: null,
-  blocking: { transactions: 0, assets: 0 },
-  ...overrides,
-});
 
 const backup = (overrides: Partial<SettingsBackup>): SettingsBackup => ({
   enabled: true,
@@ -68,14 +40,6 @@ describe('o que prende a exclusão', () => {
     );
     expect(portfolioHold({ transactions: 1, assets: 1 })).toBe('1 lançamento · 1 ativo');
     expect(portfolioHold({ transactions: 0, assets: 0 })).toBeNull();
-  });
-
-  it('a categoria soma o que a prende: filhas, ativos e estratégias', () => {
-    expect(categoryHold(category({ children: 3, assets: 16, strategies: 4 }))).toBe(
-      '3 categorias dentro · 16 ativos · 4 estratégias',
-    );
-    expect(categoryHold(category({ assets: 1 }))).toBe('1 ativo');
-    expect(categoryHold(category({}))).toBeNull();
   });
 });
 
@@ -116,39 +80,6 @@ describe('os alertas', () => {
         (item) => item.kind,
       ),
     ).toEqual(['price_stale', 'corporate_event_pending', 'zzz']);
-  });
-});
-
-describe('as categorias', () => {
-  it('a regra automática vira frase, e regra ausente vira traço', () => {
-    expect(autoRuleText({ b3_type: 'stock' })).toBe('Tipo B3: ação ou unit');
-    expect(autoRuleText({ b3_type: 'fii' })).toBe('Tipo B3: fundo imobiliário');
-    expect(autoRuleText({ indexer: 'ipca_plus' })).toBe('Indexador IPCA');
-    expect(autoRuleText({ indexer: 'cdi_pct' })).toBe('Indexador CDI ou Selic');
-    expect(autoRuleText({ origin: 'manual', sector: 'Bancos' })).toBe(
-      'Cadastrado à mão · Setor: Bancos',
-    );
-    expect(autoRuleText(null)).toBe('—');
-    expect(autoRuleText({ chave_estranha: 1 })).toBe('—');
-  });
-
-  it('agrupa por grupo de topo, na ordem do cadastro, com as de dentro por baixo', () => {
-    const groups = groupCategories([
-      category({ id: 'rv', name: 'Renda variável', sort_order: 4 }),
-      category({ id: 'pre', parent_id: 'rf', name: 'Prefixada', sort_order: 4 }),
-      category({ id: 'rf', name: 'Renda fixa', sort_order: 1 }),
-      category({ id: 'pos', parent_id: 'rf', name: 'Pós-fixada', sort_order: 2 }),
-    ]);
-
-    expect(groups.map((entry) => entry.group.name)).toEqual([
-      'Renda fixa',
-      'Renda variável',
-    ]);
-    expect(groups[0]?.children.map((child) => child.name)).toEqual([
-      'Pós-fixada',
-      'Prefixada',
-    ]);
-    expect(groups[1]?.children).toEqual([]);
   });
 });
 
@@ -213,16 +144,12 @@ describe('o backup', () => {
 });
 
 describe('a instalação vazia', () => {
-  it('sem carteira, categoria nem instituição é primeiro uso', () => {
-    const empty = {
-      portfolios: [],
-      categories: [],
-      institutions: [],
-    } as unknown as Settings;
+  it('sem carteira é primeiro uso', () => {
+    const empty = { portfolios: [] } as unknown as Settings;
 
     expect(isEmptyInstallation(empty)).toBe(true);
     expect(
-      isEmptyInstallation({ ...empty, institutions: [institution({})] } as Settings),
+      isEmptyInstallation({ portfolios: [{ id: 'p' }] } as unknown as Settings),
     ).toBe(false);
   });
 });

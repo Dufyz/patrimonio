@@ -1,4 +1,5 @@
 import { assetResourceSchema } from '@patrimonio/contracts';
+import { CATEGORY_CATALOG, CATEGORY_IDS, fixedIncomeCategoryId } from '@patrimonio/domain';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -65,18 +66,28 @@ describe('título de renda fixa cadastrado à mão', () => {
     expect(response.body.asset.b3_type).toBeNull();
   });
 
-  it('a classe sai do indexador, pela regra automática', async () => {
-    const posFixada = await request(harness.app)
-      .post('/api/categories')
-      .send({
-        name: 'RF pós-fixada',
-        color_token: 'class.rf-pos',
-        auto_rule: { indexer: 'cdi_pct' },
-      });
+  it('a categoria sai do tipo do título, no catálogo da plataforma', async () => {
+    for (const item of CATEGORY_CATALOG) {
+      await harness.sql`
+        INSERT INTO category (id, name, color_token, sort_order)
+        VALUES (${item.id}, ${item.name}, ${item.color_token}, ${item.sort_order})
+      `;
+    }
 
+    const cdb = await cadastrarTitulo({});
+    const lci = await cadastrarTitulo({ kind: 'lci', tax_regime: 'exempt' });
+    const outro = await cadastrarTitulo({ kind: 'outro' });
+
+    expect(cdb.body.asset.category_id).toBe(CATEGORY_IDS.cdb);
+    expect(lci.body.asset.category_id).toBe(fixedIncomeCategoryId('lci'));
+    expect(outro.body.asset.category_id).toBe(CATEGORY_IDS.customAssets);
+  });
+
+  it('sem o catálogo carregado o título fica sem categoria, e o cadastro não falha', async () => {
     const response = await cadastrarTitulo({});
 
-    expect(response.body.asset.category_id).toBe(posFixada.body.category.id);
+    expect(response.status).toBe(201);
+    expect(response.body.asset.category_id).toBeNull();
   });
 
   it('dois títulos do mesmo emissor e vencimento ganham códigos diferentes', async () => {

@@ -25,6 +25,7 @@ import {
   TH,
   TH_RIGHT,
 } from './parts.js';
+import { Icon } from '../../components/icon.js';
 
 /**
  * M-16 · Dados de mercado, em Configurações.
@@ -107,8 +108,8 @@ export const MarketSection = ({
       title="Dados de mercado"
       description="Preços e índices são baixados para o app por rotinas agendadas; nenhuma tela depende de uma API estar no ar. Quando a fonte principal falha, o app usa a alternativa e marca o preço como atrasado até a fonte voltar ou você definir um preço manual."
       action={
-        <Button disabled={refreshing} onClick={refresh}>
-          <span aria-hidden="true">↻</span> {refreshing ? 'Pedindo…' : 'Atualizar agora'}
+        <Button disabled={refreshing} icon="undo" onClick={refresh}>
+          {refreshing ? 'Pedindo…' : 'Atualizar agora'}
         </Button>
       }
     >
@@ -195,7 +196,7 @@ export const MarketSection = ({
 
           {state.value.recent_failures.length === 0 ? null : (
             <ul className="border-t border-line px-4 py-3 text-[0.8125rem]">
-              <li className="mb-1 text-label tracking-wide text-ink-3 uppercase">
+              <li className="mb-1 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
                 Falhas recentes
               </li>
               {state.value.recent_failures.map((run) => (
@@ -215,7 +216,7 @@ export const MarketSection = ({
           {state.value.missing_prices.length === 0 ? null : (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-attention-soft px-4 py-3 text-[0.8125rem]">
               <span className="text-attention">
-                <span aria-hidden="true">⚠ </span>
+                <Icon name="warning" className="mr-1.5 inline align-text-bottom" />
                 {missingPricesText(state.value.missing_prices)}
                 {' · '}
                 posição de {formatDate(state.value.reference_date as DateOnly)}

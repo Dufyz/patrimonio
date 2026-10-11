@@ -62,10 +62,30 @@ export const STATEMENT_GROUP_KINDS: Readonly<
 export const getStatementSchema = z.object({
   query: pagination
     .extend({
+      /**
+       * O extrato é de um período e mostra tudo dele, sem paginar: o teto é só a
+       * proteção contra um pedido sem fim.
+       */
+      limit: z.coerce.number().int().positive().max(2000).default(50),
       portfolio_id: uuid,
-      institution_id: uuid.optional(),
-      /** Ausente é "Todos". */
-      group: statementGroupSchema.optional(),
+      /** Uma ou mais instituições, separadas por vírgula; vale "qualquer uma". */
+      institution_id: z
+        .string()
+        .trim()
+        .max(600)
+        .regex(/^[0-9a-fA-F-]+(,[0-9a-fA-F-]+)*$/, 'informe os identificadores separados por vírgula')
+        .optional(),
+      /** Um ou mais tipos, separados por vírgula; ausente é "Todos". */
+      group: z
+        .string()
+        .trim()
+        .max(100)
+        .refine(
+          (value) =>
+            value.split(',').every((part) => statementGroupSchema.safeParse(part).success),
+          'informe tipos válidos separados por vírgula',
+        )
+        .optional(),
       /** Casa com código e nome do ativo, sem distinguir maiúscula. */
       search: z.string().trim().max(120).optional(),
       from: dateOnly.optional(),

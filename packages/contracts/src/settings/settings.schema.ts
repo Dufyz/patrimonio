@@ -3,19 +3,19 @@ import { z } from 'zod';
 import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
 
 /**
- * T-08 · Configurações: as oito seções de ajuste, cada uma resolvendo uma coisa.
+ * T-08 · Configurações: as seções de ajuste, cada uma resolvendo uma coisa.
  *
- * A resposta é uma só para a tela inteira — carteiras, alertas, categorias,
- * instituições, o que o lançamento preenche sozinho e o backup — e
- * não oito, porque a prancha mostra tudo na mesma rolagem e o banco fica em outra
+ * A resposta é uma só para a tela inteira — carteiras, alertas, o que o
+ * lançamento preenche sozinho e o backup — e
+ * não uma por seção, porque a prancha mostra tudo na mesma rolagem e o banco fica em outra
  * rede. A seção de dados de mercado **não** está aqui: ela já tem a sua rota
  * (`GET /market/health`, M-16), com compasso próprio de releitura enquanto uma
  * coleta roda, e duplicá-la seria ter dois lugares que dizem se o preço é de hoje.
  *
- * Quatro decisões que o contrato fixa:
+ * Três decisões que o contrato fixa:
  *
- * - **Bloqueio de exclusão vem com a contagem.** Carteira, categoria e
- *   instituição trazem o que as prende (`blocking`), e a tela escreve "41
+ * - **Bloqueio de exclusão vem com a contagem.** A carteira
+ *   traz o que a prende (`blocking`), e a tela escreve "41
  *   lançamentos impedem" em vez de deixar o usuário descobrir pelo erro. A
  *   regra de bloquear é do servidor; a contagem é só para explicá-la.
  * - **Dinheiro e percentual são string.** O caixa e os totais chegam
@@ -58,36 +58,6 @@ export const settingsAlertRuleSchema = z.object({
   threshold: z.record(z.string(), z.unknown()).nullable(),
 });
 
-export const settingsCategorySchema = z.object({
-  id: uuid,
-  parent_id: uuid.nullable(),
-  name: z.string(),
-  color_token: z.string(),
-  auto_rule: z.record(z.string(), z.unknown()).nullable(),
-  sort_order: z.number().int(),
-  /** Ativos nesta categoria. No grupo, a soma das categorias dentro dele. */
-  assets: z.number().int(),
-  /** Carteiras cuja estratégia usa a categoria. No grupo, as distintas. */
-  strategies: z.number().int(),
-  /** Categorias filhas: um grupo com filhas não se exclui. */
-  children: z.number().int(),
-});
-
-export const settingsInstitutionSchema = z.object({
-  id: uuid,
-  name: z.string(),
-  country: z.string(),
-  /** As carteiras com lançamento nesta instituição, por nome. */
-  portfolios: z.array(z.string()),
-  /** O saldo de caixa que a instituição guarda. Nulo quando ela não guarda. */
-  cash: decimalString.nullable(),
-  /** O que impede a exclusão. */
-  blocking: z.object({
-    transactions: z.number().int(),
-    assets: z.number().int(),
-  }),
-});
-
 export const settingsBackupSchema = z.object({
   /** Falso quando a instalação não ligou o backup: a seção diz isso. */
   enabled: z.boolean(),
@@ -110,8 +80,6 @@ export const settingsSchema = z.object({
   portfolios: z.array(settingsPortfolioSchema),
   archived_portfolios: z.array(settingsArchivedPortfolioSchema),
   alerts: z.array(settingsAlertRuleSchema),
-  categories: z.array(settingsCategorySchema),
-  institutions: z.array(settingsInstitutionSchema),
   ledger_defaults: settingsLedgerDefaultsSchema,
   backup: settingsBackupSchema,
 });
@@ -128,7 +96,5 @@ export const backupQueuedSchema = z.object({
 
 export type Settings = z.infer<typeof settingsSchema>;
 export type SettingsPortfolio = z.infer<typeof settingsPortfolioSchema>;
-export type SettingsCategory = z.infer<typeof settingsCategorySchema>;
-export type SettingsInstitution = z.infer<typeof settingsInstitutionSchema>;
 export type SettingsAlertRule = z.infer<typeof settingsAlertRuleSchema>;
 export type SettingsBackup = z.infer<typeof settingsBackupSchema>;

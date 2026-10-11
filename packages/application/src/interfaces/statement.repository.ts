@@ -22,9 +22,10 @@ export type StatementGroupKey = 'buy' | 'sell' | 'payout' | 'cash' | 'event';
 
 export type StatementFilter = {
   readonly portfolioId: string;
-  readonly institutionId: string | null;
-  /** Nulo é "Todos". */
-  readonly group: StatementGroupKey | null;
+  /** Qualquer uma delas. Vazio não filtra. */
+  readonly institutionIds: readonly string[];
+  /** Qualquer um deles. Vazio é "Todos". */
+  readonly groups: readonly StatementGroupKey[];
   /** Casa com código e nome do ativo. */
   readonly search: string | null;
   readonly from: DateOnly | null;

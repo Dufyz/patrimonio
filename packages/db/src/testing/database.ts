@@ -52,6 +52,8 @@ export type TestTransaction = postgres.ReservedSql<CustomTypes>;
 export const beginTestTransaction = async (sql: Sql): Promise<TestTransaction> => {
   const reserved = await sql.reserve();
   await reserved.unsafe('BEGIN');
+  // O catálogo de categorias vem da migration; cada teste monta o seu cenário.
+  await reserved.unsafe('DELETE FROM category');
   return reserved;
 };
 

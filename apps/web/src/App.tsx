@@ -10,17 +10,16 @@ import {
 } from 'react-router';
 
 import { fetchPortfolios } from './api/portfolios.js';
+import { Icon } from './components/icon.js';
+import type { IconName } from './components/icon.js';
 import { EntryProvider, useEntry } from './components/entry_provider.js';
 import { SearchPalette } from './components/search_palette.js';
 import { ShortcutProvider, useShortcuts } from './components/shortcuts.js';
 import { AppShell } from './components/shell.js';
 import type { ScreenItem } from './components/shell.js';
-import {
-  portfolioIdForScope,
-  portfolioSlugs,
-  scopeForPortfolioId,
-} from './lib/scope.js';
+import { portfolioIdForScope, portfolioSlugs, scopeForPortfolioId } from './lib/scope.js';
 import { describeShortcut, SHORTCUTS } from './lib/shortcuts.js';
+import { onPortfoliosChanged } from './lib/portfolio_events.js';
 import { targetPath } from './lib/search.js';
 import type { SearchActionId, SearchTarget } from './lib/search.js';
 import { AssetScreen } from './views/asset.js';
@@ -49,26 +48,47 @@ import { StrategyScreen } from './views/strategy.js';
 const SCREENS: readonly (ScreenItem & {
   readonly path: string;
   readonly story: string;
-})[] = [
-  { id: 'visao', label: 'Visão geral', icon: '▦', path: 'visao-geral', story: 'T-01' },
-  { id: 'posicoes', label: 'Posições', icon: '≡', path: 'posicoes', story: 'T-02' },
-  {
-    id: 'movimentacoes',
-    label: 'Movimentações',
-    icon: '⇄',
-    path: 'movimentacoes',
-    story: 'T-04',
-  },
-  {
-    id: 'desempenho',
-    label: 'Desempenho',
-    icon: '◹',
-    path: 'desempenho',
-    story: 'T-05',
-  },
-  { id: 'estrategia', label: 'Estratégia', icon: '◎', path: 'estrategia', story: 'T-06' },
-  { id: 'objetivos', label: 'Objetivos', icon: '⚑', path: 'objetivos', story: 'T-07' },
-];
+  readonly glyph: IconName;
+})[] = (
+  [
+    {
+      id: 'visao',
+      label: 'Visão geral',
+      glyph: 'grid',
+      path: 'visao-geral',
+      story: 'T-01',
+    },
+    { id: 'posicoes', label: 'Posições', glyph: 'list', path: 'posicoes', story: 'T-02' },
+    {
+      id: 'movimentacoes',
+      label: 'Movimentações',
+      glyph: 'swap',
+      path: 'movimentacoes',
+      story: 'T-04',
+    },
+    {
+      id: 'desempenho',
+      label: 'Desempenho',
+      glyph: 'trend',
+      path: 'desempenho',
+      story: 'T-05',
+    },
+    {
+      id: 'estrategia',
+      label: 'Estratégia',
+      glyph: 'target',
+      path: 'estrategia',
+      story: 'T-06',
+    },
+    {
+      id: 'objetivos',
+      label: 'Objetivos',
+      glyph: 'flag',
+      path: 'objetivos',
+      story: 'T-07',
+    },
+  ] as const
+).map((item) => ({ ...item, icon: <Icon name={item.glyph} /> }));
 
 export const App = (): React.ReactElement => (
   <BrowserRouter>
@@ -99,6 +119,9 @@ const Workbench = (): React.ReactElement => {
   const [loaded, setLoaded] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
+  const [reloads, setReloads] = useState(0);
+  useEffect(() => onPortfoliosChanged(() => setReloads((count) => count + 1)), []);
+
   useEffect(() => {
     const controller = new AbortController();
     fetchPortfolios(controller.signal)
@@ -113,7 +136,7 @@ const Workbench = (): React.ReactElement => {
         setLoaded(controller.signal.aborted ? false : true);
       });
     return () => controller.abort();
-  }, []);
+  }, [reloads]);
 
   const slugs = useMemo(() => portfolioSlugs(portfolios), [portfolios]);
   const portfolioId = portfolioIdForScope(scope, slugs);
@@ -159,11 +182,11 @@ const Workbench = (): React.ReactElement => {
         return {
           id: item.id,
           label: item.label,
-          glyph: String(item.icon),
+          glyph: item.glyph,
           shortcut: shortcut === undefined ? null : describeShortcut(shortcut),
         };
       }),
-      { id: SETTINGS_SCREEN, label: 'Configurações', glyph: '☼', shortcut: null },
+      { id: SETTINGS_SCREEN, label: 'Configurações', glyph: 'settings', shortcut: null },
     ],
     [],
   );
@@ -251,6 +274,7 @@ const Workbench = (): React.ReactElement => {
           <OverviewScreen
             portfolioId={portfolioId}
             onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
+            onOpenScreen={(path) => navigate(`/${scope}/${path}`)}
           />
         ) : current?.id === 'posicoes' ? (
           <PositionsScreen

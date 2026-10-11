@@ -9,6 +9,7 @@ import type { DateOnly, PositionGroupBy } from '@patrimonio/domain';
 import { isZero, parseDecimal } from './decimal.js';
 import { formatPercent, formatQuantity } from './format.js';
 import type { GroupSummary, TableGroup } from './table/model.js';
+import { decimalComma, quoted, safeText } from './statement.js';
 
 /**
  * T-02 · Tudo que a tela de Posições decide sem precisar de navegador.
@@ -249,3 +250,48 @@ export const parseAmountInput = (typed: string): string | null => {
 /** O valor que o campo mostra ao abrir: o preço de hoje, em pt-BR. */
 export const amountInputValue = (value: string | null, decimals = 2): string =>
   value === null ? '' : formatQuantity(value, { decimals }).text;
+
+/* -------------------------------------------------------------------------- */
+/* CSV                                                                        */
+
+const POSITIONS_CSV_HEADER = [
+  'Grupo',
+  'Ativo',
+  'Instituição',
+  'Quantidade',
+  'Preço médio',
+  'Preço',
+  'Valor',
+  'Peso',
+  'Resultado',
+  'Resultado %',
+] as const;
+
+/**
+ * O CSV das posições que estão na tela: `;` e vírgula decimal, como o do
+ * extrato, com os valores exatamente como a `api` os mandou.
+ */
+export const positionsCsv = (groups: readonly PositionGroup[]): string => {
+  const lines = groups.flatMap((group) =>
+    group.positions.map((position) =>
+      [
+        safeText(group.label),
+        safeText(positionTitle(position)),
+        safeText(position.institution_name ?? ''),
+        decimalComma(position.quantity ?? ''),
+        decimalComma(position.avg_price ?? ''),
+        decimalComma(position.price ?? ''),
+        decimalComma(position.value),
+        decimalComma(position.weight),
+        decimalComma(position.open_result),
+        decimalComma(position.open_result_ratio ?? ''),
+      ]
+        .map(quoted)
+        .join(';'),
+    ),
+  );
+
+  return [POSITIONS_CSV_HEADER.map(quoted).join(';'), ...lines].join('\r\n');
+};
+
+export const positionsCsvFilename = (day: string): string => `posicoes-${day}.csv`;

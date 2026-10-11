@@ -16,15 +16,14 @@ export const SETTINGS_ROUTE_DOCS: readonly RouteDoc[] = [
     path: '/settings',
     tag: TAG,
     summary:
-      'Carteiras, alertas, categorias, instituições, padrões de lançamento e backup',
+      'Carteiras, alertas, padrões de lançamento e backup',
     request: getSettingsSchema,
     responses: {
       200: {
         description:
-          'Uma resposta para a tela, em uma consulta. Carteira, categoria e instituição ' +
-          'trazem o que as prende (`blocking`), para a tela explicar o bloqueio antes de ' +
-          'a exclusão falhar. O grupo de categorias soma ativos e carteiras distintas das ' +
-          'categorias dentro dele. ' +
+          'Uma resposta para a tela, em uma consulta. A carteira ' +
+          'traz o que a prende (`blocking`), para a tela explicar o bloqueio antes de ' +
+          'a exclusão falhar. ' +
           'Dados de mercado não vêm aqui: têm a rota `/market/health`.',
         schema: settingsSchema,
       },

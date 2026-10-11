@@ -58,7 +58,7 @@ export const BLOCK_REASON: Readonly<
   no_inflation:
     'Falta o IPCA dos últimos 12 meses para projetar uma meta em reais da data alvo.',
   no_history:
-    'Ainda não há fechamento da carteira deste objetivo: a projeção começa no primeiro.',
+    'A carteira deste objetivo ainda não foi consolidada: a projeção começa na primeira consolidação.',
 };
 
 /** O que vem depois do valor da meta: prazo e premissa, nessa ordem. */

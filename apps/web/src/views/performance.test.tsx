@@ -311,10 +311,10 @@ describe('o método e os estados', () => {
     expect(within(metodo).getByText(/nada é anualizado/)).toBeInTheDocument();
   });
 
-  it('sem fechamento, a tela diz que não há história — e não mostra tabelas vazias', () => {
+  it('sem consolidação, a tela diz que não há história — e não mostra tabelas vazias', () => {
     show(ready({ ...performance, reference_date: null }));
 
-    expect(screen.getByText('Nenhum fechamento ainda')).toBeInTheDocument();
+    expect(screen.getByText('Carteira ainda não consolidada')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 

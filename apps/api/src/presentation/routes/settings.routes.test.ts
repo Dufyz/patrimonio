@@ -37,8 +37,6 @@ describe('GET /api/settings', () => {
     expect(() => settingsSchema.parse(response.body)).not.toThrow();
     expect(response.body.portfolios).toEqual([]);
     expect(response.body.archived_portfolios).toEqual([]);
-    expect(response.body.categories).toEqual([]);
-    expect(response.body.institutions).toEqual([]);
   });
 
   it('as regras de mercado vêm semeadas', async () => {
@@ -75,24 +73,7 @@ describe('GET /api/settings', () => {
     });
   });
 
-  it('só aparece a instituição em uso ou estrangeira; o catálogo brasileiro parado fica de fora', async () => {
-    const brasileira = await request(harness.app)
-      .post('/api/institutions')
-      .send({ name: 'Corretora A' });
-    const estrangeira = await request(harness.app)
-      .post('/api/institutions')
-      .send({ name: 'Interactive Brokers', country: 'US' });
-    expect([brasileira.status, estrangeira.status]).toEqual([201, 201]);
-
-    const response = await configuracoes();
-
-    expect(
-      response.body.institutions.map((institution: { name: string }) => institution.name),
-    ).toEqual(['Interactive Brokers']);
-    expect(response.body.institutions[0]).toMatchObject({ country: 'US' });
-  });
-
-  it('a carteira arquivada sai da lista e a categoria renomeada continua a mesma', async () => {
+  it('a carteira arquivada sai da lista e aparece à parte', async () => {
     const criada = await request(harness.app)
       .post('/api/portfolios')
       .send({ name: 'Viagem 2024' });
@@ -100,23 +81,12 @@ describe('GET /api/settings', () => {
       .post(`/api/portfolios/${criada.body.portfolio.id}/archive`)
       .send({ archived: true });
     expect(arquivada.status).toBe(200);
-    const categoria = await request(harness.app)
-      .post('/api/categories')
-      .send({ name: 'Ações', color_token: 'class.acoes' });
-    const id = categoria.body.category.id as string;
-
-    const renomeada = await request(harness.app)
-      .patch(`/api/categories/${id}`)
-      .send({ name: 'Ações Brasil' });
-    expect(renomeada.status).toBe(200);
 
     const response = await configuracoes();
 
     expect(response.body.portfolios).toEqual([]);
     expect(response.body.archived_portfolios).toHaveLength(1);
     expect(response.body.archived_portfolios[0].name).toBe('Viagem 2024');
-    expect(response.body.categories).toHaveLength(1);
-    expect(response.body.categories[0]).toMatchObject({ id, name: 'Ações Brasil' });
   });
 });
 

@@ -361,12 +361,12 @@ describe('a posição', () => {
     expect(screen.queryByText('Preço médio')).not.toBeInTheDocument();
   });
 
-  it('sem fechamento nenhum, a frase é outra: o problema está em outro lugar', async () => {
+  it('sem consolidação nenhuma, a frase é outra: o problema está em outro lugar', async () => {
     answerWith(resource({ position: null, as_of: null }));
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    expect(screen.getByText(/Ainda não houve fechamento/)).toBeInTheDocument();
+    expect(screen.getByText(/Carteira ainda não consolidada/)).toBeInTheDocument();
   });
 
   it('título na curva mostra o valor na curva, e não quantidade e preço médio', async () => {
@@ -562,7 +562,7 @@ describe('os dados do ativo', () => {
     expect(dentro.getAllByText(/automática/).length).toBeGreaterThan(0);
     expect(dentro.getByText('Ação')).toBeInTheDocument();
     expect(dentro.getByText('Bancos')).toBeInTheDocument();
-    expect(dentro.getByText(/fechamento diário/)).toBeInTheDocument();
+    expect(dentro.getByText(/consolidação diária/)).toBeInTheDocument();
     expect(dentro.getByText('Base de mercado')).toBeInTheDocument();
     expect(dentro.getByText('Longo prazo')).toBeInTheDocument();
   });

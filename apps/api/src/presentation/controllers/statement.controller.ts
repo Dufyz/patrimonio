@@ -1,5 +1,5 @@
 import type { getStatement } from '@patrimonio/application';
-import type { GetStatementQuery } from '@patrimonio/contracts';
+import type { GetStatementQuery, StatementGroup } from '@patrimonio/contracts';
 import type { RequestHandler } from 'express';
 
 import { sendFailure, validatedQuery } from '../middleware/respond.js';
@@ -19,6 +19,13 @@ export type StatementDeps = {
   readonly usecases: { readonly getStatement: ReturnType<typeof getStatement> };
 };
 
+/** `a,b,c` → `['a','b','c']`, sem vazios. */
+const splitList = (raw: string | undefined): readonly string[] =>
+  (raw ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part !== '');
+
 export type StatementController = { readonly list: RequestHandler };
 
 export const createStatementController = (deps: StatementDeps): StatementController => ({
@@ -27,8 +34,8 @@ export const createStatementController = (deps: StatementDeps): StatementControl
 
     const result = await deps.usecases.getStatement({
       portfolioId: query.portfolio_id,
-      institutionId: query.institution_id ?? null,
-      group: query.group ?? null,
+      institutionIds: splitList(query.institution_id),
+      groups: splitList(query.group) as readonly StatementGroup[],
       search: query.search === undefined || query.search === '' ? null : query.search,
       from: query.from ?? null,
       to: query.to ?? null,

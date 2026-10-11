@@ -369,10 +369,10 @@ describe('estados', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('A api caiu');
   });
 
-  it('carteira sem fechamento diz que a estratégia aparece no primeiro', () => {
+  it('carteira sem consolidação diz que a estratégia aparece no primeiro', () => {
     show(allocation({ reference_date: null }));
 
-    expect(screen.getByText('Nenhum fechamento ainda')).toBeInTheDocument();
+    expect(screen.getByText('Carteira ainda não consolidada')).toBeInTheDocument();
   });
 });
 

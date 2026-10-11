@@ -5,9 +5,9 @@ import { sendFailure } from '../middleware/respond.js';
 
 /**
  * A tela de Configurações, numa rota de leitura e uma de ação. A leitura traz as
- * oito seções menos a de dados de mercado, que tem a rota dela (M-16); a ação é
- * o backup imediato. A escrita de cada cadastro — nova carteira, nova categoria,
- * limite de alerta — são as rotas que já existem ou chegam com T-10 e O-01.
+ * seções menos a de dados de mercado, que tem a rota dela (M-16); a ação é
+ * o backup imediato. A escrita de cada cadastro — nova carteira, limite de
+ * alerta — são as rotas que já existem ou chegam com T-10 e O-01.
  */
 export type SettingsDeps = {
   readonly usecases: {

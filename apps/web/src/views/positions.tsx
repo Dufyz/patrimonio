@@ -18,24 +18,27 @@ import { KeepPrevious } from '../components/pending.js';
 import { usePreferences } from '../components/preferences.js';
 import {
   Button,
-  Chip,
   IconButton,
   Label,
   Panel,
   PriceHealthDot,
+  SearchInput,
   Segmented,
 } from '../components/primitives.js';
 import type { TableColumn } from '../components/table.js';
 import { DataTable } from '../components/table.js';
+import { FilterDropdown } from '../components/filter_dropdown.js';
 import { assetSlug } from '../lib/asset_page.js';
+import { CSV_BOM, listFromParam, listToParam } from '../lib/statement.js';
 import type { AssetNaming } from '../lib/asset_page.js';
 import {
   DEFAULT_GROUP_BY,
   groupByOptions,
   isGroupByParam,
-  positionDetail,
   positionId,
   positionLabel,
+  positionsCsv,
+  positionsCsvFilename,
   positionTitle,
   positionsCountLabel,
   priceStamp,
@@ -45,6 +48,7 @@ import {
 } from '../lib/positions.js';
 import type { GroupByParam } from '../lib/positions.js';
 import { ManualPriceDialog } from './manual_price_dialog.js';
+import { Icon } from '../components/icon.js';
 
 /**
  * T-02 · Posições.
@@ -52,8 +56,8 @@ import { ManualPriceDialog } from './manual_price_dialog.js';
  * A tabela de tudo que está em carteira hoje. A tela responde uma pergunta — o
  * que eu tenho — e tudo nela existe para responder mais depressa: o
  * agrupamento é escolha de quem olha, o estado do preço aparece sem clique, e a
- * linha abre embaixo dela mesma em vez de levar para outra página, porque
- * conferir uma posição quase sempre significa compará-la com as vizinhas.
+ * linha leva direto à página do ativo — o detalhe vive lá, e não numa gaveta
+ * que repete metade dela.
  *
  * Nenhum número desta tela é calculado aqui. Subtotal, total, peso, resultado e
  * contagem chegam prontos da `api`; o que acontece neste arquivo é escolher
@@ -86,7 +90,10 @@ export const PositionsScreen = ({
   const rawGroupBy = params.get('agrupar');
   const groupByParam = isGroupByParam(rawGroupBy) ? rawGroupBy : DEFAULT_GROUP_BY;
   const search = params.get('busca') ?? '';
-  const category = params.get('classe');
+  const rawCategory = params.get('classe');
+  const rawInstitution = params.get('instituicao');
+  const categoryIds = useMemo(() => listFromParam(rawCategory), [rawCategory]);
+  const institutionIds = useMemo(() => listFromParam(rawInstitution), [rawInstitution]);
 
   const [draft, setDraft] = useState(search);
   const [resource, setResource] = useState<PositionsResource | null>(null);
@@ -131,7 +138,13 @@ export const PositionsScreen = ({
     setPending(true);
 
     fetchPositions(
-      { portfolioId, groupBy: toGroupBy(groupByParam), search, categoryId: category },
+      {
+        portfolioId,
+        groupBy: toGroupBy(groupByParam),
+        search,
+        categoryIds,
+        institutionIds,
+      },
       controller.signal,
     )
       .then((next) => {
@@ -147,7 +160,27 @@ export const PositionsScreen = ({
       });
 
     return () => controller.abort();
-  }, [portfolioId, groupByParam, search, category, reloads, entry.version]);
+  }, [
+    portfolioId,
+    groupByParam,
+    search,
+    categoryIds,
+    institutionIds,
+    reloads,
+    entry.version,
+  ]);
+
+  const exportCsv = (data: PositionsResource): void => {
+    const blob = new Blob([CSV_BOM, positionsCsv(data.groups)], {
+      type: 'text/csv;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = positionsCsvFilename(data.as_of ?? 'hoje');
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const groups = useMemo(
     () => (resource === null ? [] : toTableGroups(resource.groups)),
@@ -165,10 +198,8 @@ export const PositionsScreen = ({
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-0.5">
-          <h1 className="text-[1.375rem] leading-7 font-semibold">Posições</h1>
-          <p className="text-[0.8125rem] text-ink-3">
-            {scopeLabel} · posições abertas hoje
-          </p>
+          <h1 className="text-screen-title leading-7 font-semibold">Posições</h1>
+          <p className="text-xs text-ink-3">{scopeLabel} · posições abertas hoje</p>
         </div>
 
         <Toolbar>
@@ -177,9 +208,14 @@ export const PositionsScreen = ({
             aria-pressed={valuesHidden}
             onClick={toggleHidden}
           >
-            {valuesHidden ? '⦰' : '◉'}
+            <Icon name={valuesHidden ? 'eye-off' : 'eye'} />
           </IconButton>
-          <Button variant="primary" shortcut="N" onClick={() => entry.openEntry()}>
+          <Button
+            variant="primary"
+            icon="plus"
+            shortcut="N"
+            onClick={() => entry.openEntry()}
+          >
             Lançamento
           </Button>
         </Toolbar>
@@ -221,48 +257,58 @@ export const PositionsScreen = ({
       )}
 
       <Panel>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="search"
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line px-4 py-3">
+          {/* Busca e categorias dividem o espaço que sobra e quebram entre si; o
+              agrupamento fica no canto, sem quebrar junto com elas. */}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-2">
+            <SearchInput
               value={draft}
-              aria-label="Buscar posição"
+              label="Buscar posição"
               placeholder="Buscar ativo"
-              className="h-control w-48 rounded-control border border-line bg-panel px-3 text-sm"
-              onChange={(event) => setDraft(event.target.value)}
+              className="w-44 shrink-0"
+              onChange={setDraft}
             />
 
             {resource === null ? null : (
-              <div
-                role="group"
-                aria-label="Filtrar por categoria"
-                className="flex flex-wrap gap-2"
-              >
-                <Chip
-                  selected={category === null}
-                  count={resource.total.count}
-                  onClick={() => update({ classe: null })}
-                >
-                  Todas
-                </Chip>
-                {resource.facets.map((facet) => (
-                  <Chip
-                    key={facet.id}
-                    selected={category === facet.id}
-                    count={facet.count}
-                    colorToken={facet.color_token ?? undefined}
+              <>
+                <FilterDropdown
+                  label="Categoria"
+                  selected={categoryIds}
+                  options={resource.facets.map((facet) => ({
+                    id: facet.id,
+                    label: facet.label,
+                    count: facet.count,
+                    colorToken: facet.color_token,
+                  }))}
+                  onChange={(ids) => update({ classe: listToParam(ids) })}
+                />
+                <FilterDropdown
+                  label="Instituição"
+                  selected={institutionIds}
+                  options={resource.institution_facets.map((facet) => ({
+                    id: facet.id,
+                    label: facet.label,
+                    count: facet.count,
+                  }))}
+                  onChange={(ids) => update({ instituicao: listToParam(ids) })}
+                />
+                {categoryIds.length + institutionIds.length + (search === '' ? 0 : 1) >
+                0 ? (
+                  <Button
+                    variant="ghost"
+                    aria-label="Limpar todos os filtros"
                     onClick={() =>
-                      update({ classe: category === facet.id ? null : facet.id })
+                      update({ classe: null, instituicao: null, busca: null })
                     }
                   >
-                    {facet.label}
-                  </Chip>
-                ))}
-              </div>
+                    Limpar
+                  </Button>
+                ) : null}
+              </>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Label>Agrupar</Label>
             <Segmented<GroupByParam>
               label="Agrupar por"
@@ -272,10 +318,16 @@ export const PositionsScreen = ({
                 update({ agrupar: value === DEFAULT_GROUP_BY ? null : value })
               }
             />
+            <IconButton
+              label="Exportar CSV"
+              icon="export"
+              disabled={resource === null || resource.groups.length === 0}
+              onClick={() => resource !== null && exportCsv(resource)}
+            />
           </div>
         </div>
 
-        <div className="py-1">
+        <div>
           {error !== null ? (
             <p className="px-4 py-6 text-sm text-negative">{error}</p>
           ) : (
@@ -288,9 +340,8 @@ export const PositionsScreen = ({
                 rowId={positionId}
                 rowLabel={positionLabel}
                 {...(total === null ? {} : { total })}
-                renderExpansion={(row) => (
-                  <PositionDetail position={row} onOpenAsset={onOpenAsset} />
-                )}
+                openOnClick
+                onOpenRow={(row) => onOpenAsset(assetSlug(toAssetRef(row)))}
                 rowActions={(row) => (
                   <RowMenu
                     position={row}
@@ -302,24 +353,30 @@ export const PositionsScreen = ({
                 )}
                 emptyState={
                   <EmptyState
-                    filtered={search !== '' || category !== null}
+                    filtered={
+                      search !== '' || categoryIds.length > 0 || institutionIds.length > 0
+                    }
                     hasClose={resource !== null && resource.as_of !== null}
-                    onClear={() => update({ busca: null, classe: null })}
+                    onClear={() =>
+                      update({ busca: null, classe: null, instituicao: null })
+                    }
                   />
                 }
               />
             </KeepPrevious>
           )}
         </div>
+        <footer className="flex flex-wrap justify-between gap-x-6 gap-y-1 border-t border-line px-4 py-3 text-xs text-ink-3">
+          <span>
+            {stamp ??
+              'Carteira ainda não consolidada: a tabela aparece depois da primeira consolidação.'}
+            {hasCaveat
+              ? ' Nem toda linha usa preço do dia — o ponto ao lado do preço indica as exceções.'
+              : ''}
+          </span>
+          <span>Telas estreitas escondem colunas secundárias; a linha nunca quebra.</span>
+        </footer>
       </Panel>
-
-      <footer className="flex flex-wrap justify-between gap-x-6 gap-y-1 px-1 text-[0.75rem] text-ink-3">
-        <span>
-          {stamp ?? 'Ainda não há fechamento: a tabela aparece depois do primeiro.'}
-          {hasCaveat ? ' Nem toda linha usa preço do dia — veja a coluna Detalhe.' : ''}
-        </span>
-        <span>Telas estreitas escondem colunas secundárias; a linha nunca quebra.</span>
-      </footer>
 
       <ManualPriceDialog
         position={manualPriceFor}
@@ -444,45 +501,6 @@ const COLUMNS: readonly TableColumn<PositionResource>[] = [
       </span>
     ),
   },
-  {
-    id: 'dia',
-    header: 'Dia',
-    numeric: true,
-    hideBelow: 1400,
-    sortable: true,
-    sortValue: (row) => row.day_change_ratio,
-    cell: (row) => <PercentChange value={row.day_change_ratio} />,
-  },
-  {
-    id: 'rent_12m',
-    header: 'Rent. 12M',
-    numeric: true,
-    hideBelow: 1400,
-    sortable: true,
-    sortValue: (row) => row.return_12m_ratio,
-    cell: (row) => <PercentChange value={row.return_12m_ratio} />,
-  },
-  {
-    id: 'detalhe',
-    header: 'Detalhe',
-    hideBelow: 1400,
-    cell: (row) => {
-      const detail = positionDetail(row);
-      if (detail === null) return null;
-      return (
-        // A coluna tem teto: sem ele, um vencimento por extenso empurra a
-        // tabela para fora do painel em vez de cortar com reticências.
-        <span
-          className={`inline-block max-w-32 truncate align-bottom ${
-            detail.tone === 'attention' ? 'text-attention' : 'text-ink-2'
-          }`}
-          title={detail.text}
-        >
-          {detail.text}
-        </span>
-      );
-    },
-  },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -515,29 +533,36 @@ const RowMenu = ({
     label={`Ações de ${positionTitle(position)}`}
     items={[
       {
-        id: 'open_asset',
-        label: 'Abrir o ativo',
-        onSelect: () => onOpenAsset(assetSlug(toAssetRef(position))),
-      },
-      {
         id: 'buy_sell',
         label: 'Lançar compra ou venda',
+        icon: <Icon name="plus" />,
         shortcut: 'L',
         onSelect: () => onEntry({ tab: 'buy', ...seedOf(position) }),
       },
       {
         id: 'payout',
         label: 'Lançar provento',
+        icon: <Icon name="coin" />,
         onSelect: () => onEntry({ tab: 'payout', ...seedOf(position) }),
+      },
+      {
+        id: 'open_asset',
+        label: 'Abrir ativo',
+        icon: <Icon name="tag" />,
+        shortcut: '↵',
+        separatorBefore: true,
+        onSelect: () => onOpenAsset(assetSlug(toAssetRef(position))),
       },
       {
         id: 'manual_price',
         label: 'Definir preço manual',
+        icon: <Icon name="pencil" />,
         onSelect: () => onManualPrice(position),
       },
       {
         id: 'transactions',
         label: 'Ver lançamentos',
+        icon: <Icon name="swap" />,
         disabled: onOpenStatement === undefined,
         onSelect: () => onOpenStatement?.(positionTitle(position)),
       },
@@ -558,75 +583,6 @@ const toAssetRef = (position: PositionResource): AssetNaming => ({
 });
 
 /**
- * O detalhe da linha, aberto embaixo dela. É o "abrir o ativo sem sair da
- * tela": o que cabe em quatro números e responde a pergunta imediata — quanto
- * custou, quanto vale, de onde veio o preço. A página inteira do ativo abre no
- * botão ao lado do nome.
- */
-const PositionDetail = ({
-  position,
-  onOpenAsset,
-}: {
-  readonly position: PositionResource;
-  readonly onOpenAsset: (slug: string) => void;
-}): React.ReactElement => {
-  const detail = positionDetail(position);
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <p className="text-sm font-medium">{position.name}</p>
-        <Button onClick={() => onOpenAsset(assetSlug(toAssetRef(position)))}>
-          Abrir a página do ativo
-        </Button>
-      </div>
-
-      <dl className="flex flex-wrap gap-x-8 gap-y-2 text-[0.8125rem]">
-        <Fact label="Custo total">
-          <Money value={position.cost_basis} />
-        </Fact>
-        <Fact label="Valor hoje">
-          <Money value={position.value} />
-        </Fact>
-        <Fact label="Resultado aberto">
-          <MoneyChange value={position.open_result} />
-        </Fact>
-        <Fact label="Peso na carteira">
-          <Percent value={position.weight} decimals={1} />
-        </Fact>
-        <Fact label="Carteira">
-          <span>{position.portfolio_name}</span>
-        </Fact>
-        <Fact label="Custódia">
-          <span>{position.institution_name ?? '—'}</span>
-        </Fact>
-        {position.category_name === null ? null : (
-          <Fact label="Categoria">
-            <span>{position.category_name}</span>
-          </Fact>
-        )}
-        {detail === null ? null : <Fact label="Preço">{detail.text}</Fact>}
-      </dl>
-    </div>
-  );
-};
-
-const Fact = ({
-  label,
-  children,
-}: {
-  readonly label: string;
-  readonly children: React.ReactNode;
-}): React.ReactElement => (
-  <div className="flex flex-col gap-0.5">
-    <dt>
-      <Label>{label}</Label>
-    </dt>
-    <dd>{children}</dd>
-  </div>
-);
-
-/**
  * O-08 · "Nada encontrado" e "nada cadastrado" são estados diferentes, e dizer
  * a frase errada manda a pessoa procurar o problema no lugar errado.
  */
@@ -645,7 +601,7 @@ const EmptyState = ({
         ? 'Nenhuma posição corresponde ao filtro.'
         : hasClose
           ? 'Esta carteira não tem posição aberta hoje.'
-          : 'Ainda não houve fechamento: a primeira tabela aparece depois dele.'}
+          : 'Carteira ainda não consolidada: a primeira tabela aparece depois da primeira consolidação.'}
     </p>
     {filtered ? (
       <Button onClick={onClear}>Limpar filtros</Button>

@@ -44,8 +44,8 @@ describe('barra de controles', () => {
 
     const dialog = screen.getByRole('dialog', { name: 'Período personalizado' });
     expect(dialog).toBeVisible();
-    expect(screen.getByText('setembro 2026')).toBeVisible();
-    expect(screen.getByText('outubro 2026')).toBeVisible();
+    expect(screen.getByText(/setembro/)).toBeVisible();
+    expect(screen.getByText(/outubro/)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Últimos 3 meses' })).toBeVisible();
   });
 
@@ -54,19 +54,8 @@ describe('barra de controles', () => {
     const onChange = renderPeriod({ kind: 'preset', preset: '12m' });
 
     await user.click(screen.getByRole('button', { name: '…' }));
-
-    const setembro = screen.getByText('setembro 2026').closest('table');
-    const outubro = screen.getByText('outubro 2026').closest('table');
-    await user.click(
-      screen
-        .getAllByRole('button', { name: '1' })
-        .find((node) => setembro?.contains(node)) as HTMLElement,
-    );
-    await user.click(
-      screen
-        .getAllByRole('button', { name: '6' })
-        .find((node) => outubro?.contains(node)) as HTMLElement,
-    );
+    await user.click(screen.getByRole('button', { name: /, 1 de setembro/ }));
+    await user.click(screen.getByRole('button', { name: /, 6 de outubro/ }));
     await user.click(screen.getByRole('button', { name: 'Aplicar' }));
 
     expect(onChange).toHaveBeenCalledWith({
@@ -98,11 +87,7 @@ describe('barra de controles', () => {
     renderPeriod({ kind: 'preset', preset: '12m' });
     await user.click(screen.getByRole('button', { name: '…' }));
 
-    const outubro = screen.getByText('outubro 2026').closest('table');
-    const dia7 = screen
-      .getAllByRole('button', { name: '7' })
-      .find((node) => outubro?.contains(node));
-    expect(dia7).toBeDisabled();
+    expect(screen.getByRole('button', { name: /, 7 de outubro/ })).toBeDisabled();
   });
 
   it('filtro aplicado aparece como etiqueta removível', async () => {

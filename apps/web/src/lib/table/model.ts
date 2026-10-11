@@ -16,7 +16,8 @@ import { compareDecimal } from '../decimal.js';
  */
 
 /** Quantas linhas um grupo mostra antes do "mostrar mais". */
-export const DEFAULT_ROWS_PER_GROUP = 5;
+/** Sem teto: a tabela mostra todas as linhas do grupo, e o grupo só recolhe. */
+export const DEFAULT_ROWS_PER_GROUP = Number.POSITIVE_INFINITY;
 
 export type GroupSummary = Readonly<Record<string, string | null>>;
 

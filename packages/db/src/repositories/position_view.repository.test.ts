@@ -49,7 +49,8 @@ const filter = (
   portfolioId: CARTEIRA as string,
   groupBy: 'category' as const,
   search: null as string | null,
-  categoryId: null as string | null,
+  categoryIds: [] as readonly string[],
+  institutionIds: [] as readonly string[],
   ...overrides,
 });
 
@@ -319,7 +320,7 @@ describe('filtros', () => {
   });
 
   it('a pastilha de categoria filtra a tabela e não a própria contagem', async () => {
-    const view = unwrapSuccess(await open({ categoryId: ACOES }));
+    const view = unwrapSuccess(await open({ categoryIds: [ACOES] }));
 
     expect(view.rows.map((row) => row.ticker).toSorted()).toEqual(['ITUB4', 'WEGE3']);
     // As pastilhas continuam contando o conjunto sem o filtro de categoria.
@@ -328,8 +329,25 @@ describe('filtros', () => {
     );
   });
 
+  it('várias categorias valem como "qualquer uma", e instituição combina com elas', async () => {
+    const duas = unwrapSuccess(await open({ categoryIds: [ACOES, RF_PRE] }));
+    expect(duas.rows).toHaveLength(3);
+
+    const naCorretora = unwrapSuccess(
+      await open({ categoryIds: [ACOES, RF_PRE], institutionIds: [CORRETORA] }),
+    );
+    expect(naCorretora.rows.every((row) => row.institution_id === CORRETORA)).toBe(true);
+
+    const instituicoes = unwrapSuccess(await open({ institutionIds: [BANCO] }));
+    expect(instituicoes.rows.map((row) => row.ticker)).not.toContain('ITUB4');
+    // As pastilhas de instituição contam o recorte sem o filtro de instituição.
+    expect(instituicoes.institution_facets.map((facet) => facet.id).toSorted()).toEqual(
+      [BANCO, CORRETORA].toSorted(),
+    );
+  });
+
   it('o peso é recalculado sobre o recorte filtrado, e volta a somar um', async () => {
-    const view = unwrapSuccess(await open({ categoryId: ACOES }));
+    const view = unwrapSuccess(await open({ categoryIds: [ACOES] }));
     const soma = view.rows.reduce((amount, row) => amount + Number(row.weight), 0);
 
     expect(soma).toBeCloseTo(1, 5);

@@ -10,6 +10,7 @@ import { useSearchParams } from 'react-router';
 import { fetchOverview } from '../api/overview.js';
 
 import { CompositionBar } from '../components/bars.js';
+import { useEntry } from '../components/entry_provider.js';
 import {
   Money,
   MoneyChange,
@@ -21,7 +22,14 @@ import { OverviewHeader } from '../components/overview_header.js';
 import { KeepPrevious } from '../components/pending.js';
 import { PeriodControl } from '../components/period_control.js';
 import { usePreferences } from '../components/preferences.js';
-import { Chip, IconButton, Label, Panel, PriceHealthDot } from '../components/primitives.js';
+import {
+  Button,
+  Chip,
+  IconButton,
+  Label,
+  Panel,
+  PriceHealthDot,
+} from '../components/primitives.js';
 import { SeriesChart } from '../components/series_chart.js';
 import { assetSlug, assetTitle } from '../lib/asset_page.js';
 import type { Period } from '../lib/period.js';
@@ -48,6 +56,7 @@ import {
 import type { Resource } from '../lib/use_resource.js';
 import { useResource } from '../lib/use_resource.js';
 import { colorForToken } from '../lib/tokens.js';
+import { Icon } from '../components/icon.js';
 
 /**
  * T-01 · Visão geral — a prancha `04 · Visão geral`.
@@ -69,12 +78,15 @@ export type OverviewViewProps = {
   readonly onPeriodChange: (period: Period) => void;
   readonly today: DateOnly;
   readonly onOpenAsset?: ((slug: string) => void) | undefined;
+  /** Leva a outra tela da carteira: `estrategia`, `posicoes`. */
+  readonly onOpenScreen?: ((path: 'estrategia' | 'posicoes') => void) | undefined;
 };
 
 export type OverviewScreenProps = {
   readonly portfolioId: string;
   /** Abre a página do ativo (T-03), pelo mesmo apelido que Posições usa. */
   readonly onOpenAsset?: ((slug: string) => void) | undefined;
+  readonly onOpenScreen?: ((path: 'estrategia' | 'posicoes') => void) | undefined;
 };
 
 /** O relógio entra uma vez, na borda: nenhuma função pura chama `new Date()`. */
@@ -88,6 +100,7 @@ const todayIso = (): DateOnly => new Date().toISOString().slice(0, 10) as DateOn
 export const OverviewScreen = ({
   portfolioId,
   onOpenAsset,
+  onOpenScreen,
 }: OverviewScreenProps): React.ReactElement => {
   const [params, setParams] = useSearchParams();
   const today = todayIso();
@@ -136,6 +149,7 @@ export const OverviewScreen = ({
       onPeriodChange={onPeriodChange}
       today={today}
       {...(onOpenAsset === undefined ? {} : { onOpenAsset })}
+      {...(onOpenScreen === undefined ? {} : { onOpenScreen })}
     />
   );
 };
@@ -159,7 +173,7 @@ const Evolution = ({
   if (bands.dates.length === 0) {
     return (
       <p className="flex h-full min-h-40 items-center justify-center text-[0.8125rem] text-ink-3">
-        Sem fechamento no período escolhido.
+        Sem consolidação no período escolhido.
       </p>
     );
   }
@@ -200,7 +214,7 @@ const Distribution = ({
   if (nodes.length === 0) {
     return (
       <p className="p-4 text-[0.8125rem] text-ink-3">
-        Sem posição em carteira na data do fechamento.
+        Sem posição em carteira na data da consolidação.
       </p>
     );
   }
@@ -215,32 +229,41 @@ const Distribution = ({
   const withTarget = nodes.filter((node) => node.target_pct !== null);
   const out = withTarget.filter((node) => node.over_tolerance);
 
+  const note =
+    withTarget.length === 0
+      ? 'Nenhum alvo declarado: a estratégia desta carteira ainda não foi definida.'
+      : out.length === 0
+        ? `Todas as classes dentro da tolerância de ${trimDecimals(overview.scope.tolerance_pp)} pp.`
+        : `${out.length} ${out.length === 1 ? 'classe fora' : 'classes fora'} da tolerância de ${trimDecimals(overview.scope.tolerance_pp)} pp.`;
+
   return (
-    <div className="flex flex-col gap-3 p-4">
-      <CompositionBar slices={slices} label="Composição por categoria" />
+    <>
+      <div className="px-4 pt-4 pb-1">
+        <CompositionBar slices={slices} label="Composição por categoria" />
+      </div>
 
       <table className="w-full">
         <caption className="sr-only">Distribuição por categoria</caption>
         <thead>
-          <tr className="text-label tracking-wide text-ink-3 uppercase">
-            <th scope="col" className="pb-1 text-left font-medium">
+          <tr className="tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
+            <th scope="col" className="px-4 py-[9px] text-left">
               Classe
             </th>
-            <th scope="col" className="pb-1 text-right font-medium">
+            <th scope="col" className="px-4 py-[9px] text-right">
               Atual
             </th>
-            <th scope="col" className="pb-1 text-right font-medium">
+            <th scope="col" className="px-4 py-[9px] text-right">
               vs alvo
             </th>
           </tr>
         </thead>
         <tbody>
           {nodes.map((node) => (
-            <tr
-              key={node.id}
-              className="h-(--row-height) border-t border-line text-[0.8125rem]"
-            >
-              <th scope="row" className="truncate text-left font-normal">
+            <tr key={node.id} className="border-t border-line text-[0.8125rem]">
+              <th
+                scope="row"
+                className="truncate px-4 py-(--row-pad) text-left font-normal"
+              >
                 <span className="flex items-center gap-2">
                   <span
                     aria-hidden="true"
@@ -250,10 +273,10 @@ const Distribution = ({
                   {node.name}
                 </span>
               </th>
-              <td className="text-right">
+              <td className="px-4 py-(--row-pad) text-right">
                 <Percent value={percentAsRatio(node.current_pct)} decimals={1} />
               </td>
-              <td className="text-right">
+              <td className="px-4 py-(--row-pad) text-right">
                 <Points
                   value={node.deviation_pp}
                   decimals={1}
@@ -265,16 +288,31 @@ const Distribution = ({
         </tbody>
       </table>
 
-      <p className="text-[0.75rem] text-ink-3">
-        {withTarget.length === 0
-          ? 'Nenhum alvo declarado: a estratégia desta carteira ainda não foi definida.'
-          : out.length === 0
-            ? `Todas as classes dentro da tolerância de ${trimDecimals(overview.scope.tolerance_pp)} pp.`
-            : `${out.length} ${out.length === 1 ? 'classe fora' : 'classes fora'} da tolerância de ${trimDecimals(overview.scope.tolerance_pp)} pp.`}
-      </p>
-    </div>
+      {/* O aviso de tolerância fecha o cartão, separado por uma linha e colado
+          embaixo: com os dois cartões da linha na mesma altura, ele não flutua
+          no meio do espaço que sobra. */}
+      <p className="mt-auto border-t border-line px-4 py-3 text-xs text-ink-3">{note}</p>
+    </>
   );
 };
+
+/** O link do cabeçalho de um cartão — `Estratégia →`, `Todas · 28 →`. */
+const PanelLink = ({
+  onClick,
+  children,
+}: {
+  readonly onClick: () => void;
+  readonly children: React.ReactNode;
+}): React.ReactElement => (
+  <button
+    type="button"
+    className="inline-flex cursor-pointer items-center gap-1 text-xs text-accent hover:underline"
+    onClick={onClick}
+  >
+    {children}
+    <Icon name="arrow-right" size={14} />
+  </button>
+);
 
 const TopPositions = ({
   overview,
@@ -294,17 +332,17 @@ const TopPositions = ({
   }
 
   return (
-    <table className="w-full px-4">
+    <table className="w-full">
       <caption className="sr-only">Maiores posições</caption>
       <thead>
-        <tr className="text-label tracking-wide text-ink-3 uppercase">
-          <th scope="col" className="px-4 pb-1 text-left font-medium">
+        <tr className="tabular border-b border-line text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
+          <th scope="col" className="px-4 py-[9px] text-left">
             Ativo
           </th>
-          <th scope="col" className="px-4 pb-1 text-right font-medium">
+          <th scope="col" className="px-4 py-[9px] text-right">
             Valor
           </th>
-          <th scope="col" className="px-4 pb-1 text-right font-medium">
+          <th scope="col" className="px-4 py-[9px] text-right">
             Peso
           </th>
         </tr>
@@ -313,9 +351,12 @@ const TopPositions = ({
         {rows.map((row: OverviewTopPositionResource) => (
           <tr
             key={row.asset_id}
-            className="h-(--row-height) border-t border-line text-[0.8125rem]"
+            className="border-b border-line text-[0.8125rem] last:border-b-0"
           >
-            <th scope="row" className="truncate px-4 text-left font-normal">
+            <th
+              scope="row"
+              className="truncate px-4 py-(--row-pad) text-left font-normal"
+            >
               <span className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
@@ -337,10 +378,10 @@ const TopPositions = ({
                 <PriceHealthDot kind={row.price_source_kind} />
               </span>
             </th>
-            <td className="px-4 text-right">
+            <td className="px-4 py-(--row-pad) text-right">
               <Money value={row.value} decimals={2} />
             </td>
-            <td className="px-4 text-right">
+            <td className="px-4 py-(--row-pad) text-right">
               <Percent value={percentAsRatio(row.weight_pct)} decimals={1} />
             </td>
           </tr>
@@ -362,7 +403,7 @@ const AttentionRow = ({
   return (
     <li className="flex items-center gap-3 border-t border-line px-4 py-2.5 text-[0.8125rem]">
       <span className="min-w-0 flex-1 truncate">
-        <span className="font-medium">{text.title}</span>
+        <span className="font-semibold">{text.title}</span>
         <span className="text-ink-3"> · </span>
         <span className="text-ink-2">{text.detail}</span>
       </span>
@@ -411,10 +452,10 @@ const Attention = ({
 
 const Empty = ({ scope }: { readonly scope: string }): React.ReactElement => (
   <section className="rounded-panel border border-line bg-panel p-8 text-center">
-    <h2 className="text-panel-title font-semibold">Nenhum fechamento ainda</h2>
+    <h2 className="text-panel-title font-semibold">Carteira ainda não consolidada</h2>
     <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
-      {scope} não tem posição calculada. O primeiro lançamento começa a história: o
-      fechamento do dia roda em seguida e esta tela passa a responder quanto você tem.
+      {scope} não tem posição calculada. O primeiro lançamento começa a história: a
+      consolidação do dia roda em seguida e esta tela passa a responder quanto você tem.
     </p>
   </section>
 );
@@ -435,7 +476,9 @@ const Failed = ({
     </h2>
     {/* Erro nunca vira "nenhum resultado": uma tela vazia porque a api caiu é
         a pior mentira que uma tela financeira conta. */}
-    <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">{error.message}</p>
+    <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
+      {error.message}
+    </p>
     <button
       type="button"
       className="mt-4 h-control cursor-pointer rounded-control border border-line px-3 text-[0.8125rem] hover:bg-panel-2"
@@ -458,9 +501,11 @@ export const OverviewView = ({
   onPeriodChange,
   today,
   onOpenAsset,
+  onOpenScreen,
 }: OverviewViewProps): React.ReactElement => {
   const { state, pending, reload } = resource;
   const { hidden, toggleHidden } = usePreferences();
+  const entry = useEntry();
 
   if (state.kind === 'loading') return <Skeleton />;
   if (state.kind === 'error') return <Failed error={state.error} onRetry={reload} />;
@@ -473,7 +518,7 @@ export const OverviewView = ({
     overview.scope.name,
     overview.reference_date === null
       ? null
-      : `fechamento de ${formatDate(overview.reference_date as DateOnly)}`,
+      : `consolidação de ${formatDate(overview.reference_date as DateOnly)}`,
   ]
     .filter((part): part is string => part !== null && part !== '')
     .join(' · ');
@@ -482,8 +527,8 @@ export const OverviewView = ({
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-screen-title font-semibold tracking-tight">Visão geral</h1>
-          <p className="truncate text-[0.8125rem] text-ink-2">{subtitle}</p>
+          <h1 className="text-screen-title leading-7 font-semibold">Visão geral</h1>
+          <p className="truncate text-xs text-ink-3">{subtitle}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -500,8 +545,16 @@ export const OverviewView = ({
             aria-pressed={hidden}
             onClick={toggleHidden}
           >
-            <span aria-hidden="true">{hidden ? '◌' : '◉'}</span>
+            <Icon name={hidden ? 'eye-off' : 'eye'} />
           </IconButton>
+          <Button
+            variant="primary"
+            icon="plus"
+            shortcut="N"
+            onClick={() => entry.openEntry()}
+          >
+            Lançamento
+          </Button>
         </div>
       </header>
 
@@ -523,12 +576,14 @@ export const OverviewView = ({
                 })}
             {...(overview.scope.recalc_status === 'running' ||
             overview.scope.recalc_status === 'queued'
-              ? { caveat: 'recalculando: o número é o do último fechamento concluído' }
+              ? { caveat: 'recalculando: o número é o do última consolidação concluída' }
               : {})}
             metrics={[
               {
                 label: `Rentabilidade ${periodSuffix(period)}`,
-                value: <PercentChange value={percentAsRatio(overview.period.return_pct)} />,
+                value: (
+                  <PercentChange value={percentAsRatio(overview.period.return_pct)} />
+                ),
               },
               {
                 label: `Aportes ${periodSuffix(period)}`,
@@ -550,7 +605,8 @@ export const OverviewView = ({
                     Evolução {periodSuffix(period)}
                   </h2>
                   <span className="text-[0.75rem] text-ink-3">
-                    {formatDayMonth(range.from, today)} – {formatDayMonth(range.to, today)}
+                    {formatDayMonth(range.from, today)} –{' '}
+                    {formatDayMonth(range.to, today)}
                   </span>
                 </div>
                 <Evolution overview={overview} />
@@ -561,20 +617,33 @@ export const OverviewView = ({
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <Panel
               title="Distribuição por categoria"
+              className="flex flex-col"
+              action={
+                onOpenScreen === undefined ? undefined : (
+                  <PanelLink onClick={() => onOpenScreen('estrategia')}>
+                    Estratégia
+                  </PanelLink>
+                )
+              }
             >
               <Distribution overview={overview} />
             </Panel>
 
             <Panel
               title="Maiores posições"
-              hint={`${overview.top_positions.total_count} no total`}
+              className="flex flex-col"
+              action={
+                onOpenScreen === undefined ? undefined : (
+                  <PanelLink onClick={() => onOpenScreen('posicoes')}>
+                    Todas · {overview.top_positions.total_count}
+                  </PanelLink>
+                )
+              }
             >
-              <div className="p-4">
-                <TopPositions
-                  overview={overview}
-                  {...(onOpenAsset === undefined ? {} : { onOpenAsset })}
-                />
-              </div>
+              <TopPositions
+                overview={overview}
+                {...(onOpenAsset === undefined ? {} : { onOpenAsset })}
+              />
             </Panel>
           </div>
 

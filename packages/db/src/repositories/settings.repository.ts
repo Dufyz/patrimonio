@@ -2,8 +2,6 @@ import type {
   SettingsAlertRuleRow,
   SettingsArchivedPortfolioRow,
   SettingsBackupRow,
-  SettingsCategoryRow,
-  SettingsInstitutionRow,
   SettingsPortfolioRow,
   SettingsRepository,
 } from '@patrimonio/application';
@@ -14,7 +12,6 @@ import {
   asInteger,
   asIsoStringOrNull,
   asJsonOrNull,
-  asNumericOrNull,
   asString,
   asStringOrNull,
 } from '@patrimonio/domain';
@@ -28,20 +25,11 @@ import type { Connection } from '../postgresql.js';
  * A tela de Configurações em **uma** consulta: cada cadastro volta como um array
  * `jsonb` já agregado, com as contagens que explicam um bloqueio de exclusão.
  *
- * Três decisões dentro dela que não são óbvias:
+ * Uma decisão dentro dela que não é óbvia:
  *
- * - **Carteira arquivada não conta como carteira da instituição nem do
- *   objetivo.** Ela está fora da barra lateral e fora das somas; listá-la ao
+ * - **Carteira arquivada não conta como carteira do objetivo.** Ela está fora da barra lateral e fora das somas; listá-la ao
  *   lado de "Longo prazo" como se estivesse viva faria a tela mentir sobre o
  *   que está em uso. Ela aparece à parte, em `archived_portfolios`.
- * - **O caixa de uma instituição é o último valor de cada carteira nos ativos
- *   de caixa dela.** O caixa é um ativo sintético com `issuer_id` na própria
- *   instituição (L-07), e o valor dele é o saldo — então a soma do último
- *   `position_daily` por carteira é o que está parado ali, e ela não depende de
- *   uma coluna de saldo que não existe.
- * - **Só entra a instituição em uso.** O catálogo brasileiro tem centenas de
- *   linhas; a lista mostra as que têm lançamento, ativo ou caixa, e as
- *   estrangeiras, que a pessoa criou.
  */
 const asRows = (value: unknown): readonly Row[] =>
   Array.isArray(value) ? (value as Row[]) : [];
@@ -65,28 +53,6 @@ const parseArchived = (row: Row): SettingsArchivedPortfolioRow => ({
   id: asString(row, 'id'),
   name: asString(row, 'name'),
   archived_on: asDateOnly(row, 'archived_on'),
-});
-
-const parseCategory = (row: Row): SettingsCategoryRow => ({
-  id: asString(row, 'id'),
-  parent_id: asStringOrNull(row, 'parent_id'),
-  name: asString(row, 'name'),
-  color_token: asString(row, 'color_token'),
-  auto_rule: asJsonOrNull(row, 'auto_rule'),
-  sort_order: asInteger(row, 'sort_order'),
-  assets: asInteger(row, 'assets'),
-  strategies: asInteger(row, 'strategies'),
-  children: asInteger(row, 'children'),
-});
-
-const parseInstitution = (row: Row): SettingsInstitutionRow => ({
-  id: asString(row, 'id'),
-  name: asString(row, 'name'),
-  country: asString(row, 'country'),
-  portfolios: asStrings(row['portfolios']),
-  cash: asNumericOrNull(row, 'cash'),
-  transactions: asInteger(row, 'transactions'),
-  assets: asInteger(row, 'assets'),
 });
 
 const parseAlert = (row: Row): SettingsAlertRuleRow => ({
@@ -152,82 +118,6 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
             FROM portfolio p
            WHERE p.archived_at IS NOT NULL
         ),
-        category_json AS (
-          SELECT COALESCE(JSONB_AGG(
-                   JSONB_BUILD_OBJECT(
-                     'id', c.id,
-                     'parent_id', c.parent_id,
-                     'name', c.name,
-                     'color_token', c.color_token,
-                     'auto_rule', c.auto_rule,
-                     'sort_order', c.sort_order,
-                     -- O grupo soma as categorias dentro dele; as carteiras são as
-                     -- distintas, porque duas categorias do mesmo grupo na mesma
-                     -- carteira são uma carteira só.
-                     'assets', (
-                       SELECT COUNT(*) FROM asset a
-                        WHERE a.category_id = c.id
-                           OR a.category_id IN (
-                                SELECT ch.id FROM category ch WHERE ch.parent_id = c.id
-                              )
-                     ),
-                     'strategies', (
-                       SELECT COUNT(DISTINCT s.portfolio_id)
-                         FROM strategy_target s
-                         JOIN open_portfolio op ON op.id = s.portfolio_id
-                        WHERE s.category_id = c.id
-                           OR s.category_id IN (
-                                SELECT ch.id FROM category ch WHERE ch.parent_id = c.id
-                              )
-                     ),
-                     'children', (
-                       SELECT COUNT(*) FROM category ch WHERE ch.parent_id = c.id
-                     )
-                   ) ORDER BY c.sort_order, LOWER(c.name)
-                 ), '[]'::JSONB) AS value
-            FROM category c
-        ),
-        -- O último valor de cada carteira nos ativos de caixa da instituição.
-        cash_by_institution AS (
-          SELECT a.issuer_id AS institution_id, SUM(last_day.market_value) AS cash
-            FROM asset a
-            CROSS JOIN open_portfolio p
-            CROSS JOIN LATERAL (
-              SELECT d.market_value
-                FROM position_daily d
-               WHERE d.portfolio_id = p.id AND d.asset_id = a.id
-               ORDER BY d.position_date DESC
-               LIMIT 1
-            ) last_day
-           WHERE a.b3_type = 'cash' AND a.issuer_id IS NOT NULL
-           GROUP BY a.issuer_id
-        ),
-        institution_json AS (
-          SELECT COALESCE(JSONB_AGG(
-                   JSONB_BUILD_OBJECT(
-                     'id', i.id,
-                     'name', i.name,
-                     'country', i.country,
-                     'portfolios', COALESCE((
-                       SELECT JSONB_AGG(DISTINCT p.name)
-                         FROM transaction t
-                         JOIN open_portfolio p ON p.id = t.portfolio_id
-                        WHERE t.institution_id = i.id
-                     ), '[]'::JSONB),
-                     'cash', cb.cash::TEXT,
-                     'transactions', (
-                       SELECT COUNT(*) FROM transaction t WHERE t.institution_id = i.id
-                     ),
-                     'assets', (SELECT COUNT(*) FROM asset a WHERE a.issuer_id = i.id)
-                   ) ORDER BY LOWER(i.name)
-                 ), '[]'::JSONB) AS value
-            FROM institution i
-            LEFT JOIN cash_by_institution cb ON cb.institution_id = i.id
-           WHERE i.country <> 'BR'
-              OR cb.cash IS NOT NULL
-              OR EXISTS (SELECT 1 FROM transaction t WHERE t.institution_id = i.id)
-              OR EXISTS (SELECT 1 FROM asset a WHERE a.issuer_id = i.id)
-        ),
         alert_json AS (
           SELECT COALESCE(JSONB_AGG(
                    JSONB_BUILD_OBJECT(
@@ -272,8 +162,6 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
         )
         SELECT (SELECT value FROM portfolio_json) AS portfolios,
                (SELECT value FROM archived_json) AS archived_portfolios,
-               (SELECT value FROM category_json) AS categories,
-               (SELECT value FROM institution_json) AS institutions,
                (SELECT value FROM alert_json) AS alerts,
                (SELECT TO_JSONB(b) FROM backup_row b) AS backup
       `;
@@ -287,8 +175,6 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
       return success({
         portfolios: asRows(row['portfolios']).map(parsePortfolio),
         archived_portfolios: asRows(row['archived_portfolios']).map(parseArchived),
-        categories: asRows(row['categories']).map(parseCategory),
-        institutions: asRows(row['institutions']).map(parseInstitution),
         alerts: asRows(row['alerts']).map(parseAlert),
         backup: parseBackup(
           typeof row['backup'] === 'object' && row['backup'] !== null

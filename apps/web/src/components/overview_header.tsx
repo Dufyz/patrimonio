@@ -57,12 +57,14 @@ export const OverviewHeader = ({
 
         {change === undefined ? null : (
           <p className="flex flex-wrap items-baseline gap-2 text-[0.8125rem]">
-            <MoneyChange value={change.amount} />
-            <span aria-hidden="true" className="text-ink-3">
-              ·
+            <span className="flex items-baseline gap-2 font-semibold">
+              <MoneyChange value={change.amount} />
+              <span aria-hidden="true" className="font-normal text-ink-3">
+                ·
+              </span>
+              <PercentChange value={change.ratio} />
             </span>
-            <PercentChange value={change.ratio} />
-            <span className="text-ink-2">{change.periodLabel}</span>
+            <span className="text-xs text-ink-3">{change.periodLabel}</span>
           </p>
         )}
 

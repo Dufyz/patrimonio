@@ -23,8 +23,8 @@ import { decodePeriod, encodePeriod } from './period.js';
  * guarda o recorte, o que vai para o CSV. Nenhuma função aqui soma dinheiro.
  */
 
-/** Quantos lançamentos cabem numa página. */
-export const STATEMENT_PAGE_SIZE = 50;
+/** O extrato traz o período inteiro de uma vez; o teto só protege de um pedido sem fim. */
+export const STATEMENT_LIMIT = 2000;
 
 /** Releitura enquanto o recálculo não termina, em milissegundos. */
 export const RECALCULATION_POLL_MS = 4000;
@@ -61,6 +61,30 @@ export const groupFromParam = (raw: string | null): StatementGroup | null => {
   return found?.[0] ?? null;
 };
 
+/** `vendas,proventos` → os tipos que o endereço pede, sem repetir nem inventar. */
+export const groupsFromParam = (raw: string | null): readonly StatementGroup[] => [
+  ...new Set(
+    (raw ?? '')
+      .split(',')
+      .map((part) => groupFromParam(part))
+      .filter((group): group is StatementGroup => group !== null),
+  ),
+];
+
+/** O padrão — nenhum tipo escolhido — nunca é escrito na URL. */
+export const groupsToParam = (groups: readonly StatementGroup[]): string | null =>
+  groups.length === 0 ? null : groups.map((group) => GROUP_PARAMS[group]).join(',');
+
+/** `id1,id2` do endereço → lista; vazio vira lista vazia. */
+export const listFromParam = (raw: string | null): readonly string[] =>
+  (raw ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part !== '');
+
+export const listToParam = (ids: readonly string[]): string | null =>
+  ids.length === 0 ? null : ids.join(',');
+
 export const periodFromParam = (raw: string | null): Period =>
   raw === null ? DEFAULT_STATEMENT_PERIOD : decodePeriod(raw);
 
@@ -69,11 +93,6 @@ export const periodToParam = (period: Period): string | null =>
   encodePeriod(period) === encodePeriod(DEFAULT_STATEMENT_PERIOD)
     ? null
     : encodePeriod(period);
-
-export const pageFromParam = (raw: string | null): number => {
-  const value = Number(raw);
-  return Number.isInteger(value) && value >= 1 ? value : 1;
-};
 
 /* -------------------------------------------------------------------------- */
 /* Rótulos                                                                    */
@@ -317,13 +336,13 @@ const CSV_HEADER = [
 ] as const;
 
 /** Uma célula de texto que começa como fórmula vira texto, não fórmula. */
-const safeText = (value: string): string =>
+export const safeText = (value: string): string =>
   /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 
-const quoted = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+export const quoted = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 
 /** Decimal com vírgula, que é o que a planilha em português entende. */
-const decimalComma = (value: string): string => value.replace('.', ',');
+export const decimalComma = (value: string): string => value.replace('.', ',');
 
 /**
  * O CSV da seleção: `;` e vírgula decimal, porque é assim que a planilha em

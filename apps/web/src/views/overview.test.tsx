@@ -124,11 +124,11 @@ const show = (resource: Resource<OverviewResource>) =>
   );
 
 describe('quanto eu tenho hoje', () => {
-  it('o patrimônio abre a tela, com a data do fechamento ao lado do nome', () => {
+  it('o patrimônio abre a tela, com a data da consolidação ao lado do nome', () => {
     show(ready(overview));
 
     expect(screen.getByText('R$ 318.904,12')).toBeInTheDocument();
-    expect(screen.getByText(/fechamento de 06\/10\/2026/)).toBeInTheDocument();
+    expect(screen.getByText(/consolidação de 06\/10\/2026/)).toBeInTheDocument();
   });
 
   it('a variação do mês aparece em dinheiro e em percentual, com sinal', () => {
@@ -205,7 +205,7 @@ describe('o que precisa de mim', () => {
 });
 
 describe('o que a tela faz quando não há número', () => {
-  it('carteira sem fechamento convida ao primeiro lançamento, e não mostra zero', () => {
+  it('carteira sem consolidação convida ao primeiro lançamento, e não mostra zero', () => {
     show(
       ready({
         ...overview,
@@ -215,7 +215,7 @@ describe('o que a tela faz quando não há número', () => {
       }),
     );
 
-    expect(screen.getByText('Nenhum fechamento ainda')).toBeInTheDocument();
+    expect(screen.getByText('Carteira ainda não consolidada')).toBeInTheDocument();
     expect(screen.queryByText('R$ 0,00')).not.toBeInTheDocument();
   });
 
@@ -226,7 +226,9 @@ describe('o que a tela faz quando não há número', () => {
       reload: () => {},
     });
 
-    expect(screen.getByRole('alert')).toHaveTextContent('não foi possível falar com a api');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'não foi possível falar com a api',
+    );
     expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument();
   });
 

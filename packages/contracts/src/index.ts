@@ -54,39 +54,13 @@ export type { DeletePortfolioBody } from './portfolio/deletePortfolio.schema.js'
 export { getStrategySchema, putStrategySchema } from './portfolio/putStrategy.schema.js';
 export type { PutStrategyBody } from './portfolio/putStrategy.schema.js';
 
-export {
-  countrySchema,
-  institutionResourceSchema,
-  institutionWritableSchema,
-} from './institution/institution.schema.js';
-export type {
-  InstitutionResource,
-  InstitutionWritable,
-} from './institution/institution.schema.js';
-export { createInstitutionSchema } from './institution/createInstitution.schema.js';
-export type { CreateInstitutionBody } from './institution/createInstitution.schema.js';
-export { updateInstitutionSchema } from './institution/updateInstitution.schema.js';
-export type { UpdateInstitutionBody } from './institution/updateInstitution.schema.js';
-export {
-  deleteInstitutionSchema,
-  listInstitutionsSchema,
-} from './institution/listInstitutions.schema.js';
+export { institutionResourceSchema } from './institution/institution.schema.js';
+export type { InstitutionResource } from './institution/institution.schema.js';
+export { listInstitutionsSchema } from './institution/listInstitutions.schema.js';
 
-export {
-  autoRuleSchema,
-  categoryResourceSchema,
-  categoryWritableSchema,
-  colorToken,
-} from './category/category.schema.js';
-export type { CategoryResource, CategoryWritable } from './category/category.schema.js';
-export { createCategorySchema } from './category/createCategory.schema.js';
-export type { CreateCategoryBody } from './category/createCategory.schema.js';
-export { updateCategorySchema } from './category/updateCategory.schema.js';
-export type { UpdateCategoryBody } from './category/updateCategory.schema.js';
-export {
-  deleteCategorySchema,
-  listCategoriesSchema,
-} from './category/listCategories.schema.js';
+export { categoryResourceSchema } from './category/category.schema.js';
+export type { CategoryResource } from './category/category.schema.js';
+export { listCategoriesSchema } from './category/listCategories.schema.js';
 
 export {
   assetOriginSchema,
@@ -402,8 +376,6 @@ export {
   settingsAlertRuleSchema,
   settingsArchivedPortfolioSchema,
   settingsBackupSchema,
-  settingsCategorySchema,
-  settingsInstitutionSchema,
   settingsLedgerDefaultsSchema,
   settingsPortfolioSchema,
   settingsSchema,
@@ -412,7 +384,5 @@ export type {
   Settings,
   SettingsAlertRule,
   SettingsBackup,
-  SettingsCategory,
-  SettingsInstitution,
   SettingsPortfolio,
 } from './settings/settings.schema.js';

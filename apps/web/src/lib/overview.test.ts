@@ -30,7 +30,12 @@ describe('o percentual da api e a razão do design system', () => {
 describe('as faixas do gráfico de evolução', () => {
   const points = [
     { date: '2026-10-01', contributions: '8000.00', total: '9000.00', result: '1000.00' },
-    { date: '2026-10-02', contributions: '8000.00', total: '10000.00', result: '2000.00' },
+    {
+      date: '2026-10-02',
+      contributions: '8000.00',
+      total: '10000.00',
+      result: '2000.00',
+    },
   ];
 
   it('a faixa de baixo é o aporte acumulado, a de cima vai dele até o patrimônio', () => {
@@ -50,7 +55,12 @@ describe('as faixas do gráfico de evolução', () => {
 
   it('prejuízo é marcado, para a faixa de cima trocar de cor em vez de sumir', () => {
     const bands = growthBands([
-      { date: '2026-10-02', contributions: '9500.00', total: '8800.00', result: '-700.00' },
+      {
+        date: '2026-10-02',
+        contributions: '9500.00',
+        total: '8800.00',
+        result: '-700.00',
+      },
     ]);
 
     expect(bands.underwater).toBe(true);
@@ -62,11 +72,11 @@ describe('as faixas do gráfico de evolução', () => {
 });
 
 describe('o vocabulário da tela', () => {
-  it('a variação do mês é dita pelo nome do mês do fechamento', () => {
+  it('a variação do mês é dita pelo nome do mês da consolidação', () => {
     expect(monthLabel('2026-10-02')).toBe('em outubro');
   });
 
-  it('sem fechamento, o rótulo não inventa um mês', () => {
+  it('sem consolidação, o rótulo não inventa um mês', () => {
     expect(monthLabel(null)).toBe('no mês');
   });
 

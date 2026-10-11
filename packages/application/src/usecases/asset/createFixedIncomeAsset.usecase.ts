@@ -1,4 +1,8 @@
-import { describeFixedIncome, fixedIncomeTicker } from '@patrimonio/domain';
+import {
+  describeFixedIncome,
+  fixedIncomeCategoryId,
+  fixedIncomeTicker,
+} from '@patrimonio/domain';
 import type {
   Asset,
   DateOnly,
@@ -38,6 +42,7 @@ export type CreateFixedIncomeInput = {
   readonly tax_regime: TaxRegime;
   /** Gerado quando não vem, e editável depois. */
   readonly name?: string | undefined;
+  /** Ausente é a categoria do tipo do título. */
   readonly category_id?: string | null | undefined;
 };
 
@@ -111,6 +116,13 @@ export const createFixedIncomeAsset = (deps: CreateFixedIncomeDeps) =>
       const ticker = await uniqueTicker(repositories, base);
       if (typeof ticker !== 'string') return failure(ticker);
 
+      // O tipo do título define a categoria do catálogo; sem o catálogo carregado,
+      // o ativo fica sem categoria em vez de apontar para uma linha que não existe.
+      const category = await repositories.categories.findById(
+        input.category_id ?? fixedIncomeCategoryId(input.kind),
+      );
+      if (category.isFailure()) return category;
+
       const draft: AssetDraft = {
         ticker,
         name:
@@ -125,7 +137,7 @@ export const createFixedIncomeAsset = (deps: CreateFixedIncomeDeps) =>
         origin: 'manual',
         // Título bancário não tem tipo de B3: ele não é negociado em pregão.
         b3_type: null,
-        category_id: input.category_id,
+        category_id: category.value?.id ?? null,
         issuer_id: input.issuer_id,
         // O preço vem da curva, não de provedor: a fonte automática não tem o
         // que buscar para este papel.

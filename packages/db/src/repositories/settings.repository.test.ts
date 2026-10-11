@@ -83,21 +83,6 @@ const transaction = async (
   `;
 };
 
-const position = async (
-  portfolio: string,
-  asset: string,
-  date: string,
-  value: string,
-): Promise<void> => {
-  await tx`
-    INSERT INTO position_daily (
-      portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
-      market_value, price_source_kind
-    )
-    VALUES (${portfolio}, ${asset}, ${date}, ${value}, 1, ${value}, ${value}, 'manual')
-  `;
-};
-
 beforeAll(async () => {
   sql = createTestConnection();
   await prepareTestDatabase(sql);
@@ -230,111 +215,6 @@ describe('o instantâneo da tela de configurações', () => {
       transactions: 0,
       assets: 0,
     });
-  });
-
-  it('o grupo de categorias soma ativos e carteiras distintas das que estão dentro dele', async () => {
-    await tx`
-      INSERT INTO strategy_target (portfolio_id, category_id, target_pct)
-      VALUES
-        (${LONGO}, ${POS_FIXADA}, 30), (${LONGO}, ${INFLACAO}, 30), (${LONGO}, ${ACOES}, 40),
-        (${IMOVEL}, ${POS_FIXADA}, 100)
-    `;
-
-    const categories = unwrapSuccess(
-      await createSettingsRepository(tx).snapshot(),
-    ).categories;
-    const byName = new Map(categories.map((category) => [category.name, category]));
-
-    // Duas categorias do grupo na mesma carteira são uma carteira só.
-    expect(byName.get('Renda fixa')).toMatchObject({
-      assets: 2,
-      strategies: 2,
-      children: 2,
-    });
-    expect(byName.get('Pós-fixada')).toMatchObject({
-      assets: 1,
-      strategies: 2,
-      children: 0,
-    });
-    expect(byName.get('Renda variável')).toMatchObject({
-      assets: 1,
-      strategies: 1,
-      children: 1,
-    });
-  });
-
-  it('a estratégia de uma carteira arquivada não conta como uso da categoria', async () => {
-    await tx`
-      INSERT INTO strategy_target (portfolio_id, category_id, target_pct)
-      VALUES (${ANTIGA}, ${ACOES}, 100)
-    `;
-
-    const acoes = unwrapSuccess(
-      await createSettingsRepository(tx).snapshot(),
-    ).categories.find((category) => category.id === ACOES);
-
-    expect(acoes?.strategies).toBe(0);
-  });
-
-  it('a instituição traz as carteiras que a usam, o caixa e o que impede excluí-la', async () => {
-    await transaction('0191e5a0-0000-7000-8000-00000000e611', {
-      kind: 'deposit',
-      portfolio: LONGO,
-      institution: CORRETORA_A,
-      gross: '9000.00',
-    });
-    await transaction('0191e5a0-0000-7000-8000-00000000e612', {
-      kind: 'deposit',
-      portfolio: IMOVEL,
-      institution: CORRETORA_A,
-      gross: '1000.00',
-    });
-    await position(LONGO, CAIXA_A, '2026-10-07', '5000.00');
-    await position(LONGO, CAIXA_A, '2026-10-08', '7192.87');
-    await position(IMOVEL, CAIXA_A, '2026-10-08', '100.00');
-    // Carteira arquivada não soma no caixa: ela está fora do patrimônio.
-    await position(ANTIGA, CAIXA_A, '2026-10-08', '999.00');
-
-    const institutions = unwrapSuccess(
-      await createSettingsRepository(tx).snapshot(),
-    ).institutions;
-    const corretora = institutions.find((institution) => institution.id === CORRETORA_A);
-
-    expect(corretora).toMatchObject({
-      name: 'Corretora A',
-      portfolios: ['Entrada do imóvel', 'Longo prazo'],
-      // O último valor de cada carteira, e não a soma da história.
-      cash: '7292.87',
-      transactions: 2,
-      assets: 1,
-    });
-    expect(institutions.find((institution) => institution.id === TESOURO)).toMatchObject({
-      cash: null,
-      portfolios: [],
-      transactions: 0,
-    });
-  });
-
-  it('só entra a instituição em uso ou estrangeira; o catálogo brasileiro parado fica de fora', async () => {
-    await tx`
-      INSERT INTO institution (id, name, country)
-      VALUES
-        ('0191e5a0-0000-7000-8000-00000000e701', 'Banco Parado', 'BR'),
-        ('0191e5a0-0000-7000-8000-00000000e702', 'Interactive Brokers', 'US')
-    `;
-    await transaction('0191e5a0-0000-7000-8000-00000000e621', {
-      kind: 'deposit',
-      portfolio: LONGO,
-      institution: BANCO_B,
-      gross: '100.00',
-    });
-
-    const names = unwrapSuccess(await createSettingsRepository(tx).snapshot())
-      .institutions.map((institution) => institution.name);
-
-    expect(names).toContain('Banco B');
-    expect(names).toContain('Interactive Brokers');
-    expect(names).not.toContain('Banco Parado');
   });
 
   it('as regras de alerta semeadas pelo mercado chegam, com o limite como veio', async () => {

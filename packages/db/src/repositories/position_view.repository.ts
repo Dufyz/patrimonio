@@ -3,6 +3,7 @@ import type {
   PositionViewFacetRow,
   PositionViewFilter,
   PositionViewHeader,
+  PositionViewInstitutionFacetRow,
   PositionViewRepository,
   PositionViewRow,
   PositionViewSummaryRow,
@@ -59,6 +60,7 @@ type SummaryJson = {
 type AggregateRow = {
   readonly summaries: readonly SummaryJson[] | null;
   readonly facets: readonly PositionViewFacetRow[] | null;
+  readonly institution_facets: readonly PositionViewInstitutionFacetRow[] | null;
   readonly header: PositionViewHeader | null;
 };
 
@@ -83,7 +85,19 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
    */
   const scope = (filter: PositionViewFilter) => {
     const search = filter.search === null ? null : `%${filter.search}%`;
-    const category = filter.categoryId;
+    const matches = (ids: readonly string[], column: string, none: string) => {
+      if (ids.length === 0) return sql`TRUE`;
+      const real = ids.filter((id) => id !== none);
+      const hasNone = ids.length !== real.length;
+      const list = sql.array([...real]);
+      return sql`(${sql(column)} = ANY(${list}::UUID[]) ${hasNone ? sql`OR ${sql(column)} IS NULL` : sql``})`;
+    };
+    const categoryMatch = matches(filter.categoryIds, 'f.category_id', 'sem-categoria');
+    const institutionMatch = matches(
+      filter.institutionIds,
+      'f.institution_id',
+      'sem-instituicao',
+    );
 
     return sql`
       WITH scope AS (
@@ -234,13 +248,7 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
       filtered AS (
         SELECT *
           FROM searched f
-         WHERE ${
-           category === null
-             ? sql`TRUE`
-             : category === 'sem-categoria'
-               ? sql`f.category_id IS NULL`
-               : sql`f.category_id = ${category}::UUID`
-         }
+         WHERE ${categoryMatch} AND ${institutionMatch}
       ),
       grouped AS (
         SELECT f.*,
@@ -362,6 +370,13 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
               FROM searched s
              GROUP BY 1, 2, 3
           ),
+          institution_facets AS (
+            SELECT COALESCE(s.institution_id::TEXT, 'sem-instituicao') AS id,
+                   COALESCE(s.institution_name, 'Sem instituição') AS label,
+                   COUNT(*)::INT AS count
+              FROM searched s
+             GROUP BY 1, 2
+          ),
           quota AS (
             SELECT pd.position_date, pd.quota_value
               FROM portfolio_daily pd
@@ -436,6 +451,15 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
                           )
                      FROM facets f
                  ) AS facets,
+                 (
+                   SELECT JSON_AGG(
+                            JSON_BUILD_OBJECT(
+                              'id', i.id, 'label', i.label, 'count', i.count
+                            )
+                            ORDER BY i.count DESC, i.label
+                          )
+                     FROM institution_facets i
+                 ) AS institution_facets,
                  (SELECT ROW_TO_JSON(h) FROM header h) AS header
         `;
 
@@ -445,6 +469,7 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
           rows,
           summaries: (aggregate?.summaries ?? []) as readonly PositionViewSummaryRow[],
           facets: aggregate?.facets ?? [],
+          institution_facets: aggregate?.institution_facets ?? [],
           header: aggregate?.header ?? EMPTY_HEADER,
         } satisfies PositionView);
       } catch (error) {

@@ -13,8 +13,6 @@ import { MarketSection } from './market.js';
 import { BackupSection, DisplaySection, LedgerSection } from './preferences.js';
 import {
   AlertsSection,
-  CategoriesSection,
-  InstitutionsSection,
   PortfoliosSection,
 } from './registers.js';
 
@@ -105,7 +103,7 @@ const SectionNav = ({
   readonly onSection: (section: SectionId) => void;
 }): React.ReactElement => (
   <nav aria-label="Seções de configuração" className="lg:sticky lg:top-4 lg:self-start">
-    <p className="mb-2 hidden text-label tracking-wide text-ink-3 uppercase lg:block">
+    <p className="mb-2 hidden tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase lg:block">
       Valem para o app inteiro
     </p>
     <ul className="flex flex-wrap gap-1 lg:flex-col">
@@ -163,8 +161,8 @@ export const SettingsView = ({
   return (
     <div className="flex flex-col gap-4">
       <header className="min-w-0">
-        <h1 className="text-screen-title font-semibold tracking-tight">Configurações</h1>
-        <p className="truncate text-[0.8125rem] text-ink-2">
+        <h1 className="text-screen-title leading-7 font-semibold">Configurações</h1>
+        <p className="truncate text-xs text-ink-3">
           Valem para o app inteiro, não só para a carteira aberta
         </p>
       </header>
@@ -178,14 +176,12 @@ export const SettingsView = ({
               role="status"
               className="rounded-panel border border-line bg-panel p-4 text-[0.8125rem] text-ink-2"
             >
-              Nada cadastrado ainda. Comece criando uma carteira, uma instituição e as
-              categorias dos seus ativos — o resto das configurações já está abaixo.
+              Nada cadastrado ainda. Comece criando uma carteira — o resto das configurações já está
+              abaixo.
             </p>
           ) : null}
-          <PortfoliosSection settings={settings} />
+          <PortfoliosSection settings={settings} onChanged={reload} />
           <AlertsSection settings={settings} />
-          <CategoriesSection settings={settings} />
-          <InstitutionsSection settings={settings} />
           <MarketSection resource={market} />
           <LedgerSection settings={settings} />
           <DisplaySection />

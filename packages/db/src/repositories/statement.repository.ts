@@ -63,8 +63,13 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
     try {
       const offset = (filter.page - 1) * filter.limit;
       const pattern = filter.search === null ? null : likePattern(filter.search);
-      const kinds = filter.group === null ? null : [...(GROUP_KINDS[filter.group] ?? [])];
+      const kinds =
+        filter.groups.length === 0
+          ? null
+          : [...new Set(filter.groups.flatMap((group) => GROUP_KINDS[group] ?? []))];
       const groupKinds = kinds === null ? null : sql.array(kinds);
+      const institutions =
+        filter.institutionIds.length === 0 ? null : sql.array([...filter.institutionIds]);
 
       const aggregates = await sql<AggregateRow[]>`
         WITH scope AS (
@@ -88,8 +93,8 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
         matching AS (
           SELECT *
             FROM scoped
-           WHERE (${filter.institutionId}::UUID IS NULL
-                  OR institution_id = ${filter.institutionId}::UUID)
+           WHERE (${institutions}::UUID[] IS NULL
+                  OR institution_id = ANY(${institutions}::UUID[]))
              AND (${pattern}::TEXT IS NULL
                   OR ticker ILIKE ${pattern}::TEXT
                   OR asset_name ILIKE ${pattern}::TEXT)

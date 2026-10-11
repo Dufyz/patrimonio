@@ -1,9 +1,4 @@
-import {
-  createCategorySchema,
-  deleteCategorySchema,
-  listCategoriesSchema,
-  updateCategorySchema,
-} from '@patrimonio/contracts';
+import { listCategoriesSchema } from '@patrimonio/contracts';
 import { Router } from 'express';
 
 import type { CategoryDeps } from '../controllers/category.controller.js';
@@ -15,17 +10,6 @@ export const categoryRoutes = (deps: CategoryDeps): Router => {
   const controller = createCategoryController(deps);
 
   router.get('/categories', validate(listCategoriesSchema), controller.list);
-  router.post('/categories', validate(createCategorySchema), controller.create);
-  router.patch(
-    '/categories/:category_id',
-    validate(updateCategorySchema),
-    controller.update,
-  );
-  router.delete(
-    '/categories/:category_id',
-    validate(deleteCategorySchema),
-    controller.remove,
-  );
 
   return router;
 };

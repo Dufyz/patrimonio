@@ -170,7 +170,7 @@ describe('sobreposições', () => {
     expect(
       screen.getByText('a carteira Longo prazo, com 28 posições e 412 lançamentos'),
     ).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Excluir' })).toHaveClass('text-negative');
+    expect(screen.getByRole('button', { name: 'Excluir' })).toHaveClass('bg-negative');
   });
 
   it('a dica de informação abre pelo teclado', async () => {

@@ -39,6 +39,7 @@ export type {
 export type {
   PositionView,
   PositionViewFacetRow,
+  PositionViewInstitutionFacetRow,
   PositionViewFilter,
   PositionViewHeader,
   PositionViewRepository,
@@ -133,8 +134,6 @@ export type {
   SettingsAlertRuleRow,
   SettingsArchivedPortfolioRow,
   SettingsBackupRow,
-  SettingsCategoryRow,
-  SettingsInstitutionRow,
   SettingsPortfolioRow,
   SettingsRepository,
   SettingsSnapshot,
@@ -200,18 +199,8 @@ export type {
   LedgerRow,
   PortfolioHolding,
 } from './interfaces/ledger.repository.js';
-export type {
-  CategoryDraft,
-  CategoryRepository,
-  CategoryUsage,
-  CategoryWrite,
-} from './interfaces/category.repository.js';
-export type {
-  InstitutionDraft,
-  InstitutionRepository,
-  InstitutionUsage,
-  InstitutionWrite,
-} from './interfaces/institution.repository.js';
+export type { CategoryRepository } from './interfaces/category.repository.js';
+export type { InstitutionRepository } from './interfaces/institution.repository.js';
 export type {
   MovedContent,
   PortfolioContent,
@@ -404,26 +393,10 @@ export type {
   CreateFixedIncomeInput,
   FixedIncomeKind,
 } from './usecases/asset/createFixedIncomeAsset.usecase.js';
-export {
-  createCategory,
-  deleteCategory,
-  listCategories,
-  updateCategory,
-} from './usecases/category/category.usecases.js';
-export type {
-  CategoryDeps,
-  CategoryWriteDeps,
-} from './usecases/category/category.usecases.js';
-export {
-  createInstitution,
-  deleteInstitution,
-  listInstitutions,
-  updateInstitution,
-} from './usecases/institution/institution.usecases.js';
-export type {
-  InstitutionDeps,
-  InstitutionWriteDeps,
-} from './usecases/institution/institution.usecases.js';
+export { listCategories } from './usecases/category/category.usecases.js';
+export type { CategoryDeps } from './usecases/category/category.usecases.js';
+export { listInstitutions } from './usecases/institution/institution.usecases.js';
+export type { InstitutionDeps } from './usecases/institution/institution.usecases.js';
 
 // ─── Planos e casos de uso do pipeline (E3) ──────────────────────────────────
 export { applyPlan } from './plans/apply.js';

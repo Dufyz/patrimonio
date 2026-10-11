@@ -35,6 +35,7 @@ import type { Draft, EditableRow } from '../lib/strategy.js';
 import { colorForToken } from '../lib/tokens.js';
 import type { Resource } from '../lib/use_resource.js';
 import { useResource } from '../lib/use_resource.js';
+import { Icon } from '../components/icon.js';
 
 /**
  * T-06 · Estratégia — a prancha `09 · Estratégia`.
@@ -341,7 +342,7 @@ const Distribution = ({
         <table className="w-full min-w-250 border-collapse text-[0.8125rem]">
           <caption className="sr-only">Distribuição por categoria contra o alvo</caption>
           <thead>
-            <tr className="border-b border-line bg-panel-2 text-label tracking-wide text-ink-3 uppercase">
+            <tr className="border-b border-line bg-panel-2 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
               <th scope="col" className="px-4 py-2 text-left font-medium">
                 Categoria
               </th>
@@ -389,7 +390,7 @@ const Distribution = ({
                       onClick={() => toggle(node.id)}
                     >
                       <span aria-hidden="true" className="w-3 text-ink-3">
-                        {open ? '⌄' : '›'}
+                        <Icon name={open ? 'chevron-down' : 'chevron-right'} />
                       </span>
                       {node.name}
                     </button>
@@ -596,7 +597,7 @@ const PlanDialog = ({
           <table className="w-full border-collapse text-[0.8125rem]">
             <caption className="sr-only">Plano de aporte por categoria</caption>
             <thead>
-              <tr className="border-y border-line bg-panel-2 text-label tracking-wide text-ink-3 uppercase">
+              <tr className="border-y border-line bg-panel-2 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
                 <th scope="col" className="px-3 py-2 text-left font-medium">
                   Categoria
                 </th>
@@ -749,7 +750,7 @@ export const StrategyView = ({
     'como o dinheiro desta carteira deve ser dividido',
     value.reference_date === null
       ? null
-      : `fechamento de ${formatDate(value.reference_date as never)}`,
+      : `consolidação de ${formatDate(value.reference_date as never)}`,
   ]
     .filter((part): part is string => part !== null)
     .join(' · ');
@@ -758,8 +759,8 @@ export const StrategyView = ({
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-screen-title font-semibold tracking-tight">Estratégia</h1>
-          <p className="truncate text-[0.8125rem] text-ink-2">{subtitle}</p>
+          <h1 className="text-screen-title leading-7 font-semibold">Estratégia</h1>
+          <p className="truncate text-xs text-ink-3">{subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <IconButton
@@ -767,7 +768,7 @@ export const StrategyView = ({
             aria-pressed={hidden}
             onClick={toggleHidden}
           >
-            <span aria-hidden="true">{hidden ? '◌' : '◉'}</span>
+            <Icon name={hidden ? 'eye-off' : 'eye'} />
           </IconButton>
           <Button
             variant="primary"
@@ -788,10 +789,10 @@ export const StrategyView = ({
 
       {value.reference_date === null ? (
         <section className="rounded-panel border border-line bg-panel p-8 text-center">
-          <h2 className="text-panel-title font-semibold">Nenhum fechamento ainda</h2>
+          <h2 className="text-panel-title font-semibold">Carteira ainda não consolidada</h2>
           <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
             {value.portfolio.name} não tem posição para comparar com o alvo. A estratégia
-            aparece no primeiro fechamento.
+            aparece na primeira consolidação.
           </p>
         </section>
       ) : (

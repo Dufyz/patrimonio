@@ -148,6 +148,10 @@ export const positionsResourceSchema = z.object({
   payouts_12m: decimalString,
   /** As pastilhas de categoria, contadas antes do filtro de categoria. */
   facets: z.array(positionFacetSchema),
+  /** As instituições onde há posição no recorte, contadas antes do filtro de instituição. */
+  institution_facets: z.array(
+    z.object({ id: z.string(), label: z.string(), count: z.number().int().nonnegative() }),
+  ),
   price_health: positionHealthSchema,
 });
 

@@ -63,18 +63,17 @@ export const GROUP_TITLES: Readonly<Record<SearchGroupId, string>> = {
   actions: 'Ações',
 };
 
-export type SearchActionId =
-  'new_transaction' | 'buy_asset' | 'payout_asset';
+export type SearchActionId = 'new_transaction' | 'buy_asset' | 'payout_asset';
 
 /**
- * Os glifos são os da barra lateral e do resto da aplicação: um ícone que muda
+ * Os glifos são nomes de ícone, os mesmos da barra lateral e do resto da aplicação: um ícone que muda
  * de forma entre a barra e a paleta faz a mesma tela parecer duas.
  */
 export const GLYPHS = {
-  portfolio: '▢',
-  asset: '◈',
-  transaction: '⇄',
-  action: '+',
+  portfolio: 'briefcase',
+  asset: 'tag',
+  transaction: 'swap',
+  action: 'plus',
 } as const;
 
 export type SearchTarget =
@@ -314,11 +313,7 @@ export const assetActionItems = (
     title: `Ações com ${title}`,
     items: [
       make('buy_asset', `Lançar compra de ${title}`, 'L'),
-      ...(held
-        ? [
-            make('payout_asset', `Lançar provento de ${title}`, null),
-          ]
-        : []),
+      ...(held ? [make('payout_asset', `Lançar provento de ${title}`, null)] : []),
     ],
   };
 };

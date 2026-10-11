@@ -1,5 +1,6 @@
 import { useCallback, useId, useMemo, useState } from 'react';
 
+import { Icon } from '../../components/icon.js';
 import type { EntryField, FieldErrors } from '../../lib/entry.js';
 
 /**
@@ -40,7 +41,7 @@ export const Field = ({
 
   return (
     <div className={`flex min-w-0 flex-col gap-1.5 ${className ?? ''}`}>
-      <label htmlFor={id} className="text-[0.8125rem] text-ink-2">
+      <label htmlFor={id} className="text-xs font-medium text-ink-2">
         {label}
       </label>
       {children({
@@ -49,11 +50,11 @@ export const Field = ({
         'aria-invalid': error !== undefined,
       })}
       {error !== undefined ? (
-        <p id={noteId} className="text-[0.75rem] text-negative">
+        <p id={noteId} className="text-[0.71875rem] text-negative">
           {error}
         </p>
       ) : hint !== undefined ? (
-        <p id={noteId} className="text-[0.75rem] text-ink-3">
+        <p id={noteId} className="text-[0.71875rem] text-ink-3">
           {hint}
         </p>
       ) : null}
@@ -67,13 +68,13 @@ const controlClass = (options: {
   readonly numeric?: boolean | undefined;
 }): string =>
   [
-    'h-control w-full min-w-0 rounded-control border px-3 text-sm outline-none',
-    'focus:border-accent disabled:cursor-not-allowed disabled:bg-panel-2 disabled:text-ink-3',
+    'h-[38px] w-full min-w-0 rounded-control border px-2.5 text-sm font-normal outline-none',
+    'focus:border-accent focus:ring-2 focus:ring-accent-soft disabled:cursor-not-allowed disabled:bg-panel-2 disabled:text-ink-3',
     options.invalid
       ? 'border-negative bg-negative-soft'
       : options.changed === true
         ? 'border-attention bg-attention-soft'
-        : 'border-line bg-panel',
+        : 'border-line-2 bg-panel',
     options.numeric === true ? 'tabular text-right' : '',
   ].join(' ');
 
@@ -106,14 +107,25 @@ export const Select = ({
   readonly options: readonly { readonly id: string; readonly name: string }[];
   readonly placeholder?: string;
 }): React.ReactElement => (
-  <select className={controlClass({ invalid, changed })} {...rest}>
-    {placeholder === undefined ? null : <option value="">{placeholder}</option>}
-    {options.map((option) => (
-      <option key={option.id} value={option.id}>
-        {option.name}
-      </option>
-    ))}
-  </select>
+  <span className="relative block">
+    <select
+      className={`${controlClass({ invalid, changed })} cursor-pointer appearance-none pr-8`}
+      {...rest}
+    >
+      {placeholder === undefined ? null : <option value="">{placeholder}</option>}
+      {options.map((option) => (
+        <option key={option.id} value={option.id}>
+          {option.name}
+        </option>
+      ))}
+    </select>
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute top-0 right-2.5 flex h-[38px] items-center text-ink-2"
+    >
+      <Icon name="chevron-down" />
+    </span>
+  </span>
 );
 
 /**
@@ -155,7 +167,10 @@ export const useVisibleErrors = (
   );
 };
 
-/** Aviso dentro do modal: o que muda, o que a `api` recusou. */
+/**
+ * Aviso dentro do modal — o `note` da prancha 13: 12,5 px, fundo da cor do tom e
+ * texto na cor normal, com o ícone à frente.
+ */
 export const Callout = ({
   tone,
   children,
@@ -165,14 +180,26 @@ export const Callout = ({
 }): React.ReactElement => (
   <div
     role={tone === 'error' ? 'alert' : 'note'}
-    className={`rounded-control px-3 py-2 text-[0.8125rem] ${
+    className={`flex items-start gap-2.5 rounded-control px-3 py-2.5 text-[0.78125rem] leading-[18px] text-ink ${
       tone === 'warning'
-        ? 'bg-attention-soft text-attention'
+        ? 'bg-attention-soft'
         : tone === 'error'
-          ? 'bg-negative-soft text-negative'
-          : 'bg-accent-soft text-ink-2'
+          ? 'bg-negative-soft'
+          : 'bg-accent-soft'
     }`}
   >
-    {children}
+    <span
+      aria-hidden="true"
+      className={`mt-px ${
+        tone === 'warning'
+          ? 'text-attention'
+          : tone === 'error'
+            ? 'text-negative'
+            : 'text-accent'
+      }`}
+    >
+      <Icon name={tone === 'info' ? 'info' : 'warning'} />
+    </span>
+    <div className="min-w-0">{children}</div>
   </div>
 );

@@ -54,7 +54,13 @@ import type { PeriodParam } from '../lib/asset_page.js';
 import { formatFullDate, formatShortDate } from '../lib/positions.js';
 import { SEMANTIC_COLORS, colorForSeries, colorForToken } from '../lib/tokens.js';
 import { ManualPriceDialog } from './manual_price_dialog.js';
+import {
+  ArchiveAssetDialog,
+  AssetDialog,
+  DeleteAssetDialog,
+} from './registers/asset_dialogs.js';
 import type { ManualPriceTarget } from './manual_price_dialog.js';
+import { Icon } from '../components/icon.js';
 
 /**
  * T-03 · A página do ativo.
@@ -69,9 +75,6 @@ import type { ManualPriceTarget } from './manual_price_dialog.js';
  * peso, resultado, yield e retorno chegam prontos da `api`. O que acontece
  * neste arquivo é escolher onde cada um aparece.
  */
-
-/** O que ainda não existe, e qual história o entrega. */
-const PENDING_ASSET_FORM = 'o cadastro do ativo chega com T-10';
 
 export type AssetScreenProps = {
   /** Código ou identificador: o endereço aceita os dois. */
@@ -101,6 +104,7 @@ export const AssetScreen = ({
   const [pending, setPending] = useState(true);
   const [error, setError] = useState<{ message: string; status: number } | null>(null);
   const [manualPriceOpen, setManualPriceOpen] = useState(false);
+  const [dialog, setDialog] = useState<'edit' | 'delete' | 'archive' | null>(null);
   const [reloads, setReloads] = useState(0);
   const entry = useEntry();
 
@@ -186,7 +190,7 @@ export const AssetScreen = ({
           Posições
         </button>
         <span aria-hidden="true" className="text-ink-3">
-          ›
+          <Icon name="chevron-right" size={12} />
         </span>
         <span className="text-ink-2">{title}</span>
       </nav>
@@ -250,26 +254,44 @@ export const AssetScreen = ({
             aria-pressed={valuesHidden}
             onClick={toggleHidden}
           >
-            {valuesHidden ? '⦰' : '◉'}
+            <Icon name={valuesHidden ? 'eye-off' : 'eye'} />
           </IconButton>
 
-          <Button disabled title={PENDING_ASSET_FORM}>
+          <Button icon="pencil" onClick={() => setDialog('edit')}>
             Editar ativo
           </Button>
 
           <Menu
+            variant="button"
             label={`Ações de ${title}`}
             items={[
               {
                 id: 'manual_price',
                 label: 'Definir preço manual',
+                icon: <Icon name="tag" />,
                 onSelect: () => setManualPriceOpen(true),
               },
               {
                 id: 'transactions',
                 label: 'Ver todos os lançamentos',
+                icon: <Icon name="swap" />,
                 disabled: onOpenStatement === undefined,
                 onSelect: () => onOpenStatement?.(title),
+              },
+              {
+                id: 'archive',
+                label: 'Arquivar ativo',
+                hint: 'zere a posição antes',
+                icon: <Icon name="archive" />,
+                disabled: resource.asset.archived_at !== null,
+                onSelect: () => setDialog('archive'),
+              },
+              {
+                id: 'delete',
+                label: 'Excluir ativo',
+                icon: <Icon name="trash" />,
+                destructive: true,
+                onSelect: () => setDialog('delete'),
               },
             ]}
           />
@@ -291,9 +313,7 @@ export const AssetScreen = ({
               painel separado do gráfico, é a legenda dele. */}
           <section className="flex flex-wrap items-stretch rounded-panel border border-line bg-panel">
             <div className="flex min-w-0 flex-[1_1_16rem] flex-col gap-1 p-5 md:max-w-[21rem]">
-              <Label className="mb-2">
-                Sua posição · {scopeLabel}
-              </Label>
+              <Label className="mb-2">Sua posição · {scopeLabel}</Label>
               <PositionFacts resource={resource} state={state} />
             </div>
 
@@ -328,6 +348,40 @@ export const AssetScreen = ({
           </div>
         </div>
       </KeepPrevious>
+
+      {dialog === 'edit' ? (
+        <AssetDialog
+          asset={resource.asset}
+          onClose={() => setDialog(null)}
+          onSaved={(ticker) => {
+            setDialog(null);
+            // O endereço do ativo é o código dele: com o código novo, o
+            // endereço antigo deixa de existir, e a trilha volta para Posições.
+            if (ticker.toLowerCase() !== resource.asset.ticker.toLowerCase()) onBack();
+            else setReloads((count) => count + 1);
+          }}
+          onDelete={() => setDialog('delete')}
+          onArchive={() => setDialog('archive')}
+        />
+      ) : null}
+      {dialog === 'delete' ? (
+        <DeleteAssetDialog
+          asset={resource.asset}
+          onClose={() => setDialog(null)}
+          onDone={onBack}
+          onOpenStatement={() => {
+            setDialog(null);
+            onOpenStatement?.(title);
+          }}
+        />
+      ) : null}
+      {dialog === 'archive' ? (
+        <ArchiveAssetDialog
+          asset={resource.asset}
+          onClose={() => setDialog(null)}
+          onDone={onBack}
+        />
+      ) : null}
 
       <ManualPriceDialog
         position={manualPriceOpen ? asManualPriceTarget(resource) : null}
@@ -375,7 +429,7 @@ const PositionFacts = ({
     return (
       <p className="py-2 text-[0.8125rem] text-ink-3">
         {state === 'never_closed'
-          ? 'Ainda não houve fechamento: a posição aparece depois do primeiro.'
+          ? 'Carteira ainda não consolidada: a posição aparece depois da primeira consolidação.'
           : 'Posição zerada. O histórico do papel continua abaixo.'}
       </p>
     );
@@ -773,7 +827,7 @@ const TransactionsPanel = ({
               Lançamentos de {assetTitle(resource.asset)}
             </caption>
             <thead>
-              <tr className="text-label tracking-wide text-ink-3 uppercase">
+              <tr className="tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
                 <th className="w-[6.5rem] px-2 py-1.5 text-left font-medium">Data</th>
                 <th className="px-2 py-1.5 text-left font-medium">Tipo</th>
                 <th className="w-[7rem] px-2 py-1.5 text-right font-medium">
@@ -853,7 +907,7 @@ const AssetDataPanel = ({
         <Fact label="Tipo">{b3TypeLabel(asset.b3_type)}</Fact>
         {asset.sector === null ? null : <Fact label="Setor">{asset.sector}</Fact>}
         <Fact label="Fonte de preço">
-          {asset.price_source === 'manual' ? 'manual' : 'automática · fechamento diário'}
+          {asset.price_source === 'manual' ? 'manual' : 'automática · consolidação diária'}
         </Fact>
         <Fact label="Origem">
           {asset.origin === 'market' ? 'Base de mercado' : 'Cadastrado à mão'}
