@@ -40,9 +40,9 @@ export const createAssetRepository = (sql: Connection): AssetRepository => ({
   },
 
   /**
-   * A busca do seletor de lançamento: código ou nome, sem distinguir maiúscula.
-   * Enquanto a base da B3 não é carregada (M-07), ela encontra o que já existe
-   * no cadastro local — e é isso que a tela diz.
+   * A busca por código ou nome, sem distinguir maiúscula, entre os ativos que
+   * já existem no cadastro. Os papéis que a pessoa ainda não negociou vêm do
+   * catálogo de instrumentos listados, pela busca global.
    */
   list: async (filter: AssetFilter) => {
     const search = filter.search === undefined ? null : `%${filter.search}%`;
