@@ -87,7 +87,9 @@ describe('catálogo de instrumentos', () => {
 
   it('compara sem acento e acha pelo nome', async () => {
     unwrapSuccess(
-      await repositories.instruments.upsertMany([row('ITUB4', 'ITAÚ UNIBANCO PN', 'stock')]),
+      await repositories.instruments.upsertMany([
+        row('ITUB4', 'ITAÚ UNIBANCO PN', 'stock'),
+      ]),
     );
 
     const found = unwrapSuccess(
@@ -138,7 +140,11 @@ describe('catálogo de instrumentos', () => {
   it('recarregar um papel inativo o reativa', async () => {
     unwrapSuccess(await load());
     unwrapSuccess(await repositories.instruments.deactivateMissing('cotahist', []));
-    unwrapSuccess(await repositories.instruments.upsertMany([row('ITUB4', 'ITAUUNIBANCO PN', 'stock')]));
+    unwrapSuccess(
+      await repositories.instruments.upsertMany([
+        row('ITUB4', 'ITAUUNIBANCO PN', 'stock'),
+      ]),
+    );
 
     const found = unwrapSuccess(await repositories.instruments.findByTicker('ITUB4'));
     expect(found?.active).toBe(true);

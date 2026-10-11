@@ -40,7 +40,9 @@ export type InstrumentCatalogSummary = {
  * consulta. A escrita é só da carga.
  */
 export type InstrumentCatalogRepository = {
-  readonly search: (filter: InstrumentFilter) => Promise<Either<AppError, InstrumentPage>>;
+  readonly search: (
+    filter: InstrumentFilter,
+  ) => Promise<Either<AppError, InstrumentPage>>;
 
   readonly findByTicker: (
     ticker: string,
