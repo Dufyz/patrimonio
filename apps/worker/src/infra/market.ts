@@ -35,7 +35,7 @@ import { createInstrumentCatalogSource, createPriceHistorySource } from './cotah
  * global entra por injeção no cliente, que é o que permite ao teste responder
  * com arquivo gravado sem tocar a rede.
  */
-const PRICE_INDEX_SYMBOLS = { IBOV: '^BVSP', IFIX: 'IFIX' } as const;
+const PRICE_INDEX_SYMBOLS = { IBOV: '^BVSP', IFIX: 'IFIX.SA' } as const;
 
 const RETRY = { attempts: 3, backoffMs: 500, sleep } as const;
 
