@@ -61,7 +61,7 @@ export const pickedFromInstrument = (instrument: SearchInstrument): PickedAsset 
 
 export const CATALOG_EMPTY_MESSAGE =
   'O catálogo de papéis está vazio: a carga inicial não foi executada. ' +
-  'Rode pnpm seed:instruments e busque de novo.';
+  'Rode pnpm bootstrap e busque de novo.';
 
 export const SEARCH_DELAY_MS = 200;
 

@@ -21,6 +21,7 @@ CREATE TABLE asset (
   liquidity_days SMALLINT,
   tax_regime     tax_regime,
   archived_at    TIMESTAMPTZ,
+  is_demo        BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT asset_ticker_unique UNIQUE (ticker),

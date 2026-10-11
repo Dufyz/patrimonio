@@ -191,6 +191,27 @@ describe('situação dos dados de mercado', () => {
     expect(body.sources).toEqual([]);
     expect(body.recent_failures).toEqual([]);
   });
+
+  it('os catálogos vazios aparecem como pendência, e sem demonstração tudo é zero', async () => {
+    const { body } = await request(harness.app).get(
+      '/api/market/health?on_date=2026-10-06',
+    );
+
+    const keys = body.catalogs.map((catalog: { key: string }) => catalog.key);
+    expect(keys).toEqual([
+      'institutions',
+      'instruments',
+      'treasury',
+      'indices',
+      'price_history',
+    ]);
+
+    const treasury = body.catalogs.find(
+      (catalog: { key: string }) => catalog.key === 'treasury',
+    );
+    expect(treasury).toMatchObject({ total: 0, state: 'pending' });
+    expect(body.demo).toEqual({ portfolios: 0, assets: 0, institutions: 0 });
+  });
 });
 
 describe('atualizar agora', () => {

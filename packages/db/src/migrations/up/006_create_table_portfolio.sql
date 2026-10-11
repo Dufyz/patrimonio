@@ -10,6 +10,7 @@ CREATE TABLE portfolio (
   recalc_error         TEXT,
   recalc_updated_at    TIMESTAMP WITH TIME ZONE,
   archived_at          TIMESTAMP WITH TIME ZONE,
+  is_demo              BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );

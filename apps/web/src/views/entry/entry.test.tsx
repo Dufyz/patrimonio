@@ -253,7 +253,7 @@ describe('papel do mercado no seletor', () => {
     expect(
       await screen.findByText(/carga inicial não foi executada/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/pnpm seed:instruments/)).toBeInTheDocument();
+    expect(screen.getByText(/pnpm bootstrap/)).toBeInTheDocument();
   });
 
   it('não oferece cadastrar título de renda fixa', async () => {

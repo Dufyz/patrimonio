@@ -531,3 +531,80 @@ describe('proventos anunciados', () => {
     expect(again).toBe(false);
   });
 });
+
+describe('o estado dos catálogos', () => {
+  const stat = async (key: string) => {
+    const stats = unwrapSuccess(await repositories.market.catalogStats());
+    return stats.find((item) => item.key === key);
+  };
+
+  it('devolve os cinco catálogos, vazios quando não há carga', async () => {
+    await tx`DELETE FROM listed_instrument`;
+
+    const stats = unwrapSuccess(await repositories.market.catalogStats());
+
+    expect(stats.map((item) => item.key)).toEqual([
+      'institutions',
+      'instruments',
+      'treasury',
+      'indices',
+      'price_history',
+    ]);
+    expect(await stat('instruments')).toMatchObject({ total: 0, last_loaded: null });
+    expect(await stat('treasury')).toMatchObject({ total: 0, last_loaded: null });
+  });
+
+  it('separa os papéis do Tesouro e ignora os inativos', async () => {
+    await tx`DELETE FROM listed_instrument`;
+    await tx`
+      INSERT INTO listed_instrument (id, ticker, name, b3_type, maturity_date, source, active)
+      VALUES
+        ('0191e5a0-0000-7000-8000-00000000e001', 'AAAA3', 'A', 'stock', NULL, 'cotahist-catalog', TRUE),
+        ('0191e5a0-0000-7000-8000-00000000e002', 'BBBB11', 'B', 'fii', NULL, 'cotahist-catalog', TRUE),
+        ('0191e5a0-0000-7000-8000-00000000e003', 'CCCC3', 'C', 'stock', NULL, 'cotahist-catalog', FALSE),
+        ('0191e5a0-0000-7000-8000-00000000e004', 'TD-IPCA-20350515', 'T', 'treasury', '2035-05-15', 'tesouro-catalog', TRUE)
+    `;
+
+    expect(await stat('instruments')).toMatchObject({ total: 2 });
+    expect(await stat('treasury')).toMatchObject({ total: 1 });
+    expect((await stat('treasury'))?.last_loaded).not.toBeNull();
+  });
+
+  it('cotação de índice e instituição de demonstração não contam como carga', async () => {
+    await tx`DELETE FROM index_quote`;
+    const before = (await stat('institutions'))?.total ?? 0;
+
+    await tx`
+      INSERT INTO institution (id, name, is_demo)
+      VALUES ('0191e5a0-0000-7000-8000-00000000e010', 'Corretora de demonstração', TRUE)
+    `;
+    await tx`
+      INSERT INTO index_quote (index_code, quote_date, daily_factor, source)
+      VALUES ('CDI', '2026-10-06', 1.0005, 'dev-seed')
+    `;
+
+    expect((await stat('institutions'))?.total).toBe(before);
+    expect(await stat('indices')).toMatchObject({ total: 0 });
+
+    await tx`
+      INSERT INTO index_quote (index_code, quote_date, daily_factor, source)
+      VALUES ('CDI', '2026-10-07', 1.0005, 'bcb')
+    `;
+
+    expect(await stat('indices')).toMatchObject({ total: 1 });
+  });
+
+  it('conta a demonstração por tipo', async () => {
+    const before = unwrapSuccess(await repositories.market.demoCounts());
+
+    await tx`
+      INSERT INTO institution (id, name, is_demo)
+      VALUES ('0191e5a0-0000-7000-8000-00000000e011', 'Outra demonstração', TRUE)
+    `;
+
+    const after = unwrapSuccess(await repositories.market.demoCounts());
+
+    expect(after.institutions).toBe(before.institutions + 1);
+    expect(after.assets).toBe(before.assets);
+  });
+});

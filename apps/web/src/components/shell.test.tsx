@@ -50,6 +50,20 @@ const shell = (props: Partial<React.ComponentProps<typeof AppShell>> = {}) => {
 };
 
 describe('moldura da aplicação', () => {
+  it('mostra o rótulo de demonstração enquanto houver dado de demonstração', () => {
+    shell({ demo: true });
+
+    expect(
+      within(screen.getByRole('navigation')).getByText('Demonstração'),
+    ).toBeVisible();
+  });
+
+  it('sem dado de demonstração, o rótulo não aparece', () => {
+    shell();
+
+    expect(screen.queryByText('Demonstração')).toBeNull();
+  });
+
   it('a barra lateral mostra o valor de cada carteira', () => {
     shell();
     const nav = screen.getByRole('navigation');

@@ -156,6 +156,56 @@ export const alertLimit = (
   return parts.length === 0 ? '—' : parts.join(' · ');
 };
 
+/* -------------------------------------------------------------------------- */
+/* Catálogos da carga inicial                                                 */
+
+type CatalogKey = MarketHealth['catalogs'][number]['key'];
+
+export const CATALOG_LABEL: Readonly<Record<CatalogKey, string>> = {
+  institutions: 'Instituições',
+  instruments: 'Instrumentos listados',
+  treasury: 'Tesouro Direto',
+  indices: 'Índices',
+  price_history: 'Histórico de preços',
+};
+
+/** O comando que preenche cada catálogo; é o que a pendência mostra. */
+export const CATALOG_COMMAND: Readonly<Record<CatalogKey, string>> = {
+  institutions: 'pnpm seed:institutions',
+  instruments: 'pnpm seed:instruments',
+  treasury: 'pnpm seed:tesouro',
+  indices: 'pnpm seed:indices',
+  price_history: 'pnpm seed:cotahist',
+};
+
+/** Os catálogos na ordem em que a carga os executa. */
+export const CATALOG_ORDER: readonly CatalogKey[] = [
+  'institutions',
+  'instruments',
+  'treasury',
+  'indices',
+  'price_history',
+];
+
+export const orderedCatalogs = (
+  catalogs: MarketHealth['catalogs'],
+): MarketHealth['catalogs'] =>
+  [...catalogs].sort(
+    (a, b) => CATALOG_ORDER.indexOf(a.key) - CATALOG_ORDER.indexOf(b.key),
+  );
+
+export const hasDemoData = (demo: MarketHealth['demo']): boolean =>
+  demo.portfolios + demo.assets + demo.institutions > 0;
+
+export const DEMO_REMOVE_COMMAND = 'pnpm demo:remove';
+
+export const demoSummary = (demo: MarketHealth['demo']): string =>
+  [
+    plural(demo.portfolios, 'carteira', 'carteiras'),
+    plural(demo.assets, 'ativo', 'ativos'),
+    plural(demo.institutions, 'instituição', 'instituições'),
+  ].join(', ');
+
 /** Regras na ordem da prancha; as que a tela não conhece vão para o fim, por nome. */
 export const sortAlerts = (rules: readonly SettingsAlertRule[]): SettingsAlertRule[] => {
   const order = Object.keys(ALERT_COPY);

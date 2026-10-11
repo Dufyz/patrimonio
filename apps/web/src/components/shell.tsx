@@ -43,6 +43,8 @@ export type AppShellProps = {
   readonly onOpenSettings: () => void;
   /** Configurações aberta: o botão do pé da barra lateral fica destacado. */
   readonly settingsActive?: boolean;
+  /** Há dado de demonstração no banco: a barra lateral diz isso. */
+  readonly demo?: boolean;
   readonly children: React.ReactNode;
   /** Largura imposta, para teste e comparação visual. */
   readonly width?: number | undefined;
@@ -62,6 +64,7 @@ export const AppShell = ({
   onOpenSearch,
   onOpenSettings,
   settingsActive = false,
+  demo = false,
   children,
   width: forcedWidth,
 }: AppShellProps): React.ReactElement => {
@@ -99,6 +102,7 @@ export const AppShell = ({
       onOpenSearch={onOpenSearch}
       onOpenSettings={onOpenSettings}
       settingsActive={settingsActive}
+      demo={demo}
     />
   );
 
@@ -184,6 +188,7 @@ const Sidebar = ({
   onOpenSearch,
   onOpenSettings,
   settingsActive,
+  demo,
 }: {
   readonly portfolios: readonly PortfolioItem[];
   readonly screens: readonly ScreenItem[];
@@ -195,6 +200,7 @@ const Sidebar = ({
   readonly onOpenSearch: () => void;
   readonly onOpenSettings: () => void;
   readonly settingsActive: boolean;
+  readonly demo: boolean;
 }): React.ReactElement => (
   <div className="flex h-full flex-col px-3 pt-3.5 pb-3">
     <div className="flex items-center gap-2.5 px-2 pt-0.5 pb-2.5">
@@ -205,6 +211,16 @@ const Sidebar = ({
         </span>
       )}
     </div>
+
+    {demo ? (
+      <p
+        role="note"
+        title="O banco tem dados de demonstração. Rode pnpm demo:remove para apagá-los."
+        className="tabular mx-2 mb-2 rounded-control bg-attention-soft px-2 py-1 text-center text-label font-semibold tracking-[0.08em] uppercase"
+      >
+        {iconsOnly ? 'demo' : 'Demonstração'}
+      </p>
+    ) : null}
 
     <button
       type="button"

@@ -2,6 +2,7 @@ CREATE TABLE institution (
   id         UUID PRIMARY KEY,
   name       TEXT NOT NULL,
   country    CHAR(2) NOT NULL DEFAULT 'BR',
+  is_demo    BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   CONSTRAINT institution_country_format CHECK (country ~ '^[A-Z]{2}$')

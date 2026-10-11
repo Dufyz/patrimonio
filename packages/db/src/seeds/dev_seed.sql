@@ -18,6 +18,9 @@
 -- Pré-requisito:   pnpm migrate up (já carrega o calendário de dias úteis e as categorias)
 -- Uso:             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f dev_seed.sql
 --
+-- Tudo o que este arquivo cria é marcado como demonstração (is_demo nas carteiras, ativos
+-- e instituições; origem 'dev-seed' nas cotações de índice e no histórico de coleta), e
+-- `pnpm demo:remove` apaga só isso, sem tocar nos lançamentos reais.
 -- Depois do seed, `pnpm seed:institutions` acrescenta as instituições reais (BCB/CVM).
 --
 -- Recusa rodar em banco que já tenha carteira, ativo, instituição ou lançamento:
@@ -1117,6 +1120,12 @@ SELECT ('01960000-000a-7000-8000-' || LPAD(TO_HEX(ROW_NUMBER() OVER (ORDER BY p.
        NOW(), 'dev-seed'
   FROM portfolio p
  WHERE p.recalc_status = 'queued';
+
+UPDATE institution SET is_demo = TRUE;
+UPDATE portfolio SET is_demo = TRUE;
+UPDATE asset SET is_demo = TRUE;
+UPDATE index_quote SET source = 'dev-seed';
+UPDATE market_source_run SET source = 'dev-seed';
 
 DO $report$
 DECLARE r TEXT;

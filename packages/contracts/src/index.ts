@@ -207,6 +207,8 @@ export {
 export type { InterpretTransactionBody } from './transaction/interpretTransaction.schema.js';
 export {
   assetPriceSeriesSchema,
+  catalogHealthSchema,
+  catalogKeySchema,
   getAssetPriceSeriesSchema,
   getMarketHealthSchema,
   marketHealthSchema,
@@ -219,6 +221,7 @@ export {
 } from './market/market.schema.js';
 export type {
   AssetPriceSeriesResource,
+  CatalogHealthResource,
   MarketHealth,
   RefreshMarketBody,
   SourceStatusResource,

@@ -73,8 +73,26 @@ const settings: Settings = {
   },
 };
 
+const catalog = (
+  key: MarketHealth['catalogs'][number]['key'],
+  total: number,
+): MarketHealth['catalogs'][number] => ({
+  key,
+  total,
+  last_loaded: total === 0 ? null : '2026-10-07T18:00:00Z',
+  state: total === 0 ? 'pending' : 'loaded',
+});
+
 const health: MarketHealth = {
   reference_date: '2026-10-07',
+  catalogs: [
+    catalog('institutions', 312),
+    catalog('instruments', 1840),
+    catalog('treasury', 0),
+    catalog('indices', 5200),
+    catalog('price_history', 0),
+  ],
+  demo: { portfolios: 0, assets: 0, institutions: 0 },
   sources: [
     {
       source: 'brapi',
@@ -277,6 +295,44 @@ describe('SettingsView', () => {
     expect(screen.getByText('brapi respondeu 503')).toBeTruthy();
     expect(screen.getByText(/KNRI11 sem cotação do dia/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Definir preço de KNRI11' })).toBeTruthy();
+  });
+
+  it('cada catálogo mostra contagem e estado, e o vazio diz o comando que o preenche', () => {
+    montar();
+
+    const table = within(
+      screen.getByRole('table', { name: 'Catálogos da carga inicial' }),
+    );
+
+    const instruments = table.getByRole('row', { name: /Instrumentos listados/ });
+    expect(within(instruments).getByText('1840')).toBeTruthy();
+    expect(within(instruments).getByText('carregado')).toBeTruthy();
+
+    const treasury = table.getByRole('row', { name: /Tesouro Direto/ });
+    expect(within(treasury).getByText('pnpm seed:tesouro')).toBeTruthy();
+    expect(within(treasury).getByText(/pendente/)).toBeTruthy();
+
+    const history = table.getByRole('row', { name: /Histórico de preços/ });
+    expect(within(history).getByText('pnpm seed:cotahist')).toBeTruthy();
+  });
+
+  it('sem dado de demonstração, não há aviso', () => {
+    montar();
+
+    expect(screen.queryByText('Dados de demonstração')).toBeNull();
+  });
+
+  it('com dado de demonstração, o aviso diz o quê e como remover', () => {
+    montar({
+      market: {
+        kind: 'ready',
+        value: { ...health, demo: { portfolios: 4, assets: 37, institutions: 8 } },
+      },
+    });
+
+    expect(screen.getByText('Dados de demonstração')).toBeTruthy();
+    expect(screen.getByText(/4 carteiras, 37 ativos, 8 instituições/)).toBeTruthy();
+    expect(screen.getByText('pnpm demo:remove')).toBeTruthy();
   });
 
   it('a leitura de mercado que falha não vira "nenhuma fonte": mostra o erro e deixa tentar de novo', () => {

@@ -65,6 +65,23 @@ export type SourceStatus = {
   readonly requests_in_window: number;
 };
 
+export type CatalogKey =
+  'institutions' | 'instruments' | 'treasury' | 'indices' | 'price_history';
+
+/** Quantas linhas o catálogo tem e quando uma delas mudou pela última vez. */
+export type CatalogStat = {
+  readonly key: CatalogKey;
+  readonly total: number;
+  readonly last_loaded: string | null;
+};
+
+/** O que o banco guarda como demonstração, em contagem por tipo. */
+export type DemoCounts = {
+  readonly portfolios: number;
+  readonly assets: number;
+  readonly institutions: number;
+};
+
 export type MarketIngestionRepository = {
   /**
    * Os preços do dia. Numa data com preço manual, o manual continua vencendo —
@@ -115,6 +132,14 @@ export type MarketIngestionRepository = {
   readonly sourceStatuses: (options: {
     readonly requests_since: string;
   }) => Promise<Either<AppError, SourceStatus[]>>;
+
+  /**
+   * Os catálogos de que a instalação depende, com a contagem de cada um. Dado de
+   * demonstração não entra: um catálogo que só tem demonstração está vazio.
+   */
+  readonly catalogStats: () => Promise<Either<AppError, CatalogStat[]>>;
+
+  readonly demoCounts: () => Promise<Either<AppError, DemoCounts>>;
 
   readonly recentFailures: (
     limit: number,

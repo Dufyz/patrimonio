@@ -89,6 +89,9 @@ export type { PriceAt, PriceRepository } from './interfaces/price.repository.js'
 export type {
   AnnouncedPayoutWrite,
   AssetPriceWrite,
+  CatalogKey,
+  CatalogStat,
+  DemoCounts,
   IndexQuoteWrite,
   MarketIngestionRepository,
   PendingAnnouncedPayout,
@@ -541,6 +544,11 @@ export type {
   LoadIndexHistoryInput,
   LoadIndexHistoryResult,
 } from './usecases/market/loadIndexHistory.usecase.js';
+export { loadTreasuryCatalog } from './usecases/market/loadTreasuryCatalog.usecase.js';
+export type {
+  LoadTreasuryCatalogDeps,
+  LoadTreasuryCatalogResult,
+} from './usecases/market/loadTreasuryCatalog.usecase.js';
 export {
   TREASURY_CATALOG_SOURCE,
   treasuryInstruments,

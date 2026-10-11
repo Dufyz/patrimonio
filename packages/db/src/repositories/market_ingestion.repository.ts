@@ -1,6 +1,8 @@
 import type {
   AnnouncedPayoutWrite,
   AssetPriceWrite,
+  CatalogKey,
+  CatalogStat,
   IndexQuoteWrite,
   MarketIngestionRepository,
   SourceStatus,
@@ -280,6 +282,66 @@ export const createMarketIngestionRepository = (
       }));
 
       return success(statuses);
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
+  catalogStats: async () => {
+    try {
+      const rows = await sql<Row[]>`
+        SELECT 'institutions' AS key, COUNT(*)::INTEGER AS total, MAX(updated_at) AS last_loaded
+          FROM institution
+         WHERE NOT is_demo
+        UNION ALL
+        SELECT 'instruments', COUNT(*)::INTEGER, MAX(updated_at)
+          FROM listed_instrument
+         WHERE active AND b3_type <> 'treasury'
+        UNION ALL
+        SELECT 'treasury', COUNT(*)::INTEGER, MAX(updated_at)
+          FROM listed_instrument
+         WHERE active AND b3_type = 'treasury'
+        UNION ALL
+        SELECT 'indices', COUNT(*)::INTEGER, MAX(fetched_at)
+          FROM index_quote
+         WHERE source <> 'dev-seed'
+        UNION ALL
+        SELECT 'price_history', COUNT(*)::INTEGER, MAX(price.fetched_at)
+          FROM asset_price price
+          JOIN asset ON asset.id = price.asset_id
+         WHERE NOT asset.is_demo
+      `;
+
+      const stats: CatalogStat[] = rows.map((row) => ({
+        key: String(row['key']) as CatalogKey,
+        total: Number(row['total']),
+        last_loaded:
+          row['last_loaded'] instanceof Date
+            ? row['last_loaded'].toISOString()
+            : row['last_loaded'] === null || row['last_loaded'] === undefined
+              ? null
+              : String(row['last_loaded']),
+      }));
+
+      return success(stats);
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
+  demoCounts: async () => {
+    try {
+      const [row] = await sql<Row[]>`
+        SELECT (SELECT COUNT(*) FROM portfolio WHERE is_demo)::INTEGER AS portfolios,
+               (SELECT COUNT(*) FROM asset WHERE is_demo)::INTEGER AS assets,
+               (SELECT COUNT(*) FROM institution WHERE is_demo)::INTEGER AS institutions
+      `;
+
+      return success({
+        portfolios: Number(row?.['portfolios'] ?? 0),
+        assets: Number(row?.['assets'] ?? 0),
+        institutions: Number(row?.['institutions'] ?? 0),
+      });
     } catch (error) {
       return failure(getRepositoryError(error));
     }

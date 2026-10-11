@@ -5,7 +5,13 @@ import { refreshMarket } from '../../api/market.js';
 import { Button } from '../../components/primitives.js';
 import type { Resource } from '../../lib/use_resource.js';
 import {
+  CATALOG_COMMAND,
+  CATALOG_LABEL,
+  DEMO_REMOVE_COMMAND,
   SOURCE_STATUS,
+  demoSummary,
+  hasDemoData,
+  orderedCatalogs,
   formatInstant,
   missingPricesText,
   runKindLabel,
@@ -121,7 +127,61 @@ export const MarketSection = ({
         <Failed error={state.error} onRetry={reload} />
       ) : (
         <>
+          {hasDemoData(state.value.demo) ? (
+            <p
+              role="note"
+              className="border-b border-line bg-attention-soft px-4 py-2.5 text-[0.8125rem]"
+            >
+              <strong className="font-semibold">Dados de demonstração</strong>:{' '}
+              {demoSummary(state.value.demo)}. Para apagá-los sem tocar nos lançamentos
+              reais, rode <code className="tabular">{DEMO_REMOVE_COMMAND}</code>.
+            </p>
+          ) : null}
+
           <table className="w-full text-[0.8125rem]">
+            <caption className="sr-only">Catálogos da carga inicial</caption>
+            <thead>
+              <tr>
+                <th scope="col" className={TH}>
+                  Catálogo
+                </th>
+                <th scope="col" className={TH_RIGHT}>
+                  Registros
+                </th>
+                <th scope="col" className={TH}>
+                  Última carga
+                </th>
+                <th scope="col" className={TH}>
+                  Situação
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {orderedCatalogs(state.value.catalogs).map((catalog) => (
+                <tr key={catalog.key} className={ROW}>
+                  <th scope="row" className={`${TD} text-left font-medium`}>
+                    {CATALOG_LABEL[catalog.key]}
+                  </th>
+                  <td className={`${TD} tabular text-right`}>{catalog.total}</td>
+                  <td className={`${TD} tabular`}>
+                    {formatInstant(catalog.last_loaded)}
+                  </td>
+                  <td className={TD}>
+                    {catalog.state === 'pending' ? (
+                      <StatusDot tone="attention">
+                        pendente · rode{' '}
+                        <code className="tabular">{CATALOG_COMMAND[catalog.key]}</code>
+                      </StatusDot>
+                    ) : (
+                      <StatusDot tone="ok">carregado</StatusDot>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <table className="mt-4 w-full border-t border-line text-[0.8125rem]">
             <caption className="sr-only">Situação de cada fonte de dados</caption>
             <thead>
               <tr>

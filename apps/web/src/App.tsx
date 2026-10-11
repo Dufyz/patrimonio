@@ -9,6 +9,7 @@ import {
   BrowserRouter,
 } from 'react-router';
 
+import { fetchMarketHealth } from './api/market.js';
 import { fetchPortfolios } from './api/portfolios.js';
 import { Icon } from './components/icon.js';
 import type { IconName } from './components/icon.js';
@@ -17,6 +18,8 @@ import { SearchPalette } from './components/search_palette.js';
 import { ShortcutProvider, useShortcuts } from './components/shortcuts.js';
 import { AppShell } from './components/shell.js';
 import type { ScreenItem } from './components/shell.js';
+import { hasDemoData } from './lib/settings.js';
+import { useResource } from './lib/use_resource.js';
 import { portfolioIdForScope, portfolioSlugs, scopeForPortfolioId } from './lib/scope.js';
 import { describeShortcut, SHORTCUTS } from './lib/shortcuts.js';
 import { onPortfoliosChanged } from './lib/portfolio_events.js';
@@ -198,6 +201,9 @@ const Workbench = (): React.ReactElement => {
     [portfolios],
   );
 
+  const health = useResource((signal) => fetchMarketHealth(signal), []);
+  const demo = health.state.kind === 'ready' && hasDemoData(health.state.value.demo);
+
   /**
    * "Ver lançamentos" de um ativo abre o extrato todo, e não os últimos três
    * meses: quem pergunta pelos lançamentos de um ativo quer o histórico dele.
@@ -258,6 +264,7 @@ const Workbench = (): React.ReactElement => {
         }}
         onOpenSearch={() => setSearchOpen(true)}
         settingsActive={onSettings}
+        demo={demo}
         onOpenSettings={() => navigate(`/${scope}/configuracoes`)}
       >
         {asset !== undefined ? (

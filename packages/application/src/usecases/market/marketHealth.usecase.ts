@@ -6,7 +6,13 @@ import { BadRequestError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
 import type { Clock } from '../../interfaces/clock.js';
 import type { EnqueuedEvent } from '../../interfaces/outbox.repository.js';
+import type {
+  CatalogKey,
+  DemoCounts,
+} from '../../interfaces/market_ingestion.repository.js';
 import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
+import { INSTRUMENT_CATALOG_SOURCE } from './refreshInstrumentCatalog.usecase.js';
+import { COTAHIST_LOAD_SOURCE } from './loadPriceHistory.usecase.js';
 
 /**
  * A situação dos dados de mercado. Ela existe para responder uma pergunta só:
@@ -42,7 +48,22 @@ export type MissingPrice = {
   readonly last_price_date: DateOnly | null;
 };
 
+/**
+ * Um catálogo de que a instalação depende. `pending` é o catálogo vazio: a busca
+ * de papéis, o seletor de corretora ou a comparação com um índice não funcionam
+ * sem ele, e a tela diz qual comando o preenche.
+ */
+export type CatalogHealth = {
+  readonly key: CatalogKey;
+  readonly total: number;
+  readonly last_loaded: string | null;
+  readonly state: 'loaded' | 'pending';
+};
+
 export type MarketHealthResult = {
+  readonly catalogs: readonly CatalogHealth[];
+  /** O que o banco guarda como demonstração; tudo zero numa instalação real. */
+  readonly demo: DemoCounts;
   readonly reference_date: DateOnly;
   readonly sources: readonly SourceHealth[];
   readonly recent_failures: readonly MarketSourceRun[];
@@ -57,6 +78,12 @@ export type MarketHealthDeps = {
   /** O teto de requisições por fonte, de onde a configuração disser. */
   readonly ceilings?: Readonly<Record<string, number>> | undefined;
   readonly staleAfterDays?: number | undefined;
+};
+
+const RUN_OF: Readonly<Partial<Record<CatalogKey, readonly [string, MarketRunKind]>>> = {
+  instruments: [INSTRUMENT_CATALOG_SOURCE, 'cotahist'],
+  indices: ['indices', 'indices'],
+  price_history: [COTAHIST_LOAD_SOURCE, 'cotahist'],
 };
 
 const WARNING_RATIO = 0.8;
@@ -112,6 +139,29 @@ export const getMarketHealth = (deps: MarketHealthDeps) =>
         const failures = await repositories.market.recentFailures(RECENT_FAILURES);
         if (failures.isFailure()) return failures;
 
+        const stats = await repositories.market.catalogStats();
+        if (stats.isFailure()) return stats;
+
+        const demo = await repositories.market.demoCounts();
+        if (demo.isFailure()) return demo;
+
+        const catalogs: CatalogHealth[] = [];
+        for (const stat of stats.value) {
+          const of = RUN_OF[stat.key];
+          const run =
+            of === undefined ? null : await repositories.market.lastRunOf(...of);
+          if (run !== null && run.isFailure()) return run;
+
+          const ran = run === null ? null : run.value;
+
+          catalogs.push({
+            key: stat.key,
+            total: stat.total,
+            last_loaded: ran !== null && ran.ok ? ran.finished_at : stat.last_loaded,
+            state: stat.total === 0 ? 'pending' : 'loaded',
+          });
+        }
+
         const withoutPrice = await repositories.prices.assetsWithoutPriceOn(date);
         if (withoutPrice.isFailure()) return withoutPrice;
 
@@ -135,6 +185,8 @@ export const getMarketHealth = (deps: MarketHealthDeps) =>
 
         return success({
           reference_date: date,
+          catalogs,
+          demo: demo.value,
           sources: statuses.value.map((status): SourceHealth => ({
             source: status.source,
             kind: status.kind,
