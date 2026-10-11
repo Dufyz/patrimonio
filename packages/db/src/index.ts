@@ -11,6 +11,7 @@ export { createBusinessDayRepository } from './repositories/business_day.reposit
 export { createPortfolioRepository } from './repositories/portfolio.repository.js';
 export { createInstitutionRepository } from './repositories/institution.repository.js';
 export { createCategoryRepository } from './repositories/category.repository.js';
+export { createInstrumentCatalogRepository } from './repositories/instrument_catalog.repository.js';
 export { createAssetRepository } from './repositories/asset.repository.js';
 export { createLedgerRepository } from './repositories/ledger.repository.js';
 export { createManualPriceRepository } from './repositories/manual_price.repository.js';

@@ -17,6 +17,7 @@ import { createStatementRepository } from './repositories/statement.repository.j
 import { createCategoryRepository } from './repositories/category.repository.js';
 import { createCorporateEventRepository } from './repositories/corporate_event.repository.js';
 import { createInstitutionRepository } from './repositories/institution.repository.js';
+import { createInstrumentCatalogRepository } from './repositories/instrument_catalog.repository.js';
 import { createLedgerRepository } from './repositories/ledger.repository.js';
 import { createManualPriceRepository } from './repositories/manual_price.repository.js';
 import { createMarketIngestionRepository } from './repositories/market_ingestion.repository.js';
@@ -61,6 +62,7 @@ export const createRepositories = (
   portfolios: createPortfolioRepository(sql),
   institutions: createInstitutionRepository(sql),
   categories: createCategoryRepository(sql),
+  instruments: createInstrumentCatalogRepository(sql),
   assets: createAssetRepository(sql),
   ledger: createLedgerRepository(sql),
   manualPrices: createManualPriceRepository(sql),

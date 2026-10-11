@@ -202,6 +202,13 @@ export type {
 export type { CategoryRepository } from './interfaces/category.repository.js';
 export type { InstitutionRepository } from './interfaces/institution.repository.js';
 export type {
+  InstrumentCatalogRepository,
+  InstrumentCatalogSummary,
+  InstrumentFilter,
+  InstrumentPage,
+  InstrumentWrite,
+} from './interfaces/instrument_catalog.repository.js';
+export type {
   MovedContent,
   PortfolioContent,
   PortfolioDraft,

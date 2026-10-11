@@ -10,6 +10,7 @@ import type { StatementRepository } from './statement.repository.js';
 import type { CategoryRepository } from './category.repository.js';
 import type { CorporateEventRepository } from './corporate_event.repository.js';
 import type { InstitutionRepository } from './institution.repository.js';
+import type { InstrumentCatalogRepository } from './instrument_catalog.repository.js';
 import type { LedgerRepository } from './ledger.repository.js';
 import type { ManualPriceRepository } from './manual_price.repository.js';
 import type { MarketIngestionRepository } from './market_ingestion.repository.js';
@@ -43,6 +44,7 @@ export type TransactionalRepositories = {
   readonly portfolios: PortfolioRepository;
   readonly institutions: InstitutionRepository;
   readonly categories: CategoryRepository;
+  readonly instruments: InstrumentCatalogRepository;
   readonly assets: AssetRepository;
   readonly ledger: LedgerRepository;
   readonly manualPrices: ManualPriceRepository;
