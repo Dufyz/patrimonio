@@ -75,6 +75,25 @@ describe('compra', () => {
     expect(ativos.body.assets[0].origin).toBe('market');
   });
 
+  it('o título do Tesouro nasce com indexador e vencimento do próprio código', async () => {
+    const response = await lancar({
+      asset: {
+        ticker: 'TD-IPCA-20350515',
+        name: 'Tesouro IPCA+ 2035',
+        b3_type: 'treasury',
+      },
+    });
+
+    expect(response.status).toBe(201);
+    const ativos = await request(harness.app).get('/api/assets?search=TD-IPCA');
+    expect(ativos.body.assets[0]).toMatchObject({
+      origin: 'market',
+      b3_type: 'treasury',
+      indexer: 'ipca_plus',
+      maturity_date: '2035-05-15',
+    });
+  });
+
   it('o valor bruto e o líquido são calculados, não digitados', async () => {
     const response = await lancar({ fees: '4.90' });
 

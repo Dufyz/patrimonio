@@ -30,6 +30,7 @@ import type {
 } from '../../interfaces/unit-of-work.js';
 import { applyPlan } from '../../plans/apply.js';
 import { planMarketIngestion } from '../../plans/market.plan.js';
+import { writeTreasuryCatalog } from './treasuryCatalog.js';
 
 /**
  * A coleta do dia: preços, índices e Tesouro, numa execução só, seguida do
@@ -312,6 +313,9 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
       async (repositories) => {
         const written = await writeIngestion(repositories, plan);
         if (written.isFailure()) return written;
+
+        const catalog = await writeTreasuryCatalog(repositories, treasury.quotes);
+        if (catalog.isFailure()) return catalog;
 
         for (const draft of [
           runOf({

@@ -41,6 +41,7 @@ const closing = (overrides: Partial<SourcedClosing> = {}): SourcedClosing => ({
 
 const treasuryQuote: TreasuryQuote = {
   kind: 'ipca_plus',
+  coupon: false,
   maturity_date: '2029-05-15' as DateOnly,
   quote_date: DATE,
   buy_price: '2985.42',
@@ -137,6 +138,30 @@ describe('título público', () => {
 
     expect(plan.prices).toHaveLength(1);
     expect(plan.prices[0]?.asset_id).toBe('tesouro-ipca-2029');
+  });
+
+  it('separa o título com juros semestrais do mesmo vencimento, pelo código', () => {
+    const principal = { ...treasuryAsset, ticker: 'TD-IPCA-20290515' };
+    const semestral = {
+      ...treasuryAsset,
+      asset_id: 'tesouro-ipca-js-2029',
+      ticker: 'TD-IPCAJS-20290515',
+    };
+
+    const plan = planMarketIngestion(
+      context({
+        assets: [principal, semestral],
+        treasury: [
+          treasuryQuote,
+          { ...treasuryQuote, coupon: true, sell_price: '3100.00' },
+        ],
+      }),
+    );
+
+    const closeOf = (id: string) =>
+      plan.prices.find((price) => price.asset_id === id)?.close;
+    expect(closeOf('tesouro-ipca-2029')).toBe('2971.08');
+    expect(closeOf('tesouro-ipca-js-2029')).toBe('3100.00');
   });
 
   it('o valor da posição é o preço de venda: é quanto vale se vender hoje', () => {

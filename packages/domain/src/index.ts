@@ -204,5 +204,12 @@ export type {
   InstrumentType,
   ListedInstrument,
 } from './instrument/instrument.entities.js';
+export {
+  TREASURY_KINDS,
+  parseTreasuryTicker,
+  treasuryName,
+  treasuryTicker,
+} from './instrument/instrument.treasury.js';
+export type { TreasuryIdentity, TreasuryKind } from './instrument/instrument.treasury.js';
 export { classifyListedInstrument } from './instrument/instrument.classify.js';
 export { parseListedInstrumentFromDB } from './instrument/instrument.parsers.js';

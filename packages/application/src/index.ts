@@ -518,6 +518,11 @@ export type {
   CollectMarketDataResult,
 } from './usecases/market/collectMarketData.usecase.js';
 export {
+  TREASURY_CATALOG_SOURCE,
+  treasuryInstruments,
+  writeTreasuryCatalog,
+} from './usecases/market/treasuryCatalog.js';
+export {
   CATALOG_STALE_AFTER_DAYS,
   INACTIVE_AFTER_DAYS,
   INSTRUMENT_CATALOG_SOURCE,

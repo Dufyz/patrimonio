@@ -63,6 +63,7 @@ const counting = (): {
       ...values,
     );
   }) as unknown as Connection;
+  Object.assign(wrapped, { array: tx.array.bind(tx) });
   return { connection: wrapped, count: () => queries };
 };
 
@@ -282,6 +283,31 @@ describe('papéis do catálogo', () => {
     const view = await find({ text: 'bovx' });
 
     expect(view.instruments).toEqual({ total: 0, rows: [] });
+  });
+
+  it('acha o título do Tesouro por palavras soltas, com o + do nome fora', async () => {
+    await tx`
+      INSERT INTO listed_instrument
+        (id, ticker, name, b3_type, maturity_date, source, active, last_trade_date)
+      VALUES
+        (${id(111)}, 'TD-IPCA-20350515', 'Tesouro IPCA+ 2035', 'treasury', '2035-05-15',
+         'tesouro-catalog', TRUE, '2026-10-08'),
+        (${id(112)}, 'TD-SELIC-20290301', 'Tesouro Selic 2029', 'treasury', '2029-03-01',
+         'tesouro-catalog', TRUE, '2026-10-08')
+    `;
+
+    expect(
+      (await find({ text: 'ipca 2035' })).instruments.rows.map((r) => r.ticker),
+    ).toEqual(['TD-IPCA-20350515']);
+    expect(
+      (await find({ text: 'selic 2029' })).instruments.rows.map((r) => r.ticker),
+    ).toEqual(['TD-SELIC-20290301']);
+    expect((await find({ text: 'tesouro' })).instruments.total).toBe(2);
+    expect((await find({ text: 'ipca+ 2035' })).instruments.total).toBe(1);
+    expect((await find({ text: 'ipca 2029' })).instruments.total).toBe(0);
+    expect((await find({ text: 'ipca 2035' })).instruments.rows[0]?.maturity_date).toBe(
+      '2035-05-15',
+    );
   });
 
   it('diz que o catálogo está vazio, e que deixou de estar', async () => {

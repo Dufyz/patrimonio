@@ -5,6 +5,7 @@ import type {
   IndexCode,
   InstrumentType,
   PriceSourceKind,
+  TreasuryIdentity,
 } from '@patrimonio/domain';
 import type { Either } from '@patrimonio/shared';
 
@@ -128,6 +129,8 @@ export type IndexProvider = {
  */
 export type TreasuryQuote = {
   readonly kind: 'ipca_plus' | 'prefixed' | 'selic_plus';
+  /** Com pagamento de juros semestrais: outro título, mesmo com o mesmo vencimento. */
+  readonly coupon: boolean;
   readonly maturity_date: DateOnly;
   readonly quote_date: DateOnly;
   /** Preço e taxa das duas pontas, guardados separados. */
@@ -142,9 +145,27 @@ export type TreasuryProvider = {
   readonly fetchQuotes: (
     date: DateOnly,
   ) => Promise<Either<AppError, readonly TreasuryQuote[]>>;
+  /** O histórico de um título, quando a fonte o tem: só o CSV do Tesouro Transparente. */
+  readonly fetchHistory?: (
+    identity: TreasuryIdentity,
+    from: DateOnly,
+    to: DateOnly,
+  ) => Promise<Either<AppError, readonly TreasuryQuote[]>>;
+};
+
+export type TreasuryHistory = {
+  readonly quotes: readonly TreasuryQuote[];
+  readonly source: string;
+  readonly source_kind: PriceSourceKind | 'none';
 };
 
 export type TreasurySource = {
+  readonly fetchHistory: (
+    identity: TreasuryIdentity,
+    from: DateOnly,
+    to: DateOnly,
+  ) => Promise<Either<AppError, TreasuryHistory>>;
+
   readonly fetchQuotes: (date: DateOnly) => Promise<
     Either<
       AppError,

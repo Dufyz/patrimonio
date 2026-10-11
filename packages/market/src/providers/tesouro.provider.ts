@@ -1,5 +1,5 @@
 import type { AppError, TreasuryProvider, TreasuryQuote } from '@patrimonio/application';
-import type { DateOnly } from '@patrimonio/domain';
+import type { DateOnly, TreasuryIdentity } from '@patrimonio/domain';
 import { success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
 
@@ -71,6 +71,9 @@ export const kindFromName = (name: string): Kind | null => {
   return null;
 };
 
+export const hasSemiannualCoupon = (name: string): boolean =>
+  /juros semestrais/iu.test(name);
+
 export type TesouroOptions = { readonly http: HttpClient };
 
 /**
@@ -100,7 +103,8 @@ export const createTesouroJsonProvider = (options: TesouroOptions): TreasuryProv
         const where = `response.TrsrBdTradgList[${index}].TrsrBd`;
         const bond = asObject(at(asObject(item, `${where}`), ['TrsrBd']), where);
 
-        const kind = kindFromName(stringField(bond, 'nm', `${where}.nm`));
+        const name = stringField(bond, 'nm', `${where}.nm`);
+        const kind = kindFromName(name);
         if (kind === null) continue;
 
         const maturity = dateField(bond, 'mtrtyDt', `${where}.mtrtyDt`);
@@ -111,6 +115,7 @@ export const createTesouroJsonProvider = (options: TesouroOptions): TreasuryProv
 
         quotes.push({
           kind,
+          coupon: hasSemiannualCoupon(name),
           maturity_date: maturity,
           quote_date: date,
           buy_price: decimalField(bond, 'untrInvstmtVal', `${where}.untrInvstmtVal`),
@@ -149,106 +154,151 @@ export type CsvOptions = TesouroOptions & {
 const splitCsv = (line: string): readonly string[] =>
   line.split(';').map((cell) => cell.trim());
 
+type CsvRow = {
+  readonly kind: Kind;
+  readonly coupon: boolean;
+  readonly maturity: DateOnly;
+  readonly base: DateOnly;
+};
+
+/**
+ * Lê o arquivo uma vez e devolve as linhas que `wanted` aceita. A cabeça do
+ * arquivo é conferida antes de qualquer linha: coluna que saiu é mudança de
+ * formato.
+ */
+const readCsvQuotes = (
+  content: string,
+  wanted: (row: CsvRow) => boolean,
+): readonly TreasuryQuote[] => {
+  const lines = content.split(/\r?\n/u).filter((line) => line.trim() !== '');
+  const header = lines[0];
+
+  if (header === undefined) formatChanged('csv', 'veio vazio', content);
+
+  const columns = splitCsv(header ?? '');
+  const indexOf = (name: string): number => {
+    const index = columns.indexOf(name);
+
+    // Coluna que saiu do arquivo é mudança de formato: ler a posição errada
+    // gravaria taxa no lugar de preço, e ninguém notaria.
+    if (index < 0) formatChanged(`csv.${name}`, 'não está no cabeçalho', header);
+
+    return index;
+  };
+
+  const at_ = {
+    kind: indexOf(CSV_COLUMNS.kind),
+    maturity: indexOf(CSV_COLUMNS.maturity),
+    base: indexOf(CSV_COLUMNS.base),
+    buyRate: indexOf(CSV_COLUMNS.buyRate),
+    sellRate: indexOf(CSV_COLUMNS.sellRate),
+    buyPrice: indexOf(CSV_COLUMNS.buyPrice),
+    sellPrice: indexOf(CSV_COLUMNS.sellPrice),
+  };
+
+  const quotes: TreasuryQuote[] = [];
+
+  for (const [offset, line] of lines.slice(1).entries()) {
+    const cells = splitCsv(line);
+    const where = `csv[${offset + 2}]`;
+
+    const base = dateField({ v: cells[at_.base] }, 'v', `${where}.${CSV_COLUMNS.base}`);
+
+    const kindName = cells[at_.kind] ?? '';
+    const kind = kindFromName(kindName);
+    if (kind === null) continue;
+
+    const maturity = dateField(
+      { v: cells[at_.maturity] },
+      'v',
+      `${where}.${CSV_COLUMNS.maturity}`,
+    );
+
+    const coupon = hasSemiannualCoupon(kindName);
+    if (!wanted({ kind, coupon, maturity, base })) continue;
+
+    quotes.push({
+      kind,
+      coupon,
+      maturity_date: maturity,
+      quote_date: base,
+      buy_price: decimalField(
+        { v: cells[at_.buyPrice] },
+        'v',
+        `${where}.${CSV_COLUMNS.buyPrice}`,
+      ),
+      sell_price: decimalField(
+        { v: cells[at_.sellPrice] },
+        'v',
+        `${where}.${CSV_COLUMNS.sellPrice}`,
+      ),
+      buy_rate: decimalField(
+        { v: cells[at_.buyRate] },
+        'v',
+        `${where}.${CSV_COLUMNS.buyRate}`,
+      ),
+      sell_rate: decimalField(
+        { v: cells[at_.sellRate] },
+        'v',
+        `${where}.${CSV_COLUMNS.sellRate}`,
+      ),
+    });
+  }
+
+  return quotes;
+};
+
 /**
  * O CSV cobre o histórico completo desde 2002, e é a alternativa quando o JSON
- * não responde — e a fonte da carga inicial.
+ * não responde — e a fonte da carga inicial e do histórico de cada título.
  */
-export const createTesouroCsvProvider = (options: CsvOptions): TreasuryProvider => ({
-  id: TESOURO_CSV_SOURCE,
+export const createTesouroCsvProvider = (options: CsvOptions): TreasuryProvider => {
+  const load = async (): Promise<Either<AppError, string>> => {
+    if (options.body !== undefined) return success(options.body);
 
-  fetchQuotes: async (
-    date: DateOnly,
-  ): Promise<Either<AppError, readonly TreasuryQuote[]>> => {
-    let body = options.body;
+    const response = await options.http({ url: TESOURO_CSV_URL });
+    if (response.isFailure()) return response;
 
-    if (body === undefined) {
-      const response = await options.http({ url: TESOURO_CSV_URL });
-      if (response.isFailure()) return response;
-      body = response.value.body;
-    }
+    return success(response.value.body);
+  };
 
-    const content = body;
+  return {
+    id: TESOURO_CSV_SOURCE,
 
-    const read = parsing(TESOURO_CSV_SOURCE, () => {
-      const lines = content.split(/\r?\n/u).filter((line) => line.trim() !== '');
-      const header = lines[0];
+    fetchQuotes: async (
+      date: DateOnly,
+    ): Promise<Either<AppError, readonly TreasuryQuote[]>> => {
+      const content = await load();
+      if (content.isFailure()) return content;
 
-      if (header === undefined) formatChanged('csv', 'veio vazio', content);
+      const read = parsing(TESOURO_CSV_SOURCE, () =>
+        readCsvQuotes(content.value, (row) => row.base === date && row.maturity >= date),
+      );
 
-      const columns = splitCsv(header ?? '');
-      const indexOf = (name: string): number => {
-        const index = columns.indexOf(name);
+      return read.isFailure() ? read : success(read.value);
+    },
 
-        // Coluna que saiu do arquivo é mudança de formato: ler a posição errada
-        // gravaria taxa no lugar de preço, e ninguém notaria.
-        if (index < 0) formatChanged(`csv.${name}`, 'não está no cabeçalho', header);
+    fetchHistory: async (
+      identity: TreasuryIdentity,
+      from: DateOnly,
+      to: DateOnly,
+    ): Promise<Either<AppError, readonly TreasuryQuote[]>> => {
+      const content = await load();
+      if (content.isFailure()) return content;
 
-        return index;
-      };
+      const read = parsing(TESOURO_CSV_SOURCE, () =>
+        readCsvQuotes(
+          content.value,
+          (row) =>
+            row.kind === identity.kind &&
+            row.coupon === identity.coupon &&
+            row.maturity === identity.maturity_date &&
+            row.base >= from &&
+            row.base <= to,
+        ),
+      );
 
-      const at_ = {
-        kind: indexOf(CSV_COLUMNS.kind),
-        maturity: indexOf(CSV_COLUMNS.maturity),
-        base: indexOf(CSV_COLUMNS.base),
-        buyRate: indexOf(CSV_COLUMNS.buyRate),
-        sellRate: indexOf(CSV_COLUMNS.sellRate),
-        buyPrice: indexOf(CSV_COLUMNS.buyPrice),
-        sellPrice: indexOf(CSV_COLUMNS.sellPrice),
-      };
-
-      const quotes: TreasuryQuote[] = [];
-
-      for (const [offset, line] of lines.slice(1).entries()) {
-        const cells = splitCsv(line);
-        const where = `csv[${offset + 2}]`;
-
-        const base = dateField(
-          { v: cells[at_.base] },
-          'v',
-          `${where}.${CSV_COLUMNS.base}`,
-        );
-        if (base !== date) continue;
-
-        const kind = kindFromName(cells[at_.kind] ?? '');
-        if (kind === null) continue;
-
-        const maturity = dateField(
-          { v: cells[at_.maturity] },
-          'v',
-          `${where}.${CSV_COLUMNS.maturity}`,
-        );
-        if (maturity < date) continue;
-
-        quotes.push({
-          kind,
-          maturity_date: maturity,
-          quote_date: base,
-          buy_price: decimalField(
-            { v: cells[at_.buyPrice] },
-            'v',
-            `${where}.${CSV_COLUMNS.buyPrice}`,
-          ),
-          sell_price: decimalField(
-            { v: cells[at_.sellPrice] },
-            'v',
-            `${where}.${CSV_COLUMNS.sellPrice}`,
-          ),
-          buy_rate: decimalField(
-            { v: cells[at_.buyRate] },
-            'v',
-            `${where}.${CSV_COLUMNS.buyRate}`,
-          ),
-          sell_rate: decimalField(
-            { v: cells[at_.sellRate] },
-            'v',
-            `${where}.${CSV_COLUMNS.sellRate}`,
-          ),
-        });
-      }
-
-      return quotes;
-    });
-
-    return read.isFailure() ? read : success(read.value);
-  },
-});
+      return read.isFailure() ? read : success(read.value);
+    },
+  };
+};

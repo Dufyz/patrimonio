@@ -141,6 +141,7 @@ const quote = (close: string, date = DATE) => ({
 
 const tesouroQuote = (date = DATE) => ({
   kind: 'ipca_plus' as const,
+  coupon: false,
   maturity_date: '2029-05-15',
   quote_date: date,
   buy_price: '2985.42',

@@ -10,6 +10,7 @@ import { failure, success } from '@patrimonio/shared';
 
 import { getRepositoryError } from '../errors/repository-error.js';
 import type { Connection } from '../postgresql.js';
+import { ARRAY_OID } from '../support/array_oid.js';
 import { likeContains, likePrefix } from '../support/like.js';
 
 /**
@@ -44,6 +45,20 @@ import { likeContains, likePrefix } from '../support/like.js';
 /** Quantos candidatos por texto entram no desempate por posição. */
 const CANDIDATES = 50;
 
+/**
+ * O catálogo casa por palavra: "selic 2029" acha "Tesouro Selic 2029" mesmo com
+ * "tesouro" no meio, e "ipca 2035" acha "Tesouro IPCA+ 2035" porque o "+" do nome
+ * não conta. Cada palavra precisa estar no código ou no nome.
+ */
+const catalogTerms = (text: string): readonly string[] => {
+  const words = text
+    .replace(/\+/gu, '')
+    .split(/\s+/u)
+    .filter((word) => word !== '');
+
+  return (words.length === 0 ? [text] : words).map((word) => likeContains(word));
+};
+
 type AssetResultRow = Omit<SearchAssetRow, 'portfolio_names' | 'id' | 'b3_type'> & {
   readonly row_kind: 'asset' | 'catalog' | 'catalog_state';
   readonly id: string | null;
@@ -60,6 +75,7 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
     try {
       const contains = likeContains(filter.text);
       const prefix = likePrefix(filter.text);
+      const wanted = catalogTerms(filter.text);
 
       const [assets, transactions] = await Promise.all([
         sql<AssetResultRow[]>`
@@ -102,8 +118,12 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
                      SELECT 1 FROM asset a
                       WHERE a.ticker = i.ticker AND a.archived_at IS NULL
                    )
-               AND (unaccent(i.ticker) ILIKE unaccent(${contains}::TEXT)
-                    OR unaccent(i.name) ILIKE unaccent(${contains}::TEXT))
+               AND NOT EXISTS (
+                     SELECT 1
+                       FROM unnest(${sql.array([...wanted], ARRAY_OID.text)}::TEXT[]) AS w(pattern)
+                      WHERE NOT (unaccent(i.ticker) ILIKE unaccent(w.pattern)
+                                 OR unaccent(REPLACE(i.name, '+', '')) ILIKE unaccent(w.pattern))
+                   )
           )
           (SELECT 'asset' AS row_kind, c.id, c.ticker, c.name, c.b3_type,
                  NULL::TEXT AS maturity_date, c.total::INT AS total,

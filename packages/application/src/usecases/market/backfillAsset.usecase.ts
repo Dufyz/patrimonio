@@ -1,10 +1,16 @@
-import type { DateOnly, PriceSourceKind } from '@patrimonio/domain';
+import type { DateOnly, PriceSourceKind, PriceableAsset } from '@patrimonio/domain';
+import { parseTreasuryTicker } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
+import type { Either } from '@patrimonio/shared';
 
 import { NotFoundError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
 import type { Clock } from '../../interfaces/clock.js';
-import type { QuoteSource } from '../../interfaces/market_data.js';
+import type {
+  QuoteSource,
+  SourcedClosing,
+  TreasurySource,
+} from '../../interfaces/market_data.js';
 import type { AssetPriceWrite } from '../../interfaces/market_ingestion.repository.js';
 import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
 import { applyPlan } from '../../plans/apply.js';
@@ -63,6 +69,53 @@ export type BackfillAssetDeps = {
   readonly unitOfWork: UnitOfWork;
   readonly clock: Clock;
   readonly quotes: QuoteSource;
+  /**
+   * O preço do título público vem da tabela do Tesouro, e não de uma fonte de
+   * cotação de bolsa. Sem ela o backfill do Tesouro fica sem fonte.
+   */
+  readonly treasury?: TreasurySource | undefined;
+};
+
+/** O histórico do título, no formato que o resto do backfill já consome. */
+const treasuryHistory = async (
+  source: TreasurySource,
+  asset: PriceableAsset,
+  window: { readonly from: DateOnly; readonly to: DateOnly },
+): Promise<Either<AppError, SourcedClosing>> => {
+  const identity =
+    parseTreasuryTicker(asset.ticker) ??
+    (asset.indexer === 'ipca_plus' ||
+    asset.indexer === 'prefixed' ||
+    asset.indexer === 'selic_plus'
+      ? asset.maturity_date === null
+        ? null
+        : { kind: asset.indexer, coupon: false, maturity_date: asset.maturity_date }
+      : null);
+
+  if (identity === null) {
+    return success<SourcedClosing>({
+      quotes: [],
+      missing: [asset.ticker],
+      source: 'none',
+      source_kind: 'none',
+      requests: 0,
+    });
+  }
+
+  const history = await source.fetchHistory(identity, window.from, window.to);
+  if (history.isFailure()) return history;
+
+  return success({
+    quotes: history.value.quotes.map((quote) => ({
+      ticker: asset.ticker,
+      price_date: quote.quote_date,
+      close: quote.sell_price,
+    })),
+    missing: [],
+    source: history.value.source,
+    source_kind: history.value.source_kind,
+    requests: history.value.source === 'none' ? 0 : 1,
+  });
 };
 
 export const backfillAsset = (deps: BackfillAssetDeps) =>
@@ -134,11 +187,10 @@ export const backfillAsset = (deps: BackfillAssetDeps) =>
 
     const startedAt = deps.clock.now().toISOString();
 
-    const history = await deps.quotes.fetchHistory(
-      context.asset.ticker,
-      window.from,
-      window.to,
-    );
+    const history =
+      context.asset.b3_type === 'treasury' && deps.treasury !== undefined
+        ? await treasuryHistory(deps.treasury, context.asset, window)
+        : await deps.quotes.fetchHistory(context.asset.ticker, window.from, window.to);
 
     if (history.isFailure()) {
       yield* await deps.unitOfWork.run(async (repositories) =>

@@ -1,5 +1,5 @@
 import type { DateOnly, PriceSourceKind, PriceableAsset } from '@patrimonio/domain';
-import { addDays } from '@patrimonio/domain';
+import { addDays, treasuryTicker } from '@patrimonio/domain';
 
 import type { AlertFinding } from '../interfaces/alert.repository.js';
 import type {
@@ -71,6 +71,14 @@ export type MarketIngestionPlan = {
 const treasuryKey = (kind: string, maturity: DateOnly): string =>
   `${kind}\u0000${maturity}`;
 
+/** O título que o ativo representa, pelo código; o par indexador-vencimento é o legado. */
+const quoteTicker = (quote: TreasuryQuote): string =>
+  treasuryTicker({
+    kind: quote.kind,
+    coupon: quote.coupon,
+    maturity_date: quote.maturity_date,
+  });
+
 const isTreasury = (asset: PriceableAsset): boolean =>
   asset.b3_type === 'treasury' && asset.indexer !== null && asset.maturity_date !== null;
 
@@ -81,21 +89,30 @@ export const planMarketIngestion = (
     context.closing.quotes.map((quote) => [quote.ticker.toUpperCase(), quote]),
   );
 
-  const byTreasury = new Map<string, TreasuryQuote>(
-    context.treasury.map((quote) => [
-      treasuryKey(quote.kind, quote.maturity_date),
-      quote,
-    ]),
+  const byTreasuryTicker = new Map<string, TreasuryQuote>(
+    context.treasury.map((quote) => [quoteTicker(quote), quote]),
   );
+
+  // Ativo cadastrado antes do código derivado só tem indexador e vencimento. Em
+  // empate, o título sem juros semestrais é o que a chave sempre significou.
+  const byTreasury = new Map<string, TreasuryQuote>();
+  for (const quote of [...context.treasury].sort(
+    (left, right) => Number(left.coupon) - Number(right.coupon),
+  )) {
+    const key = treasuryKey(quote.kind, quote.maturity_date);
+    if (!byTreasury.has(key)) byTreasury.set(key, quote);
+  }
 
   const prices: AssetPriceWrite[] = [];
   const missing: PriceableAsset[] = [];
 
   for (const asset of context.assets) {
     if (isTreasury(asset)) {
-      const quote = byTreasury.get(
-        treasuryKey(asset.indexer ?? '', asset.maturity_date ?? context.reference_date),
-      );
+      const quote =
+        byTreasuryTicker.get(asset.ticker.toUpperCase()) ??
+        byTreasury.get(
+          treasuryKey(asset.indexer ?? '', asset.maturity_date ?? context.reference_date),
+        );
 
       if (quote === undefined || context.treasury_source_kind === 'none') {
         missing.push(asset);

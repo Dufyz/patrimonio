@@ -106,6 +106,30 @@ export const createQuoteChain = (providers: readonly QuoteProvider[]): QuoteSour
 export const createTreasuryChain = (
   providers: readonly TreasuryProvider[],
 ): TreasurySource => ({
+  fetchHistory: async (identity, from, to) => {
+    for (const [index, provider] of providers.entries()) {
+      if (provider.fetchHistory === undefined) continue;
+
+      const result = await provider.fetchHistory(identity, from, to);
+
+      if (result.isSuccess()) {
+        return success({
+          quotes: result.value,
+          source: provider.id,
+          source_kind: kindFor(index),
+        });
+      }
+
+      if (isFormatChangedError(result.value)) return result;
+    }
+
+    return success({
+      quotes: [] as const,
+      source: 'none',
+      source_kind: 'none' as const,
+    });
+  },
+
   fetchQuotes: async (date: DateOnly) => {
     for (const [index, provider] of providers.entries()) {
       const result = await provider.fetchQuotes(date);

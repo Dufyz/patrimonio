@@ -5,7 +5,7 @@ import type {
   Transaction,
   TransactionKind,
 } from '@patrimonio/domain';
-import { settlementBusinessDays } from '@patrimonio/domain';
+import { parseTreasuryTicker, settlementBusinessDays } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
 
@@ -155,6 +155,10 @@ export const resolveAsset = async (
         classifyWithRules(
           {
             b3_type: input.asset.b3_type,
+            indexer:
+              input.asset.b3_type === 'treasury'
+                ? (parseTreasuryTicker(input.asset.ticker)?.kind ?? null)
+                : null,
             origin: 'market',
             sector: input.asset.sector,
           },
@@ -164,6 +168,11 @@ export const resolveAsset = async (
     });
   }
 
+  // O Tesouro precisa de indexador e vencimento para ter preço: o código do
+  // título os traz, e o ativo não depende de ninguém ter preenchido a mão.
+  const treasury =
+    input.asset.b3_type === 'treasury' ? parseTreasuryTicker(input.asset.ticker) : null;
+
   const created = await createAssetIn(repositories, {
     ticker: input.asset.ticker.toUpperCase(),
     name: input.asset.name,
@@ -171,6 +180,9 @@ export const resolveAsset = async (
     b3_type: input.asset.b3_type ?? null,
     sector: input.asset.sector ?? null,
     category_id: input.asset.category_id,
+    ...(treasury === null
+      ? {}
+      : { indexer: treasury.kind, maturity_date: treasury.maturity_date }),
   });
   if (created.isFailure()) return created;
 
