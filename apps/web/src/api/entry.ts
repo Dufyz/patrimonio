@@ -1,4 +1,6 @@
 import {
+  corporateEventPreviewSchema,
+  corporateEventResourceSchema,
   payoutPreviewSchema,
   transactionPreviewSchema,
   transactionResourceSchema,
@@ -8,6 +10,8 @@ import type {
   CreateCashMovementBody,
   CreatePayoutBody,
   DismissPayoutBody,
+  CorporateEventPreviewBody,
+  CorporateEventPreviewResource,
   CreateTransactionBody,
   PayoutPreviewResource,
   TransactionPreviewResource,
@@ -103,6 +107,16 @@ export const previewTransaction = (
     post(body, signal),
   );
 
+export const previewCorporateEvent = (
+  body: CorporateEventPreviewBody,
+  signal?: AbortSignal,
+): Promise<CorporateEventPreviewResource> =>
+  request(
+    '/api/transactions/preview',
+    inside('preview', corporateEventPreviewSchema),
+    post(body, signal),
+  );
+
 export const previewPayout = (
   body: CreatePayoutBody,
   signal?: AbortSignal,
@@ -158,6 +172,35 @@ export const dismissPayout = (
   attemptKey: string,
 ): Promise<SaveReceipt> =>
   save(`/api/transactions/${id}/dismiss`, 'POST', body, attemptKey);
+
+/**
+ * Registrar e confirmar, em sequência: o fluxo de `POST /corporate-events` e
+ * `POST /corporate-events/:id/confirm`. Registrar de novo o mesmo evento não cria
+ * uma segunda linha, então repetir depois de uma falha no meio é seguro; se só a
+ * confirmação falhar, o evento fica aguardando nos alertas.
+ */
+export const applyCorporateEvent = async (
+  body: CorporateEventPreviewBody,
+  attemptKey: string,
+): Promise<SaveReceipt> => {
+  const registered = await request(
+    '/api/corporate-events',
+    inside('event', corporateEventResourceSchema),
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        asset_id: body.asset_id,
+        kind: body.event_kind,
+        record_date: body.record_date,
+        ratio_from: body.ratio_from,
+        ratio_to: body.ratio_to,
+      }),
+      headers: { 'Idempotency-Key': attemptKey },
+    },
+  );
+
+  return save(`/api/corporate-events/${registered.id}/confirm`, 'POST', {}, attemptKey);
+};
 
 /* -------------------------------------------------------------------------- */
 /* Leitura                                                                    */

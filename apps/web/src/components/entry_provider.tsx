@@ -24,6 +24,7 @@ import { browserStorage, readRaw, writeRaw } from '../lib/preferences.js';
 import type { PickedAsset } from '../views/entry/asset_picker.js';
 import type { AssetSearch } from '../views/entry/asset_picker.js';
 import { CashFormView } from '../views/entry/cash_form.js';
+import { EventFormView } from '../views/entry/event_form.js';
 import { ConfirmEntry } from '../views/entry/confirm_form.js';
 import { EditEntry } from '../views/entry/edit_form.js';
 import { PayoutFormView } from '../views/entry/payout_form.js';
@@ -116,7 +117,10 @@ export const EntryProvider = ({
     Promise.all([fetchSettings(controller.signal), fetchInstitutions(controller.signal)])
       .then(([settings, institutions]) => {
         if (!controller.signal.aborted) {
-          setReference({ status: 'ready', reference: referenceOf(settings, institutions) });
+          setReference({
+            status: 'ready',
+            reference: referenceOf(settings, institutions),
+          });
         }
       })
       .catch((cause: unknown) => {
@@ -336,15 +340,9 @@ export const EntryForms = ({
           options={ENTRY_TABS.map((item) => ({
             value: item.id,
             label: item.label,
-            ...(item.unavailable === undefined ? {} : { title: item.unavailable }),
           }))}
           value={tab}
-          onChange={(next) => {
-            // Evento aparece, mas ainda não tem preview na api: não abre.
-            if (ENTRY_TABS.find((item) => item.id === next)?.unavailable === undefined) {
-              onTab(next);
-            }
-          }}
+          onChange={onTab}
         />
       </div>
 
@@ -381,7 +379,14 @@ export const EntryForms = ({
           onSaved={onSaved}
           onCancel={onCancel}
         />
-      ) : null}
+      ) : (
+        <EventFormView
+          seed={{ asset, date: today }}
+          {...searchProps}
+          onSaved={onSaved}
+          onCancel={onCancel}
+        />
+      )}
     </div>
   );
 };

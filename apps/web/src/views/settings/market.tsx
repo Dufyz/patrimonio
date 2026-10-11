@@ -106,7 +106,7 @@ export const MarketSection = ({
     <SettingsSection
       id="mercado"
       title="Dados de mercado"
-      description="Preços e índices são baixados para o app por rotinas agendadas; nenhuma tela depende de uma API estar no ar. Quando a fonte principal falha, o app usa a alternativa e marca o preço como atrasado até a fonte voltar ou você definir um preço manual."
+      description="Preços e índices são baixados para o app por rotinas agendadas; nenhuma tela depende de uma API estar no ar. Quando a fonte principal falha, o app usa a alternativa e marca o preço como atrasado até a fonte voltar ou você definir um preço manual. Proventos e eventos corporativos não têm fonte: são lançados à mão, no modal de lançamento."
       action={
         <Button disabled={refreshing} icon="undo" onClick={refresh}>
           {refreshing ? 'Pedindo…' : 'Atualizar agora'}

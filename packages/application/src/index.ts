@@ -304,11 +304,14 @@ export type {
 export {
   confirmCorporateEvent,
   listCorporateEvents,
+  previewCorporateEvent,
   registerCorporateEvent,
 } from './usecases/corporate_event/corporateEvent.usecases.js';
 export type {
   ConfirmCorporateEventResult,
   CorporateEventDeps,
+  CorporateEventPreview,
+  CorporateEventPreviewInput,
   CorporateEventWriteDeps,
 } from './usecases/corporate_event/corporateEvent.usecases.js';
 export { confirmPayout } from './usecases/transaction/confirmPayout.usecase.js';

@@ -1,6 +1,7 @@
 import { applyLedger } from '@patrimonio/calc';
+import type { LedgerEntry } from '@patrimonio/calc';
 import { dedupeKey } from '@patrimonio/domain';
-import type { CorporateEvent, Transaction } from '@patrimonio/domain';
+import type { CorporateEvent, DateOnly, Transaction } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
 
 import { BadRequestError, ConflictError, NotFoundError } from '../../errors/app-error.js';
@@ -168,6 +169,103 @@ export const confirmCorporateEvent = (deps: CorporateEventWriteDeps) =>
           transactions: inserted.value,
           queued: enqueued.value,
           portfolios,
+        });
+      },
+    );
+  });
+
+export type CorporateEventPreviewInput = {
+  readonly asset_id: string;
+  readonly record_date: DateOnly;
+  readonly ratio_from: string;
+  readonly ratio_to: string;
+};
+
+export type CorporateEventPreview = {
+  readonly kind: 'corporate_event';
+  readonly record_date: DateOnly;
+  readonly portfolios: readonly {
+    readonly portfolio_id: string;
+    readonly portfolio_name: string;
+    readonly quantity: { readonly before: string; readonly after: string };
+    readonly avg_price: { readonly before: string; readonly after: string };
+    readonly cost_basis: { readonly before: string; readonly after: string };
+  }[];
+};
+
+/**
+ * O efeito do evento por carteira, sem gravar nada: a quantidade e o preço médio
+ * mudam, o custo total não. Roda o mesmo motor que a confirmação, sobre as mesmas
+ * carteiras — as que tinham posição na data-com —, e a fração que sobra de um
+ * grupamento aparece na quantidade, sem arredondar.
+ */
+export const previewCorporateEvent = (deps: { readonly unitOfWork: UnitOfWork }) =>
+  either(async function* (input: CorporateEventPreviewInput) {
+    return yield* await deps.unitOfWork.run<AppError, CorporateEventPreview>(
+      async (repositories) => {
+        const asset = await repositories.assets.findById(input.asset_id);
+        if (asset.isFailure()) return asset;
+        if (asset.value === null) {
+          return failure(new NotFoundError(`Ativo ${input.asset_id} não encontrado`));
+        }
+
+        const entries = await repositories.ledger.entriesForAsset(input.asset_id);
+        if (entries.isFailure()) return entries;
+
+        const portfolios = await repositories.portfolios.list({ includeArchived: true });
+        if (portfolios.isFailure()) return portfolios;
+
+        const names = new Map(
+          portfolios.value.map((portfolio) => [portfolio.id, portfolio.name]),
+        );
+
+        const event: LedgerEntry = {
+          kind: 'corporate_event',
+          trade_date: input.record_date,
+          quantity: '0',
+          unit_price: '0',
+          fees: '0',
+          net_amount: '0',
+          event_ratio_from: input.ratio_from,
+          event_ratio_to: input.ratio_to,
+        };
+
+        const ids = [...new Set(entries.value.map((entry) => entry.portfolio_id))];
+        const rows: CorporateEventPreview['portfolios'][number][] = [];
+
+        for (const portfolioId of ids) {
+          const ofPortfolio = entries.value.filter(
+            (entry) => entry.portfolio_id === portfolioId,
+          );
+
+          const before = applyLedger(ofPortfolio, { until: input.record_date }).position;
+          if (Number(before.quantity) <= 0) continue;
+
+          const after = applyLedger([...ofPortfolio, event], {
+            until: input.record_date,
+          }).position;
+
+          rows.push({
+            portfolio_id: portfolioId,
+            portfolio_name: names.get(portfolioId) ?? portfolioId,
+            quantity: { before: before.quantity, after: after.quantity },
+            avg_price: { before: before.avg_price, after: after.avg_price },
+            cost_basis: { before: before.cost_basis, after: after.cost_basis },
+          });
+        }
+
+        if (rows.length === 0) {
+          return failure(
+            new BadRequestError(
+              'Nenhuma carteira tinha posição no ativo na data-com do evento',
+            ),
+          );
+        }
+
+        return success({
+          kind: 'corporate_event' as const,
+          record_date: input.record_date,
+          portfolios: rows,
         });
       },
     );

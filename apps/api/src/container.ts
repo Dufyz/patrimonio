@@ -39,6 +39,7 @@ import {
   putStrategy,
   setPortfolioArchived,
   previewPayout,
+  previewCorporateEvent,
   previewTransaction,
   previewUpdate,
   registerCorporateEvent,
@@ -128,6 +129,7 @@ export const createApiUseCases = (deps: {
     jcpWithholdingPct: String(environment.tax.jcpWithholdingPct),
   }),
   previewTransaction: previewTransaction({ unitOfWork: deps.unitOfWork }),
+  previewCorporateEvent: previewCorporateEvent({ unitOfWork: deps.unitOfWork }),
   listCorporateEvents: listCorporateEvents({
     corporateEvents: deps.repositories.corporateEvents,
   }),

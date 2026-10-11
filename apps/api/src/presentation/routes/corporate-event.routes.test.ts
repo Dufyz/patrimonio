@@ -183,4 +183,73 @@ describe('evento corporativo', () => {
     expect(response.status).toBe(400);
     expect(response.body.message).toMatch(/posição/);
   });
+
+  describe('preview em /transactions/preview', () => {
+    const preview = (body: Record<string, unknown>) =>
+      request(harness.app)
+        .post('/api/transactions/preview')
+        .send({
+          kind: 'corporate_event',
+          event_kind: 'split',
+          asset_id: itub4,
+          record_date: '2026-06-10',
+          ratio_from: '1',
+          ratio_to: '2',
+          ...body,
+        });
+
+    it('mostra a quantidade e o preço médio antes e depois, com o custo intacto', async () => {
+      const response = await preview({});
+
+      expect(response.status).toBe(200);
+      const [carteiraPreview] = response.body.preview.portfolios;
+      expect(carteiraPreview).toMatchObject({
+        portfolio_id: carteira,
+        portfolio_name: 'Longo prazo',
+        quantity: { before: '100.00000000', after: '200.00000000' },
+        avg_price: { before: '30.00000000', after: '15.00000000' },
+        cost_basis: { before: '3000.00', after: '3000.00' },
+      });
+    });
+
+    it('não grava nada: o evento segue sem existir', async () => {
+      await preview({});
+
+      const lista = await request(harness.app).get('/api/corporate-events');
+      expect(lista.body.events).toHaveLength(0);
+    });
+
+    it('grupamento com sobra mostra a fração na quantidade', async () => {
+      await request(harness.app).post('/api/transactions').send({
+        kind: 'buy',
+        portfolio_id: carteira,
+        institution_id: corretora,
+        asset_id: itub4,
+        trade_date: '2026-02-10',
+        quantity: '5',
+        unit_price: '30.00',
+        fees: '0',
+      });
+
+      const response = await preview({
+        event_kind: 'reverse_split',
+        ratio_from: '10',
+        ratio_to: '1',
+      });
+
+      expect(response.body.preview.portfolios[0].quantity.after).toBe('10.50000000');
+    });
+
+    it('sem posição na data-com, recusa', async () => {
+      const response = await preview({ record_date: '2025-01-10' });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('fator que contradiz o tipo é recusado', async () => {
+      const response = await preview({ event_kind: 'reverse_split' });
+
+      expect(response.status).toBe(400);
+    });
+  });
 });

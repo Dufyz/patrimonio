@@ -171,6 +171,14 @@ export type {
   RegisterCorporateEventBody,
 } from './corporate_event/corporateEvent.schema.js';
 export {
+  corporateEventPreviewBodySchema,
+  corporateEventPreviewSchema,
+} from './corporate_event/corporateEventPreview.schema.js';
+export type {
+  CorporateEventPreviewBody,
+  CorporateEventPreviewResource,
+} from './corporate_event/corporateEventPreview.schema.js';
+export {
   previewUpdateSchema,
   updateTransactionSchema,
 } from './transaction/updateTransaction.schema.js';

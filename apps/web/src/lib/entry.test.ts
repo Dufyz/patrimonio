@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildCashBody,
+  buildEventBody,
+  eventRows,
   duplicateRequest,
   buildCashPreviewBody,
   buildConfirmBody,
@@ -586,5 +588,115 @@ describe('duplicar', () => {
 
   it('evento corporativo não se duplica', () => {
     expect(duplicateRequest({ ...row, kind: 'corporate_event' })).toBeNull();
+  });
+});
+
+describe('evento corporativo', () => {
+  const ASSET = '33333333-3333-4333-8333-333333333333';
+  const form = (overrides: Partial<Parameters<typeof buildEventBody>[0]> = {}) => ({
+    assetId: ASSET,
+    kind: 'split' as const,
+    factor: '2',
+    recordDate: '2026-06-10',
+    ...overrides,
+  });
+
+  it('desdobramento 1 para N', () => {
+    const built = buildEventBody(form());
+
+    expect(built).toMatchObject({
+      ok: true,
+      body: { event_kind: 'split', ratio_from: '1', ratio_to: '2' },
+    });
+  });
+
+  it('grupamento N para 1', () => {
+    const built = buildEventBody(form({ kind: 'reverse_split', factor: '10' }));
+
+    expect(built).toMatchObject({
+      ok: true,
+      body: { event_kind: 'reverse_split', ratio_from: '10', ratio_to: '1' },
+    });
+  });
+
+  it('bonificação em percentual vira a razão 100 para 100+x', () => {
+    const built = buildEventBody(form({ kind: 'bonus', factor: '10' }));
+
+    expect(built).toMatchObject({
+      ok: true,
+      body: { event_kind: 'bonus', ratio_from: '100', ratio_to: '110' },
+    });
+  });
+
+  it('lê o fator com vírgula', () => {
+    const built = buildEventBody(form({ kind: 'bonus', factor: '2,5' }));
+
+    expect(built).toMatchObject({ ok: true, body: { ratio_to: '102.5' } });
+  });
+
+  it('pede o ativo, o fator e a data, cada um no seu campo', () => {
+    const built = buildEventBody(form({ assetId: null, factor: '', recordDate: '' }));
+
+    expect(built).toEqual({
+      ok: false,
+      errors: {
+        asset: 'Escolha o ativo.',
+        factor: 'Informe o fator.',
+        recordDate: 'Informe a data.',
+      },
+    });
+  });
+
+  it('desdobramento e grupamento precisam de fator maior que 1', () => {
+    expect(buildEventBody(form({ factor: '1' }))).toMatchObject({
+      ok: false,
+      errors: { factor: 'O fator precisa ser maior que 1.' },
+    });
+    expect(buildEventBody(form({ kind: 'bonus', factor: '0' }))).toMatchObject({
+      ok: false,
+      errors: { factor: 'O fator precisa ser maior que zero.' },
+    });
+  });
+
+  it('as linhas do efeito marcam o custo total como sem mudança', () => {
+    const rows = eventRows({
+      kind: 'corporate_event',
+      record_date: '2026-06-10',
+      portfolios: [
+        {
+          portfolio_id: 'a',
+          portfolio_name: 'Longo prazo',
+          quantity: { before: '100', after: '200' },
+          avg_price: { before: '30.00', after: '15.00' },
+          cost_basis: { before: '3000.00', after: '3000.00' },
+        },
+      ],
+    });
+
+    expect(rows.map((row) => row.label)).toEqual([
+      'Quantidade',
+      'Preço médio',
+      'Custo total',
+    ]);
+    expect(rows[2]).toMatchObject({ unchanged: true });
+    expect(rows[0]).toMatchObject({ unchanged: false });
+  });
+
+  it('com várias carteiras, cada linha diz de qual é', () => {
+    const portfolio = (id: string, name: string) => ({
+      portfolio_id: id,
+      portfolio_name: name,
+      quantity: { before: '1', after: '2' },
+      avg_price: { before: '2', after: '1' },
+      cost_basis: { before: '2', after: '2' },
+    });
+
+    const rows = eventRows({
+      kind: 'corporate_event',
+      record_date: '2026-06-10',
+      portfolios: [portfolio('a', 'Longo prazo'), portfolio('b', 'Reserva')],
+    });
+
+    expect(rows.map((row) => row.label)).toContain('Quantidade · Reserva');
   });
 });

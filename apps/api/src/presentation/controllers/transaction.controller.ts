@@ -9,6 +9,7 @@ import type {
   createTransaction,
   getTransaction,
   listTransactions,
+  previewCorporateEvent,
   previewTransaction,
   previewUpdate,
   undoDeletion,
@@ -16,6 +17,7 @@ import type {
 } from '@patrimonio/application';
 import type {
   ConfirmPayoutBody,
+  CorporateEventPreviewBody,
   CreateCashMovementBody,
   DismissPayoutBody,
   CreatePayoutBody,
@@ -36,6 +38,7 @@ export type TransactionDeps = {
     readonly dismissPayout: ReturnType<typeof dismissPayout>;
     readonly previewPayout: ReturnType<typeof previewPayout>;
     readonly previewTransaction: ReturnType<typeof previewTransaction>;
+    readonly previewCorporateEvent: ReturnType<typeof previewCorporateEvent>;
     readonly listTransactions: ReturnType<typeof listTransactions>;
     readonly getTransaction: ReturnType<typeof getTransaction>;
     readonly updateTransaction: ReturnType<typeof updateTransaction>;
@@ -258,6 +261,25 @@ export const createTransactionController = (
   },
 
   preview: async (request, response) => {
+    const body = request.body as CreateTransactionBody | CorporateEventPreviewBody;
+
+    if ('event_kind' in body) {
+      const event = await deps.usecases.previewCorporateEvent({
+        asset_id: body.asset_id,
+        record_date: body.record_date,
+        ratio_from: body.ratio_from,
+        ratio_to: body.ratio_to,
+      });
+
+      if (event.isFailure()) {
+        sendFailure(request, response, event.value);
+        return;
+      }
+
+      response.status(200).json({ preview: event.value });
+      return;
+    }
+
     const result = await deps.usecases.previewTransaction({
       ...(request.body as CreateTransactionBody),
       origin_request_id: request.requestId,

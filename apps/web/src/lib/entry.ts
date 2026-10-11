@@ -1,5 +1,6 @@
 import {
   confirmPayoutSchema,
+  corporateEventPreviewBodySchema,
   createCashMovementSchema,
   createPayoutSchema,
   createTransactionSchema,
@@ -7,6 +8,8 @@ import {
 } from '@patrimonio/contracts';
 import type {
   ConfirmPayoutBody,
+  CorporateEventPreviewBody,
+  CorporateEventPreviewResource,
   Settings,
   CreateCashMovementBody,
   CreatePayoutBody,
@@ -53,7 +56,8 @@ export type EntryField =
   | 'tax'
   | 'amount'
   | 'payoutKind'
-  | 'netAmount';
+  | 'netAmount'
+  | 'factor';
 
 export type FieldErrors = Readonly<Partial<Record<EntryField, string>>>;
 
@@ -81,6 +85,8 @@ const FIELD_OF_KEY: Readonly<Record<string, EntryField>> = {
   amount: 'amount',
   payout_kind: 'payoutKind',
   net_amount: 'netAmount',
+  ratio_from: 'factor',
+  ratio_to: 'factor',
 };
 
 type Issue = { readonly path: readonly PropertyKey[]; readonly message: string };
@@ -838,19 +844,13 @@ export type EntryTab = 'buy' | 'sell' | 'payout' | 'deposit' | 'withdrawal' | 'e
 export const ENTRY_TABS: readonly {
   readonly id: EntryTab;
   readonly label: string;
-  /** O motivo, quando a aba aparece mas ainda não pode ser usada. */
-  readonly unavailable?: string;
 }[] = [
   { id: 'buy', label: 'Compra' },
   { id: 'sell', label: 'Venda' },
   { id: 'payout', label: 'Provento' },
   { id: 'deposit', label: 'Aporte' },
   { id: 'withdrawal', label: 'Resgate' },
-  {
-    id: 'event',
-    label: 'Evento',
-    unavailable: 'Evento corporativo ainda não tem preview na api',
-  },
+  { id: 'event', label: 'Evento' },
 ];
 
 /**
@@ -972,3 +972,125 @@ export const pickPortfolio = (
   reference.portfolios.find((portfolio) => portfolio.id === scopePortfolioId)?.id ??
   reference.portfolios[0]?.id ??
   null;
+
+/* -------------------------------------------------------------------------- */
+/* Evento corporativo                                                         */
+
+export type EventKind = 'split' | 'reverse_split' | 'bonus';
+
+export const EVENT_KINDS: readonly {
+  readonly value: EventKind;
+  readonly label: string;
+  readonly factorLabel: string;
+  readonly hint: string;
+}[] = [
+  {
+    value: 'split',
+    label: 'Desdobramento',
+    factorLabel: 'Cada 1 papel vira',
+    hint: 'Informe em quantos papéis cada um se divide: 2 para um desdobramento de 1 para 2.',
+  },
+  {
+    value: 'reverse_split',
+    label: 'Grupamento',
+    factorLabel: 'Cada … papéis viram 1',
+    hint: 'Informe quantos papéis se juntam em um: 10 para um grupamento de 10 para 1. A sobra fica como fração, sem perda de custo.',
+  },
+  {
+    value: 'bonus',
+    label: 'Bonificação',
+    factorLabel: 'Bonificação em %',
+    hint: 'Informe o percentual de papéis recebidos: 10 para uma bonificação de 10%.',
+  },
+];
+
+export type EventForm = {
+  readonly assetId: string | null;
+  readonly kind: EventKind;
+  readonly factor: string;
+  readonly recordDate: string;
+};
+
+/** A razão do contrato: cada `from` papéis viram `to`. */
+const ratioOf = (
+  kind: EventKind,
+  factor: string,
+): { readonly from: string; readonly to: string } => {
+  if (kind === 'split') return { from: '1', to: factor };
+  if (kind === 'reverse_split') return { from: factor, to: '1' };
+
+  return { from: '100', to: String(Number((100 + Number(factor)).toFixed(8))) };
+};
+
+export const buildEventBody = (form: EventForm): Built<CorporateEventPreviewBody> => {
+  const errors: Partial<Record<EntryField, string>> = {};
+
+  const assetId = requireId(errors, 'asset', form.assetId, 'Escolha o ativo.');
+  const recordDate = requireDate(errors, 'recordDate', form.recordDate);
+  const factor = collect(
+    errors,
+    'factor',
+    read(form.factor, {
+      required: true,
+      missing: 'Informe o fator.',
+      invalid: NOT_A_NUMBER,
+    }),
+  );
+
+  if (factor !== null && Number(factor) <= 0) {
+    errors['factor'] = 'O fator precisa ser maior que zero.';
+  } else if (factor !== null && form.kind !== 'bonus' && Number(factor) <= 1) {
+    errors['factor'] = 'O fator precisa ser maior que 1.';
+  }
+
+  if (assetId === null || recordDate === null || factor === null) {
+    return { ok: false, errors };
+  }
+  if (Object.keys(errors).length > 0) return { ok: false, errors };
+
+  const ratio = ratioOf(form.kind, factor);
+
+  const parsed = corporateEventPreviewBodySchema.safeParse({
+    kind: 'corporate_event',
+    event_kind: form.kind,
+    asset_id: assetId,
+    record_date: recordDate,
+    ratio_from: ratio.from,
+    ratio_to: ratio.to,
+  });
+
+  return parsed.success
+    ? { ok: true, body: parsed.data }
+    : { ok: false, errors: issuesToErrors(parsed.error.issues, 0) };
+};
+
+/**
+ * O efeito por carteira: três linhas para cada uma que tinha posição na
+ * data-com. O custo total aparece "sem mudança" — é a conferência de que o
+ * evento só reparte o que já existia.
+ */
+export const eventRows = (
+  preview: CorporateEventPreviewResource,
+): readonly EffectRow[] => {
+  const several = preview.portfolios.length > 1;
+
+  return preview.portfolios.flatMap((row) => {
+    const suffix = several ? ` · ${row.portfolio_name}` : '';
+
+    return [
+      pair(
+        `${row.portfolio_id}:quantity`,
+        `Quantidade${suffix}`,
+        'quantity',
+        row.quantity,
+      ),
+      pair(
+        `${row.portfolio_id}:avg_price`,
+        `Preço médio${suffix}`,
+        'money',
+        row.avg_price,
+      ),
+      pair(`${row.portfolio_id}:cost`, `Custo total${suffix}`, 'money', row.cost_basis),
+    ];
+  });
+};

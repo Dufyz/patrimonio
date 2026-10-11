@@ -1,5 +1,6 @@
 import {
   confirmPayoutSchema,
+  corporateEventPreviewSchema,
   createCashMovementSchema,
   createPayoutSchema,
   payoutPreviewSchema,
@@ -101,8 +102,7 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
     request: createCashMovementSchema,
     responses: {
       201: {
-        description:
-          'Gravado como aporte ou resgate.',
+        description: 'Gravado como aporte ou resgate.',
         schema: z.object({
           transactions: z.array(transactionResourceSchema),
           preview: transactionPreviewSchema,
@@ -236,13 +236,15 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
     method: 'post',
     path: '/transactions/preview',
     tag: TAG,
-    summary: 'O efeito do lançamento, antes de salvar',
+    summary: 'O efeito do lançamento ou do evento corporativo, antes de salvar',
     request: previewTransactionSchema,
     responses: {
       200: {
         description:
-          'Antes e depois de quantidade, preço médio, custo, peso e caixa. Os mesmos números que a gravação produz, e nada é criado.',
-        schema: z.object({ preview: transactionPreviewSchema }),
+          'Antes e depois de quantidade, preço médio, custo, peso e caixa. Os mesmos números que a gravação produz, e nada é criado. Para `kind: corporate_event`, o efeito por carteira com posição na data-com: o custo total não muda.',
+        schema: z.object({
+          preview: z.union([transactionPreviewSchema, corporateEventPreviewSchema]),
+        }),
       },
       400: { description: 'O lançamento não é válido.', schema: errorResponseSchema },
       404: {
@@ -292,8 +294,7 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
         }),
       },
       400: {
-        description:
-          'Venda que passaria da posição.',
+        description: 'Venda que passaria da posição.',
         schema: errorResponseSchema,
       },
       404: {
