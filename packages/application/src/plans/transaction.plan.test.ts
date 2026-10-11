@@ -194,6 +194,17 @@ describe('eventos do plano', () => {
     expect(events[1]?.dedupe_key).toBe('backfill:novo');
     expect(events[1]?.stage).toBe('market');
   });
+
+  it('o backfill não leva data: a janela vai até o dia em que roda', () => {
+    const novo = contexto({
+      asset: { id: 'novo', ticker: 'TAEE11', category_id: ACOES, is_new: true },
+      asset_entries: [],
+    });
+
+    const { events } = planTransaction(novo, compraDeHoje);
+
+    expect(events[1]?.payload).toEqual({ asset_id: 'novo' });
+  });
 });
 
 describe('edição', () => {

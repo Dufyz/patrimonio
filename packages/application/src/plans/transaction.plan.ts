@@ -298,12 +298,14 @@ export const planEvents = (
   ];
 
   // Primeiro lançamento de um ticker novo: o preço precisa existir desde a data
-  // da compra, e sem isso o patrimônio daquele período nasce errado.
+  // da compra, e sem isso o patrimônio daquele período nasce errado. O payload
+  // não leva data: o backfill vai da primeira compra até o dia em que roda, e a
+  // data do lançamento como fim da janela buscaria um dia só.
   if (context.asset !== null && context.asset.is_new) {
     events.push({
       stage: 'market',
       dedupe_key: dedupeKey.backfill(context.asset.id),
-      payload: { reference_date: fromDate, asset_id: context.asset.id },
+      payload: { asset_id: context.asset.id },
       ...origin,
     });
   }
