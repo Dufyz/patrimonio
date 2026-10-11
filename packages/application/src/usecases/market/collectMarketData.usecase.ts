@@ -1,6 +1,6 @@
 import { dailyFactorsFrom } from '@patrimonio/calc';
 import type { IndexObservation } from '@patrimonio/calc';
-import { dedupeKey } from '@patrimonio/domain';
+import { addDays, dedupeKey } from '@patrimonio/domain';
 import type {
   DateOnly,
   IndexCode,
@@ -117,7 +117,10 @@ const runOf = (input: {
       : null,
 });
 
-const DEFAULT_CODES: readonly IndexCode[] = ['CDI', 'SELIC', 'IPCA'];
+const DEFAULT_CODES: readonly IndexCode[] = ['CDI', 'SELIC', 'IPCA', 'IBOV', 'IFIX'];
+
+/** O calendário recua alguns dias do começo do mês: o índice de pontos precisa do fechamento anterior. */
+const CALENDAR_LOOKBACK_DAYS = 10;
 
 export const collectMarketData = (deps: CollectMarketDataDeps) =>
   either(async function* (input: CollectMarketDataInput) {
@@ -134,7 +137,7 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
       if (business.isFailure()) return business;
 
       const month = await repositories.businessDays.listBetween(
-        `${date.slice(0, 7)}-01` as DateOnly,
+        addDays(`${date.slice(0, 7)}-01` as DateOnly, -CALENDAR_LOOKBACK_DAYS),
         date,
       );
       if (month.isFailure()) return month;
@@ -168,6 +171,7 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
     const startedAt = deps.clock.now().toISOString();
 
     // ── Índices ──────────────────────────────────────────────────────────────
+    const monthStart = `${date.slice(0, 7)}-01` as DateOnly;
     const indexCodes = deps.indexCodes ?? DEFAULT_CODES;
     const indexResult = await deps.indices.fetchSeries(
       indexCodes,
@@ -212,14 +216,27 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
         byCode.set(sample.index_code, bucket);
       }
 
+      const sourceOf = new Map<IndexCode, string>();
+      for (const sample of indexResult.value) {
+        if (!sourceOf.has(sample.index_code)) {
+          sourceOf.set(sample.index_code, sample.source ?? deps.indices.id);
+        }
+      }
+
       for (const [code, samples] of byCode) {
-        for (const factor of dailyFactorsFrom(samples, calendar.days)) {
+        // Só o índice de pontos usa os dias de antes do mês: os demais se
+        // distribuem pelos dias do próprio mês, e dias a mais mudariam o fator.
+        const days = samples.some((sample) => sample.unit === 'index_points')
+          ? calendar.days
+          : calendar.days.filter((day) => day >= monthStart);
+
+        for (const factor of dailyFactorsFrom(samples, days)) {
           observations.push({
             index_code: code,
             quote_date: factor.quote_date as DateOnly,
             daily_factor: factor.daily_factor,
             raw_value: factor.raw_value,
-            source: deps.indices.id,
+            source: sourceOf.get(code) ?? deps.indices.id,
           });
         }
       }

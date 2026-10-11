@@ -529,6 +529,16 @@ export type {
   LoadPriceHistoryResult,
 } from './usecases/market/loadPriceHistory.usecase.js';
 export {
+  INDEX_HISTORY_CODES,
+  loadIndexHistory,
+  yearlyWindows,
+} from './usecases/market/loadIndexHistory.usecase.js';
+export type {
+  LoadIndexHistoryDeps,
+  LoadIndexHistoryInput,
+  LoadIndexHistoryResult,
+} from './usecases/market/loadIndexHistory.usecase.js';
+export {
   TREASURY_CATALOG_SOURCE,
   treasuryInstruments,
   writeTreasuryCatalog,
@@ -594,6 +604,7 @@ export { getPerformance } from './usecases/performance/performance.usecase.js';
 export type {
   BreakdownKey,
   PerformanceBenchmark,
+  PerformanceBenchmarkGap,
   PerformanceChart,
   PerformanceClassRow,
   PerformanceDecompositionRow,

@@ -132,6 +132,8 @@ export type IndexSample = {
   readonly reference_date: DateOnly;
   readonly unit: IndexUnit;
   readonly raw_value: string;
+  /** Quem respondeu, quando o provedor junta fontes; ausente é o próprio provedor. */
+  readonly source?: string | undefined;
 };
 
 export type IndexProvider = {

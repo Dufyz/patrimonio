@@ -355,6 +355,38 @@ describe('GET /api/performance · benchmarks', () => {
     ]);
   });
 
+  it('série que começa no meio do período é lacuna: sem linha curta e com a data de início', async () => {
+    await historiaDoLongo();
+    await fatores('CDI', '2026-04-01', '2026-06-30', '1.000500000000');
+    await fatores('IBOV', '2026-06-01', '2026-06-30', '1.001000000000');
+
+    const body = (await desempenho(doLongo(`&benchmarks=${IBOV}`))).body;
+
+    expect(body.benchmarks.gaps).toEqual([
+      { id: IBOV, name: 'Ibovespa', available_from: '2026-06-01' },
+    ]);
+    expect(body.chart.benchmarks.map((item: { id: string }) => item.id)).toEqual([CDI]);
+  });
+
+  it('série inteira cobre o período e não gera lacuna', async () => {
+    await historiaDoLongo();
+    await fatores('CDI', '2026-04-01', '2026-06-30', '1.000500000000');
+
+    const body = (await desempenho(doLongo())).body;
+
+    expect(body.benchmarks.gaps).toEqual([]);
+  });
+
+  it('benchmark sem nenhum fator aparece como lacuna sem data', async () => {
+    await historiaDoLongo();
+
+    const body = (await desempenho(doLongo())).body;
+
+    expect(body.benchmarks.gaps).toEqual([
+      { id: CDI, name: 'CDI', available_from: null },
+    ]);
+  });
+
   it('benchmarks acrescenta à tela, atrás do benchmark da carteira, na ordem pedida', async () => {
     await historiaDoLongo();
     await fatores('CDI', '2026-04-01', '2026-06-30', '1.000500000000');
@@ -394,7 +426,9 @@ describe('GET /api/performance · benchmarks', () => {
     await fatores('IPCA', '2026-04-01', '2026-06-30', '1.000100000000');
     await harness.sql`UPDATE portfolio SET benchmark = '110%CDI' WHERE id = ${longo}::UUID`;
 
-    const body = (await desempenho(doLongo(`&benchmarks=${encodeURIComponent('IPCA+6')}`))).body;
+    const body = (
+      await desempenho(doLongo(`&benchmarks=${encodeURIComponent('IPCA+6')}`))
+    ).body;
 
     expect(body.benchmarks.primary_id).toBe('110%CDI');
     expect(body.benchmarks.selected.map((item: { id: string }) => item.id)).toEqual([
@@ -405,7 +439,9 @@ describe('GET /api/performance · benchmarks', () => {
       '110% do CDI',
       'IPCA + 6%',
     ]);
-    expect(body.benchmarks.available.map((item: { id: string }) => item.id)).toContain('110%CDI');
+    expect(body.benchmarks.available.map((item: { id: string }) => item.id)).toContain(
+      '110%CDI',
+    );
   });
 
   it('o gráfico do benchmark tem o comprimento da carteira e parte de zero', async () => {

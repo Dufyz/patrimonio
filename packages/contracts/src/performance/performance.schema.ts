@@ -192,6 +192,17 @@ export const performanceSchema = z.object({
      * carteira e, sem ele, o CDI.
      */
     primary_id: z.string(),
+    /**
+     * Os benchmarks escolhidos cuja série não cobre o começo do período. A tela
+     * diz isso em vez de desenhar uma linha curta.
+     */
+    gaps: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        available_from: dateOnly.nullable(),
+      }),
+    ),
   }),
   chart: performanceChartSchema,
   windows: performanceWindowsSchema,

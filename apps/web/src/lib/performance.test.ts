@@ -70,6 +70,7 @@ describe('a escolha de benchmarks', () => {
         available: [CDI, IBOV, IPCA],
         selected: [CDI, IBOV],
         primary_id: 'b1',
+        gaps: [],
       }),
     ).toEqual([IPCA]);
   });

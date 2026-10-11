@@ -82,4 +82,7 @@ export type LedgerRepository = {
   readonly allEntries: (
     untilDate: DateOnly,
   ) => Promise<Either<AppError, ClassifiedLedgerRow[]>>;
+
+  /** O lançamento mais antigo da instalação; nulo enquanto não há nenhum. */
+  readonly firstTradeDate: () => Promise<Either<AppError, DateOnly | null>>;
 };

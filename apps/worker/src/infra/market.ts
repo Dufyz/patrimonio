@@ -17,6 +17,8 @@ import {
   createTesouroJsonProvider,
   createTreasuryChain,
   createHttpClient,
+  createIndexProviderSet,
+  createPriceIndexProvider,
   sleep,
   withRetry,
 } from '@patrimonio/market';
@@ -33,6 +35,8 @@ import { createInstrumentCatalogSource, createPriceHistorySource } from './cotah
  * global entra por injeção no cliente, que é o que permite ao teste responder
  * com arquivo gravado sem tocar a rede.
  */
+const PRICE_INDEX_SYMBOLS = { IBOV: '^BVSP', IFIX: 'IFIX' } as const;
+
 const RETRY = { attempts: 3, backoffMs: 500, sleep } as const;
 
 const clientFor = (source: string, passthrough: readonly number[] = []): HttpClient =>
@@ -77,11 +81,22 @@ export const createMarketSources = (options: {
       `https://api.usebolsai.com/v1/history?ticker=${ticker}&from=${from}&to=${to}`,
   });
 
+  const quotes = createQuoteChain([brapi, alternativo]);
+
   return {
     // A ordem é a da configuração: principal primeiro, alternativa depois, e o
     // `source_kind` do preço gravado sai da posição.
-    quotes: createQuoteChain([brapi, alternativo]),
-    indices: createBcbProvider({ http: clientFor('bcb') }),
+    quotes,
+    // CDI, Selic e IPCA vêm do Banco Central; IBOV e IFIX, da cadeia de cotações.
+    // Se uma das duas cai, a outra continua alimentando seus índices.
+    indices: createIndexProviderSet('indices', [
+      createBcbProvider({ http: clientFor('bcb') }),
+      createPriceIndexProvider({
+        id: 'cotacoes',
+        quotes,
+        symbols: PRICE_INDEX_SYMBOLS,
+      }),
+    ]),
     treasury: createTreasuryChain([
       createTesouroJsonProvider({ http: clientFor('tesouro-direto') }),
       createTesouroCsvProvider({ http: clientFor('tesouro-transparente') }),

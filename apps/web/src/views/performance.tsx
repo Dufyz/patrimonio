@@ -355,8 +355,10 @@ const Accumulated = ({
   const range = resolvePeriod(period, today, scope.inception as DateOnly | null);
   const ticks = monthTicks(chart.dates as DateOnly[]);
 
+  const gapIds = new Set(benchmarks.gaps.map((gap) => gap.id));
   const missing = benchmarks.selected.filter(
-    (item) => !chart.benchmarks.some((line) => line.id === item.id),
+    (item) =>
+      !gapIds.has(item.id) && !chart.benchmarks.some((line) => line.id === item.id),
   );
 
   return (
@@ -408,6 +410,20 @@ const Accumulated = ({
             tooltipDateLabel={(date) => formatDate(date)}
             height={280}
           />
+        )}
+        {benchmarks.gaps.length === 0 ? null : (
+          <p className="mt-2 text-[0.75rem] text-attention">
+            Falta série para o período:{' '}
+            {benchmarks.gaps
+              .map((gap) =>
+                gap.available_from === null
+                  ? `${gap.name} (nenhum dado coletado)`
+                  : `${gap.name} (série a partir de ${formatDate(gap.available_from as DateOnly)})`,
+              )
+              .join('; ')}
+            . O benchmark aparece como traço, e não como uma linha mais curta. Carregue o
+            histórico com pnpm seed:indices.
+          </p>
         )}
         {missing.length === 0 ? null : (
           <p className="mt-2 text-[0.75rem] text-attention">
@@ -535,7 +551,9 @@ const Decomposition = ({
       }
     >
       {decomposition.rows.length === 0 ? (
-        <p className="p-4 text-[0.8125rem] text-ink-3">Nenhum mês consolidado no período.</p>
+        <p className="p-4 text-[0.8125rem] text-ink-3">
+          Nenhum mês consolidado no período.
+        </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-200 border-collapse text-[0.8125rem]">

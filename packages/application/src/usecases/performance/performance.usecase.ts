@@ -25,7 +25,12 @@ import type {
   WindowKey,
   WindowReturn,
 } from '@patrimonio/calc';
-import { INDEX_CODES, benchmarkLabel, formatBenchmark, parseBenchmark } from '@patrimonio/domain';
+import {
+  INDEX_CODES,
+  benchmarkLabel,
+  formatBenchmark,
+  parseBenchmark,
+} from '@patrimonio/domain';
 import type { DateOnly, RecalcStatus } from '@patrimonio/domain';
 import { either, failure } from '@patrimonio/shared';
 
@@ -91,7 +96,10 @@ export type PerformanceChart = {
   readonly base_date: DateOnly | null;
   readonly dates: readonly DateOnly[];
   readonly portfolio: readonly string[];
-  readonly benchmarks: readonly { readonly id: string; readonly values: readonly string[] }[];
+  readonly benchmarks: readonly {
+    readonly id: string;
+    readonly values: readonly string[];
+  }[];
 };
 
 export type PerformanceWindowColumn = {
@@ -145,6 +153,16 @@ export type PerformanceClassRow = {
   readonly returns: readonly (string | null)[];
 };
 
+export type PerformanceBenchmarkGap = {
+  readonly id: string;
+  readonly name: string;
+  /** Quando a série passa a existir; nulo quando nenhum fator foi coletado. */
+  readonly available_from: DateOnly | null;
+};
+
+/** Quantos dias depois do início da janela o primeiro fator ainda conta como cobertura. */
+export const COVERAGE_TOLERANCE_DAYS = 7;
+
 export type PerformanceResult = {
   readonly reference_date: DateOnly | null;
   readonly scope: PerformanceScope;
@@ -153,6 +171,11 @@ export type PerformanceResult = {
     readonly available: readonly PerformanceBenchmark[];
     readonly selected: readonly PerformanceBenchmark[];
     readonly primary_id: string;
+    /**
+     * Os escolhidos cuja série não cobre o começo do período: falta histórico
+     * dela, e a linha curta que sobraria afirmaria um retorno que ninguém mediu.
+     */
+    readonly gaps: readonly PerformanceBenchmarkGap[];
   };
   readonly chart: PerformanceChart;
   readonly windows: {
@@ -169,7 +192,10 @@ export type PerformanceResult = {
     readonly total: PerformanceDecompositionTotal | null;
   };
   readonly breakdown: {
-    readonly columns: readonly { readonly key: BreakdownKey; readonly base_date: DateOnly | null }[];
+    readonly columns: readonly {
+      readonly key: BreakdownKey;
+      readonly base_date: DateOnly | null;
+    }[];
     readonly classes: readonly PerformanceClassRow[];
   };
 };
@@ -196,7 +222,6 @@ const QUOTA_FALLBACK = '1.000000000000';
 type Benchmark = PerformanceBenchmark & {
   readonly definition: BenchmarkDefinition;
 };
-
 
 const CDI: Benchmark = {
   id: 'CDI',
@@ -230,7 +255,8 @@ const availableBenchmarks = (own: Benchmark | null): readonly Benchmark[] => {
     return found === null ? [] : [found];
   });
 
-  const all = own === null || plain.some((item) => item.id === own.id) ? plain : [own, ...plain];
+  const all =
+    own === null || plain.some((item) => item.id === own.id) ? plain : [own, ...plain];
 
   return [...all].sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
 };
@@ -272,6 +298,7 @@ const emptyResult = (
     available: catalog.map(publicBenchmark),
     selected: [],
     primary_id: primary.id,
+    gaps: [],
   },
   chart: { base_date: null, dates: [], portfolio: [], benchmarks: [] },
   windows: {
@@ -397,7 +424,8 @@ export const getPerformance = (deps: PerformanceDeps) =>
       WINDOWS.map((key) => [key, resolveWindow(points, key, reference)]),
     );
 
-    const windowOf = (key: WindowKey): WindowReturn | null => windowResults.get(key) ?? null;
+    const windowOf = (key: WindowKey): WindowReturn | null =>
+      windowResults.get(key) ?? null;
 
     // ── Os benchmarks escolhidos ───────────────────────────────────────────
     const selected = chooseBenchmarks(primary, input.benchmarks ?? []);
@@ -419,7 +447,9 @@ export const getPerformance = (deps: PerformanceDeps) =>
       portfolio_id: portfolioId,
       reference: lastPoint.position_date as DateOnly,
       points: breakdownPoints,
-      index_codes: [...new Set(selected.flatMap((item) => indexCodesOf(item.definition)))],
+      index_codes: [
+        ...new Set(selected.flatMap((item) => indexCodesOf(item.definition))),
+      ],
       factors_from: first.position_date as DateOnly,
       flows_from: first.position_date as DateOnly,
     });
@@ -448,13 +478,52 @@ export const getPerformance = (deps: PerformanceDeps) =>
      * Sem esta guarda, um CDI ainda não ingerido apareceria como 0,00% e a
      * diferença contra ele como o retorno inteiro da carteira.
      */
-    const hasCoverage = (item: Benchmark, base: string, end: string): boolean =>
-      indexCodesOf(item.definition).some((code) => {
+    /**
+     * Quando a série do benchmark começa dentro de (base, end]. Com mais de um
+     * índice, vale o mais tardio: o benchmark só existe onde todos existem.
+     */
+    const startsAt = (item: Benchmark, base: string, end: string): string | null => {
+      let latest: string | null = null;
+
+      for (const code of indexCodesOf(item.definition)) {
+        let first: string | null = null;
+
         for (const date of breakdown.factors.get(code)?.keys() ?? []) {
-          if (date > base && date <= end) return true;
+          if (date > base && date <= end && (first === null || date < first))
+            first = date;
         }
-        return false;
-      });
+
+        if (first === null) return null;
+        if (latest === null || first > latest) latest = first;
+      }
+
+      return latest;
+    };
+
+    /**
+     * Série que só começa no meio do período não cobre o período: a linha
+     * parte tarde e o retorno acumulado seria o de uma janela menor.
+     */
+    const hasCoverage = (item: Benchmark, base: string, end: string): boolean => {
+      const start = startsAt(item, base, end);
+      return start !== null && start <= addCalendarDays(base, COVERAGE_TOLERANCE_DAYS);
+    };
+
+    const gaps: PerformanceBenchmarkGap[] = selected.flatMap((item) => {
+      if (hasCoverage(item, first.position_date, lastPoint.position_date)) return [];
+
+      return [
+        {
+          id: item.id,
+          name: item.name,
+          available_from: startsAt(
+            item,
+            first.position_date,
+            lastPoint.position_date,
+          ) as DateOnly | null,
+        },
+      ];
+    });
 
     const benchmarkBetween = (
       benchmark: Benchmark | null,
@@ -462,25 +531,28 @@ export const getPerformance = (deps: PerformanceDeps) =>
       end: string,
     ): string | null => {
       const spec = specOf(benchmark);
-      if (benchmark === null || spec === null || !hasCoverage(benchmark, base, end)) return null;
+      if (benchmark === null || spec === null || !hasCoverage(benchmark, base, end))
+        return null;
       return benchmarkPeriodReturn(spec, base, end);
     };
 
     // ── O gráfico ──────────────────────────────────────────────────────────
     const chartTo = input.to ?? onDate;
     const chartFrom =
-      input.from ??
-      addCalendarDays(addMonths(chartTo, -CHART_DEFAULT_MONTHS), 1);
+      input.from ?? addCalendarDays(addMonths(chartTo, -CHART_DEFAULT_MONTHS), 1);
 
     const chart = ((): PerformanceChart => {
       if (chartFrom > chartTo || chartTo < first.position_date) {
         return { base_date: null, dates: [], portfolio: [], benchmarks: [] };
       }
 
-      const before = [...points].reverse().find((point) => point.position_date < chartFrom);
+      const before = [...points]
+        .reverse()
+        .find((point) => point.position_date < chartFrom);
       const base = before ?? first;
       const inPeriod = points.filter(
-        (point) => point.position_date > base.position_date && point.position_date <= chartTo,
+        (point) =>
+          point.position_date > base.position_date && point.position_date <= chartTo,
       );
       const dates = [base.position_date, ...inPeriod.map((point) => point.position_date)];
 
@@ -492,12 +564,16 @@ export const getPerformance = (deps: PerformanceDeps) =>
         // zero afirmaria que o índice não rendeu, e ele só não foi medido.
         benchmarks: selected.flatMap((item) => {
           const spec = specs.get(item.id);
-          if (spec === undefined || !hasCoverage(item, base.position_date, chartTo)) return [];
+          if (spec === undefined || !hasCoverage(item, base.position_date, chartTo))
+            return [];
 
           return [
             {
               id: item.id,
-              values: ['0.00', ...benchmarkCumulative(spec, base.position_date, dates.slice(1))],
+              values: [
+                '0.00',
+                ...benchmarkCumulative(spec, base.position_date, dates.slice(1)),
+              ],
             },
           ];
         }),
@@ -517,7 +593,11 @@ export const getPerformance = (deps: PerformanceDeps) =>
         const window = windowOf(key);
         return window === null
           ? null
-          : benchmarkBetween(benchmark, window.from.position_date, window.to.position_date);
+          : benchmarkBetween(
+              benchmark,
+              window.from.position_date,
+              window.to.position_date,
+            );
       });
 
     const windowRows: PerformanceWindowRow[] = [
@@ -534,7 +614,9 @@ export const getPerformance = (deps: PerformanceDeps) =>
           kind: 'difference',
           benchmark: null,
           name: 'Diferença',
-          values: portfolioValues.map((value, column) => diff(value, values[column] ?? null)),
+          values: portfolioValues.map((value, column) =>
+            diff(value, values[column] ?? null),
+          ),
         });
       }
     });
@@ -574,7 +656,9 @@ export const getPerformance = (deps: PerformanceDeps) =>
     const lastCloseOf = new Map<string, QuotaPoint>();
     for (const point of points) lastCloseOf.set(point.position_date.slice(0, 7), point);
 
-    const quotaAt = new Map(points.map((point) => [point.position_date, point.quota_value]));
+    const quotaAt = new Map(
+      points.map((point) => [point.position_date, point.quota_value]),
+    );
 
     const baseDateOf = (index: number): string => {
       const previous = months[index - 1];
@@ -616,7 +700,9 @@ export const getPerformance = (deps: PerformanceDeps) =>
       const fromQuota = quotaAt.get(from);
       const toQuota = quotaAt.get(to);
       const total =
-        fromQuota === undefined || toQuota === undefined ? null : returnPct(fromQuota, toQuota);
+        fromQuota === undefined || toQuota === undefined
+          ? null
+          : returnPct(fromQuota, toQuota);
       const benchmark = benchmarkBetween(referenceBenchmark, from, to);
 
       return {
@@ -645,7 +731,9 @@ export const getPerformance = (deps: PerformanceDeps) =>
         (row) => row.category_id === categoryId && row.label === 'reference',
       )?.value ?? '0.00';
 
-    const classTotal = sumValues(breakdown.categories.map((row) => classValue(row.category_id)));
+    const classTotal = sumValues(
+      breakdown.categories.map((row) => classValue(row.category_id)),
+    );
 
     const classRows: PerformanceClassRow[] = breakdown.categories
       .map((category) => ({
@@ -665,7 +753,9 @@ export const getPerformance = (deps: PerformanceDeps) =>
       }))
       // Classe vendida inteira continua na tabela enquanto tem retorno a
       // mostrar; a que nunca teve nada nesta história não é linha.
-      .filter((row) => Number(row.value) !== 0 || row.returns.some((value) => value !== null))
+      .filter(
+        (row) => Number(row.value) !== 0 || row.returns.some((value) => value !== null),
+      )
       .sort((left, right) => Number(right.value) - Number(left.value));
 
     return {
@@ -676,6 +766,7 @@ export const getPerformance = (deps: PerformanceDeps) =>
         available: catalog.map(publicBenchmark),
         selected: selected.map(publicBenchmark),
         primary_id: primary.id,
+        gaps,
       },
       chart,
       windows: { columns, rows: windowRows },

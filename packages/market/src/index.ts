@@ -7,6 +7,12 @@
  * sete casos de mudança de formato, mais um teste por provedor que fala com a
  * API real e roda só na verificação noturna.
  */
+export {
+  PRICE_INDEX_LOOKBACK_DAYS,
+  createIndexProviderSet,
+  createPriceIndexProvider,
+} from './providers/price_index.provider.js';
+export type { PriceIndexSymbols } from './providers/price_index.provider.js';
 export { createQuoteChain, createTreasuryChain } from './chain.js';
 
 export {

@@ -46,6 +46,7 @@ const performance: PerformanceResource = {
     ],
     selected: [{ id: CDI, name: 'CDI', kind: 'index' }],
     primary_id: CDI,
+    gaps: [],
   },
   chart: {
     base_date: '2024-09-30',
@@ -195,6 +196,45 @@ describe('retorno por janela', () => {
 
     expect(within(diferenca).getByText(/1,40 pp/)).toBeInTheDocument();
     expect(within(diferenca).getByText(/0,16 pp/)).toBeInTheDocument();
+  });
+});
+
+describe('série que não cobre o período', () => {
+  it('diz de quando a série existe, em vez de desenhar a linha curta', () => {
+    show(
+      ready({
+        ...performance,
+        benchmarks: {
+          ...performance.benchmarks,
+          gaps: [{ id: IBOV, name: 'Ibovespa', available_from: '2025-06-02' }],
+        },
+      }),
+    );
+
+    expect(screen.getByText(/Falta série para o período/)).toHaveTextContent(
+      /Ibovespa \(série a partir de/,
+    );
+    expect(screen.getByText(/pnpm seed:indices/)).toBeInTheDocument();
+  });
+
+  it('série sem nenhum dado coletado também é dita', () => {
+    show(
+      ready({
+        ...performance,
+        benchmarks: {
+          ...performance.benchmarks,
+          gaps: [{ id: IBOV, name: 'Ibovespa', available_from: null }],
+        },
+      }),
+    );
+
+    expect(screen.getByText(/Ibovespa \(nenhum dado coletado\)/)).toBeInTheDocument();
+  });
+
+  it('sem lacuna, o aviso não aparece', () => {
+    show(ready(performance));
+
+    expect(screen.queryByText(/Falta série para o período/)).not.toBeInTheDocument();
   });
 });
 

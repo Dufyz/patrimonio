@@ -146,6 +146,20 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
     }
   },
 
+  firstTradeDate: async () => {
+    try {
+      const rows = await sql<{ first: string | Date | null }[]>`
+        SELECT MIN(trade_date) AS first FROM transaction
+      `;
+
+      const first = rows[0]?.first ?? null;
+
+      return success(first === null ? null : toDateOnly(first));
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
   /** Uma consulta: carteira e a data do lançamento mais antigo daquele ativo. */
   portfoliosHoldingAsset: async (assetId: string) => {
     try {
