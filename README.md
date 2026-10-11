@@ -13,6 +13,7 @@ Pré-requisitos: Node 22, pnpm 10 e Docker.
 ```bash
 cp .env.example .env     # packages/env valida tudo no boot
 pnpm install
+pnpm build              # os pacotes internos são lidos de dist/: refaça depois de cada pull
 pnpm infra:up            # Postgres (5433), Postgres de teste (5434) e Redis (6380)
 pnpm bootstrap           # a carga inicial, na ordem da seção abaixo
 pnpm dev                 # api :3333, worker e web :5173
