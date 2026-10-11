@@ -241,6 +241,59 @@ describe('ativos', () => {
   });
 });
 
+describe('papéis do catálogo', () => {
+  const catalogar = async (): Promise<void> => {
+    await tx`
+      INSERT INTO listed_instrument
+        (id, ticker, name, b3_type, maturity_date, source, active, last_trade_date)
+      VALUES
+        (${id(101)}, 'ITUB4', 'ITAUUNIBANCO', 'stock', NULL, 'cotahist-catalog', TRUE, '2026-10-08'),
+        (${id(102)}, 'ITSA4', 'ITAUSA', 'stock', NULL, 'cotahist-catalog', TRUE, '2026-10-08'),
+        (${id(103)}, 'BOVV11', 'ISHARES BOVV', 'etf', NULL, 'cotahist-catalog', TRUE, '2026-10-08'),
+        (${id(104)}, 'BOVA11', 'ISHARES BOVA', 'etf', NULL, 'cotahist-catalog', TRUE, '2026-10-08'),
+        (${id(105)}, 'BOVX11', 'ISHARES BOVX', 'etf', NULL, 'cotahist-catalog', FALSE, '2025-01-02')
+    `;
+  };
+
+  it('acha o papel que a pessoa ainda não tem como ativo', async () => {
+    await catalogar();
+
+    const view = await find({ text: 'bovv' });
+
+    expect(view.assets.rows).toEqual([]);
+    expect(view.instruments.total).toBe(1);
+    expect(view.instruments.rows).toEqual([
+      { ticker: 'BOVV11', name: 'ISHARES BOVV', b3_type: 'etf', maturity_date: null },
+    ]);
+  });
+
+  it('não repete como papel o que já é ativo cadastrado', async () => {
+    await catalogar();
+
+    const view = await find({ text: 'itub' });
+
+    expect(view.assets.rows.map((row) => row.ticker)).toContain('ITUB4');
+    expect(view.instruments.rows.map((row) => row.ticker)).not.toContain('ITUB4');
+  });
+
+  it('não devolve papel inativo', async () => {
+    await catalogar();
+
+    const view = await find({ text: 'bovx' });
+
+    expect(view.instruments).toEqual({ total: 0, rows: [] });
+  });
+
+  it('continua pagando duas consultas por busca', async () => {
+    await catalogar();
+    const { connection, count } = counting();
+
+    unwrapSuccess(await createSearchRepository(connection).find(filter({ text: 'bov' })));
+
+    expect(count()).toBe(2);
+  });
+});
+
 describe('lançamentos', () => {
   it('traz o mais recente primeiro, por código, nome e observação', async () => {
     const view = await find();

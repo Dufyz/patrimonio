@@ -1,5 +1,6 @@
 import type {
   SearchAssetRow,
+  SearchInstrumentRow,
   SearchFilter,
   SearchPageView,
   SearchRepository,
@@ -41,7 +42,11 @@ import { likeContains, likePrefix } from '../support/like.js';
 /** Quantos candidatos por texto entram no desempate por posição. */
 const CANDIDATES = 50;
 
-type AssetResultRow = Omit<SearchAssetRow, 'portfolio_names'> & {
+type AssetResultRow = Omit<SearchAssetRow, 'portfolio_names' | 'id' | 'b3_type'> & {
+  readonly row_kind: 'asset' | 'catalog';
+  readonly id: string | null;
+  readonly b3_type: string | null;
+  readonly maturity_date: string | null;
   readonly total: number;
   readonly portfolio_names: readonly string[] | null;
 };
@@ -78,8 +83,28 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
                     OR unaccent(a.name) ILIKE unaccent(${contains}::TEXT))
              ORDER BY match_rank, a.ticker
              LIMIT ${CANDIDATES}
+          ),
+          listed_catalog AS (
+            SELECT i.ticker, i.name, i.b3_type, i.maturity_date,
+                   CASE
+                     WHEN unaccent(LOWER(i.ticker)) = unaccent(LOWER(${filter.text}::TEXT)) THEN 0
+                     WHEN unaccent(i.ticker) ILIKE unaccent(${prefix}::TEXT) THEN 1
+                     WHEN unaccent(i.name) ILIKE unaccent(${prefix}::TEXT) THEN 2
+                     WHEN unaccent(i.ticker) ILIKE unaccent(${contains}::TEXT) THEN 3
+                     ELSE 4
+                   END AS match_rank,
+                   COUNT(*) OVER () AS total
+              FROM listed_instrument i
+             WHERE i.active
+               AND NOT EXISTS (
+                     SELECT 1 FROM asset a
+                      WHERE a.ticker = i.ticker AND a.archived_at IS NULL
+                   )
+               AND (unaccent(i.ticker) ILIKE unaccent(${contains}::TEXT)
+                    OR unaccent(i.name) ILIKE unaccent(${contains}::TEXT))
           )
-          SELECT c.id, c.ticker, c.name, c.b3_type, c.total::INT AS total,
+          (SELECT 'asset' AS row_kind, c.id, c.ticker, c.name, c.b3_type,
+                 NULL::TEXT AS maturity_date, c.total::INT AS total,
                  h.quantity::TEXT AS quantity,
                  h.market_value::NUMERIC(20,2)::TEXT AS market_value,
                  h.portfolio_names
@@ -103,7 +128,15 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
                 ) l
             ) h ON TRUE
            ORDER BY c.match_rank, (h.quantity IS NOT NULL) DESC, c.ticker
-           LIMIT ${filter.limit}
+           LIMIT ${filter.limit})
+          UNION ALL
+          (SELECT 'catalog' AS row_kind, NULL::UUID AS id, k.ticker, k.name, k.b3_type,
+                 k.maturity_date::TEXT AS maturity_date, k.total::INT AS total,
+                 NULL::TEXT AS quantity, NULL::TEXT AS market_value,
+                 NULL::TEXT[] AS portfolio_names
+            FROM listed_catalog k
+           ORDER BY k.match_rank, k.ticker
+           LIMIT ${filter.limit})
         `,
         sql<TransactionResultRow[]>`
           SELECT t.id,
@@ -132,15 +165,37 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
         `,
       ]);
 
+      const assetRows = assets.filter((row) => row.row_kind === 'asset');
+      const catalogRows = assets.filter((row) => row.row_kind === 'catalog');
+
       const view: SearchPageView = {
         assets: {
-          total: assets[0]?.total ?? 0,
-          rows: assets.map(
-            ({ total: _total, portfolio_names, ...row }): SearchAssetRow => ({
+          total: assetRows[0]?.total ?? 0,
+          rows: assetRows.map(
+            ({
+              total: _total,
+              row_kind: _kind,
+              maturity_date: _maturity,
+              portfolio_names,
+              id,
+              b3_type,
+              ...row
+            }): SearchAssetRow => ({
               ...row,
+              id: id as string,
+              b3_type: b3_type as SearchAssetRow['b3_type'],
               portfolio_names: portfolio_names ?? [],
             }),
           ),
+        },
+        instruments: {
+          total: catalogRows[0]?.total ?? 0,
+          rows: catalogRows.map((row): SearchInstrumentRow => ({
+            ticker: row.ticker,
+            name: row.name,
+            b3_type: row.b3_type as SearchInstrumentRow['b3_type'],
+            maturity_date: row.maturity_date as SearchInstrumentRow['maturity_date'],
+          })),
         },
         transactions: {
           total: transactions[0]?.total ?? 0,

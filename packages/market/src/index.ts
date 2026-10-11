@@ -23,6 +23,12 @@ export {
   quoteUrl,
 } from './providers/brapi.provider.js';
 export {
+  BRAPI_TICKERS_PATH,
+  createBrapiTickerLookup,
+  instrumentTypeOf,
+  tickersUrl,
+} from './providers/brapi_tickers.provider.js';
+export {
   BOLSAI_DAILY_CEILING,
   BOLSAI_SHAPE,
   BOLSAI_SOURCE,

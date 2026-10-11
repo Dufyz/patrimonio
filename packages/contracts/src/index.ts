@@ -271,14 +271,18 @@ export {
   SEARCH_GROUP_LIMIT_MAX,
   getSearchSchema,
   searchAssetSchema,
+  searchFallbackSchema,
   searchHoldingSchema,
+  searchInstrumentSchema,
   searchResourceSchema,
   searchTransactionSchema,
 } from './search/search.schema.js';
 export type {
   GetSearchQuery,
   SearchAsset,
+  SearchFallback,
   SearchHolding,
+  SearchInstrument,
   SearchResource,
   SearchTransaction,
 } from './search/search.schema.js';

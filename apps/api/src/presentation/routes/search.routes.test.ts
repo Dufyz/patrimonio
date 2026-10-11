@@ -136,6 +136,30 @@ describe('o que a busca acha', () => {
   });
 });
 
+describe('papéis do catálogo', () => {
+  it('acha o papel do catálogo sem que ele seja ativo, sem usar o fallback', async () => {
+    await harness.sql`
+      INSERT INTO listed_instrument (id, ticker, name, b3_type, source, active)
+      VALUES (${'0191e5a0-0000-7000-8000-0000000d0001'}, 'BOVA11', 'ISHARES BOVA', 'etf',
+              'cotahist-catalog', TRUE)
+    `;
+
+    const body = await buscar('q=bova');
+
+    expect(body.assets.items).toEqual([]);
+    expect(body.instruments.items).toEqual([
+      {
+        ticker: 'BOVA11',
+        name: 'ISHARES BOVA',
+        b3_type: 'etf',
+        maturity_date: null,
+        source: 'catalog',
+      },
+    ]);
+    expect(body.instruments.fallback).toBe('none');
+  });
+});
+
 describe('o que a busca recusa', () => {
   it.each([
     ['sem texto', ''],

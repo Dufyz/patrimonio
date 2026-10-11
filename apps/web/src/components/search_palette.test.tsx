@@ -24,9 +24,7 @@ const SCREENS = [
   { id: 'posicoes', label: 'Posições', glyph: '≡', shortcut: 'G P' },
   { id: 'movimentacoes', label: 'Movimentações', glyph: '⇄', shortcut: 'G M' },
 ];
-const PORTFOLIOS = [
-  { id: 'longo', label: 'Longo prazo' },
-];
+const PORTFOLIOS = [{ id: 'longo', label: 'Longo prazo' }];
 
 const RESOURCE: SearchResource = {
   query: 'itu',
@@ -53,6 +51,7 @@ const RESOURCE: SearchResource = {
       },
     ],
   },
+  instruments: { total: 0, items: [], fallback: 'none' },
   transactions: {
     total: 24,
     items: [
@@ -253,6 +252,7 @@ describe('busca', () => {
       .mockImplementation(async () => ({
         query: 'wege',
         assets: { total: 0, items: [] },
+        instruments: { total: 0, items: [], fallback: 'none' as const },
         transactions: { total: 0, items: [] },
       }));
     const { user } = open({ search });
@@ -273,6 +273,7 @@ describe('busca', () => {
     const empty = vi.fn(async () => ({
       query: 'zzz',
       assets: { total: 0, items: [] },
+      instruments: { total: 0, items: [], fallback: 'none' as const },
       transactions: { total: 0, items: [] },
     }));
     const { user } = open({ search: empty });

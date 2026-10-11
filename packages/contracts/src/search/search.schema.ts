@@ -1,4 +1,4 @@
-import { PAYOUT_KINDS, TRANSACTION_KINDS } from '@patrimonio/domain';
+import { INSTRUMENT_TYPES, PAYOUT_KINDS, TRANSACTION_KINDS } from '@patrimonio/domain';
 import { z } from 'zod';
 
 import { b3TypeSchema } from '../asset/asset.schema.js';
@@ -63,6 +63,27 @@ export const searchAssetSchema = z.object({
   holding: searchHoldingSchema.nullable(),
 });
 
+/**
+ * Um papel do mercado que a pessoa ainda não tem como ativo. Vem do catálogo
+ * local, ou — quando o catálogo não achou nada — da fonte ao vivo. Escolhê-lo no
+ * lançamento é o que cria o ativo.
+ */
+export const searchInstrumentSchema = z.object({
+  ticker: z.string(),
+  name: z.string(),
+  b3_type: z.enum(INSTRUMENT_TYPES),
+  /** Só o título do Tesouro tem vencimento. */
+  maturity_date: dateOnly.nullable(),
+  source: z.enum(['catalog', 'brapi']),
+});
+
+/**
+ * O que aconteceu com a busca ao vivo: `none` quando o catálogo bastou, `used`
+ * quando a fonte respondeu, `unavailable` quando ela não respondeu ou a cota do
+ * mês acabou.
+ */
+export const searchFallbackSchema = z.enum(['none', 'used', 'unavailable']);
+
 export const searchTransactionSchema = z.object({
   id: uuid,
   kind: z.enum(TRANSACTION_KINDS),
@@ -87,6 +108,11 @@ export const searchResourceSchema = z.object({
     total: z.number().int().nonnegative(),
     items: z.array(searchAssetSchema),
   }),
+  instruments: z.object({
+    total: z.number().int().nonnegative(),
+    items: z.array(searchInstrumentSchema),
+    fallback: searchFallbackSchema,
+  }),
   transactions: z.object({
     total: z.number().int().nonnegative(),
     items: z.array(searchTransactionSchema),
@@ -95,5 +121,7 @@ export const searchResourceSchema = z.object({
 
 export type SearchHolding = z.infer<typeof searchHoldingSchema>;
 export type SearchAsset = z.infer<typeof searchAssetSchema>;
+export type SearchInstrument = z.infer<typeof searchInstrumentSchema>;
+export type SearchFallback = z.infer<typeof searchFallbackSchema>;
 export type SearchTransaction = z.infer<typeof searchTransactionSchema>;
 export type SearchResource = z.infer<typeof searchResourceSchema>;

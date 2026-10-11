@@ -114,6 +114,7 @@ export const resetSourceTables = async (sql: Sql): Promise<void> => {
                    portfolio,
                    pipeline_outbox,
                    index_quote,
+                   listed_instrument,
                    market_source_run
       restart IDENTITY CASCADE
   `);
@@ -136,10 +137,7 @@ export const seedCategory = async (
   return id;
 };
 
-export const seedInstitution = async (
-  sql: Sql,
-  name: string,
-): Promise<string> => {
+export const seedInstitution = async (sql: Sql, name: string): Promise<string> => {
   const rows = await sql<{ id: string }[]>`
     INSERT INTO institution (id, name)
     VALUES (GEN_RANDOM_UUID(), ${name})

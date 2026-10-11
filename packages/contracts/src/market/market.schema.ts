@@ -16,6 +16,7 @@ export const marketRunKindSchema = z.enum([
   'treasury',
   'backfill',
   'cotahist',
+  'lookup',
   'contract_check',
 ]);
 

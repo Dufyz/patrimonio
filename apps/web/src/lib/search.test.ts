@@ -8,12 +8,15 @@ import { describe, expect, it } from 'vitest';
 import type { Storageish } from './preferences.js';
 import {
   ACTION_PENDING_REASON,
+  INSTRUMENT_PENDING_REASON,
+  LOOKUP_UNAVAILABLE_NOTICE,
   RECENT_LIMIT,
   assetActionItems,
   assetItems,
   buildModel,
   flatten,
   holdingLabel,
+  instrumentItems,
   localItems,
   moveActive,
   nextFilter,
@@ -36,16 +39,10 @@ const SCREENS = [
   { id: 'movimentacoes', label: 'Movimentações', glyph: '⇄', shortcut: 'G M' },
   { id: 'desempenho', label: 'Desempenho', glyph: '◹', shortcut: 'G D' },
 ];
-const PORTFOLIOS = [
-  { id: 'longo', label: 'Longo prazo' },
-];
+const PORTFOLIOS = [{ id: 'longo', label: 'Longo prazo' }];
 
 const none = new Set<SearchActionId>();
-const all = new Set<SearchActionId>([
-  'new_transaction',
-  'buy_asset',
-  'payout_asset',
-]);
+const all = new Set<SearchActionId>(['new_transaction', 'buy_asset', 'payout_asset']);
 
 const local = (ready: ReadonlySet<SearchActionId> = none) =>
   localItems({ screens: SCREENS, portfolios: PORTFOLIOS, readyActions: ready });
@@ -98,10 +95,12 @@ const ready = (
   assets: readonly SearchAsset[],
   transactions: readonly SearchTransaction[],
   totals?: { assets?: number; transactions?: number },
+  instruments: SearchResource['instruments'] = { total: 0, items: [], fallback: 'none' },
 ): SearchServerState => {
   const resource: SearchResource = {
     query: 'q',
     assets: { total: totals?.assets ?? assets.length, items: [...assets] },
+    instruments,
     transactions: {
       total: totals?.transactions ?? transactions.length,
       items: [...transactions],
@@ -298,10 +297,7 @@ describe('com texto', () => {
     const held = assetActionItems(itub4, all).items.map((item) => item.label);
     const notHeld = assetActionItems(itub3, all).items.map((item) => item.label);
 
-    expect(held).toEqual([
-      'Lançar compra de ITUB4',
-      'Lançar provento de ITUB4',
-    ]);
+    expect(held).toEqual(['Lançar compra de ITUB4', 'Lançar provento de ITUB4']);
     expect(notHeld).toEqual(['Lançar compra de ITUB3']);
   });
 
@@ -596,5 +592,81 @@ describe('destinos', () => {
 
   it('não leva a lugar nenhum uma ação cuja tela ainda não existe', () => {
     expect(targetPath({ kind: 'action', action: 'new_transaction' }, context)).toBeNull();
+  });
+});
+
+describe('papéis do mercado', () => {
+  const bova = {
+    ticker: 'BOVA11',
+    name: 'ISHARES BOVA',
+    b3_type: 'etf' as const,
+    maturity_date: null,
+    source: 'catalog' as const,
+  };
+  const vivo = {
+    ...bova,
+    ticker: 'BOVV11',
+    name: 'IT NOW BOVV',
+    source: 'brapi' as const,
+  };
+
+  it('escreve o tipo e, quando veio da fonte ao vivo, de onde veio', () => {
+    const [catalogo, aoVivo] = instrumentItems([bova, vivo]);
+
+    expect(catalogo?.label).toBe('BOVA11');
+    expect(catalogo?.detail).toBe('ISHARES BOVA · ETF');
+    expect(aoVivo?.detail).toBe('IT NOW BOVV · ETF · brapi');
+    expect(catalogo?.disabled).toBe(INSTRUMENT_PENDING_REASON);
+  });
+
+  it('aparece abaixo dos ativos e dentro do filtro de ativos', () => {
+    const server = ready([itub4], [], undefined, {
+      total: 1,
+      items: [bova],
+      fallback: 'none',
+    });
+
+    expect(groups('itu', server)).toEqual(['assets', 'asset_actions', 'instruments']);
+    expect(
+      model('itu', server, { filter: 'assets' }).sections.map((s) => s.group),
+    ).toEqual(['assets', 'asset_actions', 'instruments']);
+  });
+
+  it('conta o que a api cortou', () => {
+    const view = model(
+      'bova',
+      ready([], [], undefined, { total: 7, items: [bova], fallback: 'none' }),
+    );
+
+    expect(view.shown).toBe(1);
+    expect(view.total).toBe(7);
+  });
+
+  it('avisa quando a fonte ao vivo não respondeu, e só então', () => {
+    const quiet = model(
+      'zzz',
+      ready([], [], undefined, { total: 0, items: [], fallback: 'none' }),
+    );
+    const failed = model(
+      'zzz',
+      ready([], [], undefined, { total: 0, items: [], fallback: 'unavailable' }),
+    );
+
+    expect(quiet.notice).toBeNull();
+    expect(failed.notice).toBe(LOOKUP_UNAVAILABLE_NOTICE);
+  });
+
+  it('não leva a lugar nenhum enquanto o lançamento a partir dele não existe', () => {
+    expect(
+      targetPath(
+        { kind: 'instrument', ticker: 'BOVA11', name: 'X', b3_type: 'etf' },
+        {
+          scope: 'longo',
+          currentScreenPath: 'posicoes',
+          screenPaths: {},
+          scopeFor: () => 'longo',
+        },
+      ),
+    ).toBeNull();
   });
 });

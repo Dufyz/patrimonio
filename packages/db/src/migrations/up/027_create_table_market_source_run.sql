@@ -1,5 +1,5 @@
 CREATE TYPE market_run_kind AS ENUM (
-  'quotes', 'indices', 'treasury', 'backfill', 'cotahist', 'contract_check'
+  'quotes', 'indices', 'treasury', 'backfill', 'cotahist', 'lookup', 'contract_check'
 );
 
 CREATE TABLE market_source_run (

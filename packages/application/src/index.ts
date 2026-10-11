@@ -48,6 +48,7 @@ export type {
 } from './interfaces/position_view.repository.js';
 export type {
   SearchAssetRow,
+  SearchInstrumentRow,
   SearchFilter,
   SearchPageView,
   SearchRepository,
@@ -103,6 +104,8 @@ export type {
   PriceQuote,
   QuoteProvider,
   InstrumentCatalogSource,
+  InstrumentLookup,
+  LookedUpInstrument,
   QuoteSource,
   SourcedClosing,
   SourcedInstrument,
@@ -360,7 +363,13 @@ export type {
   ListPositionsInput,
 } from './usecases/position/listPositions.usecase.js';
 export { searchGlobal } from './usecases/search/searchGlobal.usecase.js';
-export type { SearchGlobalDeps } from './usecases/search/searchGlobal.usecase.js';
+export { LOOKUP_MIN_LENGTH } from './usecases/search/searchGlobal.usecase.js';
+export type {
+  InstrumentSource,
+  SearchFallback,
+  SearchGlobalDeps,
+  SearchLookup,
+} from './usecases/search/searchGlobal.usecase.js';
 export { getStatement } from './usecases/statement/getStatement.usecase.js';
 export type { GetStatementDeps } from './usecases/statement/getStatement.usecase.js';
 export { statementEffect } from './usecases/statement/statementEffect.js';

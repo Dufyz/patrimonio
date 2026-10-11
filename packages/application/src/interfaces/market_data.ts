@@ -222,3 +222,28 @@ export type SourcedInstruments = {
 export type InstrumentCatalogSource = {
   readonly fetchInstruments: () => Promise<Either<AppError, SourcedInstruments>>;
 };
+
+// ─── Busca de papéis ao vivo ─────────────────────────────────────────────────
+
+/** Um papel que a fonte ao vivo achou para o texto digitado. */
+export type LookedUpInstrument = {
+  readonly ticker: string;
+  readonly name: string;
+  readonly b3_type: InstrumentType;
+};
+
+/**
+ * A busca de papéis numa fonte externa, para quando o catálogo local não acha o
+ * que a pessoa digitou. Cada chamada consome uma requisição da cota da fonte, e
+ * quem chama conta e registra.
+ */
+export type InstrumentLookup = {
+  /** A fonte, como aparece em `market_source_run.source`. */
+  readonly id: string;
+  /** O teto mensal de requisições da fonte. */
+  readonly monthlyCeiling: number;
+  readonly search: (
+    text: string,
+    limit: number,
+  ) => Promise<Either<AppError, readonly LookedUpInstrument[]>>;
+};

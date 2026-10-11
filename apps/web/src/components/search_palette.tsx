@@ -300,6 +300,11 @@ const PaletteDialog = ({
               continuam valendo.
             </p>
           ) : null}
+          {model.notice !== null ? (
+            <p role="status" className="px-3 py-2 text-[0.8125rem] text-ink-3">
+              {model.notice}
+            </p>
+          ) : null}
           {emptyResult ? (
             <p
               role="status"

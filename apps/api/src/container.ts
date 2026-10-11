@@ -52,6 +52,7 @@ import {
 } from '@patrimonio/application';
 import type {
   Clock,
+  InstrumentLookup,
   TransactionalRepositories,
   UnitOfWork,
 } from '@patrimonio/application';
@@ -63,7 +64,13 @@ import {
 } from '@patrimonio/db';
 import type { Sql } from '@patrimonio/db';
 import { environment } from '@patrimonio/env';
-import { BRAPI_FREE_MONTHLY_CEILING } from '@patrimonio/market';
+import {
+  BRAPI_FREE_MONTHLY_CEILING,
+  createBrapiTickerLookup,
+  createHttpClient,
+  withRetry,
+  sleep,
+} from '@patrimonio/market';
 import {
   closeQueues,
   closeRedisConnection,
@@ -83,6 +90,8 @@ export const createApiUseCases = (deps: {
   readonly unitOfWork: UnitOfWork;
   readonly repositories: TransactionalRepositories;
   readonly clock: Clock;
+  /** A busca de papéis ao vivo; sem ela, a busca fica no catálogo local. */
+  readonly lookup?: InstrumentLookup | undefined;
 }) => ({
   createPortfolio: createPortfolio({ unitOfWork: deps.unitOfWork }),
   updatePortfolio: updatePortfolio({ unitOfWork: deps.unitOfWork }),
@@ -174,8 +183,15 @@ export const createApiUseCases = (deps: {
   }),
   // T-04 também lê fora da transação: o extrato só consulta.
   getStatement: getStatement({ statements: deps.repositories.statements }),
-  // T-09 lê fora da transação: a busca são duas consultas de leitura.
-  searchGlobal: searchGlobal({ search: deps.repositories.search }),
+  // T-09 lê fora da transação: a busca são duas consultas de leitura. A fonte
+  // ao vivo só entra quando o catálogo não acha nada, e a cota é registrada.
+  searchGlobal: searchGlobal({
+    search: deps.repositories.search,
+    lookup:
+      deps.lookup === undefined
+        ? undefined
+        : { source: deps.lookup, unitOfWork: deps.unitOfWork, clock: deps.clock },
+  }),
   // A tela de abertura: uma rota, duas consultas — o instantâneo e os alertas.
   getOverview: getOverview({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
   // T-05 lê fora da transação, como T-02 a T-04: são duas consultas de leitura.
@@ -258,7 +274,24 @@ export const createContainer = (version: string): ApiContainer => {
     queues,
     repositories,
     unitOfWork,
-    usecases: createApiUseCases({ unitOfWork, repositories, clock: systemClock }),
+    usecases: createApiUseCases({
+      unitOfWork,
+      repositories,
+      clock: systemClock,
+      lookup: createBrapiTickerLookup({
+        http: withRetry(
+          createHttpClient({
+            fetch: (url, init) => globalThis.fetch(url, init),
+            timeoutMs: environment.market.requestTimeoutMs,
+            source: 'brapi',
+          }),
+          { attempts: 2, backoffMs: 300, sleep },
+        ),
+        ...(environment.market.brapiToken === undefined
+          ? {}
+          : { token: environment.market.brapiToken }),
+      }),
+    }),
     clock: systemClock,
     version,
     startedAt: new Date(),
