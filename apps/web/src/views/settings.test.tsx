@@ -51,8 +51,6 @@ const settings: Settings = {
     },
   ],
   archived_portfolios: [{ id: 'a', name: 'Viagem 2024', archived_on: '2026-03-04' }],
-  categories: [],
-  institutions: [],
   alerts: [
     { kind: 'price_stale', enabled: true, scope: 'global', threshold: { days: 3 } },
     { kind: 'corporate_event_pending', enabled: true, scope: 'global', threshold: null },
