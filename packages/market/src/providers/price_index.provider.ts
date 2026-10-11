@@ -1,4 +1,5 @@
 import { isFormatChangedError } from '@patrimonio/application';
+import { MarketDataUnavailableError } from '@patrimonio/application';
 import type {
   AppError,
   IndexProvider,
@@ -51,6 +52,12 @@ export const createPriceIndexProvider = (options: {
 
         const history = await options.quotes.fetchHistory(symbol, start, to);
         if (history.isFailure()) return history;
+
+        if (history.value.source_kind === 'none') {
+          const why = history.value.skipped?.join('; ') ?? 'nenhuma fonte respondeu';
+
+          return failure(new MarketDataUnavailableError(`${symbol}: ${why}`));
+        }
 
         for (const quote of history.value.quotes) {
           samples.push({

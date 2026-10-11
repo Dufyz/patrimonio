@@ -295,3 +295,30 @@ describe('a cadeia do Tesouro', () => {
     expect(result.isSuccess() && 'skipped' in result.value).toBe(false);
   });
 });
+
+describe('o histórico pela cadeia de cotações', () => {
+  const withHistory = (
+    id: string,
+    answer: Either<MarketDataUnavailableError | MarketSourceRejectedError, ClosingResult>,
+  ): QuoteProvider => ({
+    ...provider({ id, answer: () => answer }),
+    fetchHistory: async () => answer,
+  });
+
+  it('sem nenhum elo respondendo, devolve vazio com o motivo de cada um', async () => {
+    const chain = createQuoteChain([
+      withHistory('brapi', failure(new MarketSourceRejectedError('brapi respondeu 401'))),
+    ]);
+
+    const result = await chain.fetchHistory(
+      '^BVSP',
+      '2026-10-01' as DateOnly,
+      '2026-10-09' as DateOnly,
+    );
+
+    expect(result.isSuccess() && result.value.source_kind).toBe('none');
+    expect(result.isSuccess() && result.value.skipped).toEqual([
+      'brapi: brapi respondeu 401',
+    ]);
+  });
+});

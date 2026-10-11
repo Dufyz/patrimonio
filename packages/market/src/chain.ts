@@ -74,6 +74,7 @@ export const createQuoteChain = (providers: readonly QuoteProvider[]): QuoteSour
     to: DateOnly,
   ): Promise<Either<AppError, SourcedClosing>> => {
     let requests = 0;
+    const skipped: string[] = [];
 
     for (const [index, provider] of providers.entries()) {
       if (provider.fetchHistory === undefined) continue;
@@ -88,13 +89,19 @@ export const createQuoteChain = (providers: readonly QuoteProvider[]): QuoteSour
           source: provider.id,
           source_kind: kindFor(index),
           requests,
+          ...(skipped.length === 0 ? {} : { skipped: [...skipped] }),
         });
       }
 
       if (isFormatChangedError(result.value)) return result;
+
+      skipped.push(`${provider.id}: ${result.value.message}`);
     }
 
-    return success(nothing([ticker], requests));
+    return success({
+      ...nothing([ticker], requests),
+      ...(skipped.length === 0 ? {} : { skipped: [...skipped] }),
+    });
   },
 });
 

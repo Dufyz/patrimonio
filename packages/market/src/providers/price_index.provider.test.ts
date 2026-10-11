@@ -65,6 +65,29 @@ describe('o índice de pontos pela cadeia das cotações', () => {
     ]);
   });
 
+  it('cadeia toda fora do ar vira falha com o motivo de cada elo', async () => {
+    const none: QuoteSource = {
+      ...quotes([]),
+      fetchHistory: async () =>
+        ok({
+          quotes: [],
+          missing: ['^BVSP'],
+          source: 'none',
+          source_kind: 'none',
+          requests: 1,
+          skipped: ['brapi: brapi respondeu 401: MISSING_TOKEN'],
+        }),
+    };
+
+    const result = await createPriceIndexProvider({
+      id: 'cotacoes',
+      quotes: none,
+      symbols: { IBOV: '^BVSP' },
+    }).fetchSeries(['IBOV'], '2026-10-01' as DateOnly, '2026-10-09' as DateOnly);
+
+    expect(result.isFailure() && result.value.message).toMatch(/\^BVSP.*MISSING_TOKEN/u);
+  });
+
   it('pede alguns dias antes: o primeiro dia precisa do fechamento anterior', async () => {
     const asked: Array<{ ticker: string; from: string; to: string }> = [];
     const provider = createPriceIndexProvider({

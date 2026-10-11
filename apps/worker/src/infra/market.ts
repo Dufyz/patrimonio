@@ -77,8 +77,6 @@ export const createMarketSources = (options: {
     http: clientFor(BOLSAI_SOURCE, [404]),
     shape: BOLSAI_SHAPE,
     url: (tickers) => `https://api.usebolsai.com/v1/quotes?tickers=${tickers.join(',')}`,
-    historyUrl: (ticker, from, to) =>
-      `https://api.usebolsai.com/v1/history?ticker=${ticker}&from=${from}&to=${to}`,
   });
 
   const quotes = createQuoteChain([brapi, alternativo]);

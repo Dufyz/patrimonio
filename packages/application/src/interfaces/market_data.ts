@@ -75,6 +75,8 @@ export type SourcedClosing = ClosingResult & {
   readonly source_kind: PriceSourceKind | 'none';
   /** Requisições consumidas nesta coleta, somando as tentativas. */
   readonly requests: number;
+  /** Por que os elos anteriores foram pulados, quando foram. */
+  readonly skipped?: readonly string[];
 };
 
 /**
