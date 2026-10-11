@@ -196,6 +196,21 @@ describe('o CSV do Tesouro Transparente', () => {
     expect(result.value).toHaveLength(2);
   });
 
+  it('fim de semana usa o último dia com preço, com a data em que foi cotado', async () => {
+    const result = await csv().fetchQuotes('2026-10-11' as DateOnly);
+
+    expect(result.isSuccess()).toBe(true);
+    if (!result.isSuccess()) return;
+    expect(result.value).toHaveLength(2);
+    expect(result.value.every((quote) => quote.quote_date === '2026-10-06')).toBe(true);
+  });
+
+  it('data sem preço na janela devolve vazio', async () => {
+    const result = await csv().fetchQuotes('2026-12-31' as DateOnly);
+
+    expect(result.isSuccess() && result.value).toEqual([]);
+  });
+
   it('a mesma data pedida duas vezes devolve exatamente as mesmas linhas', async () => {
     const primeira = await csv().fetchQuotes(DATE);
     const segunda = await csv().fetchQuotes(DATE);

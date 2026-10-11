@@ -3,13 +3,17 @@ import {
   MarketDataUnavailableError,
   MarketSourceRejectedError,
 } from '@patrimonio/application';
-import type { ClosingResult, QuoteProvider } from '@patrimonio/application';
+import type {
+  ClosingResult,
+  QuoteProvider,
+  TreasuryProvider,
+} from '@patrimonio/application';
 import type { DateOnly } from '@patrimonio/domain';
 import { failure, success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
 import { describe, expect, it } from 'vitest';
 
-import { createQuoteChain } from './chain.js';
+import { createQuoteChain, createTreasuryChain } from './chain.js';
 
 type Scripted = {
   readonly id: string;
@@ -241,5 +245,53 @@ describe('cadeia de fallback', () => {
     if (!result.isSuccess()) return;
     expect(result.value.source).toBe('bolsai');
     expect(result.value.quotes[0]?.price_date).toBe('2015-03-12');
+  });
+});
+
+describe('a cadeia do Tesouro', () => {
+  const treasury = (
+    id: string,
+    answer: ReturnType<TreasuryProvider['fetchQuotes']>,
+  ): TreasuryProvider => ({ id, fetchQuotes: async () => answer });
+
+  const DATE = '2026-10-11' as DateOnly;
+
+  it('guarda por que o elo anterior foi pulado', async () => {
+    const chain = createTreasuryChain([
+      treasury(
+        'json',
+        Promise.resolve(failure(new MarketSourceRejectedError('site respondeu 403'))),
+      ),
+      treasury('csv', Promise.resolve(success([]))),
+    ]);
+
+    const result = await chain.fetchQuotes(DATE);
+
+    expect(result.isSuccess() && result.value.source).toBe('csv');
+    expect(result.isSuccess() && result.value.skipped).toEqual([
+      'json: site respondeu 403',
+    ]);
+  });
+
+  it('toda a cadeia fora do ar devolve sucesso vazio com os motivos', async () => {
+    const chain = createTreasuryChain([
+      treasury(
+        'json',
+        Promise.resolve(failure(new MarketDataUnavailableError('sem rede'))),
+      ),
+    ]);
+
+    const result = await chain.fetchQuotes(DATE);
+
+    expect(result.isSuccess() && result.value.source_kind).toBe('none');
+    expect(result.isSuccess() && result.value.skipped).toEqual(['json: sem rede']);
+  });
+
+  it('sem falha anterior não acrescenta o campo', async () => {
+    const chain = createTreasuryChain([treasury('json', Promise.resolve(success([])))]);
+
+    const result = await chain.fetchQuotes(DATE);
+
+    expect(result.isSuccess() && 'skipped' in result.value).toBe(false);
   });
 });

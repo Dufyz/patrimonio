@@ -49,11 +49,14 @@ export const loadTreasuryCatalog = (deps: LoadTreasuryCatalogDeps) =>
       return yield* fetched;
     }
 
-    const { quotes, source, source_kind: sourceKind } = fetched.value;
+    const { quotes, source, source_kind: sourceKind, skipped } = fetched.value;
 
     if (quotes.length === 0) {
+      const why =
+        skipped === undefined || skipped.length === 0 ? '' : ` (${skipped.join('; ')})`;
+
       return yield* failure(
-        new BadRequestError('A fonte do Tesouro não devolveu nenhum título'),
+        new BadRequestError(`A fonte do Tesouro não devolveu nenhum título${why}`),
       );
     }
 

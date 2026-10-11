@@ -151,6 +151,33 @@ describe('loadIndexHistory', () => {
     expect(result.isFailure()).toBe(true);
   });
 
+  it('uma fonte que falha não impede as outras: o erro vem no resultado', async () => {
+    const { rows, runs, unitOfWork } = harness();
+
+    const result = await loadIndexHistory({
+      unitOfWork,
+      clock,
+      indices: {
+        id: 'indices',
+        series: ['CDI', 'IBOV'],
+        fetchSeries: async (codes) =>
+          codes.includes('IBOV')
+            ? failure(new FormatChangedError('usebolsai', 'body', 'não é JSON', ''))
+            : success([...CDI]),
+      },
+    })({});
+
+    expect(result.isSuccess()).toBe(true);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => row.index_code === 'CDI')).toBe(true);
+    expect(runs[0]).toMatchObject({ kind: 'indices', ok: true });
+    if (result.isSuccess()) {
+      expect(Object.keys(result.value.failed)).toEqual(['IBOV']);
+      expect(result.value.failed['IBOV']).toMatch(/usebolsai/u);
+      expect(result.value.empty).toEqual([]);
+    }
+  });
+
   it('falha da fonte registra a execução e devolve o erro', async () => {
     const { runs, rows, unitOfWork } = harness();
 

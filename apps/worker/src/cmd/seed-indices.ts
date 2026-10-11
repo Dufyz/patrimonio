@@ -69,6 +69,9 @@ try {
     if (done.empty.length > 0) {
       write(`sem série em nenhuma fonte: ${done.empty.join(', ')}`);
     }
+    for (const [code, reason] of Object.entries(done.failed)) {
+      write(`sem dados de ${code}: ${reason}`);
+    }
     write(`recálculo pedido para ${done.recalculated.length} carteira(s)`);
   }
 } finally {

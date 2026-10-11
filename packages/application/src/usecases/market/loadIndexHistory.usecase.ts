@@ -46,6 +46,8 @@ export type LoadIndexHistoryResult = {
   readonly written: Readonly<Record<string, number>>;
   /** Códigos que nenhuma fonte devolveu, no período todo. */
   readonly empty: readonly IndexCode[];
+  /** Códigos cuja fonte falhou, com o motivo. Os demais foram gravados mesmo assim. */
+  readonly failed: Readonly<Record<string, string>>;
   readonly recalculated: readonly string[];
 };
 
@@ -122,41 +124,62 @@ export const loadIndexHistory = (deps: LoadIndexHistoryDeps) =>
 
     const samples = new Map<IndexCode, IndexObservation[]>();
     const sources = new Map<IndexCode, string>();
+    const failed = new Map<IndexCode, AppError>();
 
     for (const window of yearlyWindows(from, today)) {
-      const fetched = await deps.indices.fetchSeries(codes, window.from, window.to);
+      for (const code of codes) {
+        if (failed.has(code)) continue;
 
-      if (fetched.isFailure()) {
-        yield* await deps.unitOfWork.run(async (repositories) =>
-          repositories.market.recordRun(
-            runOf({
-              source: deps.indices.id,
-              kind: 'indices',
-              date: today,
-              startedAt,
-              finishedAt: deps.clock.now().toISOString(),
-              ok: false,
-              error: fetched.value,
-            }),
-          ),
-        );
+        const fetched = await deps.indices.fetchSeries([code], window.from, window.to);
 
-        return yield* fetched;
-      }
+        if (fetched.isFailure()) {
+          failed.set(code, fetched.value);
+          continue;
+        }
 
-      for (const sample of fetched.value) {
-        const bucket = samples.get(sample.index_code) ?? [];
-        bucket.push({
-          reference_date: sample.reference_date,
-          unit: sample.unit,
-          raw_value: sample.raw_value,
-        });
-        samples.set(sample.index_code, bucket);
+        for (const sample of fetched.value) {
+          if (sample.index_code !== code) continue;
 
-        if (!sources.has(sample.index_code)) {
-          sources.set(sample.index_code, sample.source ?? deps.indices.id);
+          const bucket = samples.get(code) ?? [];
+          bucket.push({
+            reference_date: sample.reference_date,
+            unit: sample.unit,
+            raw_value: sample.raw_value,
+          });
+          samples.set(code, bucket);
+
+          if (!sources.has(code)) {
+            sources.set(code, sample.source ?? deps.indices.id);
+          }
         }
       }
+    }
+
+    const failure_of = (code: IndexCode): string | undefined => failed.get(code)?.message;
+
+    if (codes.length > 0 && failed.size === codes.length) {
+      const first = failed.values().next().value as AppError;
+
+      yield* await deps.unitOfWork.run(async (repositories) =>
+        repositories.market.recordRun(
+          runOf({
+            source: deps.indices.id,
+            kind: 'indices',
+            date: today,
+            startedAt,
+            finishedAt: deps.clock.now().toISOString(),
+            ok: false,
+            error: first,
+          }),
+        ),
+      );
+
+      return yield* failure(first);
+    }
+
+    const failedReasons: Record<string, string> = {};
+    for (const code of failed.keys()) {
+      failedReasons[code] = failure_of(code) ?? 'falhou';
     }
 
     const rows: IndexQuoteWrite[] = [];
@@ -179,7 +202,7 @@ export const loadIndexHistory = (deps: LoadIndexHistoryDeps) =>
       }
     }
 
-    const empty = codes.filter((code) => (written[code] ?? 0) === 0);
+    const empty = codes.filter((code) => !failed.has(code) && (written[code] ?? 0) === 0);
 
     return yield* await deps.unitOfWork.run<AppError, LoadIndexHistoryResult>(
       async (repositories) => {
@@ -213,9 +236,9 @@ export const loadIndexHistory = (deps: LoadIndexHistoryDeps) =>
             finishedAt: deps.clock.now().toISOString(),
             ok: true,
             items: rows.length,
-            missing: empty.length,
+            missing: empty.length + failed.size,
           }),
-          detail: { from, to: today, written, empty: [...empty] },
+          detail: { from, to: today, written, empty: [...empty], failed: failedReasons },
         });
         if (recorded.isFailure()) return recorded;
 
@@ -224,6 +247,7 @@ export const loadIndexHistory = (deps: LoadIndexHistoryDeps) =>
           to: today,
           written,
           empty,
+          failed: failedReasons,
           recalculated: portfolios.value.map((portfolio) => portfolio.id),
         });
       },

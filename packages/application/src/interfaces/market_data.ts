@@ -199,6 +199,8 @@ export type TreasurySource = {
         readonly quotes: readonly TreasuryQuote[];
         readonly source: string;
         readonly source_kind: PriceSourceKind | 'none';
+        /** Por que as fontes anteriores da cadeia foram puladas, quando foram. */
+        readonly skipped?: readonly string[];
       }
     >
   >;

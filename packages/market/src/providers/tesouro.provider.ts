@@ -1,4 +1,5 @@
 import type { AppError, TreasuryProvider, TreasuryQuote } from '@patrimonio/application';
+import { addDays } from '@patrimonio/domain';
 import type { DateOnly, TreasuryIdentity } from '@patrimonio/domain';
 import { success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
@@ -249,6 +250,12 @@ const readCsvQuotes = (
 };
 
 /**
+ * Fim de semana e feriado não têm tabela: o pedido vale o último dia com preço
+ * dentro desta janela, e cada título sai com a data em que de fato foi cotado.
+ */
+const CSV_LOOKBACK_DAYS = 10;
+
+/**
  * O CSV cobre o histórico completo desde 2002, e é a alternativa quando o JSON
  * não responde — e a fonte da carga inicial e do histórico de cada título.
  */
@@ -271,9 +278,22 @@ export const createTesouroCsvProvider = (options: CsvOptions): TreasuryProvider 
       const content = await load();
       if (content.isFailure()) return content;
 
-      const read = parsing(TESOURO_CSV_SOURCE, () =>
-        readCsvQuotes(content.value, (row) => row.base === date && row.maturity >= date),
-      );
+      const earliest = addDays(date, -CSV_LOOKBACK_DAYS);
+
+      const read = parsing(TESOURO_CSV_SOURCE, () => {
+        const recent = readCsvQuotes(
+          content.value,
+          (row) => row.base <= date && row.base >= earliest && row.maturity >= date,
+        );
+
+        const latest = recent.reduce<DateOnly | null>(
+          (best, quote) =>
+            best === null || quote.quote_date > best ? quote.quote_date : best,
+          null,
+        );
+
+        return recent.filter((quote) => quote.quote_date === latest);
+      });
 
       return read.isFailure() ? read : success(read.value);
     },

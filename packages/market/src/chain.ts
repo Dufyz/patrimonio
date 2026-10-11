@@ -131,6 +131,7 @@ export const createTreasuryChain = (
   },
 
   fetchQuotes: async (date: DateOnly) => {
+    const skipped: string[] = [];
     for (const [index, provider] of providers.entries()) {
       const result = await provider.fetchQuotes(date);
 
@@ -139,16 +140,20 @@ export const createTreasuryChain = (
           quotes: result.value,
           source: provider.id,
           source_kind: kindFor(index),
+          ...(skipped.length === 0 ? {} : { skipped: [...skipped] }),
         });
       }
 
       if (isFormatChangedError(result.value)) return result;
+
+      skipped.push(`${provider.id}: ${result.value.message}`);
     }
 
     return success({
       quotes: [] as const,
       source: 'none',
       source_kind: 'none' as const,
+      ...(skipped.length === 0 ? {} : { skipped: [...skipped] }),
     });
   },
 });
