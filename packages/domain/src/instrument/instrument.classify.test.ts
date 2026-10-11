@@ -11,6 +11,7 @@ describe('classifyListedInstrument', () => {
     ['02', 'DRN', 'bdr'],
     ['02', 'DR3', 'bdr'],
     ['02', 'CI', 'etf'],
+    ['14', 'CI', 'etf'],
     ['12', 'CI', 'fii'],
     ['12', 'CI ER', 'fii'],
   ] as const)('grupo %s e espécie "%s" é %s', (codbdi, especi, expected) => {
@@ -22,6 +23,8 @@ describe('classifyListedInstrument', () => {
     ['78', 'ON'],
     ['62', 'ON'],
     ['13', 'DIR'],
+    ['14', 'ON'],
+    ['14', ''],
     ['02', 'XYZ'],
     ['02', ''],
   ] as const)('grupo %s e espécie "%s" fica fora do catálogo', (codbdi, especi) => {

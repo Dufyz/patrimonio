@@ -9,6 +9,7 @@ import type { InstrumentType } from './instrument.entities.js';
  * | --- | --- | --- |
  * | 12 | qualquer | FII |
  * | 02 | `DR*` | BDR |
+ * | 14 | `CI` | ETF |
  * | 02 | `CI` | ETF |
  * | 02 | `ON`, `OR`, `PN*`, `PR*`, `UNT` | ação ou unit |
  *
@@ -18,6 +19,7 @@ import type { InstrumentType } from './instrument.entities.js';
  */
 const STANDARD_LOT = '02';
 const REAL_ESTATE_FUNDS = '12';
+const FUND_SHARES = '14';
 
 const STOCK_SPECIES = /^(ON|OR|PN|PR|UNT)/u;
 
@@ -28,6 +30,7 @@ export const classifyListedInstrument = (input: {
   const species = input.especi.trim().toUpperCase().split(/\s+/u)[0] ?? '';
 
   if (input.codbdi === REAL_ESTATE_FUNDS) return 'fii';
+  if (input.codbdi === FUND_SHARES) return species === 'CI' ? 'etf' : null;
   if (input.codbdi !== STANDARD_LOT) return null;
 
   if (species.startsWith('DR')) return 'bdr';

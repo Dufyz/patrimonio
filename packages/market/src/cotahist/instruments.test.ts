@@ -47,7 +47,7 @@ describe('o papel de uma linha do COTAHIST', () => {
       1,
     );
     const etf = parseInstrumentRecord(
-      record({ ticker: 'BOVA11', name: 'ISHARES BOVA', species: 'CI' }),
+      record({ ticker: 'BOVA11', codbdi: '14', name: 'ISHARES BOVA', species: 'CI' }),
       1,
     );
     const bdr = parseInstrumentRecord(
