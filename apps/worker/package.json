@@ -11,7 +11,8 @@
     "lint": "eslint src",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify:sources": "tsx src/cmd/verify-sources.ts"
+    "verify:sources": "tsx src/cmd/verify-sources.ts",
+    "seed:instruments": "tsx src/cmd/seed-instruments.ts"
   },
   "dependencies": {
     "@patrimonio/application": "workspace:*",

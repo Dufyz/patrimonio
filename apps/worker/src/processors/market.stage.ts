@@ -19,6 +19,8 @@ import type { StageDeps, StageJobData } from '../infra/define-stage.js';
  * - **`backfill:<ativo>`** — o histórico de um papel que apareceu pela primeira
  *   vez no livro, da data da primeira compra até hoje.
  *
+ * Depois da coleta do dia, o estágio tenta recarregar o catálogo de papéis.
+ *
  * O `asset_id` no payload é o que distingue os dois. A coalescência faz o resto:
  * a chave do backfill é por ativo, então uma rajada de lançamentos do mesmo
  * papel gera um backfill, não cinco.
@@ -55,12 +57,29 @@ export const marketStage = (deps: StageDeps): Worker<StageJobData> =>
           );
         }
 
-        return deps.usecases.collectMarketData({
+        const collected = await deps.usecases.collectMarketData({
           ...(isDateOnly(reference) ? { reference_date: reference } : {}),
           ...(typeof job.data.origin_request_id === 'string'
             ? { origin_request_id: job.data.origin_request_id }
             : {}),
         });
+
+        // O catálogo de papéis se recarrega aqui, e não numa fila própria: o
+        // caso de uso sai cedo enquanto a última carga é recente, então na
+        // prática roda uma vez por mês. Falhar nele não falha a coleta do dia —
+        // o preço de hoje não depende de saber que existe um papel novo.
+        if (deps.usecases.refreshInstrumentCatalog !== undefined) {
+          const refreshed = await deps.usecases.refreshInstrumentCatalog({});
+
+          if (refreshed.isFailure()) {
+            deps.logger.warn(
+              { err: refreshed.value.message },
+              'catálogo de papéis não foi recarregado',
+            );
+          }
+        }
+
+        return collected;
       },
       scheduledEvent: (stageDeps) => ({
         stage: 'market',

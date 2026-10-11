@@ -1,4 +1,9 @@
-import type { IndexProvider, QuoteSource, TreasurySource } from '@patrimonio/application';
+import type {
+  IndexProvider,
+  InstrumentCatalogSource,
+  QuoteSource,
+  TreasurySource,
+} from '@patrimonio/application';
 import { environment } from '@patrimonio/env';
 import {
   BOLSAI_SHAPE,
@@ -15,6 +20,8 @@ import {
   withRetry,
 } from '@patrimonio/market';
 import type { HttpClient } from '@patrimonio/market';
+
+import { createInstrumentCatalogSource } from './cotahist.js';
 
 /**
  * A montagem das fontes. É o único arquivo do worker que conhece o nome de um
@@ -42,9 +49,12 @@ export type MarketSources = {
   readonly quotes: QuoteSource;
   readonly indices: IndexProvider;
   readonly treasury: TreasurySource;
+  readonly instruments: InstrumentCatalogSource;
 };
 
-export const createMarketSources = (): MarketSources => {
+export const createMarketSources = (options: {
+  readonly year: () => number;
+}): MarketSources => {
   const brapi = createBrapiProvider({
     // O 404 da brapi é resposta sobre o papel — "não conheço esse ticker" — e
     // não falha da coleta. Ele é lido, e o papel entra em `missing`.
@@ -74,5 +84,6 @@ export const createMarketSources = (): MarketSources => {
       createTesouroJsonProvider({ http: clientFor('tesouro-direto') }),
       createTesouroCsvProvider({ http: clientFor('tesouro-transparente') }),
     ]),
+    instruments: createInstrumentCatalogSource({ year: options.year }),
   };
 };

@@ -31,8 +31,10 @@ export {
 export type { JsonQuoteOptions, QuoteShape } from './providers/json_quote.provider.js';
 export { COTAHIST_SOURCE, readCotahist, readLines } from './cotahist/reader.js';
 export type { CotahistReport, ReadOptions } from './cotahist/reader.js';
-export { RECORD_LENGTH, parseRecord } from './cotahist/layout.js';
-export type { CotahistRecord } from './cotahist/layout.js';
+export { RECORD_LENGTH, parseInstrumentRecord, parseRecord } from './cotahist/layout.js';
+export type { CotahistInstrumentRecord, CotahistRecord } from './cotahist/layout.js';
+export { readCotahistInstruments } from './cotahist/instruments.js';
+export type { CotahistInstrument, CotahistInstruments } from './cotahist/instruments.js';
 export { WARNING_RATIO, budgetFor, monthlyProjection } from './usage.js';
 export type { Budget } from './usage.js';
 export {

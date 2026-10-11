@@ -200,6 +200,9 @@ export {
 
 // ─── Catálogo de instrumentos ────────────────────────────────────────────────
 export { INSTRUMENT_TYPES, isInstrumentType } from './instrument/instrument.entities.js';
-export type { InstrumentType, ListedInstrument } from './instrument/instrument.entities.js';
+export type {
+  InstrumentType,
+  ListedInstrument,
+} from './instrument/instrument.entities.js';
 export { classifyListedInstrument } from './instrument/instrument.classify.js';
 export { parseListedInstrumentFromDB } from './instrument/instrument.parsers.js';

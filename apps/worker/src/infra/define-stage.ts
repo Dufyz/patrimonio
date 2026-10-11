@@ -8,6 +8,7 @@ import type {
   collectMarketData,
   recalculatePortfolio,
   reconcileAlerts,
+  refreshInstrumentCatalog,
 } from '@patrimonio/application';
 import { isAppError } from '@patrimonio/application';
 import { dedupeKey, transition } from '@patrimonio/domain';
@@ -38,6 +39,11 @@ export type StageUseCases = {
   readonly reconcileAlerts: ReturnType<typeof reconcileAlerts>;
   readonly collectMarketData: ReturnType<typeof collectMarketData>;
   readonly backfillAsset: ReturnType<typeof backfillAsset>;
+  /**
+   * A recarga do catálogo de papéis, que o estágio de mercado tenta depois da
+   * coleta do dia. Ausente nos testes de estágio que medem só o pipeline.
+   */
+  readonly refreshInstrumentCatalog?: ReturnType<typeof refreshInstrumentCatalog>;
 };
 
 export type StageDeps = {

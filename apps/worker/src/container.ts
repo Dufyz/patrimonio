@@ -6,6 +6,7 @@ import {
   marketAlertRunners,
   recalculatePortfolio,
   reconcileAlerts,
+  refreshInstrumentCatalog,
 } from '@patrimonio/application';
 import type {
   Clock,
@@ -44,6 +45,7 @@ export type WorkerUseCases = {
   readonly reconcileAlerts: ReturnType<typeof reconcileAlerts>;
   readonly collectMarketData: ReturnType<typeof collectMarketData>;
   readonly backfillAsset: ReturnType<typeof backfillAsset>;
+  readonly refreshInstrumentCatalog: ReturnType<typeof refreshInstrumentCatalog>;
 };
 
 export type WorkerContainer = {
@@ -89,7 +91,9 @@ export const createContainer = (): WorkerContainer => {
 
   // As fontes externas, montadas num lugar só. Nenhum caso de uso conhece o
   // nome de um provedor: ele recebe a cadeia pronta.
-  const market = createMarketSources();
+  const market = createMarketSources({
+    year: () => Number(systemClock.today().slice(0, 4)),
+  });
 
   return {
     sql,
@@ -122,6 +126,11 @@ export const createContainer = (): WorkerContainer => {
         unitOfWork,
         clock: systemClock,
         quotes: market.quotes,
+      }),
+      refreshInstrumentCatalog: refreshInstrumentCatalog({
+        unitOfWork,
+        clock: systemClock,
+        instruments: market.instruments,
       }),
     },
     shutdown: async () => {

@@ -1,5 +1,11 @@
 import type { IndexUnit } from '@patrimonio/calc';
-import type { B3Type, DateOnly, IndexCode, PriceSourceKind } from '@patrimonio/domain';
+import type {
+  B3Type,
+  DateOnly,
+  IndexCode,
+  InstrumentType,
+  PriceSourceKind,
+} from '@patrimonio/domain';
 import type { Either } from '@patrimonio/shared';
 
 import type { AppError } from '../errors/app-error.js';
@@ -189,4 +195,30 @@ export type CorporateActionProvider = {
       }
     >
   >;
+};
+
+// ─── Catálogo de instrumentos ────────────────────────────────────────────────
+
+/** Um papel como a fonte do catálogo o descreve. */
+export type SourcedInstrument = {
+  readonly ticker: string;
+  readonly name: string;
+  readonly b3_type: InstrumentType;
+  readonly last_trade_date: DateOnly;
+};
+
+export type SourcedInstruments = {
+  readonly instruments: readonly SourcedInstrument[];
+  readonly source: string;
+  /** O último pregão do arquivo: é a régua de quem ainda está sendo negociado. */
+  readonly last_date: DateOnly | null;
+  readonly lines_read: number;
+};
+
+/**
+ * A fonte do catálogo de papéis. Ela lê o arquivo inteiro e devolve um registro
+ * por papel; quem decide o que está ativo e o que fica inativo é o caso de uso.
+ */
+export type InstrumentCatalogSource = {
+  readonly fetchInstruments: () => Promise<Either<AppError, SourcedInstruments>>;
 };

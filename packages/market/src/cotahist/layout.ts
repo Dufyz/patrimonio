@@ -1,4 +1,5 @@
-import type { DateOnly } from '@patrimonio/domain';
+import { classifyListedInstrument } from '@patrimonio/domain';
+import type { DateOnly, InstrumentType } from '@patrimonio/domain';
 
 import { formatChanged } from '../support/format.js';
 
@@ -30,6 +31,8 @@ import { formatChanged } from '../support/format.js';
  * | CODBDI | 11–12 | o grupo do papel |
  * | CODNEG | 13–24 | o código de negociação |
  * | TPMERC | 25–27 | `010` é mercado a vista |
+ * | NOMRES | 28–39 | o nome resumido da empresa ou do fundo |
+ * | ESPECI | 40–49 | a espécie: `ON`, `PN`, `UNT`, `CI`, `DRN` |
  * | PREULT | 109–121 | o fechamento |
  */
 export const RECORD_LENGTH = 245;
@@ -40,6 +43,8 @@ const FIELDS = {
   codbdi: [10, 12],
   codneg: [12, 24],
   tpmerc: [24, 27],
+  nomres: [27, 39],
+  especi: [39, 49],
   preult: [108, 121],
 } as const;
 
@@ -110,5 +115,44 @@ export const parseRecord = (line: string, lineNumber: number): CotahistRecord | 
     trade_date: date as DateOnly,
     close: `${String(Number(whole))}.${fraction}`,
     codbdi: slice(line, FIELDS.codbdi),
+  };
+};
+
+export type CotahistInstrumentRecord = {
+  readonly ticker: string;
+  readonly name: string;
+  readonly b3_type: InstrumentType;
+  readonly trade_date: DateOnly;
+};
+
+/**
+ * O papel que a linha descreve, para o catálogo. Só entra o que o classificador
+ * reconhece (ação, unit, FII, ETF, BDR); fracionário, termo, opção e direito
+ * ficam de fora, e o mesmo papel em dois grupos no mesmo dia vira uma linha só
+ * por quem lê.
+ *
+ * O nome é o resumido da B3 — "ITAUUNIBANCO" — com a espécie na frente da ação
+ * ("ITAUUNIBANCO PN"), porque é ela que distingue ITUB3 de ITUB4.
+ */
+export const parseInstrumentRecord = (
+  line: string,
+  lineNumber: number,
+): CotahistInstrumentRecord | null => {
+  const quote = parseRecord(line, lineNumber);
+  if (quote === null) return null;
+
+  const species = slice(line, FIELDS.especi);
+  const b3Type = classifyListedInstrument({ codbdi: quote.codbdi, especi: species });
+  if (b3Type === null) return null;
+
+  const short = slice(line, FIELDS.nomres);
+  const first = species.split(/\s+/u)[0] ?? '';
+  const name = b3Type === 'stock' && first !== '' ? `${short} ${first}` : short;
+
+  return {
+    ticker: quote.ticker,
+    name: name === '' ? quote.ticker : name,
+    b3_type: b3Type,
+    trade_date: quote.trade_date,
   };
 };

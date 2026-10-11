@@ -102,8 +102,11 @@ export type {
   IndexSample,
   PriceQuote,
   QuoteProvider,
+  InstrumentCatalogSource,
   QuoteSource,
   SourcedClosing,
+  SourcedInstrument,
+  SourcedInstruments,
   TreasuryProvider,
   TreasuryQuote,
   TreasurySource,
@@ -333,10 +336,7 @@ export type {
   DeleteTransactionResult,
   UndoResult,
 } from './usecases/transaction/deleteTransaction.usecase.js';
-export {
-  IDEMPOTENCY_TTL_HOURS,
-  findReplay,
-} from './usecases/transaction/idempotency.js';
+export { IDEMPOTENCY_TTL_HOURS, findReplay } from './usecases/transaction/idempotency.js';
 export { interpretTransactionText } from './usecases/transaction/interpretText.js';
 export type {
   TextChip,
@@ -508,6 +508,17 @@ export type {
   CollectMarketDataInput,
   CollectMarketDataResult,
 } from './usecases/market/collectMarketData.usecase.js';
+export {
+  CATALOG_STALE_AFTER_DAYS,
+  INACTIVE_AFTER_DAYS,
+  INSTRUMENT_CATALOG_SOURCE,
+  refreshInstrumentCatalog,
+} from './usecases/market/refreshInstrumentCatalog.usecase.js';
+export type {
+  RefreshInstrumentCatalogDeps,
+  RefreshInstrumentCatalogInput,
+  RefreshInstrumentCatalogResult,
+} from './usecases/market/refreshInstrumentCatalog.usecase.js';
 export { backfillAsset } from './usecases/market/backfillAsset.usecase.js';
 export type {
   BackfillAssetDeps,
