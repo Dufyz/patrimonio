@@ -11,12 +11,12 @@
     "lint": "eslint src",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify:sources": "tsx src/cmd/verify-sources.ts",
-    "seed:instruments": "tsx src/cmd/seed-instruments.ts",
-    "seed:cotahist": "tsx src/cmd/seed-cotahist.ts",
-    "seed:indices": "tsx src/cmd/seed-indices.ts",
-    "seed:tesouro": "tsx src/cmd/seed-tesouro.ts",
-    "bootstrap": "tsx src/cmd/bootstrap.ts"
+    "verify:sources": "tsx --env-file-if-exists=../../.env src/cmd/verify-sources.ts",
+    "seed:instruments": "tsx --env-file-if-exists=../../.env src/cmd/seed-instruments.ts",
+    "seed:cotahist": "tsx --env-file-if-exists=../../.env src/cmd/seed-cotahist.ts",
+    "seed:indices": "tsx --env-file-if-exists=../../.env src/cmd/seed-indices.ts",
+    "seed:tesouro": "tsx --env-file-if-exists=../../.env src/cmd/seed-tesouro.ts",
+    "bootstrap": "tsx --env-file-if-exists=../../.env src/cmd/bootstrap.ts"
   },
   "dependencies": {
     "@patrimonio/application": "workspace:*",
