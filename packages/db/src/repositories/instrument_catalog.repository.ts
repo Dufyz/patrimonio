@@ -18,7 +18,8 @@ type Row = Record<string, unknown>;
  * O catálogo de papéis do mercado.
  *
  * A busca ordena pelo mesmo critério da busca global — ticker exato, prefixo do
- * ticker, prefixo do nome, contém — e compara sem acento. Não consulta carteira:
+ * ticker, prefixo do nome, contém — e compara sem acento. O ticker é comparado
+ * sem espaços: "bova 11" acha BOVA11. Não consulta carteira:
  * quem quiser saber o que a pessoa tem soma isso por cima do resultado.
  */
 export const createInstrumentCatalogRepository = (
@@ -29,6 +30,9 @@ export const createInstrumentCatalogRepository = (
       const text = filter.text?.trim() ?? '';
       const contains = likeContains(text);
       const prefix = likePrefix(text);
+      const compact = text.replace(/\s+/gu, '');
+      const compactContains = likeContains(compact);
+      const compactPrefix = likePrefix(compact);
       const types = filter.types === undefined ? null : [...filter.types];
 
       const rows = await sql<Row[]>`
@@ -38,12 +42,12 @@ export const createInstrumentCatalogRepository = (
          WHERE (${filter.includeInactive === true} OR i.active)
            AND (${types}::TEXT[] IS NULL OR i.b3_type = ANY(${types}::TEXT[]))
            AND (${text === ''}
-                OR unaccent(i.ticker) ILIKE unaccent(${contains}::TEXT)
+                OR unaccent(i.ticker) ILIKE unaccent(${compactContains}::TEXT)
                 OR unaccent(i.name) ILIKE unaccent(${contains}::TEXT))
          ORDER BY CASE
                     WHEN ${text === ''} THEN 0
-                    WHEN unaccent(LOWER(i.ticker)) = unaccent(LOWER(${text}::TEXT)) THEN 0
-                    WHEN unaccent(i.ticker) ILIKE unaccent(${prefix}::TEXT) THEN 1
+                    WHEN unaccent(LOWER(i.ticker)) = unaccent(LOWER(${compact}::TEXT)) THEN 0
+                    WHEN unaccent(i.ticker) ILIKE unaccent(${compactPrefix}::TEXT) THEN 1
                     WHEN unaccent(i.name) ILIKE unaccent(${prefix}::TEXT) THEN 2
                     ELSE 3
                   END,

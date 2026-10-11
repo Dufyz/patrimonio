@@ -85,6 +85,15 @@ describe('catálogo de instrumentos', () => {
     expect(byPrefix.total).toBe(2);
   });
 
+  it('o espaço digitado no ticker não impede a busca', async () => {
+    unwrapSuccess(await load());
+
+    const spaced = unwrapSuccess(
+      await repositories.instruments.search({ text: 'itub 4', limit: 10 }),
+    );
+    expect(spaced.items.map((item) => item.ticker)).toEqual(['ITUB4']);
+  });
+
   it('compara sem acento e acha pelo nome', async () => {
     unwrapSuccess(
       await repositories.instruments.upsertMany([
