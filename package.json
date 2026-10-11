@@ -29,6 +29,7 @@
     "holidays:generate": "pnpm --filter @patrimonio/db holidays:generate",
     "test:live": "pnpm --filter @patrimonio/market test:live",
     "seed:instruments": "pnpm --filter @patrimonio/worker seed:instruments",
+    "seed:cotahist": "pnpm --filter @patrimonio/worker seed:cotahist",
     "verify:sources": "pnpm --filter @patrimonio/worker verify:sources"
   },
   "devDependencies": {

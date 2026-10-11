@@ -6,7 +6,11 @@ import { join } from 'node:path';
 import { RECORD_LENGTH } from '@patrimonio/market';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { cotahistAnnualUrl, createInstrumentCatalogSource } from './cotahist.js';
+import {
+  cotahistAnnualUrl,
+  createInstrumentCatalogSource,
+  createPriceHistorySource,
+} from './cotahist.js';
 
 const record = (
   date: string,
@@ -98,5 +102,45 @@ describe('a fonte do catálogo', () => {
 
   it('o endereço anual da B3 leva o ano', () => {
     expect(cotahistAnnualUrl(2026)).toContain('COTAHIST_A2026.ZIP');
+  });
+});
+
+describe('o histórico de fechamentos', () => {
+  const history = (location: string) =>
+    createPriceHistorySource({ currentYear: () => 2026, locationFor: () => location });
+
+  it('lê só os papéis pedidos, no período, pelo preço negociado', async () => {
+    const result = await history(join(directory, 'COTAHIST_A2026.TXT')).fetchRange(
+      ['ITUB4'],
+      '2026-01-01',
+      '2026-12-31',
+    );
+
+    expect(result.isSuccess()).toBe(true);
+    if (!result.isSuccess()) return;
+    expect(result.value.quotes).toEqual([
+      { ticker: 'ITUB4', price_date: '2026-10-09', close: '32.41' },
+    ]);
+    expect(result.value.missing).toEqual([]);
+  });
+
+  it('diz quais papéis o arquivo não tem', async () => {
+    const result = await history(join(directory, 'COTAHIST_A2026.TXT')).fetchRange(
+      ['ITUB4', 'XXXX3'],
+      '2026-01-01',
+      '2026-12-31',
+    );
+
+    expect(result.isSuccess() && result.value.missing).toEqual(['XXXX3']);
+  });
+
+  it('o período corta as datas fora dele', async () => {
+    const result = await history(join(directory, 'COTAHIST_A2026.TXT')).fetchRange(
+      ['ITUB4'],
+      '2026-10-10',
+      '2026-12-31',
+    );
+
+    expect(result.isSuccess() && result.value.quotes).toEqual([]);
   });
 });

@@ -1,15 +1,27 @@
 import { spawn } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
-import { mkdtemp, open, rm } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, open, rename, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 import { MarketDataUnavailableError } from '@patrimonio/application';
-import type { InstrumentCatalogSource } from '@patrimonio/application';
-import { COTAHIST_SOURCE, readCotahistInstruments, readLines } from '@patrimonio/market';
+import type {
+  AppError,
+  HistoricalPrices,
+  InstrumentCatalogSource,
+  PriceHistorySource,
+  PriceQuote,
+} from '@patrimonio/application';
+import {
+  COTAHIST_SOURCE,
+  readCotahist,
+  readCotahistInstruments,
+  readLines,
+} from '@patrimonio/market';
 import { failure, success } from '@patrimonio/shared';
+import type { Either } from '@patrimonio/shared';
 
 /**
  * O arquivo anual do COTAHIST, no endereço público da B3. Oficial, sem chave e
@@ -140,5 +152,115 @@ export const createInstrumentCatalogSource = (
         `${COTAHIST_SOURCE}: o arquivo de ${year} não está publicado (HTTP 404)`,
       ),
     );
+  },
+});
+
+const exists = async (path: string): Promise<boolean> => {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export const DEFAULT_CACHE_DIRECTORY = join(tmpdir(), 'patrimonio-cotahist-cache');
+
+export type PriceHistoryOptions = {
+  /** Onde ficam os arquivos dos anos fechados, já extraídos. */
+  readonly cacheDirectory?: string | undefined;
+  /** Um caminho ou endereço que substitui o da B3, por ano. */
+  readonly locationFor?: ((year: number) => string | undefined) | undefined;
+  /** O ano corrente: o arquivo dele muda todo dia e nunca vai para o cache. */
+  readonly currentYear: () => number;
+};
+
+/**
+ * O arquivo extraído de um ano. Ano fechado não muda, e o arquivo de uma centena
+ * de megabytes baixado a cada backfill seria o custo de um lançamento retroativo:
+ * ele fica em disco e a leitura seguinte o reaproveita.
+ */
+const withYearFile = async <T>(
+  year: number,
+  options: PriceHistoryOptions,
+  use: (path: string) => Promise<T>,
+): Promise<T> => {
+  const override = options.locationFor?.(year);
+  if (override !== undefined) return withCotahistFile(override, use);
+
+  const cacheable = year < options.currentYear();
+  if (!cacheable) return withCotahistFile(cotahistAnnualUrl(year), use);
+
+  const directory = options.cacheDirectory ?? DEFAULT_CACHE_DIRECTORY;
+  const cached = join(directory, `COTAHIST_A${year}.TXT`);
+
+  if (!(await exists(cached))) {
+    await mkdir(directory, { recursive: true });
+    const partial = `${cached}.${process.pid}.parcial`;
+
+    await withCotahistFile(cotahistAnnualUrl(year), (path) => copyFile(path, partial));
+    await rename(partial, cached);
+  }
+
+  return use(cached);
+};
+
+/**
+ * O histórico de fechamentos dos arquivos anuais. Ano ainda não publicado entra
+ * em `unavailable_years` e não derruba a leitura: o que vem dos outros anos vale.
+ */
+export const createPriceHistorySource = (
+  options: PriceHistoryOptions,
+): PriceHistorySource => ({
+  fetchRange: async (
+    tickers: readonly string[],
+    from: string,
+    to: string,
+  ): Promise<Either<AppError, HistoricalPrices>> => {
+    const firstYear = Number(from.slice(0, 4));
+    const lastYear = Number(to.slice(0, 4));
+
+    const quotes: PriceQuote[] = [];
+    const found = new Set<string>();
+    const unavailable: number[] = [];
+    let linesRead = 0;
+    let recordsKept = 0;
+
+    for (let year = firstYear; year <= lastYear; year += 1) {
+      try {
+        const report = await withYearFile(year, options, (path) =>
+          readCotahist(readLines(path), { tickers, from, to }),
+        );
+
+        if (report.isFailure()) return failure(report.value);
+
+        for (const quote of report.value.quotes) {
+          quotes.push(quote);
+          found.add(quote.ticker);
+        }
+        linesRead += report.value.lines_read;
+        recordsKept += report.value.records_kept;
+      } catch (error) {
+        if (error instanceof NotFound) {
+          unavailable.push(year);
+          continue;
+        }
+
+        return failure(
+          new MarketDataUnavailableError(
+            `${COTAHIST_SOURCE}: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
+      }
+    }
+
+    return success({
+      quotes,
+      source: COTAHIST_SOURCE,
+      lines_read: linesRead,
+      records_kept: recordsKept,
+      missing: tickers.filter((ticker) => !found.has(ticker.toUpperCase())),
+      unavailable_years: unavailable,
+    });
   },
 });

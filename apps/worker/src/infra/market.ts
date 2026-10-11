@@ -1,6 +1,7 @@
 import type {
   IndexProvider,
   InstrumentCatalogSource,
+  PriceHistorySource,
   QuoteSource,
   TreasurySource,
 } from '@patrimonio/application';
@@ -21,7 +22,7 @@ import {
 } from '@patrimonio/market';
 import type { HttpClient } from '@patrimonio/market';
 
-import { createInstrumentCatalogSource } from './cotahist.js';
+import { createInstrumentCatalogSource, createPriceHistorySource } from './cotahist.js';
 
 /**
  * A montagem das fontes. É o único arquivo do worker que conhece o nome de um
@@ -50,6 +51,7 @@ export type MarketSources = {
   readonly indices: IndexProvider;
   readonly treasury: TreasurySource;
   readonly instruments: InstrumentCatalogSource;
+  readonly history: PriceHistorySource;
 };
 
 export const createMarketSources = (options: {
@@ -85,5 +87,6 @@ export const createMarketSources = (options: {
       createTesouroCsvProvider({ http: clientFor('tesouro-transparente') }),
     ]),
     instruments: createInstrumentCatalogSource({ year: options.year }),
+    history: createPriceHistorySource({ currentYear: options.year }),
   };
 };

@@ -1,12 +1,14 @@
 import type { DateOnly, PriceSourceKind, PriceableAsset } from '@patrimonio/domain';
-import { parseTreasuryTicker } from '@patrimonio/domain';
+import { addDays, parseTreasuryTicker } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
 
-import { NotFoundError } from '../../errors/app-error.js';
+import { NotFoundError, isFormatChangedError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
 import type { Clock } from '../../interfaces/clock.js';
 import type {
+  HistoricalPrices,
+  PriceHistorySource,
   QuoteSource,
   SourcedClosing,
   TreasurySource,
@@ -74,6 +76,8 @@ export type BackfillAssetDeps = {
    * cotação de bolsa. Sem ela o backfill do Tesouro fica sem fonte.
    */
   readonly treasury?: TreasurySource | undefined;
+  /** O arquivo anual da B3, consultado antes da brapi. */
+  readonly history?: PriceHistorySource | undefined;
 };
 
 /** O histórico do título, no formato que o resto do backfill já consome. */
@@ -187,42 +191,122 @@ export const backfillAsset = (deps: BackfillAssetDeps) =>
 
     const startedAt = deps.clock.now().toISOString();
 
-    const history =
-      context.asset.b3_type === 'treasury' && deps.treasury !== undefined
-        ? await treasuryHistory(deps.treasury, context.asset, window)
-        : await deps.quotes.fetchHistory(context.asset.ticker, window.from, window.to);
+    const viaTreasury =
+      context.asset.b3_type === 'treasury' && deps.treasury !== undefined;
 
-    if (history.isFailure()) {
-      yield* await deps.unitOfWork.run(async (repositories) =>
-        repositories.market.recordRun(
-          runOf({
-            source: 'history',
-            kind: 'backfill',
-            date,
-            startedAt,
-            finishedAt: deps.clock.now().toISOString(),
-            ok: false,
-            error: history.value,
-          }),
-        ),
+    // O arquivo anual da B3 vem antes: não gasta cota, e a brapi só cobre o que
+    // ele ainda não tem. Formato mudado nele para tudo, como em qualquer fonte;
+    // arquivo fora do ar deixa a brapi cobrir a janela inteira.
+    let archive: HistoricalPrices | null = null;
+
+    if (!viaTreasury && deps.history !== undefined) {
+      const read = await deps.history.fetchRange(
+        [context.asset.ticker],
+        window.from,
+        window.to,
       );
 
-      // Formato mudado é definitivo; fonte fora do ar é transitória e o job
-      // reexecuta. Os dois sobem, e o `defineStage` decide qual é qual.
-      return yield* history;
+      if (read.isSuccess()) {
+        archive = read.value;
+      } else if (isFormatChangedError(read.value)) {
+        yield* await deps.unitOfWork.run(async (repositories) =>
+          repositories.market.recordRun(
+            runOf({
+              source: 'cotahist',
+              kind: 'cotahist',
+              date,
+              startedAt,
+              finishedAt: deps.clock.now().toISOString(),
+              ok: false,
+              error: read.value,
+            }),
+          ),
+        );
+
+        return yield* read;
+      }
     }
 
-    const closing = history.value;
+    const archived = (archive?.quotes ?? []).filter(
+      (quote) => quote.price_date >= window.from && quote.price_date <= window.to,
+    );
+    const covered = archived.reduce<DateOnly | null>(
+      (latest, quote) =>
+        latest === null || quote.price_date > latest ? quote.price_date : latest,
+      null,
+    );
+    const gapFrom = covered === null ? window.from : addDays(covered, 1);
 
-    const rows: AssetPriceWrite[] = closing.quotes
-      .filter((quote) => quote.price_date >= window.from && quote.price_date <= window.to)
-      .map((quote) => ({
+    // O dia de hoje fica para a coleta diária: pedir só ele à brapi gastaria uma
+    // requisição para um preço que o fechamento já traz.
+    const needsLive =
+      viaTreasury ||
+      covered === null ||
+      context.businessDays.some(
+        (day) => day >= gapFrom && day <= window.to && day < date,
+      );
+
+    let live: SourcedClosing | null = null;
+
+    if (needsLive) {
+      const history = viaTreasury
+        ? await treasuryHistory(deps.treasury as TreasurySource, context.asset, {
+            from: gapFrom,
+            to: window.to,
+          })
+        : await deps.quotes.fetchHistory(context.asset.ticker, gapFrom, window.to);
+
+      if (history.isFailure()) {
+        yield* await deps.unitOfWork.run(async (repositories) =>
+          repositories.market.recordRun(
+            runOf({
+              source: 'history',
+              kind: 'backfill',
+              date,
+              startedAt,
+              finishedAt: deps.clock.now().toISOString(),
+              ok: false,
+              error: history.value,
+            }),
+          ),
+        );
+
+        // Formato mudado é definitivo; fonte fora do ar é transitória e o job
+        // reexecuta. Os dois sobem, e o `defineStage` decide qual é qual.
+        return yield* history;
+      }
+
+      live = history.value;
+    }
+
+    const closing: SourcedClosing = live ?? {
+      quotes: [],
+      missing: [],
+      source: 'cotahist',
+      source_kind: 'primary',
+      requests: 0,
+    };
+
+    const rows: AssetPriceWrite[] = [
+      ...archived.map((quote): AssetPriceWrite => ({
         asset_id: input.asset_id,
         price_date: quote.price_date,
         close: quote.close,
-        source: closing.source,
-        source_kind: closing.source_kind === 'none' ? 'primary' : closing.source_kind,
-      }));
+        source: 'cotahist',
+        source_kind: 'primary',
+      })),
+      ...closing.quotes
+        .filter(
+          (quote) => quote.price_date >= window.from && quote.price_date <= window.to,
+        )
+        .map((quote): AssetPriceWrite => ({
+          asset_id: input.asset_id,
+          price_date: quote.price_date,
+          close: quote.close,
+          source: closing.source,
+          source_kind: closing.source_kind === 'none' ? 'primary' : closing.source_kind,
+        })),
+    ];
 
     const earliest = rows.reduce<DateOnly | null>(
       (oldest, row) =>
@@ -252,6 +336,23 @@ export const backfillAsset = (deps: BackfillAssetDeps) =>
           }),
         );
         if (recorded.isFailure()) return recorded;
+
+        if (archived.length > 0) {
+          const archiveRun = await repositories.market.recordRun(
+            runOf({
+              source: 'cotahist',
+              kind: 'cotahist',
+              date,
+              startedAt,
+              finishedAt,
+              ok: true,
+              sourceKind: 'primary',
+              items: archived.length,
+              missing: archive?.missing.length ?? 0,
+            }),
+          );
+          if (archiveRun.isFailure()) return archiveRun;
+        }
 
         // O recálculo pedido agora é o que roda **depois** do backfill, e é ele
         // que põe a série na tela. A chave de coalescência não carrega data, e um

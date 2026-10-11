@@ -93,6 +93,30 @@ export type QuoteSource = {
   ) => Promise<Either<AppError, SourcedClosing>>;
 };
 
+/**
+ * O histórico de fechamentos vindo dos arquivos anuais da B3, sem cota. É o que
+ * o backfill consulta antes de gastar requisição da brapi, e o que a carga
+ * `seed:cotahist` grava. O preço é o negociado na data, sem ajuste por evento.
+ */
+export type HistoricalPrices = {
+  readonly quotes: readonly PriceQuote[];
+  readonly source: string;
+  readonly lines_read: number;
+  readonly records_kept: number;
+  /** Papéis pedidos que nenhum dos arquivos lidos tem. */
+  readonly missing: readonly string[];
+  /** Os anos cujo arquivo ainda não foi publicado: não é erro, é ausência. */
+  readonly unavailable_years: readonly number[];
+};
+
+export type PriceHistorySource = {
+  readonly fetchRange: (
+    tickers: readonly string[],
+    from: DateOnly,
+    to: DateOnly,
+  ) => Promise<Either<AppError, HistoricalPrices>>;
+};
+
 // ─── Índices ─────────────────────────────────────────────────────────────────
 
 /**

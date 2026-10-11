@@ -127,6 +127,7 @@ export const createContainer = (): WorkerContainer => {
         clock: systemClock,
         quotes: market.quotes,
         treasury: market.treasury,
+        history: market.history,
       }),
       refreshInstrumentCatalog: refreshInstrumentCatalog({
         unitOfWork,

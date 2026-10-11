@@ -103,7 +103,9 @@ export type {
   IndexSample,
   PriceQuote,
   QuoteProvider,
+  HistoricalPrices,
   InstrumentCatalogSource,
+  PriceHistorySource,
   InstrumentLookup,
   LookedUpInstrument,
   QuoteSource,
@@ -517,6 +519,15 @@ export type {
   CollectMarketDataInput,
   CollectMarketDataResult,
 } from './usecases/market/collectMarketData.usecase.js';
+export {
+  COTAHIST_LOAD_SOURCE,
+  loadPriceHistory,
+} from './usecases/market/loadPriceHistory.usecase.js';
+export type {
+  LoadPriceHistoryDeps,
+  LoadPriceHistoryInput,
+  LoadPriceHistoryResult,
+} from './usecases/market/loadPriceHistory.usecase.js';
 export {
   TREASURY_CATALOG_SOURCE,
   treasuryInstruments,
