@@ -139,8 +139,6 @@ export {
   getTransactionSchema,
   listTransactionsSchema,
 } from './transaction/listTransactions.schema.js';
-export { createCashMovementSchema } from './transaction/createCashMovement.schema.js';
-export type { CreateCashMovementBody } from './transaction/createCashMovement.schema.js';
 export {
   createPayoutSchema,
   payoutPreviewSchema,
@@ -252,27 +250,35 @@ export {
   listPositionsSchema,
 } from './position/listPositions.schema.js';
 export type { ListPositionsQuery } from './position/listPositions.schema.js';
+export {
+  closedPositionSchema,
+  closedPositionsResourceSchema,
+  listClosedPositionsSchema,
+} from './position/listClosedPositions.schema.js';
+export type {
+  ClosedPosition,
+  ClosedPositionsResource,
+  ListClosedPositionsQuery,
+} from './position/listClosedPositions.schema.js';
 
 export {
   compositionChildSchema,
   compositionNodeSchema,
   getOverviewSchema,
-  overviewAttentionItemSchema,
-  overviewAttentionSchema,
   overviewChangeSchema,
   overviewCompositionSchema,
   overviewPeriodSchema,
   overviewPointSchema,
+  overviewPortfolioShareSchema,
   overviewSchema,
   overviewScopeSchema,
   overviewTopPositionSchema,
   overviewTotalsSchema,
 } from './overview/overview.schema.js';
 export type {
-  OverviewAttentionItemResource,
-  OverviewAttentionResource,
   OverviewCompositionResource,
   OverviewPointResource,
+  OverviewPortfolioShareResource,
   OverviewResource,
   OverviewTopPositionResource,
 } from './overview/overview.schema.js';
@@ -326,23 +332,19 @@ export {
   performanceBenchmarkSchema,
   performanceBreakdownKeySchema,
   performanceBreakdownSchema,
+  performancePortfolioRowSchema,
   performanceChartSchema,
   performanceClassRowSchema,
-  performanceDecompositionSchema,
   performanceMethodSchema,
-  performanceMonthlySchema,
   performanceSchema,
   performanceScopeSchema,
   performanceWindowKeySchema,
   performanceWindowsSchema,
-  performanceYearSchema,
 } from './performance/performance.schema.js';
 export type {
   PerformanceBenchmarkResource,
   PerformanceBreakdownResource,
-  PerformanceDecompositionResource,
   PerformanceMethodResource,
-  PerformanceMonthlyResource,
   PerformanceResource,
   PerformanceWindowsResource,
 } from './performance/performance.schema.js';
@@ -385,10 +387,13 @@ export type {
 } from './goal/goal.schema.js';
 
 export {
+  DELETE_ALL_PHRASE,
   backupQueuedSchema,
+  deleteAllDataResultSchema,
+  deleteAllDataSchema,
+  exportDataSchema,
   getSettingsSchema,
   runBackupSchema,
-  settingsAlertRuleSchema,
   settingsArchivedPortfolioSchema,
   settingsBackupSchema,
   settingsLedgerDefaultsSchema,
@@ -397,7 +402,6 @@ export {
 } from './settings/settings.schema.js';
 export type {
   Settings,
-  SettingsAlertRule,
   SettingsBackup,
   SettingsPortfolio,
 } from './settings/settings.schema.js';

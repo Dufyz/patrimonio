@@ -50,7 +50,8 @@ export const performanceBenchmarkSchema = z.object({
 });
 
 export const performanceScopeSchema = z.object({
-  portfolio_id: uuid,
+  /** Nulo em Todas as carteiras: o escopo é a soma delas. */
+  portfolio_id: uuid.nullable(),
   name: z.string(),
   recalc_status: z.enum(['idle', 'queued', 'running', 'failed']),
   /** O primeiro fechamento do escopo: é o que o período "Início" significa. */
@@ -106,55 +107,6 @@ export const performanceWindowsSchema = z.object({
   rows: z.array(performanceWindowRowSchema),
 });
 
-export const performanceYearSchema = z.object({
-  year: z.number().int(),
-  /** Doze posições, de janeiro a dezembro. */
-  months: z.array(returnOrNull).length(12),
-  total_pct: returnOrNull,
-  benchmark_pct: returnOrNull,
-  difference_pp: returnOrNull,
-  /** O ano corrente: o total é o do ano até aqui. */
-  partial: z.boolean(),
-});
-
-export const performanceMonthlySchema = z.object({
-  /** O benchmark das duas últimas colunas. Nulo quando nenhum foi escolhido. */
-  benchmark_name: z.string().nullable(),
-  /** Do ano mais recente para o mais antigo, como a prancha. */
-  years: z.array(performanceYearSchema),
-});
-
-const decompositionBase = {
-  opening_value: decimalString,
-  net_flow: decimalString,
-  income: decimalString,
-  payouts: decimalString,
-  closing_value: decimalString,
-  return_pct: returnOrNull,
-  benchmark_pct: returnOrNull,
-  difference_pp: returnOrNull,
-};
-
-export const performanceDecompositionRowSchema = z.object({
-  /** `YYYY-MM` */
-  month: z.string().regex(/^\d{4}-\d{2}$/),
-  ...decompositionBase,
-});
-
-export const performanceDecompositionTotalSchema = z.object({
-  months: z.number().int(),
-  from: dateOnly,
-  to: dateOnly,
-  ...decompositionBase,
-});
-
-export const performanceDecompositionSchema = z.object({
-  benchmark_name: z.string().nullable(),
-  /** Do mês mais recente para o mais antigo. */
-  rows: z.array(performanceDecompositionRowSchema),
-  total: performanceDecompositionTotalSchema.nullable(),
-});
-
 export const performanceBreakdownColumnSchema = z.object({
   key: performanceBreakdownKeySchema,
   base_date: dateOnly.nullable(),
@@ -167,14 +119,27 @@ export const performanceClassRowSchema = z.object({
   color_token: z.string(),
   value: decimalString,
   weight_pct: decimalString,
-  /** Caixa não rende por si: o retorno dele fica em traço, não em zero. */
-  is_cash: z.boolean(),
+  /** Nulo quando a classe não tem base para o período: fica em traço, não em zero. */
+  returns: z.array(returnOrNull),
+});
+
+/**
+ * O retorno de cada carteira, pela cota dela. Só vem em Todas as carteiras,
+ * onde a soma não tem cota e a leitura por carteira é a que sobra.
+ */
+export const performancePortfolioRowSchema = z.object({
+  portfolio_id: uuid,
+  name: z.string(),
+  value: decimalString,
+  weight_pct: decimalString,
+  /** Alinhado às colunas; nulo quando a carteira não existia na data-base. */
   returns: z.array(returnOrNull),
 });
 
 export const performanceBreakdownSchema = z.object({
   columns: z.array(performanceBreakdownColumnSchema),
   classes: z.array(performanceClassRowSchema),
+  portfolios: z.array(performancePortfolioRowSchema),
 });
 
 export const performanceSchema = z.object({
@@ -206,8 +171,6 @@ export const performanceSchema = z.object({
   }),
   chart: performanceChartSchema,
   windows: performanceWindowsSchema,
-  monthly: performanceMonthlySchema,
-  decomposition: performanceDecompositionSchema,
   breakdown: performanceBreakdownSchema,
 });
 
@@ -222,7 +185,8 @@ const benchmarkList = z
 
 export const getPerformanceSchema = z.object({
   query: z.object({
-    portfolio_id: uuid,
+    /** Ausente é Todas as carteiras. */
+    portfolio_id: uuid.optional(),
     on_date: dateOnly.optional(),
     /** O recorte do gráfico. As tabelas não dependem dele. */
     from: dateOnly.optional(),
@@ -235,9 +199,5 @@ export const getPerformanceSchema = z.object({
 export type PerformanceResource = z.infer<typeof performanceSchema>;
 export type PerformanceBenchmarkResource = z.infer<typeof performanceBenchmarkSchema>;
 export type PerformanceWindowsResource = z.infer<typeof performanceWindowsSchema>;
-export type PerformanceMonthlyResource = z.infer<typeof performanceMonthlySchema>;
-export type PerformanceDecompositionResource = z.infer<
-  typeof performanceDecompositionSchema
->;
 export type PerformanceBreakdownResource = z.infer<typeof performanceBreakdownSchema>;
 export type PerformanceMethodResource = z.infer<typeof performanceMethodSchema>;

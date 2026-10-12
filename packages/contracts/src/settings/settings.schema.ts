@@ -5,14 +5,14 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
 /**
  * T-08 · Configurações: as seções de ajuste, cada uma resolvendo uma coisa.
  *
- * A resposta é uma só para a tela inteira — carteiras, alertas, o que o
+ * A resposta é uma só para a tela inteira — carteiras, o que o
  * lançamento preenche sozinho e o backup — e
  * não uma por seção, porque a prancha mostra tudo na mesma rolagem e o banco fica em outra
  * rede. A seção de dados de mercado **não** está aqui: ela já tem a sua rota
  * (`GET /market/health`, M-16), com compasso próprio de releitura enquanto uma
  * coleta roda, e duplicá-la seria ter dois lugares que dizem se o preço é de hoje.
  *
- * Três decisões que o contrato fixa:
+ * Decisões que o contrato fixa:
  *
  * - **Bloqueio de exclusão vem com a contagem.** A carteira
  *   traz o que a prende (`blocking`), e a tela escreve "41
@@ -20,10 +20,6 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
  *   regra de bloquear é do servidor; a contagem é só para explicá-la.
  * - **Dinheiro e percentual são string.** O caixa e os totais chegam
  *   prontos, porque a tela não faz conta com dinheiro.
- * - **Alerta traz o limite como veio.** `threshold` é o `jsonb` da regra, sem
- *   interpretação: cada regra tem a forma dela, e quem a traduz em texto é a
- *   tela, a partir do `kind`. Regra "da carteira" vem com `scope:
- *   'per_portfolio'` e sem limite próprio — ele vive em cada carteira.
  * - **O que é do ambiente chega como leitura.** A janela do desfazer e a
  *   alíquota do IR em JCP são configuração de implantação, não preferência
  *   gravada: a seção as mostra, e `editable: false` diz que mudá-las é trocar a
@@ -51,13 +47,6 @@ export const settingsArchivedPortfolioSchema = z.object({
   archived_on: dateOnly,
 });
 
-export const settingsAlertRuleSchema = z.object({
-  kind: z.string(),
-  enabled: z.boolean(),
-  scope: z.enum(['global', 'per_portfolio']),
-  threshold: z.record(z.string(), z.unknown()).nullable(),
-});
-
 export const settingsBackupSchema = z.object({
   /** Falso quando a instalação não ligou o backup: a seção diz isso. */
   enabled: z.boolean(),
@@ -79,7 +68,6 @@ export const settingsLedgerDefaultsSchema = z.object({
 export const settingsSchema = z.object({
   portfolios: z.array(settingsPortfolioSchema),
   archived_portfolios: z.array(settingsArchivedPortfolioSchema),
-  alerts: z.array(settingsAlertRuleSchema),
   ledger_defaults: settingsLedgerDefaultsSchema,
   backup: settingsBackupSchema,
 });
@@ -96,5 +84,22 @@ export const backupQueuedSchema = z.object({
 
 export type Settings = z.infer<typeof settingsSchema>;
 export type SettingsPortfolio = z.infer<typeof settingsPortfolioSchema>;
-export type SettingsAlertRule = z.infer<typeof settingsAlertRuleSchema>;
 export type SettingsBackup = z.infer<typeof settingsBackupSchema>;
+
+/** A frase que o usuário digita para apagar tudo: o atrito é proporcional ao estrago. */
+export const DELETE_ALL_PHRASE = 'APAGAR TUDO';
+
+/** "Exportar tudo": o arquivo sai inteiro, sem filtro. */
+export const exportDataSchema = z.object({});
+
+export const deleteAllDataSchema = z.object({
+  body: z.object({ confirmation: z.literal(DELETE_ALL_PHRASE) }),
+});
+
+export const deleteAllDataResultSchema = z.object({
+  deleted_transactions: z.number().int(),
+  deleted_portfolios: z.number().int(),
+  deleted_assets: z.number().int(),
+  deleted_institutions: z.number().int(),
+  message: z.string(),
+});

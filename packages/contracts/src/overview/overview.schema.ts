@@ -23,7 +23,8 @@ export const overviewChangeSchema = z.object({
 });
 
 export const overviewScopeSchema = z.object({
-  portfolio_id: uuid,
+  /** Nulo é o consolidado: "todas as carteiras" é a ausência de escopo. */
+  portfolio_id: uuid.nullable(),
   name: z.string(),
   tolerance_pp: decimalString,
   recalc_status: z.enum(['idle', 'queued', 'running', 'failed']),
@@ -41,7 +42,8 @@ export const overviewPeriodSchema = z.object({
   from: dateOnly,
   to: dateOnly,
   return_pct: decimalString.nullable(),
-  return_method: z.enum(['portfolio_quota', 'unavailable']),
+  /** `portfolio_quota` é a cota gravada; `window_quota`, a consolidada da janela. */
+  return_method: z.enum(['portfolio_quota', 'window_quota', 'unavailable']),
   contributions: decimalString,
   income: decimalString,
   payouts: decimalString,
@@ -57,7 +59,12 @@ export const overviewPointSchema = z.object({
   date: dateOnly,
   contributions: decimalString,
   total: decimalString,
+  /** Valorização: patrimônio menos o aportado. */
   result: decimalString,
+  /** Proventos recebidos até o dia: saem do patrimônio, mas são rendimento. */
+  payouts: decimalString,
+  /** Patrimônio mais proventos recebidos, o topo da pilha do gráfico. */
+  with_payouts: decimalString,
 });
 
 const compositionBase = {
@@ -104,6 +111,13 @@ export const overviewCompositionSchema = z.object({
   target_rejected: z.boolean(),
 });
 
+export const overviewPortfolioShareSchema = z.object({
+  portfolio_id: uuid,
+  name: z.string(),
+  value: decimalString,
+  weight_pct: decimalString,
+});
+
 export const overviewTopPositionSchema = z.object({
   asset_id: uuid,
   ticker: z.string(),
@@ -117,27 +131,6 @@ export const overviewTopPositionSchema = z.object({
   price_source_kind: z.enum(['fresh', 'stale', 'manual', 'missing']),
 });
 
-export const overviewAttentionItemSchema = z.object({
-  rule_kind: z.string(),
-  subject_id: z.string(),
-  portfolio_id: uuid.nullable(),
-  /** Os valores que o texto do alerta mostra, como a regra os gravou. */
-  payload: z.record(z.string(), z.unknown()),
-  first_seen_at: z.string(),
-});
-
-export const overviewAttentionSchema = z.object({
-  total: z.number().int(),
-  /** Grupo sem item não vem: nenhum bloco aparece vazio. */
-  groups: z.array(
-    z.object({
-      group: z.enum(['corrigir', 'decidir', 'acompanhar']),
-      count: z.number().int(),
-      items: z.array(overviewAttentionItemSchema),
-    }),
-  ),
-});
-
 export const overviewSchema = z.object({
   /** O último fechamento em ou antes da data pedida. Nulo antes do primeiro. */
   reference_date: dateOnly.nullable(),
@@ -146,16 +139,17 @@ export const overviewSchema = z.object({
   period: overviewPeriodSchema,
   series: z.array(overviewPointSchema),
   composition: overviewCompositionSchema,
+  by_portfolio: z.array(overviewPortfolioShareSchema),
   top_positions: z.object({
     total_count: z.number().int(),
     rows: z.array(overviewTopPositionSchema),
   }),
-  attention: overviewAttentionSchema,
 });
 
 export const getOverviewSchema = z.object({
   query: z.object({
-    portfolio_id: uuid,
+    /** Ausente é o consolidado. A carteira é filtro, não rota. */
+    portfolio_id: uuid.optional(),
     on_date: dateOnly.optional(),
     from: dateOnly.optional(),
     to: dateOnly.optional(),
@@ -165,6 +159,5 @@ export const getOverviewSchema = z.object({
 export type OverviewResource = z.infer<typeof overviewSchema>;
 export type OverviewPointResource = z.infer<typeof overviewPointSchema>;
 export type OverviewTopPositionResource = z.infer<typeof overviewTopPositionSchema>;
+export type OverviewPortfolioShareResource = z.infer<typeof overviewPortfolioShareSchema>;
 export type OverviewCompositionResource = z.infer<typeof overviewCompositionSchema>;
-export type OverviewAttentionResource = z.infer<typeof overviewAttentionSchema>;
-export type OverviewAttentionItemResource = z.infer<typeof overviewAttentionItemSchema>;

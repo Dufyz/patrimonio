@@ -25,7 +25,6 @@ export const deletionImpactSchema = z.object({
     avg_price: beforeAfter,
     cost_basis: beforeAfter,
   }),
-  cash: beforeAfter,
   portfolio_cost_basis: beforeAfter,
   realized_result: beforeAfter,
 });

@@ -57,6 +57,7 @@ export const assetPageIdentitySchema = z.object({
   color_token: z.string().nullable(),
   /** A regra automática classificou, ou alguém escolheu à mão (L-03). */
   category_automatic: z.boolean(),
+  issuer_id: uuid.nullable(),
   issuer_name: z.string().nullable(),
   archived_at: z.string().nullable(),
 
@@ -97,6 +98,27 @@ export const assetPagePositionSchema = z.object({
 
 export type AssetPagePosition = z.infer<typeof assetPagePositionSchema>;
 
+/**
+ * A vida do papel na carteira, com ou sem posição aberta. É o que a tela mostra
+ * de um ativo já vendido: o que entrou, o que saiu, o que rendeu.
+ */
+export const assetPageLifetimeSchema = z.object({
+  invested: decimalString,
+  proceeds: decimalString,
+  payouts_received: decimalString,
+  realized_result: decimalString.nullable(),
+  first_trade_date: dateOnly.nullable(),
+  last_trade_date: dateOnly.nullable(),
+  buys: z.number().int().nonnegative(),
+  sells: z.number().int().nonnegative(),
+  /** Retorno ponderado pelo tempo, como razão. Nulo sem dia medível. */
+  twr_ratio: decimalString.nullable(),
+  /** Taxa interna de retorno anualizada, como razão. Nula com prazo curto. */
+  xirr_ratio: decimalString.nullable(),
+});
+
+export type AssetPageLifetime = z.infer<typeof assetPageLifetimeSchema>;
+
 /** O preço do dia, com a procedência que autoriza a confiar nele. */
 export const assetPagePriceSchema = z.object({
   /** Valor unitário na data do fechamento. Nulo na curva. */
@@ -132,11 +154,31 @@ export const assetPageTradeMarkSchema = z.object({
   unit_price: decimalString,
 });
 
+/**
+ * Um dia do valor da posição: o que foi investido e quanto vale na curva.
+ * É o gráfico dos títulos de renda fixa, que não têm preço de mercado.
+ */
+export const assetPageValuePointSchema = z.object({
+  date: dateOnly,
+  cost_basis: decimalString,
+  value: decimalString,
+  /** Valor menos investido: o rendimento acumulado, negativo se houver perda. */
+  result: decimalString,
+  /** Proventos recebidos até o dia: saem da posição, mas são rendimento dela. */
+  payouts: decimalString,
+  /** Valor mais proventos recebidos: o topo da pilha de evolução. */
+  with_payouts: decimalString,
+  /** Rendimento acumulado somando os proventos recebidos. */
+  result_with_payouts: decimalString,
+});
+
 export const assetPageSeriesSchema = z.object({
   period: assetPeriodSchema,
   from: dateOnly.nullable(),
   to: dateOnly.nullable(),
   points: z.array(assetPagePointSchema),
+  /** Investido, valor e proventos por dia na janela: a evolução da posição. */
+  value_points: z.array(assetPageValuePointSchema),
   marks: z.array(assetPageTradeMarkSchema),
   /** Verdadeiro quando um evento confirmado afeta a janela: a legenda diz. */
   adjusted: z.boolean(),
@@ -192,6 +234,7 @@ export const assetPageTransactionSchema = z.object({
   quantity: decimalString,
   unit_price: decimalString,
   net_amount: decimalString,
+  fees: decimalString,
   /** Nulo enquanto o provento está "a receber". */
   confirmed_at: z.string().nullable(),
   portfolio_id: uuid,
@@ -254,6 +297,7 @@ export const assetPageResourceSchema = z.object({
    * a tela diz que a posição está zerada em vez de mostrar seis zeros (O-09).
    */
   position: assetPagePositionSchema.nullable(),
+  lifetime: assetPageLifetimeSchema,
   series: assetPageSeriesSchema,
   payouts: assetPagePayoutsSchema,
   transactions: assetPageTransactionsSchema,

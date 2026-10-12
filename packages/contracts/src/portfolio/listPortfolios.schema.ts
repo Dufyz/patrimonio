@@ -26,4 +26,6 @@ export const listPortfoliosResponseSchema = z.object({
   portfolios: z.array(portfolioResourceSchema),
   /** O valor de cada carteira no último fechamento, por identificador. */
   values: z.record(uuid, decimalString),
+  /** A soma dos valores acima. Nula quando nenhuma carteira fechou. */
+  total: decimalString.nullable(),
 });

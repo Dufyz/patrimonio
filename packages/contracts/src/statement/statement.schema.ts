@@ -32,17 +32,9 @@ import {
  */
 
 /**
- * Os tipos como as pastilhas os agrupam: aporte e resgate são uma pastilha só
- * ("Aportes e resgates"), porque é assim que alguém pergunta pelo dinheiro que
- * entrou e saiu.
+ * Os tipos como as pastilhas os agrupam.
  */
-export const STATEMENT_GROUPS = [
-  'buy',
-  'sell',
-  'payout',
-  'cash',
-  'event',
-] as const;
+export const STATEMENT_GROUPS = ['buy', 'sell', 'payout', 'event'] as const;
 
 export const statementGroupSchema = z.enum(STATEMENT_GROUPS);
 
@@ -55,7 +47,6 @@ export const STATEMENT_GROUP_KINDS: Readonly<
   buy: ['buy'],
   sell: ['sell'],
   payout: ['payout'],
-  cash: ['deposit', 'withdrawal'],
   event: ['corporate_event'],
 };
 
@@ -67,13 +58,17 @@ export const getStatementSchema = z.object({
        * proteção contra um pedido sem fim.
        */
       limit: z.coerce.number().int().positive().max(2000).default(50),
-      portfolio_id: uuid,
+      /** Ausente significa todas as carteiras ativas. */
+      portfolio_id: uuid.optional(),
       /** Uma ou mais instituições, separadas por vírgula; vale "qualquer uma". */
       institution_id: z
         .string()
         .trim()
         .max(600)
-        .regex(/^[0-9a-fA-F-]+(,[0-9a-fA-F-]+)*$/, 'informe os identificadores separados por vírgula')
+        .regex(
+          /^[0-9a-fA-F-]+(,[0-9a-fA-F-]+)*$/,
+          'informe os identificadores separados por vírgula',
+        )
         .optional(),
       /** Um ou mais tipos, separados por vírgula; ausente é "Todos". */
       group: z
@@ -82,7 +77,9 @@ export const getStatementSchema = z.object({
         .max(100)
         .refine(
           (value) =>
-            value.split(',').every((part) => statementGroupSchema.safeParse(part).success),
+            value
+              .split(',')
+              .every((part) => statementGroupSchema.safeParse(part).success),
           'informe tipos válidos separados por vírgula',
         )
         .optional(),
@@ -133,8 +130,6 @@ export const statementEffectSchema = z.discriminatedUnion('type', [
     expected: decimalString.nullable(),
   }),
   z.object({ type: z.literal('cost_reduction'), amount: decimalString }),
-  z.object({ type: z.literal('cash_in') }),
-  z.object({ type: z.literal('cash_out') }),
   z.object({
     type: z.literal('corporate_event'),
     ratio_from: decimalString,
@@ -167,11 +162,10 @@ export const statementRowSchema = z.object({
   fees: decimalString,
   gross_amount: decimalString,
   tax_withheld: decimalString,
-  /** Com sinal: o que entrou (+) ou saiu (−) do caixa. */
+  /** Com sinal: o que saiu (−) ou entrou (+) do patrimônio. */
   net_amount: decimalString,
   /** Nulo enquanto o provento está "a receber". */
   confirmed_at: z.string().nullable(),
-  note: z.string().nullable(),
   effect: statementEffectSchema,
 });
 
@@ -184,8 +178,6 @@ export type StatementRow = z.infer<typeof statementRowSchema>;
  */
 export const statementSummarySchema = z.object({
   count: z.number().int().nonnegative(),
-  deposits: decimalString,
-  withdrawals: decimalString,
   buys: decimalString,
   sells: decimalString,
   payouts: decimalString,
@@ -203,7 +195,8 @@ export type StatementMonth = z.infer<typeof statementMonthSchema>;
 
 export const statementResourceSchema = z.object({
   scope: z.object({
-    portfolio_id: uuid,
+    /** Nulo é o consolidado: carteira é filtro, não rota. */
+    portfolio_id: uuid.nullable(),
     portfolio_name: z.string().nullable(),
     /** Quantos lançamentos o escopo tem, sem filtro nenhum — o "312 desde mar/2021". */
     entries_total: z.number().int().nonnegative(),

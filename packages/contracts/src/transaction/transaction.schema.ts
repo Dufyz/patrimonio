@@ -6,7 +6,6 @@ import {
   decimalString,
   name,
   nonNegativeDecimal,
-  optionalText,
   uuid,
 } from '../support/primitives.schema.js';
 
@@ -33,7 +32,6 @@ export const transactionResourceSchema = z.object({
   confirmed_at: z.string().nullable(),
   event_ratio_from: decimalString.nullable(),
   event_ratio_to: decimalString.nullable(),
-  note: z.string().nullable(),
   idempotency_key: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -56,7 +54,6 @@ export const transactionPreviewSchema = z.object({
     cost_basis: beforeAfter,
     weight_pct: beforeAfter,
   }),
-  cash: beforeAfter,
   portfolio_cost_basis: beforeAfter,
   allocation: z
     .object({
@@ -97,20 +94,15 @@ export const transactionWritableSchema = z
     tax_withheld: nonNegativeDecimal.optional(),
     payout_kind: payoutKindSchema.optional(),
     record_date: dateOnly.optional(),
-    note: optionalText.optional(),
   })
   .refine((body) => body.asset_id === undefined || body.asset === undefined, {
     message: 'informe o ativo pelo id ou pelos dados do cadastro, não os dois',
     path: ['asset'],
   })
-  .refine(
-    (body) =>
-      body.kind === 'deposit' ||
-      body.kind === 'withdrawal' ||
-      body.asset_id !== undefined ||
-      body.asset !== undefined,
-    { message: 'este tipo de lançamento precisa de um ativo', path: ['asset_id'] },
-  )
+  .refine((body) => body.asset_id !== undefined || body.asset !== undefined, {
+    message: 'este tipo de lançamento precisa de um ativo',
+    path: ['asset_id'],
+  })
   .refine((body) => body.kind !== 'payout' || body.payout_kind !== undefined, {
     message: 'provento precisa do tipo de provento',
     path: ['payout_kind'],

@@ -29,9 +29,10 @@ export const SEARCH_GROUP_LIMIT_DEFAULT = 5;
 
 export const getSearchSchema = z.object({
   query: z.object({
-    /** O texto digitado. Casa com código, nome e observação, sem distinguir maiúscula. */
+    /** O texto digitado. Casa com código e nome, sem distinguir maiúscula. */
     q: z.string().trim().min(1).max(80),
-    portfolio_id: uuid,
+    /** Ausente significa todas as carteiras ativas. */
+    portfolio_id: uuid.optional(),
     limit: z.coerce
       .number()
       .int()
