@@ -170,6 +170,33 @@ describe('cadeia de fallback', () => {
     expect(result.value.quotes).toEqual([]);
     expect(result.value.missing).toEqual(['ITUB4', 'KNRI11']);
     expect(result.value.source_kind).toBe('none');
+    // O motivo de cada elo fica registrado: sem ele, a tela só saberia dizer
+    // que o papel está sem cotação.
+    expect(result.value.skipped).toEqual(['brapi: fora do ar', 'bolsai: fora do ar']);
+  });
+
+  it('alternativa ilegível não esconde por que a principal foi pulada', async () => {
+    const chain = createQuoteChain([
+      provider({
+        id: 'brapi',
+        answer: () => failure(new MarketDataUnavailableError('brapi respondeu 401')),
+      }),
+      provider({
+        id: 'bolsai',
+        answer: () =>
+          failure(
+            new FormatChangedError('bolsai', 'body', 'não é JSON válido', '<html>'),
+          ),
+      }),
+    ]);
+
+    const result = await chain.fetchClosing(['ITUB4'], DATE);
+
+    expect(result.isSuccess()).toBe(true);
+    if (!result.isSuccess()) return;
+    expect(result.value.source_kind).toBe('none');
+    expect(result.value.skipped?.[0]).toBe('brapi: brapi respondeu 401');
+    expect(result.value.skipped?.[1]).toContain('bolsai');
   });
 
   it('a ordem da cadeia é a da configuração, não a do código', async () => {
