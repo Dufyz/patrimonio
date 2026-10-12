@@ -155,11 +155,16 @@ com país, categorias em dois níveis com regra automática,
 ativos de mercado que nascem no primeiro lançamento e títulos de renda fixa
 cadastrados à mão.
 
-Os sete tipos de lançamento gravam, editam e excluem com o efeito calculado
-antes de salvar: compra e venda com liquidação sugerida em dia útil, aporte e
-resgate sobre um caixa que é ativo sintético por instituição, provento com
-quantidade apurada na data-com e recebimento confirmado depois, e evento corporativo aplicado só por
-confirmação.
+Os quatro tipos de lançamento gravam, editam e excluem com o efeito calculado
+antes de salvar: compra e venda com liquidação sugerida em dia útil, provento com
+quantidade apurada na data-com e recebimento confirmado depois, e evento
+corporativo aplicado só por confirmação.
+
+O app controla investimentos, não conta bancária: não há caixa. Comprar é
+aportar e vender é resgatar; o provento (dividendo, JCP, juros, rendimento) é
+rendimento recebido que sai do patrimônio — conta na rentabilidade e em
+“Recebido”, mas não no valor da carteira —, e a amortização devolve principal,
+que também sai como resgate.
 
 Toda escrita aceita `Idempotency-Key`, toda exclusão deixa desfazer por alguns
 segundos, e uma linha de texto — `compra 100 itub4 36,84 ontem` — vira
@@ -174,8 +179,8 @@ vive em `packages/calc` e cobre compra, venda com resultado realizado,
 evento corporativo e amortização; o resto de `calc` — cota,
 marcação na curva, IR e projeção — chega em E3.
 
-O que está declarado e ainda não calcula nada: os estágios `alerts` e `import`
-atravessam o pipeline e registram que a implementação chega em E7. `exporter` tem
+O que está declarado e ainda não calcula nada: o estágio `import`
+atravessa o pipeline e registra que a implementação chega em E7. `exporter` tem
 só a superfície.
 
 ## Fase 4 · Dados de mercado
@@ -244,7 +249,7 @@ visíveis. Filtrar também é da `api`, pela mesma razão — um filtro aplicado
 navegador faria o subtotal descrever linhas que a tela escondeu.
 
 Uma distinção que parece detalhe e não é. A variação do dia e o retorno de doze
-meses **de uma linha** saem do valor unitário, que aporte e resgate não
+meses **de uma linha** saem do valor unitário, que compra e venda não
 contaminam: comprar mais do mesmo papel muda a quantidade, não o preço. As
 mesmas medidas **de um grupo** não existem — a média ponderada de variações só
 valeria sem fluxo no período —, e o retorno de um conjunto sai da série de cota,
