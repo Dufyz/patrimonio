@@ -1,18 +1,31 @@
-import type { AssetPageIdentity, CategoryResource } from '@patrimonio/contracts';
+import type {
+  AssetPageIdentity,
+  CategoryResource,
+  InstitutionResource,
+} from '@patrimonio/contracts';
 import { useEffect, useMemo, useState } from 'react';
 
+import { fetchInstitutions } from '../../api/institutions.js';
 import {
   archiveAsset,
   deleteAsset,
   fetchCategories,
   updateAsset,
 } from '../../api/registers.js';
+import type { AssetPatch, FixedIncomeBody } from '../../api/registers.js';
 import { Modal } from '../../components/overlay.js';
-import { Button } from '../../components/primitives.js';
+import { Button, Label, Segmented } from '../../components/primitives.js';
 import { colorForToken } from '../../lib/tokens.js';
 import { Callout, Field, Input, Select } from '../entry/fields.js';
 import { FormShell } from '../entry/form_shell.js';
 import { DeleteDialog } from './delete_dialog.js';
+import {
+  INDEXERS,
+  LIQUIDITIES,
+  RATE_SUFFIX,
+  TAXES,
+  parseRate,
+} from './fixed_income_dialog.js';
 import { useSubmit } from './use_submit.js';
 
 /**
@@ -24,6 +37,14 @@ import { useSubmit } from './use_submit.js';
  * recusado pela `api`; a saída é arquivar, que o esconde das buscas e do
  * cadastro mas guarda o histórico.
  */
+/** `112.0000` → `112`; `112.5000` → `112.5`. A tela edita o número como se escreve. */
+const trimRate = (rate: string | null): string =>
+  rate === null
+    ? ''
+    : rate.includes('.')
+      ? rate.replace(/0+$/, '').replace(/\.$/, '')
+      : rate;
+
 export const AssetDialog = ({
   asset,
   onClose,
@@ -43,6 +64,39 @@ export const AssetDialog = ({
   const [category, setCategory] = useState(asset.category_id ?? '');
   const [categories, setCategories] = useState<readonly CategoryResource[]>([]);
   const [attempted, setAttempted] = useState(false);
+
+  // O título de renda fixa cadastrado à mão tem condições que o formulário de
+  // cadastro pede e a edição precisa devolver: emissor, indexador, taxa, datas,
+  // liquidez e imposto. Ação e FII não têm nenhuma delas.
+  const curve = asset.indexer !== null;
+  const [institutions, setInstitutions] = useState<readonly InstitutionResource[]>([]);
+  const [issuer, setIssuer] = useState(asset.issuer_id ?? '');
+  const [indexer, setIndexer] = useState<FixedIncomeBody['indexer']>(
+    asset.indexer ?? 'cdi_pct',
+  );
+  const [rate, setRate] = useState(trimRate(asset.rate));
+  const [issuedAt, setIssuedAt] = useState(asset.issued_at ?? '');
+  const [maturity, setMaturity] = useState(asset.maturity_date ?? '');
+  const [liquidity, setLiquidity] = useState<FixedIncomeBody['liquidity']>(
+    asset.liquidity ?? 'at_maturity',
+  );
+  const [liquidityDays, setLiquidityDays] = useState(
+    asset.liquidity_days === null ? '' : String(asset.liquidity_days),
+  );
+  const [tax, setTax] = useState<FixedIncomeBody['tax_regime']>(
+    asset.tax_regime ?? 'regressive',
+  );
+
+  useEffect(() => {
+    if (!curve) return;
+    const controller = new AbortController();
+    fetchInstitutions(controller.signal)
+      .then(setInstitutions)
+      .catch(() => {
+        // Sem a lista o emissor atual continua valendo.
+      });
+    return () => controller.abort();
+  }, [curve]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,6 +119,46 @@ export const AssetDialog = ({
   const nameError = name.trim() === '' ? 'Informe o nome.' : undefined;
   const categoryChanged = category !== (asset.category_id ?? '');
 
+  const curveErrors = curve
+    ? {
+        issuer: issuer === '' ? 'Escolha o emissor.' : undefined,
+        rate: parseRate(rate) === null ? 'Informe a taxa, como 112,00.' : undefined,
+        issuedAt: issuedAt === '' ? 'Informe a data da aplicação.' : undefined,
+        maturity:
+          maturity === ''
+            ? 'Informe o vencimento.'
+            : issuedAt !== '' && maturity <= issuedAt
+              ? 'O vencimento vem depois da aplicação.'
+              : undefined,
+        days:
+          liquidity === 'd_plus_n' && !/^[1-9]\d*$/.test(liquidityDays.trim())
+            ? 'Informe os dias.'
+            : undefined,
+      }
+    : {};
+  const curveValid = Object.values(curveErrors).every((error) => error === undefined);
+  const curveChanged =
+    curve &&
+    (indexer !== asset.indexer ||
+      parseRate(rate) !== trimRate(asset.rate) ||
+      issuedAt !== asset.issued_at ||
+      maturity !== asset.maturity_date ||
+      tax !== asset.tax_regime);
+
+  const curvePatch = (): AssetPatch =>
+    curve
+      ? {
+          issuer_id: issuer,
+          indexer,
+          rate: parseRate(rate) ?? '0',
+          issued_at: issuedAt,
+          maturity_date: maturity,
+          liquidity,
+          liquidity_days: liquidity === 'd_plus_n' ? Number(liquidityDays) : null,
+          tax_regime: tax,
+        }
+      : {};
+
   const { pending, error, submit } = useSubmit(
     () =>
       updateAsset(asset.asset_id, {
@@ -72,19 +166,21 @@ export const AssetDialog = ({
         name: name.trim(),
         sector: sector.trim() === '' ? null : sector.trim(),
         category_id: category === '' ? null : category,
+        ...curvePatch(),
       }),
     () => onSaved(ticker.trim().toUpperCase()),
   );
 
   const save = (): void => {
     setAttempted(true);
-    if (tickerError === undefined && nameError === undefined) submit();
+    if (tickerError === undefined && nameError === undefined && curveValid) submit();
   };
 
   return (
     <Modal
       open
-      narrow
+      guard
+      narrow={!curve}
       title={`Editar ativo · ${asset.ticker}`}
       subtitle={asset.name}
       onClose={onClose}
@@ -176,6 +272,127 @@ export const AssetDialog = ({
             Mudar a categoria reclassifica todo o histórico do ativo e altera a alocação
             de todas as carteiras que o têm.
           </Callout>
+        ) : null}
+
+        {curve ? (
+          <>
+            <Field label="Emissor" error={attempted ? curveErrors.issuer : undefined}>
+              {(control) => (
+                <Select
+                  {...control}
+                  invalid={attempted && curveErrors.issuer !== undefined}
+                  value={issuer}
+                  placeholder={asset.issuer_name ?? 'Escolha a instituição'}
+                  options={institutions}
+                  onChange={(event) => setIssuer(event.target.value)}
+                />
+              )}
+            </Field>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Indexador</Label>
+              <Segmented
+                label="Indexador"
+                options={INDEXERS}
+                value={indexer}
+                onChange={setIndexer}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <Field label="Taxa" error={attempted ? curveErrors.rate : undefined}>
+                {(control) => (
+                  <span className="relative block">
+                    <Input
+                      {...control}
+                      numeric
+                      inputMode="decimal"
+                      invalid={attempted && curveErrors.rate !== undefined}
+                      className="pr-16"
+                      value={rate}
+                      onChange={(event) => setRate(event.target.value)}
+                    />
+                    <span className="pointer-events-none absolute top-0 right-2.5 flex h-[38px] items-center text-xs text-ink-3">
+                      {RATE_SUFFIX[indexer]}
+                    </span>
+                  </span>
+                )}
+              </Field>
+              <Field
+                label="Aplicação"
+                error={attempted ? curveErrors.issuedAt : undefined}
+              >
+                {(control) => (
+                  <Input
+                    {...control}
+                    type="date"
+                    invalid={attempted && curveErrors.issuedAt !== undefined}
+                    value={issuedAt}
+                    onChange={(event) => setIssuedAt(event.target.value)}
+                  />
+                )}
+              </Field>
+              <Field
+                label="Vencimento"
+                error={attempted ? curveErrors.maturity : undefined}
+              >
+                {(control) => (
+                  <Input
+                    {...control}
+                    type="date"
+                    invalid={attempted && curveErrors.maturity !== undefined}
+                    value={maturity}
+                    onChange={(event) => setMaturity(event.target.value)}
+                  />
+                )}
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label>Liquidez</Label>
+                <Segmented
+                  label="Liquidez"
+                  options={LIQUIDITIES}
+                  value={liquidity}
+                  onChange={setLiquidity}
+                />
+                {liquidity === 'd_plus_n' ? (
+                  <Field
+                    label="Dias de carência"
+                    error={attempted ? curveErrors.days : undefined}
+                  >
+                    {(control) => (
+                      <Input
+                        {...control}
+                        numeric
+                        inputMode="numeric"
+                        invalid={attempted && curveErrors.days !== undefined}
+                        value={liquidityDays}
+                        onChange={(event) => setLiquidityDays(event.target.value)}
+                      />
+                    )}
+                  </Field>
+                ) : null}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Imposto de renda</Label>
+                <Segmented
+                  label="Imposto de renda"
+                  options={TAXES}
+                  value={tax}
+                  onChange={setTax}
+                />
+              </div>
+            </div>
+
+            {curveChanged ? (
+              <Callout tone="warning">
+                Mudar indexador, taxa, datas ou imposto recalcula o valor do título em
+                todas as datas, em todas as carteiras que o têm.
+              </Callout>
+            ) : null}
+          </>
         ) : null}
 
         <Field label="Fonte de preço">

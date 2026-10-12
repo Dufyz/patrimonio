@@ -64,6 +64,11 @@ export type DataTableProps<Row> = {
    */
   readonly renderExpansion?: ((row: Row) => React.ReactNode) | undefined;
   readonly emptyState?: React.ReactNode;
+  /**
+   * Linha desabilitada: esmaecida, sem abrir nem menu, e sempre no fim do grupo.
+   * É a posição encerrada, que aparece na tabela mas não se opera.
+   */
+  readonly isRowDisabled?: ((row: Row) => boolean) | undefined;
   /** Largura imposta, para teste e para a comparação visual. */
   readonly width?: number | undefined;
 };
@@ -90,6 +95,7 @@ export const DataTable = <Row,>({
   rowActions,
   renderExpansion,
   emptyState,
+  isRowDisabled,
   width: forcedWidth,
 }: DataTableProps<Row>): React.ReactElement => {
   const container = useRef<HTMLDivElement>(null);
@@ -132,6 +138,7 @@ export const DataTable = <Row,>({
         ...(total === undefined ? {} : { total }),
         ...(rowsPerGroup === undefined ? {} : { rowsPerGroup }),
         expandable: renderExpansion !== undefined,
+        ...(isRowDisabled === undefined ? {} : { pinLast: isRowDisabled }),
       }),
     [
       groups,
@@ -142,10 +149,17 @@ export const DataTable = <Row,>({
       total,
       rowsPerGroup,
       renderExpansion,
+      isRowDisabled,
     ],
   );
 
-  const dataRows = useMemo(() => model.filter((entry) => entry.kind === 'row'), [model]);
+  const dataRows = useMemo(
+    () =>
+      model.filter(
+        (entry) => entry.kind === 'row' && isRowDisabled?.(entry.row) !== true,
+      ),
+    [model, isRowDisabled],
+  );
 
   const onSort = (columnId: string): void =>
     setState((current) => ({ ...current, sort: nextSort(current.sort, columnId) }));
@@ -358,24 +372,36 @@ export const DataTable = <Row,>({
               );
             }
 
-            const selected = state.selectedRowId === entry.id;
+            const disabled = isRowDisabled?.(entry.row) === true;
+            const selected = !disabled && state.selectedRowId === entry.id;
             const expanded = state.expandedRowId === entry.id;
 
             return (
               <tr
                 key={entry.id}
                 data-row-id={entry.id}
-                tabIndex={0}
+                tabIndex={disabled ? -1 : 0}
                 aria-selected={selected}
+                aria-disabled={disabled || undefined}
                 aria-label={rowLabel(entry.row)}
                 {...(renderExpansion === undefined ? {} : { 'aria-expanded': expanded })}
                 className={`group border-b border-line outline-offset-[-2px] ${
-                  selected ? 'bg-accent-soft' : 'hover:bg-panel-2'
-                } ${openOnClick || renderExpansion !== undefined ? 'cursor-pointer' : ''}`}
-                onFocus={() =>
-                  setState((current) => ({ ...current, selectedRowId: entry.id }))
-                }
+                  disabled
+                    ? 'cursor-not-allowed opacity-55'
+                    : selected
+                      ? 'bg-accent-soft'
+                      : 'hover:bg-panel-2'
+                } ${
+                  !disabled && (openOnClick || renderExpansion !== undefined)
+                    ? 'cursor-pointer'
+                    : ''
+                }`}
+                onFocus={() => {
+                  if (disabled) return;
+                  setState((current) => ({ ...current, selectedRowId: entry.id }));
+                }}
                 onClick={() => {
+                  if (disabled) return;
                   setState((current) => ({
                     ...current,
                     selectedRowId: entry.id,
@@ -386,8 +412,12 @@ export const DataTable = <Row,>({
                   }));
                   if (openOnClick) onOpenRow?.(entry.row);
                 }}
-                onDoubleClick={() => onOpenRow?.(entry.row)}
-                onKeyDown={(event) => onRowKeyDown(event, entry.row)}
+                onDoubleClick={() => {
+                  if (!disabled) onOpenRow?.(entry.row);
+                }}
+                onKeyDown={(event) => {
+                  if (!disabled) onRowKeyDown(event, entry.row);
+                }}
               >
                 {shown.map((column) => (
                   <td
@@ -403,7 +433,9 @@ export const DataTable = <Row,>({
                     {column.cell(entry.row)}
                   </td>
                 ))}
-                {rowActions === undefined ? null : (
+                {rowActions === undefined ? null : disabled ? (
+                  <td className="px-1.5 py-1" />
+                ) : (
                   // O clique no menu da linha não é clique na linha: sem isto,
                   // abrir o menu abriria também o detalhe embaixo.
                   <td

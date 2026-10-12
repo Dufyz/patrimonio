@@ -4,6 +4,12 @@ import { colorForToken } from '../lib/tokens.js';
 import { Icon } from './icon.js';
 import { SearchInput } from './primitives.js';
 import { Checkbox } from './ui/checkbox.js';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu.js';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.js';
 
 /**
@@ -147,3 +153,47 @@ export const FilterDropdown = ({
     </Popover>
   );
 };
+
+/**
+ * A escolha única na mesma moldura dos filtros: `Agrupar · Categoria`. Um
+ * seletor segmentado gasta a largura de todas as opções para mostrar uma só; o
+ * botão gasta a de uma e abre as demais sob demanda.
+ */
+export const ChoiceDropdown = <T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  readonly label: string;
+  readonly value: T;
+  readonly options: readonly { readonly value: T; readonly label: string }[];
+  readonly onChange: (value: T) => void;
+}): React.ReactElement => (
+  <DropdownMenu modal={false}>
+    <DropdownMenuTrigger asChild>
+      <button
+        type="button"
+        aria-label={label}
+        className="inline-flex h-control shrink-0 cursor-pointer items-center gap-2 rounded-control border border-line-2 bg-panel px-[11px] text-[0.78125rem] font-medium whitespace-nowrap text-ink-2 outline-none hover:bg-panel-2 focus-visible:ring-2 focus-visible:ring-focus/40 data-[state=open]:bg-panel-2"
+      >
+        <span>
+          {label} · {options.find((option) => option.value === value)?.label ?? value}
+        </span>
+        <Icon name="chevron-down" />
+      </button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent aria-label={label} align="start">
+      {options.map((option) => (
+        <DropdownMenuItem key={option.value} onSelect={() => onChange(option.value)}>
+          <span className="flex min-w-0 items-center gap-2.5">
+            <span aria-hidden="true" className="w-3.5 text-accent">
+              {option.value === value ? <Icon name="check" size={14} /> : null}
+            </span>
+            {option.label}
+          </span>
+        </DropdownMenuItem>
+      ))}
+    </DropdownMenuContent>
+  </DropdownMenu>
+);

@@ -23,7 +23,6 @@ import type { EntryReference, EntryTab } from '../lib/entry.js';
 import { browserStorage, readRaw, writeRaw } from '../lib/preferences.js';
 import type { PickedAsset } from '../views/entry/asset_picker.js';
 import type { AssetSearch } from '../views/entry/asset_picker.js';
-import { CashFormView } from '../views/entry/cash_form.js';
 import { EventFormView } from '../views/entry/event_form.js';
 import { ConfirmEntry } from '../views/entry/confirm_form.js';
 import { EditEntry } from '../views/entry/edit_form.js';
@@ -50,7 +49,7 @@ export type OpenEntryRequest = {
   readonly tab?: EntryTab;
   readonly asset?: PickedAsset | null;
   readonly portfolioId?: string | null;
-  readonly seed?: Pick<TradeSeed, 'quantity' | 'price' | 'fees' | 'note'>;
+  readonly seed?: Pick<TradeSeed, 'quantity' | 'price' | 'fees'>;
 };
 
 export type EntryApi = {
@@ -95,8 +94,8 @@ export const EntryProvider = ({
   search,
   children,
 }: {
-  /** A carteira do escopo atual. */
-  readonly scopePortfolioId: string;
+  /** A carteira do escopo atual; "Todas" é `null`, e a primeira carteira entra no lugar. */
+  readonly scopePortfolioId: string | null;
   /** Troca-se nos testes para não depender da rede. */
   readonly search?: AssetSearch;
   readonly children: React.ReactNode;
@@ -217,6 +216,7 @@ export const EntryProvider = ({
 
       <Modal
         narrow
+        guard
         title={title}
         subtitle={
           dialog?.kind === 'entry'
@@ -367,15 +367,6 @@ export const EntryForms = ({
           reference={reference}
           seed={{ asset, portfolioId, institutionId, date: today }}
           {...searchProps}
-          onSaved={onSaved}
-          onCancel={onCancel}
-        />
-      ) : tab === 'deposit' || tab === 'withdrawal' ? (
-        <CashFormView
-          key={tab}
-          kind={tab}
-          reference={reference}
-          seed={{ portfolioId, institutionId, date: today }}
           onSaved={onSaved}
           onCancel={onCancel}
         />

@@ -8,7 +8,7 @@ import { Button } from '../../components/primitives.js';
 import { PAYOUT_KIND_LABELS } from '../../lib/asset_page.js';
 import { buildConfirmBody, inputValue, isPendingPayout } from '../../lib/entry.js';
 import { formatShortDate } from '../../lib/positions.js';
-import { Callout, Field, Input, useVisibleErrors } from './fields.js';
+import { Callout, Field, Input, MoneyInput, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
 import { useSave } from './hooks.js';
 
@@ -109,12 +109,11 @@ export const ConfirmFormView = ({
 }): React.ReactElement => {
   const expected = transaction.expected_net_amount ?? transaction.net_amount;
   const [netAmount, setNetAmount] = useState(moneyInput(expected));
-  const [note, setNote] = useState('');
   const [dismissing, setDismissing] = useState(false);
   const [reason, setReason] = useState('');
   const [reasonMissing, setReasonMissing] = useState(false);
 
-  const built = useMemo(() => buildConfirmBody({ netAmount, note }), [netAmount, note]);
+  const built = useMemo(() => buildConfirmBody({ netAmount }), [netAmount]);
   const errors = built.ok ? {} : built.errors;
   const visible = useVisibleErrors(errors);
   const save = useSave();
@@ -202,7 +201,7 @@ export const ConfirmFormView = ({
             hint="Se o valor for diferente do previsto, a diferença fica registrada no lançamento."
           >
             {(control) => (
-              <Input
+              <MoneyInput
                 {...control}
                 numeric
                 autoFocus
@@ -211,17 +210,6 @@ export const ConfirmFormView = ({
                 value={netAmount}
                 onBlur={() => visible.touch('netAmount')}
                 onChange={(event) => setNetAmount(event.target.value)}
-              />
-            )}
-          </Field>
-          <Field label="Observação">
-            {(control) => (
-              <Input
-                {...control}
-                invalid={false}
-                placeholder="opcional"
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
               />
             )}
           </Field>

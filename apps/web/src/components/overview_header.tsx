@@ -4,7 +4,7 @@ import { Label } from './primitives.js';
 /**
  * D-05 · O cabeçalho de visão geral.
  *
- * O mesmo bloco abre Visão geral, Posições, Desempenho e a tela de carteira, e
+ * O mesmo bloco abre Visão geral, Posições e a tela de carteira, e
  * a ordem dentro dele é a resposta da tela: o número principal primeiro, a
  * variação dele no período logo abaixo, as métricas de apoio depois e o gráfico
  * ocupando o resto da largura.

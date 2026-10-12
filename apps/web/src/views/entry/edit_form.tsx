@@ -24,7 +24,7 @@ import type {
 } from '../../lib/entry.js';
 import { formatShortDate } from '../../lib/positions.js';
 import { EffectPanel } from './effect_table.js';
-import { Callout, Field, Input, Select, useVisibleErrors } from './fields.js';
+import { Callout, Field, Input, MoneyInput, Select, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
 import { InstitutionPicker } from './institution_picker.js';
 import { usePreview, useSave } from './hooks.js';
@@ -50,15 +50,7 @@ type Loaded =
   | { readonly status: 'ready'; readonly transaction: TransactionResource };
 
 const effectKindOf = (transaction: TransactionResource): EffectKind =>
-  transaction.kind === 'buy' ||
-  transaction.kind === 'sell' ||
-  transaction.kind === 'deposit' ||
-  transaction.kind === 'withdrawal'
-    ? transaction.kind
-    : 'payout';
-
-const isCash = (transaction: TransactionResource): boolean =>
-  transaction.kind === 'deposit' || transaction.kind === 'withdrawal';
+  transaction.kind === 'buy' || transaction.kind === 'sell' ? transaction.kind : 'payout';
 
 /** O lançamento, carregado; o formulário só existe quando ele chegou. */
 export const EditEntry = ({
@@ -117,9 +109,7 @@ export const EditEntry = ({
   if (!isEditable(loaded.transaction)) {
     return (
       <div className="flex flex-col gap-3">
-        <Callout tone="info">
-          Eventos corporativos não são editados aqui.
-        </Callout>
+        <Callout tone="info">Eventos corporativos não são editados aqui.</Callout>
         <div className="flex justify-end">
           <Button onClick={onCancel}>Fechar</Button>
         </div>
@@ -247,7 +237,6 @@ export const EditFormView = ({
     }
   };
 
-  const cash = isCash(transaction);
   const payout = transaction.kind === 'payout';
   const kindLabel = TRANSACTION_KIND_LABELS[transaction.kind];
   const subject = [kindLabel, assetLabel, formatShortDate(transaction.trade_date)]
@@ -327,14 +316,14 @@ export const EditFormView = ({
           </Field>
         </div>
 
-        <div className={`grid gap-3 ${cash ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+        <div className="grid gap-3 sm:grid-cols-3">
           <Field
-            label={cash ? 'Valor' : 'Quantidade'}
+            label="Quantidade"
             error={visible.show('quantity')}
             hint={before(changed('quantity'), original.quantity)}
           >
             {(control) => (
-              <Input
+              <MoneyInput
                 {...control}
                 numeric
                 inputMode="decimal"
@@ -346,33 +335,32 @@ export const EditFormView = ({
               />
             )}
           </Field>
-          {cash ? null : (
-            <Field
-              label={payout ? 'Valor por ação' : 'Preço unitário'}
-              error={visible.show('price')}
-              hint={before(changed('price'), twoDecimals(original.price))}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  numeric
-                  inputMode="decimal"
-                  invalid={control['aria-invalid']}
-                  changed={changed('price')}
-                  value={form.price}
-                  onBlur={touch('price')}
-                  onChange={(event) => set('price', event.target.value)}
-                />
-              )}
-            </Field>
-          )}
+          <Field
+            label={payout ? 'Valor por ação' : 'Preço unitário'}
+            error={visible.show('price')}
+            hint={before(changed('price'), twoDecimals(original.price))}
+          >
+            {(control) => (
+              <MoneyInput
+                maxDecimals={8}
+                {...control}
+                numeric
+                inputMode="decimal"
+                invalid={control['aria-invalid']}
+                changed={changed('price')}
+                value={form.price}
+                onBlur={touch('price')}
+                onChange={(event) => set('price', event.target.value)}
+              />
+            )}
+          </Field>
           <Field
             label="Taxas"
             error={visible.show('fees')}
             hint={before(changed('fees'), twoDecimals(original.fees))}
           >
             {(control) => (
-              <Input
+              <MoneyInput
                 {...control}
                 numeric
                 inputMode="decimal"
@@ -393,7 +381,7 @@ export const EditFormView = ({
             hint={before(changed('tax'), twoDecimals(original.tax))}
           >
             {(control) => (
-              <Input
+              <MoneyInput
                 {...control}
                 numeric
                 inputMode="decimal"
@@ -452,19 +440,6 @@ export const EditFormView = ({
             )}
           </Field>
         </div>
-
-        <Field label="Observação" hint={before(changed('note'), original.note)}>
-          {(control) => (
-            <Input
-              {...control}
-              invalid={false}
-              changed={changed('note')}
-              placeholder="opcional"
-              value={form.note}
-              onChange={(event) => set('note', event.target.value)}
-            />
-          )}
-        </Field>
 
         {hasChanges ? (
           <EffectPanel

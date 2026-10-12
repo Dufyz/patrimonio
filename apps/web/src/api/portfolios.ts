@@ -7,6 +7,8 @@ export type PortfolioList = {
   readonly portfolios: readonly PortfolioResource[];
   /** O valor de cada carteira no último fechamento, por identificador. */
   readonly values: Readonly<Record<string, string>>;
+  /** A soma das carteiras: o valor de "Todas as carteiras". */
+  readonly total: string | null;
 };
 
 /** As carteiras da barra lateral, em ordem de exibição, com o valor de cada uma. */

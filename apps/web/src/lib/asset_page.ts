@@ -50,7 +50,7 @@ export const PERIOD_OPTIONS: readonly { value: PeriodParam; label: string }[] = 
 /**
  * Como o papel se chama no título, pela mesma regra de Posições: ação, FII, ETF
  * e BDR se identificam pelo código, porque é por ele que se pede a ordem e é
- * ele que aparece na corretora. Tesouro, título de banco e caixa aparecem pelo
+ * ele que aparece na corretora. Tesouro e título de banco aparecem pelo
  * nome — `CDB-BANCOC-20280614` é chave de banco de dados, não nome de coisa.
  */
 const TICKER_TYPES = ['stock', 'fii', 'etf', 'bdr'] as const;
@@ -88,8 +88,6 @@ export const TRANSACTION_KIND_LABELS: Readonly<Record<TransactionKind, string>> 
   buy: 'Compra',
   sell: 'Venda',
   payout: 'Provento',
-  deposit: 'Aporte',
-  withdrawal: 'Resgate',
   corporate_event: 'Evento',
 };
 
@@ -108,11 +106,7 @@ export const PAYOUT_KIND_LABELS: Readonly<Record<string, string>> = {
 export const transactionTone = (
   kind: TransactionKind,
 ): 'positive' | 'accent' | 'muted' =>
-  kind === 'payout' || kind === 'deposit'
-    ? 'positive'
-    : kind === 'sell'
-      ? 'accent'
-      : 'muted';
+  kind === 'payout' ? 'positive' : kind === 'sell' ? 'accent' : 'muted';
 
 export const CORPORATE_EVENT_LABELS: Readonly<Record<string, string>> = {
   split: 'Desdobramento',
@@ -304,9 +298,17 @@ export const kindOptions = (
 ];
 
 /**
- * O que a coluna "Qtd × preço" mostra. Provento, aporte e resgate não têm
+ * O que a coluna "Qtd × preço" mostra. Provento e evento não têm
  * quantidade vezes preço — mostrar `0 × 0,00` neles seria dizer que a operação
  * foi de nada, e não que a coluna não se aplica.
  */
 export const hasQuantityAndPrice = (kind: TransactionKind): boolean =>
   kind === 'buy' || kind === 'sell';
+
+/**
+ * Ativo sem nenhuma cotação — o título de banco marcado na curva — não tem
+ * histórico de preço a desenhar: o que muda dia a dia é quanto a posição vale.
+ * Quem tem cotação, Tesouro inclusive, mostra o preço.
+ */
+export const usesValueChart = (resource: AssetPageResource): boolean =>
+  resource.series.points.length === 0 && resource.series.value_points.length >= 2;

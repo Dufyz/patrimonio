@@ -17,11 +17,17 @@ export type Point = {
   readonly value: string | null;
 };
 
-/** Faixa de área empilhada: o par já vem resolvido pela `api`. */
+/**
+ * Faixa de área empilhada: o par já vem resolvido pela `api`. `amount` é o que
+ * a faixa vale por si — a espessura dela —, e é o que a dica e a legenda
+ * mostram; sem ele, o valor mostrado seria o da borda de cima (`to`), que numa
+ * faixa empilhada inclui tudo o que está embaixo.
+ */
 export type Band = {
   readonly date: DateOnly;
   readonly from: string | null;
   readonly to: string | null;
+  readonly amount?: string | null | undefined;
 };
 
 export type SeriesKind = 'line' | 'area' | 'bar';

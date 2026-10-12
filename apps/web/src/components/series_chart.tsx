@@ -376,7 +376,10 @@ export const SeriesChart = ({
                 id: band.id,
                 label: band.label,
                 color: band.color,
-                value: band.values[hover.index]?.to ?? null,
+                value:
+                  band.values[hover.index]?.amount ??
+                  band.values[hover.index]?.to ??
+                  null,
               })),
               ...visibleSeries.map((entry) => ({
                 id: entry.id,

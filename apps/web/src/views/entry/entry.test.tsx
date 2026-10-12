@@ -40,7 +40,6 @@ const preview: TransactionPreviewResource = {
     cost_basis: pair('15000.00', '18104.00'),
     weight_pct: pair('0.10', '0.12'),
   },
-  cash: pair('0', '0'),
   portfolio_cost_basis: pair('100000.00', '103104.00'),
   allocation: null,
   realized_result: null,

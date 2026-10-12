@@ -52,15 +52,6 @@ type BaseOptions = {
   /** D-03: esconde o valor em reais, preservando a largura. */
   readonly hidden?: boolean;
   readonly decimals?: number;
-  /**
-   * Omite o `R$`, mantendo casas e separador de milhar.
-   *
-   * É para a coluna que é inteira de reais e já diz isso no cabeçalho — a lista
-   * de lançamentos da página do ativo (prancha 06) escreve `1.755,00` e
-   * `+96,12`. O prefixo repetido em cada linha de uma coluna estreita rouba a
-   * largura das colunas ao lado, e não acrescenta informação nenhuma.
-   */
-  readonly bare?: boolean;
 };
 
 const unavailable = (): FormattedNumber => ({
@@ -131,8 +122,8 @@ export const formatMoney = (
   value: NumberInput,
   options: BaseOptions = {},
 ): FormattedNumber => {
-  const prefix = options.bare === true ? '' : 'R$ ';
-  if (options.hidden === true) return masked(prefix.trim());
+  const prefix = 'R$ ';
+  if (options.hidden === true) return masked('R$');
 
   const parts = value === null || value === undefined ? null : parseDecimal(value);
   if (parts === null) return unavailable();
@@ -244,14 +235,14 @@ const TIERS = [
 
 /**
  * Forma compacta, só onde não cabe o número inteiro: eixo de gráfico e barra
- * lateral. `"318900"` → `318,9k`. Zeros à direita somem, então `300000` é
+ * lateral. `"318900"` → `R$ 318,9k`. Zeros à direita somem, então `300000` é
  * `300k` e não `300,0k`.
  */
 export const formatCompact = (
   value: NumberInput,
   options: BaseOptions = {},
 ): FormattedNumber => {
-  if (options.hidden === true) return masked('');
+  if (options.hidden === true) return masked('R$');
 
   const parts = value === null || value === undefined ? null : parseDecimal(value);
   if (parts === null) return unavailable();
@@ -264,10 +255,10 @@ export const formatCompact = (
     const rounded = roundToPlaces(parts, decimals);
     const fraction = trimFraction(rounded.fraction, 0);
     const shown = { ...rounded, fraction };
-    return assemble(shown, render(shown), options.signed === true);
+    return assemble(shown, `R$ ${render(shown)}`, options.signed === true);
   }
 
   const scaled = roundToPlaces(shiftPoint(parts, -tier.places), decimals);
   const shown = { ...scaled, fraction: trimFraction(scaled.fraction, 0) };
-  return assemble(shown, `${render(shown)}${tier.suffix}`, options.signed === true);
+  return assemble(shown, `R$ ${render(shown)}${tier.suffix}`, options.signed === true);
 };

@@ -1,7 +1,8 @@
-import { useCallback, useId, useMemo, useState } from 'react';
+import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { Icon } from '../../components/icon.js';
 import type { EntryField, FieldErrors } from '../../lib/entry.js';
+import { maskMoney } from '../../lib/money_mask.js';
 
 /**
  * T-10 · As peças de formulário dos modais de lançamento.
@@ -84,7 +85,7 @@ export const Input = ({
   numeric,
   className,
   ...rest
-}: React.InputHTMLAttributes<HTMLInputElement> & {
+}: React.ComponentProps<'input'> & {
   readonly invalid: boolean;
   readonly changed?: boolean;
   readonly numeric?: boolean;
@@ -94,6 +95,96 @@ export const Input = ({
     {...rest}
   />
 );
+
+/**
+ * Campo de dinheiro: o `Input` com a máscara de `maskMoney`. O valor chega a
+ * `onChange` já mascarado (`event.target.value`), então quem usa continua
+ * guardando uma string e lendo com `parseAmountInput`. `maxDecimals` é 2 para
+ * total e taxa, e mais para preço de cota e provento por ação.
+ *
+ * O cursor é devolvido ao lugar depois de remascarar — sem isso, editar um
+ * dígito no meio de `1.234,56` jogaria o cursor para o fim a cada tecla.
+ */
+export const MoneyInput = ({
+  maxDecimals = 2,
+  mask = true,
+  value,
+  onChange,
+  className,
+  ...rest
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value'> & {
+  readonly invalid: boolean;
+  readonly changed?: boolean;
+  readonly numeric?: boolean;
+  readonly maxDecimals?: number;
+  /** Falso devolve o `Input` comum: o mesmo campo que às vezes é quantidade. */
+  readonly mask?: boolean;
+  readonly value: string;
+}): React.ReactElement => {
+  const ref = useRef<HTMLInputElement>(null);
+  const caret = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (caret.current === null || ref.current === null) return;
+    ref.current.setSelectionRange(caret.current, caret.current);
+    caret.current = null;
+  });
+
+  const shown = mask ? maskMoney(value, maxDecimals) : value;
+
+  const input = (
+    <Input
+      numeric
+      inputMode="decimal"
+      autoComplete="off"
+      {...rest}
+      className={`${mask ? 'pl-9 ' : ''}${className ?? ''}`}
+      ref={ref}
+      value={shown}
+      onChange={(event) => {
+        if (mask) {
+          const element = event.target;
+          const position = element.selectionStart ?? element.value.length;
+          const atEnd = position >= element.value.length;
+          const significant = element.value
+            .slice(0, position)
+            .replace(/[^\d,]/g, '').length;
+
+          const masked = maskMoney(element.value, maxDecimals);
+          element.value = masked;
+
+          let target = masked.length;
+          if (!atEnd) {
+            let seen = 0;
+            target = 0;
+            while (target < masked.length && seen < significant) {
+              if (/[\d,]/.test(masked.charAt(target))) seen += 1;
+              target += 1;
+            }
+          }
+          caret.current = target;
+        }
+        onChange?.(event);
+      }}
+    />
+  );
+
+  if (!mask) return input;
+
+  // O "R$" fica fora do valor: o campo guarda `1.200,00`, e a tela mostra
+  // `R$ 1.200,00`. Assim o valor continua sendo lido por `parseAmountInput`.
+  return (
+    <span className="relative block w-full">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-sm text-ink-3"
+      >
+        R$
+      </span>
+      {input}
+    </span>
+  );
+};
 
 export const Select = ({
   invalid,

@@ -303,7 +303,6 @@ const SCREENS = [
   { id: 'visao', label: 'Visão geral', icon: <Icon name="grid" /> },
   { id: 'posicoes', label: 'Posições', icon: <Icon name="list" /> },
   { id: 'movimentacoes', label: 'Movimentações', icon: <Icon name="swap" /> },
-  { id: 'desempenho', label: 'Desempenho', icon: <Icon name="trend" /> },
   { id: 'estrategia', label: 'Estratégia', icon: <Icon name="target" /> },
   { id: 'objetivos', label: 'Objetivos', icon: <Icon name="flag" /> },
 ];
@@ -348,7 +347,6 @@ export const Gallery = (): React.ReactElement => {
         go_overview: () => setScreen('visao'),
         go_positions: () => setScreen('posicoes'),
         go_transactions: () => setScreen('movimentacoes'),
-        go_performance: () => setScreen('desempenho'),
         go_strategy: () => setScreen('estrategia'),
         go_goals: () => setScreen('objetivos'),
         new_transaction: openHelp,

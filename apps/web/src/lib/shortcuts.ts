@@ -43,12 +43,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: 'Movimentações',
     scope: 'navigation',
   },
-  {
-    id: 'go_performance',
-    sequence: ['g', 'd'],
-    label: 'Desempenho',
-    scope: 'navigation',
-  },
   { id: 'go_strategy', sequence: ['g', 'e'], label: 'Estratégia', scope: 'navigation' },
   { id: 'go_goals', sequence: ['g', 'o'], label: 'Objetivos', scope: 'navigation' },
 
@@ -78,7 +72,7 @@ export const SCOPE_TITLES: Readonly<Record<ShortcutScope, string>> = {
 
 /**
  * Campo de texto, área de texto, seletor e qualquer coisa editável. Nenhum
- * atalho de letra dispara aqui — digitar "n" no campo de observação não pode
+ * atalho de letra dispara aqui — digitar "n" no campo de texto não pode
  * abrir um lançamento novo.
  */
 export const isTypingTarget = (target: EventTarget | null): boolean => {

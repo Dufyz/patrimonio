@@ -68,6 +68,14 @@ export type AssetPatch = {
   readonly name?: string;
   readonly category_id?: string | null;
   readonly sector?: string | null;
+  readonly issuer_id?: string | null;
+  readonly indexer?: FixedIncomeBody['indexer'] | null;
+  readonly rate?: string | null;
+  readonly issued_at?: string | null;
+  readonly maturity_date?: string | null;
+  readonly liquidity?: FixedIncomeBody['liquidity'] | null;
+  readonly liquidity_days?: number | null;
+  readonly tax_regime?: FixedIncomeBody['tax_regime'] | null;
 };
 
 export const updateAsset = (id: string, body: AssetPatch): Promise<unknown> =>

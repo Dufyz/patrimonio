@@ -7,26 +7,11 @@ import {
   PortfolioDialog,
 } from '../registers/portfolio_dialogs.js';
 import { notifyPortfoliosChanged } from '../../lib/portfolio_events.js';
-import {
-  alertCopy,
-  alertLimit,
-  plural,
-  portfolioHold,
-  sortAlerts,
-} from '../../lib/settings.js';
-import {
-  EditButton,
-  Muted,
-  ROW,
-  SettingsSection,
-  Switch,
-  TD,
-  TH,
-  TH_RIGHT,
-} from './parts.js';
+import { plural, portfolioHold } from '../../lib/settings.js';
+import { EditButton, Muted, ROW, SettingsSection, TD, TH } from './parts.js';
 
 /**
- * As seções de cadastro: carteiras e alertas. Nenhuma faz conta — contagem, soma e percentual chegam da `api`
+ * As seções de cadastro: carteiras. Nenhuma faz conta — contagem, soma e percentual chegam da `api`
  * —; criar, editar e excluir são modais (`views/registers`), e cada um relê as
  * configurações ao terminar.
  * O que cada linha mostra é o que o servidor usa para bloquear a exclusão, para
@@ -161,58 +146,3 @@ export const PortfoliosSection = ({
     </>
   );
 };
-
-export const AlertsSection = ({
-  settings,
-}: {
-  readonly settings: Settings;
-}): React.ReactElement => (
-  <SettingsSection
-    id="alertas"
-    title="Alertas"
-    description="Regras que alimentam Requer atenção na Visão geral. Cada alerta aparece marcado com a carteira afetada. Limites marcados “da carteira” valem para a estratégia de cada carteira."
-  >
-    <table className="w-full text-[0.8125rem]">
-      <caption className="sr-only">Regras de alerta</caption>
-      <thead>
-        <tr>
-          <th scope="col" className={TH}>
-            Alerta
-          </th>
-          <th scope="col" className={TH}>
-            Limite
-          </th>
-          <th scope="col" className={TH_RIGHT}>
-            Ativo
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {sortAlerts(settings.alerts).map((rule) => {
-          const copy = alertCopy(rule.kind);
-
-          return (
-            <tr key={rule.kind} className="h-14 border-t border-line">
-              <th scope="row" className={`${TD} text-left font-normal`}>
-                <span className="block font-medium">{copy.label}</span>
-                <span className="block text-ink-3">{copy.description}</span>
-              </th>
-              <td className={`${TD} tabular`}>{alertLimit(rule)}</td>
-              <td className={`${TD} text-right`}>
-                <Switch
-                  checked={rule.enabled}
-                  label={`Regra ${copy.label}`}
-                  title="Ligar e desligar regras chega com o motor de alertas (O-01)"
-                />
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-    <p className="border-t border-line px-4 py-3 text-[0.8125rem] text-ink-3">
-      Hoje só as regras de mercado estão cadastradas; as demais chegam com o motor de
-      alertas (O-01), junto com o interruptor de cada uma.
-    </p>
-  </SettingsSection>
-);

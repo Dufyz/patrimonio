@@ -162,15 +162,3 @@ export const Icon = ({
     {PATHS[name]}
   </svg>
 );
-
-/** A marca da barra lateral: três barras brancas sobre o quadrado de acento. */
-export const Logo = (): React.ReactElement => (
-  <span
-    aria-hidden="true"
-    className="flex size-5 items-end gap-0.5 rounded-[5px] bg-accent p-1"
-  >
-    <span className="h-[5px] w-[3px] bg-accent-ink" />
-    <span className="h-2 w-[3px] bg-accent-ink" />
-    <span className="h-3 w-[3px] bg-accent-ink" />
-  </span>
-);

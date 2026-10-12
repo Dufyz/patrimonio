@@ -103,6 +103,8 @@ export type BuildRowModelInput<Row> = {
   readonly rowsPerGroup?: number | undefined;
   /** A tabela sabe desenhar detalhe de linha. Sem isso, abrir não produz nada. */
   readonly expandable?: boolean | undefined;
+  /** Linhas que ficam no fim do grupo, em qualquer ordenação (ex.: posição encerrada). */
+  readonly pinLast?: ((row: Row) => boolean) | undefined;
 };
 
 const compareText = (left: string | null, right: string | null): number => {
@@ -183,7 +185,12 @@ export const buildRowModel = <Row>(
     const ordered =
       sort === null ? group.rows : sortRows(group.rows, sort, input.sortValue, numeric);
     const expanded = input.state.expandedGroups.includes(group.key);
-    const shown = expanded ? ordered : ordered.slice(0, limit);
+    const pin = input.pinLast;
+    const arranged =
+      pin === undefined
+        ? ordered
+        : [...ordered.filter((row) => !pin(row)), ...ordered.filter(pin)];
+    const shown = expanded ? arranged : arranged.slice(0, limit);
 
     for (const row of shown) {
       const id = input.rowId(row);
@@ -194,7 +201,7 @@ export const buildRowModel = <Row>(
       }
     }
 
-    const hiddenCount = ordered.length - shown.length;
+    const hiddenCount = arranged.length - shown.length;
     if (hiddenCount > 0) {
       out.push({
         kind: 'more',

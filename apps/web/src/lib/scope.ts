@@ -11,6 +11,9 @@
  * cadastrada fica com o apelido limpo, e o endereço de ninguém quebra.
  */
 
+/** O escopo que soma todas as carteiras: `/todas/posicoes`. */
+export const ALL_SCOPE = 'todas';
+
 export type ScopePortfolio = { readonly id: string; readonly name: string };
 
 export const slugify = (name: string): string =>
@@ -38,7 +41,7 @@ export const portfolioSlugs = (
   return slugs;
 };
 
-/** O identificador que o escopo da URL nomeia. Apelido desconhecido dá nulo. */
+/** O identificador que o escopo da URL nomeia. `todas` e apelido desconhecido dão nulo. */
 export const portfolioIdForScope = (
   scope: string | undefined,
   slugs: ReadonlyMap<string, string>,

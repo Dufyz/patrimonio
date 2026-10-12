@@ -36,6 +36,7 @@ import { colorForToken } from '../lib/tokens.js';
 import type { Resource } from '../lib/use_resource.js';
 import { useResource } from '../lib/use_resource.js';
 import { Icon } from '../components/icon.js';
+import { MoneyInput } from './entry/fields.js';
 
 /**
  * T-06 · Estratégia — a prancha `09 · Estratégia`.
@@ -122,7 +123,7 @@ const Rules = ({
             {rules.benchmark?.name ?? 'Sem benchmark'}
           </span>
           <p className="text-[0.8125rem] text-ink-2">
-            Usado em Desempenho quando esta carteira está selecionada.
+            Usado na Visão geral quando esta carteira está selecionada.
           </p>
         </div>
       </div>
@@ -248,16 +249,16 @@ const Cells = ({
       {bar ? <DeviationBar line={line} scale={scale} tolerance={tolerance} /> : null}
     </td>
     <td className="px-4 text-right">
-      <Money value={line.value} bare />
+      <Money value={line.value} />
     </td>
     <td className="px-4 text-right">
-      <Money value={defined ? line.target_value : null} bare />
+      <Money value={defined ? line.target_value : null} />
     </td>
     <td className="px-4 text-right">
       {isZeroDecimal(line.amount_to_move) ? (
-        <Money value={line.amount_to_move} bare />
+        <Money value={line.amount_to_move} />
       ) : (
-        <MoneyChange value={defined ? line.amount_to_move : null} bare />
+        <MoneyChange value={defined ? line.amount_to_move : null} />
       )}
     </td>
   </>
@@ -426,13 +427,13 @@ const Distribution = ({
               <td />
               <td />
               <td className="px-4 text-right">
-                <Money value={composition.total} bare />
+                <Money value={composition.total} />
               </td>
               <td className="px-4 text-right">
-                <Money value={defined ? composition.total : null} bare />
+                <Money value={defined ? composition.total : null} />
               </td>
               <td className="px-4 text-right">
-                <Money value={defined ? '0' : null} bare />
+                <Money value={defined ? '0' : null} />
               </td>
             </tr>
           </tfoot>
@@ -567,21 +568,22 @@ const PlanDialog = ({
     >
       <label className="flex flex-col gap-2 text-[0.8125rem]">
         <span className="text-ink-2">Valor do aporte, em reais</span>
-        <input
-          data-autofocus
-          inputMode="decimal"
-          aria-label="Valor do aporte"
-          placeholder="4.000,00"
-          value={text}
-          onChange={(event) => {
-            setText(event.target.value);
-            setPlan(null);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') void run();
-          }}
-          className="tabular h-control w-48 rounded-control border border-line bg-panel px-3 text-right"
-        />
+        <span className="block w-48">
+          <MoneyInput
+            data-autofocus
+            invalid={false}
+            aria-label="Valor do aporte"
+            placeholder="4.000,00"
+            value={text}
+            onChange={(event) => {
+              setText(event.target.value);
+              setPlan(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void run();
+            }}
+          />
+        </span>
         {text.trim() !== '' && amount === null ? (
           <span className="text-negative">Use um valor acima de zero, como 4.000,00</span>
         ) : null}
@@ -626,7 +628,7 @@ const PlanDialog = ({
                     </span>
                   </th>
                   <td className="px-3 text-right">
-                    <Money value={share.amount} bare />
+                    <Money value={share.amount} />
                   </td>
                   <td className="px-3 text-right">
                     <Points value={share.deviation_after_pp} tone="neutral" />
@@ -789,7 +791,9 @@ export const StrategyView = ({
 
       {value.reference_date === null ? (
         <section className="rounded-panel border border-line bg-panel p-8 text-center">
-          <h2 className="text-panel-title font-semibold">Carteira ainda não consolidada</h2>
+          <h2 className="text-panel-title font-semibold">
+            Carteira ainda não consolidada
+          </h2>
           <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
             {value.portfolio.name} não tem posição para comparar com o alvo. A estratégia
             aparece na primeira consolidação.

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { Compact } from './number.js';
-import { Icon, Logo } from './icon.js';
+import { Icon } from './icon.js';
 import { Kbd } from './primitives.js';
 
 /**
@@ -20,6 +20,9 @@ import { Kbd } from './primitives.js';
  * nova aba preservam a seleção, que é o que `/longo-prazo/posicoes` promete ao
  * ser colada em outro lugar.
  */
+
+/** O identificador de "Todas as carteiras" na barra lateral e na paleta. */
+export const ALL_PORTFOLIOS = 'todas';
 
 export type ScreenItem = {
   readonly id: string;
@@ -85,7 +88,9 @@ export const AppShell = ({
   const iconsOnly = !asDrawer && width < ICONS_BELOW;
 
   const scopeLabel =
-    portfolios.find((portfolio) => portfolio.id === scope)?.label ?? 'Carteira';
+    scope === ALL_PORTFOLIOS
+      ? 'Todas as carteiras'
+      : (portfolios.find((portfolio) => portfolio.id === scope)?.label ?? 'Carteira');
 
   const sidebar = (
     <Sidebar
@@ -203,15 +208,6 @@ const Sidebar = ({
   readonly demo: boolean;
 }): React.ReactElement => (
   <div className="flex h-full flex-col px-3 pt-3.5 pb-3">
-    <div className="flex items-center gap-2.5 px-2 pt-0.5 pb-2.5">
-      <Logo />
-      {iconsOnly ? null : (
-        <span className="tabular text-[0.84375rem] font-semibold tracking-[0.02em]">
-          patrimônio
-        </span>
-      )}
-    </div>
-
     {demo ? (
       <p
         role="note"
@@ -235,7 +231,7 @@ const Sidebar = ({
       {iconsOnly ? null : <Kbd>⌘K</Kbd>}
     </button>
 
-    {/* Só esta região rola: o logo, a busca e Configurações ficam onde estão. */}
+    {/* Só esta região rola: a busca e Configurações ficam onde estão. */}
     <div className="-mx-1 flex min-h-0 flex-1 flex-col overflow-y-auto px-1">
       {iconsOnly ? null : <GroupTitle>Carteiras</GroupTitle>}
 

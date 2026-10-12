@@ -67,8 +67,8 @@ describe('moldura da aplicação', () => {
   it('a barra lateral mostra o valor de cada carteira', () => {
     shell();
     const nav = screen.getByRole('navigation');
-    expect(within(nav).getByText('318,9k')).toBeVisible();
-    expect(within(nav).getByText('84,8k')).toBeVisible();
+    expect(within(nav).getByText('R$ 318,9k')).toBeVisible();
+    expect(within(nav).getByText('R$ 84,8k')).toBeVisible();
   });
 
   it('trocar de carteira mantém a tela atual', async () => {
@@ -300,8 +300,8 @@ describe('atalhos de teclado', () => {
       </div>,
     );
 
-    expect(screen.getByText('318,9k')).toBeVisible();
+    expect(screen.getByText('R$ 318,9k')).toBeVisible();
     await user.keyboard('h');
-    expect(screen.queryByText('318,9k')).not.toBeInTheDocument();
+    expect(screen.queryByText('R$ 318,9k')).not.toBeInTheDocument();
   });
 });

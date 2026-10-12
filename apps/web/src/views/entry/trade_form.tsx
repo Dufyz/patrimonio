@@ -20,7 +20,7 @@ import type {
 import type { AssetSearch, PickedAsset } from './asset_picker.js';
 import { AssetPicker } from './asset_picker.js';
 import { EffectPanel } from './effect_table.js';
-import { Field, Input, Select, useVisibleErrors } from './fields.js';
+import { Field, Input, MoneyInput, Select, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
 import { InstitutionPicker } from './institution_picker.js';
 import { previewValue, useSave, usePreview } from './hooks.js';
@@ -46,7 +46,6 @@ export type TradeSeed = {
   readonly quantity?: string;
   readonly price?: string;
   readonly fees?: string;
-  readonly note?: string;
 };
 
 export const TradeFormView = ({
@@ -77,7 +76,6 @@ export const TradeFormView = ({
   const [fees, setFees] = useState(seed.fees ?? '');
   const [portfolioId, setPortfolioId] = useState(seed.portfolioId);
   const [institutionId, setInstitutionId] = useState(seed.institutionId);
-  const [note, setNote] = useState(seed.note ?? '');
   const [generation, setGeneration] = useState(0);
 
   const built = useMemo(
@@ -92,20 +90,8 @@ export const TradeFormView = ({
         fees,
         portfolioId,
         institutionId,
-        note,
       }),
-    [
-      kind,
-      asset,
-      date,
-      settlement,
-      quantity,
-      price,
-      fees,
-      portfolioId,
-      institutionId,
-      note,
-    ],
+    [kind, asset, date, settlement, quantity, price, fees, portfolioId, institutionId],
   );
 
   const body = built.ok ? built.body : null;
@@ -141,7 +127,6 @@ export const TradeFormView = ({
       setQuantity('');
       setPrice('');
       setFees('');
-      setNote('');
       setGeneration((current) => current + 1);
     }
   };
@@ -222,7 +207,8 @@ export const TradeFormView = ({
         </Field>
         <Field label="Preço unitário" error={visible.show('price')}>
           {(control) => (
-            <Input
+            <MoneyInput
+              maxDecimals={8}
               {...control}
               numeric
               inputMode="decimal"
@@ -239,7 +225,7 @@ export const TradeFormView = ({
           hint="Em branco, vale a regra da instituição."
         >
           {(control) => (
-            <Input
+            <MoneyInput
               {...control}
               numeric
               inputMode="decimal"
@@ -279,18 +265,6 @@ export const TradeFormView = ({
           )}
         </Field>
       </div>
-
-      <Field label="Observação">
-        {(control) => (
-          <Input
-            {...control}
-            invalid={false}
-            placeholder="opcional"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-          />
-        )}
-      </Field>
 
       <div className="flex items-baseline justify-between border-t border-line pt-3">
         <Label>{TOTAL_LABEL[kind]}</Label>

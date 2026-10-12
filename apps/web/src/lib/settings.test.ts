@@ -1,20 +1,13 @@
-import type {
-  Settings,
-  SettingsBackup,
-} from '@patrimonio/contracts';
+import type { Settings, SettingsBackup } from '@patrimonio/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
-  ALERT_COPY,
-  alertCopy,
-  alertLimit,
   backupSummary,
   formatInstant,
   isEmptyInstallation,
   missingPricesText,
   portfolioHold,
   sectionFromParam,
-  sortAlerts,
 } from './settings.js';
 
 const backup = (overrides: Partial<SettingsBackup>): SettingsBackup => ({
@@ -40,46 +33,6 @@ describe('o que prende a exclusão', () => {
     );
     expect(portfolioHold({ transactions: 1, assets: 1 })).toBe('1 lançamento · 1 ativo');
     expect(portfolioHold({ transactions: 0, assets: 0 })).toBeNull();
-  });
-});
-
-describe('os alertas', () => {
-  it('toda regra do vocabulário tem rótulo e descrição', () => {
-    for (const [kind, copy] of Object.entries(ALERT_COPY)) {
-      expect(copy.label, kind).not.toBe('');
-      expect(copy.description, kind).not.toBe('');
-    }
-  });
-
-  it('uma regra que a tela não conhece aparece pelo nome, e não some', () => {
-    expect(alertCopy('regra_nova').label).toBe('regra_nova');
-  });
-
-  it('o limite é escrito como a prancha o escreve', () => {
-    expect(alertLimit({ scope: 'global', threshold: { days: 3 } })).toBe('3 dias');
-    expect(alertLimit({ scope: 'global', threshold: { days: 1 } })).toBe('1 dia');
-    expect(alertLimit({ scope: 'global', threshold: { pct: '10' } })).toBe('10%');
-    expect(alertLimit({ scope: 'global', threshold: { pct: 7.5, days: 30 } })).toBe(
-      '7,5% · 30 dias',
-    );
-    expect(alertLimit({ scope: 'global', threshold: null })).toBe('—');
-    expect(alertLimit({ scope: 'global', threshold: { desconhecido: 1 } })).toBe('—');
-    expect(alertLimit({ scope: 'per_portfolio', threshold: null })).toBe('da carteira');
-  });
-
-  it('a ordem é a da prancha, e as regras desconhecidas vão para o fim', () => {
-    const rule = (kind: string) => ({
-      kind,
-      enabled: true,
-      scope: 'global' as const,
-      threshold: null,
-    });
-
-    expect(
-      sortAlerts([rule('zzz'), rule('corporate_event_pending'), rule('price_stale')]).map(
-        (item) => item.kind,
-      ),
-    ).toEqual(['price_stale', 'corporate_event_pending', 'zzz']);
   });
 });
 

@@ -1,4 +1,5 @@
 import type {
+  ClosedPosition,
   PositionGroup,
   PositionResource,
   PositionSummary,
@@ -31,6 +32,7 @@ import { decimalComma, quoted, safeText } from './statement.js';
 export const GROUP_BY_PARAM = {
   categoria: 'category',
   instituicao: 'institution',
+  carteira: 'portfolio',
   nenhum: 'none',
 } as const satisfies Readonly<Record<string, PositionGroupBy>>;
 
@@ -47,12 +49,23 @@ export type GroupByOption = {
   readonly label: string;
 };
 
-/** As opções do seletor de agrupamento. */
-export const groupByOptions: readonly GroupByOption[] = [
+/**
+ * As opções do seletor de agrupamento. "Carteira" só aparece no escopo de todas
+ * elas: dentro de uma carteira, agrupar por carteira devolve um grupo só, e uma
+ * opção que não faz nada é pior que uma opção a menos.
+ */
+export const groupByOptions = (allPortfolios: boolean): readonly GroupByOption[] => [
   { value: 'categoria', label: 'Categoria' },
   { value: 'instituicao', label: 'Instituição' },
+  ...(allPortfolios ? ([{ value: 'carteira', label: 'Carteira' }] as const) : []),
   { value: 'nenhum', label: 'Sem grupo' },
 ];
+
+/** O agrupamento que vale, dado o escopo: por carteira só com todas elas. */
+export const effectiveGroupBy = (
+  param: GroupByParam,
+  allPortfolios: boolean,
+): GroupByParam => (param === 'carteira' && !allPortfolios ? DEFAULT_GROUP_BY : param);
 
 export const isGroupByParam = (value: unknown): value is GroupByParam =>
   typeof value === 'string' && (GROUP_BY_PARAMS as readonly string[]).includes(value);
@@ -189,9 +202,110 @@ export const toSummary = (summary: PositionSummary): GroupSummary => ({
   contagem: String(summary.count),
 });
 
+/** A linha da tabela: posição aberta, ou encerrada quando `closed` (desabilitada). */
+export type PositionRow = PositionResource & { readonly closed?: boolean };
+
+/**
+ * Uma posição encerrada como linha da tabela. Não tem quantidade, preço nem
+ * valor — o que há é histórico —, e `closed` é o que a tabela usa para
+ * esmaecê-la, desabilitá-la e deixá-la no fim do grupo.
+ */
+export const closedAsRow = (
+  closed: ClosedPosition,
+  portfolioId: string | null,
+): PositionRow => ({
+  // Em Todas as carteiras a encerrada soma carteiras e não tem uma: vazio.
+  portfolio_id: portfolioId ?? '',
+  portfolio_name: '',
+  asset_id: closed.asset_id,
+  ticker: closed.ticker,
+  name: closed.name,
+  origin: 'market',
+  b3_type: null,
+  institution_id: null,
+  institution_name: null,
+  category_id: null,
+  category_name: closed.category_name,
+  color_token: closed.color_token,
+  unit: 'quantity',
+  quantity: null,
+  avg_price: null,
+  price: null,
+  price_health: 'missing',
+  price_date: null,
+  // Na encerrada, "investido" é o que entrou, "atualizado" é o que saiu nas
+  // vendas, e o resultado inclui os proventos recebidos.
+  value: closed.proceeds,
+  cost_basis: closed.invested,
+  open_result: closed.total_result,
+  open_result_ratio: closed.total_result_ratio,
+  weight: '0',
+  day_change_ratio: null,
+  return_12m_ratio: null,
+  dividend_yield_12m: null,
+  indexer: null,
+  rate: null,
+  maturity_date: null,
+  closed: true,
+});
+
+const NO_CATEGORY_LABEL = 'Sem categoria';
+
+/**
+ * Junta as encerradas aos grupos. Por categoria, cada uma vai para o grupo da
+ * sua categoria (criado ao fim se só tem encerradas); nos outros agrupamentos,
+ * vão para o fim do grupo único ou para um grupo "Encerradas". Os subtotais
+ * continuam os da `api`: encerrada não soma.
+ */
+export const withClosedRows = (
+  groups: readonly TableGroup<PositionRow>[],
+  closed: readonly PositionRow[],
+  groupBy: PositionGroupBy,
+): readonly TableGroup<PositionRow>[] => {
+  if (closed.length === 0) return groups;
+
+  const next = groups.map((group) => ({ ...group, rows: [...group.rows] }));
+  const empty: GroupSummary = {
+    valor: '0',
+    custo: '0',
+    resultado: '0',
+    peso: '0',
+    contagem: '0',
+  };
+
+  const place = (row: PositionRow, key: string, label: string): void => {
+    const found = next.find((group) => group.key === key);
+    if (found !== undefined) {
+      found.rows.push(row);
+      return;
+    }
+    next.push({
+      key,
+      label,
+      colorToken: row.color_token ?? undefined,
+      rows: [row],
+      summary: empty,
+    });
+  };
+
+  for (const row of closed) {
+    if (groupBy === 'category') {
+      const label = row.category_name ?? NO_CATEGORY_LABEL;
+      const match = next.find((group) => group.label === label);
+      place(row, match?.key ?? `encerradas:${label}`, label);
+    } else if (groupBy === 'none' && next.length === 1) {
+      next[0]?.rows.push(row);
+    } else {
+      place(row, 'encerradas', 'Encerradas');
+    }
+  }
+
+  return next;
+};
+
 export const toTableGroups = (
   groups: readonly PositionGroup[],
-): readonly TableGroup<PositionResource>[] =>
+): readonly TableGroup<PositionRow>[] =>
   groups.map((group) => ({
     key: group.key,
     label: group.label,
@@ -213,6 +327,24 @@ export const positionsCountLabel = (total: PositionSummary): string =>
  */
 export const priceStamp = (resource: PositionsResource): string | null => {
   if (resource.as_of === null) return null;
+
+  const hhmm = (iso: string): string | null => {
+    const at = new Date(iso);
+    return Number.isNaN(at.getTime())
+      ? null
+      : `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+  };
+
+  if (resource.live !== null && resource.live.applied > 0) {
+    const live = resource.live;
+    const at = hhmm(live.as_of);
+    const rest = live.requested - live.applied;
+    return `Cotações ao vivo${at === null ? '' : ` às ${at}`} em ${live.applied} de ${live.requested} papéis${
+      rest > 0
+        ? ` — os demais seguem a preço de fechamento de ${formatShortDate(resource.as_of)}`
+        : ''
+    }. Renda fixa segue na curva.`;
+  }
 
   const stamp = resource.computed_at === null ? null : new Date(resource.computed_at);
   const time =
@@ -239,10 +371,14 @@ export const parseAmountInput = (typed: string): string | null => {
   const trimmed = typed.trim();
   if (trimmed === '') return null;
 
-  // Vírgula decimal: o ponto que sobrou é separador de milhar.
+  // Vírgula decimal: o ponto que sobrou é separador de milhar. Sem vírgula,
+  // pontos em grupos de exatos três dígitos (`1.234`, como a máscara de dinheiro
+  // escreve) também são milhar; `36.84` continua sendo decimal.
   const normalized = trimmed.includes(',')
     ? trimmed.replaceAll('.', '').replace(',', '.')
-    : trimmed;
+    : /^-?\d{1,3}(\.\d{3})+$/.test(trimmed)
+      ? trimmed.replaceAll('.', '')
+      : trimmed;
 
   return /^-?\d+(\.\d+)?$/.test(normalized) ? normalized : null;
 };

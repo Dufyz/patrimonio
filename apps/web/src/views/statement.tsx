@@ -8,7 +8,7 @@ import { deleteTransaction, moveTransaction, undoDeletion } from '../api/transac
 import { Toolbar } from '../components/controls.js';
 import { useEntry } from '../components/entry_provider.js';
 import { Money, MoneyChange, Quantity } from '../components/number.js';
-import { Menu, Modal } from '../components/overlay.js';
+import { ConfirmDialog, Menu, Modal } from '../components/overlay.js';
 import { KeepPrevious } from '../components/pending.js';
 import { FilterDropdown } from '../components/filter_dropdown.js';
 import { PeriodRangeButton } from '../components/period_control.js';
@@ -81,11 +81,12 @@ const todayIso = (): DateOnly => new Date().toISOString().slice(0, 10) as DateOn
 export type StatementPortfolio = { readonly id: string; readonly name: string };
 
 export type StatementScreenProps = {
-  readonly portfolioId: string;
+  /** Nulo é o escopo de todas as carteiras. */
+  readonly portfolioId: string | null;
   readonly scopeLabel: string;
   readonly portfolios: readonly StatementPortfolio[];
-  /** Abre a página do ativo (T-03), pelo apelido dele no endereço. */
-  readonly onOpenAsset: (slug: string) => void;
+  /** Abre a página do ativo (T-03), na carteira do lançamento. */
+  readonly onOpenAsset: (slug: string, portfolioId: string | null) => void;
 };
 
 type Notice =
@@ -124,6 +125,7 @@ export const StatementScreen = ({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [moving, setMoving] = useState<readonly StatementRow[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [toDelete, setToDelete] = useState<readonly StatementRow[] | null>(null);
   const entry = useEntry();
 
   const range = resolvePeriod(period, today, inception);
@@ -483,7 +485,7 @@ export const StatementScreen = ({
                 disabled={busy || duplicating === null}
                 title={
                   duplicating === null
-                    ? 'Selecione um único lançamento de compra, venda, provento, aporte ou resgate'
+                    ? 'Selecione um único lançamento de compra, venda ou provento'
                     : undefined
                 }
                 onClick={() => duplicate(selectedRows[0])}
@@ -494,7 +496,7 @@ export const StatementScreen = ({
                 icon="trash"
                 className="text-negative hover:text-negative"
                 disabled={busy}
-                onClick={() => void removeRows(selectedRows)}
+                onClick={() => setToDelete(selectedRows)}
               >
                 Excluir
               </Button>
@@ -526,7 +528,7 @@ export const StatementScreen = ({
                   onMove={(row) => setMoving([row])}
                   onEdit={(row) => entry.openEdit(row.id, assetLabel(row))}
                   onDuplicate={duplicate}
-                  onDelete={(row) => void removeRows([row])}
+                  onDelete={(row) => setToDelete([row])}
                   onOpenAsset={(row) =>
                     onOpenAsset(
                       assetSlug({
@@ -535,6 +537,7 @@ export const StatementScreen = ({
                         name: row.asset_name ?? '',
                         b3_type: row.b3_type,
                       }),
+                      row.portfolio_id,
                     )
                   }
                   onClear={() => update({ grupo: null, busca: null, instituicao: null })}
@@ -574,6 +577,19 @@ export const StatementScreen = ({
           realizado ou isenção.
         </footer>
       </Panel>
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        title={toDelete?.length === 1 ? 'Excluir lançamento?' : 'Excluir lançamentos?'}
+        subject={toDelete === null ? '' : entriesLabel(toDelete.length)}
+        consequence="O preço médio e o resultado de tudo que veio depois serão recalculados. Você terá alguns minutos para desfazer."
+        onCancel={() => setToDelete(null)}
+        onConfirm={() => {
+          const rows = toDelete;
+          setToDelete(null);
+          if (rows !== null) void removeRows(rows);
+        }}
+      />
 
       <MoveDialog
         rows={moving}
@@ -616,8 +632,6 @@ const KIND_PILL: Readonly<Record<StatementRow['kind'], string>> = {
   buy: 'bg-accent-soft text-accent',
   sell: 'bg-attention-soft text-attention',
   payout: 'bg-positive-soft text-positive',
-  deposit: 'bg-panel-2 text-ink-2',
-  withdrawal: 'bg-panel-2 text-ink-2',
   corporate_event: 'bg-panel-2 text-ink-2',
 };
 
@@ -659,10 +673,15 @@ const StatementTable = ({
   const showPrice = width >= 1100;
   const showFees = width >= 1100;
   const showInstitution = width >= 1400;
+  // Todas as carteiras: sem a coluna, duas compras iguais em carteiras
+  // diferentes seriam a mesma linha duas vezes.
+  const showPortfolio = data.scope.portfolio_id === null;
 
   const monthTotals = new Map(data.months.map((month) => [month.month, month]));
   const columns =
-    6 + [showQuantity, showPrice, showFees, showInstitution].filter(Boolean).length;
+    6 +
+    [showQuantity, showPrice, showFees, showInstitution, showPortfolio].filter(Boolean)
+      .length;
 
   if (data.rows.length === 0) {
     return (
@@ -705,6 +724,11 @@ const StatementTable = ({
           <th scope="col" className={`${header} text-left`}>
             Ativo
           </th>
+          {showPortfolio ? (
+            <th scope="col" className={`${header} text-left`}>
+              Carteira
+            </th>
+          ) : null}
           {showQuantity ? (
             <th scope="col" className={`${header} text-right`}>
               Qtd
@@ -756,7 +780,7 @@ const StatementTable = ({
                   : monthItems(total).map((item, index) => (
                       <span key={item.key}>
                         {index === 0 ? '' : ' · '}
-                        {item.label} <Money value={item.value} bare />
+                        {item.label} <Money value={item.value} />
                       </span>
                     ))}
               </td>
@@ -772,6 +796,7 @@ const StatementTable = ({
                 showPrice={showPrice}
                 showFees={showFees}
                 showInstitution={showInstitution}
+                showPortfolio={showPortfolio}
                 onToggle={() => onToggle(row.id)}
                 onMove={() => onMove(row)}
                 onEdit={() => onEdit(row)}
@@ -795,6 +820,7 @@ const StatementLine = ({
   showPrice,
   showFees,
   showInstitution,
+  showPortfolio,
   onToggle,
   onMove,
   onEdit,
@@ -809,6 +835,7 @@ const StatementLine = ({
   readonly showPrice: boolean;
   readonly showFees: boolean;
   readonly showInstitution: boolean;
+  readonly showPortfolio: boolean;
   readonly onToggle: () => void;
   readonly onMove: () => void;
   readonly onEdit: () => void;
@@ -869,6 +896,13 @@ const StatementLine = ({
           {assetLabel(row)}
         </span>
       </td>
+      {showPortfolio ? (
+        <td className="max-w-0 min-w-24 px-3 py-(--row-pad) text-ink-2">
+          <span className="block truncate" title={row.portfolio_name}>
+            {row.portfolio_name}
+          </span>
+        </td>
+      ) : null}
       {showQuantity ? (
         <td className="px-3 py-(--row-pad) text-right whitespace-nowrap">
           {market ? <Quantity value={row.quantity} /> : <Dash />}
@@ -876,19 +910,19 @@ const StatementLine = ({
       ) : null}
       {showPrice ? (
         <td className="px-3 py-(--row-pad) text-right whitespace-nowrap">
-          {market ? <Money value={row.unit_price} bare /> : <Dash />}
+          {market ? <Money value={row.unit_price} /> : <Dash />}
         </td>
       ) : null}
       {showFees ? (
         <td className="px-3 py-(--row-pad) text-right whitespace-nowrap">
-          {market && row.kind !== 'payout' ? <Money value={row.fees} bare /> : <Dash />}
+          {market && row.kind !== 'payout' ? <Money value={row.fees} /> : <Dash />}
         </td>
       ) : null}
       <td className="px-3 py-(--row-pad) text-right font-medium whitespace-nowrap">
         {value.signed ? (
-          <MoneyChange value={value.value} bare />
+          <MoneyChange value={value.value} />
         ) : (
-          <Money value={value.value} bare />
+          <Money value={value.value} />
         )}
       </td>
       {showInstitution ? (

@@ -1,5 +1,7 @@
+import { useState } from 'react';
+
 import { Callout } from '../entry/fields.js';
-import { Modal } from '../../components/overlay.js';
+import { FinalDeleteAlert, Modal } from '../../components/overlay.js';
 import { Button } from '../../components/primitives.js';
 import { useSubmit } from './use_submit.js';
 
@@ -47,6 +49,7 @@ export const DeleteDialog = ({
 }): React.ReactElement => {
   const { pending, error, submit } = useSubmit(onConfirm, onDone);
   const isBlocked = blocked !== null && blocked !== undefined;
+  const [final, setFinal] = useState(false);
 
   return (
     <Modal
@@ -72,7 +75,7 @@ export const DeleteDialog = ({
                 variant="danger"
                 disabled={pending || !canConfirm}
                 data-autofocus={children === undefined ? true : undefined}
-                onClick={submit}
+                onClick={() => setFinal(true)}
               >
                 {pending ? 'Excluindo…' : confirmLabel}
               </Button>
@@ -92,6 +95,16 @@ export const DeleteDialog = ({
             <p className="text-[0.8125rem] text-ink-2">{consequence}</p>
           )}
           {children}
+          <FinalDeleteAlert
+            open={final}
+            subject={subject}
+            pending={pending}
+            onCancel={() => setFinal(false)}
+            onConfirm={() => {
+              setFinal(false);
+              submit();
+            }}
+          />
           {error === null ? null : <Callout tone="error">{error}</Callout>}
         </>
       )}

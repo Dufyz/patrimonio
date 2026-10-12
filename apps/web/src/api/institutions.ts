@@ -12,7 +12,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const listParser: Parser<readonly InstitutionResource[]> = {
   parse: (value) => {
     const items = isRecord(value) ? value['institutions'] : undefined;
-    if (!Array.isArray(items)) throw new Error('A api respondeu a lista fora do contrato');
+    if (!Array.isArray(items))
+      throw new Error('A api respondeu a lista fora do contrato');
     return items.map((item) => institutionResourceSchema.parse(item));
   },
 };

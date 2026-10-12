@@ -11,7 +11,8 @@ import { request } from './client.js';
  * faria descrever só o que a página trouxe.
  */
 export type StatementRequest = {
-  readonly portfolioId: string;
+  /** Nulo soma todas as carteiras. */
+  readonly portfolioId: string | null;
   readonly institutionIds: readonly string[];
   readonly groups: readonly StatementGroup[];
   readonly search: string;
@@ -24,7 +25,7 @@ export type StatementRequest = {
 export const statementQuery = (input: StatementRequest): URLSearchParams => {
   const params = new URLSearchParams();
 
-  params.set('portfolio_id', input.portfolioId);
+  if (input.portfolioId !== null) params.set('portfolio_id', input.portfolioId);
   if (input.institutionIds.length > 0) {
     params.set('institution_id', input.institutionIds.join(','));
   }

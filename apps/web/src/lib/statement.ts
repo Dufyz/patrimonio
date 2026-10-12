@@ -40,7 +40,6 @@ const GROUP_PARAMS: Readonly<Record<StatementGroup, string>> = {
   buy: 'compras',
   sell: 'vendas',
   payout: 'proventos',
-  cash: 'caixa',
   event: 'eventos',
 };
 
@@ -48,7 +47,6 @@ export const GROUP_LABELS: Readonly<Record<StatementGroup, string>> = {
   buy: 'Compras',
   sell: 'Vendas',
   payout: 'Proventos',
-  cash: 'Aportes e resgates',
   event: 'Eventos',
 };
 
@@ -125,12 +123,8 @@ export const typeDetail = (row: StatementRow): string | null =>
     ? (PAYOUT_KIND_LABELS[row.payout_kind]?.toLowerCase() ?? null)
     : null;
 
-/** Aporte e resgate não têm ativo: o que eles movem é o caixa da instituição. */
-export const assetLabel = (row: StatementRow): string => {
-  if (row.ticker !== null) return row.ticker;
-  if (row.asset_name !== null) return row.asset_name;
-  return `Caixa · ${row.institution_name ?? 'sem instituição'}`;
-};
+export const assetLabel = (row: StatementRow): string =>
+  row.ticker ?? row.asset_name ?? '—';
 
 export const rowLabel = (row: StatementRow): string =>
   `${typeLabel(row)} de ${assetLabel(row)} em ${row.trade_date}`;
@@ -147,15 +141,10 @@ export type SummaryItem = {
 const isNonZero = (value: string): boolean => compareDecimal(value, '0') !== 0;
 
 /**
- * As linhas do resumo. Aportes, compras, vendas e proventos aparecem sempre —
- * "vendas R$ 0,00" é uma resposta —, resgates só quando houve, porque a maioria
- * dos recortes não tem e a quinta coluna fixa seria ruído.
+ * As linhas do resumo. Compras (aportes), vendas (resgates) e proventos aparecem
+ * sempre — "vendas R$ 0,00" é uma resposta.
  */
 export const summaryItems = (summary: StatementSummary): readonly SummaryItem[] => [
-  { key: 'deposits', label: 'aportes', value: summary.deposits },
-  ...(isNonZero(summary.withdrawals)
-    ? [{ key: 'withdrawals', label: 'resgates', value: summary.withdrawals }]
-    : []),
   { key: 'buys', label: 'compras', value: summary.buys },
   { key: 'sells', label: 'vendas', value: summary.sells },
   { key: 'payouts', label: 'proventos', value: summary.payouts },
@@ -173,19 +162,18 @@ const unsigned = (value: string): string =>
 
 /**
  * O que a coluna Valor mostra. Compra e venda aparecem em módulo, sem sinal — o
- * tipo já diz a direção —, e dinheiro que entra ou sai do caixa leva sinal,
- * como na prancha. É remoção de caractere, não aritmética.
+ * tipo já diz a direção —, e o provento leva sinal, como na prancha. É remoção de caractere, não aritmética.
  */
 export const valueCell = (
   row: StatementRow,
 ): { readonly value: string; readonly signed: boolean } =>
-  row.kind === 'payout' || row.kind === 'deposit' || row.kind === 'withdrawal'
+  row.kind === 'payout'
     ? { value: row.net_amount, signed: true }
     : { value: unsigned(row.net_amount), signed: false };
 
-/** Sem quantidade, preço ou taxa — aporte, resgate — a célula é traço. */
+/** Sem quantidade, preço ou taxa — evento — a célula é traço. */
 export const hasMarketColumns = (row: StatementRow): boolean =>
-  row.kind !== 'deposit' && row.kind !== 'withdrawal' && row.kind !== 'corporate_event';
+  row.kind !== 'corporate_event';
 
 /* -------------------------------------------------------------------------- */
 /* Efeito                                                                     */
@@ -196,10 +184,10 @@ export type EffectView = {
 };
 
 const money = (value: string, hidden: boolean): string =>
-  formatMoney(value, { bare: true, hidden }).text;
+  formatMoney(value, { hidden }).text;
 
 const change = (value: string, hidden: boolean): string =>
-  formatMoneyChange(value, { bare: true, hidden }).text;
+  formatMoneyChange(value, { hidden }).text;
 
 const ratio = (value: string): string =>
   value.includes('.') ? value.replace(/0+$/, '').replace(/\.$/, '') : value;
@@ -219,7 +207,7 @@ export const effectView = (effect: StatementEffect, hidden = false): EffectView 
       };
     case 'position_opened':
       return {
-        text: `abre posição · PM ${money(effect.avg_price, hidden)}`,
+        text: `PM ${money(effect.avg_price, hidden)}`,
         tone: 'neutral',
       };
     case 'realized': {
@@ -244,10 +232,6 @@ export const effectView = (effect: StatementEffect, hidden = false): EffectView 
         text: `reduz o custo em ${money(effect.amount, hidden)}`,
         tone: 'neutral',
       };
-    case 'cash_in':
-      return { text: 'vindo de fora do app', tone: 'neutral' };
-    case 'cash_out':
-      return { text: 'saindo do app', tone: 'neutral' };
     case 'corporate_event':
       return {
         text: `${ratio(effect.ratio_from)}:${ratio(effect.ratio_to)} · ${ratio(

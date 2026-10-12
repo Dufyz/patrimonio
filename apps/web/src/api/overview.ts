@@ -11,7 +11,8 @@ import { request } from './client.js';
  * um campo renomeado quebra o typecheck dos dois lados no mesmo commit.
  */
 export type OverviewQuery = {
-  readonly portfolioId: string;
+  /** Nulo é o consolidado: a carteira é filtro, não rota. */
+  readonly portfolioId: string | null;
   readonly from?: string | undefined;
   readonly to?: string | undefined;
 };
@@ -21,7 +22,7 @@ export const fetchOverview = async (
   signal?: AbortSignal,
 ): Promise<OverviewResource> => {
   const search = new URLSearchParams();
-  search.set('portfolio_id', query.portfolioId);
+  if (query.portfolioId !== null) search.set('portfolio_id', query.portfolioId);
   if (query.from !== undefined) search.set('from', query.from);
   if (query.to !== undefined) search.set('to', query.to);
 

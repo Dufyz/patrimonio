@@ -1,8 +1,10 @@
 import type { PositionResource } from '@patrimonio/contracts';
+import { closedAsRow, withClosedRows } from './positions.js';
 import { describe, expect, it } from 'vitest';
 
 import {
   formatFullDate,
+  effectiveGroupBy,
   formatShortDate,
   groupByOptions,
   indexerLabel,
@@ -54,11 +56,23 @@ const position = (overrides: Partial<PositionResource> = {}): PositionResource =
 
 describe('agrupamento', () => {
   it('as opções do seletor são categoria, instituição e sem grupo', () => {
-    expect(groupByOptions.map((option) => option.value)).toEqual([
+    expect(groupByOptions(false).map((option) => option.value)).toEqual([
       'categoria',
       'instituicao',
       'nenhum',
     ]);
+  });
+
+  it('por carteira só aparece em todas as carteiras', () => {
+    expect(groupByOptions(true).map((option) => option.value)).toEqual([
+      'categoria',
+      'instituicao',
+      'carteira',
+      'nenhum',
+    ]);
+    expect(effectiveGroupBy('carteira', true)).toBe('carteira');
+    expect(effectiveGroupBy('carteira', false)).toBe('categoria');
+    expect(toGroupBy('carteira')).toBe('portfolio');
   });
 
   it('a URL é em português e o campo da api é o nome do campo', () => {
@@ -184,15 +198,6 @@ describe('o que vai para a tabela', () => {
         }),
       ),
     ).toBe('CDB Prefixado Banco C 2028');
-    expect(
-      positionTitle(
-        position({
-          b3_type: 'cash',
-          ticker: 'CAIXA-CORRETORAA',
-          name: 'Caixa · Corretora A',
-        }),
-      ),
-    ).toBe('Caixa · Corretora A');
   });
 
   it('o mesmo papel em duas carteiras são duas linhas', () => {
@@ -233,6 +238,7 @@ describe('procedência do número', () => {
     payouts_12m: '0',
     facets: [],
     institution_facets: [],
+    live: null,
     price_health: { fresh: 0, stale: 0, manual: 0, missing: 0 },
     ...overrides,
   });
@@ -267,5 +273,54 @@ describe('campo de valor', () => {
   it('o campo abre com o preço de hoje em pt-BR', () => {
     expect(amountInputValue('36.84000000')).toBe('36,84');
     expect(amountInputValue(null)).toBe('');
+  });
+});
+
+describe('encerradas na tabela', () => {
+  const closed = (category: string | null, ticker: string) =>
+    closedAsRow(
+      {
+        asset_id: '00000000-0000-4000-8000-000000000001',
+        ticker,
+        name: ticker,
+        category_name: category,
+        color_token: null,
+        first_trade_date: '2020-01-01',
+        closed_on: '2021-01-01',
+        invested: '1',
+        proceeds: '1',
+        payouts_received: '0',
+        realized_result: null,
+        total_result: '0',
+        total_result_ratio: null,
+      },
+      '00000000-0000-4000-8000-000000000002',
+    );
+
+  const group = (key: string, label: string) => ({
+    key,
+    label,
+    rows: [],
+    summary: {},
+  });
+
+  it('vão para o grupo da categoria; sem grupo, criam um ao fim', () => {
+    const out = withClosedRows(
+      [group('c1', 'Ações')],
+      [closed('Ações', 'AAA3'), closed('FIIs', 'BBB11')],
+      'category',
+    );
+
+    expect(out.map((item) => item.label)).toEqual(['Ações', 'FIIs']);
+    expect(out[0]?.rows[0]?.closed).toBe(true);
+  });
+
+  it('em outros agrupamentos, vão para "Encerradas"', () => {
+    const out = withClosedRows(
+      [group('i1', 'XP')],
+      [closed(null, 'CCC3')],
+      'institution',
+    );
+    expect(out.at(-1)?.label).toBe('Encerradas');
   });
 });

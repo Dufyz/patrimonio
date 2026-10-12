@@ -5,11 +5,9 @@ import type {
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildCashBody,
   buildEventBody,
   eventRows,
   duplicateRequest,
-  buildCashPreviewBody,
   buildConfirmBody,
   buildPayoutBody,
   buildTradeBody,
@@ -27,7 +25,7 @@ import {
   pickPortfolio,
   todayDateOnly,
 } from './entry.js';
-import type { CashForm, PayoutForm, TradeForm } from './entry.js';
+import type { PayoutForm, TradeForm } from './entry.js';
 
 const LONGO = '0191e5a0-0000-7000-8000-00000000c001';
 const RESERVA = '0191e5a0-0000-7000-8000-00000000c002';
@@ -45,7 +43,6 @@ const trade: TradeForm = {
   fees: '',
   portfolioId: LONGO,
   institutionId: CORRETORA,
-  note: '',
 };
 
 describe('parseQuantityInput', () => {
@@ -154,45 +151,6 @@ describe('buildTradeBody', () => {
   });
 });
 
-describe('buildCashBody', () => {
-  const cash: CashForm = {
-    portfolioId: LONGO,
-    institutionId: CORRETORA,
-    date: '2026-10-01',
-    amount: '4.000,00',
-    note: '',
-  };
-
-  it('monta o aporte de fora do app', () => {
-    expect(buildCashBody('deposit', cash)).toEqual({
-      ok: true,
-      body: {
-        kind: 'deposit',
-        portfolio_id: LONGO,
-        institution_id: CORRETORA,
-        trade_date: '2026-10-01',
-        amount: '4000.00',
-      },
-    });
-  });
-
-  it('o preview do aporte é o do lançamento de caixa: um real por real', () => {
-    const preview = buildCashPreviewBody('deposit', cash);
-
-    expect(preview).toEqual({
-      ok: true,
-      body: {
-        kind: 'deposit',
-        portfolio_id: LONGO,
-        institution_id: CORRETORA,
-        trade_date: '2026-10-01',
-        quantity: '4000.00',
-        unit_price: '1',
-      },
-    });
-  });
-});
-
 describe('buildPayoutBody', () => {
   const payout: PayoutForm = {
     assetId: ITUB4,
@@ -205,7 +163,6 @@ describe('buildPayoutBody', () => {
     portfolioId: LONGO,
     institutionId: CORRETORA,
     received: false,
-    note: '',
   };
 
   it('manda o valor por ação, sem quantidade: ela vem dos lançamentos', () => {
@@ -267,7 +224,6 @@ const original: TransactionResource = {
   confirmed_at: null,
   event_ratio_from: null,
   event_ratio_to: null,
-  note: null,
   idempotency_key: null,
   created_at: '2025-03-12T10:00:00.000Z',
   updated_at: '2025-03-12T10:00:00.000Z',
@@ -385,14 +341,14 @@ describe('isEditable e isPendingPayout', () => {
 
 describe('buildConfirmBody', () => {
   it('lê o líquido recebido', () => {
-    expect(buildConfirmBody({ netAmount: '84,60', note: '' })).toEqual({
+    expect(buildConfirmBody({ netAmount: '84,60' })).toEqual({
       ok: true,
       body: { net_amount: '84.60' },
     });
   });
 
   it('exige o valor', () => {
-    expect(buildConfirmBody({ netAmount: '', note: '' })).toEqual({
+    expect(buildConfirmBody({ netAmount: '' })).toEqual({
       ok: false,
       errors: { netAmount: 'Informe o valor líquido recebido.' },
     });
@@ -437,7 +393,6 @@ const preview: TransactionPreviewResource = {
     cost_basis: { before: '14550.00', after: '18234.00' },
     weight_pct: { before: '5.80', after: '6.90' },
   },
-  cash: { before: '7192.87', after: '3508.87' },
   portfolio_cost_basis: { before: '250000.00', after: '253684.00' },
   allocation: {
     category_id: LONGO,
@@ -501,13 +456,9 @@ describe('effectRows', () => {
     expect(rows.some((row) => row.id === 'realized')).toBe(false);
   });
 
-  it('aporte e resgate mostram só o caixa e o custo da carteira', () => {
-    expect(effectRows('deposit', preview).map((row) => row.id)).toEqual([
-      'cash',
-      'portfolio_cost',
-    ]);
-    expect(effectRows('withdrawal', preview).map((row) => row.id)).toEqual([
-      'cash',
+  it('provento mostra só o custo da posição e o da carteira', () => {
+    expect(effectRows('payout', preview).map((row) => row.id)).toEqual([
+      'cost_basis',
       'portfolio_cost',
     ]);
   });
@@ -527,7 +478,7 @@ describe('effectRows', () => {
 });
 
 describe('operationTotal', () => {
-  it('a compra mostra o total sem o sinal de saída de caixa', () => {
+  it('a compra mostra o total sem o sinal de saída de dinheiro', () => {
     expect(operationTotal(preview)).toBe('3684.00');
     expect(operationTotal({ ...preview, net_amount: '2895.00' })).toBe('2895.00');
   });
@@ -574,7 +525,6 @@ describe('duplicar', () => {
     quantity: '100.00000000',
     unit_price: '31.04000000',
     fees: '0.00000000',
-    note: null,
   };
 
   it('compra leva ativo, carteira e números; a data não vai', () => {
@@ -582,7 +532,7 @@ describe('duplicar', () => {
       tab: 'buy',
       asset: { id: 'a1', label: 'ITUB4', name: 'Itaú', held: null },
       portfolioId: 'p1',
-      seed: { quantity: '100', price: '31,04', fees: '0', note: '' },
+      seed: { quantity: '100', price: '31,04', fees: '0' },
     });
   });
 

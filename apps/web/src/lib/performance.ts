@@ -1,8 +1,6 @@
 import type {
   PerformanceBenchmarkResource,
-  PerformanceDecompositionResource,
   PerformanceMethodResource,
-  PerformanceMonthlyResource,
   PerformanceResource,
 } from '@patrimonio/contracts';
 import type { DateOnly } from '@patrimonio/domain';
@@ -10,15 +8,14 @@ import type { DateOnly } from '@patrimonio/domain';
 import type { Series } from './chart/series.js';
 import { percentAsRatio } from './overview.js';
 import { BENCHMARK_COLOR, colorForSeries } from './tokens.js';
-import type { GridYear } from '../components/month_year_grid.js';
 
 /**
- * T-05 · As decisões da tela de Desempenho.
+ * As decisões do retorno na Visão geral (gráfico contra benchmarks, janelas e classes).
  *
  * Nada aqui soma dinheiro nem calcula retorno: o que chega da `api` é o que a
  * tela mostra. O que é decidido aqui é o que a tela precisa resolver antes de
- * desenhar — qual cor cada linha leva, que rótulo cada janela tem, como a
- * grade e o gráfico recebem percentuais e como o método é dito em palavras.
+ * desenhar — qual cor cada linha leva, que rótulo cada janela tem, como o
+ * gráfico recebe percentuais e como o método é dito em palavras.
  */
 
 const MONTHS = [
@@ -132,30 +129,20 @@ export const availableToAdd = (
     (item) => !resource.selected.some((chosen) => chosen.id === item.id),
   );
 
-/**
- * A grade mês × ano, com as duas colunas à direita da prancha: o benchmark do
- * ano e a diferença em pontos. Percentual vira razão; a diferença fica em pontos.
- */
-export const gridYears = (monthly: PerformanceMonthlyResource): readonly GridYear[] =>
-  monthly.years.map((year) => ({
-    year: year.year,
-    months: year.months.map((value) => percentAsRatio(value)),
-    total: percentAsRatio(year.total_pct),
-    extras: [percentAsRatio(year.benchmark_pct), year.difference_pp],
-    partial: year.partial,
-  }));
-
 /** O método dito em palavras: a tela declara como cada número foi calculado. */
 export const methodLines = (
   method: PerformanceMethodResource,
+  consolidated = false,
 ): readonly { readonly label: string; readonly text: string }[] => [
   {
-    label: 'Carteira',
-    text: 'variação da cota gravada da carteira. Aporte e resgate criam ou desfazem cotas e não mexem no valor delas — por isso aporte não vira rentabilidade.',
+    label: consolidated ? 'Todas' : 'Carteira',
+    text: consolidated
+      ? 'cota reconstruída sobre a soma das carteiras: o fluxo líquido do dia entra ao valor de cota do dia anterior, e aporte não vira rentabilidade. Cada carteira, na tabela de distribuição, usa a cota gravada dela.'
+      : 'variação da cota gravada da carteira. Aporte e resgate criam ou desfazem cotas e não mexem no valor delas — por isso aporte não vira rentabilidade.',
   },
   {
     label: 'Classes',
-    text: 'retorno de Dietz modificado: o ganho do período sobre o capital médio investido, com cada fluxo pesando pelo tempo em que ficou na classe. É uma aproximação — a classe não tem cota — e o caixa fica de fora, porque não rende por si.',
+    text: 'retorno de Dietz modificado: o ganho do período sobre o capital médio investido, com cada fluxo pesando pelo tempo em que ficou na classe. É uma aproximação — a classe não tem cota — e o provento recebido entra somando no ganho.',
   },
   {
     label: 'Benchmarks',
@@ -168,61 +155,3 @@ export const methodLines = (
       : 'nada é anualizado. Janela maior que o histórico da carteira aparece como traço.',
   },
 ];
-
-/* -------------------------------------------------------------------------- */
-/* CSV                                                                        */
-
-const CSV_HEADER = [
-  'Mês',
-  'Saldo inicial',
-  'Aportes - resgates',
-  'Rendimento',
-  'Dos quais proventos',
-  'Saldo final',
-  'Rentabilidade (%)',
-  'Benchmark (%)',
-  'Diferença (pp)',
-] as const;
-
-const quoted = (value: string): string => `"${value.replaceAll('"', '""')}"`;
-
-/** Decimal com vírgula, que é o que a planilha em português entende. */
-const decimalComma = (value: string | null): string =>
-  value === null ? '' : value.replace('.', ',');
-
-/**
- * O CSV da decomposição, com `;` e vírgula decimal, e os valores como a `api`
- * os mandou — o arquivo é para conferir, e conferir é com o número inteiro. A
- * última linha é o total do período.
- */
-export const decompositionCsv = (
-  decomposition: PerformanceDecompositionResource,
-): string => {
-  const line = (label: string, row: PerformanceDecompositionResource['rows'][number]) =>
-    [
-      label,
-      decimalComma(row.opening_value),
-      decimalComma(row.net_flow),
-      decimalComma(row.income),
-      decimalComma(row.payouts),
-      decimalComma(row.closing_value),
-      decimalComma(row.return_pct),
-      decimalComma(row.benchmark_pct),
-      decimalComma(row.difference_pp),
-    ]
-      .map(quoted)
-      .join(';');
-
-  const rows = decomposition.rows.map((row) => line(shortMonth(row.month), row));
-  const total = decomposition.total;
-
-  return [
-    CSV_HEADER.map(quoted).join(';'),
-    ...rows,
-    ...(total === null ? [] : [line(`${total.months} meses`, { month: '', ...total })]),
-  ].join('\r\n');
-};
-
-export const CSV_BOM = '﻿';
-
-export const csvFilename = (today: DateOnly): string => `desempenho-${today}.csv`;

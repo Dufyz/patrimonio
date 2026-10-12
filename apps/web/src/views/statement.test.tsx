@@ -50,7 +50,6 @@ const row = (n: number, overrides: Partial<StatementRow>): StatementRow => ({
   tax_withheld: '0.00',
   net_amount: '-3120.00',
   confirmed_at: null,
-  note: null,
   effect: { type: 'average_price', before: '38.20', after: '36.80' },
   ...overrides,
 });
@@ -69,18 +68,6 @@ const ROWS: readonly StatementRow[] = [
     net_amount: '127.40',
     confirmed_at: '2026-10-02T12:00:00.000Z',
     effect: { type: 'payout_exempt' },
-  }),
-  row(2, {
-    kind: 'deposit',
-    trade_date: '2026-10-01',
-    ticker: null,
-    asset_name: null,
-    asset_id: null,
-    b3_type: null,
-    quantity: '0',
-    unit_price: '0',
-    net_amount: '4000.00',
-    effect: { type: 'cash_in' },
   }),
   row(3, {}),
   row(4, {
@@ -114,8 +101,6 @@ const resource = (overrides: Partial<StatementResource> = {}): StatementResource
   },
   summary: {
     count: 10,
-    deposits: '11400.00',
-    withdrawals: '0.00',
     buys: '5721.00',
     sells: '2895.00',
     payouts: '553.55',
@@ -124,7 +109,6 @@ const resource = (overrides: Partial<StatementResource> = {}): StatementResource
     { group: 'buy', count: 3 },
     { group: 'sell', count: 1 },
     { group: 'payout', count: 4 },
-    { group: 'cash', count: 2 },
     { group: 'event', count: 0 },
   ],
   facets_total: 10,
@@ -135,9 +119,7 @@ const resource = (overrides: Partial<StatementResource> = {}): StatementResource
   months: [
     {
       month: '2026-10',
-      count: 2,
-      deposits: '4000.00',
-      withdrawals: '0.00',
+      count: 1,
       buys: '0.00',
       sells: '0.00',
       payouts: '127.40',
@@ -145,8 +127,6 @@ const resource = (overrides: Partial<StatementResource> = {}): StatementResource
     {
       month: '2026-09',
       count: 8,
-      deposits: '7400.00',
-      withdrawals: '0.00',
       buys: '5721.00',
       sells: '2895.00',
       payouts: '426.15',
@@ -231,6 +211,15 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
+/** Excluir tem duas confirmações: o modal que nomeia e o aviso final. */
+const confirmDeletion = async (
+  user: ReturnType<typeof userEvent.setup>,
+): Promise<void> => {
+  const dialog = await screen.findByRole('dialog', { name: /Excluir lançamento/ });
+  await user.click(within(dialog).getByRole('button', { name: 'Excluir' }));
+  await user.click(await screen.findByRole('button', { name: 'Sim, excluir' }));
+};
+
 describe('tela de Movimentações', () => {
   it('o cabeçalho diz quantos lançamentos o escopo tem desde quando', async () => {
     show();
@@ -243,13 +232,10 @@ describe('tela de Movimentações', () => {
     show();
     const list = await screen.findByLabelText('Resumo do período');
 
-    expect(within(list).getByText('R$ 11.400,00')).toBeInTheDocument();
     expect(within(list).getByText('R$ 5.721,00')).toBeInTheDocument();
     expect(within(list).getByText('R$ 2.895,00')).toBeInTheDocument();
     expect(within(list).getByText('R$ 553,55')).toBeInTheDocument();
     expect(within(list).getByText('· 10 lançamentos')).toBeInTheDocument();
-    // Sem resgate no recorte, a quinta medida não existe.
-    expect(within(list).queryByText('resgates')).toBeNull();
   });
 
   it('o subtotal do mês vem da api e omite o que é zero', async () => {
@@ -257,33 +243,23 @@ describe('tela de Movimentações', () => {
     const october = (await screen.findByText('Outubro 2026')).closest(
       'tr',
     ) as HTMLElement;
-    expect(within(october).getByText(/aportes/)).toBeInTheDocument();
+    expect(within(october).queryByText(/vendas/)).toBeNull();
     expect(within(october).getByText(/proventos/)).toBeInTheDocument();
     expect(within(october).queryByText(/compras/)).toBeNull();
 
     const september = (await screen.findByText('Setembro 2026')).closest(
       'tr',
     ) as HTMLElement;
-    expect(within(september).getByText('7.400,00')).toBeInTheDocument();
-    expect(within(september).getByText('426,15')).toBeInTheDocument();
+    expect(within(september).getByText('R$ 5.721,00')).toBeInTheDocument();
+    expect(within(september).getByText('R$ 426,15')).toBeInTheDocument();
   });
 
   it('a coluna Efeito diz o que cada lançamento mudou', async () => {
     show();
-    expect(await screen.findByText('PM 38,20 → 36,80')).toBeInTheDocument();
-    expect(screen.getByText('PM 158,01 → 158,20')).toBeInTheDocument();
-    expect(screen.getByText('−310,00 realizado')).toBeInTheDocument();
+    expect(await screen.findByText('PM R$ 38,20 → R$ 36,80')).toBeInTheDocument();
+    expect(screen.getByText('PM R$ 158,01 → R$ 158,20')).toBeInTheDocument();
+    expect(screen.getByText('−R$ 310,00 realizado')).toBeInTheDocument();
     expect(screen.getByText('isento de IR')).toBeInTheDocument();
-    expect(screen.getByText('vindo de fora do app')).toBeInTheDocument();
-  });
-
-  it('aporte aparece como Caixa da instituição, sem quantidade nem preço', async () => {
-    show();
-    const line = (await screen.findByText('Caixa · Corretora A')).closest(
-      'tr',
-    ) as HTMLElement;
-    expect(line).toHaveTextContent('+4.000,00');
-    expect(within(line).getAllByText('—').length).toBeGreaterThanOrEqual(3);
   });
 
   it('o filtro de tipo é uma lista com a contagem de cada tipo, sem Eventos vazios', async () => {
@@ -295,9 +271,6 @@ describe('tela de Movimentações', () => {
     const list = screen.getByRole('group', { name: 'Tipo' });
     expect(
       within(list).getByRole('checkbox', { name: /Proventos\s*4/ }),
-    ).toBeInTheDocument();
-    expect(
-      within(list).getByRole('checkbox', { name: /Aportes e resgates\s*2/ }),
     ).toBeInTheDocument();
     expect(within(list).queryByRole('checkbox', { name: /Eventos/ })).toBeNull();
   });
@@ -370,6 +343,7 @@ describe('tela de Movimentações', () => {
         name: 'Excluir',
       }),
     );
+    await confirmDeletion(user);
 
     expect(
       await screen.findByText(/1 lançamento excluído\. Recálculo enfileirado/),
@@ -417,6 +391,7 @@ describe('tela de Movimentações', () => {
 
     await user.click(screen.getByLabelText(/Selecionar Venda de VALE3/));
     await user.click(screen.getByRole('button', { name: 'Excluir' }));
+    await confirmDeletion(user);
 
     expect(
       await screen.findByText('Não foi possível excluir. Nada foi alterado.'),
@@ -467,7 +442,7 @@ describe('tela de Movimentações', () => {
     expect(click).toHaveBeenCalledOnce();
     const text = await blobs[0]?.text();
     expect(text).toContain('VALE3');
-    expect(text).toContain('−310,00 realizado');
+    expect(text).toContain('−R$ 310,00 realizado');
     expect(text).not.toContain('WEGE3');
     click.mockRestore();
   });

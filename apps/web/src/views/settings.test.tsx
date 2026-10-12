@@ -51,10 +51,6 @@ const settings: Settings = {
     },
   ],
   archived_portfolios: [{ id: 'a', name: 'Viagem 2024', archived_on: '2026-03-04' }],
-  alerts: [
-    { kind: 'price_stale', enabled: true, scope: 'global', threshold: { days: 3 } },
-    { kind: 'corporate_event_pending', enabled: true, scope: 'global', threshold: null },
-  ],
   ledger_defaults: {
     undo_window_seconds: 8,
     jcp_withholding_pct: '15',
@@ -189,7 +185,6 @@ describe('SettingsView', () => {
 
     expect(titles).toEqual([
       'Carteiras',
-      'Alertas',
       'Dados de mercado',
       'Lançamentos',
       'Exibição',
@@ -267,22 +262,12 @@ describe('SettingsView', () => {
     await user.click(within(dialog).getByRole('checkbox', { name: /Entendo/ }));
     expect((confirm as HTMLButtonElement).disabled).toBe(false);
     await user.click(confirm);
+    await user.click(await screen.findByRole('button', { name: 'Sim, excluir' }));
 
     expect(registers.deletePortfolio).toHaveBeenCalledWith(LONGO, {
       confirm_name: 'Longo prazo',
       transactions: 'delete',
     });
-  });
-
-  it('os alertas mostram o limite como a prancha escreve, e o interruptor é só leitura', () => {
-    montar();
-
-    const row = screen.getByRole('row', { name: /Preço atrasado/ });
-    expect(within(row).getByText('3 dias')).toBeTruthy();
-
-    const toggle = within(row).getByRole('switch') as HTMLButtonElement;
-    expect(toggle.getAttribute('aria-checked')).toBe('true');
-    expect(toggle.disabled).toBe(true);
   });
 
   it('dados de mercado mostram cobertura, falha com a mensagem e os papéis sem preço', () => {
@@ -398,11 +383,13 @@ describe('SettingsView', () => {
       },
     });
 
-    expect(screen.getByText('Backup desligado nesta instalação')).toBeTruthy();
-    expect(
-      (screen.getByRole('button', { name: 'Fazer backup agora' }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    // O motivo mora na dica do botão, e não num texto ao lado dele.
+    expect(screen.queryByText('Backup desligado nesta instalação')).toBeNull();
+    const button = screen.getByRole('button', {
+      name: 'Fazer backup agora',
+    }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.title).toBe('Backup desligado nesta instalação');
   });
 
   it('a falha do backup vem com a mensagem do erro', () => {
@@ -425,20 +412,32 @@ describe('SettingsView', () => {
     expect(screen.getByText(/bucket recusou o upload/)).toBeTruthy();
   });
 
-  it('exportar, importar e apagar tudo ficam desabilitados até as histórias deles', () => {
+  it('importar, exportar e apagar estão de pé', () => {
     montar();
 
     for (const name of [
+      'Importar arquivo',
       'CSV por tabela',
       'JSON completo',
-      'Importar arquivo',
       'Apagar',
     ]) {
       expect(
         (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
         name,
-      ).toBe(true);
+      ).toBe(false);
     }
+  });
+
+  it('apagar tudo só libera o botão com a frase inteira', async () => {
+    const user = userEvent.setup();
+    montar();
+
+    await user.click(screen.getByRole('button', { name: 'Apagar' }));
+    const confirm = screen.getByRole('button', { name: 'Apagar tudo' });
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+
+    await user.type(screen.getByPlaceholderText('APAGAR TUDO'), 'APAGAR TUDO');
+    expect((confirm as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('instalação vazia diz como começar, e erro de leitura não vira tela vazia', () => {

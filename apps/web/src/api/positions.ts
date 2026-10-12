@@ -1,5 +1,8 @@
-import { positionsResourceSchema } from '@patrimonio/contracts';
-import type { PositionsResource } from '@patrimonio/contracts';
+import {
+  closedPositionsResourceSchema,
+  positionsResourceSchema,
+} from '@patrimonio/contracts';
+import type { ClosedPositionsResource, PositionsResource } from '@patrimonio/contracts';
 import type { PositionGroupBy } from '@patrimonio/domain';
 
 import { request } from './client.js';
@@ -12,7 +15,8 @@ import { request } from './client.js';
  * lá descreveria linhas que a tela escondeu.
  */
 export type PositionsRequest = {
-  readonly portfolioId: string;
+  /** Nulo soma todas as carteiras. */
+  readonly portfolioId: string | null;
   readonly groupBy: PositionGroupBy;
   readonly search: string;
   /** Qualquer uma delas; vazio não filtra. */
@@ -23,7 +27,7 @@ export type PositionsRequest = {
 export const positionsQuery = (input: PositionsRequest): URLSearchParams => {
   const params = new URLSearchParams();
 
-  params.set('portfolio_id', input.portfolioId);
+  if (input.portfolioId !== null) params.set('portfolio_id', input.portfolioId);
   params.set('group_by', input.groupBy);
   if (input.search.trim() !== '') params.set('search', input.search.trim());
   if (input.categoryIds.length > 0)
@@ -42,3 +46,19 @@ export const fetchPositions = async (
   request(`/api/positions?${positionsQuery(input).toString()}`, positionsResourceSchema, {
     ...(signal === undefined ? {} : { signal }),
   });
+
+export const fetchClosedPositions = async (
+  portfolioId: string | null,
+  search: string,
+  signal?: AbortSignal,
+): Promise<ClosedPositionsResource> => {
+  const params = new URLSearchParams();
+  if (portfolioId !== null) params.set('portfolio_id', portfolioId);
+  if (search.trim() !== '') params.set('search', search.trim());
+
+  return request(
+    `/api/positions/closed?${params.toString()}`,
+    closedPositionsResourceSchema,
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+};

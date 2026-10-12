@@ -18,7 +18,7 @@ import { formatShortDate } from '../../lib/positions.js';
 import type { AssetSearch, PickedAsset } from './asset_picker.js';
 import { AssetPicker } from './asset_picker.js';
 import { EffectPanel } from './effect_table.js';
-import { Callout, Field, Input, Select, useVisibleErrors } from './fields.js';
+import { Callout, Field, Input, MoneyInput, Select, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
 import { InstitutionPicker } from './institution_picker.js';
 import { previewValue, usePreview, useSave } from './hooks.js';
@@ -79,7 +79,6 @@ export const PayoutFormView = ({
   const [portfolioId, setPortfolioId] = useState(seed.portfolioId);
   const [institutionId, setInstitutionId] = useState(seed.institutionId);
   const [received, setReceived] = useState(false);
-  const [note, setNote] = useState('');
 
   const built = useMemo(
     () =>
@@ -94,7 +93,6 @@ export const PayoutFormView = ({
         portfolioId,
         institutionId,
         received,
-        note,
       }),
     [
       asset,
@@ -107,7 +105,6 @@ export const PayoutFormView = ({
       portfolioId,
       institutionId,
       received,
-      note,
     ],
   );
 
@@ -223,7 +220,8 @@ export const PayoutFormView = ({
           error={visible.show(amountField)}
         >
           {(control) => (
-            <Input
+            <MoneyInput
+              maxDecimals={mode === 'per_share' ? 8 : 2}
               {...control}
               numeric
               inputMode="decimal"
@@ -271,7 +269,7 @@ export const PayoutFormView = ({
           }
         >
           {(control) => (
-            <Input
+            <MoneyInput
               {...control}
               numeric
               inputMode="decimal"
@@ -352,28 +350,17 @@ export const PayoutFormView = ({
         </Field>
       </div>
 
-      <Field label="Observação">
-        {(control) => (
-          <Input
-            {...control}
-            invalid={false}
-            placeholder="opcional"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-          />
-        )}
-      </Field>
-
       {received || preview.status === 'error' ? (
         <EffectPanel
           state={preview}
           rows={(result) => effectRows('payout', result.preview)}
-          idle="Preencha o ativo, as datas e o valor para ver o efeito no caixa."
+          idle="Preencha o ativo, as datas e o valor para ver o efeito no custo."
         />
       ) : (
         <Callout tone="info">
           Proventos futuros entram como “a receber” e aparecem em Próximos eventos. O
-          caixa só muda quando o recebimento é confirmado.
+          dinheiro do provento sai do patrimônio: conta na rentabilidade e em “Recebido”,
+          mas não no valor da carteira.
         </Callout>
       )}
     </FormShell>

@@ -183,14 +183,25 @@ export const scoreItem = (item: SearchItem, query: string): number =>
 /* Itens locais: telas, carteiras e ações                                     */
 
 /**
- * Sinônimos de tela. Ninguém lembra que a decomposição do retorno mora em
- * Desempenho; mas quase todo mundo digita "rentabilidade".
+ * Sinônimos de tela. Ninguém lembra em que tela mora a comparação com
+ * benchmarks; mas quase todo mundo digita "rentabilidade".
  */
 const SCREEN_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
-  visao: ['patrimonio', 'resumo', 'inicio', 'painel'],
+  visao: [
+    'patrimonio',
+    'resumo',
+    'inicio',
+    'painel',
+    'rentabilidade',
+    'retorno',
+    'desempenho',
+    'benchmark',
+    'cdi',
+    'ibov',
+    'ipca',
+  ],
   posicoes: ['carteira', 'ativos', 'papeis', 'investimentos'],
   movimentacoes: ['extrato', 'lancamentos', 'transacoes', 'historico', 'operacoes'],
-  desempenho: ['rentabilidade', 'retorno', 'benchmark', 'cdi', 'ibov', 'ipca'],
   estrategia: ['alocacao', 'alvo', 'rebalanceamento', 'distribuicao'],
   objetivos: ['metas', 'aposentadoria', 'sonhos'],
   configuracoes: [

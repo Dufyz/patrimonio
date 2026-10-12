@@ -11,10 +11,7 @@ import type { Resource } from '../../lib/use_resource.js';
 import { useResource } from '../../lib/use_resource.js';
 import { MarketSection } from './market.js';
 import { BackupSection, DisplaySection, LedgerSection } from './preferences.js';
-import {
-  AlertsSection,
-  PortfoliosSection,
-} from './registers.js';
+import { PortfoliosSection } from './registers.js';
 
 /**
  * T-08 · Configurações — a prancha `11 · Configurações`.
@@ -176,12 +173,11 @@ export const SettingsView = ({
               role="status"
               className="rounded-panel border border-line bg-panel p-4 text-[0.8125rem] text-ink-2"
             >
-              Nada cadastrado ainda. Comece criando uma carteira — o resto das configurações já está
-              abaixo.
+              Nada cadastrado ainda. Comece criando uma carteira — o resto das
+              configurações já está abaixo.
             </p>
           ) : null}
           <PortfoliosSection settings={settings} onChanged={reload} />
-          <AlertsSection settings={settings} />
           <MarketSection resource={market} />
           <LedgerSection settings={settings} />
           <DisplaySection />

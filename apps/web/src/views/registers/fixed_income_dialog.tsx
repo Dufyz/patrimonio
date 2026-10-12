@@ -35,20 +35,20 @@ const KINDS: readonly { value: Kind; label: string }[] = [
   { value: 'outro', label: 'Outro' },
 ];
 
-const INDEXERS: readonly { value: Indexer; label: string }[] = [
+export const INDEXERS: readonly { value: Indexer; label: string }[] = [
   { value: 'cdi_pct', label: '% do CDI' },
   { value: 'ipca_plus', label: 'IPCA +' },
   { value: 'prefixed', label: 'Prefixado' },
   { value: 'selic_plus', label: 'Selic +' },
 ];
 
-const LIQUIDITIES: readonly { value: Liquidity; label: string }[] = [
+export const LIQUIDITIES: readonly { value: Liquidity; label: string }[] = [
   { value: 'daily', label: 'Diária' },
   { value: 'at_maturity', label: 'No vencimento' },
   { value: 'd_plus_n', label: 'D+n' },
 ];
 
-const TAXES: readonly { value: Tax; label: string }[] = [
+export const TAXES: readonly { value: Tax; label: string }[] = [
   { value: 'regressive', label: 'Tabela regressiva' },
   { value: 'exempt', label: 'Isento' },
 ];
@@ -63,14 +63,14 @@ const CLASS_BY_KIND: Readonly<Record<Kind, { token: string; label: string }>> = 
   outro: { token: 'class.outros', label: 'Ativos Personalizados' },
 };
 
-const RATE_SUFFIX: Readonly<Record<Indexer, string>> = {
+export const RATE_SUFFIX: Readonly<Record<Indexer, string>> = {
   cdi_pct: '% CDI',
   ipca_plus: '% a.a.',
   prefixed: '% a.a.',
   selic_plus: '% a.a.',
 };
 
-const parseRate = (text: string): string | null => {
+export const parseRate = (text: string): string | null => {
   const normalized = text.trim().replace(',', '.');
   return /^\d+(\.\d+)?$/.test(normalized) ? normalized : null;
 };
@@ -173,6 +173,7 @@ export const FixedIncomeDialog = ({
   return (
     <Modal
       open
+      guard
       title="Cadastrar título"
       subtitle="Títulos bancários e crédito privado não têm cotação pública; o preço é marcado na curva pela taxa"
       onClose={onClose}

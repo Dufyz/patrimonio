@@ -7,6 +7,7 @@ import { Money } from '../components/number.js';
 import { Modal } from '../components/overlay.js';
 import { Button, Label } from '../components/primitives.js';
 import { amountInputValue, parseAmountInput } from '../lib/positions.js';
+import { MoneyInput } from './entry/fields.js';
 
 /**
  * L-14 · Definir o preço de um ativo à mão.
@@ -81,6 +82,7 @@ export const ManualPriceDialog = ({
   return (
     <Modal
       open
+      guard
       title="Definir preço manual"
       subtitle={`${position.ticker} · ${position.name}`}
       onClose={onClose}
@@ -118,11 +120,11 @@ export const ManualPriceDialog = ({
 
           <label className="flex flex-col gap-1.5">
             <Label>Preço</Label>
-            <input
-              inputMode="decimal"
+            <MoneyInput
+              invalid={false}
+              maxDecimals={8}
               value={price}
               aria-label="Preço"
-              className="tabular h-control rounded-control border border-line bg-panel px-3 text-right text-sm"
               onChange={(event) => setPrice(event.target.value)}
             />
           </label>

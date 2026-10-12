@@ -24,21 +24,10 @@ describe('formatação de número', () => {
     expect(formatMoney('12345678.9').text).toBe('R$ 12.345.678,90');
   });
 
-  it('sem o prefixo, o valor mantém casas, milhar e sinal', () => {
-    // A coluna que é inteira de reais e já diz isso no cabeçalho dispensa o
-    // `R$` em cada linha (prancha 06) — e não dispensa o resto: `1.755` em vez
-    // de `1.755,00` desalinharia a coluna pela vírgula.
-    expect(formatMoney('1755', { bare: true }).text).toBe('1.755,00');
-    expect(formatMoney('96.12', { bare: true }).text).toBe('96,12');
-    expect(formatMoneyChange('96.12', { bare: true }).text).toBe('+96,12');
-    expect(formatMoneyChange('-3170', { bare: true }).text).toBe('−3.170,00');
-  });
-
-  it('sem o prefixo, o valor oculto também esconde o prefixo que não existe', () => {
-    const oculto = formatMoney('1755', { bare: true, hidden: true });
-
-    expect(oculto.masked).toBe(true);
-    expect(oculto.text).not.toContain('R$');
+  it('todo valor monetário leva o R$, inclusive em tabela', () => {
+    expect(formatMoney('1755').text).toBe('R$ 1.755,00');
+    expect(formatMoneyChange('96.12').text).toBe('+R$ 96,12');
+    expect(formatMoneyChange('-3170').text).toBe('−R$ 3.170,00');
   });
 
   it('variação em reais leva sinal de menos tipográfico', () => {
@@ -67,15 +56,15 @@ describe('formatação de número', () => {
   });
 
   it('modo compacto encurta milhar e milhão', () => {
-    expect(formatCompact('318900').text).toBe('318,9k');
-    expect(formatCompact('1200000').text).toBe('1,2M');
-    expect(formatCompact('300000').text).toBe('300k');
-    expect(formatCompact('1500000000').text).toBe('1,5B');
+    expect(formatCompact('318900').text).toBe('R$ 318,9k');
+    expect(formatCompact('1200000').text).toBe('R$ 1,2M');
+    expect(formatCompact('300000').text).toBe('R$ 300k');
+    expect(formatCompact('1500000000').text).toBe('R$ 1,5B');
   });
 
   it('modo compacto não encurta o que já cabe', () => {
-    expect(formatCompact('999').text).toBe('999');
-    expect(formatCompact('0').text).toBe('0');
+    expect(formatCompact('999').text).toBe('R$ 999');
+    expect(formatCompact('0').text).toBe('R$ 0');
   });
 
   it('valor oculto vira marca de largura fixa e o percentual continua visível', () => {

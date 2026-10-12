@@ -13,11 +13,10 @@ pnpm --filter @patrimonio/web test
 
 | Endereço                    | O que é                                                   |
 | --------------------------- | --------------------------------------------------------- |
-| `/:carteira/visao-geral`    | T-01 · quanto eu tenho hoje, e o que precisa de mim       |
+| `/:carteira/visao-geral`    | T-01 · quanto eu tenho hoje, e quanto veio de aporte e de rentabilidade |
 | `/:carteira/posicoes`       | T-02 · a tabela de tudo que está em carteira              |
 | `/:carteira/ativo/:apelido` | T-03 · tudo sobre um ativo em um lugar                    |
 | `/:carteira/movimentacoes`  | T-04 · o extrato do livro, onde se corrige o passado      |
-| `/:carteira/desempenho`     | T-05 · quanto veio de aporte e quanto de rentabilidade    |
 | `/:carteira/estrategia`     | T-06 · o dinheiro está dividido como eu disse que queria? |
 | `/:carteira/objetivos`      | T-07 · o ritmo atual chega lá?                            |
 | `/:carteira/configuracoes`  | T-08 · onde se ajusta o que as outras telas leem          |
@@ -167,43 +166,19 @@ Em T-04, mais quatro, contra a prancha 07:
 - **Exportar CSV** está na barra de lote e exporta a seleção da página, com `;`
   e vírgula decimal. A exportação completa do recorte é O-06.
 
-## T-05 · Desempenho
+## T-05 · Desempenho (dentro de Visão geral)
 
-A tela responde a pergunta que motivou o produto: **quanto do crescimento veio de
-aporte e quanto veio de rentabilidade**. Ela a responde em quatro resoluções — a
-carteira contra benchmarks ao longo do tempo, mês a mês, o saldo decomposto e a
-quebra por carteira e por classe — e declara no rodapé como cada número foi
-calculado. `GET /api/performance` entrega as quatro sobre o mesmo fechamento e a
-mesma cota; cinco rotas deixariam cada tabela escolher o seu "hoje".
+Não existe mais tela própria: o retorno vive em Visão geral, que responde
+**quanto do crescimento veio de aporte e quanto veio de rentabilidade**. São dois
+gráficos separados: *Evolução* (aporte e rendimento em reais, empilhados, no
+cabeçalho) e *Retorno × benchmarks* (carteira em %, base 0%). A tabela *Por
+classe de ativo* junta peso, desvio do alvo e retorno de cada classe, e o método
+fecha a tela. `GET /api/performance` continua entregando o retorno sobre o mesmo
+fechamento e a mesma cota.
 
-**Carteira rende pela cota; classe, por Dietz modificado.** A carteira tem cota
-gravada, e o retorno de qualquer janela é a razão entre dois valores dela — é por
-isso que aporte não vira rentabilidade. A classe não tem cota, e o retorno dela é uma
-aproximação (ganho sobre o capital médio, cada fluxo pesando pelo tempo em que
-ficou); o caixa fica de fora, e a tela o mostra como traço.
-
-**Retorno ausente é traço, nunca zero.** Janela maior que o histórico, mês
-anterior ao primeiro fechamento e benchmark sem nenhum fator no período chegam
-como `null`. O benchmark sem dado ainda é avisado sob o gráfico e não vira uma
-linha reta em 0%. Nada é anualizado.
-
-**A diferença é em pontos percentuais**, e a grade mensal ganhou `extraKinds`
-para escrevê-la assim ao lado do benchmark do ano.
-
-**Os benchmarks da tela vão para a URL** (`?benchmarks=`), e o benchmark da
-carteira fica sempre na frente — é a referência da grade e da decomposição. O
-período padrão aqui é 24 meses, e não 12 como nas demais telas.
-
-Em T-05, contra a prancha 08:
-
-- **Sem o botão Exportar do cabeçalho.** Exportar CSV mora no painel da
-  decomposição, que é a única tabela que se leva para uma planilha; exportar o
-  resto seria duplicar a tela.
-- **O "12 meses" da decomposição são os doze meses de calendário**, e pode
-  diferir um pouco da janela 12M enquanto o mês corrente não fechou.
-- **Benchmarks compostos** (`IPCA + 6%`, `50% CDI + 50% IBOV`) são definição do
-  usuário e nascem em Configurações; a migration 030 semeia só os cinco índices
-  simples.
+**Carteira rende pela cota; classe, por Dietz modificado.** **Retorno ausente é
+traço, nunca zero.** **A diferença é em pontos percentuais.** Nada é anualizado.
+Os benchmarks extras vão para a URL (`?benchmarks=`).
 
 ## T-06 · Estratégia
 
@@ -291,7 +266,7 @@ alterada.
 ## T-08 · Configurações
 
 A tela responde: **o que posso ajustar, e o que me impede de excluir?**
-`GET /api/settings` entrega carteiras, alertas, categorias, instituições,
+`GET /api/settings` entrega carteiras, categorias, instituições,
 benchmarks, os padrões do lançamento e o estado do backup numa consulta só. A
 seção de dados de mercado reaproveita `GET /api/market/health` (M-16), que já tem
 o compasso próprio de releitura durante uma coleta; duplicá-la seria ter dois
@@ -311,9 +286,6 @@ Em T-08, contra a prancha 11:
   cadastro de ativo é do modal de T-10). Ficou a prancha.
 - **Criar, editar e excluir estão desabilitados**, com a dica de que chegam com
   T-10 (modais).
-- **Alertas são mostrados, não editados.** Os interruptores e limites ficam
-  somente leitura até o motor de alertas (O-01); só as regras de mercado existem
-  na base.
 - **"Lançamentos" é leitura.** Janela do desfazer, IR em JCP e liquidação são
   configuração de implantação (variáveis de ambiente e regra do domínio), então
   a seção as mostra e diz que mudá-las é trocar a variável. Não há "Taxas da B3".
@@ -324,7 +296,7 @@ Em T-08, contra a prancha 11:
   (O-06, O-04, O-07). O interruptor de frequência foi omitido.
 - **Preferências de exibição**: tema, densidade e ocultar valores funcionam
   (guardados no navegador). "Período padrão" e "Tela inicial" da prancha foram
-  omitidos: exigiriam ligar o padrão a Visão geral, Desempenho e à rota inicial.
+  omitidos: exigiriam ligar o padrão a Visão geral e à rota inicial.
 - **A navegação lateral destaca a seção clicada**, sem IntersectionObserver.
 
 ## T-11 · Orçamento de consultas por rota
@@ -352,7 +324,7 @@ Subir um limite é editar `query-budget.ts`, e isso aparece na revisão.
 
 Compra, venda, provento, aporte, resgate, mover posição, editar e confirmar recebimento. Código em `src/views/entry/`, lógica pura em `src/lib/entry.ts`, chamadas em `src/api/entry.ts` e o provedor que abre tudo em `src/components/entry_provider.tsx` (atalho `N`, `useEntry()`).
 
-- **O preview é o plano do salvamento.** Compra, venda, aporte e resgate usam `POST /transactions/preview`; edição, `/transactions/:id/preview`. A tela não calcula dinheiro.
+- **O preview é o plano do salvamento.** Compra e venda usam `POST /transactions/preview`; edição, `/transactions/:id/preview`. A tela não calcula dinheiro.
 - **Rota nova na api:** `POST /transactions/payouts/preview` (o provento não tinha preview). `createPayout` e o preview dividem `preparePayout`, e um teste prova que os números do preview são os gravados.
 - **Venda acima da posição** falha no preview e a mensagem aparece no campo da quantidade.
 - **Sem atualização otimista.** Gravar sobe `version` no provedor; Posições, ativo e Movimentações releem com ele.
@@ -364,7 +336,7 @@ Compra, venda, provento, aporte, resgate, mover posição, editar e confirmar re
 - **Cadastros** (carteira, categoria, instituição, benchmark, objetivo, edição do ativo) continuam desabilitados: não fazem parte desta entrega.
 - **Entrada por texto** (colar "compra 100 ITUB4...") não foi feita.
 - **Editar** não se aplica a evento; o modal explica e oferece fechar.
-- **Duplicar** só vale para compra, venda, provento, aporte e resgate; só compra e venda levam os números. Em lote, só com uma linha selecionada.
+- **Duplicar** só vale para compra, venda e provento; só compra e venda levam os números. Em lote, só com uma linha selecionada.
 - **Conferência visual (Chromium, contra as pranchas 13, 15 e 17):** abas no `Segmented` da prancha, modal estreito, campo de ativo com lupa e nome, rodapé cinza, "O que muda", "antes: 31,40", "Salvar alterações" e "Não foi pago" em vermelho. Diferenças que ficaram: a liquidação abre em branco (a prancha a mostra preenchida; o cálculo D+N é da api), a tabela de efeito traz também custo da posição e da carteira (a prancha só traz quantidade, preço médio, % e classe, mas o critério da história pede custo), "Resultado aberto" e "Rent. 12M" na edição não existem no preview, "Recebido em" na confirmação não existe na api e o rodapé da edição não tem "editado N vez · ver histórico".
 
 ## Divergências registradas

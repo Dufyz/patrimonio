@@ -7,7 +7,6 @@ import {
 } from '@patrimonio/contracts';
 import type {
   ConfirmPayoutBody,
-  CreateCashMovementBody,
   CreatePayoutBody,
   DismissPayoutBody,
   CorporateEventPreviewBody,
@@ -142,11 +141,6 @@ export const createTransaction = (
   attemptKey: string,
 ): Promise<SaveReceipt> => save('/api/transactions', 'POST', body, attemptKey);
 
-export const createCashMovement = (
-  body: CreateCashMovementBody,
-  attemptKey: string,
-): Promise<SaveReceipt> => save('/api/transactions/cash', 'POST', body, attemptKey);
-
 export const createPayout = (
   body: CreatePayoutBody,
   attemptKey: string,
@@ -177,7 +171,7 @@ export const dismissPayout = (
  * Registrar e confirmar, em sequência: o fluxo de `POST /corporate-events` e
  * `POST /corporate-events/:id/confirm`. Registrar de novo o mesmo evento não cria
  * uma segunda linha, então repetir depois de uma falha no meio é seguro; se só a
- * confirmação falhar, o evento fica aguardando nos alertas.
+ * confirmação falhar, o evento fica registrado, aguardando confirmação.
  */
 export const applyCorporateEvent = async (
   body: CorporateEventPreviewBody,

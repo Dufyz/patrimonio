@@ -86,6 +86,7 @@
   --color-area-contributions: #2e63d8;
   --color-area-return: #11804f;
   --color-area-loss: #c2333f;
+  --color-area-payouts: #b7791f;
 
   /* Extremos da escala divergente da grade mês × ano (D-09). */
   --color-scale-positive: #1f9d63;
@@ -161,6 +162,7 @@
   --color-area-contributions: #5b8cf0;
   --color-area-return: #35c08a;
   --color-area-loss: #f2697a;
+  --color-area-payouts: #e0a94a;
 
   --color-scale-positive: #35c08a;
   --color-scale-negative: #f2697a;

@@ -177,6 +177,7 @@ const resource = (overrides: Partial<PositionsResource> = {}): PositionsResource
       count: 9,
     },
   ],
+  live: null,
   price_health: { fresh: 27, stale: 1, manual: 0, missing: 0 },
   ...overrides,
 });
@@ -399,7 +400,8 @@ describe('tela de Posições', () => {
     show();
 
     await screen.findByText('28 posições');
-    await user.click(screen.getByRole('radio', { name: 'Instituição' }));
+    await user.click(screen.getByRole('button', { name: 'Agrupar' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Instituição' }));
 
     await waitFor(() => expect(calls.at(-1)).toContain('group_by=institution'));
   });

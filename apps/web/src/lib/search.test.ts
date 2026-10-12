@@ -36,7 +36,6 @@ const SCREENS = [
   { id: 'visao', label: 'Visão geral', glyph: '▦', shortcut: 'G V' },
   { id: 'posicoes', label: 'Posições', glyph: '≡', shortcut: 'G P' },
   { id: 'movimentacoes', label: 'Movimentações', glyph: '⇄', shortcut: 'G M' },
-  { id: 'desempenho', label: 'Desempenho', glyph: '◹', shortcut: 'G D' },
 ];
 const PORTFOLIOS = [{ id: 'longo', label: 'Longo prazo' }];
 
@@ -178,7 +177,6 @@ describe('itens locais', () => {
       ['Visão geral', 'G V'],
       ['Posições', 'G P'],
       ['Movimentações', 'G M'],
-      ['Desempenho', 'G D'],
     ]);
   });
 
@@ -239,7 +237,7 @@ describe('com texto', () => {
     );
 
     expect(porNome).toEqual(['Posições']);
-    expect(porSinonimo).toEqual(['Desempenho']);
+    expect(porSinonimo).toEqual(['Visão geral']);
   });
 
   it('acha Configurações por sinônimo, e ela não tem atalho de teclado', () => {
@@ -410,17 +408,6 @@ describe('rótulos', () => {
   it('diz o tipo, a quantidade e o ativo do lançamento', () => {
     expect(transactionLabel(compra)).toBe('Compra 100 ITUB4');
     expect(transactionLabel(jcp)).toBe('JCP ITUB4');
-    expect(
-      transactionLabel({
-        ...compra,
-        kind: 'deposit',
-        asset_id: null,
-        ticker: null,
-        asset_name: null,
-        b3_type: null,
-        quantity: '0',
-      }),
-    ).toBe('Aporte');
   });
 
   it('marca o provento a receber e traz a data e a carteira', () => {

@@ -58,6 +58,7 @@ export const PortfolioDialog = ({
   return (
     <Modal
       open
+      guard
       narrow
       title={portfolio === null ? 'Nova carteira' : 'Editar carteira'}
       subtitle={

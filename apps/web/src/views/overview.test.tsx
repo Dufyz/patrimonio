@@ -1,7 +1,7 @@
-import type { OverviewResource } from '@patrimonio/contracts';
+import type { OverviewResource, PerformanceResource } from '@patrimonio/contracts';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { PreferencesProvider } from '../components/preferences.js';
 import { DEFAULT_PERIOD } from '../lib/period.js';
@@ -44,12 +44,16 @@ const overview: OverviewResource = {
       contributions: '200000.00',
       total: '250000.00',
       result: '50000.00',
+      payouts: '0.00',
+      with_payouts: '250000.00',
     },
     {
       date: '2026-10-06',
       contributions: '225600.00',
       total: '318904.12',
       result: '93304.12',
+      payouts: '3120.00',
+      with_payouts: '322024.12',
     },
   ],
   composition: {
@@ -83,10 +87,25 @@ const overview: OverviewResource = {
         target_value: '79726.03',
         children: [],
       },
+      {
+        id: 'cat-cripto',
+        name: 'Cripto',
+        color_token: 'class.outros',
+        level: 'category',
+        value: '1000.00',
+        current_pct: '0.30',
+        target_pct: null,
+        deviation_pp: null,
+        over_tolerance: false,
+        amount_to_move: null,
+        target_value: null,
+        children: [],
+      },
     ],
     target_sum: { total_pct: '100.00', missing_pp: '0.00', closes: true },
     target_rejected: false,
   },
+  by_portfolio: [],
   top_positions: {
     total_count: 28,
     rows: [
@@ -102,8 +121,103 @@ const overview: OverviewResource = {
       },
     ],
   },
-  attention: { total: 0, groups: [] },
 };
+
+const CDI = 'CDI';
+const IBOV = 'IBOV';
+const LONGO = '0191e5a0-0000-7000-8000-00000000c001';
+
+const performanceData: PerformanceResource = {
+  reference_date: '2026-09-30',
+  scope: {
+    portfolio_id: LONGO,
+    name: 'Longo prazo',
+    recalc_status: 'idle',
+    inception: '2021-03-15',
+  },
+  method: {
+    portfolio: 'portfolio_quota',
+    class: 'modified_dietz',
+    benchmark: 'compound_daily_factors',
+    annualized: false,
+  },
+  benchmarks: {
+    available: [
+      { id: CDI, name: 'CDI', kind: 'index' },
+      { id: IBOV, name: 'Ibovespa', kind: 'index' },
+    ],
+    selected: [{ id: CDI, name: 'CDI', kind: 'index' }],
+    primary_id: CDI,
+    gaps: [],
+  },
+  chart: {
+    base_date: '2024-09-30',
+    dates: ['2024-09-30', '2026-09-30'],
+    portfolio: ['0.00', '30.10'],
+    benchmarks: [{ id: CDI, values: ['0.00', '29.29'] }],
+  },
+  windows: {
+    columns: [
+      { key: 'month', base_date: '2026-08-31' },
+      { key: '12m', base_date: '2025-09-30' },
+      { key: '24m', base_date: null },
+      { key: 'inception', base_date: '2021-03-15' },
+    ],
+    rows: [
+      {
+        kind: 'portfolio',
+        benchmark: null,
+        name: 'Longo prazo',
+        values: ['0.98', '15.92', null, '102.96'],
+      },
+      {
+        kind: 'benchmark',
+        benchmark: CDI,
+        name: 'CDI',
+        values: ['1.14', '14.52', null, '84.90'],
+      },
+      {
+        kind: 'difference',
+        benchmark: null,
+        name: 'Diferença',
+        values: ['-0.16', '1.40', null, '18.06'],
+      },
+    ],
+  },
+  breakdown: {
+    columns: [
+      { key: 'month', base_date: '2026-08-31' },
+      { key: 'ytd', base_date: '2025-12-31' },
+      { key: '12m', base_date: '2025-09-30' },
+      { key: 'inception', base_date: '2021-03-15' },
+    ],
+    classes: [
+      {
+        category_id: 'cat-acoes',
+        name: 'Ações',
+        color_token: 'class.acoes',
+        value: '112572.15',
+        weight_pct: '35.30',
+        returns: ['1.20', '9.00', '12.00', '80.00'],
+      },
+      {
+        category_id: 'cat-cripto',
+        name: 'Cripto',
+        color_token: 'class.outros',
+        value: '1000.00',
+        weight_pct: '0.30',
+        returns: [null, null, null, null],
+      },
+    ],
+    portfolios: [],
+  },
+};
+
+const readyPerf = (value: PerformanceResource): Resource<PerformanceResource> => ({
+  state: { kind: 'ready', value },
+  pending: false,
+  reload: () => {},
+});
 
 const ready = (value: OverviewResource): Resource<OverviewResource> => ({
   state: { kind: 'ready', value },
@@ -111,17 +225,131 @@ const ready = (value: OverviewResource): Resource<OverviewResource> => ({
   reload: () => {},
 });
 
+const consolidated: OverviewResource = {
+  ...overview,
+  scope: {
+    ...overview.scope,
+    portfolio_id: null,
+    name: 'Todas as carteiras',
+    tolerance_pp: '0',
+  },
+  by_portfolio: [
+    { portfolio_id: LONGO, name: 'Longo prazo', value: '318904.12', weight_pct: '80.00' },
+    {
+      portfolio_id: '0191e5a0-0000-7000-8000-00000000c002',
+      name: 'Reserva',
+      value: '79726.03',
+      weight_pct: '20.00',
+    },
+  ],
+};
+
+const consolidatedPerformance: PerformanceResource = {
+  ...performanceData,
+  scope: { ...performanceData.scope, portfolio_id: null, name: 'Todas as carteiras' },
+  breakdown: {
+    ...performanceData.breakdown,
+    portfolios: [
+      {
+        portfolio_id: LONGO,
+        name: 'Longo prazo',
+        value: '318904.12',
+        weight_pct: '80.00',
+        returns: ['0.98', '7.10', '15.92', '102.96'],
+      },
+      {
+        portfolio_id: '0191e5a0-0000-7000-8000-00000000c002',
+        name: 'Reserva',
+        value: '79726.03',
+        weight_pct: '20.00',
+        returns: ['0.80', '9.50', null, '9.50'],
+      },
+    ],
+  },
+};
+
+const showConsolidated = (opened: string[] = []) =>
+  render(
+    <PreferencesProvider storage={null}>
+      <OverviewView
+        resource={ready(consolidated)}
+        performance={readyPerf(consolidatedPerformance)}
+        extraIds={[]}
+        onExtraIdsChange={() => {}}
+        period={DEFAULT_PERIOD}
+        onPeriodChange={() => {}}
+        today={HOJE}
+        onOpenPortfolio={(id) => opened.push(id)}
+      />
+    </PreferencesProvider>,
+  );
+
 const show = (resource: Resource<OverviewResource>) =>
   render(
     <PreferencesProvider storage={null}>
       <OverviewView
         resource={resource}
+        performance={readyPerf(performanceData)}
+        extraIds={[]}
+        onExtraIdsChange={() => {}}
         period={DEFAULT_PERIOD}
         onPeriodChange={() => {}}
         today={HOJE}
       />
     </PreferencesProvider>,
   );
+
+describe('todas as carteiras', () => {
+  it('diz de quê é o número e mostra quanto cada carteira pesa', () => {
+    showConsolidated();
+
+    expect(screen.getByText(/Patrimônio · todas as carteiras/i)).toBeInTheDocument();
+
+    const tabela = screen.getByRole('table', {
+      name: 'Valor, peso e retorno de cada carteira',
+    });
+
+    expect(within(tabela).getByText('Longo prazo')).toBeInTheDocument();
+    expect(within(tabela).getByText('80,0%')).toBeInTheDocument();
+    expect(within(tabela).getByText('20,0%')).toBeInTheDocument();
+  });
+
+  it('mostra o retorno de cada carteira pela cota dela, com traço onde não há base', () => {
+    showConsolidated();
+
+    const tabela = screen.getByRole('table', {
+      name: 'Valor, peso e retorno de cada carteira',
+    });
+    const reserva = within(tabela).getByRole('row', { name: /Reserva/ });
+
+    expect(within(reserva).getByText('0,80%')).toBeInTheDocument();
+    expect(within(reserva).getAllByText('9,50%')).toHaveLength(2);
+    expect(within(reserva).getByText('—')).toBeInTheDocument();
+  });
+
+  it('mantém o retorno contra benchmark e o retorno por classe, sem o alvo', () => {
+    showConsolidated();
+
+    expect(screen.getByText(/Retorno × benchmarks/)).toBeInTheDocument();
+
+    const classes = screen.getByRole('table', {
+      name: 'Distribuição e retorno por classe de ativo',
+    });
+
+    expect(within(classes).getByText('12,00%')).toBeInTheDocument();
+    expect(screen.queryByText('vs alvo')).not.toBeInTheDocument();
+    expect(screen.getByText(/O alvo é declarado por carteira/)).toBeInTheDocument();
+  });
+
+  it('abre a visão geral da carteira escolhida', async () => {
+    const opened: string[] = [];
+    showConsolidated(opened);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reserva' }));
+
+    expect(opened).toEqual(['0191e5a0-0000-7000-8000-00000000c002']);
+  });
+});
 
 describe('quanto eu tenho hoje', () => {
   it('o patrimônio abre a tela, com a data da consolidação ao lado do nome', () => {
@@ -149,7 +377,9 @@ describe('quanto eu tenho hoje', () => {
   it('o desvio contra o alvo sai em pontos percentuais', () => {
     show(ready(overview));
 
-    const tabela = screen.getByRole('table', { name: 'Distribuição por categoria' });
+    const tabela = screen.getByRole('table', {
+      name: 'Distribuição e retorno por classe de ativo',
+    });
 
     expect(within(tabela).getByText('0,3 pp')).toBeInTheDocument();
     expect(within(tabela).getByText('0,9 pp')).toBeInTheDocument();
@@ -161,46 +391,6 @@ describe('quanto eu tenho hoje', () => {
     expect(
       screen.getByText('Todas as classes dentro da tolerância de 3 pp.'),
     ).toBeInTheDocument();
-  });
-});
-
-describe('o que precisa de mim', () => {
-  it('sem pendência o painel não existe: nenhum bloco vazio na tela', () => {
-    show(ready(overview));
-
-    expect(screen.queryByText(/Requer atenção/)).not.toBeInTheDocument();
-  });
-
-  it('com pendência, cada alerta aparece no grupo da ação que ele pede', () => {
-    show(
-      ready({
-        ...overview,
-        attention: {
-          total: 1,
-          groups: [
-            {
-              group: 'corrigir',
-              count: 1,
-              items: [
-                {
-                  rule_kind: 'price_stale',
-                  subject_id: 'a1',
-                  portfolio_id: '0191e5a0-0000-7000-8000-00000000c001',
-                  payload: { ticker: 'KNRI11', last_price_date: '2026-10-03' },
-                  first_seen_at: '2026-10-06T12:00:00.000Z',
-                },
-              ],
-            },
-          ],
-        },
-      }),
-    );
-
-    expect(screen.getByText('Requer atenção · 1')).toBeInTheDocument();
-    expect(screen.getByText('Corrigir dados · 1')).toBeInTheDocument();
-    expect(screen.getByText(/KNRI11/)).toBeInTheDocument();
-    // O alerta diz de qual carteira ele é, porque o painel mistura todas.
-    expect(screen.getByText('Longo prazo')).toBeInTheDocument();
   });
 });
 
@@ -253,6 +443,9 @@ describe('o atalho para a página do ativo', () => {
       <PreferencesProvider storage={null}>
         <OverviewView
           resource={ready(overview)}
+          performance={readyPerf(performanceData)}
+          extraIds={[]}
+          onExtraIdsChange={() => {}}
           period={DEFAULT_PERIOD}
           onPeriodChange={() => {}}
           today={HOJE}
@@ -289,5 +482,72 @@ describe('o atalho para a página do ativo', () => {
     );
 
     expect(screen.getByText('CDB Banco C 2028')).toBeInTheDocument();
+  });
+});
+
+describe('por classe e método', () => {
+  it('classe sem base no período: traço, e não 0,00%', () => {
+    show(ready(overview));
+
+    const tabela = screen.getByRole('table', {
+      name: 'Distribuição e retorno por classe de ativo',
+    });
+    const caixa = within(tabela).getByRole('row', { name: /Cripto/ });
+
+    expect(within(caixa).getAllByText('—')).toHaveLength(4);
+  });
+
+  it('o método está escrito na tela', () => {
+    show(ready(overview));
+
+    const metodo = screen
+      .getByText('Como estes números são calculados')
+      .closest('section') as HTMLElement;
+
+    expect(within(metodo).getByText(/Dietz modificado/)).toBeInTheDocument();
+    expect(within(metodo).getByText(/nada é anualizado/)).toBeInTheDocument();
+  });
+});
+
+describe('benchmarks no gráfico de retorno', () => {
+  const showRetorno = (
+    onExtraIdsChange: (ids: readonly string[]) => void,
+    extraIds: readonly string[] = [],
+    perf = performanceData,
+  ) =>
+    render(
+      <PreferencesProvider storage={null}>
+        <OverviewView
+          resource={ready(overview)}
+          performance={readyPerf(perf)}
+          period={DEFAULT_PERIOD}
+          onPeriodChange={() => {}}
+          extraIds={extraIds}
+          onExtraIdsChange={onExtraIdsChange}
+          today={HOJE}
+        />
+      </PreferencesProvider>,
+    );
+
+  it('escolher um benchmark devolve a lista nova a quem a guarda', async () => {
+    const onExtraIdsChange = vi.fn();
+    showRetorno(onExtraIdsChange);
+
+    await userEvent.click(screen.getByRole('button', { name: /Benchmark/ }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Ibovespa' }));
+
+    expect(onExtraIdsChange).toHaveBeenCalledWith([IBOV]);
+  });
+
+  it('série que não cobre o período é dita, e não desenhada curta', () => {
+    showRetorno(() => {}, [], {
+      ...performanceData,
+      benchmarks: {
+        ...performanceData.benchmarks,
+        gaps: [{ id: IBOV, name: 'Ibovespa', available_from: null }],
+      },
+    });
+
+    expect(screen.getByText(/Ibovespa \(nenhum dado coletado\)/)).toBeInTheDocument();
   });
 });

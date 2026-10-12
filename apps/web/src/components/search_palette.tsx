@@ -53,7 +53,7 @@ export type SearchPaletteProps = {
   readonly onClose: () => void;
   /** O escopo atual, no canto do campo: é nele que a ação vai acontecer. */
   readonly scopeLabel: string;
-  /** A carteira do escopo: a busca no banco mede a posição nela. Nulo desliga a busca. */
+  /** A carteira do escopo: a busca no banco mede a posição nela. Nulo mede em todas. */
   readonly portfolioId: string | null;
   readonly screens: readonly SearchScreen[];
   readonly portfolios: readonly SearchPortfolio[];
@@ -88,9 +88,7 @@ const PaletteDialog = ({
   const search = useMemo(
     () =>
       injectedSearch ??
-      (portfolioId === null
-        ? null
-        : (text: string, signal: AbortSignal) => fetchSearch(text, portfolioId, signal)),
+      ((text: string, signal: AbortSignal) => fetchSearch(text, portfolioId, signal)),
     [injectedSearch, portfolioId],
   );
 

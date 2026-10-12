@@ -45,14 +45,13 @@ const row = (overrides: Partial<StatementRow> = {}): StatementRow => ({
   tax_withheld: '0.00',
   net_amount: '-3120.00',
   confirmed_at: null,
-  note: null,
   effect: { type: 'average_price', before: '38.20', after: '36.80' },
   ...overrides,
 });
 
 describe('URL', () => {
   it('traduz o grupo nos dois sentidos e ignora o que não conhece', () => {
-    expect(groupToParam('cash')).toBe('caixa');
+    expect(groupToParam('event')).toBe('eventos');
     expect(groupFromParam('proventos')).toBe('payout');
     expect(groupFromParam('xyz')).toBeNull();
     expect(groupFromParam(null)).toBeNull();
@@ -71,9 +70,9 @@ describe('URL', () => {
     expect(entriesLabel(14)).toBe('14 lançamentos');
   });
 
-  it('aporte não tem ativo: o rótulo é o caixa da instituição', () => {
-    expect(assetLabel(row({ kind: 'deposit', ticker: null, asset_name: null }))).toBe(
-      'Caixa · Corretora A',
+  it('o rótulo é o código do ativo, ou o nome quando não há código', () => {
+    expect(assetLabel(row({ ticker: null, asset_name: 'CDB Banco C' }))).toBe(
+      'CDB Banco C',
     );
     expect(assetLabel(row())).toBe('WEGE3');
   });
@@ -87,23 +86,17 @@ describe('URL', () => {
 describe('resumo', () => {
   const summary = {
     count: 10,
-    deposits: '11400.00',
-    withdrawals: '0.00',
     buys: '5721.00',
     sells: '2895.00',
     payouts: '553.55',
   };
 
-  it('só cita resgates quando houve', () => {
+  it('traz compras, vendas e proventos, sempre', () => {
     expect(summaryItems(summary).map((item) => item.key)).toEqual([
-      'deposits',
       'buys',
       'sells',
       'payouts',
     ]);
-    expect(
-      summaryItems({ ...summary, withdrawals: '10.00' }).map((item) => item.key),
-    ).toContain('withdrawals');
   });
 
   it('o subtotal do mês omite o que é zero', () => {
@@ -112,22 +105,17 @@ describe('resumo', () => {
       month: '2026-10',
       buys: '0.00',
       sells: '0.00',
-      deposits: '4000.00',
       payouts: '127.40',
     });
-    expect(items.map((item) => item.label)).toEqual(['aportes', 'proventos']);
+    expect(items.map((item) => item.label)).toEqual(['proventos']);
   });
 });
 
 describe('valor', () => {
-  it('compra e venda em módulo, dinheiro de caixa com sinal', () => {
+  it('compra e venda em módulo, provento com sinal', () => {
     expect(valueCell(row())).toEqual({ value: '3120.00', signed: false });
     expect(valueCell(row({ kind: 'payout', net_amount: '127.40' }))).toEqual({
       value: '127.40',
-      signed: true,
-    });
-    expect(valueCell(row({ kind: 'withdrawal', net_amount: '-50.00' }))).toEqual({
-      value: '-50.00',
       signed: true,
     });
   });
@@ -139,20 +127,19 @@ describe('efeito', () => {
 
   it('escreve cada efeito como a prancha', () => {
     expect(text({ type: 'average_price', before: '38.20', after: '36.80' })).toBe(
-      'PM 38,20 → 36,80',
+      'PM R$ 38,20 → R$ 36,80',
     );
     expect(text({ type: 'payout_exempt' })).toBe('isento de IR');
-    expect(text({ type: 'cash_in' })).toBe('vindo de fora do app');
     expect(text({ type: 'payout_receivable', expected: null })).toBe('a receber');
     expect(text({ type: 'none' })).toBe('—');
   });
 
   it('venda traz o sinal e a isenção', () => {
     const loss = effectView({ type: 'realized', result: '-310.00', exempt: false });
-    expect(loss.text).toBe('−310,00 realizado');
+    expect(loss.text).toBe('−R$ 310,00 realizado');
     expect(loss.tone).toBe('negative');
     expect(text({ type: 'realized', result: '150.00', exempt: true })).toBe(
-      '+150,00 realizado · isento',
+      '+R$ 150,00 realizado · isento',
     );
   });
 
@@ -226,16 +213,7 @@ describe('CSV', () => {
     const [header, line] = csv.split('\r\n');
     expect(header).toContain('"Data";"Tipo"');
     expect(line).toContain('"100,5";"31,2012"');
-    expect(line).toContain('"PM 38,20 → 36,80"');
-  });
-
-  it('deixa quantidade, preço e taxa em branco no aporte', () => {
-    const csv = statementCsv([
-      row({ kind: 'deposit', ticker: null, asset_name: null, net_amount: '4000.00' }),
-    ]);
-    expect(csv.split('\r\n')[1]).toContain(
-      '"Caixa · Corretora A";"Longo prazo";"Corretora A";"";"";"";"4000,00"',
-    );
+    expect(line).toContain('"PM R$ 38,20 → R$ 36,80"');
   });
 
   it('texto que parece fórmula vira texto e aspas são escapadas', () => {

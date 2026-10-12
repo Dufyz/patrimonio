@@ -125,7 +125,9 @@ export const InstitutionPicker = ({
           className="absolute top-[calc(var(--spacing-control)+0.25rem)] right-0 left-0 z-30 max-h-64 overflow-y-auto rounded-panel border border-line bg-panel py-1 shadow-lg"
         >
           {items.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-ink-3">Nenhuma instituição encontrada.</li>
+            <li className="px-3 py-2 text-sm text-ink-3">
+              Nenhuma instituição encontrada.
+            </li>
           ) : null}
 
           {items.map((option, index) => (
@@ -146,7 +148,6 @@ export const InstitutionPicker = ({
               </button>
             </li>
           ))}
-
         </ul>
       ) : null}
     </div>

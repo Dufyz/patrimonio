@@ -19,7 +19,9 @@ const OPTIONS = [
 
 afterEach(cleanup);
 
-const montar = (overrides: Partial<React.ComponentProps<typeof InstitutionPicker>> = {}) => {
+const montar = (
+  overrides: Partial<React.ComponentProps<typeof InstitutionPicker>> = {},
+) => {
   const onChange = vi.fn();
   render(
     <InstitutionPicker
@@ -60,7 +62,9 @@ describe('o seletor de instituição', () => {
 
     await userEvent.type(campo, 'Interactive Brokers');
 
-    expect(screen.getByRole('listbox').textContent).toContain('Nenhuma instituição encontrada');
+    expect(screen.getByRole('listbox').textContent).toContain(
+      'Nenhuma instituição encontrada',
+    );
     expect(screen.queryByRole('button', { name: /Criar/ })).toBeNull();
   });
 

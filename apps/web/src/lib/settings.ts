@@ -1,9 +1,4 @@
-import type {
-  MarketHealth,
-  Settings,
-  SettingsAlertRule,
-  SettingsBackup,
-} from '@patrimonio/contracts';
+import type { MarketHealth, Settings, SettingsBackup } from '@patrimonio/contracts';
 
 /**
  * T-08 · O que a tela de Configurações decide sozinha: texto, ordem e a forma de
@@ -14,7 +9,6 @@ import type {
 
 export const SECTIONS = [
   { id: 'carteiras', label: 'Carteiras' },
-  { id: 'alertas', label: 'Alertas' },
   { id: 'mercado', label: 'Dados de mercado' },
   { id: 'lancamentos', label: 'Lançamentos' },
   { id: 'exibicao', label: 'Exibição' },
@@ -51,110 +45,6 @@ export const portfolioHold = (blocking: {
 
 export const portfolioCount = (count: number): string =>
   plural(count, 'carteira', 'carteiras');
-
-/* -------------------------------------------------------------------------- */
-/* Alertas                                                                    */
-/* -------------------------------------------------------------------------- */
-
-type AlertCopy = { readonly label: string; readonly description: string };
-
-/**
- * O vocabulário das regras, na ordem da prancha. O servidor guarda o `kind` e
- * não o texto: a lista cresce por cadastro, e frase de interface não é dado.
- * Regra que a tela não conhece aparece com o `kind` — e nunca some, porque
- * esconder uma regra ligada é pior do que mostrá-la sem tradução.
- */
-export const ALERT_COPY: Readonly<Record<string, AlertCopy>> = {
-  price_stale: {
-    label: 'Preço atrasado',
-    description: 'Fonte principal sem cotação de um ativo com posição',
-  },
-  price_missing: {
-    label: 'Preço ausente',
-    description: 'Nunca houve preço para o papel: a posição entra pelo custo',
-  },
-  payout_unconfirmed: {
-    label: 'Provento não confirmado',
-    description: 'Data de pagamento passou e o provento não foi marcado como recebido',
-  },
-  negative_cash: {
-    label: 'Caixa negativo',
-    description: 'Saldo de uma conta fixa abaixo de zero em qualquer data',
-  },
-  corporate_event_pending: {
-    label: 'Evento corporativo',
-    description:
-      'Desdobramento, grupamento ou bonificação anunciado para ativo com posição',
-  },
-  uncategorized_asset: {
-    label: 'Ativo sem categoria',
-    description: 'Ativo novo não cumpre nenhuma regra de categoria',
-  },
-  backup_failed: {
-    label: 'Backup falhou',
-    description: 'Backup automático não concluído',
-  },
-  upcoming_maturity: {
-    label: 'Vencimento próximo',
-    description: 'Título de renda fixa vence dentro do prazo',
-  },
-  off_strategy: {
-    label: 'Fora da estratégia',
-    description: 'Categoria passa da tolerância definida na estratégia da carteira',
-  },
-  idle_cash: {
-    label: 'Caixa parado',
-    description: 'Saldo em conta sem render por mais tempo que o limite',
-  },
-  asset_concentration: {
-    label: 'Concentração em um ativo',
-    description: 'Ativo passa do peso máximo definido na estratégia',
-  },
-  issuer_concentration: {
-    label: 'Concentração em um emissor',
-    description: 'Soma por emissor passa do limite do patrimônio',
-  },
-  strategy_review: {
-    label: 'Revisão da estratégia',
-    description: 'Data de revisão definida na estratégia chega',
-  },
-  goal_behind: {
-    label: 'Objetivo abaixo do ritmo',
-    description: 'Aporte médio de 12 meses fica abaixo do necessário',
-  },
-};
-
-export const alertCopy = (kind: string): AlertCopy =>
-  ALERT_COPY[kind] ?? { label: kind, description: 'Regra sem descrição cadastrada' };
-
-const numberField = (threshold: Record<string, unknown>, key: string): string | null => {
-  const value = threshold[key];
-  if (typeof value === 'number') return String(value);
-  if (typeof value === 'string' && value.trim() !== '') return value;
-  return null;
-};
-
-/**
- * O limite da regra, como a prancha o escreve: `3 dias`, `da carteira`, `—`.
- * Regra "da carteira" lê o limite de cada carteira, e a configuração global não
- * tem número para mostrar; limite que a tela não sabe ler vira traço.
- */
-export const alertLimit = (
-  rule: Pick<SettingsAlertRule, 'scope' | 'threshold'>,
-): string => {
-  if (rule.scope === 'per_portfolio') return 'da carteira';
-  if (rule.threshold === null) return '—';
-
-  const days = numberField(rule.threshold, 'days');
-  const pct = numberField(rule.threshold, 'pct');
-
-  const parts = [
-    pct === null ? null : `${pct.replace('.', ',')}%`,
-    days === null ? null : plural(Number(days), 'dia', 'dias'),
-  ].filter((part): part is string => part !== null);
-
-  return parts.length === 0 ? '—' : parts.join(' · ');
-};
 
 /* -------------------------------------------------------------------------- */
 /* Catálogos da carga inicial                                                 */
@@ -205,19 +95,6 @@ export const demoSummary = (demo: MarketHealth['demo']): string =>
     plural(demo.assets, 'ativo', 'ativos'),
     plural(demo.institutions, 'instituição', 'instituições'),
   ].join(', ');
-
-/** Regras na ordem da prancha; as que a tela não conhece vão para o fim, por nome. */
-export const sortAlerts = (rules: readonly SettingsAlertRule[]): SettingsAlertRule[] => {
-  const order = Object.keys(ALERT_COPY);
-  const rank = (kind: string): number => {
-    const index = order.indexOf(kind);
-    return index === -1 ? order.length : index;
-  };
-
-  return [...rules].sort(
-    (a, b) => rank(a.kind) - rank(b.kind) || a.kind.localeCompare(b.kind),
-  );
-};
 
 /* -------------------------------------------------------------------------- */
 /* Dados de mercado                                                           */

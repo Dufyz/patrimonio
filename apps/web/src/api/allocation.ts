@@ -1,11 +1,5 @@
-import {
-  allocationSchema,
-  putStrategySchema,
-} from '@patrimonio/contracts';
-import type {
-  AllocationResource,
-  PutStrategyBody,
-} from '@patrimonio/contracts';
+import { allocationSchema, putStrategySchema } from '@patrimonio/contracts';
+import type { AllocationResource, PutStrategyBody } from '@patrimonio/contracts';
 
 import { request } from './client.js';
 
