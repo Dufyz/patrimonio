@@ -37,14 +37,35 @@ export const marketStage = (deps: StageDeps): Worker<StageJobData> =>
         const assetId = job.data['asset_id'];
         const reference = job.data['reference_date'];
 
+        // Histórico desde a estreia: roda depois do trabalho principal e nunca o
+        // falha. O papel pendente é carregado uma vez e marcado; as rodadas
+        // seguintes saem cedo porque a fila está vazia.
+        const syncHistory = async (): Promise<void> => {
+          if (deps.usecases.syncPriceHistory === undefined) return;
+
+          const synced = await deps.usecases.syncPriceHistory({});
+
+          if (synced.isFailure()) {
+            deps.logger.warn(
+              { err: synced.value.message },
+              'histórico de cotações não foi carregado',
+            );
+          } else if (synced.value.synced.length > 0) {
+            deps.logger.info(synced.value, 'histórico de cotações carregado');
+          }
+        };
+
         if (typeof assetId === 'string') {
-          return deps.usecases.backfillAsset({
+          const backfilled = await deps.usecases.backfillAsset({
             asset_id: assetId,
             ...(isDateOnly(reference) ? { reference_date: reference } : {}),
             ...(typeof job.data.origin_request_id === 'string'
               ? { origin_request_id: job.data.origin_request_id }
               : {}),
           });
+
+          await syncHistory();
+          return backfilled;
         }
 
         // O payload vem do jsonb da outbox: uma data inválida coletaria o dia
@@ -78,6 +99,8 @@ export const marketStage = (deps: StageDeps): Worker<StageJobData> =>
             );
           }
         }
+
+        await syncHistory();
 
         return collected;
       },

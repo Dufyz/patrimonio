@@ -1,10 +1,8 @@
 import {
   confirmPayout,
-  corporateEventRunner,
   createPayout,
   ingestCorporateActions,
   materializeAnnouncedPayouts,
-  reconcileAlerts,
 } from '@patrimonio/application';
 import type { Clock, CorporateActionProvider, UnitOfWork } from '@patrimonio/application';
 import {
@@ -75,7 +73,6 @@ const provider = (
 const limpar = async (): Promise<void> => {
   await sql`DELETE FROM announced_payout`;
   await sql`DELETE FROM corporate_event`;
-  await sql`DELETE FROM alert_instance`;
   await sql`DELETE FROM asset_price`;
   await sql`DELETE FROM market_source_run`;
   await sql`DELETE FROM position_daily`;
@@ -372,104 +369,5 @@ describe('ingestão do que a fonte anuncia', () => {
       SELECT COUNT(*)::TEXT AS total FROM corporate_event
     `;
     expect(Number(total?.total)).toBe(1);
-  });
-});
-
-describe('o alerta do evento corporativo', () => {
-  const reconcile = () =>
-    reconcileAlerts({
-      unitOfWork,
-      clock,
-      runners: { corporate_event_pending: corporateEventRunner },
-    });
-
-  const registrarEvento = async (recordDate: string) =>
-    unwrapSuccess(
-      await createRepositories(sql).corporateEvents.upsert({
-        asset_id: ACAO,
-        kind: 'split',
-        record_date: recordDate,
-        ratio_from: '1',
-        ratio_to: '2',
-      }),
-    );
-
-  it('evento não confirmado abre alerta com os termos detectados', async () => {
-    await comprar('2026-09-01', 100);
-    await registrarEvento('2026-10-02');
-
-    unwrapSuccess(await reconcile()({}));
-
-    const [alerta] = await sql<
-      { rule_kind: string; status: string; payload: Record<string, unknown> }[]
-    >`SELECT rule_kind, status, payload FROM alert_instance`;
-
-    expect(alerta?.rule_kind).toBe('corporate_event_pending');
-    expect(alerta?.status).toBe('open');
-    expect(alerta?.payload).toMatchObject({
-      ratio_from: '1.00000000',
-      ratio_to: '2.00000000',
-    });
-  });
-
-  it('evento com data-com futura ainda não é decisão de hoje', async () => {
-    await comprar('2026-09-01', 100);
-    await registrarEvento('2027-01-04');
-
-    unwrapSuccess(await reconcile()({}));
-
-    const [total] = await sql<{ total: string }[]>`
-      SELECT COUNT(*)::TEXT AS total FROM alert_instance
-    `;
-    expect(Number(total?.total)).toBe(0);
-  });
-
-  it('confirmar o evento tira o alerta da fila', async () => {
-    await comprar('2026-09-01', 100);
-    const evento = await registrarEvento('2026-10-02');
-
-    unwrapSuccess(await reconcile()({}));
-    unwrapSuccess(
-      await createRepositories(sql).corporateEvents.confirm(
-        evento.id,
-        '2026-10-06T21:30:00.000Z',
-      ),
-    );
-    unwrapSuccess(await reconcile()({}));
-
-    const [total] = await sql<{ total: string }[]>`
-      SELECT COUNT(*)::TEXT AS total FROM alert_instance
-    `;
-    expect(Number(total?.total)).toBe(0);
-  });
-
-  it('ignorar o evento o remove da fila sem reaparecer no fechamento seguinte', async () => {
-    await comprar('2026-09-01', 100);
-    const evento = await registrarEvento('2026-10-02');
-
-    unwrapSuccess(await reconcile()({}));
-
-    const repositories = createRepositories(sql);
-    unwrapSuccess(
-      await repositories.alerts.setStatus(
-        { rule_kind: 'corporate_event_pending', subject_id: evento.id },
-        'ignored',
-        null,
-      ),
-    );
-
-    // O fechamento seguinte reconcilia de novo, e a decisão do usuário sobrevive.
-    unwrapSuccess(await reconcile()({}));
-
-    const visiveis = unwrapSuccess(
-      await repositories.alerts.listActive({ on_date: DATE }),
-    );
-
-    expect(visiveis).toEqual([]);
-
-    const [persistido] = await sql<{ status: string }[]>`
-      SELECT status FROM alert_instance
-    `;
-    expect(persistido?.status).toBe('ignored');
   });
 });

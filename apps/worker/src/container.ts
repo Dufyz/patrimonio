@@ -3,10 +3,9 @@ import {
   closeDay,
   collectMarketData,
   createDebouncePolicy,
-  marketAlertRunners,
   recalculatePortfolio,
-  reconcileAlerts,
   refreshInstrumentCatalog,
+  syncPriceHistory,
 } from '@patrimonio/application';
 import type {
   Clock,
@@ -42,10 +41,10 @@ import { createMarketSources } from './infra/market.js';
 export type WorkerUseCases = {
   readonly recalculatePortfolio: ReturnType<typeof recalculatePortfolio>;
   readonly closeDay: ReturnType<typeof closeDay>;
-  readonly reconcileAlerts: ReturnType<typeof reconcileAlerts>;
   readonly collectMarketData: ReturnType<typeof collectMarketData>;
   readonly backfillAsset: ReturnType<typeof backfillAsset>;
   readonly refreshInstrumentCatalog: ReturnType<typeof refreshInstrumentCatalog>;
+  readonly syncPriceHistory: ReturnType<typeof syncPriceHistory>;
 };
 
 export type WorkerContainer = {
@@ -105,22 +104,12 @@ export const createContainer = (): WorkerContainer => {
     usecases: {
       recalculatePortfolio: recalculatePortfolio({ unitOfWork, clock: systemClock }),
       closeDay: closeDay({ unitOfWork, clock: systemClock }),
-      // As treze regras do painel entram em E7. As que a ingestão de mercado
-      // liga já estão aqui, e regra sem executor declarado não é reconciliada —
-      // é o que permite ligar as outras uma a uma sem que as ainda não escritas
-      // apaguem o que já existe.
-      reconcileAlerts: reconcileAlerts({
-        unitOfWork,
-        clock: systemClock,
-        runners: marketAlertRunners,
-      }),
       collectMarketData: collectMarketData({
         unitOfWork,
         clock: systemClock,
         quotes: market.quotes,
         indices: market.indices,
         treasury: market.treasury,
-        staleAfterDays: environment.market.priceStaleAfterDays,
       }),
       backfillAsset: backfillAsset({
         unitOfWork,
@@ -133,6 +122,11 @@ export const createContainer = (): WorkerContainer => {
         unitOfWork,
         clock: systemClock,
         instruments: market.instruments,
+      }),
+      syncPriceHistory: syncPriceHistory({
+        unitOfWork,
+        clock: systemClock,
+        history: market.history,
       }),
     },
     shutdown: async () => {

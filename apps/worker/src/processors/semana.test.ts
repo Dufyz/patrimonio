@@ -66,7 +66,6 @@ const limpar = async (): Promise<void> => {
   await sql`DELETE FROM position_daily`;
   await sql`DELETE FROM portfolio_daily`;
   await sql`DELETE FROM realized_result`;
-  await sql`DELETE FROM alert_instance`;
   await sql`DELETE FROM pipeline_outbox`;
   await sql`DELETE FROM transaction`;
   await sql`DELETE FROM asset WHERE id IN (${ACAO}, ${CDB})`;

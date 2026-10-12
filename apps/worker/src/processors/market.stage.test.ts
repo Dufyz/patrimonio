@@ -48,7 +48,6 @@ const collect = (script: Script) =>
     quotes: scriptedQuotes(script),
     indices: scriptedIndices(script),
     treasury: scriptedTreasury(script),
-    staleAfterDays: 3,
   });
 
 const backfill = (script: Script) =>
@@ -82,7 +81,6 @@ const limpar = async (): Promise<void> => {
   await sql`DELETE FROM position_daily`;
   await sql`DELETE FROM portfolio_daily`;
   await sql`DELETE FROM pipeline_outbox`;
-  await sql`DELETE FROM alert_instance`;
   await sql`DELETE FROM transaction`;
   await sql`DELETE FROM asset WHERE id IN (${ACAO}, ${CDB}, ${TESOURO})`;
   await sql`DELETE FROM portfolio WHERE id = ${PORTFOLIO}`;
@@ -198,7 +196,6 @@ describe('a coleta do dia', () => {
       quotes: scriptedQuotes({ quotes: [quote('32.41', '2026-12-25')] }),
       indices: scriptedIndices({}),
       treasury: scriptedTreasury({}),
-      staleAfterDays: 3,
     });
 
     const result = unwrapSuccess(await natal({}));
@@ -235,16 +232,6 @@ describe('a coleta do dia', () => {
       SELECT COUNT(*)::TEXT AS total FROM asset_price WHERE close = 0
     `;
     expect(Number(zeros[0]?.total)).toBe(0);
-  });
-
-  it('o alerta de preço inexistente abre para o papel sem cotação', async () => {
-    unwrapSuccess(await collect({ quotes: [] })({}));
-
-    const alertas = await sql<{ rule_kind: string; subject_id: string }[]>`
-      SELECT rule_kind, subject_id FROM alert_instance
-    `;
-
-    expect(alertas.some((alerta) => alerta.rule_kind === 'price_missing')).toBe(true);
   });
 
   it('a execução de cada fonte fica registrada, com quem respondeu', async () => {
@@ -420,7 +407,6 @@ describe('uma semana de coleta', () => {
         quotes: scriptedQuotes({ quotes: [quote(String(30 + index), dia)] }),
         indices: scriptedIndices({ indices: cdiSeries([dia]) }),
         treasury: scriptedTreasury({ treasury: [tesouroQuote(dia)] }),
-        staleAfterDays: 3,
       });
 
       unwrapSuccess(await diario({}));

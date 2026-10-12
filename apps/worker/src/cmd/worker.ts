@@ -6,7 +6,6 @@ import { logger } from '../infra/logger.js';
 import { startRelay } from '../infra/relay.js';
 import type { StageDeps } from '../infra/define-stage.js';
 import {
-  alertsStage,
   backupStage,
   closeStage,
   importStage,
@@ -25,18 +24,34 @@ const deps: StageDeps = {
   usecases: container.usecases,
 };
 
-// Os seis estágios. Nenhum processor instancia dependência: recebe o container.
+// Os cinco estágios. Nenhum processor instancia dependência: recebe o container.
 const workers = [
   recalcStage(deps),
   marketStage(deps),
   closeStage(deps),
-  alertsStage(deps),
   importStage(deps),
   backupStage(deps),
 ];
 
 const scheduled = await registerSchedules(container.queues);
 logger.info({ scheduled }, 'jobs repetíveis registrados');
+
+// Histórico pendente (ativos cadastrados antes desta carga, ou criados com o
+// worker parado) não espera o próximo fechamento: a fila é lida na subida. Roda
+// solto e não bloqueia o worker; falha só vira aviso.
+void container.usecases
+  .syncPriceHistory({})
+  .then((result) => {
+    if (result.isFailure()) {
+      logger.warn(
+        { err: result.value.message },
+        'histórico de cotações não foi carregado',
+      );
+    } else if (result.value.synced.length > 0) {
+      logger.info(result.value, 'histórico de cotações carregado');
+    }
+  })
+  .catch((error: unknown) => logger.warn({ err: String(error) }, 'histórico falhou'));
 
 const relay = startRelay({
   unitOfWork: container.unitOfWork,

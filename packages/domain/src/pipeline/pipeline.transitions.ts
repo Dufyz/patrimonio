@@ -11,8 +11,7 @@ import type {
  * escreve `recalc_status`: o plano devolve o `StageResult` e o `apply` aplica
  * esta função.
  *
- * `next` é a corrente do fechamento diário — mercado, fechamento, alertas — e o
- * pedido de alertas depois de um recálculo, para o painel refletir o número novo.
+ * `next` é a corrente do fechamento diário: mercado, depois fechamento.
  *
  * `recalc_status` descreve o estado do escopo da carteira. Nos estágios globais
  * (`market` e `backup`) não há carteira no escopo e o `apply` ignora o valor.
@@ -21,7 +20,7 @@ const TABLE: Record<Stage, Record<StageOutcome, Transition>> = {
   recalc: {
     requested: { recalc_status: 'queued', next: null },
     started: { recalc_status: 'running', next: null },
-    succeeded: { recalc_status: 'idle', next: 'alerts' },
+    succeeded: { recalc_status: 'idle', next: null },
     failed: { recalc_status: 'failed', next: null },
   },
   market: {
@@ -33,14 +32,8 @@ const TABLE: Record<Stage, Record<StageOutcome, Transition>> = {
   close: {
     requested: { recalc_status: 'queued', next: null },
     started: { recalc_status: 'running', next: null },
-    succeeded: { recalc_status: 'idle', next: 'alerts' },
-    failed: { recalc_status: 'failed', next: null },
-  },
-  alerts: {
-    requested: { recalc_status: 'idle', next: null },
-    started: { recalc_status: 'idle', next: null },
     succeeded: { recalc_status: 'idle', next: null },
-    failed: { recalc_status: 'idle', next: null },
+    failed: { recalc_status: 'failed', next: null },
   },
   import: {
     requested: { recalc_status: 'queued', next: null },
