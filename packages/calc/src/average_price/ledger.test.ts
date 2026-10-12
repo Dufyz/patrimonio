@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyLedger, cashBalance, positionAt } from './ledger.js';
+import { applyLedger, positionAt } from './ledger.js';
 import type { LedgerEntry } from './ledger.js';
 
 const compra = (
@@ -203,25 +203,5 @@ describe('ordem e corte por data', () => {
 
     expect(positionAt(entries, '2024-03-01').quantity).toBe('100.00000000');
     expect(positionAt(entries, '2024-12-01').quantity).toBe('200.00000000');
-  });
-});
-
-describe('caixa', () => {
-  it('é a soma do que entrou e saiu, não uma coluna de saldo', () => {
-    const balance = cashBalance([
-      {
-        kind: 'deposit',
-        trade_date: '2024-01-02',
-        quantity: '5000',
-        unit_price: '1',
-        fees: '0',
-        net_amount: '5000.00',
-      },
-      compra('2024-01-10', '100', '30.00', '4.90'),
-      venda('2024-02-10', '50', '35.00'),
-    ]);
-
-    // 5.000 − 3.004,90 + 1.750 = 3.745,10
-    expect(balance).toBe('3745.10');
   });
 });

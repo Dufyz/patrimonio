@@ -5,7 +5,7 @@ import type { LedgerKind } from './ledger.js';
 /**
  * O valor bruto e o valor líquido de um lançamento, calculados num lugar só. O
  * sinal do líquido é o que diz a direção do dinheiro: negativo sai da carteira,
- * positivo entra. É dele que o caixa da instituição sai, e é por isso que ele
+ * positivo entra. É dele que o fluxo da carteira sai, e é por isso que ele
  * não pode ser digitado em uma tela e recalculado em outra.
  */
 export type AmountInput = {
@@ -53,10 +53,6 @@ export const amountsFor = (input: AmountInput): Amounts => {
         return gross.plus(fees).negated();
       case 'sell':
         return gross.minus(fees);
-      case 'deposit':
-        return gross.minus(fees);
-      case 'withdrawal':
-        return gross.plus(fees).negated();
       case 'payout':
         // JCP tem IR retido na fonte: o que entra é o líquido.
         return gross.minus(tax).minus(fees);

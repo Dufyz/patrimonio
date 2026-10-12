@@ -8,14 +8,7 @@ import { Decimal } from 'decimal.js';
  * Nenhuma função deste módulo chama `new Date()` nem fala com banco: a sequência
  * de lançamentos entra como parâmetro, e é isso que torna o teste determinístico.
  */
-export const LEDGER_KINDS = [
-  'buy',
-  'sell',
-  'payout',
-  'deposit',
-  'withdrawal',
-  'corporate_event',
-] as const;
+export const LEDGER_KINDS = ['buy', 'sell', 'payout', 'corporate_event'] as const;
 
 export type LedgerKind = (typeof LEDGER_KINDS)[number];
 
@@ -211,11 +204,6 @@ const applyEntry = (state: Internal, entry: LedgerEntry): void => {
     case 'payout':
       applyPayout(state, entry);
       break;
-    // Aporte e resgate movem caixa, não posição de ativo: quem responde por
-    // eles é `cashBalance`.
-    case 'deposit':
-    case 'withdrawal':
-      break;
   }
 };
 
@@ -290,14 +278,3 @@ export const ledgerEffects = (
 /** A posição de um ativo numa data, que é o "antes" de todo preview. */
 export const positionAt = (entries: readonly LedgerEntry[], date: string): Position =>
   applyLedger(entries, { until: date }).position;
-
-/**
- * O caixa não é coluna de saldo: é a soma dos valores líquidos que entraram e
- * saíram naquela carteira e instituição. Compra tira, venda e provento põem,
- * aporte põe, resgate tira — e o caixa aparece em Posições como ativo sintético.
- */
-export const cashBalance = (entries: readonly LedgerEntry[]): string =>
-  entries
-    .reduce((total, entry) => total.plus(decimal(entry.net_amount)), zero)
-    .toDecimalPlaces(MONEY_DP)
-    .toFixed(MONEY_DP);

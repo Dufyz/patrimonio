@@ -13,6 +13,7 @@ export const fourDays: readonly OverviewDay[] = [
     income: '0.00',
     payouts: '0.00',
     cumulative_contributions: '90000.00',
+    cumulative_payouts: '0.00',
   },
   {
     position_date: '2026-09-30',
@@ -21,6 +22,7 @@ export const fourDays: readonly OverviewDay[] = [
     income: '1000.00',
     payouts: '0.00',
     cumulative_contributions: '90000.00',
+    cumulative_payouts: '0.00',
   },
   {
     position_date: '2026-10-01',
@@ -29,6 +31,7 @@ export const fourDays: readonly OverviewDay[] = [
     income: '-500.00',
     payouts: '0.00',
     cumulative_contributions: '95000.00',
+    cumulative_payouts: '0.00',
   },
   {
     position_date: '2026-10-02',
@@ -37,6 +40,7 @@ export const fourDays: readonly OverviewDay[] = [
     income: '400.00',
     payouts: '150.00',
     cumulative_contributions: '95000.00',
+    cumulative_payouts: '150.00',
   },
 ];
 
@@ -49,6 +53,7 @@ export const fromEmpty: readonly OverviewDay[] = [
     income: '0.00',
     payouts: '0.00',
     cumulative_contributions: '0.00',
+    cumulative_payouts: '0.00',
   },
   {
     position_date: '2026-10-02',
@@ -57,6 +62,7 @@ export const fromEmpty: readonly OverviewDay[] = [
     income: '0.00',
     payouts: '0.00',
     cumulative_contributions: '1000.00',
+    cumulative_payouts: '0.00',
   },
 ];
 
@@ -69,5 +75,6 @@ export const underwater: readonly OverviewDay[] = [
     income: '-2000.00',
     payouts: '0.00',
     cumulative_contributions: '95000.00',
+    cumulative_payouts: '0.00',
   },
 ];

@@ -17,7 +17,6 @@
 export {
   LEDGER_KINDS,
   applyLedger,
-  cashBalance,
   ledgerEffects,
   positionAt,
   sortEntries,
@@ -104,11 +103,7 @@ export {
 } from './quota/windows.js';
 export type { QuotaPoint, WindowKey, WindowReturn } from './quota/windows.js';
 
-export {
-  benchmarkReturn,
-  benchmarkSeries,
-  differencePp,
-} from './quota/benchmark.js';
+export { benchmarkReturn, benchmarkSeries, differencePp } from './quota/benchmark.js';
 export type {
   BenchmarkDefinition,
   BenchmarkInput,
@@ -153,7 +148,6 @@ export type {
   ContributionPlan,
   ContributionShare,
 } from './allocation/contribution.js';
-
 
 // ─── Visão geral ─────────────────────────────────────────────────────────────
 export {
@@ -237,6 +231,20 @@ export type { DailyFactor, IndexObservation, IndexUnit } from './index_series/fa
 
 // ─── Série de preço ajustada ─────────────────────────────────────────────────
 export { adjustForEvents } from './prices/adjusted.js';
+export {
+  changeRatio,
+  liveValuation,
+  shiftSummary,
+  sumDeltas,
+  valueDelta,
+  weightOf,
+} from './prices/live.js';
+export type {
+  LiveValuation,
+  LiveValuationInput,
+  ShiftedSummary,
+  SummaryShape,
+} from './prices/live.js';
 export type {
   AdjustedPoint,
   AdjustedSeries,
@@ -257,3 +265,6 @@ export type { BenchmarkSpec, YearReturn } from './performance/periods.js';
 
 export { modifiedDietz } from './performance/dietz.js';
 export type { DietzFlow, DietzInput } from './performance/dietz.js';
+
+export { timeWeightedReturn, xirr } from './performance/asset_returns.js';
+export type { AssetDay, CashFlow } from './performance/asset_returns.js';

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { CATEGORY_CATALOG, CATEGORY_IDS, fixedIncomeCategoryId } from './category.catalog.js';
+import {
+  CATEGORY_CATALOG,
+  CATEGORY_IDS,
+  fixedIncomeCategoryId,
+} from './category.catalog.js';
 import { classifyAsset, isColorToken } from './category.entities.js';
 import type { Category } from './category.entities.js';
 
@@ -17,11 +21,14 @@ describe('o catálogo de categorias da plataforma', () => {
   it('tem as 30 categorias, sem id nem nome repetido', () => {
     expect(CATEGORY_CATALOG).toHaveLength(30);
     expect(new Set(CATEGORY_CATALOG.map((item) => item.id)).size).toBe(30);
-    expect(new Set(CATEGORY_CATALOG.map((item) => item.name.toLowerCase())).size).toBe(30);
+    expect(new Set(CATEGORY_CATALOG.map((item) => item.name.toLowerCase())).size).toBe(
+      30,
+    );
   });
 
   it('só usa tokens de cor do design system', () => {
-    for (const item of CATEGORY_CATALOG) expect(isColorToken(item.color_token)).toBe(true);
+    for (const item of CATEGORY_CATALOG)
+      expect(isColorToken(item.color_token)).toBe(true);
   });
 
   it('a ordem de exibição segue a ordem do catálogo', () => {
@@ -39,7 +46,6 @@ describe('o catálogo de categorias da plataforma', () => {
     expect(nameOf('etf')).toBe('ETFs');
     expect(nameOf('bdr')).toBe('BDR');
     expect(nameOf('treasury')).toBe('Tesouro Direto');
-    expect(nameOf('cash')).toBe('Caixa');
   });
 
   it('o título de renda fixa cadastrado à mão cai na categoria do tipo dele', () => {

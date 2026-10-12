@@ -58,8 +58,6 @@ export {
   LIQUIDITY_KINDS,
   PRICE_SOURCES,
   TAX_REGIMES,
-  cashAssetName,
-  cashAssetTicker,
   describeFixedIncome,
   fixedIncomeTicker,
   isB3Type,
@@ -128,23 +126,17 @@ export { parsePayoutDismissalFromDB } from './payout_dismissal/payout_dismissal.
 
 // ─── Projeção ────────────────────────────────────────────────────────────────
 export {
-  ALERT_GROUPS,
-  ALERT_STATUSES,
   ASSET_CLASSES,
   COMPUTED_PRICE_KINDS,
   INDEX_CODES,
   POSITION_GROUP_BY,
   POSITION_UNITS,
   PRICE_SOURCE_KINDS,
-  alertGroupFor,
   assetClassFor,
   indexForIndexer,
   isIndexCode,
 } from './projection/projection.entities.js';
 export type {
-  AlertGroup,
-  AlertInstance,
-  AlertStatus,
   AssetClass,
   AssetPrice,
   ComputedPriceKind,
@@ -159,7 +151,6 @@ export type {
   TaxMonth,
 } from './projection/projection.entities.js';
 export {
-  parseAlertInstanceFromDB,
   parseAssetPriceFromDB,
   parseIndexQuoteFromDB,
   parsePortfolioDailyFromDB,

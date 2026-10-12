@@ -6,14 +6,7 @@ import type { DateOnly } from '../support/date_only.js';
  * são projeções recalculáveis a partir daqui. É também a única tabela em que
  * uma linha errada muda o patrimônio de todas as datas seguintes.
  */
-export const TRANSACTION_KINDS = [
-  'buy',
-  'sell',
-  'payout',
-  'deposit',
-  'withdrawal',
-  'corporate_event',
-] as const;
+export const TRANSACTION_KINDS = ['buy', 'sell', 'payout', 'corporate_event'] as const;
 
 export const PAYOUT_KINDS = [
   'dividend',
@@ -56,7 +49,6 @@ export type Transaction = {
   readonly confirmed_at: string | null;
   readonly event_ratio_from: string | null;
   readonly event_ratio_to: string | null;
-  readonly note: string | null;
   readonly idempotency_key: string | null;
   readonly created_at: string;
   readonly updated_at: string;
@@ -77,8 +69,6 @@ export const settlementBusinessDays = (
   switch (b3Type) {
     case 'treasury':
       return 1;
-    case 'cash':
-      return 0;
     case 'stock':
     case 'fii':
     case 'etf':
