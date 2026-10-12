@@ -10,7 +10,6 @@ import { success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
 
 import type { AppError } from '../errors/app-error.js';
-import type { AlertUpsertRow } from '../interfaces/alert.repository.js';
 import type {
   PortfolioDailyWrite,
   PositionDailyWrite,
@@ -51,14 +50,6 @@ export type RealizedWrite = {
   readonly rows: readonly RealizedResultWrite[];
 };
 
-export type AlertWrite = {
-  readonly upserts: readonly AlertUpsertRow[];
-  readonly resolved: readonly {
-    readonly rule_kind: string;
-    readonly subject_id: string;
-  }[];
-};
-
 export type ApplicablePlan = {
   readonly stage: Stage;
   readonly outcome: StageOutcome;
@@ -73,7 +64,6 @@ export type ApplicablePlan = {
   readonly projection?: ProjectionWrite | undefined;
   readonly realized?: RealizedWrite | undefined;
   readonly tax_months?: readonly TaxMonthWrite[] | undefined;
-  readonly alerts?: AlertWrite | undefined;
   /** Eventos que o próprio plano pediu, além do que a transição encadeia. */
   readonly events?: readonly OutboxEventDraft[] | undefined;
   readonly origin_request_id?: string | undefined;
@@ -88,8 +78,6 @@ export type ApplyReport = {
     readonly portfolio_days: number;
     readonly realized: number;
     readonly tax_months: number;
-    readonly alerts: number;
-    readonly alerts_resolved: number;
   };
   readonly queued: readonly EnqueuedEvent[];
 };
@@ -130,13 +118,6 @@ const nextEvent = (stage: Stage, plan: ApplicablePlan): OutboxEventDraft | null 
         payload: { reference_date: plan.reference_date },
         ...origin,
       };
-    case 'alerts':
-      return {
-        stage: 'alerts',
-        dedupe_key: dedupeKey.alerts(plan.reference_date),
-        payload: { reference_date: plan.reference_date },
-        ...origin,
-      };
     case 'backup':
       return {
         stage: 'backup',
@@ -158,8 +139,6 @@ export const applyPlan = async (
     portfolio_days: 0,
     realized: 0,
     tax_months: 0,
-    alerts: 0,
-    alerts_resolved: 0,
   };
 
   if (plan.projection !== undefined && plan.portfolio_id !== null) {
@@ -202,17 +181,6 @@ export const applyPlan = async (
     if (months.isFailure()) return months;
 
     written.tax_months = months.value;
-  }
-
-  if (plan.alerts !== undefined) {
-    const alerts = await repositories.alerts.applyReconciliation(
-      plan.alerts.upserts,
-      plan.alerts.resolved,
-    );
-    if (alerts.isFailure()) return alerts;
-
-    written.alerts = alerts.value.written;
-    written.alerts_resolved = alerts.value.removed;
   }
 
   const moved = transition({

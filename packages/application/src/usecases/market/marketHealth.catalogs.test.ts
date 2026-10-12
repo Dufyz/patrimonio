@@ -17,8 +17,11 @@ const clock = {
 const harness = (
   stats: CatalogStat[],
   demo = { portfolios: 0, assets: 0, institutions: 0 },
+  calendar: readonly { calendar_date: string; is_business_day: boolean }[] = [],
+  onPriceDate: { value: string | null } = { value: null },
 ) => {
   const repositories = {
+    businessDays: { listBetween: async () => success(calendar) },
     market: {
       sourceStatuses: async () => success([]),
       recentFailures: async () => success([]),
@@ -36,7 +39,10 @@ const harness = (
         ),
     },
     prices: {
-      assetsWithoutPriceOn: async () => success([]),
+      assetsWithoutPriceOn: async (date: string) => {
+        onPriceDate.value = date;
+        return success([]);
+      },
       latestPricesOn: async () => success([]),
     },
   } as unknown as TransactionalRepositories;
@@ -85,6 +91,30 @@ describe('catálogos na saúde de mercado', () => {
     if (!result.isSuccess()) return;
 
     expect(result.value.catalogs[0]?.last_loaded).toBe('2026-10-09T09:00:00.000Z');
+  });
+
+  it('no fim de semana, "do dia" é o último pregão e não o domingo', async () => {
+    const asked = { value: null as string | null };
+    const result = await getMarketHealth({
+      unitOfWork: harness(
+        [],
+        undefined,
+        [
+          { calendar_date: '2026-10-08', is_business_day: true },
+          { calendar_date: '2026-10-09', is_business_day: true },
+          { calendar_date: '2026-10-10', is_business_day: false },
+          { calendar_date: '2026-10-11', is_business_day: false },
+        ],
+        asked,
+      ),
+      clock: {
+        now: () => new Date('2026-10-11T15:00:00.000Z'),
+        today: () => '2026-10-11' as DateOnly,
+      },
+    })({});
+
+    expect(result.isSuccess() && result.value.reference_date).toBe('2026-10-09');
+    expect(asked.value).toBe('2026-10-09');
   });
 
   it('devolve a contagem de demonstração', async () => {

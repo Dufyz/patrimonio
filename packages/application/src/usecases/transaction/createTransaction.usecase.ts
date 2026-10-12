@@ -54,7 +54,6 @@ export type CreateTransactionInput = {
   readonly tax_withheld?: string | undefined;
   readonly payout_kind?: PayoutKind | undefined;
   readonly record_date?: DateOnly | undefined;
-  readonly note?: string | undefined;
   readonly idempotency_key?: string | undefined;
   readonly origin_request_id?: string | undefined;
 };
@@ -323,7 +322,7 @@ export const prepareTransaction = async (
   });
   if (asset.isFailure()) return asset;
 
-  if (asset.value === null && input.kind !== 'deposit' && input.kind !== 'withdrawal') {
+  if (asset.value === null) {
     return failure(new BadRequestError('Este tipo de lançamento precisa de um ativo'));
   }
 
@@ -375,7 +374,6 @@ export const prepareTransaction = async (
     ...(input.tax_withheld === undefined ? {} : { tax_withheld: input.tax_withheld }),
     ...(input.payout_kind === undefined ? {} : { payout_kind: input.payout_kind }),
     ...(input.record_date === undefined ? {} : { record_date: input.record_date }),
-    ...(input.note === undefined ? {} : { note: input.note }),
   };
 
   const plan = planTransaction(context.value, draft);
@@ -408,7 +406,6 @@ export const prepareTransaction = async (
     ...(input.tax_withheld === undefined ? {} : { tax_withheld: input.tax_withheld }),
     ...(input.payout_kind === undefined ? {} : { payout_kind: input.payout_kind }),
     ...(input.record_date === undefined ? {} : { record_date: input.record_date }),
-    ...(input.note === undefined ? {} : { note: input.note }),
     ...(input.idempotency_key === undefined
       ? {}
       : { idempotency_key: input.idempotency_key }),

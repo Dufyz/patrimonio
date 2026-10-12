@@ -33,7 +33,6 @@ export type TransactionWrite = {
   readonly confirmed_at?: string | null | undefined;
   readonly event_ratio_from?: string | null | undefined;
   readonly event_ratio_to?: string | null | undefined;
-  readonly note?: string | null | undefined;
   readonly idempotency_key?: string | null | undefined;
 };
 

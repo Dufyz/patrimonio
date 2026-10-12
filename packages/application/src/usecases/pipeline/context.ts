@@ -51,8 +51,6 @@ export const closeAssetOf = (asset: Asset): CloseAsset => ({
   ticker: asset.ticker,
   b3_type: asset.b3_type,
   category_id: asset.category_id,
-  // No caixa, o emissor é a própria instituição onde o dinheiro está.
-  institution_id: asset.b3_type === 'cash' ? asset.issuer_id : null,
   fixed_income: fixedIncomeOf(asset),
 });
 
@@ -201,7 +199,7 @@ export const loadRecalculationContext = async (
  * As vendas de renda variável de **todas** as carteiras, que é o escopo da
  * apuração: o limite de isenção olha a soma das vendas do mês, não da carteira.
  *
- * Renda fixa, Tesouro e caixa ficam de fora: o IR deles é retido na fonte e não
+ * Renda fixa e Tesouro ficam de fora: o IR deles é retido na fonte e não
  * entra na apuração mensal.
  */
 export const loadTaxSales = async (

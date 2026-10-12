@@ -1,4 +1,5 @@
 import {
+  buildQuotaSeries,
   composeAllocation,
   growthSeries,
   periodFlows,
@@ -13,14 +14,8 @@ import type {
   CompositionNode,
   GrowthPoint,
 } from '@patrimonio/calc';
-import { alertGroupFor, TOLERANCE_PP } from '@patrimonio/domain';
-import type {
-  AlertGroup,
-  AlertInstance,
-  ComputedPriceKind,
-  DateOnly,
-  RecalcStatus,
-} from '@patrimonio/domain';
+import { TOLERANCE_PP } from '@patrimonio/domain';
+import type { ComputedPriceKind, DateOnly, RecalcStatus } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
 
 import { NotFoundError } from '../../errors/app-error.js';
@@ -34,26 +29,26 @@ import type {
 import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
 
 /**
- * A tela de abertura, que responde duas perguntas nessa ordem: **quanto eu
- * tenho hoje** e **o que precisa de mim**.
+ * A tela de abertura: **quanto eu tenho hoje**, como o patrimônio evoluiu e
+ * como se distribui.
  *
- * A ordem é a tela inteira. O patrimônio e a variação vêm primeiro porque é a
- * pergunta que faz a pessoa abrir o app; o que exige ação vem por último
- * porque é o que a faz fechar — e some da tela quando não há nada pendente, em
- * vez de mostrar um painel vazio dizendo que está tudo bem.
+ * O patrimônio e a variação vêm primeiro porque é a pergunta que faz a pessoa
+ * abrir o app.
  *
- * ## O que esta resposta não faz
+ * ## Por que a cota consolidada é calculada aqui
  *
- * Ela não executa regra de alerta. As regras rodam no fechamento do dia e
- * gravam o resultado (`reconcileAlerts`); aqui elas só são lidas. Rodar regra
- * na abertura da tela deixaria o painel lento e, pior, faria o mesmo alerta
- * aparecer e sumir conforme a hora em que a tela foi aberta — e adiar e
- * ignorar deixariam de significar alguma coisa.
+ * `portfolio_daily.quota_value` existe por carteira, e somar cota de carteiras
+ * diferentes não significa nada. Para "todas as carteiras" a cota é construída
+ * sobre a janela pedida, partindo do fechamento anterior a ela: o retorno da
+ * janela é uma razão entre duas cotas, então a semente não muda a resposta. A
+ * resposta declara qual dos dois métodos usou, porque a tela precisa poder
+ * dizê-lo.
  */
 export type OverviewChange = { readonly amount: string; readonly ratio: string | null };
 
 export type OverviewScope = {
-  readonly portfolio_id: string;
+  /** Nulo é o consolidado. */
+  readonly portfolio_id: string | null;
   readonly name: string;
   readonly tolerance_pp: string;
   readonly recalc_status: RecalcStatus;
@@ -70,11 +65,18 @@ export type OverviewPeriod = {
   readonly from: DateOnly;
   readonly to: DateOnly;
   readonly return_pct: string | null;
-  /** `portfolio_quota` é a cota gravada; `unavailable`, a falta de uma das duas pontas. */
-  readonly return_method: 'portfolio_quota' | 'unavailable';
+  /** `portfolio_quota` é a cota gravada; `window_quota`, a consolidada da janela. */
+  readonly return_method: 'portfolio_quota' | 'window_quota' | 'unavailable';
   readonly contributions: string;
   readonly income: string;
   readonly payouts: string;
+};
+
+export type OverviewPortfolioShare = {
+  readonly portfolio_id: string;
+  readonly name: string;
+  readonly value: string;
+  readonly weight_pct: string;
 };
 
 export type OverviewTopPosition = {
@@ -86,25 +88,6 @@ export type OverviewTopPosition = {
   readonly value: string;
   readonly weight_pct: string;
   readonly price_source_kind: ComputedPriceKind;
-};
-
-export type OverviewAttentionItem = {
-  readonly rule_kind: string;
-  readonly subject_id: string;
-  readonly portfolio_id: string | null;
-  readonly payload: Record<string, unknown>;
-  readonly first_seen_at: string;
-};
-
-export type OverviewAttentionGroup = {
-  readonly group: AlertGroup;
-  readonly count: number;
-  readonly items: readonly OverviewAttentionItem[];
-};
-
-export type OverviewAttention = {
-  readonly total: number;
-  readonly groups: readonly OverviewAttentionGroup[];
 };
 
 /**
@@ -129,15 +112,16 @@ export type OverviewResult = {
   readonly period: OverviewPeriod;
   readonly series: readonly GrowthPoint[];
   readonly composition: ColoredComposition;
+  readonly by_portfolio: readonly OverviewPortfolioShare[];
   readonly top_positions: {
     readonly total_count: number;
     readonly rows: readonly OverviewTopPosition[];
   };
-  readonly attention: OverviewAttention;
 };
 
 export type OverviewInput = {
-  readonly portfolio_id: string;
+  /** Ausente ou nulo é o consolidado. */
+  readonly portfolio_id?: string | null | undefined;
   readonly on_date?: DateOnly | undefined;
   readonly from?: DateOnly | undefined;
   readonly to?: DateOnly | undefined;
@@ -152,6 +136,7 @@ export type OverviewDeps = {
 
 const DEFAULT_TOP_POSITIONS = 6;
 const DEFAULT_WINDOW_MONTHS = 12;
+const ALL_PORTFOLIOS_NAME = 'Todas as carteiras';
 
 /** Doze meses para trás, pela data civil: a janela padrão da prancha. */
 const twelveMonthsBefore = (date: DateOnly): DateOnly => {
@@ -167,12 +152,13 @@ const lastDayOf = (days: readonly OverviewDayRow[]): OverviewDayRow | null =>
   days.at(-1) ?? null;
 
 /**
- * O retorno da janela: a razão entre as cotas gravadas da carteira. Quando não
- * há fechamento ou cota em uma das pontas, a resposta é nula e a tela mostra
- * traço.
+ * O retorno da janela. Com uma carteira, as duas cotas gravadas bastam. Sem
+ * ela, a cota é reconstruída sobre a janela — e quando não há nem fechamento
+ * anterior nem dois dias de série, a resposta é nula e a tela mostra traço.
  */
 const windowReturn = (
   snapshot: OverviewSnapshot,
+  scoped: boolean,
 ): Pick<OverviewPeriod, 'return_pct' | 'return_method'> => {
   const last = lastDayOf(snapshot.days);
   if (last === null) return { return_pct: null, return_method: 'unavailable' };
@@ -183,16 +169,39 @@ const windowReturn = (
    * retorno é o da história inteira. Devolver nulo aí diria "não dá para
    * medir" sobre a única janela que dá.
    */
-  const base = snapshot.anchors.window_base ?? snapshot.days[0] ?? null;
+  const first = snapshot.days[0] ?? null;
+  const fromInception = snapshot.anchors.window_base === null;
+  const base = snapshot.anchors.window_base ?? first;
 
-  if (base === null || base.quota_value === null || last.quota_value === null) {
-    return { return_pct: null, return_method: 'unavailable' };
+  if (base === null) return { return_pct: null, return_method: 'unavailable' };
+
+  if (scoped) {
+    if (base.quota_value === null || last.quota_value === null) {
+      return { return_pct: null, return_method: 'unavailable' };
+    }
+
+    return {
+      return_pct: returnPct(base.quota_value, last.quota_value),
+      return_method: 'portfolio_quota',
+    };
   }
 
-  return {
-    return_pct: returnPct(base.quota_value, last.quota_value),
-    return_method: 'portfolio_quota',
-  };
+  // A semente é o fechamento anterior à janela, com cota em 1: o retorno é uma
+  // razão entre cotas, então o valor da semente não entra na resposta.
+  const series = buildQuotaSeries(fromInception ? snapshot.days.slice(1) : snapshot.days, {
+    previous: {
+      position_date: base.position_date,
+      total_value: base.total_value,
+      quota_value: '1',
+      quota_count: base.total_value,
+      cumulative_contributions: base.cumulative_contributions,
+    },
+  });
+
+  const end = series.at(-1);
+  if (end === undefined) return { return_pct: null, return_method: 'unavailable' };
+
+  return { return_pct: returnPct('1', end.quota_value), return_method: 'window_quota' };
 };
 
 const FALLBACK_TOKEN = 'class.outros';
@@ -208,19 +217,16 @@ const colorize = (
 ): ColoredComposition => ({
   ...composition,
   nodes: composition.nodes.map((node): ColoredNode => {
-    const children = node.children.map(
-      (child): ColoredNode => ({
-        ...child,
-        color_token: tokens.get(child.id) ?? FALLBACK_TOKEN,
-        children: [],
-      }),
-    );
+    const children = node.children.map((child): ColoredNode => ({
+      ...child,
+      color_token: tokens.get(child.id) ?? FALLBACK_TOKEN,
+      children: [],
+    }));
 
     return {
       ...node,
       children,
-      color_token:
-        tokens.get(node.id) ?? children[0]?.color_token ?? FALLBACK_TOKEN,
+      color_token: tokens.get(node.id) ?? children[0]?.color_token ?? FALLBACK_TOKEN,
     };
   }),
 });
@@ -236,42 +242,29 @@ const allocationLines = (snapshot: OverviewSnapshot): readonly AllocationLine[] 
 
 const scopeOf = (
   snapshot: OverviewSnapshot,
-  portfolio: OverviewPortfolioRow,
-): OverviewScope => ({
-  portfolio_id: portfolio.portfolio_id,
-  name: portfolio.name,
-  tolerance_pp: TOLERANCE_PP,
-  recalc_status: portfolio.recalc_status,
-  inception: snapshot.inception,
-});
-
-const attentionOf = (
-  alerts: readonly AlertInstance[],
-  portfolioId: string,
-): OverviewAttention => {
-  const inScope = alerts.filter(
-    (alert) => alert.portfolio_id === portfolioId || alert.portfolio_id === null,
-  );
-
-  const groups = (['corrigir', 'decidir', 'acompanhar'] as const)
-    .map((group): OverviewAttentionGroup => {
-      const items = inScope
-        .filter((alert) => alertGroupFor(alert.rule_kind) === group)
-        .map((alert) => ({
-          rule_kind: alert.rule_kind,
-          subject_id: alert.subject_id,
-          portfolio_id: alert.portfolio_id,
-          payload: alert.payload,
-          first_seen_at: alert.first_seen_at,
-        }));
-
-      return { group, count: items.length, items };
-    })
-    // Nenhum bloco aparece vazio: grupo sem item sai da tela.
-    .filter((group) => group.count > 0);
-
-  return { total: inScope.length, groups };
-};
+  portfolio: OverviewPortfolioRow | null,
+): OverviewScope =>
+  portfolio === null
+    ? {
+        portfolio_id: null,
+        name: ALL_PORTFOLIOS_NAME,
+        // Sem carteira não há tolerância declarada: o desvio aparece sem a
+        // marca de "fora da faixa", que é uma decisão de cada carteira.
+        tolerance_pp: '0',
+        recalc_status: snapshot.portfolios.some(
+          (row) => row.recalc_status === 'running' || row.recalc_status === 'queued',
+        )
+          ? 'running'
+          : 'idle',
+        inception: snapshot.inception,
+      }
+    : {
+        portfolio_id: portfolio.portfolio_id,
+        name: portfolio.name,
+        tolerance_pp: TOLERANCE_PP,
+        recalc_status: portfolio.recalc_status,
+        inception: snapshot.inception,
+      };
 
 export const getOverview = (deps: OverviewDeps) =>
   either(async function* (input: OverviewInput) {
@@ -279,7 +272,7 @@ export const getOverview = (deps: OverviewDeps) =>
     const onDate = input.on_date ?? today;
     const to = input.to ?? onDate;
     const from = input.from ?? twelveMonthsBefore(to);
-    const portfolioId = input.portfolio_id;
+    const portfolioId = input.portfolio_id ?? null;
     const limit = deps.topPositions ?? DEFAULT_TOP_POSITIONS;
 
     return yield* await deps.unitOfWork.run<AppError, OverviewResult>(
@@ -293,24 +286,35 @@ export const getOverview = (deps: OverviewDeps) =>
         if (read.isFailure()) return read;
 
         const snapshot = read.value;
-        const portfolio = snapshot.portfolio;
+        const portfolio =
+          portfolioId === null
+            ? null
+            : (snapshot.portfolios.find((row) => row.portfolio_id === portfolioId) ??
+              null);
 
-        if (portfolio === null) {
+        if (portfolioId !== null && portfolio === null) {
           return failure(new NotFoundError(`Carteira ${portfolioId} não encontrada`));
         }
 
-        // A segunda consulta da rota: os alertas ativos, filtrados depois de ler.
-        const alerts = await repositories.alerts.listActive({ on_date: onDate });
-        if (alerts.isFailure()) return alerts;
-
         const referenceDate = snapshot.reference_date;
+
+        // O patrimônio inteiro, somado em decimal: é a base do peso do escopo
+        // e da distribuição por carteira.
+        const everything = sumValues(
+          snapshot.portfolios.map((row) => row.total_value ?? '0'),
+        );
 
         /**
          * O número principal é o do **fechamento**, não o do fim da janela:
          * trocar o período para ver 2024 no gráfico não pode mudar a resposta
          * de "quanto eu tenho hoje", que é a primeira pergunta da tela.
          */
-        const total = referenceDate === null ? null : portfolio.total_value;
+        const total =
+          referenceDate === null
+            ? null
+            : portfolio === null
+              ? everything
+              : portfolio.total_value;
 
         /**
          * O peso das posições é medido contra a soma delas, que é a mesma base
@@ -336,6 +340,19 @@ export const getOverview = (deps: OverviewDeps) =>
           held,
         );
 
+        const shares = weighByValue(
+          snapshot.portfolios
+            .filter((row) => row.total_value !== null)
+            .map((row) => ({
+              id: row.portfolio_id,
+              label: row.name,
+              value: row.total_value ?? '0',
+              portfolio_id: row.portfolio_id,
+              name: row.name,
+            })),
+          everything,
+        );
+
         const flows = periodFlows(snapshot.days);
 
         return success({
@@ -349,7 +366,7 @@ export const getOverview = (deps: OverviewDeps) =>
           period: {
             from,
             to,
-            ...windowReturn(snapshot),
+            ...windowReturn(snapshot, portfolioId !== null),
             contributions: flows.contributions,
             income: flows.income,
             payouts: flows.payouts,
@@ -357,12 +374,16 @@ export const getOverview = (deps: OverviewDeps) =>
           series: growthSeries(snapshot.days),
           composition: colorize(
             composeAllocation(allocationLines(snapshot), snapshot.targets, {
-              tolerance_pp: TOLERANCE_PP,
+              tolerance_pp: portfolio === null ? '0' : TOLERANCE_PP,
             }),
-            new Map(
-              snapshot.categories.map((row) => [row.category_id, row.color_token]),
-            ),
+            new Map(snapshot.categories.map((row) => [row.category_id, row.color_token])),
           ),
+          by_portfolio: shares.map((row) => ({
+            portfolio_id: row.portfolio_id,
+            name: row.name,
+            value: row.value,
+            weight_pct: row.weight_pct,
+          })),
           top_positions: {
             total_count: positions.length,
             rows: positions.slice(0, limit).map((row) => ({
@@ -376,7 +397,6 @@ export const getOverview = (deps: OverviewDeps) =>
               price_source_kind: row.price_source_kind,
             })),
           },
-          attention: attentionOf(alerts.value, portfolioId),
         });
       },
     );

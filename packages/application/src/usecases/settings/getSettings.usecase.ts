@@ -36,7 +36,6 @@ export const getSettings = (deps: GetSettingsDeps) =>
         blocking: { transactions: portfolio.transactions, assets: portfolio.assets },
       })),
       archived_portfolios: [...snapshot.archived_portfolios],
-      alerts: [...snapshot.alerts],
       ledger_defaults: {
         undo_window_seconds: deps.undoWindowSeconds,
         // `number` só até aqui: é percentual de configuração, e vira texto.

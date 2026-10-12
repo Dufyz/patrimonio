@@ -30,8 +30,7 @@ export const listCorporateEvents = (deps: CorporateEventDeps) =>
   });
 
 /**
- * Registrar um evento não o aplica. Ele fica aguardando confirmação, e é isso
- * que a fila de alertas mostra: um desdobramento aplicado sozinho com data
+ * Registrar um evento não o aplica. Ele fica aguardando confirmação: um desdobramento aplicado sozinho com data
  * errada reescreve preço médio e resultado de todo o histórico.
  */
 export const registerCorporateEvent = (deps: CorporateEventWriteDeps) =>

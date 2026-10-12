@@ -14,7 +14,7 @@ import type { OutboxEventDraft, Stage } from '@patrimonio/domain';
  *   lançando sem parar adiaria o recálculo para sempre, e o patrimônio da tela
  *   nunca atualizaria.
  *
- * Só os estágios que coalescem recebem espera. Fechamento, alertas e backup nascem
+ * Só os estágios que coalescem recebem espera. Fechamento e backup nascem
  * de um agendamento: eles já têm hora, e atrasá-los não junta nada.
  */
 export type DebounceConfig = {

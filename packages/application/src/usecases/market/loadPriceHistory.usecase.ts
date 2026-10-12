@@ -54,7 +54,6 @@ const listable = (asset: Asset): boolean =>
   asset.origin === 'market' &&
   asset.archived_at === null &&
   asset.b3_type !== null &&
-  asset.b3_type !== 'cash' &&
   asset.b3_type !== 'treasury';
 
 export const loadPriceHistory = (deps: LoadPriceHistoryDeps) =>

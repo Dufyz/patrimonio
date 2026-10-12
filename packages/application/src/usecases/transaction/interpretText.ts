@@ -41,8 +41,6 @@ const KINDS: ReadonlyArray<readonly [RegExp, TransactionKind, PayoutKind | null]
   [/^(juros|cupom)$/i, 'payout', 'interest'],
   [/^(amortizacao|amortização|amort)$/i, 'payout', 'amortization'],
   [/^(provento|proventos)$/i, 'payout', 'dividend'],
-  [/^(aporte|aportar|deposito|depósito)$/i, 'deposit', null],
-  [/^(resgate|resgatar|saque|retirada)$/i, 'withdrawal', null],
   [
     /^(desdobramento|grupamento|bonificacao|bonificação|evento)$/i,
     'corporate_event',
@@ -54,8 +52,6 @@ const KIND_LABELS: Record<TransactionKind, string> = {
   buy: 'Compra',
   sell: 'Venda',
   payout: 'Provento',
-  deposit: 'Aporte',
-  withdrawal: 'Resgate',
   corporate_event: 'Evento',
 };
 

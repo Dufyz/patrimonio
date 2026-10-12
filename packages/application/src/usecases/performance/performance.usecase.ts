@@ -3,9 +3,9 @@ import {
   addCalendarDays,
   addMonths,
   benchmarkCumulative,
+  buildQuotaSeries,
   benchmarkPeriodReturn,
   cumulativeReturns,
-  decomposeByMonth,
   differencePp,
   indexCodesOf,
   measurementCalendar,
@@ -15,7 +15,6 @@ import {
   sumValues,
   weightPct,
   windowStart,
-  yearReturns,
 } from '@patrimonio/calc';
 import type {
   BenchmarkDefinition,
@@ -51,7 +50,7 @@ import type {
  * ## Por que a carteira é medida pela cota
  *
  * Patrimônio de hoje menos patrimônio de ontem mistura dois dinheiros: o que o
- * mercado fez e o que a pessoa depositou. Um mês de aporte grande e mercado
+ * mercado fez e o que a pessoa aportou. Um mês de aporte grande e mercado
  * caindo parece um mês bom. A cota separa os dois — o aporte entra ao valor de
  * cota do dia anterior, cria cotas e não mexe no preço delas —, e o retorno de
  * qualquer janela é a razão entre duas cotas. É também o que mantém esta rota
@@ -73,7 +72,8 @@ import type {
  */
 
 export type PerformanceScope = {
-  readonly portfolio_id: string;
+  /** Nulo em Todas as carteiras. */
+  readonly portfolio_id: string | null;
   readonly name: string;
   readonly recalc_status: RecalcStatus;
   readonly inception: DateOnly | null;
@@ -114,33 +114,6 @@ export type PerformanceWindowRow = {
   readonly values: readonly (string | null)[];
 };
 
-export type PerformanceYear = {
-  readonly year: number;
-  readonly months: readonly (string | null)[];
-  readonly total_pct: string | null;
-  readonly benchmark_pct: string | null;
-  readonly difference_pp: string | null;
-  readonly partial: boolean;
-};
-
-export type PerformanceDecompositionRow = {
-  readonly month: string;
-  readonly opening_value: string;
-  readonly net_flow: string;
-  readonly income: string;
-  readonly payouts: string;
-  readonly closing_value: string;
-  readonly return_pct: string | null;
-  readonly benchmark_pct: string | null;
-  readonly difference_pp: string | null;
-};
-
-export type PerformanceDecompositionTotal = Omit<PerformanceDecompositionRow, 'month'> & {
-  readonly months: number;
-  readonly from: DateOnly;
-  readonly to: DateOnly;
-};
-
 export type BreakdownKey = 'month' | 'ytd' | '12m' | 'inception';
 
 export type PerformanceClassRow = {
@@ -149,7 +122,18 @@ export type PerformanceClassRow = {
   readonly color_token: string;
   readonly value: string;
   readonly weight_pct: string;
-  readonly is_cash: boolean;
+  readonly returns: readonly (string | null)[];
+};
+
+/**
+ * O retorno de cada carteira, pela cota dela. Só existe em Todas as carteiras: é
+ * a leitura que a soma esconde.
+ */
+export type PerformancePortfolioRow = {
+  readonly portfolio_id: string;
+  readonly name: string;
+  readonly value: string;
+  readonly weight_pct: string;
   readonly returns: readonly (string | null)[];
 };
 
@@ -182,26 +166,19 @@ export type PerformanceResult = {
     readonly columns: readonly PerformanceWindowColumn[];
     readonly rows: readonly PerformanceWindowRow[];
   };
-  readonly monthly: {
-    readonly benchmark_name: string | null;
-    readonly years: readonly PerformanceYear[];
-  };
-  readonly decomposition: {
-    readonly benchmark_name: string | null;
-    readonly rows: readonly PerformanceDecompositionRow[];
-    readonly total: PerformanceDecompositionTotal | null;
-  };
   readonly breakdown: {
     readonly columns: readonly {
       readonly key: BreakdownKey;
       readonly base_date: DateOnly | null;
     }[];
     readonly classes: readonly PerformanceClassRow[];
+    readonly portfolios: readonly PerformancePortfolioRow[];
   };
 };
 
 export type PerformanceInput = {
-  readonly portfolio_id: string;
+  /** Ausente é Todas as carteiras. */
+  readonly portfolio_id?: string | undefined;
   readonly on_date?: DateOnly | undefined;
   readonly from?: DateOnly | undefined;
   readonly to?: DateOnly | undefined;
@@ -215,7 +192,6 @@ export type PerformanceDeps = {
 };
 
 const CHART_DEFAULT_MONTHS = 24;
-const DECOMPOSITION_MONTHS = 12;
 const BREAKDOWN_KEYS: readonly BreakdownKey[] = ['month', 'ytd', '12m', 'inception'];
 const QUOTA_FALLBACK = '1.000000000000';
 
@@ -305,16 +281,34 @@ const emptyResult = (
     columns: WINDOWS.map((key) => ({ key, base_date: null })),
     rows: [],
   },
-  monthly: { benchmark_name: null, years: [] },
-  decomposition: { benchmark_name: null, rows: [], total: null },
   breakdown: {
     columns: BREAKDOWN_KEYS.map((key) => ({ key, base_date: null })),
     classes: [],
+    portfolios: [],
   },
 });
 
-const toQuotaDays = (days: readonly PerformanceDayRow[]): readonly DecompositionDay[] =>
-  days.map((day) => ({
+/**
+ * Com uma carteira, a cota é a gravada. Sem ela, a cota de cada carteira é de
+ * cada uma, e a soma delas não tem cota: ela é reconstruída sobre a série somada,
+ * com o fluxo líquido entrando ao valor de cota do dia anterior.
+ */
+const toQuotaDays = (
+  days: readonly PerformanceDayRow[],
+  consolidated: boolean,
+): readonly DecompositionDay[] => {
+  const rebuilt = consolidated
+    ? buildQuotaSeries(
+        days.map((day) => ({
+          position_date: day.position_date,
+          total_value: day.total_value,
+          net_flow: day.net_flow,
+          payouts: day.payouts,
+        })),
+      )
+    : [];
+
+  return days.map((day, index) => ({
     position_date: day.position_date,
     total_value: day.total_value,
     net_flow: day.net_flow,
@@ -322,8 +316,11 @@ const toQuotaDays = (days: readonly PerformanceDayRow[]): readonly Decomposition
     payouts: day.payouts,
     // A coluna é `not null` com cota positiva; o fallback só existe para o
     // tipo, e é o valor inicial da série, não um número inventado.
-    quota_value: day.quota_value ?? QUOTA_FALLBACK,
+    quota_value: consolidated
+      ? (rebuilt[index]?.quota_value ?? QUOTA_FALLBACK)
+      : (day.quota_value ?? QUOTA_FALLBACK),
   }));
+};
 
 const pointOf = (day: DecompositionDay): QuotaPoint => ({
   position_date: day.position_date,
@@ -339,13 +336,11 @@ const returnOf = (window: WindowReturn | null): string | null =>
 const classReturns = (
   breakdown: PerformanceBreakdown,
   categoryId: string,
-  isCash: boolean,
   columns: readonly { readonly key: BreakdownKey; readonly base_date: DateOnly | null }[],
   reference: DateOnly,
 ): readonly (string | null)[] =>
   columns.map((column) => {
-    // O caixa não rende por si: o saldo dele só muda pelo que entra e sai.
-    if (isCash || column.base_date === null) return null;
+    if (column.base_date === null) return null;
 
     const value = (label: string): string =>
       breakdown.class_values.find(
@@ -372,7 +367,8 @@ const classReturns = (
 export const getPerformance = (deps: PerformanceDeps) =>
   either(async function* (input: PerformanceInput) {
     const onDate = input.on_date ?? deps.clock.today();
-    const portfolioId = input.portfolio_id;
+    const portfolioId = input.portfolio_id ?? null;
+    const consolidated = portfolioId === null;
 
     const snapshot = yield* await deps.performance.snapshot({
       portfolio_id: portfolioId,
@@ -382,7 +378,13 @@ export const getPerformance = (deps: PerformanceDeps) =>
     const portfolio = snapshot.portfolio;
 
     if (portfolio === null) {
-      return yield* failure(new NotFoundError(`Carteira ${portfolioId} não encontrada`));
+      return yield* failure(
+        new NotFoundError(
+          portfolioId === null
+            ? 'Nenhuma carteira ativa'
+            : `Carteira ${portfolioId} não encontrada`,
+        ),
+      );
     }
 
     const scope: PerformanceScope = {
@@ -410,7 +412,7 @@ export const getPerformance = (deps: PerformanceDeps) =>
     }
 
     // ── A série de cota do escopo ──────────────────────────────────────────
-    const quotaDays = toQuotaDays(snapshot.days);
+    const quotaDays = toQuotaDays(snapshot.days, consolidated);
     const points = quotaDays.map(pointOf);
     const first = points[0];
     const lastPoint = points[points.length - 1];
@@ -429,7 +431,6 @@ export const getPerformance = (deps: PerformanceDeps) =>
 
     // ── Os benchmarks escolhidos ───────────────────────────────────────────
     const selected = chooseBenchmarks(primary, input.benchmarks ?? []);
-    const referenceBenchmark = selected[0] ?? null;
 
     // ── A segunda consulta: o que depende das datas e dos índices ──────────
     const breakdownPoints: readonly PerformancePoint[] = [
@@ -621,105 +622,6 @@ export const getPerformance = (deps: PerformanceDeps) =>
       }
     });
 
-    // ── A grade mês por ano ────────────────────────────────────────────────
-    const months = decomposeByMonth(quotaDays);
-    const yearTotals = new Map(yearReturns(points).map((year) => [year.year, year]));
-    const referenceYear = Number(reference.slice(0, 4));
-
-    const years = new Map<number, (string | null)[]>();
-    for (const month of months) {
-      const row = years.get(month.year) ?? Array.from({ length: 12 }, () => null);
-      row[month.month_number - 1] = month.return_pct;
-      years.set(month.year, row);
-    }
-
-    const yearRows: PerformanceYear[] = [...years.entries()]
-      .sort(([left], [right]) => right - left)
-      .map(([year, values]) => {
-        const total = yearTotals.get(year);
-        const benchmark =
-          total === undefined
-            ? null
-            : benchmarkBetween(referenceBenchmark, total.base_date, total.end_date);
-
-        return {
-          year,
-          months: values,
-          total_pct: total?.return_pct ?? null,
-          benchmark_pct: benchmark,
-          difference_pp: diff(total?.return_pct ?? null, benchmark),
-          partial: year === referenceYear,
-        };
-      });
-
-    // ── A decomposição dos últimos doze meses ─────────────────────────────
-    const lastCloseOf = new Map<string, QuotaPoint>();
-    for (const point of points) lastCloseOf.set(point.position_date.slice(0, 7), point);
-
-    const quotaAt = new Map(
-      points.map((point) => [point.position_date, point.quota_value]),
-    );
-
-    const baseDateOf = (index: number): string => {
-      const previous = months[index - 1];
-      return previous === undefined
-        ? first.position_date
-        : (lastCloseOf.get(previous.month)?.position_date ?? first.position_date);
-    };
-
-    const recent = months.slice(-DECOMPOSITION_MONTHS);
-    const offset = months.length - recent.length;
-
-    const decompositionRows: PerformanceDecompositionRow[] = recent
-      .map((month, position) => {
-        const base = baseDateOf(offset + position);
-        const end = lastCloseOf.get(month.month)?.position_date ?? base;
-        const benchmark = benchmarkBetween(referenceBenchmark, base, end);
-
-        return {
-          month: month.month,
-          opening_value: month.opening_value,
-          net_flow: month.net_flow,
-          income: month.income,
-          payouts: month.payouts,
-          closing_value: month.closing_value,
-          return_pct: month.return_pct,
-          benchmark_pct: benchmark,
-          difference_pp: diff(month.return_pct, benchmark),
-        };
-      })
-      .reverse();
-
-    const decompositionTotal = ((): PerformanceDecompositionTotal | null => {
-      const oldest = recent[0];
-      const newest = recent[recent.length - 1];
-      if (oldest === undefined || newest === undefined) return null;
-
-      const from = baseDateOf(offset);
-      const to = lastCloseOf.get(newest.month)?.position_date ?? lastPoint.position_date;
-      const fromQuota = quotaAt.get(from);
-      const toQuota = quotaAt.get(to);
-      const total =
-        fromQuota === undefined || toQuota === undefined
-          ? null
-          : returnPct(fromQuota, toQuota);
-      const benchmark = benchmarkBetween(referenceBenchmark, from, to);
-
-      return {
-        months: recent.length,
-        from: from as DateOnly,
-        to: to as DateOnly,
-        opening_value: oldest.opening_value,
-        net_flow: sumValues(recent.map((month) => month.net_flow)),
-        income: sumValues(recent.map((month) => month.income)),
-        payouts: sumValues(recent.map((month) => month.payouts)),
-        closing_value: newest.closing_value,
-        return_pct: total,
-        benchmark_pct: benchmark,
-        difference_pp: diff(total, benchmark),
-      };
-    })();
-
     // ── Por classe ──────────────────────────────────────────
     const breakdownColumns = BREAKDOWN_KEYS.map((key) => ({
       key,
@@ -742,11 +644,9 @@ export const getPerformance = (deps: PerformanceDeps) =>
         color_token: category.color_token,
         value: classValue(category.category_id),
         weight_pct: weightPct(classValue(category.category_id), classTotal),
-        is_cash: category.is_cash,
         returns: classReturns(
           breakdown,
           category.category_id,
-          category.is_cash,
           breakdownColumns,
           lastPoint.position_date as DateOnly,
         ),
@@ -757,6 +657,44 @@ export const getPerformance = (deps: PerformanceDeps) =>
         (row) => Number(row.value) !== 0 || row.returns.some((value) => value !== null),
       )
       .sort((left, right) => Number(right.value) - Number(left.value));
+
+    // ── Por carteira (só em Todas as carteiras) ─────────────────────────────
+    const portfolioPoint = (id: string, label: string) =>
+      breakdown.portfolio_points.find(
+        (point) => point.portfolio_id === id && point.label === label,
+      ) ?? null;
+
+    const portfolioRows: PerformancePortfolioRow[] = consolidated
+      ? ((): PerformancePortfolioRow[] => {
+          const current = breakdown.portfolios.flatMap((row) => {
+            const end = portfolioPoint(row.portfolio_id, 'reference');
+            return end === null ? [] : [{ row, end }];
+          });
+          const total = sumValues(current.map((item) => item.end.total_value));
+
+          return current.map(({ row, end }) => ({
+            portfolio_id: row.portfolio_id,
+            name: row.name,
+            value: end.total_value,
+            weight_pct: weightPct(end.total_value, total),
+            returns: breakdownColumns.map((column) => {
+              if (column.base_date === null || end.quota_value === null) return null;
+
+              // Carteira aberta depois da data-base não tem fechamento nela: só
+              // "Início" é dela, e parte do primeiro fechamento da própria carteira.
+              const base =
+                portfolioPoint(row.portfolio_id, column.key) ??
+                (column.key === 'inception'
+                  ? portfolioPoint(row.portfolio_id, 'first')
+                  : null);
+
+              return base === null || base.quota_value === null
+                ? null
+                : returnPct(base.quota_value, end.quota_value);
+            }),
+          }));
+        })()
+      : [];
 
     return {
       reference_date: reference,
@@ -770,15 +708,10 @@ export const getPerformance = (deps: PerformanceDeps) =>
       },
       chart,
       windows: { columns, rows: windowRows },
-      monthly: { benchmark_name: referenceBenchmark?.name ?? null, years: yearRows },
-      decomposition: {
-        benchmark_name: referenceBenchmark?.name ?? null,
-        rows: decompositionRows,
-        total: decompositionTotal,
-      },
       breakdown: {
         columns: breakdownColumns,
         classes: classRows,
+        portfolios: portfolioRows,
       },
     } satisfies PerformanceResult;
   });

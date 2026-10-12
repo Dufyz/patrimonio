@@ -1,7 +1,6 @@
 import {
   applyLedger,
   buildQuotaSeries,
-  cashBalance,
   curveValue,
   isZeroAmount,
   moneyDifference,
@@ -47,12 +46,6 @@ export type CloseAsset = {
   readonly ticker: string;
   readonly b3_type: B3Type | null;
   readonly category_id: string | null;
-  /**
-   * Só no caixa: a instituição cujo saldo essa posição representa. A posição de
-   * caixa não é a soma das quantidades lançadas nele — é a soma dos valores
-   * líquidos da carteira naquela instituição, porque comprar tira e vender põe.
-   */
-  readonly institution_id: string | null;
   /** Só em título marcado na curva. Tesouro e ação têm preço e não entram aqui. */
   readonly fixed_income: FixedIncomeTerms | null;
 };
@@ -105,8 +98,6 @@ export type DailyClosePlan = {
   readonly priced_at_cost: readonly string[];
 };
 
-const isCash = (asset: CloseAsset | undefined): boolean => asset?.b3_type === 'cash';
-
 type Valued = {
   readonly market_value: string;
   readonly kind: ComputedPriceKind;
@@ -115,7 +106,7 @@ type Valued = {
 
 /**
  * O valor de uma posição e a confiança que ele merece. A ordem é deliberada:
- * caixa vale o saldo, título marcado na curva vale a curva, o resto vale a
+ * título marcado na curva vale a curva, o resto vale a
  * cotação — e quando não há cotação nenhuma, vale o custo, marcado.
  */
 const valuePosition = (
@@ -126,12 +117,6 @@ const valuePosition = (
   curve: CurveValue | undefined,
   referenceDate: DateOnly,
 ): Valued => {
-  // Caixa não tem cotação: o valor dele é o próprio saldo, e isso nunca é
-  // "preço atrasado".
-  if (isCash(asset)) {
-    return { market_value: toMoney(quantity), kind: 'fresh', accrued_interest: '0.00' };
-  }
-
   const fixedIncome = asset?.fixed_income ?? null;
 
   if (fixedIncome !== null) {
@@ -174,16 +159,23 @@ const valuePosition = (
   };
 };
 
-/** Dinheiro que cruzou a fronteira do patrimônio no dia. */
+/**
+ * Dinheiro que cruzou a fronteira do patrimônio no dia. Não há caixa: comprar é
+ * aportar e vender é resgatar, e a amortização devolve principal, que também
+ * sai. O líquido da compra é negativo e o da venda, positivo, então o fluxo é o
+ * oposto da soma.
+ */
 const flowOn = (entries: readonly CloseEntry[], date: DateOnly): string =>
   sumValues(
     entries
       .filter(
         (entry) =>
           entry.trade_date === date &&
-          (entry.kind === 'deposit' || entry.kind === 'withdrawal'),
+          (entry.kind === 'buy' ||
+            entry.kind === 'sell' ||
+            (entry.kind === 'payout' && entry.payout_kind === 'amortization')),
       )
-      .map((entry) => entry.net_amount),
+      .map((entry) => moneyDifference('0.00', entry.net_amount)),
   );
 
 /**
@@ -201,38 +193,6 @@ const payoutsOn = (entries: readonly CloseEntry[], date: DateOnly): string =>
       )
       .map((entry) => entry.net_amount),
   );
-
-/**
- * A posição de caixa é o saldo da carteira naquela instituição, não a soma das
- * quantidades lançadas no ativo de caixa: uma compra tira dinheiro dali sem gerar
- * lançamento no caixa, e somar só os aportes contaria o mesmo real duas vezes.
- */
-const cashPosition = (
-  context: DailyCloseContext,
-  assetId: string,
-  asset: CloseAsset | undefined,
-): {
-  readonly quantity: string;
-  readonly avg_price: string;
-  readonly cost_basis: string;
-} => {
-  const institutionId = asset?.institution_id ?? null;
-
-  const relevant = context.entries.filter((entry) => {
-    if (entry.trade_date > context.reference_date) return false;
-
-    // Sem instituição declarada no ativo de caixa, o saldo é só dos lançamentos
-    // que apontam para ele: somar a carteira inteira contaria o mesmo real duas
-    // vezes se houvesse outro caixa.
-    return institutionId === null
-      ? entry.asset_id === assetId
-      : entry.institution_id === institutionId;
-  });
-
-  const balance = cashBalance(relevant);
-
-  return { quantity: balance, avg_price: '1.00000000', cost_basis: balance };
-};
 
 export const planDailyClose = (context: DailyCloseContext): DailyClosePlan => {
   const upTo = context.reference_date;
@@ -253,9 +213,7 @@ export const planDailyClose = (context: DailyCloseContext): DailyClosePlan => {
   for (const [assetId, bucket] of byAsset) {
     const asset = context.assets.get(assetId);
 
-    const position = isCash(asset)
-      ? cashPosition(context, assetId, asset)
-      : applyLedger(bucket).position;
+    const position = applyLedger(bucket).position;
 
     const quantity = toQuantity(position.quantity);
     const costBasis = toMoney(position.cost_basis);

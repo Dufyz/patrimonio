@@ -30,13 +30,6 @@ export type SettingsArchivedPortfolioRow = {
   readonly archived_on: DateOnly;
 };
 
-export type SettingsAlertRuleRow = {
-  readonly kind: string;
-  readonly enabled: boolean;
-  readonly scope: 'global' | 'per_portfolio';
-  readonly threshold: Record<string, unknown> | null;
-};
-
 /** O que a tabela do pipeline sabe do backup. O bucket só o worker enxerga. */
 export type SettingsBackupRow = {
   readonly last_success_at: string | null;
@@ -48,10 +41,29 @@ export type SettingsBackupRow = {
 export type SettingsSnapshot = {
   readonly portfolios: readonly SettingsPortfolioRow[];
   readonly archived_portfolios: readonly SettingsArchivedPortfolioRow[];
-  readonly alerts: readonly SettingsAlertRuleRow[];
   readonly backup: SettingsBackupRow;
+};
+
+export type DeleteAllCounts = {
+  readonly transactions: number;
+  readonly portfolios: number;
+  readonly assets: number;
+  readonly institutions: number;
 };
 
 export type SettingsRepository = {
   readonly snapshot: () => Promise<Either<AppError, SettingsSnapshot>>;
+  /**
+   * Tudo que a pessoa digitou, como **um** documento JSON em texto. O texto
+   * sai do banco sem passar por `number` de JavaScript: `numeric(20,8)` não
+   * cabe em `double`, e a exportação é a saída de emergência do projeto.
+   */
+  readonly exportAll: () => Promise<Either<AppError, string>>;
+  /**
+   * Apaga o livro — lançamentos, carteiras, instituições, ativos cadastrados à
+   * mão, preços manuais e proventos anunciados. Não toca nos dados de mercado
+   * (preços de fechamento, índices, catálogo da B3): eles não são da pessoa e
+   * recarregá-los custa horas.
+   */
+  readonly deleteAll: () => Promise<Either<AppError, DeleteAllCounts>>;
 };

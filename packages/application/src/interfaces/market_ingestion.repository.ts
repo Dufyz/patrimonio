@@ -56,6 +56,11 @@ export type PendingAnnouncedPayout = {
   readonly amount_per_share: string;
 };
 
+export type PendingHistoryAsset = {
+  readonly asset_id: string;
+  readonly ticker: string;
+};
+
 /** O que a tela de dados de mercado mostra de cada fonte. */
 export type SourceStatus = {
   readonly source: string;
@@ -123,6 +128,19 @@ export type MarketIngestionRepository = {
     from: DateOnly,
     to: DateOnly,
   ) => Promise<Either<AppError, DateOnly[]>>;
+
+  /**
+   * Os papéis de bolsa cujo histórico desde a estreia ainda não foi carregado.
+   * É a fila do sincronizador: carregar uma vez e marcar, em vez de descobrir a
+   * cada coleta que a série está curta.
+   */
+  readonly assetsPendingHistory: (
+    limit: number,
+  ) => Promise<Either<AppError, PendingHistoryAsset[]>>;
+
+  readonly markHistorySynced: (
+    assetIds: readonly string[],
+  ) => Promise<Either<AppError, number>>;
 
   readonly recordRun: (
     draft: MarketSourceRunDraft,

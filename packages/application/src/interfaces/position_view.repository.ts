@@ -27,7 +27,8 @@ import type { AppError } from '../errors/app-error.js';
 export type PositionViewFilter = {
   /** O dia limite: a tela mostra o último fechamento em ou antes dele. */
   readonly today: DateOnly;
-  readonly portfolioId: string;
+  /** Nulo significa todas as carteiras ativas. */
+  readonly portfolioId: string | null;
   readonly groupBy: PositionGroupBy;
   readonly search: string | null;
   /** Qualquer uma delas; `sem-categoria` é a ausência. Vazio não filtra. */
@@ -117,6 +118,35 @@ export type PositionView = {
   readonly header: PositionViewHeader;
 };
 
+export type ClosedPositionFilter = {
+  /** Nulo significa todas as carteiras ativas. */
+  readonly portfolioId: string | null;
+  readonly search: string | null;
+};
+
+export type ClosedPositionRow = {
+  readonly asset_id: string;
+  readonly ticker: string;
+  readonly name: string;
+  readonly category_name: string | null;
+  readonly color_token: string | null;
+  readonly first_trade_date: DateOnly;
+  readonly closed_on: DateOnly;
+  readonly invested: string;
+  readonly proceeds: string;
+  readonly payouts_received: string;
+  readonly realized_result: string | null;
+  readonly total_result: string;
+  readonly total_result_ratio: string | null;
+};
+
 export type PositionViewRepository = {
   readonly open: (filter: PositionViewFilter) => Promise<Either<AppError, PositionView>>;
+  /**
+   * Os ativos que a carteira já vendeu e não tem mais. Uma consulta: a conta de
+   * cada papel (investido, vendido, proventos) é agregada no banco.
+   */
+  readonly closed: (
+    filter: ClosedPositionFilter,
+  ) => Promise<Either<AppError, readonly ClosedPositionRow[]>>;
 };

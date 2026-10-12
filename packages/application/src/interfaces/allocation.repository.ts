@@ -30,8 +30,8 @@ export type AllocationPortfolioRow = {
 
 /**
  * Uma categoria do cadastro e o que a carteira tem nela. `group_id` é nulo para
- * o que está na raiz — um grupo sem filhos, como Caixa, é uma categoria que se
- * comporta como grupo de uma linha só.
+ * o que está na raiz — um grupo sem filhos é uma categoria que se comporta
+ * como grupo de uma linha só.
  */
 export type AllocationCategoryRow = {
   readonly category_id: string;

@@ -17,18 +17,6 @@ const DAYS = [
   '2024-03-08',
 ];
 
-const deposit = (trade_date: string, amount: string): CloseEntry => ({
-  id: `dep-${trade_date}`,
-  kind: 'deposit',
-  trade_date,
-  quantity: amount,
-  unit_price: '1',
-  fees: '0',
-  net_amount: amount,
-  asset_id: 'caixa',
-  institution_id: INSTITUTION,
-});
-
 const buy = (trade_date: string, quantity: string, unitPrice: string): CloseEntry => ({
   id: `buy-${trade_date}`,
   kind: 'buy',
@@ -55,24 +43,12 @@ const sell = (trade_date: string, quantity: string, unitPrice: string): CloseEnt
 
 const assets = new Map<string, CloseAsset>([
   [
-    'caixa',
-    {
-      id: 'caixa',
-      ticker: 'CAIXA-BANCO',
-      b3_type: 'cash',
-      category_id: null,
-      institution_id: INSTITUTION,
-      fixed_income: null,
-    },
-  ],
-  [
     'itub4',
     {
       id: 'itub4',
       ticker: 'ITUB4',
       b3_type: 'stock',
       category_id: 'cat-acoes',
-      institution_id: null,
       fixed_income: null,
     },
   ],
@@ -92,7 +68,6 @@ const prices = new Map<string, readonly PriceOn[]>([
 ]);
 
 const entries: readonly CloseEntry[] = [
-  deposit('2024-03-01', '10000.00'),
   buy('2024-03-04', '100', '30.00'),
   sell('2024-03-07', '40', '33.00'),
 ];
@@ -136,9 +111,16 @@ describe('reconstruir do livro', () => {
     expect(sexta?.price_source_kind).toBe('stale');
   });
 
-  it('o aporte do primeiro dia é fluxo, e o rendimento dele é zero', () => {
-    expect(plan.portfolio_days[0]?.net_flow).toBe('10000.00');
-    expect(plan.portfolio_days[0]?.income).toBe('0.00');
+  it('a carteira sem posição fecha em zero, e a primeira compra é fluxo sem rendimento', () => {
+    expect(plan.portfolio_days[0]?.total_value).toBe('0.00');
+    expect(plan.portfolio_days[1]?.net_flow).toBe('3000.00');
+    expect(plan.portfolio_days[1]?.income).toBe('0.00');
+  });
+
+  it('a venda é resgate: o fluxo do dia é negativo', () => {
+    const day = plan.portfolio_days.find((row) => row.position_date === '2024-03-07');
+
+    expect(day?.net_flow).toBe('-1320.00');
   });
 
   it('o relatório diz o intervalo reconstruído e quantas linhas mudaram', () => {
@@ -192,10 +174,10 @@ describe('a invariante central: do zero é igual ao incremental', () => {
         business_days: ['2024-03-07', '2024-03-08'],
         previous: {
           position_date: '2024-03-06',
-          total_value: '10100.00',
-          quota_value: '1.010000000000',
-          quota_count: '10000.000000000000',
-          cumulative_contributions: '10000.00',
+          total_value: '3100.00',
+          quota_value: '1.033333333333',
+          quota_count: '3000.000000000000',
+          cumulative_contributions: '3000.00',
         },
       }),
     );
@@ -286,7 +268,6 @@ describe('renda fixa na reconstrução', () => {
           ticker: 'CDB-BANCO-20281010',
           b3_type: null,
           category_id: 'cat-posfixado',
-          institution_id: null,
           fixed_income: {
             indexer: 'cdi_pct' as const,
             rate: '112',

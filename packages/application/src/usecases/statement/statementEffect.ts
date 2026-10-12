@@ -24,8 +24,6 @@ export type StatementEffectView =
   | { readonly type: 'payout_withheld'; readonly tax: string }
   | { readonly type: 'payout_receivable'; readonly expected: string | null }
   | { readonly type: 'cost_reduction'; readonly amount: string }
-  | { readonly type: 'cash_in' }
-  | { readonly type: 'cash_out' }
   | {
       readonly type: 'corporate_event';
       readonly ratio_from: string;
@@ -68,12 +66,6 @@ export const statementEffect = (
 
     case 'payout':
       return payoutEffect(row);
-
-    case 'deposit':
-      return { type: 'cash_in' };
-
-    case 'withdrawal':
-      return { type: 'cash_out' };
 
     case 'corporate_event':
       if (

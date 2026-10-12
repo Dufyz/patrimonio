@@ -42,8 +42,8 @@ export type AssetPageFilter = {
   readonly kind: TransactionKind | null;
 };
 
-/** Quantos lançamentos a lista da direita mostra antes de "Todos →". */
-export const ASSET_PAGE_TRANSACTION_LIMIT = 6;
+/** Quantos lançamentos o histórico do ativo mostra antes de "Todos →". */
+export const ASSET_PAGE_TRANSACTION_LIMIT = 50;
 
 export type AssetPageIdentityRow = {
   readonly asset_id: string;
@@ -57,6 +57,7 @@ export type AssetPageIdentityRow = {
   readonly category_name: string | null;
   readonly color_token: string | null;
   readonly category_automatic: boolean;
+  readonly issuer_id: string | null;
   readonly issuer_name: string | null;
   readonly archived_at: string | null;
   readonly indexer: Indexer | null;
@@ -83,6 +84,35 @@ export type AssetPagePositionRow = {
   readonly yield_on_cost_12m: string | null;
 };
 
+/**
+ * O que o ativo foi na vida da carteira, com ou sem posição aberta. É o que
+ * permite abrir um papel já vendido e ainda ver o que ele rendeu.
+ */
+export type AssetPageLifetimeRow = {
+  /** Soma do que foi pago nas compras. */
+  readonly invested: string;
+  /** Soma do que foi recebido nas vendas. */
+  readonly proceeds: string;
+  /** Proventos confirmados (amortização inclusa: é dinheiro que entrou). */
+  readonly payouts_received: string;
+  /** Nulo quando nunca houve venda. */
+  readonly realized_result: string | null;
+  readonly first_trade_date: DateOnly | null;
+  readonly last_trade_date: DateOnly | null;
+  readonly buys: number;
+  readonly sells: number;
+};
+
+/** Um dia da vida do ativo: valor no fim do dia e o dinheiro que passou por ele. */
+export type AssetPageReturnDayRow = {
+  readonly date: DateOnly;
+  readonly value: string;
+  /** Compra positiva, venda e amortização negativas. */
+  readonly flow: string;
+  /** Proventos que não são devolução de capital. */
+  readonly income: string;
+};
+
 export type AssetPagePriceRow = {
   readonly value: string | null;
   readonly day_change_ratio: string | null;
@@ -95,6 +125,17 @@ export type AssetPagePointRow = {
   readonly price_date: DateOnly;
   readonly close: string;
   readonly adjusted_close: string;
+};
+
+/** Um dia do valor da posição: custo e valor na curva (ou na cotação). */
+export type AssetPageValueRow = {
+  readonly date: DateOnly;
+  readonly cost_basis: string;
+  readonly value: string;
+  readonly result: string;
+  readonly payouts: string;
+  readonly with_payouts: string;
+  readonly result_with_payouts: string;
 };
 
 export type AssetPageMarkRow = {
@@ -130,6 +171,7 @@ export type AssetPageTransactionRow = {
   readonly quantity: string;
   readonly unit_price: string;
   readonly net_amount: string;
+  readonly fees: string;
   readonly confirmed_at: string | null;
   readonly portfolio_id: string;
   readonly portfolio_name: string;
@@ -184,8 +226,11 @@ export type AssetPageView = {
   readonly price: AssetPagePriceRow;
   /** Nulo sem posição aberta no recorte. O histórico continua existindo. */
   readonly position: AssetPagePositionRow | null;
+  readonly lifetime: AssetPageLifetimeRow;
+  readonly return_days: readonly AssetPageReturnDayRow[];
   readonly window: AssetPageWindowRow;
   readonly points: readonly AssetPagePointRow[];
+  readonly value_days: readonly AssetPageValueRow[];
   readonly marks: readonly AssetPageMarkRow[];
   readonly payout_months: readonly AssetPagePayoutMonthRow[];
   readonly payouts_total_12m: string;

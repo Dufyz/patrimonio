@@ -109,6 +109,15 @@ const openQuantity = (rows: readonly LedgerRow[]): number => {
   return total;
 };
 
+/** Os termos que definem a curva de um título: mudar um muda o valor dele em toda data. */
+const CURVE_FIELDS = [
+  'indexer',
+  'rate',
+  'issued_at',
+  'maturity_date',
+  'tax_regime',
+] as const;
+
 /**
  * Trocar a categoria de um ativo reclassifica todo o histórico dele: a alocação
  * de toda carteira que o tem muda em todas as datas, e por isso a edição pede
@@ -127,9 +136,15 @@ export const updateAsset = (deps: AssetWriteDeps) =>
         return failure(new NotFoundError(`Ativo ${id} não encontrado`));
       }
 
+      const before = current.value;
+
       const reclassified =
         patch.category_id !== undefined &&
         patch.category_id !== current.value.category_id;
+
+      const recurved = CURVE_FIELDS.some(
+        (field) => patch[field] !== undefined && patch[field] !== before[field],
+      );
 
       const updated = await repositories.assets.update(id, patch);
       if (updated.isFailure()) return updated;
@@ -137,7 +152,7 @@ export const updateAsset = (deps: AssetWriteDeps) =>
         return failure(new NotFoundError(`Ativo ${id} não encontrado`));
       }
 
-      if (reclassified) {
+      if (reclassified || recurved) {
         const holdings = await repositories.ledger.portfoliosHoldingAsset(id);
         if (holdings.isFailure()) return holdings;
 

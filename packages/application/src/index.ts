@@ -18,6 +18,11 @@ export {
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 export type { Clock } from './interfaces/clock.js';
+export type {
+  LiveQuote,
+  LiveQuoteReading,
+  LiveQuoteSource,
+} from './interfaces/live_quotes.js';
 export type { BusinessDayRepository } from './interfaces/business_day.repository.js';
 export type {
   EnqueuedEvent,
@@ -42,6 +47,8 @@ export type {
   PositionViewInstitutionFacetRow,
   PositionViewFilter,
   PositionViewHeader,
+  ClosedPositionFilter,
+  ClosedPositionRow,
   PositionViewRepository,
   PositionViewRow,
   PositionViewSummaryRow,
@@ -72,6 +79,7 @@ export type {
   AssetPageFacetRow,
   AssetPageFilter,
   AssetPageIdentityRow,
+  AssetPageLifetimeRow,
   AssetPageMarkRow,
   AssetPagePayoutMonthRow,
   AssetPagePeriod,
@@ -80,6 +88,7 @@ export type {
   AssetPagePositionRow,
   AssetPagePriceRow,
   AssetPageRepository,
+  AssetPageReturnDayRow,
   AssetPageTransactionRow,
   AssetPageUpcomingPayoutRow,
   AssetPageView,
@@ -120,12 +129,6 @@ export type {
   TreasurySource,
 } from './interfaces/market_data.js';
 export type {
-  AlertFinding,
-  AlertRepository,
-  AlertRule,
-  AlertUpsertRow,
-} from './interfaces/alert.repository.js';
-export type {
   AllocationCategoryRow,
   AllocationPortfolioRow,
   AllocationQuery,
@@ -142,9 +145,9 @@ export type {
   GoalSnapshotQuery,
 } from './interfaces/goal.repository.js';
 export type {
-  SettingsAlertRuleRow,
   SettingsArchivedPortfolioRow,
   SettingsBackupRow,
+  DeleteAllCounts,
   SettingsPortfolioRow,
   SettingsRepository,
   SettingsSnapshot,
@@ -162,6 +165,8 @@ export type {
 } from './interfaces/overview.repository.js';
 export type {
   PerformanceBreakdown,
+  PerformancePortfolioPoint,
+  PerformancePortfolioName,
   PerformanceBreakdownQuery,
   PerformanceCategoryRow,
   PerformanceClassFlow,
@@ -286,15 +291,6 @@ export type {
   TransactionResult,
 } from './usecases/transaction/createTransaction.usecase.js';
 export {
-  createCashMovement,
-  ensureCashAsset,
-} from './usecases/transaction/cashMovement.usecase.js';
-export type {
-  CashMovementDeps,
-  CashMovementInput,
-  CashMovementResult,
-} from './usecases/transaction/cashMovement.usecase.js';
-export {
   createPayout,
   previewPayout,
 } from './usecases/transaction/createPayout.usecase.js';
@@ -365,6 +361,11 @@ export {
   listTransactions,
 } from './usecases/transaction/listTransactions.usecase.js';
 export type { ListTransactionsDeps } from './usecases/transaction/listTransactions.usecase.js';
+export { listClosedPositions } from './usecases/position/listClosedPositions.usecase.js';
+export type {
+  ListClosedPositionsDeps,
+  ListClosedPositionsInput,
+} from './usecases/position/listClosedPositions.usecase.js';
 export { listPositions } from './usecases/position/listPositions.usecase.js';
 export type {
   ListPositionsDeps,
@@ -425,7 +426,6 @@ export type { InstitutionDeps } from './usecases/institution/institution.usecase
 // ─── Planos e casos de uso do pipeline (E3) ──────────────────────────────────
 export { applyPlan } from './plans/apply.js';
 export type {
-  AlertWrite,
   ApplicablePlan,
   ApplyReport,
   ProjectionWrite,
@@ -459,19 +459,6 @@ export { planTaxes } from './plans/taxes.plan.js';
 export type { TaxSale, TaxesContext, TaxesPlan } from './plans/taxes.plan.js';
 
 export {
-  ALERT_GROUPS,
-  isVisibleOn,
-  reconcileAlerts as planAlertReconciliation,
-} from './plans/alerts.plan.js';
-export type {
-  AlertGroup,
-  AlertKey,
-  AlertUpsert,
-  AlertsContext,
-  AlertsPlan,
-} from './plans/alerts.plan.js';
-
-export {
   closeAssetOf,
   loadRecalculationContext,
   loadTaxSales,
@@ -495,22 +482,8 @@ export type {
   ClosedPortfolio,
 } from './usecases/pipeline/closeDay.usecase.js';
 
-export { reconcileAlerts } from './usecases/pipeline/reconcileAlerts.usecase.js';
-export type {
-  AlertRuleRunner,
-  ReconcileAlertsDeps,
-  ReconcileAlertsInput,
-  ReconcileAlertsResult,
-} from './usecases/pipeline/reconcileAlerts.usecase.js';
-
 // ─── Dados de mercado ────────────────────────────────────────────────────────
-export {
-  CORPORATE_EVENT_RULE,
-  PRICE_MISSING_RULE,
-  PRICE_STALE_RULE,
-  planBackfillWindow,
-  planMarketIngestion,
-} from './plans/market.plan.js';
+export { planBackfillWindow, planMarketIngestion } from './plans/market.plan.js';
 export type {
   BackfillWindow,
   MarketIngestionContext,
@@ -529,6 +502,12 @@ export {
   COTAHIST_LOAD_SOURCE,
   loadPriceHistory,
 } from './usecases/market/loadPriceHistory.usecase.js';
+export { syncPriceHistory } from './usecases/market/syncPriceHistory.usecase.js';
+export type {
+  SyncPriceHistoryDeps,
+  SyncPriceHistoryInput,
+  SyncPriceHistoryResult,
+} from './usecases/market/syncPriceHistory.usecase.js';
 export type {
   LoadPriceHistoryDeps,
   LoadPriceHistoryInput,
@@ -583,10 +562,6 @@ export type {
   IngestCorporateActionsInput,
   IngestCorporateActionsResult,
 } from './usecases/market/ingestCorporateActions.usecase.js';
-export {
-  corporateEventRunner,
-  marketAlertRunners,
-} from './usecases/market/marketAlertRunners.js';
 export { getAssetPriceSeries } from './usecases/market/assetPriceSeries.usecase.js';
 export type {
   AssetPriceSeriesDeps,
@@ -618,23 +593,18 @@ export type {
   PerformanceBenchmarkGap,
   PerformanceChart,
   PerformanceClassRow,
-  PerformanceDecompositionRow,
-  PerformanceDecompositionTotal,
   PerformanceDeps,
   PerformanceInput,
   PerformanceMethod,
+  PerformancePortfolioRow,
   PerformanceResult,
   PerformanceScope,
   PerformanceWindowColumn,
   PerformanceWindowRow,
-  PerformanceYear,
 } from './usecases/performance/performance.usecase.js';
 export type {
   ColoredComposition,
   ColoredNode,
-  OverviewAttention,
-  OverviewAttentionGroup,
-  OverviewAttentionItem,
   OverviewChange,
   OverviewDeps,
   OverviewInput,
@@ -674,6 +644,10 @@ export type {
 
 export { getSettings } from './usecases/settings/getSettings.usecase.js';
 export type { GetSettingsDeps } from './usecases/settings/getSettings.usecase.js';
+export { exportData } from './usecases/settings/exportData.usecase.js';
+export type { ExportDataDeps } from './usecases/settings/exportData.usecase.js';
+export { deleteAllData } from './usecases/settings/deleteAllData.usecase.js';
+export type { DeleteAllDataDeps } from './usecases/settings/deleteAllData.usecase.js';
 export { requestBackup } from './usecases/settings/requestBackup.usecase.js';
 export type {
   RequestBackupDeps,

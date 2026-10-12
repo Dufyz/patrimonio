@@ -28,7 +28,8 @@ export type PerformanceDayRow = {
 };
 
 export type PerformanceSnapshotPortfolio = {
-  readonly portfolio_id: string;
+  /** Nulo em Todas as carteiras, onde o escopo é a soma delas. */
+  readonly portfolio_id: string | null;
   readonly name: string;
   readonly recalc_status: RecalcStatus;
   readonly benchmark: string | null;
@@ -48,7 +49,8 @@ export type PerformanceSnapshot = {
 };
 
 export type PerformanceSnapshotQuery = {
-  readonly portfolio_id: string;
+  /** Nulo é Todas as carteiras: a série é a soma, e a cota é reconstruída. */
+  readonly portfolio_id: string | null;
   readonly on_date: DateOnly;
 };
 
@@ -62,7 +64,7 @@ export type PerformancePoint = {
 };
 
 export type PerformanceBreakdownQuery = {
-  readonly portfolio_id: string;
+  readonly portfolio_id: string | null;
   readonly reference: DateOnly;
   readonly points: readonly PerformancePoint[];
   /** Os índices de que os benchmarks escolhidos dependem. Vazio não lê fator. */
@@ -77,8 +79,6 @@ export type PerformanceCategoryRow = {
   readonly category_id: string;
   readonly name: string;
   readonly color_token: string;
-  /** Caixa não rende por si, e o retorno dele não se mede por Dietz. */
-  readonly is_cash: boolean;
 };
 
 export type PerformanceClassValue = {
@@ -89,7 +89,7 @@ export type PerformanceClassValue = {
 
 /**
  * O que entrou na classe (positivo) ou saiu dela (negativo) num dia, e quanto
- * ela recebeu de provento. Provento não é fluxo: é resultado pago em caixa.
+ * ela recebeu de provento. Provento não é fluxo: é resultado que sai do patrimônio.
  */
 export type PerformanceClassFlow = {
   readonly category_id: string;
@@ -98,12 +98,29 @@ export type PerformanceClassFlow = {
   readonly income: string;
 };
 
+/** A cota de uma carteira num ponto: o que separa o retorno dela do das outras. */
+export type PerformancePortfolioPoint = {
+  readonly portfolio_id: string;
+  /** O rótulo do ponto, ou `first` para o primeiro fechamento da própria carteira. */
+  readonly label: string;
+  readonly quota_value: string | null;
+  readonly total_value: string;
+};
+
+export type PerformancePortfolioName = {
+  readonly portfolio_id: string;
+  readonly name: string;
+};
+
 export type PerformanceBreakdown = {
   /** Fator diário por índice e por data, como `index_quote` o guarda. */
   readonly factors: ReadonlyMap<string, ReadonlyMap<string, string>>;
   readonly categories: readonly PerformanceCategoryRow[];
   readonly class_values: readonly PerformanceClassValue[];
   readonly class_flows: readonly PerformanceClassFlow[];
+  /** Só em Todas as carteiras; com uma carteira, vazio. */
+  readonly portfolios: readonly PerformancePortfolioName[];
+  readonly portfolio_points: readonly PerformancePortfolioPoint[];
 };
 
 export type PerformanceRepository = {

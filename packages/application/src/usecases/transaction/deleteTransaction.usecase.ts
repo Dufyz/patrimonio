@@ -50,7 +50,6 @@ const asWrite = (transaction: Transaction): TransactionWrite => ({
   confirmed_at: transaction.confirmed_at,
   event_ratio_from: transaction.event_ratio_from,
   event_ratio_to: transaction.event_ratio_to,
-  note: transaction.note,
   idempotency_key: transaction.idempotency_key,
 });
 

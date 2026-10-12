@@ -18,10 +18,11 @@ import type { AppError } from '../errors/app-error.js';
  */
 
 /** Os tipos como as pastilhas os agrupam. A fonte da verdade é o contrato. */
-export type StatementGroupKey = 'buy' | 'sell' | 'payout' | 'cash' | 'event';
+export type StatementGroupKey = 'buy' | 'sell' | 'payout' | 'event';
 
 export type StatementFilter = {
-  readonly portfolioId: string;
+  /** Nulo significa todas as carteiras ativas. */
+  readonly portfolioId: string | null;
   /** Qualquer uma delas. Vazio não filtra. */
   readonly institutionIds: readonly string[];
   /** Qualquer um deles. Vazio é "Todos". */
@@ -62,15 +63,12 @@ export type StatementLedgerRow = {
   readonly confirmed_at: string | null;
   readonly event_ratio_from: string | null;
   readonly event_ratio_to: string | null;
-  readonly note: string | null;
   /** Nulo quando a venda ainda não passou pelo recálculo. */
   readonly realized_exempt: boolean | null;
 };
 
 export type StatementSummaryRow = {
   readonly count: number;
-  readonly deposits: string;
-  readonly withdrawals: string;
   readonly buys: string;
   readonly sells: string;
   readonly payouts: string;
@@ -104,7 +102,7 @@ export type StatementPair = {
 
 export type StatementPageView = {
   readonly scope: {
-    readonly portfolio_id: string;
+    readonly portfolio_id: string | null;
     readonly portfolio_name: string | null;
     readonly entries_total: number;
     readonly first_trade_date: DateOnly | null;

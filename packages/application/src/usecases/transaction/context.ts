@@ -77,9 +77,6 @@ export const loadPlanContext = async (
     institution_id: params.institution_id,
     asset_entries:
       asset === null ? [] : entries.value.filter((row) => row.asset_id === asset.id),
-    institution_entries: entries.value.filter(
-      (row) => row.institution_id === params.institution_id,
-    ),
     portfolio_entries: entries.value,
     category_by_asset: categoryByAsset,
     targets: new Map(

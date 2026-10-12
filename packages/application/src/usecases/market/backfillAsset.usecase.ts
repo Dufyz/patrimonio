@@ -162,8 +162,7 @@ export const backfillAsset = (deps: BackfillAssetDeps) =>
 
     // Preço de mercado existe para papel listado e para Tesouro. Título bancário
     // e crédito privado são marcados na curva, e não têm o que buscar.
-    const hasMarketPrice =
-      context.asset.b3_type !== null && context.asset.b3_type !== 'cash';
+    const hasMarketPrice = context.asset.b3_type !== null;
 
     const window = planBackfillWindow({
       first_trade_date: context.asset.first_trade_date,

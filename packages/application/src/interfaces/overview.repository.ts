@@ -1,8 +1,4 @@
-import type {
-  ComputedPriceKind,
-  DateOnly,
-  RecalcStatus,
-} from '@patrimonio/domain';
+import type { ComputedPriceKind, DateOnly, RecalcStatus } from '@patrimonio/domain';
 import type { Either } from '@patrimonio/shared';
 
 import type { AppError } from '../errors/app-error.js';
@@ -13,7 +9,7 @@ import type { AppError } from '../errors/app-error.js';
  * O número de consultas é um requisito de produto e não uma preferência: o
  * banco fica em outra rede, e a tela que faz oito leituras em sequência paga
  * oito vezes a latência — é a diferença entre abrir e esperar abrir. T-11 põe
- * o limite por rota em duas, e esta rota gasta uma aqui e outra nos alertas.
+ * o limite por rota em duas.
  *
  * Por isso o repositório devolve um instantâneo e não sete listas: quem decide
  * o que exibir é o caso de uso, com `packages/calc`; o que a consulta faz é
@@ -28,6 +24,7 @@ export type OverviewDayRow = {
   readonly income: string;
   readonly payouts: string;
   readonly cumulative_contributions: string;
+  readonly cumulative_payouts: string;
   readonly quota_value: string | null;
 };
 
@@ -84,15 +81,16 @@ export type OverviewSnapshot = {
   readonly inception: DateOnly | null;
   readonly days: readonly OverviewDayRow[];
   readonly anchors: OverviewAnchors;
-  /** A carteira pedida. Nulo quando ela não existe ou está arquivada. */
-  readonly portfolio: OverviewPortfolioRow | null;
+  /** As carteiras ativas, em ordem de exibição. */
+  readonly portfolios: readonly OverviewPortfolioRow[];
   readonly positions: readonly OverviewPositionRow[];
   readonly categories: readonly OverviewCategoryRow[];
   readonly targets: readonly OverviewTargetRow[];
 };
 
 export type OverviewQuery = {
-  readonly portfolio_id: string;
+  /** Nulo é o consolidado: "todas as carteiras" é a ausência de escopo. */
+  readonly portfolio_id: string | null;
   readonly on_date: DateOnly;
   readonly from: DateOnly;
   readonly to: DateOnly;

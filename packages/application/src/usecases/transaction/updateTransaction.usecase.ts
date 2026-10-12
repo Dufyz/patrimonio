@@ -28,7 +28,6 @@ export type UpdateTransactionInput = {
   readonly unit_price?: string | undefined;
   readonly fees?: string | undefined;
   readonly tax_withheld?: string | undefined;
-  readonly note?: string | undefined;
   readonly origin_request_id?: string | undefined;
 };
 
@@ -46,7 +45,6 @@ const merged = (
   input: UpdateTransactionInput,
 ): CreateTransactionInput => {
   const assetId = input.asset_id ?? current.asset_id;
-  const note = input.note ?? current.note;
 
   return {
     kind: current.kind,
@@ -61,7 +59,6 @@ const merged = (
     tax_withheld: input.tax_withheld ?? current.tax_withheld,
     ...(current.payout_kind === null ? {} : { payout_kind: current.payout_kind }),
     ...(current.record_date === null ? {} : { record_date: current.record_date }),
-    ...(note === null ? {} : { note }),
     ...(input.origin_request_id === undefined
       ? {}
       : { origin_request_id: input.origin_request_id }),
@@ -128,7 +125,6 @@ export const updateTransaction = (deps: UpdateTransactionDeps) =>
           gross_amount: row.gross_amount,
           net_amount: row.net_amount,
           tax_withheld: row.tax_withheld ?? current.tax_withheld,
-          note: row.note ?? null,
         };
 
         const updated = await repositories.transactions.update(id, patch);

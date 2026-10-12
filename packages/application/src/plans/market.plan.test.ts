@@ -2,12 +2,7 @@ import type { DateOnly, PriceableAsset } from '@patrimonio/domain';
 import { describe, expect, it } from 'vitest';
 
 import type { SourcedClosing, TreasuryQuote } from '../interfaces/market_data.js';
-import {
-  PRICE_MISSING_RULE,
-  PRICE_STALE_RULE,
-  planBackfillWindow,
-  planMarketIngestion,
-} from './market.plan.js';
+import { planBackfillWindow, planMarketIngestion } from './market.plan.js';
 import type { MarketIngestionContext } from './market.plan.js';
 
 const DATE = '2026-10-06' as DateOnly;
@@ -60,8 +55,6 @@ const context = (
   treasury: [],
   treasury_source: 'tesouro-direto',
   treasury_source_kind: 'primary',
-  stale_after_days: 3,
-  latest_known: new Map(),
   ...overrides,
 });
 
@@ -212,57 +205,14 @@ describe('título público', () => {
   });
 });
 
-describe('os alertas que a coleta abre', () => {
-  it('papel que nunca teve preço abre alerta de preço inexistente', () => {
+describe('o papel sem cotação', () => {
+  it('entra em missing e não ganha preço gravado', () => {
     const plan = planMarketIngestion(
       context({ assets: [listed('XPTO3')], closing: closing({ quotes: [] }) }),
     );
 
-    expect(plan.findings).toHaveLength(1);
-    expect(plan.findings[0]?.rule_kind).toBe(PRICE_MISSING_RULE);
-    expect(plan.findings[0]?.payload).toMatchObject({ basis: 'cost' });
-  });
-
-  it('preço velho além da tolerância abre alerta de preço atrasado', () => {
-    const plan = planMarketIngestion(
-      context({
-        assets: [listed('ITUB4')],
-        closing: closing({ quotes: [] }),
-        latest_known: new Map([['itub4', '2026-09-20' as DateOnly]]),
-      }),
-    );
-
-    expect(plan.findings[0]?.rule_kind).toBe(PRICE_STALE_RULE);
-    expect(plan.findings[0]?.payload).toMatchObject({ last_price_date: '2026-09-20' });
-  });
-
-  it('preço de ontem dentro da tolerância não abre alerta nenhum', () => {
-    // A B3 não negocia todo papel todo dia, e avisar por isso treinaria o
-    // usuário a ignorar o painel inteiro.
-    const plan = planMarketIngestion(
-      context({
-        assets: [listed('ITUB4')],
-        closing: closing({ quotes: [] }),
-        latest_known: new Map([['itub4', '2026-10-05' as DateOnly]]),
-      }),
-    );
-
-    expect(plan.findings).toEqual([]);
-  });
-
-  it('os dois alertas são distintos, porque a ação do usuário é diferente', () => {
-    const plan = planMarketIngestion(
-      context({
-        assets: [listed('ITUB4'), listed('XPTO3')],
-        closing: closing({ quotes: [] }),
-        latest_known: new Map([['itub4', '2026-01-02' as DateOnly]]),
-      }),
-    );
-
-    expect(plan.findings.map((finding) => finding.rule_kind).sort()).toEqual([
-      PRICE_MISSING_RULE,
-      PRICE_STALE_RULE,
-    ]);
+    expect(plan.missing.map((asset) => asset.ticker)).toEqual(['XPTO3']);
+    expect(plan.prices).toEqual([]);
   });
 });
 

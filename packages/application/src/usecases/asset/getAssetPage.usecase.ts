@@ -1,9 +1,11 @@
 import type { TransactionKind } from '@patrimonio/domain';
+import { timeWeightedReturn, xirr } from '@patrimonio/calc';
 import { either, failure } from '@patrimonio/shared';
 
 import { NotFoundError } from '../../errors/app-error.js';
 import type {
   AssetPagePeriod,
+  AssetPageView,
   AssetPageRepository,
 } from '../../interfaces/asset_page.repository.js';
 import type { Clock } from '../../interfaces/clock.js';
@@ -33,6 +35,27 @@ export type GetAssetPageDeps = {
   readonly clock: Clock;
 };
 
+const toRatio = (percent: string | null): string | null =>
+  percent === null ? null : (Number(percent) / 100).toFixed(6);
+
+/**
+ * TWR e TIR da vida do papel. Moram aqui, e não no SQL, porque a TIR é uma raiz
+ * numérica; a aritmética de dinheiro continua `numeric` no banco, e só os dias
+ * já somados chegam ao cálculo.
+ */
+const lifetimeReturns = (days: AssetPageView['return_days']) => {
+  const last = days[days.length - 1];
+  const flows = days.map((day) => ({
+    date: day.date,
+    amount: (Number(day.income) - Number(day.flow)).toFixed(2),
+  }));
+  if (last !== undefined) flows.push({ date: last.date, amount: last.value });
+  return {
+    twr_ratio: toRatio(timeWeightedReturn(days)),
+    xirr_ratio: toRatio(xirr(flows)),
+  };
+};
+
 export const getAssetPage = (deps: GetAssetPageDeps) =>
   either(async function* (input: GetAssetPageInput) {
     const view = yield* await deps.assetPages.open({
@@ -56,12 +79,14 @@ export const getAssetPage = (deps: GetAssetPageDeps) =>
       asset: view.asset,
       price: view.price,
       position: view.position,
+      lifetime: { ...view.lifetime, ...lifetimeReturns(view.return_days) },
 
       series: {
         period: input.period,
         from: view.window.from,
         to: view.window.to,
         points: view.points.map((point) => ({ ...point })),
+        value_points: view.value_days.map((day) => ({ ...day })),
         marks: view.marks.map((mark) => ({ ...mark })),
         adjusted: view.window.adjusted,
         return_ratio: view.window.return_ratio,
