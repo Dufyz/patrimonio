@@ -105,29 +105,4 @@ describe('Idempotency-Key', () => {
     const extrato = await request(harness.app).get('/api/transactions');
     expect(extrato.body.total).toBe(2);
   });
-
-  it('o aporte também respeita a chave', async () => {
-    const corpo = {
-      kind: 'deposit',
-      portfolio_id: carteira,
-      institution_id: corretora,
-      trade_date: '2026-10-06',
-      amount: '5000.00',
-    };
-
-    const primeira = await request(harness.app)
-      .post('/api/transactions/cash')
-      .set('Idempotency-Key', 'aporte-unico')
-      .send(corpo);
-    const segunda = await request(harness.app)
-      .post('/api/transactions/cash')
-      .set('Idempotency-Key', 'aporte-unico')
-      .send(corpo);
-
-    expect(primeira.status).toBe(201);
-    expect(segunda.status).toBe(200);
-
-    const extrato = await request(harness.app).get('/api/transactions?kind=deposit');
-    expect(extrato.body.total).toBe(1);
-  });
 });

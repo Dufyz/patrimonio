@@ -127,37 +127,6 @@ describe('o efeito de cada lançamento', () => {
     });
   });
 
-  it('aporte e resgate são dinheiro de fora, e o resumo os separa', async () => {
-    await request(harness.app)
-      .post('/api/transactions/cash')
-      .send({
-        kind: 'deposit',
-        portfolio_id: carteira,
-        institution_id: corretora,
-        trade_date: '2026-10-01',
-        amount: '4000.00',
-      })
-      .expect(201);
-    await request(harness.app)
-      .post('/api/transactions/cash')
-      .send({
-        kind: 'withdrawal',
-        portfolio_id: carteira,
-        institution_id: corretora,
-        trade_date: '2026-10-02',
-        amount: '500.00',
-      })
-      .expect(201);
-
-    const body = await extrato(`portfolio_id=${carteira}&group=cash`);
-
-    expect(body.rows.map((row) => row.effect.type)).toEqual(['cash_out', 'cash_in']);
-    expect(body.summary.deposits).toBe('4000.00');
-    expect(body.summary.withdrawals).toBe('500.00');
-    // O caixa tem nome: "Caixa · Corretora A", e não uma linha sem ativo.
-    expect(body.rows[0]?.asset_name).toBe('Caixa · Corretora A');
-  });
-
   it('provento de FII é isento, e o a receber fica fora do recebido', async () => {
     const fii = await lancar({
       ...compra('BTLG11', '2026-08-10', '140', '100.00'),
@@ -217,7 +186,6 @@ describe('o recorte', () => {
       'buy',
       'sell',
       'payout',
-      'cash',
       'event',
     ]);
     expect(body.institutions.map((item) => item.name)).toEqual(['Corretora A']);
@@ -240,22 +208,21 @@ describe('o recorte', () => {
     expect(pagina.rows).toHaveLength(1);
   });
 
-  it('uma página sem ativo não paga a segunda consulta', async () => {
-    await request(harness.app)
-      .post('/api/transactions/cash')
-      .send({
-        kind: 'deposit',
-        portfolio_id: carteira,
-        institution_id: corretora,
-        trade_date: '2026-10-01',
-        amount: '100.00',
-      })
-      .expect(201);
+  it('sem carteira o extrato é o de todas as carteiras ativas', async () => {
+    await lancar(compra('WEGE3', '2026-08-10', '100', '40.00'));
 
-    // O caixa tem ativo, mas aporte não precisa de replay: o extrato responde.
-    const body = await extrato('group=cash');
+    const response = await request(harness.app).get('/api/statement');
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    const body = statementResourceSchema.parse(response.body);
 
-    expect(body.rows[0]?.effect.type).toBe('cash_in');
+    expect(body.scope.portfolio_id).toBeNull();
+    expect(body.rows).toHaveLength(1);
+  });
+
+  it('uma página vazia não paga a segunda consulta', async () => {
+    const body = await extrato('group=event');
+
+    expect(body.rows).toEqual([]);
   });
 
   it('período invertido, tipo desconhecido e identificador ruim são recusados com 400', async () => {

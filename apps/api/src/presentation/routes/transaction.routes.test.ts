@@ -213,7 +213,7 @@ describe('venda', () => {
 });
 
 describe('preview', () => {
-  it('mostra quantidade, preço médio, peso e caixa antes e depois', async () => {
+  it('mostra quantidade, preço médio, e peso antes e depois', async () => {
     await lancar({ fees: '0' });
 
     const response = await preview({ quantity: '100', unit_price: '40.00', fees: '0' });
@@ -223,7 +223,6 @@ describe('preview', () => {
     expect(body.position.quantity.before).toBe('100.00000000');
     expect(body.position.quantity.after).toBe('200.00000000');
     expect(body.position.avg_price.after).toBe('38.42000000');
-    expect(body.cash.after).toBe('-7684.00');
   });
 
   it('o preview não grava nada: nem o lançamento, nem o ativo novo', async () => {
@@ -245,7 +244,6 @@ describe('preview', () => {
     const gravado = await lancar({ fees: '0' });
 
     expect(gravado.body.preview.position).toEqual(antes.body.preview.position);
-    expect(gravado.body.preview.cash).toEqual(antes.body.preview.cash);
     expect(gravado.body.preview.total_amount).toBe(antes.body.preview.total_amount);
   });
 });

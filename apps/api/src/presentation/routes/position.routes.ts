@@ -1,4 +1,4 @@
-import { listPositionsSchema } from '@patrimonio/contracts';
+import { listClosedPositionsSchema, listPositionsSchema } from '@patrimonio/contracts';
 import { Router } from 'express';
 
 import type { PositionDeps } from '../controllers/position.controller.js';
@@ -10,6 +10,7 @@ export const positionRoutes = (deps: PositionDeps): Router => {
   const controller = createPositionController(deps);
 
   router.get('/positions', validate(listPositionsSchema), controller.list);
+  router.get('/positions/closed', validate(listClosedPositionsSchema), controller.closed);
 
   return router;
 };

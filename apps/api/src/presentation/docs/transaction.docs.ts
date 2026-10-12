@@ -1,7 +1,6 @@
 import {
   confirmPayoutSchema,
   corporateEventPreviewSchema,
-  createCashMovementSchema,
   createPayoutSchema,
   payoutPreviewSchema,
   previewPayoutSchema,
@@ -96,36 +95,6 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
   },
   {
     method: 'post',
-    path: '/transactions/cash',
-    tag: TAG,
-    summary: 'Aporte e resgate de caixa',
-    request: createCashMovementSchema,
-    responses: {
-      201: {
-        description: 'Gravado como aporte ou resgate.',
-        schema: z.object({
-          transactions: z.array(transactionResourceSchema),
-          preview: transactionPreviewSchema,
-          recalculation: z.array(
-            z.object({
-              job_id: z.string(),
-              dedupe_key: z.string(),
-              already_queued: z.boolean(),
-            }),
-          ),
-          message: z.string(),
-        }),
-      },
-      400: {
-        description:
-          'Origem "de outra carteira" sem a carteira de origem, ou valor inválido.',
-        schema: errorResponseSchema,
-      },
-      404: { description: 'Carteira não encontrada.', schema: errorResponseSchema },
-    },
-  },
-  {
-    method: 'post',
     path: '/transactions/payouts',
     tag: TAG,
     summary: 'Dividendo, JCP, rendimento, juros e amortização',
@@ -162,7 +131,7 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
     responses: {
       200: {
         description:
-          'A quantidade na data-com, o bruto, o IR retido e o líquido — os mesmos que a gravação calcula — e o efeito no caixa. Nada é criado.',
+          'A quantidade na data-com, o bruto, o IR retido e o líquido — os mesmos que a gravação calcula. Nada é criado.',
         schema: payoutPreviewSchema,
       },
       400: {
@@ -241,7 +210,7 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
     responses: {
       200: {
         description:
-          'Antes e depois de quantidade, preço médio, custo, peso e caixa. Os mesmos números que a gravação produz, e nada é criado. Para `kind: corporate_event`, o efeito por carteira com posição na data-com: o custo total não muda.',
+          'Antes e depois de quantidade, preço médio, custo e peso. Os mesmos números que a gravação produz, e nada é criado. Para `kind: corporate_event`, o efeito por carteira com posição na data-com: o custo total não muda.',
         schema: z.object({
           preview: z.union([transactionPreviewSchema, corporateEventPreviewSchema]),
         }),

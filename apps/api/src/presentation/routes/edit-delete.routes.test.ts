@@ -142,8 +142,6 @@ describe('excluir com desfazer', () => {
     const impact = deletionImpactSchema.parse(response.body.impact);
     expect(impact.position.quantity.before).toBe('100.00000000');
     expect(impact.position.quantity.after).toBe('0.00000000');
-    expect(impact.cash.before).toBe('-3140.00');
-    expect(impact.cash.after).toBe('0.00');
   });
 
   it('a linha some do livro e o desfazer vem com prazo', async () => {

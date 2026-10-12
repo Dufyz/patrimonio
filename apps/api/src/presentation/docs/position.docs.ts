@@ -1,5 +1,7 @@
 import {
+  closedPositionsResourceSchema,
   errorResponseSchema,
+  listClosedPositionsSchema,
   listPositionsSchema,
   positionsResourceSchema,
 } from '@patrimonio/contracts';
@@ -27,6 +29,21 @@ export const POSITION_ROUTE_DOCS: readonly RouteDoc[] = [
         description:
           'Agrupamento desconhecido ou identificador de carteira que não é um UUID.',
         schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'get',
+    path: '/positions/closed',
+    tag: TAG,
+    summary: 'Ativos já negociados e hoje fora da carteira',
+    request: listClosedPositionsSchema,
+    responses: {
+      200: {
+        description:
+          'Uma linha por ativo vendido e sem posição aberta: quanto entrou, quanto saiu, ' +
+          'proventos recebidos e o resultado total. Mais recentes primeiro.',
+        schema: closedPositionsResourceSchema,
       },
     },
   },

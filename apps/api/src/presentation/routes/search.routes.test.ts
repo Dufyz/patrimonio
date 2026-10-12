@@ -31,13 +31,7 @@ const lancar = async (body: Record<string, unknown>) => {
   return response.body.transaction as { id: string; asset_id: string };
 };
 
-const compra = (
-  ticker: string,
-  name: string,
-  trade_date: string,
-  portfolio: string,
-  note?: string,
-) => ({
+const compra = (ticker: string, name: string, trade_date: string, portfolio: string) => ({
   kind: 'buy',
   portfolio_id: portfolio,
   institution_id: corretora,
@@ -46,7 +40,6 @@ const compra = (
   quantity: '100',
   unit_price: '30.00',
   fees: '0',
-  ...(note === undefined ? {} : { note }),
 });
 
 const comCarteira = (query: string): string =>
@@ -92,17 +85,6 @@ describe('o que a busca acha', () => {
     expect(body.transactions.items.map((row) => row.id)).toEqual([compraItub4.id]);
     expect(body.transactions.items[0]?.ticker).toBe('ITUB4');
     expect(body.transactions.items[0]?.portfolio_name).toBe('Longo prazo');
-  });
-
-  it('acha o lançamento pela observação, não só pelo ativo', async () => {
-    const comNota = await lancar(
-      compra('WEGE3', 'WEG ON', '2026-03-13', carteira, 'reforço antes do resultado'),
-    );
-
-    const body = await buscar('q=reforço');
-
-    expect(body.assets.items).toEqual([]);
-    expect(body.transactions.items.map((row) => row.id)).toEqual([comNota.id]);
   });
 
   it('restringe os lançamentos à carteira da query', async () => {

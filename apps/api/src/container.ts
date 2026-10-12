@@ -3,10 +3,11 @@ import {
   createAsset,
   confirmCorporateEvent,
   confirmPayout,
-  createCashMovement,
   createPayout,
   createTransaction,
   createFixedIncomeAsset,
+  deleteAllData,
+  exportData,
   createPortfolio,
   deleteAsset,
   deleteManualPrice,
@@ -35,6 +36,7 @@ import {
   listCorporateEvents,
   listInstitutions,
   listPortfolios,
+  listClosedPositions,
   listPositions,
   putStrategy,
   setPortfolioArchived,
@@ -54,6 +56,7 @@ import {
 import type {
   Clock,
   InstrumentLookup,
+  LiveQuoteSource,
   TransactionalRepositories,
   UnitOfWork,
 } from '@patrimonio/application';
@@ -67,8 +70,10 @@ import type { Sql } from '@patrimonio/db';
 import { environment } from '@patrimonio/env';
 import {
   BRAPI_FREE_MONTHLY_CEILING,
+  createBrapiProvider,
   createBrapiTickerLookup,
   createHttpClient,
+  createQuoteChain,
   withRetry,
   sleep,
 } from '@patrimonio/market';
@@ -81,6 +86,7 @@ import {
 import type { Queues, RedisConnection } from '@patrimonio/queue';
 
 import { systemClock } from './infra/config/clock.js';
+import { createLiveQuoteSource } from './infra/live_quotes.js';
 
 /**
  * Monta repositórios, gateways e casos de uso uma vez, no boot. Nenhum
@@ -93,6 +99,8 @@ export const createApiUseCases = (deps: {
   readonly clock: Clock;
   /** A busca de papéis ao vivo; sem ela, a busca fica no catálogo local. */
   readonly lookup?: InstrumentLookup | undefined;
+  /** A cotação de pregão da tela de Posições; sem ela, vale o fechamento. */
+  readonly live?: LiveQuoteSource | undefined;
 }) => ({
   createPortfolio: createPortfolio({ unitOfWork: deps.unitOfWork }),
   updatePortfolio: updatePortfolio({ unitOfWork: deps.unitOfWork }),
@@ -116,7 +124,6 @@ export const createApiUseCases = (deps: {
   listManualPrices: listManualPrices({ manualPrices: deps.repositories.manualPrices }),
   deleteManualPrice: deleteManualPrice({ unitOfWork: deps.unitOfWork }),
   createTransaction: createTransaction({ unitOfWork: deps.unitOfWork }),
-  createCashMovement: createCashMovement({ unitOfWork: deps.unitOfWork }),
   confirmPayout: confirmPayout({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
   dismissPayout: dismissPayout({ unitOfWork: deps.unitOfWork }),
   createPayout: createPayout({
@@ -174,9 +181,13 @@ export const createApiUseCases = (deps: {
   getAssetPriceSeries: getAssetPriceSeries({ unitOfWork: deps.unitOfWork }),
   // T-02 lê fora da transação: a tela de Posições só consulta, e abrir uma
   // transação para duas leituras custaria uma conexão do pool a cada abertura.
+  listClosedPositions: listClosedPositions({
+    positionViews: deps.repositories.positionViews,
+  }),
   listPositions: listPositions({
     positionViews: deps.repositories.positionViews,
     clock: deps.clock,
+    live: deps.live,
   }),
   // T-03 lê fora da transação pela mesma razão.
   getAssetPage: getAssetPage({
@@ -194,7 +205,7 @@ export const createApiUseCases = (deps: {
         ? undefined
         : { source: deps.lookup, unitOfWork: deps.unitOfWork, clock: deps.clock },
   }),
-  // A tela de abertura: uma rota, duas consultas — o instantâneo e os alertas.
+  // A tela de abertura: uma rota, que lê o instantâneo da carteira.
   getOverview: getOverview({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
   // T-05 lê fora da transação, como T-02 a T-04: são duas consultas de leitura.
   getPerformance: getPerformance({
@@ -220,6 +231,8 @@ export const createApiUseCases = (deps: {
     jcpWithholdingPct: environment.tax.jcpWithholdingPct,
     backupEnabled: environment.backup.enabled,
   }),
+  exportData: exportData({ settings: deps.repositories.settings }),
+  deleteAllData: deleteAllData({ unitOfWork: deps.unitOfWork }),
   requestBackup: requestBackup({
     unitOfWork: deps.unitOfWork,
     clock: deps.clock,
@@ -280,6 +293,26 @@ export const createContainer = (version: string): ApiContainer => {
       unitOfWork,
       repositories,
       clock: systemClock,
+      live: createLiveQuoteSource({
+        quotes: createQuoteChain([
+          createBrapiProvider({
+            http: withRetry(
+              createHttpClient({
+                fetch: (url, init) => globalThis.fetch(url, init),
+                timeoutMs: environment.market.requestTimeoutMs,
+                source: 'brapi',
+                passthroughStatuses: [404],
+              }),
+              { attempts: 2, backoffMs: 300, sleep },
+            ),
+            ...(environment.market.brapiToken === undefined
+              ? {}
+              : { token: environment.market.brapiToken }),
+            tickersPerRequest: 1,
+          }),
+        ]),
+        today: () => systemClock.today(),
+      }),
       lookup: createBrapiTickerLookup({
         http: withRetry(
           createHttpClient({

@@ -141,10 +141,17 @@ describe('GET /api/positions', () => {
     expect(body.payouts_12m).toBe('0');
   });
 
-  it('sem carteira a rota recusa com 400', async () => {
-    const response = await listar();
+  it('sem carteira a rota soma todas as carteiras e agrupa por carteira', async () => {
+    await fecharDia(hoje());
+    const body = positionsResourceSchema.parse(
+      (await listar('group_by=portfolio')).body,
+    );
 
-    expect(response.status).toBe(400);
+    expect(body.group_by).toBe('portfolio');
+    expect(body.groups[0]?.label).toBe('Longo prazo');
+    expect(body.total.value).toBe('18420.00');
+    expect(body.day_change_ratio).toBeNull();
+    expect(body.return_12m_ratio).toBeNull();
   });
 
   it('agrupamento desconhecido é recusado com 400, e não ignorado', async () => {

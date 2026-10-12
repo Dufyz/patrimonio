@@ -39,14 +39,6 @@ describe('GET /api/settings', () => {
     expect(response.body.archived_portfolios).toEqual([]);
   });
 
-  it('as regras de mercado vêm semeadas', async () => {
-    const response = await configuracoes();
-
-    expect(response.body.alerts.map((rule: { kind: string }) => rule.kind)).toEqual(
-      expect.arrayContaining(['price_stale', 'price_missing']),
-    );
-  });
-
   it('o que é do ambiente chega como leitura, com a liquidação do domínio', async () => {
     const response = await configuracoes();
 

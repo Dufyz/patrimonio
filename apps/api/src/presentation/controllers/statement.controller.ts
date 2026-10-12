@@ -33,7 +33,7 @@ export const createStatementController = (deps: StatementDeps): StatementControl
     const query = validatedQuery<GetStatementQuery>(request);
 
     const result = await deps.usecases.getStatement({
-      portfolioId: query.portfolio_id,
+      portfolioId: query.portfolio_id ?? null,
       institutionIds: splitList(query.institution_id),
       groups: splitList(query.group) as readonly StatementGroup[],
       search: query.search === undefined || query.search === '' ? null : query.search,

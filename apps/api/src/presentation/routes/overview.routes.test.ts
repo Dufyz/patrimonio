@@ -98,17 +98,6 @@ const manterPosicao = async (
   `;
 };
 
-const abrirAlerta = async (
-  ruleKind: string,
-  subject: string,
-  portfolio: string | null,
-): Promise<void> => {
-  await harness.sql`
-    INSERT INTO alert_instance (rule_kind, subject_id, portfolio_id, status, payload)
-    VALUES (${ruleKind}, ${subject}, ${portfolio}, 'open', '{"ticker":"ITUB4"}'::JSONB)
-  `;
-};
-
 const visaoGeral = async (query = ''): Promise<request.Response> => {
   const params = new URLSearchParams(query.replace(/^\?/, ''));
   if (!params.has('portfolio_id')) params.set('portfolio_id', longo);
@@ -126,7 +115,6 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetSourceTables(harness.sql);
-  await harness.sql`DELETE FROM alert_instance`;
   await harness.sql`DELETE FROM portfolio_daily`;
   await harness.sql`DELETE FROM position_daily`;
 
@@ -135,7 +123,9 @@ beforeEach(async () => {
     .send({ name: 'Longo prazo' });
   longo = criada.body.portfolio.id;
 
-  const outra = await request(harness.app).post('/api/portfolios').send({ name: 'Reserva' });
+  const outra = await request(harness.app)
+    .post('/api/portfolios')
+    .send({ name: 'Reserva' });
   reserva = outra.body.portfolio.id;
 
   acoes = await seedCategoria('Ações', 'class.acoes');
@@ -176,10 +166,19 @@ describe('quanto eu tenho hoje', () => {
     expect(daReserva.body.scope.name).toBe('Reserva');
   });
 
-  it('sem carteira a rota recusa com 400', async () => {
+  it('sem carteira a rota devolve o consolidado das carteiras ativas', async () => {
+    await fecharDia(longo, '2026-10-02', '10000.00');
+    await fecharDia(reserva, '2026-10-02', '2500.00');
+
     const response = await request(harness.app).get('/api/overview?on_date=2026-10-02');
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
+    const body = overviewSchema.parse(response.body);
+
+    expect(body.scope.portfolio_id).toBeNull();
+    expect(body.scope.name).toBe('Todas as carteiras');
+    expect(body.totals.value).toBe('12500.00');
+    expect(body.by_portfolio.map((row) => row.name)).toEqual(['Longo prazo', 'Reserva']);
   });
 
   it('a variação do dia compara com o fechamento anterior', async () => {
@@ -269,7 +268,9 @@ describe('quanto veio de aporte e quanto veio de rentabilidade', () => {
     await fecharDia(longo, '2026-09-30', '10000.00');
     await fecharDia(longo, '2026-10-01', '15000.00', { net_flow: '5000.00' });
 
-    const response = await visaoGeral('?on_date=2026-10-01&from=2026-10-01&to=2026-10-01');
+    const response = await visaoGeral(
+      '?on_date=2026-10-01&from=2026-10-01&to=2026-10-01',
+    );
 
     expect(response.body.period.contributions).toBe('5000.00');
     expect(response.body.period.return_pct).toBe('0.00');
@@ -298,10 +299,11 @@ describe('como o patrimônio está distribuído', () => {
   it('o peso de cada posição fecha com o total do escopo', async () => {
     const response = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${longo}`);
 
-    expect(response.body.top_positions.rows.map((row: { ticker: string; weight_pct: string }) => [
-      row.ticker,
-      row.weight_pct,
-    ])).toEqual([
+    expect(
+      response.body.top_positions.rows.map(
+        (row: { ticker: string; weight_pct: string }) => [row.ticker, row.weight_pct],
+      ),
+    ).toEqual([
       ['ITUB4', '76.92'],
       ['HGLG11', '23.08'],
     ]);
@@ -317,7 +319,9 @@ describe('como o patrimônio está distribuído', () => {
     const linhas: { name: string; current_pct: string; deviation_pp: string }[] =
       response.body.composition.nodes;
 
-    expect(linhas.map((node) => [node.name, node.current_pct, node.deviation_pp])).toEqual([
+    expect(
+      linhas.map((node) => [node.name, node.current_pct, node.deviation_pp]),
+    ).toEqual([
       ['Ações', '76.92', '16.92'],
       ['FIIs', '23.08', '-16.92'],
     ]);
@@ -327,64 +331,6 @@ describe('como o patrimônio está distribuído', () => {
     const response = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${longo}`);
 
     expect(response.body.composition.nodes[0].deviation_pp).toBeNull();
-  });
-});
-
-describe('o que precisa de mim', () => {
-  beforeEach(async () => {
-    await fecharDia(longo, '2026-10-02', '10000.00');
-  });
-
-  it('sem pendência, o painel não aparece: nenhum bloco vazio na tela', async () => {
-    const response = await visaoGeral('?on_date=2026-10-02');
-
-    expect(response.body.attention.total).toBe(0);
-    expect(response.body.attention.groups).toEqual([]);
-  });
-
-  it('o alerta aberto entra no grupo da ação que ele pede', async () => {
-    await abrirAlerta('price_stale', itub4, longo);
-
-    const response = await visaoGeral('?on_date=2026-10-02');
-
-    expect(response.body.attention.groups).toHaveLength(1);
-    expect(response.body.attention.groups[0].group).toBe('corrigir');
-    expect(response.body.attention.groups[0].items[0].rule_kind).toBe('price_stale');
-  });
-
-  it('o painel conta só os alertas da carteira', async () => {
-    await abrirAlerta('price_stale', itub4, longo);
-    await abrirAlerta('price_missing', hglg11, reserva);
-
-    const response = await visaoGeral(`?on_date=2026-10-02&portfolio_id=${longo}`);
-
-    expect(response.body.attention.total).toBe(1);
-  });
-
-  it('alerta ignorado não volta para a frente do usuário', async () => {
-    await abrirAlerta('price_stale', itub4, longo);
-    await harness.sql`
-      UPDATE alert_instance SET status = 'ignored' WHERE rule_kind = 'price_stale'
-    `;
-
-    const response = await visaoGeral('?on_date=2026-10-02');
-
-    expect(response.body.attention.total).toBe(0);
-  });
-
-  it('alerta adiado some até a data escolhida e volta depois dela', async () => {
-    await abrirAlerta('price_stale', itub4, longo);
-    await harness.sql`
-      UPDATE alert_instance
-         SET status = 'snoozed', snooze_until = '2026-10-05'
-       WHERE rule_kind = 'price_stale'
-    `;
-
-    const escondido = await visaoGeral('?on_date=2026-10-02');
-    const devolta = await visaoGeral('?on_date=2026-10-06');
-
-    expect(escondido.body.attention.total).toBe(0);
-    expect(devolta.body.attention.total).toBe(1);
   });
 });
 
@@ -404,7 +350,9 @@ describe('a janela que começa onde a carteira começou', () => {
   it('um único fechamento não produz retorno nenhum, e isso não é zero', async () => {
     await fecharDia(longo, '2026-10-02', '10000.00');
 
-    const response = await visaoGeral('?on_date=2026-10-02&from=2026-10-02&to=2026-10-02');
+    const response = await visaoGeral(
+      '?on_date=2026-10-02&from=2026-10-02&to=2026-10-02',
+    );
 
     expect(response.body.period.return_pct).toBeNull();
     expect(response.body.period.return_method).toBe('unavailable');

@@ -238,86 +238,6 @@ describe('GET /api/performance · a carteira', () => {
     expect(chart.portfolio.at(-1)).toBe('10.00');
     expect(chart.portfolio).toHaveLength(chart.dates.length);
   });
-
-  it('a grade mensal traz o ano com o total e o parcial', async () => {
-    await historiaDoLongo();
-
-    const { monthly } = (await desempenho(doLongo())).body;
-    const ano = monthly.years[0];
-
-    expect(monthly.benchmark_name).toBe('CDI');
-    expect(ano.year).toBe(2026);
-    expect(ano.months).toHaveLength(12);
-    // Abril, maio e junho. Janeiro e fevereiro são anteriores ao primeiro
-    // fechamento: traço.
-    expect(ano.months.slice(0, 2)).toEqual([null, null]);
-    expect(ano.months[3]).toBe('5.00');
-    expect(ano.months[4]).toBe('0.95');
-    expect(ano.months[5]).toBe('3.77');
-    expect(ano.months.slice(6)).toEqual(Array(6).fill(null));
-    expect(ano.total_pct).toBe('10.00');
-    expect(ano.partial).toBe(true);
-  });
-
-  it('a decomposição vai do mês mais recente ao mais antigo, com o total', async () => {
-    await historiaDoLongo();
-
-    const { decomposition } = (await desempenho(doLongo())).body;
-
-    expect(decomposition.rows.map((row: { month: string }) => row.month)).toEqual([
-      '2026-06',
-      '2026-05',
-      '2026-04',
-      '2026-03',
-    ]);
-
-    const maio = decomposition.rows[1];
-    expect(maio).toMatchObject({
-      opening_value: '10500.00',
-      net_flow: '2000.00',
-      closing_value: '12600.00',
-      return_pct: '0.95',
-    });
-
-    const junho = decomposition.rows[0];
-    expect(junho).toMatchObject({
-      income: '100.00',
-      payouts: '100.00',
-      return_pct: '3.77',
-    });
-
-    expect(decomposition.total).toMatchObject({
-      months: 4,
-      from: '2026-03-31',
-      to: '2026-06-30',
-      opening_value: '0.00',
-      net_flow: '12000.00',
-      closing_value: '13000.00',
-    });
-  });
-
-  it('a decomposição fecha: abertura + aporte + variação de preço = fechamento', async () => {
-    await historiaDoLongo();
-
-    const { decomposition } = (await desempenho(doLongo())).body;
-
-    for (const row of decomposition.rows) {
-      const variacao =
-        numero(row.closing_value) - numero(row.opening_value) - numero(row.net_flow);
-
-      expect(numero(row.opening_value) + numero(row.net_flow) + variacao).toBeCloseTo(
-        numero(row.closing_value),
-        2,
-      );
-    }
-    expect(numero(decomposition.total.net_flow)).toBeCloseTo(
-      decomposition.rows.reduce(
-        (sum: number, row: { net_flow: string }) => sum + numero(row.net_flow),
-        0,
-      ),
-      2,
-    );
-  });
 });
 
 describe('GET /api/performance · benchmarks', () => {
@@ -488,7 +408,6 @@ describe('GET /api/performance · por classe', () => {
     // 200 / 1.252,75 = 15,96%.
     expect(classe).toBeDefined();
     expect(classe.value).toBe('1700.00');
-    expect(classe.is_cash).toBe(false);
     expect(numero(classe.returns[3])).toBeCloseTo(15.96, 0);
   });
 
@@ -514,6 +433,92 @@ describe('GET /api/performance · por classe', () => {
   });
 });
 
+describe('GET /api/performance · todas as carteiras', () => {
+  const historiaDaReserva = async (): Promise<string> => {
+    const criada = await request(harness.app)
+      .post('/api/portfolios')
+      .send({ name: 'Reserva', benchmark: 'cdi' });
+    const reserva: string = criada.body.portfolio.id;
+
+    await fecharDia(reserva, '2026-03-31', '5000.00', '1.000000000000', {
+      net_flow: '5000.00',
+    });
+    await fecharDia(reserva, '2026-04-30', '5000.00', '1.000000000000');
+    await fecharDia(reserva, '2026-05-29', '5000.00', '1.000000000000');
+    await fecharDia(reserva, '2026-06-30', '5250.00', '1.050000000000');
+
+    return reserva;
+  };
+
+  it('soma as carteiras, usa o CDI de padrão e devolve o escopo sem carteira', async () => {
+    await historiaDoLongo();
+    await historiaDaReserva();
+
+    const response = await request(harness.app).get(
+      '/api/performance?on_date=2026-06-30',
+    );
+
+    expect(response.status).toBe(200);
+    expect(() => performanceSchema.parse(response.body)).not.toThrow();
+    expect(response.body.scope).toMatchObject({
+      portfolio_id: null,
+      name: 'Todas as carteiras',
+      inception: '2026-03-31',
+    });
+    expect(response.body.benchmarks.primary_id).toBe(CDI);
+  });
+
+  it('reconstrói a cota da soma: o aporte de maio não é rendimento', async () => {
+    await historiaDoLongo();
+    await historiaDaReserva();
+
+    const { windows } = (
+      await request(harness.app).get('/api/performance?on_date=2026-06-30')
+    ).body;
+    const todas = windows.rows[0];
+
+    // Patrimônio: 15.000 → 18.250, mas 2.000 são aporte. A cota reconstruída
+    // fica entre o retorno das duas carteiras (10% e 5%).
+    expect(numero(todas.values[6])).toBeGreaterThan(7);
+    expect(numero(todas.values[6])).toBeLessThan(8);
+  });
+
+  it('devolve o retorno de cada carteira pela cota dela', async () => {
+    await historiaDoLongo();
+    const reserva = await historiaDaReserva();
+
+    const { breakdown } = (
+      await request(harness.app).get('/api/performance?on_date=2026-06-30')
+    ).body;
+
+    const linha = (id: string) =>
+      breakdown.portfolios.find(
+        (row: { portfolio_id: string }) => row.portfolio_id === id,
+      );
+
+    expect(breakdown.columns.map((column: { key: string }) => column.key)).toEqual([
+      'month',
+      'ytd',
+      '12m',
+      'inception',
+    ]);
+    expect(linha(longo).returns[0]).toBe('3.77');
+    expect(linha(longo).returns[3]).toBe('10.00');
+    expect(linha(reserva).returns[0]).toBe('5.00');
+    expect(linha(reserva).returns[3]).toBe('5.00');
+    expect(numero(linha(longo).weight_pct)).toBeCloseTo(71.23, 1);
+    expect(numero(linha(reserva).weight_pct)).toBeCloseTo(28.77, 1);
+  });
+
+  it('com uma carteira a lista por carteira vem vazia', async () => {
+    await historiaDoLongo();
+
+    const { breakdown } = (await desempenho(doLongo())).body;
+
+    expect(breakdown.portfolios).toEqual([]);
+  });
+});
+
 describe('GET /api/performance · casos limite', () => {
   it('sem nenhum fechamento responde vazio, no contrato, sem erro', async () => {
     const response = await desempenho('?on_date=2026-06-30');
@@ -522,9 +527,6 @@ describe('GET /api/performance · casos limite', () => {
     expect(() => performanceSchema.parse(response.body)).not.toThrow();
     expect(response.body.reference_date).toBeNull();
     expect(response.body.chart.dates).toEqual([]);
-    expect(response.body.monthly.years).toEqual([]);
-    expect(response.body.decomposition.rows).toEqual([]);
-    expect(response.body.decomposition.total).toBeNull();
   });
 
   it('carteira que não existe é 404', async () => {
@@ -535,12 +537,15 @@ describe('GET /api/performance · casos limite', () => {
     expect(response.status).toBe(404);
   });
 
-  it('sem carteira a rota recusa com 400', async () => {
+  it('sem carteira a rota é Todas as carteiras, e sem fechamento responde vazio', async () => {
     const response = await request(harness.app).get(
       '/api/performance?on_date=2026-06-30',
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
+    expect(() => performanceSchema.parse(response.body)).not.toThrow();
+    expect(response.body.scope.portfolio_id).toBeNull();
+    expect(response.body.reference_date).toBeNull();
   });
 
   it('benchmark malformado em benchmarks é 400', async () => {
