@@ -67,7 +67,7 @@ describe('getRepositoryError', () => {
         INSERT INTO transaction (
           id, kind, trade_date, settlement_date, portfolio_id, institution_id, net_amount
         ) VALUES (
-          '0191e5a0-0000-7000-8000-0000000000b2', 'deposit', '2024-01-10', '2024-01-10',
+          '0191e5a0-0000-7000-8000-0000000000b2', 'buy', '2024-01-10', '2024-01-10',
           '0191e5a0-0000-7000-8000-00000000dead', '0191e5a0-0000-7000-8000-00000000beef', 100
         )
       `),

@@ -5,13 +5,14 @@ import type {
   PerformanceClassFlow,
   PerformanceClassValue,
   PerformanceDayRow,
+  PerformancePortfolioPoint,
+  PerformancePortfolioName,
   PerformanceSnapshotPortfolio,
   PerformanceRepository,
   PerformanceSnapshot,
   PerformanceSnapshotQuery,
 } from '@patrimonio/application';
 import {
-  asBoolean,
   asDateOnly,
   asDateOnlyOrNull,
   asEnum,
@@ -55,7 +56,7 @@ const parseDay = (row: Row): PerformanceDayRow => ({
 });
 
 const parsePortfolio = (row: Row): PerformanceSnapshotPortfolio => ({
-  portfolio_id: asString(row, 'portfolio_id'),
+  portfolio_id: asStringOrNull(row, 'portfolio_id'),
   name: asString(row, 'name'),
   recalc_status: asEnum(row, 'recalc_status', RECALC_STATUSES),
   benchmark: asStringOrNull(row, 'benchmark'),
@@ -66,7 +67,6 @@ const parseCategory = (row: Row): PerformanceCategoryRow => ({
   category_id: asString(row, 'category_id'),
   name: asString(row, 'name'),
   color_token: asString(row, 'color_token'),
-  is_cash: asBoolean(row, 'is_cash'),
 });
 
 const parseClassValue = (row: Row): PerformanceClassValue => ({
@@ -80,6 +80,18 @@ const parseClassFlow = (row: Row): PerformanceClassFlow => ({
   trade_date: asDateOnly(row, 'trade_date'),
   flow: asNumeric(row, 'flow'),
   income: asNumeric(row, 'income'),
+});
+
+const parsePortfolioRow = (row: Row): PerformancePortfolioName => ({
+  portfolio_id: asString(row, 'portfolio_id'),
+  name: asString(row, 'name'),
+});
+
+const parsePortfolioPoint = (row: Row): PerformancePortfolioPoint => ({
+  portfolio_id: asString(row, 'portfolio_id'),
+  label: asString(row, 'label'),
+  quota_value: row['quota_value'] === null ? null : asNumeric(row, 'quota_value'),
+  total_value: asNumeric(row, 'total_value'),
 });
 
 /** `{ CDI: { '2026-01-02': '1.000394…' } }` → mapas, como o motor os recebe. */
@@ -117,7 +129,7 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
           SELECT p.id
             FROM portfolio p
            WHERE p.archived_at IS NULL
-             AND p.id = ${scope}::UUID
+             AND (${scope}::UUID IS NULL OR p.id = ${scope}::UUID)
         ),
         reference AS (
           SELECT MAX(position_date) AS position_date
@@ -130,16 +142,44 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
             FROM portfolio_daily
            WHERE portfolio_id IN (SELECT id FROM scope)
         ),
+        everything AS (
+          SELECT NULL::TEXT AS portfolio_id,
+                 'Todas as carteiras' AS name,
+                 COALESCE((
+                   SELECT (ARRAY_AGG(
+                            p.recalc_status::TEXT
+                            ORDER BY CASE p.recalc_status::TEXT
+                                       WHEN 'running' THEN 0
+                                       WHEN 'queued' THEN 1
+                                       WHEN 'failed' THEN 2
+                                       ELSE 3
+                                     END
+                          ))[1]
+                     FROM portfolio p
+                    WHERE p.id IN (SELECT id FROM scope)
+                 ), 'idle') AS recalc_status,
+                 NULL::TEXT AS benchmark,
+                 (SELECT SUM(total_value)::TEXT
+                    FROM portfolio_daily
+                   WHERE portfolio_id IN (SELECT id FROM scope)
+                     AND position_date = (SELECT position_date FROM reference)
+                 ) AS total_value
+           WHERE ${scope}::UUID IS NULL
+        ),
         series AS (
           SELECT position_date,
-                 total_value::TEXT AS total_value,
-                 net_flow::TEXT AS net_flow,
-                 income::TEXT AS income,
-                 payouts::TEXT AS payouts,
-                 quota_value::TEXT AS quota_value
+                 SUM(total_value)::TEXT AS total_value,
+                 SUM(net_flow)::TEXT AS net_flow,
+                 SUM(income)::TEXT AS income,
+                 SUM(payouts)::TEXT AS payouts,
+                 CASE
+                   WHEN ${scope}::UUID IS NULL THEN NULL
+                   ELSE MIN(quota_value)::TEXT
+                 END AS quota_value
             FROM portfolio_daily
            WHERE portfolio_id IN (SELECT id FROM scope)
              AND position_date <= (SELECT position_date FROM reference)
+           GROUP BY position_date
         ),
         portfolio AS (
           SELECT p.id::TEXT AS portfolio_id,
@@ -162,7 +202,10 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
                  SELECT JSONB_AGG(TO_JSONB(series) ORDER BY series.position_date)
                    FROM series
                ), '[]'::JSONB) AS days,
-               (SELECT TO_JSONB(portfolio) FROM portfolio) AS portfolio
+               COALESCE(
+                 (SELECT TO_JSONB(portfolio) FROM portfolio),
+                 (SELECT TO_JSONB(everything) FROM everything)
+               ) AS portfolio
       `;
 
       if (row === undefined) {
@@ -175,7 +218,8 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
         reference_date: asDateOnlyOrNull(row, 'reference_date'),
         inception: asDateOnlyOrNull(row, 'inception'),
         days: asRows(row['days']).map(parseDay),
-        portfolio: row['portfolio'] === null ? null : parsePortfolio(row['portfolio'] as Row),
+        portfolio:
+          row['portfolio'] === null ? null : parsePortfolio(row['portfolio'] as Row),
       };
 
       return success(snapshot);
@@ -195,7 +239,7 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
           SELECT p.id
             FROM portfolio p
            WHERE p.archived_at IS NULL
-             AND p.id = ${scope}::UUID
+             AND (${scope}::UUID IS NULL OR p.id = ${scope}::UUID)
         ),
         points AS (
           SELECT t.label, t.point_date
@@ -223,9 +267,8 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
            GROUP BY pt.label, c.id
         ),
         -- O que entrou na classe e o que ela pagou, por dia. Compra e venda
-        -- movem a classe com o sinal contrário ao do caixa; a amortização devolve
-        -- principal e sai como fluxo, não como rendimento. Caixa fica de fora:
-        -- ele não rende por si.
+        -- movem a classe com o sinal contrário ao do líquido; a amortização devolve
+        -- principal e sai como fluxo, não como rendimento.
         flows AS (
           SELECT COALESCE(c.id::TEXT, ${SEM_CATEGORIA}) AS category_id,
                  t.trade_date,
@@ -251,7 +294,6 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
            WHERE t.portfolio_id IN (SELECT id FROM scope)
              AND t.trade_date > ${query.flows_from}::DATE
              AND t.trade_date <= ${query.reference}::DATE
-             AND a.b3_type IS DISTINCT FROM 'cash'
              AND (t.kind <> 'payout' OR t.confirmed_at IS NOT NULL)
            GROUP BY c.id, t.trade_date
         ),
@@ -263,12 +305,50 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
         categories AS (
           SELECT COALESCE(c.id::TEXT, ${SEM_CATEGORIA}) AS category_id,
                  COALESCE(c.name, 'Sem categoria') AS name,
-                 COALESCE(c.color_token, 'class.outros') AS color_token,
-                 COALESCE(BOOL_OR(a.b3_type = 'cash'), FALSE) AS is_cash
+                 COALESCE(c.color_token, 'class.outros') AS color_token
             FROM asset a
             LEFT JOIN category c ON c.id = a.category_id
            GROUP BY c.id, c.name, c.color_token
           HAVING COALESCE(c.id::TEXT, ${SEM_CATEGORIA}) IN (SELECT category_id FROM used)
+        ),
+        -- A cota de cada carteira em cada ponto, para o retorno de cada uma.
+        -- Só Todas as carteiras pede: com uma carteira, ela é o próprio escopo.
+        portfolio_points AS (
+          SELECT s.id::TEXT AS portfolio_id,
+                 pt.label,
+                 day.quota_value::TEXT AS quota_value,
+                 day.total_value::TEXT AS total_value
+            FROM points pt
+           CROSS JOIN scope s
+            JOIN LATERAL (
+              SELECT d.quota_value, d.total_value
+                FROM portfolio_daily d
+               WHERE d.portfolio_id = s.id
+                 AND d.position_date <= pt.point_date
+               ORDER BY d.position_date DESC
+               LIMIT 1
+            ) day ON TRUE
+           WHERE ${scope}::UUID IS NULL
+          UNION ALL
+          SELECT s.id::TEXT,
+                 'first',
+                 day.quota_value::TEXT,
+                 day.total_value::TEXT
+            FROM scope s
+            JOIN LATERAL (
+              SELECT d.quota_value, d.total_value
+                FROM portfolio_daily d
+               WHERE d.portfolio_id = s.id
+               ORDER BY d.position_date ASC
+               LIMIT 1
+            ) day ON TRUE
+           WHERE ${scope}::UUID IS NULL
+        ),
+        portfolios AS (
+          SELECT p.id::TEXT AS portfolio_id, p.name, p.sort_order
+            FROM portfolio p
+           WHERE p.id IN (SELECT id FROM scope)
+             AND ${scope}::UUID IS NULL
         ),
         factors AS (
           SELECT q.index_code, q.quote_date, q.daily_factor::TEXT AS daily_factor
@@ -291,7 +371,14 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
                COALESCE((SELECT JSONB_AGG(TO_JSONB(class_values)) FROM class_values),
                         '[]'::JSONB) AS class_values,
                COALESCE((SELECT JSONB_AGG(TO_JSONB(flows)) FROM flows),
-                        '[]'::JSONB) AS class_flows
+                        '[]'::JSONB) AS class_flows,
+               COALESCE((SELECT JSONB_AGG(TO_JSONB(portfolio_points)) FROM portfolio_points),
+                        '[]'::JSONB) AS portfolio_points,
+               COALESCE((SELECT JSONB_AGG(
+                          TO_JSONB(portfolios) - 'sort_order'
+                          ORDER BY portfolios.sort_order, portfolios.name
+                        ) FROM portfolios),
+                        '[]'::JSONB) AS portfolios
       `;
 
       if (row === undefined) {
@@ -305,6 +392,8 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
         categories: asRows(row['categories']).map(parseCategory),
         class_values: asRows(row['class_values']).map(parseClassValue),
         class_flows: asRows(row['class_flows']).map(parseClassFlow),
+        portfolios: asRows(row['portfolios']).map(parsePortfolioRow),
+        portfolio_points: asRows(row['portfolio_points']).map(parsePortfolioPoint),
       };
 
       return success(breakdown);

@@ -18,7 +18,7 @@ export const createOutboxRepository = (
   /**
    * A política de coalescência, quando há uma. Sem ela o evento é despachado na
    * primeira passada do relay, que é o comportamento certo para o que não chega em
-   * rajada — fechamento, alertas e backup nascem de um agendamento.
+   * rajada — fechamento e backup nascem de um agendamento.
    */
   debounce?: DebouncePolicy,
 ): OutboxRepository => ({

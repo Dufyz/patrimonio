@@ -65,6 +65,17 @@ const EMPTY_VIEW = (asset: AssetPageIdentityRow | null): AssetPageView => ({
   computed_at: null,
   price: EMPTY_PRICE,
   position: null,
+  lifetime: {
+    invested: '0',
+    proceeds: '0',
+    payouts_received: '0',
+    realized_result: null,
+    first_trade_date: null,
+    last_trade_date: null,
+    buys: 0,
+    sells: 0,
+  },
+  return_days: [],
   window: {
     from: null,
     to: null,
@@ -73,6 +84,7 @@ const EMPTY_VIEW = (asset: AssetPageIdentityRow | null): AssetPageView => ({
     adjusted: false,
   },
   points: [],
+  value_days: [],
   marks: [],
   payout_months: [],
   payouts_total_12m: '0',
@@ -214,6 +226,7 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
                      AND (c.auto_rule->>'sector' IS NULL
                           OR c.auto_rule->>'sector' = a.sector)
                    ) AS category_automatic,
+                   a.issuer_id::TEXT AS issuer_id,
                    i.name AS issuer_name,
                    a.archived_at,
                    a.indexer,
@@ -287,6 +300,78 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
             SELECT l.*
               FROM ledger l
              WHERE l.kind = 'payout' AND l.confirmed_at IS NOT NULL
+          ),
+          -- A vida inteira do papel no recorte, sem janela: é o que sobra de um
+          -- ativo vendido, e o que a tela mostra quando não há posição aberta.
+          lifetime AS (
+            SELECT COALESCE(SUM(ABS(l.net_amount)) FILTER (WHERE l.kind = 'buy'), 0) AS invested,
+                   COALESCE(SUM(ABS(l.net_amount)) FILTER (WHERE l.kind = 'sell'), 0) AS proceeds,
+                   COUNT(*) FILTER (WHERE l.kind = 'buy')::INT AS buys,
+                   COUNT(*) FILTER (WHERE l.kind = 'sell')::INT AS sells,
+                   MIN(l.trade_date) FILTER (WHERE l.kind IN ('buy', 'sell')) AS first_trade_date,
+                   MAX(l.trade_date) FILTER (WHERE l.kind IN ('buy', 'sell')) AS last_trade_date
+              FROM ledger l
+          ),
+          -- Dinheiro que passou pelo papel, por dia. Compra e venda no dia da
+          -- operação; provento no da liquidação. Amortização é devolução de
+          -- capital: sai do valor do papel sem ser rendimento, então é fluxo.
+          day_flows AS (
+            SELECT l.trade_date AS day,
+                   CASE WHEN l.kind = 'buy' THEN ABS(l.net_amount) ELSE -ABS(l.net_amount) END AS flow,
+                   0::NUMERIC AS income
+              FROM ledger l
+             WHERE l.kind IN ('buy', 'sell')
+            UNION ALL
+            SELECT p.settlement_date,
+                   CASE WHEN p.payout_kind = 'amortization' THEN -ABS(p.net_amount) ELSE 0 END,
+                   CASE WHEN p.payout_kind = 'amortization' THEN 0 ELSE ABS(p.net_amount) END
+              FROM confirmed_payouts p
+          ),
+          day_values AS (
+            SELECT pd.position_date AS day, SUM(pd.market_value) AS value
+              FROM position_daily pd
+              JOIN scope s ON s.portfolio_id = pd.portfolio_id
+              JOIN target t ON t.asset_id = pd.asset_id
+             GROUP BY pd.position_date
+          ),
+          -- Dia de fluxo sem linha de posição (a venda que zerou o papel) entra
+          -- no eixo com valor zero, para a venda total não sumir do retorno.
+          return_days AS (
+            SELECT d.day,
+                   COALESCE(v.value, 0) AS value,
+                   COALESCE(SUM(f.flow), 0) AS flow,
+                   COALESCE(SUM(f.income), 0) AS income
+              FROM (SELECT day FROM day_values UNION SELECT day FROM day_flows) d
+              LEFT JOIN day_values v ON v.day = d.day
+              LEFT JOIN day_flows f ON f.day = d.day
+             GROUP BY d.day, v.value
+          ),
+          -- O valor da posição por dia na janela: é o gráfico de quem não tem
+          -- preço de mercado, como o título marcado na curva.
+          value_days AS (
+            SELECT pd.position_date AS day,
+                   SUM(pd.cost_basis) AS cost_basis,
+                   SUM(pd.market_value) AS value,
+                   SUM(pd.market_value) - SUM(pd.cost_basis) AS result,
+                   -- Provento confirmado até o dia, sem amortização (que é
+                   -- principal devolvido): acumulado desde o primeiro lançamento.
+                   COALESCE((
+                     SELECT SUM(tx.net_amount)
+                       FROM transaction tx
+                       JOIN scope ts ON ts.portfolio_id = tx.portfolio_id
+                      WHERE tx.asset_id = (SELECT asset_id FROM target)
+                        AND tx.kind = 'payout'
+                        AND tx.payout_kind <> 'amortization'
+                        AND tx.confirmed_at IS NOT NULL
+                        AND tx.trade_date <= pd.position_date
+                   ), 0)::NUMERIC(20,2) AS payouts
+              FROM position_daily pd
+              JOIN scope s ON s.portfolio_id = pd.portfolio_id
+              JOIN target t ON t.asset_id = pd.asset_id
+             CROSS JOIN range r
+             WHERE (r.from_date IS NULL OR pd.position_date >= r.from_date)
+               AND pd.position_date <= r.to_date
+             GROUP BY pd.position_date
           ),
           -- Os doze meses da grade, gerados em vez de descobertos: mês sem
           -- provento é uma barra vazia, não um mês que some do eixo.
@@ -386,7 +471,7 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
             'asset', (SELECT ROW_TO_JSON(ar) FROM (
                        SELECT asset_id, ticker, name, origin, b3_type, sector,
                               price_source, category_id, category_name, color_token,
-                              category_automatic, issuer_name, archived_at, indexer,
+                              category_automatic, issuer_id, issuer_name, archived_at, indexer,
                               rate, issued_at, maturity_date, liquidity,
                               liquidity_days, tax_regime
                          FROM asset_row
@@ -484,6 +569,53 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
               ) END
               FROM holdings h
             ),
+            'lifetime', (
+              SELECT JSON_BUILD_OBJECT(
+                'invested', lt.invested::TEXT,
+                'proceeds', lt.proceeds::TEXT,
+                'payouts_received', (
+                  SELECT COALESCE(SUM(p.net_amount), 0)::TEXT FROM confirmed_payouts p
+                ),
+                'realized_result', (
+                  SELECT SUM(rr.result)::TEXT
+                    FROM realized_result rr
+                    JOIN scope s ON s.portfolio_id = rr.portfolio_id
+                   WHERE rr.asset_id = (SELECT asset_id FROM target)
+                ),
+                'first_trade_date', lt.first_trade_date,
+                'last_trade_date', lt.last_trade_date,
+                'buys', lt.buys,
+                'sells', lt.sells
+              )
+              FROM lifetime lt
+            ),
+            'return_days', COALESCE((
+              SELECT JSON_AGG(
+                       JSON_BUILD_OBJECT(
+                         'date', r.day,
+                         'value', r.value::TEXT,
+                         'flow', r.flow::TEXT,
+                         'income', r.income::TEXT
+                       )
+                       ORDER BY r.day
+                     )
+                FROM return_days r
+            ), '[]'::JSON),
+            'value_days', COALESCE((
+              SELECT JSON_AGG(
+                       JSON_BUILD_OBJECT(
+                         'date', v.day,
+                         'cost_basis', v.cost_basis::TEXT,
+                         'value', v.value::TEXT,
+                         'result', v.result::TEXT,
+                         'payouts', v.payouts::TEXT,
+                         'with_payouts', (v.value + v.payouts)::TEXT,
+                         'result_with_payouts', (v.result + v.payouts)::TEXT
+                       )
+                       ORDER BY v.day
+                     )
+                FROM value_days v
+            ), '[]'::JSON),
             'window', (
               SELECT JSON_BUILD_OBJECT(
                 'from', w.from_date,
@@ -564,6 +696,7 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
                          l.quantity::TEXT AS quantity,
                          l.unit_price::TEXT AS unit_price,
                          l.net_amount::TEXT AS net_amount,
+                         l.fees::TEXT AS fees,
                          l.confirmed_at,
                          l.portfolio_id,
                          l.portfolio_name,

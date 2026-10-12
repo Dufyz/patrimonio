@@ -78,22 +78,6 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
     }
   },
 
-  entriesForPortfolioInstitution: async (portfolioId: string, institutionId: string) => {
-    try {
-      const rows = await sql<Row[]>`
-        SELECT *
-          FROM transaction
-         WHERE portfolio_id = ${portfolioId}
-           AND institution_id = ${institutionId}
-         ORDER BY trade_date, id
-      `;
-
-      return success(rows.map((row) => parseLedgerRowFromDB(row)));
-    } catch (error) {
-      return failure(getRepositoryError(error));
-    }
-  },
-
   /**
    * O livro de todas as carteiras. A apuração de renda variável é global: o limite
    * de isenção olha a soma das vendas do mês, não da carteira.

@@ -17,10 +17,8 @@ const RESERVA = '0191e5a0-0000-7000-8000-00000000c002';
 const ARQUIVADA = '0191e5a0-0000-7000-8000-00000000c003';
 const ACOES = '0191e5a0-0000-7000-8000-00000000c010';
 const FIIS = '0191e5a0-0000-7000-8000-00000000c011';
-const CAIXA_CATEGORIA = '0191e5a0-0000-7000-8000-00000000c012';
 const ITUB4 = '0191e5a0-0000-7000-8000-00000000c020';
 const HGLG11 = '0191e5a0-0000-7000-8000-00000000c021';
-const CAIXA = '0191e5a0-0000-7000-8000-00000000c022';
 const CORRETORA = '0191e5a0-0000-7000-8000-00000000c030';
 
 let sql: Sql;
@@ -139,15 +137,13 @@ beforeEach(async () => {
     INSERT INTO category (id, name, color_token, sort_order)
     VALUES
       (${ACOES}, 'Ações', 'class.acoes', 1),
-      (${FIIS}, 'FIIs', 'class.fiis', 2),
-      (${CAIXA_CATEGORIA}, 'Caixa', 'class.caixa', 3)
+      (${FIIS}, 'FIIs', 'class.fiis', 2)
   `;
   await tx`
     INSERT INTO asset (id, ticker, name, origin, b3_type, category_id)
     VALUES
       (${ITUB4}, 'ITUB4', 'Itaú Unibanco PN', 'market', 'stock', ${ACOES}),
-      (${HGLG11}, 'HGLG11', 'CSHG Logística', 'market', 'fii', ${FIIS}),
-      (${CAIXA}, 'CAIXA-A', 'Caixa · Corretora A', 'market', 'cash', ${CAIXA_CATEGORIA})
+      (${HGLG11}, 'HGLG11', 'CSHG Logística', 'market', 'fii', ${FIIS})
   `;
   await tx`
     INSERT INTO institution (id, name)
@@ -244,6 +240,43 @@ describe('o instantâneo de desempenho', () => {
     expect(snapshot.portfolio).toBeNull();
   });
 
+  it('sem carteira soma as ativas por dia, e a cota some', async () => {
+    const repository = createPerformanceRepository(tx);
+
+    await close(LONGO, '2026-06-30', '11000.00', '1.100000000000');
+    await close(RESERVA, '2026-06-30', '2000.00', '1.020000000000');
+    await close(ARQUIVADA, '2026-06-30', '500.00', '1.000000000000');
+
+    const snapshot = unwrapSuccess(
+      await repository.snapshot({ portfolio_id: null, on_date: '2026-06-30' }),
+    );
+
+    expect(snapshot.days).toHaveLength(1);
+    expect(snapshot.days[0]).toMatchObject({
+      total_value: '13000.00',
+      quota_value: null,
+    });
+    expect(snapshot.portfolio).toMatchObject({
+      portfolio_id: null,
+      name: 'Todas as carteiras',
+      total_value: '13000.00',
+    });
+  });
+
+  it('sem nenhuma carteira ativa o escopo é vazio, não 404', async () => {
+    await tx`UPDATE portfolio SET archived_at = NOW()`;
+
+    const snapshot = unwrapSuccess(
+      await createPerformanceRepository(tx).snapshot({
+        portfolio_id: null,
+        on_date: '2026-06-30',
+      }),
+    );
+
+    expect(snapshot.reference_date).toBeNull();
+    expect(snapshot.days).toEqual([]);
+  });
+
   it('antes do primeiro fechamento a resposta é vazia, não erro', async () => {
     const repository = createPerformanceRepository(tx);
 
@@ -259,7 +292,7 @@ describe('o instantâneo de desempenho', () => {
 
 describe('o detalhamento', () => {
   const query = {
-    portfolio_id: LONGO as string,
+    portfolio_id: LONGO as string | null,
     reference: '2026-06-30',
     points: [
       { label: 'month', date: '2026-05-29' },
@@ -278,6 +311,48 @@ describe('o detalhamento', () => {
     unwrapSuccess(await repository.breakdown(query));
 
     expect(counter.calls()).toBe(1);
+  });
+
+  describe('a cota de cada carteira', () => {
+    it('só Todas as carteiras pede: com uma carteira, a lista vem vazia', async () => {
+      const repository = createPerformanceRepository(tx);
+
+      await close(LONGO, '2026-06-30', '1.00', '1.000000000000');
+
+      const result = unwrapSuccess(await repository.breakdown(query));
+
+      expect(result.portfolios).toEqual([]);
+      expect(result.portfolio_points).toEqual([]);
+    });
+
+    it('lê a última cota de cada carteira até o ponto, na ordem da lista', async () => {
+      const repository = createPerformanceRepository(tx);
+
+      await close(LONGO, '2026-05-29', '10500.00', '1.050000000000');
+      await close(LONGO, '2026-06-30', '11000.00', '1.100000000000');
+      // A Reserva abriu depois da base do mês: só tem o fechamento de junho.
+      await close(RESERVA, '2026-06-26', '2000.00', '1.020000000000');
+
+      const result = unwrapSuccess(
+        await repository.breakdown({ ...query, portfolio_id: null }),
+      );
+
+      expect(result.portfolios.map((row) => row.name)).toEqual([
+        'Longo prazo',
+        'Reserva',
+      ]);
+
+      const point = (portfolio: string, label: string) =>
+        result.portfolio_points.find(
+          (row) => row.portfolio_id === portfolio && row.label === label,
+        );
+
+      expect(point(LONGO, 'month')?.quota_value).toBe('1.050000000000');
+      expect(point(LONGO, 'reference')?.quota_value).toBe('1.100000000000');
+      expect(point(RESERVA, 'month')).toBeUndefined();
+      expect(point(RESERVA, 'reference')?.quota_value).toBe('1.020000000000');
+      expect(point(RESERVA, 'first')?.quota_value).toBe('1.020000000000');
+    });
   });
 
   describe('fatores de índice', () => {
@@ -349,25 +424,6 @@ describe('o detalhamento', () => {
         )?.value,
       ).toBe('10000.00');
     });
-
-    it('marca o caixa, que não rende por si', async () => {
-      const repository = createPerformanceRepository(tx);
-
-      await close(LONGO, '2026-06-30', '1.00', '1.000000000000');
-      await hold(LONGO, CAIXA, '2026-06-30', '500.00');
-      await hold(LONGO, ITUB4, '2026-06-30', '10000.00');
-
-      const result = unwrapSuccess(await repository.breakdown(query));
-
-      expect(
-        result.categories.map((row) => [row.name, row.color_token, row.is_cash]),
-      ).toEqual(
-        expect.arrayContaining([
-          ['Caixa', 'class.caixa', true],
-          ['Ações', 'class.acoes', false],
-        ]),
-      );
-    });
   });
 
   describe('o fluxo e o provento de cada classe', () => {
@@ -379,7 +435,7 @@ describe('o detalhamento', () => {
       return result.class_flows.filter((row) => row.category_id === ACOES);
     };
 
-    it('compra é fluxo positivo e venda é negativo, contra o sinal do caixa', async () => {
+    it('compra é fluxo positivo e venda é negativo, contra o sinal do líquido', async () => {
       await record({
         id: 1,
         kind: 'buy',
@@ -431,7 +487,7 @@ describe('o detalhamento', () => {
       ]);
     });
 
-    it('provento ainda a receber não entrou em caixa e não conta', async () => {
+    it('provento a receber ainda não saiu do patrimônio e não conta', async () => {
       await record({
         id: 7,
         kind: 'payout',
@@ -443,22 +499,6 @@ describe('o detalhamento', () => {
       });
 
       expect(await flows()).toEqual([]);
-    });
-
-    it('o caixa não tem fluxo de classe: aporte e resgate não são compra', async () => {
-      await record({
-        id: 8,
-        kind: 'deposit',
-        date: '2026-04-10',
-        asset: CAIXA,
-        net: '5000.00',
-      });
-
-      const result = unwrapSuccess(
-        await createPerformanceRepository(tx).breakdown(query),
-      );
-
-      expect(result.class_flows).toEqual([]);
     });
 
     it('o dia da base fica de fora e a referência entra', async () => {

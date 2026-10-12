@@ -190,8 +190,8 @@ describe('claimPending', () => {
         payload: { reference_date: '2024-01-10' },
       },
       {
-        stage: 'alerts',
-        dedupe_key: dedupeKey.alerts('2024-01-10'),
+        stage: 'backup',
+        dedupe_key: dedupeKey.backup('2024-01-10'),
         payload: { reference_date: '2024-01-10' },
         available_at: seconds(3_600),
       },

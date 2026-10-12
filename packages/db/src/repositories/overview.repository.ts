@@ -56,6 +56,7 @@ const parseDay = (row: Row): OverviewDayRow => ({
   income: asMoney(row, 'income'),
   payouts: asMoney(row, 'payouts'),
   cumulative_contributions: asMoney(row, 'cumulative_contributions'),
+  cumulative_payouts: asMoney(row, 'cumulative_payouts'),
   quota_value: row['quota_value'] === null ? null : asNumeric(row, 'quota_value'),
 });
 
@@ -113,7 +114,7 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
           SELECT p.id
             FROM portfolio p
            WHERE p.archived_at IS NULL
-             AND p.id = ${scope}::UUID
+             AND (${scope}::UUID IS NULL OR p.id = ${scope}::UUID)
         ),
         reference AS (
           SELECT MAX(position_date) AS position_date
@@ -126,17 +127,31 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
             FROM portfolio_daily
            WHERE portfolio_id IN (SELECT id FROM scope)
         ),
+        -- Provento recebido sai do patrimônio mas conta como rendimento: o
+        -- acumulado vem da história inteira, e não só da janela pedida.
+        cumulated AS (
+          SELECT day.*,
+                 SUM(day.payouts) OVER (
+                   PARTITION BY day.portfolio_id ORDER BY day.position_date
+                 ) AS cumulative_payouts
+            FROM portfolio_daily day
+           WHERE day.portfolio_id IN (SELECT id FROM scope)
+        ),
         series AS (
           SELECT position_date,
-                 total_value::TEXT AS total_value,
-                 net_flow::TEXT AS net_flow,
-                 income::TEXT AS income,
-                 payouts::TEXT AS payouts,
-                 cumulative_contributions::TEXT AS cumulative_contributions,
-                 quota_value::TEXT AS quota_value
-            FROM portfolio_daily
-           WHERE portfolio_id IN (SELECT id FROM scope)
-             AND position_date BETWEEN ${query.from}::DATE AND ${query.to}::DATE
+                 SUM(total_value)::TEXT AS total_value,
+                 SUM(net_flow)::TEXT AS net_flow,
+                 SUM(income)::TEXT AS income,
+                 SUM(payouts)::TEXT AS payouts,
+                 SUM(cumulative_contributions)::TEXT AS cumulative_contributions,
+                 SUM(cumulative_payouts)::TEXT AS cumulative_payouts,
+                 CASE
+                   WHEN ${scope}::UUID IS NULL THEN NULL
+                   ELSE MIN(quota_value)::TEXT
+                 END AS quota_value
+            FROM cumulated
+           WHERE position_date BETWEEN ${query.from}::DATE AND ${query.to}::DATE
+           GROUP BY position_date
         ),
         anchor_date AS (
           SELECT 'previous_day' AS kind,
@@ -164,18 +179,22 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
         anchors AS (
           SELECT a.kind,
                  day.position_date,
-                 day.total_value::TEXT AS total_value,
-                 day.net_flow::TEXT AS net_flow,
-                 day.income::TEXT AS income,
-                 day.payouts::TEXT AS payouts,
-                 day.cumulative_contributions::TEXT AS cumulative_contributions,
-                 day.quota_value::TEXT AS quota_value
+                 SUM(day.total_value)::TEXT AS total_value,
+                 SUM(day.net_flow)::TEXT AS net_flow,
+                 SUM(day.income)::TEXT AS income,
+                 SUM(day.payouts)::TEXT AS payouts,
+                 SUM(day.cumulative_contributions)::TEXT AS cumulative_contributions,
+                 SUM(day.cumulative_payouts)::TEXT AS cumulative_payouts,
+                 CASE
+                   WHEN ${scope}::UUID IS NULL THEN NULL
+                   ELSE MIN(day.quota_value)::TEXT
+                 END AS quota_value
             FROM anchor_date a
-            JOIN portfolio_daily day
+            JOIN cumulated day
               ON day.position_date = a.position_date
-             AND day.portfolio_id IN (SELECT id FROM scope)
+           GROUP BY a.kind, day.position_date
         ),
-        portfolio AS (
+        portfolios AS (
           SELECT p.id::TEXT AS portfolio_id,
                  p.name,
                  p.recalc_status,
@@ -184,10 +203,10 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
                    WHERE day.portfolio_id = p.id
                      AND day.position_date <= ${query.on_date}::DATE
                    ORDER BY day.position_date DESC
-                   LIMIT 1) AS total_value
+                   LIMIT 1) AS total_value,
+                 p.sort_order
             FROM portfolio p
            WHERE p.archived_at IS NULL
-             AND p.id = ${scope}::UUID
         ),
         last_position_date AS (
           SELECT held.portfolio_id, MAX(held.position_date) AS position_date
@@ -244,7 +263,8 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
           SELECT target.category_id::TEXT AS category_id,
                  target.target_pct::TEXT AS target_pct
             FROM strategy_target target
-           WHERE target.portfolio_id = ${scope}::UUID
+           WHERE ${scope}::UUID IS NOT NULL
+             AND target.portfolio_id = ${scope}::UUID
         )
         SELECT (SELECT position_date FROM reference) AS reference_date,
                (SELECT position_date FROM inception) AS inception,
@@ -255,7 +275,13 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
                COALESCE((
                  SELECT JSONB_AGG(TO_JSONB(anchors)) FROM anchors
                ), '[]'::JSONB) AS anchors,
-               (SELECT TO_JSONB(portfolio) FROM portfolio) AS portfolio,
+               COALESCE((
+                 SELECT JSONB_AGG(
+                          TO_JSONB(portfolios) - 'sort_order'
+                          ORDER BY portfolios.sort_order, portfolios.name
+                        )
+                   FROM portfolios
+               ), '[]'::JSONB) AS portfolios,
                COALESCE((
                  SELECT JSONB_AGG(
                           TO_JSONB(positions) - 'health'
@@ -292,7 +318,7 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
         inception: asDateOnlyOrNull(row, 'inception'),
         days: asRows(row['days']).map(parseDay),
         anchors: anchorsOf(asRows(row['anchors'])),
-        portfolio: row['portfolio'] === null ? null : parsePortfolio(row['portfolio'] as Row),
+        portfolios: asRows(row['portfolios']).map(parsePortfolio),
         positions: asRows(row['positions']).map(parsePosition),
         categories: asRows(row['categories']).map(parseCategory),
         targets: asRows(row['targets']).map(parseTarget),

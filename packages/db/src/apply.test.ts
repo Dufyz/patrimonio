@@ -3,7 +3,6 @@ import {
   applyPlan,
   closeDay,
   createDebouncePolicy,
-  planAlertReconciliation,
   recalculatePortfolio,
 } from '@patrimonio/application';
 import type { Clock, UnitOfWork } from '@patrimonio/application';
@@ -57,8 +56,6 @@ const seed = async (): Promise<void> => {
 };
 
 const cleanup = async (): Promise<void> => {
-  await sql`DELETE FROM alert_instance WHERE subject_id LIKE 'e3-%'`;
-  await sql`DELETE FROM alert_rule WHERE kind LIKE 'e3_%'`;
   await sql`DELETE FROM pipeline_outbox`;
   await sql`DELETE FROM position_daily WHERE portfolio_id = ${PORTFOLIO}`;
   await sql`DELETE FROM portfolio_daily WHERE portfolio_id = ${PORTFOLIO}`;
@@ -149,11 +146,10 @@ describe('atomicidade', () => {
     unwrapSuccess(
       await unitOfWork.run(async (repositories) =>
         applyPlan(repositories, {
-          stage: 'recalc',
+          stage: 'market',
           outcome: 'succeeded',
-          portfolio_id: PORTFOLIO,
+          portfolio_id: null,
           reference_date: '2026-10-06',
-          from_date: '2026-10-01',
         }),
       ),
     );
@@ -162,11 +158,8 @@ describe('atomicidade', () => {
       SELECT stage, dedupe_key FROM pipeline_outbox
     `;
 
-    // Recálculo concluído pede a reconciliação de alertas, para o painel refletir
-    // o número novo.
-    expect(rows).toEqual([
-      { stage: 'alerts', dedupe_key: dedupeKey.alerts('2026-10-06') },
-    ]);
+    // Mercado concluído encadeia o fechamento do dia.
+    expect(rows).toEqual([{ stage: 'close', dedupe_key: dedupeKey.close('2026-10-06') }]);
   });
 
   it('recalc_status é escrito pela transição, e por mais ninguém', async () => {
@@ -419,128 +412,6 @@ describe('coalescência e espera', () => {
   });
 });
 
-describe('reconciliação de alertas', () => {
-  const RULE = 'e3_preco_atrasado';
-
-  const seedAlert = async (status: string, snoozeUntil: string | null): Promise<void> => {
-    await sql`
-      INSERT INTO alert_rule (kind, enabled, scope) VALUES (${RULE}, TRUE, 'global')
-    `;
-    await sql`
-      INSERT INTO alert_instance (rule_kind, subject_id, status, snooze_until, payload)
-      VALUES (${RULE}, 'e3-itub4', ${status}::alert_status, ${snoozeUntil},
-              '{"dias": 3}'::JSONB)
-    `;
-  };
-
-  it('alerta adiado continua adiado depois do recálculo', async () => {
-    await seedAlert('snoozed', '2026-12-01');
-
-    const repositories = createRepositories(sql);
-    const existing = unwrapSuccess(
-      await repositories.alerts.listForRules({ rule_kinds: [RULE] }),
-    );
-
-    const plan = planAlertReconciliation({
-      existing,
-      findings: [
-        {
-          rule_kind: RULE,
-          subject_id: 'e3-itub4',
-          portfolio_id: null,
-          payload: { dias: 9 },
-        },
-      ],
-    });
-
-    unwrapSuccess(
-      await repositories.alerts.applyReconciliation(plan.upserts, plan.resolved),
-    );
-
-    const [row] = await sql<
-      { status: string; snooze_until: string; payload: { dias: number } }[]
-    >`
-      SELECT status, snooze_until, payload FROM alert_instance WHERE rule_kind = ${RULE}
-    `;
-
-    expect(row?.status).toBe('snoozed');
-    expect(row?.snooze_until).toBe('2026-12-01');
-    // O texto é do motor e foi atualizado; a decisão é do usuário e ficou.
-    expect(row?.payload.dias).toBe(9);
-  });
-
-  it('alerta ignorado não reaparece para o mesmo item', async () => {
-    await seedAlert('ignored', null);
-
-    const repositories = createRepositories(sql);
-    const existing = unwrapSuccess(
-      await repositories.alerts.listForRules({ rule_kinds: [RULE] }),
-    );
-
-    const plan = planAlertReconciliation({
-      existing,
-      findings: [
-        { rule_kind: RULE, subject_id: 'e3-itub4', portfolio_id: null, payload: {} },
-      ],
-    });
-
-    unwrapSuccess(
-      await repositories.alerts.applyReconciliation(plan.upserts, plan.resolved),
-    );
-
-    const active = unwrapSuccess(
-      await repositories.alerts.listActive({ on_date: '2026-10-06' }),
-    );
-
-    expect(active.filter((alert) => alert.rule_kind === RULE)).toEqual([]);
-  });
-
-  it('o que deixou de valer sai, e o primeiro avistamento do que fica não muda', async () => {
-    await seedAlert('open', null);
-
-    const repositories = createRepositories(sql);
-    const [before] = await sql<{ first_seen_at: Date }[]>`
-      SELECT first_seen_at FROM alert_instance WHERE rule_kind = ${RULE}
-    `;
-
-    const existing = unwrapSuccess(
-      await repositories.alerts.listForRules({ rule_kinds: [RULE] }),
-    );
-
-    const kept = planAlertReconciliation({
-      existing,
-      findings: [
-        {
-          rule_kind: RULE,
-          subject_id: 'e3-itub4',
-          portfolio_id: null,
-          payload: { dias: 4 },
-        },
-      ],
-    });
-    unwrapSuccess(
-      await repositories.alerts.applyReconciliation(kept.upserts, kept.resolved),
-    );
-
-    const [after] = await sql<{ first_seen_at: Date }[]>`
-      SELECT first_seen_at FROM alert_instance WHERE rule_kind = ${RULE}
-    `;
-
-    // O alerta que aparece todo dia desde março continua dizendo março.
-    expect(after?.first_seen_at.toISOString()).toBe(before?.first_seen_at.toISOString());
-
-    const gone = planAlertReconciliation({ existing, findings: [] });
-    unwrapSuccess(
-      await repositories.alerts.applyReconciliation(gone.upserts, gone.resolved),
-    );
-
-    const [total] = await sql<{ total: string }[]>`
-      SELECT COUNT(*)::TEXT AS total FROM alert_instance WHERE rule_kind = ${RULE}
-    `;
-    expect(total?.total).toBe('0');
-  });
-});
-
 /**
  * A invariante central do modelo, medida contra o banco: reconstruir do zero
  * produz o mesmo estado que o cálculo incremental. Se ela falha, alguma projeção
@@ -559,8 +430,8 @@ describe('do zero é igual ao incremental, contra o banco', () => {
   const seedWithHistory = async (): Promise<void> => {
     await seed();
 
-    // Uma venda no meio: ela move preço médio, resultado realizado e caixa, que
-    // são as três coisas que um recálculo parcial poderia deixar fora de sincronia.
+    // Uma venda no meio: ela move preço médio, resultado realizado e fluxo, que
+    // são as coisas que um recálculo parcial poderia deixar fora de sincronia.
     await sql`
       INSERT INTO transaction
         (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,

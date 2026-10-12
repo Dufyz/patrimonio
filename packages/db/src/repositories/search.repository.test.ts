@@ -122,21 +122,18 @@ beforeEach(async () => {
     INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
        institution_id, quantity, unit_price, fees, gross_amount, net_amount,
-       payout_kind, confirmed_at, note)
+       payout_kind, confirmed_at)
     VALUES
       (${id(1)}, 'buy', '2025-03-12', '2025-03-14', ${LONGO}, ${ITUB4},
-       ${CORRETORA}, '100', '30.00', '0', '3000.00', '-3000.00', NULL, NULL, NULL),
+       ${CORRETORA}, '100', '30.00', '0', '3000.00', '-3000.00', NULL, NULL),
       (${id(2)}, 'payout', '2026-10-20', '2026-10-20', ${LONGO}, ${ITUB4},
-       ${CORRETORA}, '500', '0.19', '0', '96.12', '96.12', 'jcp', NULL, NULL),
+       ${CORRETORA}, '500', '0.19', '0', '96.12', '96.12', 'jcp', NULL),
       (${id(3)}, 'buy', '2026-09-30', '2026-10-02', ${LONGO}, ${WEGE3},
-       ${CORRETORA}, '100', '31.20', '0', '3120.00', '-3120.00', NULL, NULL,
-       'comprei pela dica do itu'),
+       ${CORRETORA}, '100', '31.20', '0', '3120.00', '-3120.00', NULL, NULL),
       (${id(4)}, 'buy', '2026-09-10', '2026-09-12', ${RESERVA}, ${ITUB4},
-       ${CORRETORA}, '100', '31.00', '0', '3100.00', '-3100.00', NULL, NULL, NULL),
+       ${CORRETORA}, '100', '31.00', '0', '3100.00', '-3100.00', NULL, NULL),
       (${id(5)}, 'buy', '2026-09-11', '2026-09-13', ${ARQUIVADA}, ${ITUB4},
-       ${CORRETORA}, '10', '31.00', '0', '310.00', '-310.00', NULL, NULL, NULL),
-      (${id(6)}, 'deposit', '2026-10-01', '2026-10-01', ${LONGO}, NULL,
-       ${CORRETORA}, '0', '0', '0', '4000.00', '4000.00', NULL, NULL, 'aporte itu')
+       ${CORRETORA}, '10', '31.00', '0', '310.00', '-310.00', NULL, NULL)
   `;
 });
 
@@ -329,19 +326,13 @@ describe('papéis do catálogo', () => {
 });
 
 describe('lançamentos', () => {
-  it('traz o mais recente primeiro, por código, nome e observação', async () => {
+  it('traz o mais recente primeiro, por código e nome do ativo', async () => {
     const view = await find();
 
-    // Provento de 20/10, depois o aporte de 01/10 (pela observação) e a compra de
-    // 30/09 na WEGE3 (pela observação); a de março de 2025 fecha a lista, e as
-    // de outras carteiras não entram.
-    expect(view.transactions.rows.map((row) => row.id)).toEqual([
-      id(2),
-      id(6),
-      id(3),
-      id(1),
-    ]);
-    expect(view.transactions.total).toBe(4);
+    // Provento de 20/10, depois a compra de março de 2025; a compra
+    // da WEGE3 não casam com o texto, e as de outras carteiras não entram.
+    expect(view.transactions.rows.map((row) => row.id)).toEqual([id(2), id(1)]);
+    expect(view.transactions.total).toBe(2);
   });
 
   it('diz que o provento ainda está a receber', async () => {
@@ -358,14 +349,6 @@ describe('lançamentos', () => {
     expect(jcp?.b3_type).toBe('stock');
   });
 
-  it('entrega lançamento sem ativo, como o aporte', async () => {
-    const view = await find();
-    const aporte = view.transactions.rows.find((row) => row.id === id(6));
-
-    expect(aporte?.asset_id).toBeNull();
-    expect(aporte?.ticker).toBeNull();
-  });
-
   it('restringe à carteira escolhida', async () => {
     const view = await find({ portfolioId: RESERVA });
 
@@ -373,10 +356,10 @@ describe('lançamentos', () => {
   });
 
   it('respeita o limite e conta o total', async () => {
-    const view = await find({ limit: 2 });
+    const view = await find({ limit: 1 });
 
-    expect(view.transactions.rows).toHaveLength(2);
-    expect(view.transactions.total).toBe(4);
+    expect(view.transactions.rows).toHaveLength(1);
+    expect(view.transactions.total).toBe(2);
   });
 });
 

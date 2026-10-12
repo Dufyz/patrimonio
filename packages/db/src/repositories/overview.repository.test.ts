@@ -273,7 +273,9 @@ describe('o instantâneo da tela de abertura', () => {
     );
 
     expect(snapshot.positions.map((row) => row.ticker)).toEqual(['HGLG11']);
-    expect(snapshot.portfolio?.total_value).toBe('2000.00');
+    expect(snapshot.portfolios.find((row) => row.portfolio_id === RESERVA)?.total_value).toBe(
+      '2000.00',
+    );
   });
 
   it('a composição sai por categoria, com o token de cor que a tela usa', async () => {
@@ -348,6 +350,36 @@ describe('o instantâneo da tela de abertura', () => {
     expect(snapshot.targets).toHaveLength(2);
   });
 
+  it('sem carteira, a série soma as carteiras e a cota não existe', async () => {
+    const repository = createOverviewRepository(tx);
+
+    await writeDays([
+      day(LONGO, '2026-10-02', '10000.00', { quota_value: '1.050000000000' }),
+      day(RESERVA, '2026-10-02', '2000.00', { quota_value: '1.010000000000' }),
+    ]);
+    await writePosition(LONGO, ITUB4, '2026-10-02', '10000.00');
+    await writePosition(RESERVA, ITUB4, '2026-10-02', '500.00');
+    await writePosition(RESERVA, HGLG11, '2026-10-02', '1500.00');
+
+    const snapshot = unwrapSuccess(
+      await repository.snapshot({
+        portfolio_id: null,
+        on_date: '2026-10-02',
+        from: '2026-10-01',
+        to: '2026-10-02',
+      }),
+    );
+
+    expect(snapshot.portfolios.map((row) => row.name)).toEqual(['Longo prazo', 'Reserva']);
+    expect(snapshot.days.at(-1)?.total_value).toBe('12000.00');
+    expect(snapshot.days.at(-1)?.quota_value).toBeNull();
+    expect(snapshot.positions.map((row) => [row.ticker, row.value])).toEqual([
+      ['ITUB4', '10500.00'],
+      ['HGLG11', '1500.00'],
+    ]);
+    expect(snapshot.targets).toEqual([]);
+  });
+
   it('carteira sem fechamento nenhum devolve vazio, não erro', async () => {
     const repository = createOverviewRepository(tx);
 
@@ -363,6 +395,6 @@ describe('o instantâneo da tela de abertura', () => {
     expect(snapshot.reference_date).toBeNull();
     expect(snapshot.days).toEqual([]);
     expect(snapshot.anchors.previous_day).toBeNull();
-    expect(snapshot.portfolio?.total_value).toBeNull();
+    expect(snapshot.portfolios.find((row) => row.portfolio_id === LONGO)?.total_value).toBeNull();
   });
 });

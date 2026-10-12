@@ -130,7 +130,6 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
         confirmed_at: row.confirmed_at ?? null,
         event_ratio_from: row.event_ratio_from ?? null,
         event_ratio_to: row.event_ratio_to ?? null,
-        note: row.note ?? null,
         idempotency_key: row.idempotency_key ?? null,
       })),
     );
@@ -141,7 +140,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
           (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
            quantity, unit_price, fees, gross_amount, tax_withheld, net_amount,
            payout_kind, expected_net_amount, record_date, confirmed_at,
-           event_ratio_from, event_ratio_to, note, idempotency_key)
+           event_ratio_from, event_ratio_to, idempotency_key)
         SELECT (entry ->> 'id')::UUID,
                (entry ->> 'kind')::transaction_kind,
                (entry ->> 'trade_date')::DATE,
@@ -161,7 +160,6 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
                (entry ->> 'confirmed_at')::TIMESTAMPTZ,
                (entry ->> 'event_ratio_from')::NUMERIC,
                (entry ->> 'event_ratio_to')::NUMERIC,
-               entry ->> 'note',
                entry ->> 'idempotency_key'
           -- text antes de jsonb: com o cast direto o driver infere o parâmetro
           -- como json e reencoda a string, que chega escalar.

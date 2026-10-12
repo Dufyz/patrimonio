@@ -1,5 +1,4 @@
 import type {
-  SettingsAlertRuleRow,
   SettingsArchivedPortfolioRow,
   SettingsBackupRow,
   SettingsPortfolioRow,
@@ -8,10 +7,8 @@ import type {
 import {
   asBoolean,
   asDateOnly,
-  asEnum,
   asInteger,
   asIsoStringOrNull,
-  asJsonOrNull,
   asString,
   asStringOrNull,
 } from '@patrimonio/domain';
@@ -53,13 +50,6 @@ const parseArchived = (row: Row): SettingsArchivedPortfolioRow => ({
   id: asString(row, 'id'),
   name: asString(row, 'name'),
   archived_on: asDateOnly(row, 'archived_on'),
-});
-
-const parseAlert = (row: Row): SettingsAlertRuleRow => ({
-  kind: asString(row, 'kind'),
-  enabled: asBoolean(row, 'enabled'),
-  scope: asEnum(row, 'scope', ['global', 'per_portfolio']),
-  threshold: asJsonOrNull(row, 'threshold'),
 });
 
 const parseBackup = (row: Row | undefined): SettingsBackupRow => ({
@@ -118,17 +108,6 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
             FROM portfolio p
            WHERE p.archived_at IS NOT NULL
         ),
-        alert_json AS (
-          SELECT COALESCE(JSONB_AGG(
-                   JSONB_BUILD_OBJECT(
-                     'kind', r.kind,
-                     'enabled', r.enabled,
-                     'scope', r.scope,
-                     'threshold', r.threshold
-                   ) ORDER BY r.created_at, r.kind
-                 ), '[]'::JSONB) AS value
-            FROM alert_rule r
-        ),
         backup_row AS (
           SELECT
             (SELECT MAX(o.completed_at)
@@ -162,7 +141,6 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
         )
         SELECT (SELECT value FROM portfolio_json) AS portfolios,
                (SELECT value FROM archived_json) AS archived_portfolios,
-               (SELECT value FROM alert_json) AS alerts,
                (SELECT TO_JSONB(b) FROM backup_row b) AS backup
       `;
 
@@ -175,12 +153,73 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
       return success({
         portfolios: asRows(row['portfolios']).map(parsePortfolio),
         archived_portfolios: asRows(row['archived_portfolios']).map(parseArchived),
-        alerts: asRows(row['alerts']).map(parseAlert),
         backup: parseBackup(
           typeof row['backup'] === 'object' && row['backup'] !== null
             ? (row['backup'] as Row)
             : undefined,
         ),
+      });
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
+  exportAll: async () => {
+    try {
+      // Um documento só, em texto. Cada tabela é um array de objetos com os
+      // nomes de coluna do banco, que é o formato que outra ferramenta lê.
+      const [row] = await sql<{ document: string }[]>`
+        SELECT JSON_BUILD_OBJECT(
+          'exported_at', NOW(),
+          'format', 'patrimonio-export-v1',
+          'tables', JSON_BUILD_OBJECT(
+            'institution', (SELECT COALESCE(JSON_AGG(t ORDER BY t.created_at), '[]'::JSON) FROM institution t),
+            'category', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM category t),
+            'portfolio', (SELECT COALESCE(JSON_AGG(t ORDER BY t.created_at), '[]'::JSON) FROM portfolio t),
+            'asset', (SELECT COALESCE(JSON_AGG(t ORDER BY t.ticker), '[]'::JSON) FROM asset t),
+            'transaction', (SELECT COALESCE(JSON_AGG(t ORDER BY t.trade_date, t.created_at), '[]'::JSON) FROM transaction t),
+            'strategy_target', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM strategy_target t),
+            'goal', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM goal t),
+            'manual_price', (SELECT COALESCE(JSON_AGG(t ORDER BY t.price_date), '[]'::JSON) FROM manual_price t),
+            'announced_payout', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM announced_payout t),
+            'corporate_event', (SELECT COALESCE(JSON_AGG(t ORDER BY t.record_date), '[]'::JSON) FROM corporate_event t),
+            'payout_dismissal', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM payout_dismissal t)
+          )
+        )::TEXT AS document
+      `;
+
+      return success(row?.document ?? '{}');
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
+  deleteAll: async () => {
+    try {
+      // Na ordem das chaves, uma instrução por passo: RESTRICT é conferido na
+      // hora, e apagar lançamento e carteira na mesma instrução o tropeçaria.
+      // A carteira leva junto, por cascata, estratégia, objetivos, posições,
+      // patrimônio diário, resultado realizado, descartes e desfazer.
+      const transactions = await sql`DELETE FROM transaction RETURNING 1`;
+      await sql`DELETE FROM announced_payout`;
+      await sql`DELETE FROM manual_price`;
+      const portfolios = await sql`DELETE FROM portfolio RETURNING 1`;
+      await sql`DELETE FROM tax_month`;
+      await sql`
+        DELETE FROM pipeline_outbox
+         WHERE stage = 'recalc' AND dispatched_at IS NULL AND failed_at IS NULL
+      `;
+      // Mercado fica (origin = 'market'), com os preços dele: não é da pessoa e
+      // recarregar o COTAHIST custa horas.
+      await sql`UPDATE asset SET issuer_id = NULL WHERE issuer_id IS NOT NULL`;
+      const assets = await sql`DELETE FROM asset WHERE origin = 'manual' RETURNING 1`;
+      const institutions = await sql`DELETE FROM institution RETURNING 1`;
+
+      return success({
+        transactions: transactions.length,
+        portfolios: portfolios.length,
+        assets: assets.length,
+        institutions: institutions.length,
       });
     } catch (error) {
       return failure(getRepositoryError(error));

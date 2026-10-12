@@ -29,12 +29,9 @@ const ACOES = '0191e5a0-0000-7000-8000-00000000e205';
 const CDB = '0191e5a0-0000-7000-8000-00000000e301';
 const CDB_2 = '0191e5a0-0000-7000-8000-00000000e302';
 const ITUB4 = '0191e5a0-0000-7000-8000-00000000e303';
-const CAIXA_A = '0191e5a0-0000-7000-8000-00000000e304';
-const CAIXA_B = '0191e5a0-0000-7000-8000-00000000e305';
 
 const OBJETIVO = '0191e5a0-0000-7000-8000-00000000e401';
 const ENCERRADO = '0191e5a0-0000-7000-8000-00000000e402';
-
 
 let sql: Sql;
 let tx: TestTransaction;
@@ -63,7 +60,7 @@ const counting = (
 const transaction = async (
   id: string,
   options: {
-    readonly kind: 'buy' | 'sell' | 'deposit';
+    readonly kind: 'buy' | 'sell';
     readonly portfolio: string;
     readonly institution: string;
     readonly asset?: string;
@@ -128,12 +125,6 @@ beforeEach(async () => {
   await tx`
     INSERT INTO asset (id, ticker, name, origin, category_id, price_source)
     VALUES (${ITUB4}, 'ITUB4', 'Itaú', 'market', ${ACOES}, 'auto')
-  `;
-  await tx`
-    INSERT INTO asset (id, ticker, name, origin, b3_type, issuer_id, price_source)
-    VALUES
-      (${CAIXA_A}, 'CAIXA-CORRETORAA', 'Caixa A', 'manual', 'cash', ${CORRETORA_A}, 'manual'),
-      (${CAIXA_B}, 'CAIXA-BANCOB', 'Caixa B', 'manual', 'cash', ${BANCO_B}, 'manual')
   `;
 });
 
@@ -214,17 +205,6 @@ describe('o instantâneo da tela de configurações', () => {
       goals: [],
       transactions: 0,
       assets: 0,
-    });
-  });
-
-  it('as regras de alerta semeadas pelo mercado chegam, com o limite como veio', async () => {
-    const alerts = unwrapSuccess(await createSettingsRepository(tx).snapshot()).alerts;
-
-    expect(alerts.find((rule) => rule.kind === 'price_stale')).toEqual({
-      kind: 'price_stale',
-      enabled: true,
-      scope: 'global',
-      threshold: { days: 3 },
     });
   });
 });

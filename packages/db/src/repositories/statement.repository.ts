@@ -42,11 +42,10 @@ const GROUP_KINDS: Readonly<Record<string, readonly string[]>> = {
   buy: ['buy'],
   sell: ['sell'],
   payout: ['payout'],
-  cash: ['deposit', 'withdrawal'],
   event: ['corporate_event'],
 };
 
-const FACET_ORDER = ['buy', 'sell', 'payout', 'cash', 'event'] as const;
+const FACET_ORDER = ['buy', 'sell', 'payout', 'event'] as const;
 
 /** `%` e `_` digitados pela pessoa são texto, não curinga. */
 const likePattern = (term: string): string =>
@@ -76,7 +75,7 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
           SELECT p.id, p.name, p.recalc_status
             FROM portfolio p
            WHERE p.archived_at IS NULL
-             AND p.id = ${filter.portfolioId}::UUID
+             AND (${filter.portfolioId}::UUID IS NULL OR p.id = ${filter.portfolioId}::UUID)
         ),
         scoped AS (
           SELECT t.*,
@@ -141,8 +140,6 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
           'summary', (
             SELECT JSONB_BUILD_OBJECT(
               'count', COUNT(*),
-              'deposits', COALESCE(SUM(net_amount) FILTER (WHERE kind = 'deposit'), 0)::NUMERIC(20,2)::TEXT,
-              'withdrawals', COALESCE(SUM(ABS(net_amount)) FILTER (WHERE kind = 'withdrawal'), 0)::NUMERIC(20,2)::TEXT,
               'buys', COALESCE(SUM(ABS(net_amount)) FILTER (WHERE kind = 'buy'), 0)::NUMERIC(20,2)::TEXT,
               'sells', COALESCE(SUM(net_amount) FILTER (WHERE kind = 'sell'), 0)::NUMERIC(20,2)::TEXT,
               'payouts', COALESCE(SUM(net_amount) FILTER (
@@ -158,8 +155,6 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
                          WHEN 'buy' THEN 'buy'
                          WHEN 'sell' THEN 'sell'
                          WHEN 'payout' THEN 'payout'
-                         WHEN 'deposit' THEN 'cash'
-                         WHEN 'withdrawal' THEN 'cash'
                          ELSE 'event'
                        END AS grp,
                        COUNT(*) AS total
@@ -186,8 +181,6 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
                        JSONB_BUILD_OBJECT(
                          'month', TO_CHAR(trade_date, 'YYYY-MM'),
                          'count', COUNT(*),
-                         'deposits', COALESCE(SUM(net_amount) FILTER (WHERE kind = 'deposit'), 0)::NUMERIC(20,2)::TEXT,
-                         'withdrawals', COALESCE(SUM(ABS(net_amount)) FILTER (WHERE kind = 'withdrawal'), 0)::NUMERIC(20,2)::TEXT,
                          'buys', COALESCE(SUM(ABS(net_amount)) FILTER (WHERE kind = 'buy'), 0)::NUMERIC(20,2)::TEXT,
                          'sells', COALESCE(SUM(net_amount) FILTER (WHERE kind = 'sell'), 0)::NUMERIC(20,2)::TEXT,
                          'payouts', COALESCE(SUM(net_amount) FILTER (
@@ -225,7 +218,6 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
                        'confirmed_at', p.confirmed_at,
                        'event_ratio_from', p.event_ratio_from::TEXT,
                        'event_ratio_to', p.event_ratio_to::TEXT,
-                       'note', p.note,
                        'realized_exempt', r.exempt
                      )
                      ORDER BY p.trade_date DESC, p.id DESC

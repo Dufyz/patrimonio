@@ -168,7 +168,6 @@ export const createMarketIngestionRepository = (
            AND asset.price_source = 'auto'
            AND asset.archived_at IS NULL
            AND asset.b3_type IS NOT NULL
-           AND asset.b3_type <> 'cash'
          GROUP BY asset.id, asset.ticker, asset.b3_type, asset.indexer, asset.maturity_date
          ORDER BY asset.ticker
       `;
@@ -213,6 +212,44 @@ export const createMarketIngestionRepository = (
       `;
 
       return success(rows.map((row) => row.price_date as DateOnly));
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
+  assetsPendingHistory: async (limit: number) => {
+    try {
+      const rows = await sql<{ asset_id: string; ticker: string }[]>`
+        SELECT id AS asset_id, ticker
+          FROM asset
+         WHERE origin = 'market'
+           AND archived_at IS NULL
+           AND is_demo = FALSE
+           AND history_synced_at IS NULL
+           AND b3_type IS NOT NULL
+           AND b3_type <> 'treasury'
+         ORDER BY created_at
+         LIMIT ${limit}
+      `;
+
+      return success(rows.map((row) => ({ asset_id: row.asset_id, ticker: row.ticker })));
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
+  markHistorySynced: async (assetIds: readonly string[]) => {
+    if (assetIds.length === 0) return success(0);
+
+    try {
+      const rows = await sql<{ id: string }[]>`
+        UPDATE asset
+           SET history_synced_at = NOW()
+         WHERE id = ANY(${sql.array([...assetIds], ARRAY_OID.uuid)}::UUID[])
+        RETURNING id
+      `;
+
+      return success(rows.length);
     } catch (error) {
       return failure(getRepositoryError(error));
     }

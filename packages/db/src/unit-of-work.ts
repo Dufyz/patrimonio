@@ -21,7 +21,6 @@ import { createInstrumentCatalogRepository } from './repositories/instrument_cat
 import { createLedgerRepository } from './repositories/ledger.repository.js';
 import { createManualPriceRepository } from './repositories/manual_price.repository.js';
 import { createMarketIngestionRepository } from './repositories/market_ingestion.repository.js';
-import { createAlertRepository } from './repositories/alert.repository.js';
 import { createOverviewRepository } from './repositories/overview.repository.js';
 import { createAllocationRepository } from './repositories/allocation.repository.js';
 import { createGoalRepository } from './repositories/goal.repository.js';
@@ -76,7 +75,6 @@ export const createRepositories = (
   statements: createStatementRepository(sql),
   search: createSearchRepository(sql),
   prices: createPriceRepository(sql),
-  alerts: createAlertRepository(sql),
   overview: createOverviewRepository(sql),
   performance: createPerformanceRepository(sql),
   allocation: createAllocationRepository(sql),

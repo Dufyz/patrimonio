@@ -1,4 +1,6 @@
 import type {
+  ClosedPositionFilter,
+  ClosedPositionRow,
   PositionView,
   PositionViewFacetRow,
   PositionViewFilter,
@@ -104,7 +106,7 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
         SELECT p.id AS portfolio_id, p.name AS portfolio_name
           FROM portfolio p
          WHERE p.archived_at IS NULL
-           AND p.id = ${filter.portfolioId}::UUID
+           AND (${filter.portfolioId}::UUID IS NULL OR p.id = ${filter.portfolioId}::UUID)
       ),
       as_of AS (
         SELECT MAX(pd.position_date) AS position_date
@@ -257,12 +259,14 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
                    THEN COALESCE(f.category_id::TEXT, 'sem-categoria')
                  WHEN 'institution'
                    THEN COALESCE(f.institution_id::TEXT, 'sem-instituicao')
+                 WHEN 'portfolio' THEN f.portfolio_id::TEXT
                  ELSE 'sem-grupo'
                END AS group_key,
                CASE ${filter.groupBy}::TEXT
                  WHEN 'category' THEN COALESCE(f.category_name, 'Sem categoria')
                  WHEN 'institution'
                    THEN COALESCE(f.institution_name, 'Sem instituição')
+                 WHEN 'portfolio' THEN f.portfolio_name
                  ELSE 'Posições'
                END AS group_label,
                CASE
@@ -380,7 +384,8 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
           quota AS (
             SELECT pd.position_date, pd.quota_value
               FROM portfolio_daily pd
-             WHERE pd.portfolio_id = ${filter.portfolioId}::UUID
+             WHERE ${filter.portfolioId}::UUID IS NOT NULL
+               AND pd.portfolio_id = ${filter.portfolioId}::UUID
                AND pd.position_date <= (SELECT position_date FROM as_of)
           ),
           header AS (
@@ -472,6 +477,73 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
           institution_facets: aggregate?.institution_facets ?? [],
           header: aggregate?.header ?? EMPTY_HEADER,
         } satisfies PositionView);
+      } catch (error) {
+        return failure(getRepositoryError(error));
+      }
+    },
+
+    closed: async (filter: ClosedPositionFilter) => {
+      try {
+        const search = filter.search === null ? null : `%${filter.search}%`;
+
+        // Encerrado: vendeu e hoje não tem posição no último fechamento. Quem
+        // comprou e ainda não foi consolidado fica de fora (nunca vendeu).
+        const rows = await sql<ClosedPositionRow[]>`
+          WITH scope AS (
+            SELECT p.id FROM portfolio p
+             WHERE (${filter.portfolioId}::UUID IS NULL OR p.id = ${filter.portfolioId}::UUID)
+               AND p.archived_at IS NULL
+          ),
+          as_of AS (
+            SELECT MAX(pd.position_date) AS position_date
+              FROM position_daily pd JOIN scope s ON s.id = pd.portfolio_id
+          ),
+          still_open AS (
+            SELECT DISTINCT pd.asset_id
+              FROM position_daily pd
+              JOIN scope s ON s.id = pd.portfolio_id
+              JOIN as_of a ON a.position_date = pd.position_date
+             WHERE pd.quantity <> 0 OR pd.market_value <> 0
+          ),
+          book AS (
+            SELECT t.asset_id,
+                   MIN(t.trade_date) FILTER (WHERE t.kind IN ('buy', 'sell')) AS first_trade_date,
+                   MAX(t.trade_date) FILTER (WHERE t.kind = 'sell') AS closed_on,
+                   COALESCE(SUM(ABS(t.net_amount)) FILTER (WHERE t.kind = 'buy'), 0) AS invested,
+                   COALESCE(SUM(ABS(t.net_amount)) FILTER (WHERE t.kind = 'sell'), 0) AS proceeds,
+                   COALESCE(SUM(t.net_amount) FILTER (
+                     WHERE t.kind = 'payout' AND t.confirmed_at IS NOT NULL), 0) AS payouts_received
+              FROM transaction t JOIN scope s ON s.id = t.portfolio_id
+             WHERE t.asset_id IS NOT NULL
+             GROUP BY t.asset_id
+            HAVING BOOL_OR(t.kind = 'sell')
+          )
+          SELECT a.id AS asset_id,
+                 a.ticker,
+                 a.name,
+                 c.name AS category_name,
+                 c.color_token,
+                 b.first_trade_date::TEXT AS first_trade_date,
+                 b.closed_on::TEXT AS closed_on,
+                 b.invested::TEXT AS invested,
+                 b.proceeds::TEXT AS proceeds,
+                 b.payouts_received::TEXT AS payouts_received,
+                 (SELECT SUM(rr.result)::TEXT FROM realized_result rr
+                    JOIN scope s ON s.id = rr.portfolio_id
+                   WHERE rr.asset_id = a.id) AS realized_result,
+                 (b.proceeds + b.payouts_received - b.invested)::TEXT AS total_result,
+                 ROUND((b.proceeds + b.payouts_received - b.invested)
+                       / NULLIF(b.invested, 0), ${RATIO_SCALE})::TEXT AS total_result_ratio
+            FROM book b
+            JOIN asset a ON a.id = b.asset_id
+            LEFT JOIN category c ON c.id = a.category_id
+           WHERE b.asset_id NOT IN (SELECT asset_id FROM still_open)
+             AND (${search}::TEXT IS NULL
+                  OR a.ticker ILIKE ${search}::TEXT OR a.name ILIKE ${search}::TEXT)
+           ORDER BY b.closed_on DESC, a.ticker
+        `;
+
+        return success(rows as readonly ClosedPositionRow[]);
       } catch (error) {
         return failure(getRepositoryError(error));
       }
