@@ -3,7 +3,6 @@ VALUES
   ('01960000-0002-7000-8000-000000000001', NULL, 'Ações / Units', 'class.acoes', '{"b3_type": "stock"}'::JSONB, 10),
   ('01960000-0002-7000-8000-000000000002', NULL, 'Ativos Personalizados', 'class.outros', NULL, 20),
   ('01960000-0002-7000-8000-000000000003', NULL, 'BDR', 'class.bdr', '{"b3_type": "bdr"}'::JSONB, 30),
-  ('01960000-0002-7000-8000-000000000004', NULL, 'Caixa', 'class.caixa', '{"b3_type": "cash"}'::JSONB, 40),
   ('01960000-0002-7000-8000-000000000005', NULL, 'CDB', 'class.rf-pos', NULL, 50),
   ('01960000-0002-7000-8000-000000000006', NULL, 'CDCA', 'class.rf-pos', NULL, 60),
   ('01960000-0002-7000-8000-000000000007', NULL, 'COE', 'class.outros', NULL, 70),

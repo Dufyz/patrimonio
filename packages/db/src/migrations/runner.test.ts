@@ -246,7 +246,6 @@ describe('o schema do projeto', () => {
       'transaction',
       'strategy_target',
       'goal',
-      'alert_rule',
       'announced_payout',
       'corporate_event',
     ];

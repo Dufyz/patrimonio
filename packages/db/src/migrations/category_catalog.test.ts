@@ -12,7 +12,7 @@ const ROW =
 
 describe('a migration do catálogo de categorias', () => {
   it('carrega exatamente o catálogo do domínio', async () => {
-    const sql = await readFile(join(HERE, 'up', '029_seed_categories.sql'), 'utf8');
+    const sql = await readFile(join(HERE, 'up', '026_seed_categories.sql'), 'utf8');
 
     const rows = [...sql.matchAll(ROW)].map((match) => ({
       id: match[1],
@@ -29,7 +29,7 @@ describe('a migration do catálogo de categorias', () => {
   });
 
   it('o down remove as mesmas categorias', async () => {
-    const down = await readFile(join(HERE, 'down', '029_seed_categories.sql'), 'utf8');
+    const down = await readFile(join(HERE, 'down', '026_seed_categories.sql'), 'utf8');
     const ids = [...down.matchAll(/'([0-9a-f-]{36})'/g)].map((match) => match[1]);
 
     expect(ids).toEqual(CATEGORY_CATALOG.map((item) => item.id));

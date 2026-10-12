@@ -1,5 +1,5 @@
 CREATE TYPE pipeline_stage AS ENUM (
-  'recalc', 'market', 'close', 'alerts', 'import', 'backup'
+  'recalc', 'market', 'close', 'import', 'backup'
 );
 
 CREATE TABLE pipeline_outbox (

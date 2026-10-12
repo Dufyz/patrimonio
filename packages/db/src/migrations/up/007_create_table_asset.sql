@@ -21,6 +21,8 @@ CREATE TABLE asset (
   liquidity_days SMALLINT,
   tax_regime     tax_regime,
   archived_at    TIMESTAMPTZ,
+  -- Quando o histórico de cotações desde a estreia foi carregado; nulo = pendente.
+  history_synced_at TIMESTAMPTZ,
   is_demo        BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
