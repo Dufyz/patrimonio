@@ -15,6 +15,7 @@ export const MARKET_RUN_KINDS = [
   'treasury',
   'backfill',
   'cotahist',
+  'lookup',
   'contract_check',
 ] as const;
 

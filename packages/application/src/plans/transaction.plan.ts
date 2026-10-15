@@ -1,7 +1,6 @@
 import {
   amountsFor,
   applyLedger,
-  cashBalance,
   costBasisByAsset,
   deviationPp,
   sumValues,
@@ -36,8 +35,6 @@ export type PlanContext = {
   readonly institution_id: string;
   /** Lançamentos do ativo nesta carteira: a sequência do preço médio. */
   readonly asset_entries: readonly LedgerEntry[];
-  /** Lançamentos da carteira nesta instituição: o caixa sai daqui. */
-  readonly institution_entries: readonly LedgerEntry[];
   /** O livro inteiro da carteira: o peso de cada posição sai daqui. */
   readonly portfolio_entries: readonly (LedgerEntry & {
     readonly asset_id: string | null;
@@ -64,8 +61,6 @@ export type TransactionDraft = {
   readonly record_date?: DateOnly | undefined;
   readonly event_ratio_from?: string | undefined;
   readonly event_ratio_to?: string | undefined;
-  readonly note?: string | undefined;
-  readonly outgoing?: boolean | undefined;
 };
 
 export type BeforeAfter = {
@@ -97,7 +92,6 @@ export type TransactionPreview = {
     readonly cost_basis: BeforeAfter;
     readonly weight_pct: BeforeAfter;
   };
-  readonly cash: BeforeAfter;
   readonly portfolio_cost_basis: BeforeAfter;
   readonly allocation: AllocationPreview | null;
   /** Só em venda: o resultado realizado daquela operação. */
@@ -164,7 +158,6 @@ export const planTransaction = (
     unit_price: draft.unit_price,
     fees: draft.fees,
     tax_withheld: draft.tax_withheld,
-    outgoing: draft.outgoing,
   });
 
   const entry = asEntry(draft, amounts.net_amount);
@@ -174,12 +167,6 @@ export const planTransaction = (
 
   const before = applyLedger(assetBefore);
   const after = applyLedger(assetAfter);
-
-  const cashBefore = cashBalance(without(context.institution_entries, context.replacing));
-  const cashAfter = cashBalance([
-    ...without(context.institution_entries, context.replacing),
-    entry,
-  ]);
 
   const assetId = context.asset?.id ?? null;
   const portfolioBefore = context.portfolio_entries.filter(
@@ -257,7 +244,6 @@ export const planTransaction = (
         ),
       },
     },
-    cash: { before: cashBefore, after: cashAfter },
     portfolio_cost_basis: { before: totalBefore, after: totalAfter },
     allocation,
     realized_result:
@@ -300,12 +286,14 @@ export const planEvents = (
   ];
 
   // Primeiro lançamento de um ticker novo: o preço precisa existir desde a data
-  // da compra, e sem isso o patrimônio daquele período nasce errado.
+  // da compra, e sem isso o patrimônio daquele período nasce errado. O payload
+  // não leva data: o backfill vai da primeira compra até o dia em que roda, e a
+  // data do lançamento como fim da janela buscaria um dia só.
   if (context.asset !== null && context.asset.is_new) {
     events.push({
       stage: 'market',
       dedupe_key: dedupeKey.backfill(context.asset.id),
-      payload: { reference_date: fromDate, asset_id: context.asset.id },
+      payload: { asset_id: context.asset.id },
       ...origin,
     });
   }
@@ -320,7 +308,6 @@ export type DeletionPreview = {
     readonly avg_price: BeforeAfter;
     readonly cost_basis: BeforeAfter;
   };
-  readonly cash: BeforeAfter;
   readonly portfolio_cost_basis: BeforeAfter;
   /** O resultado realizado do ativo, que uma venda excluída devolve. */
   readonly realized_result: BeforeAfter;
@@ -358,10 +345,6 @@ export const planDeletion = (
         before: before.position.cost_basis,
         after: after.position.cost_basis,
       },
-    },
-    cash: {
-      before: cashBalance(context.institution_entries),
-      after: cashBalance(keep(context.institution_entries)),
     },
     portfolio_cost_basis: {
       before: sumValues(costsBefore.values()),

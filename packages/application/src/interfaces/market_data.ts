@@ -1,5 +1,12 @@
 import type { IndexUnit } from '@patrimonio/calc';
-import type { B3Type, DateOnly, IndexCode, PriceSourceKind } from '@patrimonio/domain';
+import type {
+  B3Type,
+  DateOnly,
+  IndexCode,
+  InstrumentType,
+  PriceSourceKind,
+  TreasuryIdentity,
+} from '@patrimonio/domain';
 import type { Either } from '@patrimonio/shared';
 
 import type { AppError } from '../errors/app-error.js';
@@ -68,6 +75,8 @@ export type SourcedClosing = ClosingResult & {
   readonly source_kind: PriceSourceKind | 'none';
   /** Requisições consumidas nesta coleta, somando as tentativas. */
   readonly requests: number;
+  /** Por que os elos anteriores foram pulados, quando foram. */
+  readonly skipped?: readonly string[];
 };
 
 /**
@@ -86,6 +95,30 @@ export type QuoteSource = {
   ) => Promise<Either<AppError, SourcedClosing>>;
 };
 
+/**
+ * O histórico de fechamentos vindo dos arquivos anuais da B3, sem cota. É o que
+ * o backfill consulta antes de gastar requisição da brapi, e o que a carga
+ * `seed:cotahist` grava. O preço é o negociado na data, sem ajuste por evento.
+ */
+export type HistoricalPrices = {
+  readonly quotes: readonly PriceQuote[];
+  readonly source: string;
+  readonly lines_read: number;
+  readonly records_kept: number;
+  /** Papéis pedidos que nenhum dos arquivos lidos tem. */
+  readonly missing: readonly string[];
+  /** Os anos cujo arquivo ainda não foi publicado: não é erro, é ausência. */
+  readonly unavailable_years: readonly number[];
+};
+
+export type PriceHistorySource = {
+  readonly fetchRange: (
+    tickers: readonly string[],
+    from: DateOnly,
+    to: DateOnly,
+  ) => Promise<Either<AppError, HistoricalPrices>>;
+};
+
 // ─── Índices ─────────────────────────────────────────────────────────────────
 
 /**
@@ -101,6 +134,8 @@ export type IndexSample = {
   readonly reference_date: DateOnly;
   readonly unit: IndexUnit;
   readonly raw_value: string;
+  /** Quem respondeu, quando o provedor junta fontes; ausente é o próprio provedor. */
+  readonly source?: string | undefined;
 };
 
 export type IndexProvider = {
@@ -122,6 +157,8 @@ export type IndexProvider = {
  */
 export type TreasuryQuote = {
   readonly kind: 'ipca_plus' | 'prefixed' | 'selic_plus';
+  /** Com pagamento de juros semestrais: outro título, mesmo com o mesmo vencimento. */
+  readonly coupon: boolean;
   readonly maturity_date: DateOnly;
   readonly quote_date: DateOnly;
   /** Preço e taxa das duas pontas, guardados separados. */
@@ -136,9 +173,27 @@ export type TreasuryProvider = {
   readonly fetchQuotes: (
     date: DateOnly,
   ) => Promise<Either<AppError, readonly TreasuryQuote[]>>;
+  /** O histórico de um título, quando a fonte o tem: só o CSV do Tesouro Transparente. */
+  readonly fetchHistory?: (
+    identity: TreasuryIdentity,
+    from: DateOnly,
+    to: DateOnly,
+  ) => Promise<Either<AppError, readonly TreasuryQuote[]>>;
+};
+
+export type TreasuryHistory = {
+  readonly quotes: readonly TreasuryQuote[];
+  readonly source: string;
+  readonly source_kind: PriceSourceKind | 'none';
 };
 
 export type TreasurySource = {
+  readonly fetchHistory: (
+    identity: TreasuryIdentity,
+    from: DateOnly,
+    to: DateOnly,
+  ) => Promise<Either<AppError, TreasuryHistory>>;
+
   readonly fetchQuotes: (date: DateOnly) => Promise<
     Either<
       AppError,
@@ -146,6 +201,8 @@ export type TreasurySource = {
         readonly quotes: readonly TreasuryQuote[];
         readonly source: string;
         readonly source_kind: PriceSourceKind | 'none';
+        /** Por que as fontes anteriores da cadeia foram puladas, quando foram. */
+        readonly skipped?: readonly string[];
       }
     >
   >;
@@ -189,4 +246,55 @@ export type CorporateActionProvider = {
       }
     >
   >;
+};
+
+// ─── Catálogo de instrumentos ────────────────────────────────────────────────
+
+/** Um papel como a fonte do catálogo o descreve. */
+export type SourcedInstrument = {
+  readonly ticker: string;
+  readonly name: string;
+  readonly b3_type: InstrumentType;
+  readonly last_trade_date: DateOnly;
+};
+
+export type SourcedInstruments = {
+  readonly instruments: readonly SourcedInstrument[];
+  readonly source: string;
+  /** O último pregão do arquivo: é a régua de quem ainda está sendo negociado. */
+  readonly last_date: DateOnly | null;
+  readonly lines_read: number;
+};
+
+/**
+ * A fonte do catálogo de papéis. Ela lê o arquivo inteiro e devolve um registro
+ * por papel; quem decide o que está ativo e o que fica inativo é o caso de uso.
+ */
+export type InstrumentCatalogSource = {
+  readonly fetchInstruments: () => Promise<Either<AppError, SourcedInstruments>>;
+};
+
+// ─── Busca de papéis ao vivo ─────────────────────────────────────────────────
+
+/** Um papel que a fonte ao vivo achou para o texto digitado. */
+export type LookedUpInstrument = {
+  readonly ticker: string;
+  readonly name: string;
+  readonly b3_type: InstrumentType;
+};
+
+/**
+ * A busca de papéis numa fonte externa, para quando o catálogo local não acha o
+ * que a pessoa digitou. Cada chamada consome uma requisição da cota da fonte, e
+ * quem chama conta e registra.
+ */
+export type InstrumentLookup = {
+  /** A fonte, como aparece em `market_source_run.source`. */
+  readonly id: string;
+  /** O teto mensal de requisições da fonte. */
+  readonly monthlyCeiling: number;
+  readonly search: (
+    text: string,
+    limit: number,
+  ) => Promise<Either<AppError, readonly LookedUpInstrument[]>>;
 };

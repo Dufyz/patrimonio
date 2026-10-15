@@ -1,27 +1,22 @@
 import type {
-  OverviewAttentionItemResource,
   OverviewResource,
   OverviewTopPositionResource,
+  PerformanceResource,
 } from '@patrimonio/contracts';
 import type { DateOnly } from '@patrimonio/domain';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { fetchOverview } from '../api/overview.js';
+import { fetchPerformance } from '../api/performance.js';
 
-import { CompositionBar } from '../components/bars.js';
-import {
-  Money,
-  MoneyChange,
-  Percent,
-  PercentChange,
-  Points,
-} from '../components/number.js';
+import { useEntry } from '../components/entry_provider.js';
+import { Money, MoneyChange, Percent, PercentChange } from '../components/number.js';
 import { OverviewHeader } from '../components/overview_header.js';
 import { KeepPrevious } from '../components/pending.js';
 import { PeriodControl } from '../components/period_control.js';
 import { usePreferences } from '../components/preferences.js';
-import { Chip, IconButton, Label, Panel, PriceHealthDot } from '../components/primitives.js';
+import { Button, IconButton, Panel, PriceHealthDot } from '../components/primitives.js';
 import { SeriesChart } from '../components/series_chart.js';
 import { assetSlug, assetTitle } from '../lib/asset_page.js';
 import type { Period } from '../lib/period.js';
@@ -35,28 +30,38 @@ import {
 } from '../lib/period.js';
 import {
   CONTRIBUTIONS_COLOR,
-  GROUP_LABELS,
-  attentionText,
   formatDate,
   growthBands,
   monthLabel,
   monthTicks,
   percentAsRatio,
   resultColor,
-  trimDecimals,
 } from '../lib/overview.js';
 import type { Resource } from '../lib/use_resource.js';
 import { useResource } from '../lib/use_resource.js';
-import { colorForToken } from '../lib/tokens.js';
+import { SEMANTIC_COLORS, colorForToken } from '../lib/tokens.js';
+import { listParam, readParams, writeParams } from '../lib/url_state.js';
+import { Icon } from '../components/icon.js';
+import { ClassesTable } from './overview_classes.js';
+import { PortfoliosTable } from './overview_portfolios.js';
+import { ReturnsChart } from './overview_returns.js';
+import {
+  SkeletonChart,
+  SkeletonHeader,
+  SkeletonPanel,
+  SkeletonRegion,
+  SkeletonStats,
+  SkeletonTable,
+} from '../components/skeleton.js';
 
 /**
- * T-01 · Visão geral — a prancha `04 · Visão geral`.
+ * T-01 · Visão geral — a prancha `04 · Visão geral`, que também carrega o que
+ * era a tela de Desempenho.
  *
- * A tela responde duas perguntas, nessa ordem: **quanto eu tenho hoje** e **o
- * que precisa de mim**. A ordem é o layout inteiro. O patrimônio e a variação
- * abrem a tela porque é a pergunta que faz a pessoa entrar; o que exige ação
- * fica por último porque é o que a faz sair — e some da tela quando não há
- * nada pendente, em vez de anunciar que está tudo bem.
+ * A tela responde, nessa ordem: **quanto eu tenho hoje**, **como o patrimônio
+ * evoluiu** (aporte separado de rendimento, ou retorno contra benchmarks no
+ * mesmo gráfico) e **como ele está distribuído**. O patrimônio e a variação
+ * abrem a tela porque é a pergunta que faz a pessoa entrar.
  *
  * Nada aqui faz conta com dinheiro. Peso, desvio, variação e rentabilidade
  * chegam prontos da `api`; o que a tela faz com eles é escolher a cor, a casa
@@ -65,10 +70,22 @@ import { colorForToken } from '../lib/tokens.js';
  */
 export type OverviewViewProps = {
   readonly resource: Resource<OverviewResource>;
+  /**
+   * O retorno contra benchmarks: gráfico, janelas e classes. Nulo quando a
+   * leitura não foi pedida; a tela então mostra só o que não depende dela.
+   */
+  readonly performance: Resource<PerformanceResource> | null;
   readonly period: Period;
   readonly onPeriodChange: (period: Period) => void;
+  /** Os benchmarks pedidos além do da carteira, que a URL guarda. */
+  readonly extraIds: readonly string[];
+  readonly onExtraIdsChange: (ids: readonly string[]) => void;
   readonly today: DateOnly;
   readonly onOpenAsset?: ((slug: string) => void) | undefined;
+  /** Leva a outra tela da carteira: `estrategia`, `posicoes`. */
+  readonly onOpenScreen?: ((path: 'estrategia' | 'posicoes') => void) | undefined;
+  /** Abre a Visão geral de uma carteira, a partir da distribuição por carteira. */
+  readonly onOpenPortfolio?: ((portfolioId: string) => void) | undefined;
 };
 
 export type OverviewScreenProps = {
@@ -76,7 +93,11 @@ export type OverviewScreenProps = {
   readonly portfolioId: string | null;
   /** Abre a página do ativo (T-03), pelo mesmo apelido que Posições usa. */
   readonly onOpenAsset?: ((slug: string) => void) | undefined;
+  readonly onOpenScreen?: ((path: 'estrategia' | 'posicoes') => void) | undefined;
+  readonly onOpenPortfolio?: ((portfolioId: string) => void) | undefined;
 };
+
+const CODECS = { benchmarks: listParam('benchmarks') } as const;
 
 /** O relógio entra uma vez, na borda: nenhuma função pura chama `new Date()`. */
 const todayIso = (): DateOnly => new Date().toISOString().slice(0, 10) as DateOnly;
@@ -89,11 +110,14 @@ const todayIso = (): DateOnly => new Date().toISOString().slice(0, 10) as DateOn
 export const OverviewScreen = ({
   portfolioId,
   onOpenAsset,
+  onOpenScreen,
+  onOpenPortfolio,
 }: OverviewScreenProps): React.ReactElement => {
   const [params, setParams] = useSearchParams();
   const today = todayIso();
 
   const period = decodePeriod(params.get('periodo'));
+  const { benchmarks: extraIds } = readParams(params, CODECS);
 
   const onPeriodChange = useCallback(
     (next: Period) => {
@@ -111,6 +135,14 @@ export const OverviewScreen = ({
     [setParams],
   );
 
+  const onExtraIdsChange = useCallback(
+    (ids: readonly string[]) =>
+      setParams((current) => writeParams(current, CODECS, { benchmarks: ids }), {
+        replace: true,
+      }),
+    [setParams],
+  );
+
   /**
    * "Início" só tem significado depois que a primeira resposta diz qual é o
    * primeiro fechamento do escopo. Até lá vale a janela de doze meses, que é a
@@ -124,6 +156,17 @@ export const OverviewScreen = ({
     [portfolioId, range.from, range.to],
   );
 
+  // Em Todas as carteiras a cota é reconstruída sobre a soma, e o benchmark é o
+  // CDI (ou o que a pessoa escolher): nenhuma carteira dita o padrão.
+  const performance = useResource(
+    (signal) =>
+      fetchPerformance(
+        { portfolioId, from: range.from, to: range.to, benchmarks: extraIds },
+        signal,
+      ),
+    [portfolioId, range.from, range.to, extraIds.join(',')],
+  );
+
   useEffect(() => {
     if (resource.state.kind === 'ready') {
       setInception(resource.state.value.scope.inception as DateOnly | null);
@@ -133,10 +176,15 @@ export const OverviewScreen = ({
   return (
     <OverviewView
       resource={resource}
+      performance={performance}
       period={period}
       onPeriodChange={onPeriodChange}
+      extraIds={extraIds}
+      onExtraIdsChange={onExtraIdsChange}
       today={today}
       {...(onOpenAsset === undefined ? {} : { onOpenAsset })}
+      {...(onOpenScreen === undefined ? {} : { onOpenScreen })}
+      {...(onOpenPortfolio === undefined ? {} : { onOpenPortfolio })}
     />
   );
 };
@@ -160,7 +208,7 @@ const Evolution = ({
   if (bands.dates.length === 0) {
     return (
       <p className="flex h-full min-h-40 items-center justify-center text-[0.8125rem] text-ink-3">
-        Sem fechamento no período escolhido.
+        Sem consolidação no período escolhido.
       </p>
     );
   }
@@ -168,6 +216,14 @@ const Evolution = ({
   return (
     <SeriesChart
       dates={bands.dates}
+      series={[
+        {
+          id: 'patrimonio',
+          label: 'Patrimônio',
+          color: SEMANTIC_COLORS.ink,
+          points: bands.total,
+        },
+      ]}
       bands={[
         {
           id: 'aportes',
@@ -181,101 +237,43 @@ const Evolution = ({
           color: resultColor(bands.underwater),
           values: bands.result,
         },
+        ...(bands.hasPayouts
+          ? [
+              {
+                id: 'proventos',
+                label: 'Proventos recebidos',
+                color: SEMANTIC_COLORS.payouts,
+                values: bands.payouts,
+              },
+            ]
+          : []),
       ]}
       valueFormat="money"
       fromZero
-      ariaLabel="Evolução do patrimônio, separando aporte de rendimento"
+      ariaLabel="Evolução do patrimônio, separando aporte, rendimento e proventos"
       xTickLabel={(date) => ticks.get(date) ?? ''}
       tooltipDateLabel={(date) => formatDate(date)}
     />
   );
 };
 
-const Distribution = ({
-  overview,
+/** O link do cabeçalho de um cartão — `Estratégia →`, `Todas · 28 →`. */
+const PanelLink = ({
+  onClick,
+  children,
 }: {
-  readonly overview: OverviewResource;
-}): React.ReactElement => {
-  const nodes = overview.composition.nodes;
-
-  if (nodes.length === 0) {
-    return (
-      <p className="p-4 text-[0.8125rem] text-ink-3">
-        Sem posição em carteira na data do fechamento.
-      </p>
-    );
-  }
-
-  const slices = nodes.map((node) => ({
-    id: node.id,
-    label: node.name,
-    colorToken: node.color_token,
-    share: percentAsRatio(node.current_pct),
-  }));
-
-  const withTarget = nodes.filter((node) => node.target_pct !== null);
-  const out = withTarget.filter((node) => node.over_tolerance);
-
-  return (
-    <div className="flex flex-col gap-3 p-4">
-      <CompositionBar slices={slices} label="Composição por categoria" />
-
-      <table className="w-full">
-        <caption className="sr-only">Distribuição por categoria</caption>
-        <thead>
-          <tr className="text-label tracking-wide text-ink-3 uppercase">
-            <th scope="col" className="pb-1 text-left font-medium">
-              Classe
-            </th>
-            <th scope="col" className="pb-1 text-right font-medium">
-              Atual
-            </th>
-            <th scope="col" className="pb-1 text-right font-medium">
-              vs alvo
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {nodes.map((node) => (
-            <tr
-              key={node.id}
-              className="h-(--row-height) border-t border-line text-[0.8125rem]"
-            >
-              <th scope="row" className="truncate text-left font-normal">
-                <span className="flex items-center gap-2">
-                  <span
-                    aria-hidden="true"
-                    className="size-2 shrink-0 rounded-xs"
-                    style={{ backgroundColor: colorForToken(node.color_token) }}
-                  />
-                  {node.name}
-                </span>
-              </th>
-              <td className="text-right">
-                <Percent value={percentAsRatio(node.current_pct)} decimals={1} />
-              </td>
-              <td className="text-right">
-                <Points
-                  value={node.deviation_pp}
-                  decimals={1}
-                  tone={node.over_tolerance ? 'attention' : 'muted'}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <p className="text-[0.75rem] text-ink-3">
-        {withTarget.length === 0
-          ? 'Nenhum alvo declarado: a estratégia desta carteira ainda não foi definida.'
-          : out.length === 0
-            ? `Todas as classes dentro da tolerância de ${trimDecimals(overview.scope.tolerance_pp)} pp.`
-            : `${out.length} ${out.length === 1 ? 'classe fora' : 'classes fora'} da tolerância de ${trimDecimals(overview.scope.tolerance_pp)} pp.`}
-      </p>
-    </div>
-  );
-};
+  readonly onClick: () => void;
+  readonly children: React.ReactNode;
+}): React.ReactElement => (
+  <button
+    type="button"
+    className="inline-flex cursor-pointer items-center gap-1 text-xs text-accent hover:underline"
+    onClick={onClick}
+  >
+    {children}
+    <Icon name="arrow-right" size={14} />
+  </button>
+);
 
 const TopPositions = ({
   overview,
@@ -295,17 +293,17 @@ const TopPositions = ({
   }
 
   return (
-    <table className="w-full px-4">
+    <table className="w-full">
       <caption className="sr-only">Maiores posições</caption>
       <thead>
-        <tr className="text-label tracking-wide text-ink-3 uppercase">
-          <th scope="col" className="px-4 pb-1 text-left font-medium">
+        <tr className="tabular border-b border-line text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
+          <th scope="col" className="px-4 py-[9px] text-left">
             Ativo
           </th>
-          <th scope="col" className="px-4 pb-1 text-right font-medium">
+          <th scope="col" className="px-4 py-[9px] text-right">
             Valor
           </th>
-          <th scope="col" className="px-4 pb-1 text-right font-medium">
+          <th scope="col" className="px-4 py-[9px] text-right">
             Peso
           </th>
         </tr>
@@ -314,9 +312,12 @@ const TopPositions = ({
         {rows.map((row: OverviewTopPositionResource) => (
           <tr
             key={row.asset_id}
-            className="h-(--row-height) border-t border-line text-[0.8125rem]"
+            className="border-b border-line text-[0.8125rem] last:border-b-0"
           >
-            <th scope="row" className="truncate px-4 text-left font-normal">
+            <th
+              scope="row"
+              className="truncate px-4 py-(--row-pad) text-left font-normal"
+            >
               <span className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
@@ -338,10 +339,10 @@ const TopPositions = ({
                 <PriceHealthDot kind={row.price_source_kind} />
               </span>
             </th>
-            <td className="px-4 text-right">
+            <td className="px-4 py-(--row-pad) text-right">
               <Money value={row.value} decimals={2} />
             </td>
-            <td className="px-4 text-right">
+            <td className="px-4 py-(--row-pad) text-right">
               <Percent value={percentAsRatio(row.weight_pct)} decimals={1} />
             </td>
           </tr>
@@ -351,74 +352,12 @@ const TopPositions = ({
   );
 };
 
-const AttentionRow = ({
-  item,
-  portfolioName,
-}: {
-  readonly item: OverviewAttentionItemResource;
-  readonly portfolioName: string | null;
-}): React.ReactElement => {
-  const text = attentionText(item);
-
-  return (
-    <li className="flex items-center gap-3 border-t border-line px-4 py-2.5 text-[0.8125rem]">
-      <span className="min-w-0 flex-1 truncate">
-        <span className="font-medium">{text.title}</span>
-        <span className="text-ink-3"> · </span>
-        <span className="text-ink-2">{text.detail}</span>
-      </span>
-      {portfolioName === null ? null : <Chip>{portfolioName}</Chip>}
-    </li>
-  );
-};
-
-const Attention = ({
-  overview,
-}: {
-  readonly overview: OverviewResource;
-}): React.ReactElement | null => {
-  // Nenhum bloco aparece vazio: sem pendência, o painel sai da tela.
-  if (overview.attention.groups.length === 0) return null;
-
-  const nameOf = (portfolioId: string | null): string | null =>
-    portfolioId === null
-      ? null
-      : (overview.by_portfolio.find((row) => row.portfolio_id === portfolioId)?.name ??
-        null);
-
-  return (
-    <Panel
-      title={`Requer atenção · ${overview.attention.total}`}
-      hint={overview.attention.groups
-        .map((group) => `${GROUP_LABELS[group.group]} ${group.count}`)
-        .join(' · ')}
-    >
-      {overview.attention.groups.map((group) => (
-        <section key={group.group}>
-          <header className="bg-panel-2 px-4 py-1.5">
-            <Label>{`${GROUP_LABELS[group.group]} · ${group.count}`}</Label>
-          </header>
-          <ul>
-            {group.items.map((item) => (
-              <AttentionRow
-                key={`${item.rule_kind}:${item.subject_id}`}
-                item={item}
-                portfolioName={nameOf(item.portfolio_id)}
-              />
-            ))}
-          </ul>
-        </section>
-      ))}
-    </Panel>
-  );
-};
-
 const Empty = ({ scope }: { readonly scope: string }): React.ReactElement => (
   <section className="rounded-panel border border-line bg-panel p-8 text-center">
-    <h2 className="text-panel-title font-semibold">Nenhum fechamento ainda</h2>
+    <h2 className="text-panel-title font-semibold">Carteira ainda não consolidada</h2>
     <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
-      {scope} não tem posição calculada. O primeiro lançamento começa a história: o
-      fechamento do dia roda em seguida e esta tela passa a responder quanto você tem.
+      {scope} não tem posição calculada. O primeiro lançamento começa a história: a
+      consolidação do dia roda em seguida e esta tela passa a responder quanto você tem.
     </p>
   </section>
 );
@@ -439,7 +378,9 @@ const Failed = ({
     </h2>
     {/* Erro nunca vira "nenhum resultado": uma tela vazia porque a api caiu é
         a pior mentira que uma tela financeira conta. */}
-    <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">{error.message}</p>
+    <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
+      {error.message}
+    </p>
     <button
       type="button"
       className="mt-4 h-control cursor-pointer rounded-control border border-line px-3 text-[0.8125rem] hover:bg-panel-2"
@@ -451,34 +392,142 @@ const Failed = ({
 );
 
 const Skeleton = (): React.ReactElement => (
-  <p aria-busy="true" className="p-8 text-center text-[0.8125rem] text-ink-3">
-    Carregando a visão geral…
+  <SkeletonRegion label="Carregando a visão geral" className="flex flex-col gap-4">
+    <SkeletonHeader />
+    <SkeletonStats count={4} />
+    <SkeletonPanel>
+      <SkeletonChart />
+    </SkeletonPanel>
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <SkeletonPanel title="Carteiras">
+        <SkeletonTable rows={4} columns={3} />
+      </SkeletonPanel>
+      <SkeletonPanel title="Classes de ativo">
+        <SkeletonTable rows={4} columns={3} />
+      </SkeletonPanel>
+    </div>
+    <SkeletonPanel title="Maiores posições">
+      <SkeletonTable rows={5} columns={4} />
+    </SkeletonPanel>
+  </SkeletonRegion>
+);
+
+/** O gráfico do cabeçalho: aporte e rendimento em reais, empilhados. */
+const EvolutionCard = ({
+  overview,
+  period,
+  today,
+}: {
+  readonly overview: OverviewResource;
+  readonly period: Period;
+  readonly today: DateOnly;
+}): React.ReactElement => {
+  const range = resolvePeriod(period, today, overview.scope.inception as DateOnly | null);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-baseline gap-x-3">
+        <h2 className="text-panel-title font-semibold">
+          Evolução {periodSuffix(period)}
+        </h2>
+        <span className="text-[0.75rem] text-ink-3">
+          {formatDayMonth(range.from, today)} – {formatDayMonth(range.to, today)}
+        </span>
+      </div>
+      <Evolution overview={overview} />
+    </div>
+  );
+};
+
+const ReturnsFailed = ({
+  error,
+  onRetry,
+}: {
+  readonly error: Error;
+  readonly onRetry: () => void;
+}): React.ReactElement => (
+  <p
+    role="alert"
+    className="flex flex-wrap items-center gap-3 p-4 text-[0.8125rem] text-negative"
+  >
+    <span>Não foi possível carregar o retorno: {error.message}</span>
+    <button
+      type="button"
+      className="h-control cursor-pointer rounded-control border border-line px-3 text-ink hover:bg-panel-2"
+      onClick={onRetry}
+    >
+      Tentar de novo
+    </button>
   </p>
 );
 
+/** O retorno contra benchmarks, em gráfico próprio e percentual. */
+const ReturnsCard = ({
+  performance,
+  extraIds,
+  onExtraIdsChange,
+  period,
+}: {
+  readonly performance: Resource<PerformanceResource>;
+  readonly extraIds: readonly string[];
+  readonly onExtraIdsChange: (ids: readonly string[]) => void;
+  readonly period: Period;
+}): React.ReactElement => {
+  const { state, reload } = performance;
+
+  return (
+    <Panel
+      title={`Retorno × benchmarks ${periodSuffix(period)}`}
+      hint="pela cota · base 0% · nada anualizado"
+    >
+      <div className="p-4">
+        {state.kind === 'loading' ? (
+          <SkeletonRegion label="Carregando o retorno">
+            <SkeletonChart />
+          </SkeletonRegion>
+        ) : state.kind === 'error' ? (
+          <ReturnsFailed error={state.error} onRetry={reload} />
+        ) : state.value.reference_date === null ? (
+          <p className="text-[0.8125rem] text-ink-3">Sem consolidação no período.</p>
+        ) : (
+          <ReturnsChart
+            data={state.value}
+            extraIds={extraIds}
+            onExtraIdsChange={onExtraIdsChange}
+          />
+        )}
+      </div>
+    </Panel>
+  );
+};
+
 export const OverviewView = ({
   resource,
+  performance,
   period,
   onPeriodChange,
+  extraIds,
+  onExtraIdsChange,
   today,
   onOpenAsset,
+  onOpenScreen,
+  onOpenPortfolio,
 }: OverviewViewProps): React.ReactElement => {
   const { state, pending, reload } = resource;
   const { hidden, toggleHidden } = usePreferences();
+  const entry = useEntry();
 
   if (state.kind === 'loading') return <Skeleton />;
   if (state.kind === 'error') return <Failed error={state.error} onRetry={reload} />;
 
   const overview = state.value;
   const inception = overview.scope.inception;
-  const range = resolvePeriod(period, today, inception);
 
   const subtitle = [
     overview.scope.name,
-    overview.scope.purpose,
     overview.reference_date === null
       ? null
-      : `fechamento de ${formatDate(overview.reference_date as DateOnly)}`,
+      : `consolidação de ${formatDate(overview.reference_date as DateOnly)}`,
   ]
     .filter((part): part is string => part !== null && part !== '')
     .join(' · ');
@@ -487,8 +536,8 @@ export const OverviewView = ({
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-screen-title font-semibold tracking-tight">Visão geral</h1>
-          <p className="truncate text-[0.8125rem] text-ink-2">{subtitle}</p>
+          <h1 className="text-screen-title leading-7 font-semibold">Visão geral</h1>
+          <p className="truncate text-xs text-ink-3">{subtitle}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -505,8 +554,16 @@ export const OverviewView = ({
             aria-pressed={hidden}
             onClick={toggleHidden}
           >
-            <span aria-hidden="true">{hidden ? '◌' : '◉'}</span>
+            <Icon name={hidden ? 'eye-off' : 'eye'} />
           </IconButton>
+          <Button
+            variant="primary"
+            icon="plus"
+            shortcut="N"
+            onClick={() => entry.openEntry()}
+          >
+            Lançamento
+          </Button>
         </div>
       </header>
 
@@ -532,12 +589,14 @@ export const OverviewView = ({
                 })}
             {...(overview.scope.recalc_status === 'running' ||
             overview.scope.recalc_status === 'queued'
-              ? { caveat: 'recalculando: o número é o do último fechamento concluído' }
+              ? { caveat: 'recalculando: o número é o do última consolidação concluída' }
               : {})}
             metrics={[
               {
                 label: `Rentabilidade ${periodSuffix(period)}`,
-                value: <PercentChange value={percentAsRatio(overview.period.return_pct)} />,
+                value: (
+                  <PercentChange value={percentAsRatio(overview.period.return_pct)} />
+                ),
               },
               {
                 label: `Aportes ${periodSuffix(period)}`,
@@ -547,62 +606,84 @@ export const OverviewView = ({
                 label: `Rendimento ${periodSuffix(period)}`,
                 value: <MoneyChange value={overview.period.income} />,
               },
-              overview.totals.weight_pct === null
-                ? {
-                    label: 'Variação do dia',
-                    value: <MoneyChange value={overview.totals.day?.amount ?? null} />,
-                  }
-                : {
-                    label: 'Peso no patrimônio',
-                    value: (
-                      <Percent
-                        value={percentAsRatio(overview.totals.weight_pct)}
-                        decimals={1}
-                      />
-                    ),
-                  },
+              {
+                label: 'Variação do dia',
+                value: <MoneyChange value={overview.totals.day?.amount ?? null} />,
+              },
             ]}
-            chart={
-              <div className="flex flex-col gap-2">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h2 className="text-panel-title font-semibold">
-                    Evolução {periodSuffix(period)}
-                  </h2>
-                  <span className="text-[0.75rem] text-ink-3">
-                    {formatDayMonth(range.from, today)} – {formatDayMonth(range.to, today)}
-                  </span>
-                </div>
-                <Evolution overview={overview} />
-              </div>
-            }
+            chart={<EvolutionCard overview={overview} period={period} today={today} />}
           />
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {overview.scope.portfolio_id === null ? (
             <Panel
-              title="Distribuição por categoria"
-              hint={
-                overview.scope.portfolio_id === null
-                  ? 'o alvo é declarado por carteira'
-                  : undefined
+              title="Distribuição por carteira"
+              hint="peso e retorno pela cota de cada carteira"
+              className="flex flex-col"
+            >
+              <PortfoliosTable
+                overview={overview}
+                performance={
+                  performance !== null && performance.state.kind === 'ready'
+                    ? performance.state.value
+                    : null
+                }
+                {...(onOpenPortfolio === undefined ? {} : { onOpenPortfolio })}
+              />
+            </Panel>
+          ) : null}
+
+          {performance === null ? null : (
+            <ReturnsCard
+              performance={performance}
+              extraIds={extraIds}
+              onExtraIdsChange={onExtraIdsChange}
+              period={period}
+            />
+          )}
+
+          <Panel
+            title="Por classe de ativo"
+            hint={
+              overview.scope.portfolio_id === null
+                ? 'peso e retorno somando as carteiras · Dietz modificado, a classe não tem cota'
+                : 'peso, alvo e retorno · Dietz modificado, a classe não tem cota'
+            }
+            className="flex flex-col"
+            action={
+              onOpenScreen === undefined ||
+              overview.scope.portfolio_id === null ? undefined : (
+                <PanelLink onClick={() => onOpenScreen('estrategia')}>
+                  Estratégia
+                </PanelLink>
+              )
+            }
+          >
+            <ClassesTable
+              overview={overview}
+              performance={
+                performance !== null && performance.state.kind === 'ready'
+                  ? performance.state.value
+                  : null
               }
-            >
-              <Distribution overview={overview} />
-            </Panel>
+            />
+          </Panel>
 
-            <Panel
-              title="Maiores posições"
-              hint={`${overview.top_positions.total_count} no total`}
-            >
-              <div className="p-4">
-                <TopPositions
-                  overview={overview}
-                  {...(onOpenAsset === undefined ? {} : { onOpenAsset })}
-                />
-              </div>
-            </Panel>
-          </div>
-
-          <Attention overview={overview} />
+          <Panel
+            title="Maiores posições"
+            className="flex flex-col"
+            action={
+              onOpenScreen === undefined ? undefined : (
+                <PanelLink onClick={() => onOpenScreen('posicoes')}>
+                  Todas · {overview.top_positions.total_count}
+                </PanelLink>
+              )
+            }
+          >
+            <TopPositions
+              overview={overview}
+              {...(onOpenAsset === undefined ? {} : { onOpenAsset })}
+            />
+          </Panel>
         </KeepPrevious>
       )}
     </div>

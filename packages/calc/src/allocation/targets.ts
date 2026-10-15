@@ -47,3 +47,30 @@ export const duplicatedCategories = (
 
   return [...duplicated];
 };
+
+/**
+ * O alvo de um grupo já cobre as categorias dentro dele: declarar também uma
+ * delas contaria o mesmo patrimônio duas vezes, e a soma de 100% deixaria de
+ * querer dizer "tudo". Devolve os grupos que têm alvo próprio e categoria alvo
+ * dentro.
+ */
+export const overlappingGroups = (
+  targets: readonly AllocationTarget[],
+  categories: readonly { readonly id: string; readonly parent_id: string | null }[],
+): readonly string[] => {
+  const parentOf = new Map(
+    categories.map((category) => [category.id, category.parent_id]),
+  );
+  const targeted = new Set(targets.map((target) => target.category_id));
+
+  const overlapped = new Set<string>();
+
+  for (const target of targets) {
+    const parent = parentOf.get(target.category_id);
+    if (parent !== null && parent !== undefined && targeted.has(parent)) {
+      overlapped.add(parent);
+    }
+  }
+
+  return [...overlapped];
+};

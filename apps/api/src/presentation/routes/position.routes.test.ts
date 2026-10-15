@@ -28,12 +28,12 @@ let itub4: string;
 /** O fechamento é do worker; aqui ele é escrito à mão, que é o que a tela lê. */
 const fecharDia = async (date: string): Promise<void> => {
   await harness.sql`
-    insert into position_daily
+    INSERT INTO position_daily
       (portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
        market_value, price_source_kind)
-    values
+    VALUES
       (${carteira}, ${itub4}, ${date}, '500', '29.10', '14550.00', '18420.00', 'fresh')
-    on conflict (portfolio_id, asset_id, position_date) do nothing
+    ON CONFLICT (portfolio_id, asset_id, position_date) DO NOTHING
   `;
 };
 
@@ -89,7 +89,7 @@ describe('GET /api/positions', () => {
     const body = positionsResourceSchema.parse(response.body);
 
     expect(body.as_of).toBe(hoje());
-    expect(body.group_by).toBe('category');
+    expect(body.group_by).toBe('class');
     expect(body.total.count).toBe(1);
     expect(body.total.value).toBe('18420.00');
     expect(body.groups[0]?.label).toBe('Ações');
@@ -141,15 +141,19 @@ describe('GET /api/positions', () => {
     expect(body.payouts_12m).toBe('0');
   });
 
-  it('sem carteira, o escopo é todas elas', async () => {
+  it('sem carteira a rota soma todas as carteiras e agrupa por carteira', async () => {
     await fecharDia(hoje());
-    const body = positionsResourceSchema.parse((await listar()).body);
+    const body = positionsResourceSchema.parse((await listar('group_by=portfolio')).body);
 
-    expect(body.total.count).toBe(1);
+    expect(body.group_by).toBe('portfolio');
+    expect(body.groups[0]?.label).toBe('Longo prazo');
+    expect(body.total.value).toBe('18420.00');
+    expect(body.day_change_ratio).toBeNull();
+    expect(body.return_12m_ratio).toBeNull();
   });
 
   it('agrupamento desconhecido é recusado com 400, e não ignorado', async () => {
-    const response = await listar('group_by=setor');
+    const response = await listar(`portfolio_id=${carteira}&group_by=setor`);
 
     expect(response.status).toBe(400);
   });
@@ -164,5 +168,78 @@ describe('GET /api/positions', () => {
     const docs = await request(harness.app).get('/api/docs.json');
 
     expect(docs.body.paths['/api/positions']?.get?.tags).toContain('Posições');
+  });
+});
+
+describe('GET /api/positions por classe', () => {
+  it('agrupa e filtra pela classe, e a categoria continua em cada linha', async () => {
+    await fecharDia(hoje());
+
+    // "Renda variável" é a classe; Ações e ETF de ações são categorias dentro dela.
+    const classe = await request(harness.app)
+      .post('/api/categories')
+      .send({ name: 'Renda variável', color_token: 'class.acoes' });
+    const classeId = classe.body.category.id as string;
+    await request(harness.app)
+      .patch(`/api/categories/${acoes}`)
+      .send({ parent_id: classeId });
+    const etfs = await request(harness.app)
+      .post('/api/categories')
+      .send({ name: 'ETF de ações', color_token: 'class.etf', parent_id: classeId });
+
+    const compra = await request(harness.app)
+      .post('/api/transactions')
+      .send({
+        kind: 'buy',
+        portfolio_id: carteira,
+        institution_id: corretora,
+        asset: {
+          ticker: 'BOVA11',
+          name: 'iShares Ibovespa',
+          b3_type: 'etf',
+          category_id: etfs.body.category.id,
+        },
+        trade_date: '2026-02-02',
+        quantity: '10',
+        unit_price: '100',
+        fees: '0',
+      });
+    await harness.sql`
+      INSERT INTO position_daily
+        (portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
+         market_value, price_source_kind)
+      VALUES
+        (${carteira}, ${compra.body.transaction.asset_id as string}, ${hoje()}, '10', '100', '1000.00',
+         '1100.00', 'fresh')
+    `;
+
+    const body = positionsResourceSchema.parse(
+      (await listar(`portfolio_id=${carteira}`)).body,
+    );
+
+    expect(body.groups).toHaveLength(1);
+    expect(body.groups[0]?.label).toBe('Renda variável');
+    expect(body.groups[0]?.positions.map((row) => row.category_name).sort()).toEqual([
+      'Ações',
+      'ETF de ações',
+    ]);
+    expect(
+      body.groups[0]?.positions.every((row) => row.class_name === 'Renda variável'),
+    ).toBe(true);
+    expect(body.facets.map((facet) => facet.label)).toEqual(['Renda variável']);
+
+    const filtrado = positionsResourceSchema.parse(
+      (await listar(`portfolio_id=${carteira}&category_id=${classeId}`)).body,
+    );
+    expect(filtrado.groups[0]?.positions).toHaveLength(2);
+
+    // Por categoria, as mesmas posições se separam em dois grupos.
+    const porCategoria = positionsResourceSchema.parse(
+      (await listar(`portfolio_id=${carteira}&group_by=category`)).body,
+    );
+    expect(porCategoria.groups.map((grupo) => grupo.label).sort()).toEqual([
+      'Ações',
+      'ETF de ações',
+    ]);
   });
 });

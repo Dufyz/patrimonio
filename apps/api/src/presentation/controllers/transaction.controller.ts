@@ -2,25 +2,22 @@ import type {
   confirmPayout,
   deleteTransaction,
   interpretTransaction,
-  createCashMovement,
   createPayout,
   dismissPayout,
   previewPayout,
-  previewTransfer,
   createTransaction,
   getTransaction,
   listTransactions,
+  previewCorporateEvent,
   previewTransaction,
   previewUpdate,
-  transferPosition,
   undoDeletion,
   updateTransaction,
 } from '@patrimonio/application';
 import type {
   ConfirmPayoutBody,
-  CreateCashMovementBody,
+  CorporateEventPreviewBody,
   DismissPayoutBody,
-  TransferPositionBody,
   CreatePayoutBody,
   CreateTransactionBody,
   InterpretTransactionBody,
@@ -33,14 +30,12 @@ import { idempotencyKey, sendFailure, validatedQuery } from '../middleware/respo
 export type TransactionDeps = {
   readonly usecases: {
     readonly createTransaction: ReturnType<typeof createTransaction>;
-    readonly createCashMovement: ReturnType<typeof createCashMovement>;
     readonly createPayout: ReturnType<typeof createPayout>;
     readonly confirmPayout: ReturnType<typeof confirmPayout>;
     readonly dismissPayout: ReturnType<typeof dismissPayout>;
-    readonly transferPosition: ReturnType<typeof transferPosition>;
     readonly previewPayout: ReturnType<typeof previewPayout>;
-    readonly previewTransfer: ReturnType<typeof previewTransfer>;
     readonly previewTransaction: ReturnType<typeof previewTransaction>;
+    readonly previewCorporateEvent: ReturnType<typeof previewCorporateEvent>;
     readonly listTransactions: ReturnType<typeof listTransactions>;
     readonly getTransaction: ReturnType<typeof getTransaction>;
     readonly updateTransaction: ReturnType<typeof updateTransaction>;
@@ -53,13 +48,10 @@ export type TransactionDeps = {
 
 export type TransactionController = {
   readonly create: RequestHandler;
-  readonly cash: RequestHandler;
   readonly payout: RequestHandler;
   readonly confirm: RequestHandler;
   readonly dismiss: RequestHandler;
-  readonly transfer: RequestHandler;
   readonly previewPayout: RequestHandler;
-  readonly previewTransfer: RequestHandler;
   readonly preview: RequestHandler;
   readonly list: RequestHandler;
   readonly detail: RequestHandler;
@@ -117,43 +109,6 @@ export const createTransactionController = (
               already_queued: queued.already_queued,
             },
       message: replayed ? 'Lançamento já havia sido criado' : 'Lançamento criado',
-    });
-  },
-
-  /**
-   * Aporte e resgate. O caixa é um ativo sintético por instituição, criado na
-   * primeira vez que dinheiro entra ali: o aporte é um lançamento como os
-   * outros, e o dinheiro parado aparece em Posições e na alocação.
-   */
-  cash: async (request, response) => {
-    const body = request.body as CreateCashMovementBody;
-
-    const result = await deps.usecases.createCashMovement({
-      ...body,
-      ...(idempotencyKey(request) === undefined
-        ? {}
-        : { idempotency_key: idempotencyKey(request) }),
-      origin_request_id: request.requestId,
-    });
-
-    if (result.isFailure()) {
-      sendFailure(request, response, result.value);
-      return;
-    }
-
-    response.status(result.value.replayed ? 200 : 201).json({
-      transactions: result.value.transactions,
-      preview: result.value.preview,
-      recalculation: result.value.queued.map((event) => ({
-        job_id: event.id,
-        dedupe_key: event.dedupe_key,
-        already_queued: event.already_queued,
-      })),
-      message: result.value.replayed
-        ? 'Lançamento já havia sido criado'
-        : body.kind === 'deposit'
-          ? 'Aporte registrado'
-          : 'Resgate registrado',
     });
   },
 
@@ -247,40 +202,6 @@ export const createTransactionController = (
   },
 
   /**
-   * Mover uma posição entre carteiras. As duas pernas nascem na mesma
-   * transação: uma perna sozinha quebraria o patrimônio total.
-   */
-  transfer: async (request, response) => {
-    const body = request.body as TransferPositionBody;
-
-    const result = await deps.usecases.transferPosition({
-      ...body,
-      ...(idempotencyKey(request) === undefined
-        ? {}
-        : { idempotency_key: idempotencyKey(request) }),
-      origin_request_id: request.requestId,
-    });
-
-    if (result.isFailure()) {
-      sendFailure(request, response, result.value);
-      return;
-    }
-
-    response.status(result.value.replayed ? 200 : 201).json({
-      transactions: result.value.transactions,
-      preview: result.value.preview,
-      recalculation: result.value.queued.map((event) => ({
-        job_id: event.id,
-        dedupe_key: event.dedupe_key,
-        already_queued: event.already_queued,
-      })),
-      message: result.value.replayed
-        ? 'Transferência já havia sido feita'
-        : 'Posição movida',
-    });
-  },
-
-  /**
    * O provento antes de salvar: a quantidade na data-com, o bruto e o IR retido
    * saem do mesmo cálculo da gravação, e nada é criado.
    */
@@ -298,21 +219,26 @@ export const createTransactionController = (
     response.status(200).json(result.value);
   },
 
-  previewTransfer: async (request, response) => {
-    const result = await deps.usecases.previewTransfer({
-      ...(request.body as TransferPositionBody),
-      origin_request_id: request.requestId,
-    });
+  preview: async (request, response) => {
+    const body = request.body as CreateTransactionBody | CorporateEventPreviewBody;
 
-    if (result.isFailure()) {
-      sendFailure(request, response, result.value);
+    if ('event_kind' in body) {
+      const event = await deps.usecases.previewCorporateEvent({
+        asset_id: body.asset_id,
+        record_date: body.record_date,
+        ratio_from: body.ratio_from,
+        ratio_to: body.ratio_to,
+      });
+
+      if (event.isFailure()) {
+        sendFailure(request, response, event.value);
+        return;
+      }
+
+      response.status(200).json({ preview: event.value });
       return;
     }
 
-    response.status(200).json({ preview: result.value });
-  },
-
-  preview: async (request, response) => {
     const result = await deps.usecases.previewTransaction({
       ...(request.body as CreateTransactionBody),
       origin_request_id: request.requestId,

@@ -31,13 +31,7 @@ const lancar = async (body: Record<string, unknown>) => {
   return response.body.transaction as { id: string; asset_id: string };
 };
 
-const compra = (
-  ticker: string,
-  name: string,
-  trade_date: string,
-  portfolio: string,
-  note?: string,
-) => ({
+const compra = (ticker: string, name: string, trade_date: string, portfolio: string) => ({
   kind: 'buy',
   portfolio_id: portfolio,
   institution_id: corretora,
@@ -46,11 +40,13 @@ const compra = (
   quantity: '100',
   unit_price: '30.00',
   fees: '0',
-  ...(note === undefined ? {} : { note }),
 });
 
+const comCarteira = (query: string): string =>
+  query.includes('portfolio_id=') ? query : `${query}&portfolio_id=${carteira}`;
+
 const buscar = async (query: string): Promise<SearchResource> => {
-  const response = await request(harness.app).get(`/api/search?${query}`);
+  const response = await request(harness.app).get(`/api/search?${comCarteira(query)}`);
   expect(response.status, JSON.stringify(response.body)).toBe(200);
   return searchResourceSchema.parse(response.body);
 };
@@ -91,17 +87,6 @@ describe('o que a busca acha', () => {
     expect(body.transactions.items[0]?.portfolio_name).toBe('Longo prazo');
   });
 
-  it('acha o lançamento pela observação, não só pelo ativo', async () => {
-    const comNota = await lancar(
-      compra('WEGE3', 'WEG ON', '2026-03-13', carteira, 'reforço antes do resultado'),
-    );
-
-    const body = await buscar('q=reforço');
-
-    expect(body.assets.items).toEqual([]);
-    expect(body.transactions.items.map((row) => row.id)).toEqual([comNota.id]);
-  });
-
   it('restringe os lançamentos à carteira da query', async () => {
     await lancar(compra('ITUB4', 'Itaú Unibanco PN', '2026-03-12', carteira));
     const naReserva = await lancar(
@@ -133,16 +118,43 @@ describe('o que a busca acha', () => {
   });
 });
 
+describe('papéis do catálogo', () => {
+  it('acha o papel do catálogo sem que ele seja ativo, sem usar o fallback', async () => {
+    await harness.sql`
+      INSERT INTO listed_instrument (id, ticker, name, b3_type, source, active)
+      VALUES (${'0191e5a0-0000-7000-8000-0000000d0001'}, 'BOVA11', 'ISHARES BOVA', 'etf',
+              'cotahist-catalog', TRUE)
+    `;
+
+    const body = await buscar('q=bova');
+
+    expect(body.assets.items).toEqual([]);
+    expect(body.instruments.items).toEqual([
+      {
+        ticker: 'BOVA11',
+        name: 'ISHARES BOVA',
+        b3_type: 'etf',
+        maturity_date: null,
+        source: 'catalog',
+      },
+    ]);
+    expect(body.instruments.fallback).toBe('none');
+  });
+});
+
 describe('o que a busca recusa', () => {
   it.each([
     ['sem texto', ''],
+    ['sem carteira', 'q=itub&limit=5&sem-carteira=1'],
     ['só espaço', 'q=%20%20'],
     ['texto longo demais', `q=${'a'.repeat(81)}`],
     ['carteira que não é UUID', 'q=itub&portfolio_id=longo-prazo'],
     ['limite acima de dez', 'q=itub&limit=11'],
     ['limite zero', 'q=itub&limit=0'],
   ])('responde 400 para %s', async (_caso, query) => {
-    const response = await request(harness.app).get(`/api/search?${query}`);
+    const response = await request(harness.app).get(
+      `/api/search?${query === 'q=itub&limit=5&sem-carteira=1' ? query : comCarteira(query)}`,
+    );
 
     expect(response.status).toBe(400);
   });

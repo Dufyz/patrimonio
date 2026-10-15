@@ -30,7 +30,7 @@ export type { QueuedWork } from './support/primitives.schema.js';
 export {
   portfolioResourceSchema,
   portfolioWritableSchema,
-  rebalanceModeSchema,
+  benchmarkSchema,
   recalcStatusSchema,
   strategyTargetResourceSchema,
 } from './portfolio/portfolio.schema.js';
@@ -54,42 +54,22 @@ export type { DeletePortfolioBody } from './portfolio/deletePortfolio.schema.js'
 export { getStrategySchema, putStrategySchema } from './portfolio/putStrategy.schema.js';
 export type { PutStrategyBody } from './portfolio/putStrategy.schema.js';
 
-export {
-  fgcExposureResourceSchema,
-  institutionResourceSchema,
-  institutionRoleSchema,
-  institutionWritableSchema,
-} from './institution/institution.schema.js';
-export type {
-  FgcExposureResource,
-  InstitutionResource,
-  InstitutionWritable,
-} from './institution/institution.schema.js';
-export { createInstitutionSchema } from './institution/createInstitution.schema.js';
-export type { CreateInstitutionBody } from './institution/createInstitution.schema.js';
-export { updateInstitutionSchema } from './institution/updateInstitution.schema.js';
-export type { UpdateInstitutionBody } from './institution/updateInstitution.schema.js';
-export {
-  deleteInstitutionSchema,
-  getFgcExposureSchema,
-  listInstitutionsSchema,
-} from './institution/listInstitutions.schema.js';
+export { institutionResourceSchema } from './institution/institution.schema.js';
+export type { InstitutionResource } from './institution/institution.schema.js';
+export { listInstitutionsSchema } from './institution/listInstitutions.schema.js';
 
+export { categoryResourceSchema } from './category/category.schema.js';
+export type { CategoryResource } from './category/category.schema.js';
+export { listCategoriesSchema } from './category/listCategories.schema.js';
 export {
-  autoRuleSchema,
-  categoryResourceSchema,
-  categoryWritableSchema,
-  colorToken,
-} from './category/category.schema.js';
-export type { CategoryResource, CategoryWritable } from './category/category.schema.js';
-export { createCategorySchema } from './category/createCategory.schema.js';
-export type { CreateCategoryBody } from './category/createCategory.schema.js';
-export { updateCategorySchema } from './category/updateCategory.schema.js';
-export type { UpdateCategoryBody } from './category/updateCategory.schema.js';
-export {
+  createCategorySchema,
   deleteCategorySchema,
-  listCategoriesSchema,
-} from './category/listCategories.schema.js';
+  updateCategorySchema,
+} from './category/writeCategory.schema.js';
+export type {
+  CreateCategoryBody,
+  UpdateCategoryBody,
+} from './category/writeCategory.schema.js';
 
 export {
   assetOriginSchema,
@@ -168,8 +148,6 @@ export {
   getTransactionSchema,
   listTransactionsSchema,
 } from './transaction/listTransactions.schema.js';
-export { createCashMovementSchema } from './transaction/createCashMovement.schema.js';
-export type { CreateCashMovementBody } from './transaction/createCashMovement.schema.js';
 export {
   createPayoutSchema,
   payoutPreviewSchema,
@@ -189,12 +167,6 @@ export type {
   DismissPayoutBody,
 } from './transaction/confirmPayout.schema.js';
 export {
-  previewTransferSchema,
-  transferPositionSchema,
-  transferPreviewSchema,
-} from './transaction/transferPosition.schema.js';
-export type { TransferPositionBody } from './transaction/transferPosition.schema.js';
-export {
   confirmCorporateEventSchema,
   corporateEventKindSchema,
   corporateEventResourceSchema,
@@ -205,6 +177,14 @@ export type {
   CorporateEventResource,
   RegisterCorporateEventBody,
 } from './corporate_event/corporateEvent.schema.js';
+export {
+  corporateEventPreviewBodySchema,
+  corporateEventPreviewSchema,
+} from './corporate_event/corporateEventPreview.schema.js';
+export type {
+  CorporateEventPreviewBody,
+  CorporateEventPreviewResource,
+} from './corporate_event/corporateEventPreview.schema.js';
 export {
   previewUpdateSchema,
   updateTransactionSchema,
@@ -228,12 +208,42 @@ export type {
   SetManualPriceResponse,
 } from './asset/manualPrice.schema.js';
 export {
+  caixinhaLotSchema,
+  caixinhaRedemptionPlanSchema,
+  caixinhaResponseSchema,
+  caixinhaSliceSchema,
+  getCaixinhaSchema,
+  previewCaixinhaRedemptionSchema,
+  redeemCaixinhaSchema,
+  redemptionRuleResourceSchema,
+} from './asset/caixinha.schema.js';
+export type {
+  CaixinhaRedemptionBody,
+  CaixinhaRedemptionPlan,
+  GetCaixinhaResponse,
+} from './asset/caixinha.schema.js';
+export {
+  custodyTransferResourceSchema,
+  deleteCustodyTransferSchema,
+  listCustodyTransfersResponseSchema,
+  listCustodyTransfersSchema,
+  transferCustodyResponseSchema,
+  transferCustodySchema,
+} from './asset/custodyTransfer.schema.js';
+export type {
+  CustodyTransferResource,
+  TransferCustodyBody,
+  TransferCustodyResponse,
+} from './asset/custodyTransfer.schema.js';
+export {
   interpretTransactionSchema,
   textInterpretationSchema,
 } from './transaction/interpretTransaction.schema.js';
 export type { InterpretTransactionBody } from './transaction/interpretTransaction.schema.js';
 export {
   assetPriceSeriesSchema,
+  catalogHealthSchema,
+  catalogKeySchema,
   getAssetPriceSeriesSchema,
   getMarketHealthSchema,
   marketHealthSchema,
@@ -246,6 +256,7 @@ export {
 } from './market/market.schema.js';
 export type {
   AssetPriceSeriesResource,
+  CatalogHealthResource,
   MarketHealth,
   RefreshMarketBody,
   SourceStatusResource,
@@ -276,13 +287,21 @@ export {
   listPositionsSchema,
 } from './position/listPositions.schema.js';
 export type { ListPositionsQuery } from './position/listPositions.schema.js';
+export {
+  closedPositionSchema,
+  closedPositionsResourceSchema,
+  listClosedPositionsSchema,
+} from './position/listClosedPositions.schema.js';
+export type {
+  ClosedPosition,
+  ClosedPositionsResource,
+  ListClosedPositionsQuery,
+} from './position/listClosedPositions.schema.js';
 
 export {
   compositionChildSchema,
   compositionNodeSchema,
   getOverviewSchema,
-  overviewAttentionItemSchema,
-  overviewAttentionSchema,
   overviewChangeSchema,
   overviewCompositionSchema,
   overviewPeriodSchema,
@@ -294,8 +313,6 @@ export {
   overviewTotalsSchema,
 } from './overview/overview.schema.js';
 export type {
-  OverviewAttentionItemResource,
-  OverviewAttentionResource,
   OverviewCompositionResource,
   OverviewPointResource,
   OverviewPortfolioShareResource,
@@ -308,14 +325,18 @@ export {
   SEARCH_GROUP_LIMIT_MAX,
   getSearchSchema,
   searchAssetSchema,
+  searchFallbackSchema,
   searchHoldingSchema,
+  searchInstrumentSchema,
   searchResourceSchema,
   searchTransactionSchema,
 } from './search/search.schema.js';
 export type {
   GetSearchQuery,
   SearchAsset,
+  SearchFallback,
   SearchHolding,
+  SearchInstrument,
   SearchResource,
   SearchTransaction,
 } from './search/search.schema.js';
@@ -348,24 +369,19 @@ export {
   performanceBenchmarkSchema,
   performanceBreakdownKeySchema,
   performanceBreakdownSchema,
+  performancePortfolioRowSchema,
   performanceChartSchema,
   performanceClassRowSchema,
-  performanceDecompositionSchema,
   performanceMethodSchema,
-  performanceMonthlySchema,
-  performancePortfolioRowSchema,
   performanceSchema,
   performanceScopeSchema,
   performanceWindowKeySchema,
   performanceWindowsSchema,
-  performanceYearSchema,
 } from './performance/performance.schema.js';
 export type {
   PerformanceBenchmarkResource,
   PerformanceBreakdownResource,
-  PerformanceDecompositionResource,
   PerformanceMethodResource,
-  PerformanceMonthlyResource,
   PerformanceResource,
   PerformanceWindowsResource,
 } from './performance/performance.schema.js';
@@ -393,7 +409,6 @@ export {
   goalChartSchema,
   goalContributionRowSchema,
   goalPaceSchema,
-  goalPortfolioSchema,
   goalProjectionSchema,
   goalRateSchema,
   goalSchema,
@@ -409,25 +424,21 @@ export type {
 } from './goal/goal.schema.js';
 
 export {
+  DELETE_ALL_PHRASE,
   backupQueuedSchema,
+  deleteAllDataResultSchema,
+  deleteAllDataSchema,
+  exportDataSchema,
   getSettingsSchema,
   runBackupSchema,
-  settingsAlertRuleSchema,
   settingsArchivedPortfolioSchema,
   settingsBackupSchema,
-  settingsBenchmarkSchema,
-  settingsCategorySchema,
-  settingsInstitutionSchema,
   settingsLedgerDefaultsSchema,
   settingsPortfolioSchema,
   settingsSchema,
 } from './settings/settings.schema.js';
 export type {
   Settings,
-  SettingsAlertRule,
   SettingsBackup,
-  SettingsBenchmark,
-  SettingsCategory,
-  SettingsInstitution,
   SettingsPortfolio,
 } from './settings/settings.schema.js';

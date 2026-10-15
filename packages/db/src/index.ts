@@ -11,8 +11,10 @@ export { createBusinessDayRepository } from './repositories/business_day.reposit
 export { createPortfolioRepository } from './repositories/portfolio.repository.js';
 export { createInstitutionRepository } from './repositories/institution.repository.js';
 export { createCategoryRepository } from './repositories/category.repository.js';
+export { createInstrumentCatalogRepository } from './repositories/instrument_catalog.repository.js';
 export { createAssetRepository } from './repositories/asset.repository.js';
 export { createLedgerRepository } from './repositories/ledger.repository.js';
+export { createCustodyTransferRepository } from './repositories/custody_transfer.repository.js';
 export { createManualPriceRepository } from './repositories/manual_price.repository.js';
 export { createTransactionRepository } from './repositories/transaction.repository.js';
 export { createPayoutDismissalRepository } from './repositories/payout_dismissal.repository.js';
@@ -24,7 +26,6 @@ export { createAssetPageRepository } from './repositories/asset_page.repository.
 export { createSearchRepository } from './repositories/search.repository.js';
 export { createStatementRepository } from './repositories/statement.repository.js';
 export { createPriceRepository } from './repositories/price.repository.js';
-export { createAlertRepository } from './repositories/alert.repository.js';
 export { createOverviewRepository } from './repositories/overview.repository.js';
 export { createAllocationRepository } from './repositories/allocation.repository.js';
 export { createGoalRepository } from './repositories/goal.repository.js';
@@ -40,6 +41,7 @@ export {
   rollbackMigrations,
   runMigrations,
 } from './migrations/runner.js';
+export { migrateDatabase } from './migrations/migrate.js';
 export type {
   AppliedMigration,
   Migration,
@@ -47,4 +49,6 @@ export type {
 } from './migrations/runner.js';
 
 export { loadBusinessDays } from './seeds/load_business_days.js';
+export { removeDemoData } from './seeds/remove_demo.js';
+export type { RemovedDemo } from './seeds/remove_demo.js';
 export { calendarFromSeed } from './seeds/business_days.js';

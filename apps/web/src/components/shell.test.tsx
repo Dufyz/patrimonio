@@ -50,11 +50,25 @@ const shell = (props: Partial<React.ComponentProps<typeof AppShell>> = {}) => {
 };
 
 describe('moldura da aplicação', () => {
+  it('mostra o rótulo de demonstração enquanto houver dado de demonstração', () => {
+    shell({ demo: true });
+
+    expect(
+      within(screen.getByRole('navigation')).getByText('Demonstração'),
+    ).toBeVisible();
+  });
+
+  it('sem dado de demonstração, o rótulo não aparece', () => {
+    shell();
+
+    expect(screen.queryByText('Demonstração')).toBeNull();
+  });
+
   it('a barra lateral mostra o valor de cada carteira', () => {
     shell();
     const nav = screen.getByRole('navigation');
-    expect(within(nav).getByText('318,9k')).toBeVisible();
-    expect(within(nav).getByText('84,8k')).toBeVisible();
+    expect(within(nav).getByText('R$ 318,9k')).toBeVisible();
+    expect(within(nav).getByText('R$ 84,8k')).toBeVisible();
   });
 
   it('trocar de carteira mantém a tela atual', async () => {
@@ -170,7 +184,7 @@ describe('sobreposições', () => {
     expect(
       screen.getByText('a carteira Longo prazo, com 28 posições e 412 lançamentos'),
     ).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Excluir' })).toHaveClass('text-negative');
+    expect(screen.getByRole('button', { name: 'Excluir' })).toHaveClass('bg-negative');
   });
 
   it('a dica de informação abre pelo teclado', async () => {
@@ -286,8 +300,8 @@ describe('atalhos de teclado', () => {
       </div>,
     );
 
-    expect(screen.getByText('318,9k')).toBeVisible();
+    expect(screen.getByText('R$ 318,9k')).toBeVisible();
     await user.keyboard('h');
-    expect(screen.queryByText('318,9k')).not.toBeInTheDocument();
+    expect(screen.queryByText('R$ 318,9k')).not.toBeInTheDocument();
   });
 });

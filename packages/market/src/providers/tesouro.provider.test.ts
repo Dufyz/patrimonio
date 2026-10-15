@@ -43,6 +43,7 @@ describe('o JSON do site do Tesouro', () => {
     const ipca = result.value.find((quote) => quote.kind === 'ipca_plus');
     expect(ipca).toEqual({
       kind: 'ipca_plus',
+      coupon: false,
       maturity_date: '2029-05-15',
       quote_date: '2026-10-06',
       buy_price: '2985.42',
@@ -102,12 +103,74 @@ describe('o JSON do site do Tesouro', () => {
     expect((result.value as FormatChangedError).field).toMatch(/untrInvstmtVal/u);
   });
 
+  it('reconhece o título com juros semestrais pelo nome', async () => {
+    const body = JSON_BODY.replace(
+      '"nm": "Tesouro IPCA+ 2029"',
+      '"nm": "Tesouro IPCA+ com Juros Semestrais 2029"',
+    );
+
+    const result = await json(body).fetchQuotes(DATE);
+
+    expect(result.isSuccess()).toBe(true);
+    if (!result.isSuccess()) return;
+    expect(result.value.find((quote) => quote.kind === 'ipca_plus')?.coupon).toBe(true);
+    expect(result.value.find((quote) => quote.kind === 'prefixed')?.coupon).toBe(false);
+  });
+
   it('corpo vazio falha, e não devolve lista vazia', async () => {
     const result = await json('').fetchQuotes(DATE);
 
     expect(result.isFailure()).toBe(true);
     if (!result.isFailure()) return;
     expect(result.value).toBeInstanceOf(FormatChangedError);
+  });
+});
+
+describe('o histórico de um título no CSV', () => {
+  const ipca2029 = {
+    kind: 'ipca_plus' as const,
+    coupon: false,
+    maturity_date: '2029-05-15' as DateOnly,
+  };
+
+  it('devolve só o título pedido, dentro do período', async () => {
+    const result = await csv().fetchHistory?.(
+      ipca2029,
+      '2026-10-01' as DateOnly,
+      '2026-10-31' as DateOnly,
+    );
+
+    expect(result?.isSuccess()).toBe(true);
+    if (result === undefined || !result.isSuccess()) return;
+    expect(result.value.map((quote) => quote.quote_date).sort()).toEqual([
+      '2026-10-03',
+      '2026-10-06',
+    ]);
+    expect(result.value.every((quote) => quote.maturity_date === '2029-05-15')).toBe(
+      true,
+    );
+  });
+
+  it('o período corta as datas fora dele', async () => {
+    const result = await csv().fetchHistory?.(
+      ipca2029,
+      '2026-10-05' as DateOnly,
+      '2026-10-31' as DateOnly,
+    );
+
+    expect(result?.isSuccess() && result.value.map((quote) => quote.quote_date)).toEqual([
+      '2026-10-06',
+    ]);
+  });
+
+  it('o título com juros semestrais não entra no histórico do sem juros', async () => {
+    const result = await csv().fetchHistory?.(
+      { ...ipca2029, coupon: true },
+      '2026-10-01' as DateOnly,
+      '2026-10-31' as DateOnly,
+    );
+
+    expect(result?.isSuccess() && result.value).toEqual([]);
   });
 });
 
@@ -131,6 +194,21 @@ describe('o CSV do Tesouro Transparente', () => {
     if (!result.isSuccess()) return;
     expect(result.value.every((quote) => quote.quote_date === DATE)).toBe(true);
     expect(result.value).toHaveLength(2);
+  });
+
+  it('fim de semana usa o último dia com preço, com a data em que foi cotado', async () => {
+    const result = await csv().fetchQuotes('2026-10-11' as DateOnly);
+
+    expect(result.isSuccess()).toBe(true);
+    if (!result.isSuccess()) return;
+    expect(result.value).toHaveLength(2);
+    expect(result.value.every((quote) => quote.quote_date === '2026-10-06')).toBe(true);
+  });
+
+  it('data sem preço na janela devolve vazio', async () => {
+    const result = await csv().fetchQuotes('2026-12-31' as DateOnly);
+
+    expect(result.isSuccess() && result.value).toEqual([]);
   });
 
   it('a mesma data pedida duas vezes devolve exatamente as mesmas linhas', async () => {

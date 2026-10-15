@@ -23,10 +23,17 @@
     "migrate": "pnpm --filter @patrimonio/db migrate",
     "migrate:test": "pnpm --filter @patrimonio/db migrate:test",
     "seed:business-days": "pnpm --filter @patrimonio/db seed:business-days",
+    "seed:institutions": "pnpm --filter @patrimonio/db seed:institutions",
+    "demo:remove": "pnpm --filter @patrimonio/db demo:remove",
     "verify": "pnpm lint && pnpm typecheck && pnpm test",
     "holidays:report": "pnpm --filter @patrimonio/db holidays:report",
     "holidays:generate": "pnpm --filter @patrimonio/db holidays:generate",
     "test:live": "pnpm --filter @patrimonio/market test:live",
+    "seed:instruments": "pnpm --filter @patrimonio/worker seed:instruments",
+    "seed:cotahist": "pnpm --filter @patrimonio/worker seed:cotahist",
+    "seed:indices": "pnpm --filter @patrimonio/worker seed:indices",
+    "seed:tesouro": "pnpm --filter @patrimonio/worker seed:tesouro",
+    "bootstrap": "pnpm --filter @patrimonio/worker bootstrap",
     "verify:sources": "pnpm --filter @patrimonio/worker verify:sources"
   },
   "devDependencies": {

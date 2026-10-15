@@ -1,4 +1,4 @@
-import { runMigrations } from '@patrimonio/db';
+import { migrateDatabase } from '@patrimonio/db';
 import { environment } from '@patrimonio/env';
 
 import { createApp } from '../app.js';
@@ -14,7 +14,7 @@ const container = createContainer(VERSION);
  * healthcheck não fica verde e o orquestrador não troca o tráfego: é um deploy
  * que falhou, não uma produção quebrada.
  */
-const { applied } = await runMigrations(environment.database.connection, {
+const { applied } = await migrateDatabase(environment.database.connection, {
   log: (line) => logger.info({ migration: line }, 'migration'),
 });
 

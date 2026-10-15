@@ -3,7 +3,6 @@ import {
   closeDay,
   collectMarketData,
   recalculatePortfolio,
-  reconcileAlerts,
 } from '@patrimonio/application';
 import type { Clock, UnitOfWork } from '@patrimonio/application';
 
@@ -24,14 +23,12 @@ export const stageUseCases = (
 ): StageUseCases => ({
   recalculatePortfolio: recalculatePortfolio({ unitOfWork, clock }),
   closeDay: closeDay({ unitOfWork, clock }),
-  reconcileAlerts: reconcileAlerts({ unitOfWork, clock }),
   collectMarketData: collectMarketData({
     unitOfWork,
     clock,
     quotes: scriptedQuotes(script),
     indices: scriptedIndices(script),
     treasury: scriptedTreasury(script),
-    staleAfterDays: 3,
   }),
   backfillAsset: backfillAsset({
     unitOfWork,

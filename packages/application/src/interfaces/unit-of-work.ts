@@ -1,7 +1,6 @@
 import type { Either } from '@patrimonio/shared';
 
 import type { AppError } from '../errors/app-error.js';
-import type { AlertRepository } from './alert.repository.js';
 import type { BusinessDayRepository } from './business_day.repository.js';
 import type { AssetRepository } from './asset.repository.js';
 import type { AssetPageRepository } from './asset_page.repository.js';
@@ -10,7 +9,9 @@ import type { StatementRepository } from './statement.repository.js';
 import type { CategoryRepository } from './category.repository.js';
 import type { CorporateEventRepository } from './corporate_event.repository.js';
 import type { InstitutionRepository } from './institution.repository.js';
+import type { InstrumentCatalogRepository } from './instrument_catalog.repository.js';
 import type { LedgerRepository } from './ledger.repository.js';
+import type { CustodyTransferRepository } from './custody_transfer.repository.js';
 import type { ManualPriceRepository } from './manual_price.repository.js';
 import type { MarketIngestionRepository } from './market_ingestion.repository.js';
 import type { OutboxRepository } from './outbox.repository.js';
@@ -33,8 +34,8 @@ import type { TransactionUndoRepository } from './transaction_undo.repository.js
  * repositório é uma fábrica que aceita a conexão.
  *
  * Cresce a cada entidade: em E2 entram carteira, instituição, ativo e
- * lançamento; em E3 entram as tabelas de projeção, a leitura de preço e os
- * alertas; em E4 entra a escrita da ingestão de mercado; em E6 entram as
+ * lançamento; em E3 entram as tabelas de projeção e a leitura de preço;
+ * em E4 entra a escrita da ingestão de mercado; em E6 entram as
  * leituras que as telas pedem.
  */
 export type TransactionalRepositories = {
@@ -43,9 +44,11 @@ export type TransactionalRepositories = {
   readonly portfolios: PortfolioRepository;
   readonly institutions: InstitutionRepository;
   readonly categories: CategoryRepository;
+  readonly instruments: InstrumentCatalogRepository;
   readonly assets: AssetRepository;
   readonly ledger: LedgerRepository;
   readonly manualPrices: ManualPriceRepository;
+  readonly custodyTransfers: CustodyTransferRepository;
   readonly transactions: TransactionRepository;
   readonly payoutDismissals: PayoutDismissalRepository;
   readonly transactionUndos: TransactionUndoRepository;
@@ -60,7 +63,6 @@ export type TransactionalRepositories = {
   /** Leitura: a busca global, em duas consultas independentes. */
   readonly search: SearchRepository;
   readonly prices: PriceRepository;
-  readonly alerts: AlertRepository;
   /** Só leitura: o instantâneo da tela de abertura, numa consulta. */
   readonly overview: OverviewRepository;
   /** Só leitura: a tela de Desempenho, em duas consultas. */

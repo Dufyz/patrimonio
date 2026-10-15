@@ -1,5 +1,8 @@
 import {
+  deleteAllDataResultSchema,
+  deleteAllDataSchema,
   errorResponseSchema,
+  exportDataSchema,
   getSettingsSchema,
   runBackupSchema,
   settingsSchema,
@@ -15,16 +18,14 @@ export const SETTINGS_ROUTE_DOCS: readonly RouteDoc[] = [
     method: 'get',
     path: '/settings',
     tag: TAG,
-    summary:
-      'Carteiras, alertas, categorias, instituições, benchmarks, padrões de lançamento e backup',
+    summary: 'Carteiras, padrões de lançamento e backup',
     request: getSettingsSchema,
     responses: {
       200: {
         description:
-          'Uma resposta para a tela, em uma consulta. Carteira, categoria e instituição ' +
-          'trazem o que as prende (`blocking`), para a tela explicar o bloqueio antes de ' +
-          'a exclusão falhar. O grupo de categorias soma ativos e carteiras distintas das ' +
-          'categorias dentro dele. `fgc` é nulo para quem não emite ou não é coberto. ' +
+          'Uma resposta para a tela, em uma consulta. A carteira ' +
+          'traz o que a prende (`blocking`), para a tela explicar o bloqueio antes de ' +
+          'a exclusão falhar. ' +
           'Dados de mercado não vêm aqui: têm a rota `/market/health`.',
         schema: settingsSchema,
       },
@@ -51,6 +52,47 @@ export const SETTINGS_ROUTE_DOCS: readonly RouteDoc[] = [
       },
       400: {
         description: 'O backup está desligado nesta instalação.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'get',
+    path: '/data/export',
+    tag: TAG,
+    summary: 'Exportar tudo em JSON',
+    request: exportDataSchema,
+    responses: {
+      200: {
+        description:
+          'Um documento JSON com os cadastros e o livro (instituições, categorias, ' +
+          'carteiras, ativos, lançamentos, estratégia, objetivos, preços ' +
+          'manuais, proventos anunciados e eventos). Posições e patrimônio diário ' +
+          'se recalculam a partir dele. Valores monetários vão como string.',
+        schema: z.object({
+          exported_at: z.string(),
+          format: z.string(),
+          tables: z.record(z.string(), z.array(z.unknown())),
+        }),
+      },
+    },
+  },
+  {
+    method: 'delete',
+    path: '/data',
+    tag: TAG,
+    summary: 'Apagar todos os dados',
+    request: deleteAllDataSchema,
+    responses: {
+      200: {
+        description:
+          'Lançamentos, carteiras, instituições, ativos cadastrados à mão, preços ' +
+          'manuais e proventos anunciados foram apagados numa transação. Os dados ' +
+          'de mercado (preços de fechamento, índices, catálogo da B3) ficam.',
+        schema: deleteAllDataResultSchema,
+      },
+      400: {
+        description: 'A frase de confirmação não confere.',
         schema: errorResponseSchema,
       },
     },

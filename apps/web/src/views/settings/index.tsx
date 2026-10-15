@@ -5,19 +5,20 @@ import { useSearchParams } from 'react-router';
 import { fetchMarketHealth } from '../../api/market.js';
 import { fetchSettings } from '../../api/settings.js';
 import { KeepPrevious } from '../../components/pending.js';
+import {
+  SkeletonHeader,
+  SkeletonLines,
+  SkeletonPanel,
+  SkeletonRegion,
+  SkeletonTable,
+} from '../../components/skeleton.js';
 import { SECTIONS, isEmptyInstallation, sectionFromParam } from '../../lib/settings.js';
 import type { SectionId } from '../../lib/settings.js';
 import type { Resource } from '../../lib/use_resource.js';
 import { useResource } from '../../lib/use_resource.js';
 import { MarketSection } from './market.js';
-import { BackupSection, DisplaySection, LedgerSection } from './preferences.js';
-import {
-  AlertsSection,
-  BenchmarksSection,
-  CategoriesSection,
-  InstitutionsSection,
-  PortfoliosSection,
-} from './registers.js';
+import { BackupSection, DisplaySection } from './preferences.js';
+import { PortfoliosSection } from './registers.js';
 
 /**
  * T-08 · Configurações — a prancha `11 · Configurações`.
@@ -106,7 +107,7 @@ const SectionNav = ({
   readonly onSection: (section: SectionId) => void;
 }): React.ReactElement => (
   <nav aria-label="Seções de configuração" className="lg:sticky lg:top-4 lg:self-start">
-    <p className="mb-2 hidden text-label tracking-wide text-ink-3 uppercase lg:block">
+    <p className="mb-2 hidden tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase lg:block">
       Valem para o app inteiro
     </p>
     <ul className="flex flex-wrap gap-1 lg:flex-col">
@@ -152,9 +153,19 @@ export const SettingsView = ({
 
   if (state.kind === 'loading') {
     return (
-      <p aria-busy="true" className="p-8 text-center text-[0.8125rem] text-ink-3">
-        Carregando as configurações…
-      </p>
+      <SkeletonRegion label="Carregando as configurações" className="flex flex-col gap-4">
+        <SkeletonHeader />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[13rem_1fr]">
+          <SkeletonLines lines={5} className="hidden lg:flex" />
+          <div className="flex min-w-0 flex-col gap-4">
+            <SkeletonPanel title="Carteiras">
+              <SkeletonTable rows={3} columns={3} />
+            </SkeletonPanel>
+            <SkeletonPanel title="Dados de mercado" />
+            <SkeletonPanel title="Exibição" />
+          </div>
+        </div>
+      </SkeletonRegion>
     );
   }
   if (state.kind === 'error') return <Failed error={state.error} onRetry={reload} />;
@@ -164,8 +175,8 @@ export const SettingsView = ({
   return (
     <div className="flex flex-col gap-4">
       <header className="min-w-0">
-        <h1 className="text-screen-title font-semibold tracking-tight">Configurações</h1>
-        <p className="truncate text-[0.8125rem] text-ink-2">
+        <h1 className="text-screen-title leading-7 font-semibold">Configurações</h1>
+        <p className="truncate text-xs text-ink-3">
           Valem para o app inteiro, não só para a carteira aberta
         </p>
       </header>
@@ -179,17 +190,12 @@ export const SettingsView = ({
               role="status"
               className="rounded-panel border border-line bg-panel p-4 text-[0.8125rem] text-ink-2"
             >
-              Nada cadastrado ainda. Comece criando uma carteira, uma instituição e as
-              categorias dos seus ativos — o resto das configurações já está abaixo.
+              Nada cadastrado ainda. Comece criando uma carteira — o resto das
+              configurações já está abaixo.
             </p>
           ) : null}
-          <PortfoliosSection settings={settings} />
-          <AlertsSection settings={settings} />
-          <CategoriesSection settings={settings} />
-          <InstitutionsSection settings={settings} />
-          <BenchmarksSection settings={settings} />
+          <PortfoliosSection settings={settings} onChanged={reload} />
           <MarketSection resource={market} />
-          <LedgerSection settings={settings} />
           <DisplaySection />
           <BackupSection settings={settings} onChanged={reload} />
         </KeepPrevious>

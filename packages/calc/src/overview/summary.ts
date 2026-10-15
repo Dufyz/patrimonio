@@ -23,7 +23,7 @@ const money = (value: Decimal): string =>
 
 const pct = (value: Decimal): string => value.toDecimalPlaces(PCT_DP).toFixed(PCT_DP);
 
-/** Um dia da série consolidada do escopo, como o fechamento o gravou. */
+/** Um dia da série da carteira, como o fechamento o gravou. */
 export type OverviewDay = {
   readonly position_date: string;
   readonly total_value: string;
@@ -31,6 +31,8 @@ export type OverviewDay = {
   readonly income: string;
   readonly payouts: string;
   readonly cumulative_contributions: string;
+  /** Proventos recebidos desde o início, que saem do patrimônio mas contam como rendimento. */
+  readonly cumulative_payouts: string;
 };
 
 /**
@@ -92,7 +94,8 @@ export const periodFlows = (days: readonly OverviewDay[]): PeriodFlows => {
 /**
  * As faixas do gráfico de evolução: aporte acumulado embaixo, o que o mercado
  * acrescentou em cima. A soma das duas é o patrimônio do dia, e é por isso que
- * a faixa de cima é a diferença e não um número guardado à parte.
+ * a faixa de cima é a diferença e não um número guardado à parte. Os proventos
+ * recebidos, que saíram da carteira, fecham a pilha em `with_payouts`.
  *
  * Patrimônio abaixo do aporte acumulado — prejuízo — devolve a diferença
  * negativa, e quem desenha decide a cor. Cortar em zero esconderia exatamente
@@ -102,7 +105,12 @@ export type GrowthPoint = {
   readonly date: string;
   readonly contributions: string;
   readonly total: string;
+  /** Valorização: patrimônio menos o aportado. Os proventos recebidos ficam à parte. */
   readonly result: string;
+  /** Proventos recebidos até o dia. */
+  readonly payouts: string;
+  /** Patrimônio mais proventos recebidos: o topo da pilha. */
+  readonly with_payouts: string;
 };
 
 export const growthSeries = (days: readonly OverviewDay[]): readonly GrowthPoint[] =>
@@ -112,6 +120,10 @@ export const growthSeries = (days: readonly OverviewDay[]): readonly GrowthPoint
     total: money(new Decimal(day.total_value)),
     result: money(
       new Decimal(day.total_value).minus(new Decimal(day.cumulative_contributions)),
+    ),
+    payouts: money(new Decimal(day.cumulative_payouts)),
+    with_payouts: money(
+      new Decimal(day.total_value).plus(new Decimal(day.cumulative_payouts)),
     ),
   }));
 

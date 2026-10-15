@@ -8,9 +8,11 @@ import type { Stage } from '../pipeline/pipeline.entities.js';
  */
 export type OutboxPayloads = {
   readonly recalc: { readonly portfolio_id: string; readonly from_date: DateOnly };
-  readonly market: { readonly reference_date: DateOnly; readonly asset_id?: string };
+  /** Sem data, o backfill vai até o dia em que roda. */
+  readonly market:
+    | { readonly reference_date: DateOnly; readonly asset_id?: string }
+    | { readonly asset_id: string };
   readonly close: { readonly reference_date: DateOnly };
-  readonly alerts: { readonly reference_date: DateOnly };
   readonly import: { readonly import_id: string };
   readonly backup: { readonly reference_date: DateOnly };
 };
@@ -63,7 +65,6 @@ export const dedupeKey = {
   backfill: (assetId: string): string => `backfill:${assetId}`,
   market: (date: DateOnly): string => `market:${date}`,
   close: (date: DateOnly): string => `close:${date}`,
-  alerts: (date: DateOnly): string => `alerts:${date}`,
   import: (importId: string): string => `import:${importId}`,
   backup: (date: DateOnly): string => `backup:${date}`,
 } as const;

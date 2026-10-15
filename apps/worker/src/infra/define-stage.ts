@@ -7,7 +7,8 @@ import type {
   closeDay,
   collectMarketData,
   recalculatePortfolio,
-  reconcileAlerts,
+  refreshInstrumentCatalog,
+  syncPriceHistory,
 } from '@patrimonio/application';
 import { isAppError } from '@patrimonio/application';
 import { dedupeKey, transition } from '@patrimonio/domain';
@@ -35,9 +36,15 @@ export type StageJobData = {
 export type StageUseCases = {
   readonly recalculatePortfolio: ReturnType<typeof recalculatePortfolio>;
   readonly closeDay: ReturnType<typeof closeDay>;
-  readonly reconcileAlerts: ReturnType<typeof reconcileAlerts>;
   readonly collectMarketData: ReturnType<typeof collectMarketData>;
   readonly backfillAsset: ReturnType<typeof backfillAsset>;
+  /**
+   * A recarga do catálogo de papéis, que o estágio de mercado tenta depois da
+   * coleta do dia. Ausente nos testes de estágio que medem só o pipeline.
+   */
+  readonly refreshInstrumentCatalog?: ReturnType<typeof refreshInstrumentCatalog>;
+  /** O histórico desde a estreia, carregado depois do trabalho principal do estágio. */
+  readonly syncPriceHistory?: ReturnType<typeof syncPriceHistory>;
 };
 
 export type StageDeps = {

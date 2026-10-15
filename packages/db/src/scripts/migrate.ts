@@ -4,8 +4,8 @@ import {
   MigrationError,
   migrationStatus,
   rollbackMigrations,
-  runMigrations,
 } from '../migrations/runner.js';
+import { migrateDatabase } from '../migrations/migrate.js';
 
 /**
  * `pnpm migrate up`, `pnpm migrate down [n]`, `pnpm migrate status`.
@@ -36,7 +36,7 @@ const main = async (): Promise<void> => {
 
   switch (command) {
     case 'up': {
-      const { applied } = await runMigrations(connection, { log: write });
+      const { applied } = await migrateDatabase(connection, { log: write });
       write(applied.length === 0 ? 'nada pendente' : `${applied.length} aplicada(s)`);
       return;
     }

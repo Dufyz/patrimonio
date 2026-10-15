@@ -8,15 +8,7 @@ import { Decimal } from 'decimal.js';
  * Nenhuma função deste módulo chama `new Date()` nem fala com banco: a sequência
  * de lançamentos entra como parâmetro, e é isso que torna o teste determinístico.
  */
-export const LEDGER_KINDS = [
-  'buy',
-  'sell',
-  'payout',
-  'deposit',
-  'withdrawal',
-  'transfer',
-  'corporate_event',
-] as const;
+export const LEDGER_KINDS = ['buy', 'sell', 'payout', 'corporate_event'] as const;
 
 export type LedgerKind = (typeof LEDGER_KINDS)[number];
 
@@ -25,6 +17,10 @@ export type LedgerEntry = {
   readonly kind: LedgerKind;
   /** `YYYY-MM-DD`: data de negócio, nunca `Date` com fuso. */
   readonly trade_date: string;
+  /** Quando o dinheiro liquida; na caixinha, quando o lote fica disponível para resgate. */
+  readonly settlement_date?: string | undefined;
+  /** Só no aporte de caixinha: quando o lote vence. */
+  readonly maturity_date?: string | null | undefined;
   readonly quantity: string;
   readonly unit_price: string;
   readonly fees: string;
@@ -101,10 +97,6 @@ export const sortEntries = (entries: readonly LedgerEntry[]): LedgerEntry[] =>
     return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
   });
 
-/** Quantidade move para fora quando o dinheiro — ou o ativo — sai da carteira. */
-const isOutgoing = (entry: LedgerEntry): boolean =>
-  decimal(entry.net_amount).isNegative();
-
 const applyBuy = (state: Internal, entry: LedgerEntry): void => {
   const quantity = decimal(entry.quantity);
   // Taxas entram no custo, não no preço unitário: o preço unitário continua
@@ -141,54 +133,6 @@ const applySell = (state: Internal, entry: LedgerEntry): void => {
     cost_consumed: consumed.toFixed(MONEY_DP),
     result: proceeds.minus(consumed).toFixed(MONEY_DP),
   });
-};
-
-/**
- * Transferência preserva o preço médio nas duas pontas e não gera resultado
- * realizado: é reclassificação interna, não venda.
- *
- * As duas pernas usam **o mesmo número** — o valor líquido gravado no
- * lançamento, que é a parcela do custo que viajou. Recalcular o custo em cada
- * ponta a partir do preço médio arredondado deixaria um centavo de diferença
- * entre o que saiu e o que entrou, e a invariante "transferência preserva
- * patrimônio total" tem tolerância zero.
- */
-const applyTransfer = (state: Internal, entry: LedgerEntry): void => {
-  const quantity = decimal(entry.quantity);
-  const cost = decimal(entry.net_amount).abs().toDecimalPlaces(MONEY_DP);
-
-  if (isOutgoing(entry)) {
-    const moving = Decimal.min(quantity, state.quantity);
-    if (quantity.greaterThan(state.quantity)) state.oversold = true;
-
-    state.quantity = state.quantity.minus(moving);
-    state.cost = state.quantity.isZero()
-      ? zero
-      : Decimal.max(state.cost.minus(cost), zero);
-    return;
-  }
-
-  state.quantity = state.quantity.plus(quantity);
-  state.cost = state.cost.plus(cost);
-};
-
-/**
- * A parcela do custo que viaja numa transferência: proporcional à quantidade
- * movida, e o custo inteiro quando a posição toda sai. É o que faz a soma das
- * duas carteiras ser idêntica à de antes, sem sobra de centavo.
- */
-export const proportionalCost = (
-  costBasis: string,
-  quantity: string,
-  available: string,
-): string => {
-  const total = new Decimal(costBasis);
-  const moving = new Decimal(quantity);
-  const held = new Decimal(available);
-
-  if (held.isZero() || moving.greaterThanOrEqualTo(held)) return total.toFixed(MONEY_DP);
-
-  return total.times(moving).dividedBy(held).toDecimalPlaces(MONEY_DP).toFixed(MONEY_DP);
 };
 
 /**
@@ -258,19 +202,11 @@ const applyEntry = (state: Internal, entry: LedgerEntry): void => {
     case 'sell':
       applySell(state, entry);
       break;
-    case 'transfer':
-      applyTransfer(state, entry);
-      break;
     case 'corporate_event':
       applyCorporateEvent(state, entry);
       break;
     case 'payout':
       applyPayout(state, entry);
-      break;
-    // Aporte e resgate movem caixa, não posição de ativo: quem responde por
-    // eles é `cashBalance`.
-    case 'deposit':
-    case 'withdrawal':
       break;
   }
 };
@@ -346,14 +282,3 @@ export const ledgerEffects = (
 /** A posição de um ativo numa data, que é o "antes" de todo preview. */
 export const positionAt = (entries: readonly LedgerEntry[], date: string): Position =>
   applyLedger(entries, { until: date }).position;
-
-/**
- * O caixa não é coluna de saldo: é a soma dos valores líquidos que entraram e
- * saíram naquela carteira e instituição. Compra tira, venda e provento põem,
- * aporte põe, resgate tira — e o caixa aparece em Posições como ativo sintético.
- */
-export const cashBalance = (entries: readonly LedgerEntry[]): string =>
-  entries
-    .reduce((total, entry) => total.plus(decimal(entry.net_amount)), zero)
-    .toDecimalPlaces(MONEY_DP)
-    .toFixed(MONEY_DP);

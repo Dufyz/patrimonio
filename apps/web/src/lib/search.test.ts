@@ -8,12 +8,14 @@ import { describe, expect, it } from 'vitest';
 import type { Storageish } from './preferences.js';
 import {
   ACTION_PENDING_REASON,
+  LOOKUP_UNAVAILABLE_NOTICE,
   RECENT_LIMIT,
   assetActionItems,
   assetItems,
   buildModel,
   flatten,
   holdingLabel,
+  instrumentItems,
   localItems,
   moveActive,
   nextFilter,
@@ -34,20 +36,11 @@ const SCREENS = [
   { id: 'visao', label: 'Visão geral', glyph: '▦', shortcut: 'G V' },
   { id: 'posicoes', label: 'Posições', glyph: '≡', shortcut: 'G P' },
   { id: 'movimentacoes', label: 'Movimentações', glyph: '⇄', shortcut: 'G M' },
-  { id: 'desempenho', label: 'Desempenho', glyph: '◹', shortcut: 'G D' },
 ];
-const PORTFOLIOS = [
-  { id: 'todas', label: 'Todas as carteiras' },
-  { id: 'longo', label: 'Longo prazo' },
-];
+const PORTFOLIOS = [{ id: 'longo', label: 'Longo prazo' }];
 
 const none = new Set<SearchActionId>();
-const all = new Set<SearchActionId>([
-  'new_transaction',
-  'buy_asset',
-  'payout_asset',
-  'move_asset',
-]);
+const all = new Set<SearchActionId>(['new_transaction', 'buy_asset', 'payout_asset']);
 
 const local = (ready: ReadonlySet<SearchActionId> = none) =>
   localItems({ screens: SCREENS, portfolios: PORTFOLIOS, readyActions: ready });
@@ -100,10 +93,17 @@ const ready = (
   assets: readonly SearchAsset[],
   transactions: readonly SearchTransaction[],
   totals?: { assets?: number; transactions?: number },
+  instruments: SearchResource['instruments'] = {
+    total: 0,
+    items: [],
+    fallback: 'none',
+    catalog_empty: false,
+  },
 ): SearchServerState => {
   const resource: SearchResource = {
     query: 'q',
     assets: { total: totals?.assets ?? assets.length, items: [...assets] },
+    instruments,
     transactions: {
       total: totals?.transactions ?? transactions.length,
       items: [...transactions],
@@ -177,7 +177,6 @@ describe('itens locais', () => {
       ['Visão geral', 'G V'],
       ['Posições', 'G P'],
       ['Movimentações', 'G M'],
-      ['Desempenho', 'G D'],
     ]);
   });
 
@@ -238,7 +237,7 @@ describe('com texto', () => {
     );
 
     expect(porNome).toEqual(['Posições']);
-    expect(porSinonimo).toEqual(['Desempenho']);
+    expect(porSinonimo).toEqual(['Visão geral']);
   });
 
   it('acha Configurações por sinônimo, e ela não tem atalho de teclado', () => {
@@ -296,15 +295,11 @@ describe('com texto', () => {
     expect(order).toEqual(['screens', 'assets', 'asset_actions']);
   });
 
-  it('só oferece provento e transferência de quem tem posição', () => {
+  it('só oferece provento de quem tem posição', () => {
     const held = assetActionItems(itub4, all).items.map((item) => item.label);
     const notHeld = assetActionItems(itub3, all).items.map((item) => item.label);
 
-    expect(held).toEqual([
-      'Lançar compra de ITUB4',
-      'Lançar provento de ITUB4',
-      'Mover ITUB4 para outra carteira',
-    ]);
+    expect(held).toEqual(['Lançar compra de ITUB4', 'Lançar provento de ITUB4']);
     expect(notHeld).toEqual(['Lançar compra de ITUB3']);
   });
 
@@ -413,17 +408,6 @@ describe('rótulos', () => {
   it('diz o tipo, a quantidade e o ativo do lançamento', () => {
     expect(transactionLabel(compra)).toBe('Compra 100 ITUB4');
     expect(transactionLabel(jcp)).toBe('JCP ITUB4');
-    expect(
-      transactionLabel({
-        ...compra,
-        kind: 'deposit',
-        asset_id: null,
-        ticker: null,
-        asset_name: null,
-        b3_type: null,
-        quantity: '0',
-      }),
-    ).toBe('Aporte');
   });
 
   it('marca o provento a receber e traz a data e a carteira', () => {
@@ -554,7 +538,7 @@ describe('destinos', () => {
     scope: 'longo-prazo',
     currentScreenPath: 'posicoes',
     screenPaths: { visao: 'visao-geral', posicoes: 'posicoes' },
-    scopeFor: (portfolioId: string) => (portfolioId === 'todas' ? 'todas' : 'reserva'),
+    scopeFor: (_portfolioId: string) => 'reserva',
   };
 
   it('vai para a tela dentro do escopo de agora', () => {
@@ -570,9 +554,6 @@ describe('destinos', () => {
   it('troca de carteira mantendo a tela', () => {
     expect(targetPath({ kind: 'portfolio', portfolioId: 'x' }, context)).toBe(
       '/reserva/posicoes',
-    );
-    expect(targetPath({ kind: 'portfolio', portfolioId: 'todas' }, context)).toBe(
-      '/todas/posicoes',
     );
   });
 
@@ -602,5 +583,97 @@ describe('destinos', () => {
 
   it('não leva a lugar nenhum uma ação cuja tela ainda não existe', () => {
     expect(targetPath({ kind: 'action', action: 'new_transaction' }, context)).toBeNull();
+  });
+});
+
+describe('papéis do mercado', () => {
+  const bova = {
+    ticker: 'BOVA11',
+    name: 'ISHARES BOVA',
+    b3_type: 'etf' as const,
+    maturity_date: null,
+    source: 'catalog' as const,
+  };
+  const vivo = {
+    ...bova,
+    ticker: 'BOVV11',
+    name: 'IT NOW BOVV',
+    source: 'brapi' as const,
+  };
+
+  it('escreve o tipo e, quando veio da fonte ao vivo, de onde veio', () => {
+    const [catalogo, aoVivo] = instrumentItems([bova, vivo]);
+
+    expect(catalogo?.label).toBe('BOVA11');
+    expect(catalogo?.detail).toBe('ISHARES BOVA · ETF');
+    expect(aoVivo?.detail).toBe('IT NOW BOVV · ETF · brapi');
+    expect(catalogo?.disabled).toBeNull();
+  });
+
+  it('aparece abaixo dos ativos e dentro do filtro de ativos', () => {
+    const server = ready([itub4], [], undefined, {
+      total: 1,
+      items: [bova],
+      fallback: 'none',
+      catalog_empty: false,
+    });
+
+    expect(groups('itu', server)).toEqual(['assets', 'asset_actions', 'instruments']);
+    expect(
+      model('itu', server, { filter: 'assets' }).sections.map((s) => s.group),
+    ).toEqual(['assets', 'asset_actions', 'instruments']);
+  });
+
+  it('conta o que a api cortou', () => {
+    const view = model(
+      'bova',
+      ready([], [], undefined, {
+        total: 7,
+        items: [bova],
+        fallback: 'none',
+        catalog_empty: false,
+      }),
+    );
+
+    expect(view.shown).toBe(1);
+    expect(view.total).toBe(7);
+  });
+
+  it('avisa quando a fonte ao vivo não respondeu, e só então', () => {
+    const quiet = model(
+      'zzz',
+      ready([], [], undefined, {
+        total: 0,
+        items: [],
+        fallback: 'none',
+        catalog_empty: false,
+      }),
+    );
+    const failed = model(
+      'zzz',
+      ready([], [], undefined, {
+        total: 0,
+        items: [],
+        fallback: 'unavailable',
+        catalog_empty: false,
+      }),
+    );
+
+    expect(quiet.notice).toBeNull();
+    expect(failed.notice).toBe(LOOKUP_UNAVAILABLE_NOTICE);
+  });
+
+  it('não leva a lugar nenhum enquanto o lançamento a partir dele não existe', () => {
+    expect(
+      targetPath(
+        { kind: 'instrument', ticker: 'BOVA11', name: 'X', b3_type: 'etf' },
+        {
+          scope: 'longo',
+          currentScreenPath: 'posicoes',
+          screenPaths: {},
+          scopeFor: () => 'longo',
+        },
+      ),
+    ).toBeNull();
   });
 });

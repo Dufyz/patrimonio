@@ -84,6 +84,8 @@ export type CompositionSlice = {
   readonly label: string;
   readonly colorToken: string;
   readonly share: string | null;
+  /** Cor própria da fatia, quando ela não é uma classe de ativo (a carteira). */
+  readonly color?: string;
 };
 
 /**
@@ -110,7 +112,7 @@ export const CompositionBar = ({
         className="min-w-0.5 first:rounded-l-xs last:rounded-r-xs"
         style={{
           width: widthOf(slice.share),
-          backgroundColor: colorForToken(slice.colorToken),
+          backgroundColor: slice.color ?? colorForToken(slice.colorToken),
         }}
       />
     ))}

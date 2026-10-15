@@ -55,7 +55,7 @@ const fiis: TableGroup<Position> = {
   summary: { value: '76820.50', result: '2910.40' },
 };
 
-const build = (state: Partial<TableState> = {}, rowsPerGroup?: number) =>
+const build = (state: Partial<TableState> = {}, rowsPerGroup: number | null = 5) =>
   buildRowModel<Position>({
     groups: [acoes, fiis],
     state: { ...EMPTY_TABLE_STATE, ...state },
@@ -64,13 +64,19 @@ const build = (state: Partial<TableState> = {}, rowsPerGroup?: number) =>
       columnId === 'ticker' ? row.ticker : columnId === 'result' ? row.result : row.value,
     isNumericColumn: (columnId) => columnId !== 'ticker',
     total: { value: '487320.55', result: '25673.59' },
-    ...(rowsPerGroup === undefined ? {} : { rowsPerGroup }),
+    ...(rowsPerGroup === null ? {} : { rowsPerGroup }),
   });
 
 const kinds = (model: readonly { kind: string }[]): string[] =>
   model.map((entry) => entry.kind);
 
 describe('modelo da tabela densa', () => {
+  it('sem teto declarado, o grupo mostra todas as linhas e não oferece "mostrar mais"', () => {
+    const model = build({}, null);
+    expect(model.some((entry) => entry.kind === 'more')).toBe(false);
+    expect(model.filter((entry) => entry.kind === 'row')).toHaveLength(16);
+  });
+
   it('o subtotal do grupo não muda quando "mostrar mais" esconde linhas', () => {
     const limited = build();
     const expanded = build({ expandedGroups: ['acoes'] });
@@ -214,6 +220,7 @@ describe('detalhe da linha', () => {
       rowId: (row) => row.id,
       sortValue: (row) => row.value,
       isNumericColumn: () => true,
+      rowsPerGroup: 5,
       ...(expandable ? { expandable: true } : {}),
     });
 

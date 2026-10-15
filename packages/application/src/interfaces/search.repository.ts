@@ -1,4 +1,10 @@
-import type { B3Type, DateOnly, PayoutKind, TransactionKind } from '@patrimonio/domain';
+import type {
+  B3Type,
+  DateOnly,
+  InstrumentType,
+  PayoutKind,
+  TransactionKind,
+} from '@patrimonio/domain';
 import type { Either } from '@patrimonio/shared';
 
 import type { AppError } from '../errors/app-error.js';
@@ -36,6 +42,14 @@ export type SearchAssetRow = {
   readonly portfolio_names: readonly string[];
 };
 
+/** Um papel do catálogo que a pessoa ainda não tem como ativo. */
+export type SearchInstrumentRow = {
+  readonly ticker: string;
+  readonly name: string;
+  readonly b3_type: InstrumentType;
+  readonly maturity_date: DateOnly | null;
+};
+
 export type SearchTransactionRow = {
   readonly id: string;
   readonly kind: TransactionKind;
@@ -56,6 +70,16 @@ export type SearchPageView = {
   readonly assets: {
     readonly total: number;
     readonly rows: readonly SearchAssetRow[];
+  };
+  /**
+   * O catálogo de papéis menos o que já é ativo. Sai da mesma consulta dos
+   * ativos, e é por isso que a busca continua em duas.
+   */
+  readonly instruments: {
+    readonly total: number;
+    readonly rows: readonly SearchInstrumentRow[];
+    /** Nenhum papel ativo no catálogo: a carga inicial não foi executada. */
+    readonly catalog_empty: boolean;
   };
   readonly transactions: {
     readonly total: number;

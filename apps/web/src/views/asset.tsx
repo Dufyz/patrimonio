@@ -14,10 +14,18 @@ import {
   PercentChange,
   Quantity,
 } from '../components/number.js';
-import { Menu } from '../components/overlay.js';
+import { ConfirmDialog, Menu } from '../components/overlay.js';
 import { useEntry } from '../components/entry_provider.js';
 import type { OpenEntryRequest } from '../components/entry_provider.js';
 import { KeepPrevious } from '../components/pending.js';
+import {
+  SkeletonChart,
+  SkeletonHeader,
+  SkeletonPanel,
+  SkeletonRegion,
+  SkeletonStats,
+  SkeletonTable,
+} from '../components/skeleton.js';
 import { usePreferences } from '../components/preferences.js';
 import {
   Button,
@@ -29,9 +37,9 @@ import {
   Segmented,
 } from '../components/primitives.js';
 import { SeriesChart } from '../components/series_chart.js';
+import { CONTRIBUTIONS_COLOR, growthBands, resultColor } from '../lib/overview.js';
 import type { ChartMarker } from '../components/series_chart.js';
 import {
-  CORPORATE_EVENT_LABELS,
   DEFAULT_ASSET_PERIOD,
   PAYOUT_KIND_LABELS,
   PAYOUT_SLICES,
@@ -40,8 +48,6 @@ import {
   TRANSACTION_KIND_LABELS,
   assetState,
   assetTitle,
-  eventRatioLabel,
-  fixedIncomeFacts,
   hasQuantityAndPrice,
   isPeriodParam,
   kindOptions,
@@ -49,12 +55,26 @@ import {
   priceStamp,
   transactionsCountLabel,
   usedPayoutSlices,
+  usesValueChart,
+  fixedIncomeFacts,
 } from '../lib/asset_page.js';
 import type { PeriodParam } from '../lib/asset_page.js';
+import { compareDecimal } from '../lib/decimal.js';
+import { duplicateRequest } from '../lib/entry.js';
 import { formatFullDate, formatShortDate } from '../lib/positions.js';
 import { SEMANTIC_COLORS, colorForSeries, colorForToken } from '../lib/tokens.js';
+import { deleteTransaction, undoDeletion } from '../api/transactions.js';
 import { ManualPriceDialog } from './manual_price_dialog.js';
+import { CaixinhaPanel } from './caixinha_panel.js';
+import { CustodyHistory } from './custody_history.js';
+import { CustodyTransferDialog } from './custody_transfer_dialog.js';
+import {
+  ArchiveAssetDialog,
+  AssetDialog,
+  DeleteAssetDialog,
+} from './registers/asset_dialogs.js';
 import type { ManualPriceTarget } from './manual_price_dialog.js';
+import { Icon } from '../components/icon.js';
 
 /**
  * T-03 · A página do ativo.
@@ -70,14 +90,10 @@ import type { ManualPriceTarget } from './manual_price_dialog.js';
  * neste arquivo é escolher onde cada um aparece.
  */
 
-/** O que ainda não existe, e qual história o entrega. */
-const PENDING_ASSET_FORM = 'o cadastro do ativo chega com T-10';
-
 export type AssetScreenProps = {
   /** Código ou identificador: o endereço aceita os dois. */
   readonly assetRef: string;
-  /** Nulo é o escopo de todas as carteiras. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   readonly scopeLabel: string;
   readonly onBack: () => void;
   /** Abre Movimentações filtrada por este ativo, em todo o período. */
@@ -102,6 +118,8 @@ export const AssetScreen = ({
   const [pending, setPending] = useState(true);
   const [error, setError] = useState<{ message: string; status: number } | null>(null);
   const [manualPriceOpen, setManualPriceOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [dialog, setDialog] = useState<'edit' | 'delete' | 'archive' | null>(null);
   const [reloads, setReloads] = useState(0);
   const entry = useEntry();
 
@@ -153,10 +171,19 @@ export const AssetScreen = ({
   }
 
   if (resource === null) {
-    return (
-      <p className="px-1 py-10 text-sm text-ink-3">
-        {pending ? 'Carregando o ativo…' : 'Nada a mostrar.'}
-      </p>
+    return pending ? (
+      <SkeletonRegion label="Carregando o ativo" className="flex flex-col gap-4">
+        <SkeletonHeader />
+        <SkeletonStats count={5} />
+        <SkeletonPanel>
+          <SkeletonChart />
+        </SkeletonPanel>
+        <SkeletonPanel title="Lançamentos">
+          <SkeletonTable rows={5} columns={5} />
+        </SkeletonPanel>
+      </SkeletonRegion>
+    ) : (
+      <p className="px-1 py-10 text-sm text-ink-3">Nada a mostrar.</p>
     );
   }
 
@@ -173,35 +200,30 @@ export const AssetScreen = ({
       name: resource.asset.name,
       held: resource.position?.quantity ?? null,
     },
-    ...(portfolioId === null ? {} : { portfolioId }),
+    portfolioId,
   });
 
   return (
     <div className="flex flex-col gap-4">
-      <nav aria-label="Trilha" className="flex items-center gap-1.5 text-[0.75rem]">
-        <button
-          type="button"
-          className="cursor-pointer text-ink-3 hover:text-ink hover:underline"
-          onClick={onBack}
-        >
-          Posições
-        </button>
-        <span aria-hidden="true" className="text-ink-3">
-          ›
-        </span>
-        <span className="text-ink-2">{title}</span>
-      </nav>
-
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <div className="flex flex-wrap items-baseline gap-3">
-            <h1 className="tabular truncate text-[1.625rem] leading-8 font-semibold">
-              {title}
-            </h1>
+      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="flex min-w-0 flex-[1_1_20rem] flex-col gap-1.5">
+          {/* O nome de um título pode ter cinquenta caracteres: ele quebra em
+              até duas linhas dentro da coluna, e não empurra o resto da tela. */}
+          <h1
+            className={`line-clamp-2 font-semibold [overflow-wrap:anywhere] ${
+              title.length > 16
+                ? 'text-[1.25rem] leading-7'
+                : 'tabular text-[1.625rem] leading-8'
+            }`}
+            title={title}
+          >
+            {title}
+          </h1>
+          {resource.asset.name === title ? null : (
             <p className="truncate text-sm text-ink-2" title={resource.asset.name}>
               {resource.asset.name}
             </p>
-          </div>
+          )}
 
           <div className="flex flex-wrap gap-1.5">
             {resource.asset.category_name === null ? null : (
@@ -216,16 +238,23 @@ export const AssetScreen = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex min-w-0 flex-col items-end gap-2">
           <div className="flex flex-col items-end">
             <span className="tabular text-[1.5rem] leading-7 font-semibold">
-              {resource.price.value === null ? (
-                <span className="text-ink-3">—</span>
-              ) : (
+              {resource.price.value !== null ? (
                 <Money value={resource.price.value} />
+              ) : resource.position !== null && usesValueChart(resource) ? (
+                <Money value={resource.position.value} />
+              ) : (
+                <span className="text-ink-3">—</span>
               )}
             </span>
             <span className="flex items-center gap-1.5 text-[0.75rem] text-ink-3">
+              {resource.price.value === null &&
+              resource.position !== null &&
+              usesValueChart(resource) ? (
+                <span>valor na curva</span>
+              ) : null}
               {resource.price.day_change_ratio === null ? null : (
                 <>
                   <PercentChange value={resource.price.day_change_ratio} />
@@ -246,47 +275,70 @@ export const AssetScreen = ({
             </span>
           </div>
 
-          <IconButton
-            label={valuesHidden ? 'Mostrar valores' : 'Ocultar valores'}
-            aria-pressed={valuesHidden}
-            onClick={toggleHidden}
-          >
-            {valuesHidden ? '⦰' : '◉'}
-          </IconButton>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <IconButton
+              label={valuesHidden ? 'Mostrar valores' : 'Ocultar valores'}
+              aria-pressed={valuesHidden}
+              onClick={toggleHidden}
+            >
+              <Icon name={valuesHidden ? 'eye-off' : 'eye'} />
+            </IconButton>
 
-          <Button disabled title={PENDING_ASSET_FORM}>
-            Editar ativo
-          </Button>
+            <Button icon="pencil" onClick={() => setDialog('edit')}>
+              Editar ativo
+            </Button>
 
-          <Menu
-            label={`Ações de ${title}`}
-            items={[
-              {
-                id: 'manual_price',
-                label: 'Definir preço manual',
-                onSelect: () => setManualPriceOpen(true),
-              },
-              {
-                id: 'transfer',
-                label: 'Mover entre carteiras',
-                onSelect: () => entry.openEntry(entryFor('transfer')),
-              },
-              {
-                id: 'transactions',
-                label: 'Ver todos os lançamentos',
-                disabled: onOpenStatement === undefined,
-                onSelect: () => onOpenStatement?.(title),
-              },
-            ]}
-          />
+            <Menu
+              variant="button"
+              label={`Ações de ${title}`}
+              items={[
+                {
+                  id: 'manual_price',
+                  label: 'Definir preço manual',
+                  icon: <Icon name="tag" />,
+                  onSelect: () => setManualPriceOpen(true),
+                },
+                {
+                  id: 'transfer_custody',
+                  label: 'Transferir custódia',
+                  hint: resource.position === null ? 'sem posição aberta' : undefined,
+                  icon: <Icon name="swap" />,
+                  disabled: resource.position === null,
+                  onSelect: () => setTransferOpen(true),
+                },
+                {
+                  id: 'transactions',
+                  label: 'Ver todos os lançamentos',
+                  icon: <Icon name="swap" />,
+                  disabled: onOpenStatement === undefined,
+                  onSelect: () => onOpenStatement?.(title),
+                },
+                {
+                  id: 'archive',
+                  label: 'Arquivar ativo',
+                  hint: 'zere a posição antes',
+                  icon: <Icon name="archive" />,
+                  disabled: resource.asset.archived_at !== null,
+                  onSelect: () => setDialog('archive'),
+                },
+                {
+                  id: 'delete',
+                  label: 'Excluir ativo',
+                  icon: <Icon name="trash" />,
+                  destructive: true,
+                  onSelect: () => setDialog('delete'),
+                },
+              ]}
+            />
 
-          <Button
-            variant="primary"
-            shortcut="L"
-            onClick={() => entry.openEntry(entryFor('buy'))}
-          >
-            Lançar
-          </Button>
+            <Button
+              variant="primary"
+              shortcut="L"
+              onClick={() => entry.openEntry(entryFor('buy'))}
+            >
+              Lançar
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -297,44 +349,116 @@ export const AssetScreen = ({
               painel separado do gráfico, é a legenda dele. */}
           <section className="flex flex-wrap items-stretch rounded-panel border border-line bg-panel">
             <div className="flex min-w-0 flex-[1_1_16rem] flex-col gap-1 p-5 md:max-w-[21rem]">
-              <Label className="mb-2">
-                Sua posição{portfolioId === null ? '' : ` · ${scopeLabel}`}
-              </Label>
-              <PositionFacts resource={resource} state={state} />
+              <Label className="mb-2">Sua posição · {scopeLabel}</Label>
+              {/* A lista cresce com o tipo do ativo; rolar aqui evita esticar o
+                  cartão e deformar o gráfico ao lado. */}
+              <div className="-mr-2 min-h-0 overflow-y-auto pr-2 md:max-h-[17.5rem]">
+                <PositionFacts resource={resource} state={state} />
+              </div>
             </div>
 
             <div className="flex min-w-0 flex-[3_1_32rem] flex-col gap-3 border-line p-5 md:border-l">
-              <PriceChart
-                resource={resource}
-                period={period}
-                onPeriod={(value) =>
-                  update({ janela: value === DEFAULT_ASSET_PERIOD ? null : value })
-                }
-              />
+              {usesValueChart(resource) ? (
+                <YieldChart
+                  resource={resource}
+                  period={period}
+                  onPeriod={(value) =>
+                    update({ janela: value === DEFAULT_ASSET_PERIOD ? null : value })
+                  }
+                />
+              ) : (
+                <PriceChart
+                  resource={resource}
+                  period={period}
+                  onPeriod={(value) =>
+                    update({ janela: value === DEFAULT_ASSET_PERIOD ? null : value })
+                  }
+                />
+              )}
             </div>
           </section>
 
-          {/* A faixa de baixo: o contexto. Três blocos de altura igual, que
-              empilham em ordem de importância em tela estreita (O-10). */}
-          {/* Os três não dividem a largura em partes iguais: o do meio é uma
-              tabela de quatro colunas, e os outros dois são um gráfico de
-              barras e uma lista de pares. Partes iguais fariam a tabela cortar
-              o valor, que é a coluna que ninguém abre a tela para não ver. */}
-          <div className="grid items-stretch gap-4 lg:grid-cols-[1fr_1.3fr_1fr]">
-            <PayoutsPanel resource={resource} />
-            <TransactionsPanel
-              resource={resource}
-              kind={kind}
-              onKind={(value) => update({ tipo: value })}
+          {resource.asset.redemption_rule === null ? null : (
+            <CaixinhaPanel
+              portfolioId={portfolioId}
+              asset={resource.asset}
+              reloadKey={reloads}
+              onChanged={() => setReloads((count) => count + 1)}
             />
-            <AssetDataPanel
-              resource={resource}
-              onManualPrice={() => setManualPriceOpen(true)}
-              onTransfer={() => entry.openEntry(entryFor('transfer'))}
-            />
-          </div>
+          )}
+
+          <EvolutionPanel resource={resource} />
+
+          {/* A faixa de baixo: o contexto, uma linha por bloco. Cada um usa a
+              largura inteira: a grade de doze meses e a tabela do histórico
+              precisam dela, e três colunas estreitas cortavam o valor. */}
+          <HistoryPanel
+            resource={resource}
+            kind={kind}
+            onKind={(value) => update({ tipo: value })}
+            onChanged={() => setReloads((count) => count + 1)}
+          />
+          {hasRegisteredPayouts(resource) ? <PayoutsPanel resource={resource} /> : null}
+          <CustodyHistory
+            portfolioId={portfolioId}
+            assetId={resource.asset.asset_id}
+            transfers={resource.custody_transfers}
+            onChanged={() => setReloads((count) => count + 1)}
+          />
         </div>
       </KeepPrevious>
+
+      {dialog === 'edit' ? (
+        <AssetDialog
+          asset={resource.asset}
+          onClose={() => setDialog(null)}
+          onSaved={(ticker) => {
+            setDialog(null);
+            // O endereço do ativo é o código dele: com o código novo, o
+            // endereço antigo deixa de existir, e a trilha volta para Posições.
+            if (ticker.toLowerCase() !== resource.asset.ticker.toLowerCase()) onBack();
+            else setReloads((count) => count + 1);
+          }}
+          onDelete={() => setDialog('delete')}
+          onArchive={() => setDialog('archive')}
+        />
+      ) : null}
+      {dialog === 'delete' ? (
+        <DeleteAssetDialog
+          asset={resource.asset}
+          onClose={() => setDialog(null)}
+          onDone={onBack}
+          onOpenStatement={() => {
+            setDialog(null);
+            onOpenStatement?.(title);
+          }}
+        />
+      ) : null}
+      {dialog === 'archive' ? (
+        <ArchiveAssetDialog
+          asset={resource.asset}
+          onClose={() => setDialog(null)}
+          onDone={onBack}
+        />
+      ) : null}
+
+      {transferOpen ? (
+        <CustodyTransferDialog
+          target={{
+            portfolio_id: portfolioId,
+            asset_id: resource.asset.asset_id,
+            ticker: resource.asset.ticker,
+            name: resource.asset.name,
+            institution_id: resource.custodians[0]?.institution_id ?? null,
+            institution_name: resource.custodians[0]?.institution_name ?? null,
+          }}
+          onClose={() => setTransferOpen(false)}
+          onSaved={() => {
+            setTransferOpen(false);
+            setReloads((count) => count + 1);
+          }}
+        />
+      ) : null}
 
       <ManualPriceDialog
         position={manualPriceOpen ? asManualPriceTarget(resource) : null}
@@ -367,9 +491,9 @@ const asManualPriceTarget = (resource: AssetPageResource): ManualPriceTarget => 
 /* -------------------------------------------------------------------------- */
 
 /**
- * As seis linhas da esquerda, que são as da prancha. Posição zerada não mostra
- * seis zeros: ela diz que está zerada e aponta para o histórico, porque um zero
- * em "quantidade" e um zero em "resultado" querem dizer coisas diferentes.
+ * As oito linhas da esquerda. Posição zerada não mostra zeros: diz que está
+ * zerada e, se o papel já teve lançamentos, mostra o que ele rendeu na vida —
+ * é o que permite abrir um papel vendido e ainda ver a conta dele.
  */
 const PositionFacts = ({
   resource,
@@ -378,74 +502,116 @@ const PositionFacts = ({
   readonly resource: AssetPageResource;
   readonly state: ReturnType<typeof assetState>;
 }): React.ReactElement => {
+  const { lifetime } = resource;
+  const type = b3TypeLabel(resource.asset.b3_type);
+
   if (resource.position === null) {
+    const traded = lifetime.buys + lifetime.sells > 0;
+
     return (
-      <p className="py-2 text-[0.8125rem] text-ink-3">
-        {state === 'never_closed'
-          ? 'Ainda não houve fechamento: a posição aparece depois do primeiro.'
-          : 'Posição zerada. O histórico do papel continua abaixo.'}
-      </p>
+      <>
+        <p className="py-2 text-[0.8125rem] text-ink-3">
+          {state === 'never_closed'
+            ? 'Carteira ainda não consolidada: a posição aparece depois da primeira consolidação.'
+            : 'Posição zerada. O que o papel rendeu na carteira está abaixo.'}
+        </p>
+        {traded ? (
+          <dl className="flex flex-col">
+            <Row label="Valor investido">
+              <Money value={lifetime.invested} />
+            </Row>
+            <Row label="Valor vendido">
+              <Money value={lifetime.proceeds} />
+            </Row>
+            {lifetime.realized_result === null ? null : (
+              <Row label="Resultado realizado">
+                <MoneyChange value={lifetime.realized_result} />
+              </Row>
+            )}
+            <Row label="Proventos recebidos">
+              <Money value={lifetime.payouts_received} />
+            </Row>
+            <Row label="Rentabilidade (TWR)">
+              <PercentChange value={lifetime.twr_ratio} decimals={1} />
+            </Row>
+            <Row label="Rentabilidade (TIR)">
+              <PercentChange value={lifetime.xirr_ratio} decimals={1} />
+            </Row>
+            {lifetime.first_trade_date === null ||
+            lifetime.last_trade_date === null ? null : (
+              <Row label="Período">
+                <span className="tabular">
+                  {formatShortDate(lifetime.first_trade_date)} →{' '}
+                  {formatShortDate(lifetime.last_trade_date)}
+                </span>
+              </Row>
+            )}
+            <Row label="Tipo do ativo">{type}</Row>
+          </dl>
+        ) : null}
+      </>
     );
   }
 
   const position = resource.position;
-  const curve = position.unit === 'curve';
+
+  // Título na curva: quantidade e preço médio não dizem nada. O que se lê é
+  // quanto foi aplicado, quanto vale e o que a curva já rendeu, seguido das
+  // condições do papel.
+  if (resource.asset.indexer !== null) {
+    return (
+      <dl className="flex flex-col">
+        <Row label="Valor investido">
+          <Money value={position.cost_basis} />
+        </Row>
+        <Row label="Valor atualizado">
+          <Money value={position.value} />
+        </Row>
+        <Row label="Rendimento bruto">
+          <MoneyChange value={position.open_result} />
+        </Row>
+        <Row label="Rentabilidade">
+          <PercentChange value={position.open_result_ratio} decimals={2} />
+        </Row>
+        <Row label="Rentabilidade (TIR)">
+          <PercentChange value={lifetime.xirr_ratio} decimals={1} />
+        </Row>
+        <Row label="Peso na carteira">
+          <Percent value={position.weight} decimals={1} />
+        </Row>
+        {fixedIncomeFacts(resource.asset).map((fact) => (
+          <Row key={fact.label} label={fact.label}>
+            <span className="text-right">{fact.value}</span>
+          </Row>
+        ))}
+      </dl>
+    );
+  }
 
   return (
     <dl className="flex flex-col">
-      {curve ? (
-        <>
-          <Row label="Valor na curva">
-            <Money value={position.value} />
-          </Row>
-          <Row label="Aplicado">
-            <Money value={position.cost_basis} />
-          </Row>
-          <Row label="Juros acumulados">
-            <MoneyChange value={position.accrued_interest} />
-          </Row>
-        </>
-      ) : (
-        <>
-          <Row label="Quantidade">
-            <Quantity value={position.quantity} />
-          </Row>
-          <Row label="Preço médio">
-            <Money value={position.avg_price} />
-          </Row>
-          <Row label="Custo total">
-            <Money value={position.cost_basis} />
-          </Row>
-          <Row label="Valor">
-            <Money value={position.value} />
-          </Row>
-        </>
-      )}
-
-      <Row label="Resultado">
-        <span className="flex items-baseline gap-2">
-          <MoneyChange value={position.open_result} />
-          <span aria-hidden="true" className="text-ink-3">
-            ·
-          </span>
-          <PercentChange value={position.open_result_ratio} decimals={1} />
-        </span>
+      <Row label="Quantidade">
+        <Quantity value={position.quantity} />
       </Row>
-
-      {/* Nunca vendido é ausência, e a linha some: `R$ 0,00` em "realizado"
-          leria como "vendi e não ganhei nada". */}
-      {position.realized_result === null ? null : (
-        <Row label="Resultado realizado">
-          <MoneyChange value={position.realized_result} />
-        </Row>
-      )}
-
-      <Row label="Proventos 12M">
-        <Money value={position.payouts_12m} />
+      <Row label="Preço médio">
+        <Money value={position.avg_price} />
+      </Row>
+      <Row label="Valor investido">
+        <Money value={position.cost_basis} />
+      </Row>
+      <Row label="Valor atualizado">
+        <Money value={position.value} />
+      </Row>
+      <Row label="Rentabilidade (TWR)">
+        <PercentChange value={lifetime.twr_ratio} decimals={1} />
+      </Row>
+      <Row label="Rentabilidade (TIR)">
+        <PercentChange value={lifetime.xirr_ratio} decimals={1} />
       </Row>
       <Row label="Peso na carteira">
         <Percent value={position.weight} decimals={1} />
       </Row>
+      <Row label="Tipo do ativo">{type}</Row>
     </dl>
   );
 };
@@ -598,6 +764,174 @@ const PriceChart = ({
   );
 };
 
+/**
+ * O gráfico de quem não tem cotação, como o título de banco na curva: o
+ * rendimento acumulado sozinho, na própria escala. Empilhado sobre o investido
+ * ele quase não aparece — R$ 80 sobre R$ 10 mil é uma linha —, e é o rendimento
+ * que a pessoa quer ver subir.
+ */
+const YieldChart = ({
+  resource,
+  period,
+  onPeriod,
+}: {
+  readonly resource: AssetPageResource;
+  readonly period: PeriodParam;
+  readonly onPeriod: (value: PeriodParam) => void;
+}): React.ReactElement => {
+  const points = resource.series.value_points;
+  const last = points[points.length - 1];
+
+  const underwater = points.some((point) => point.result.startsWith('-'));
+  const hasPayouts = points.some((point) => compareDecimal(point.payouts, '0') !== 0);
+  const dates = useMemo(() => points.map((point) => point.date), [points]);
+
+  const series = useMemo(
+    () => [
+      {
+        id: 'rendimento',
+        label: 'Rendimento acumulado',
+        color: resultColor(underwater),
+        points: points.map((point) => ({ date: point.date, value: point.result })),
+      },
+      ...(hasPayouts
+        ? [
+            {
+              id: 'com-proventos',
+              label: 'Com proventos',
+              color: SEMANTIC_COLORS.payouts,
+              points: points.map((point) => ({
+                date: point.date,
+                value: point.result_with_payouts,
+              })),
+            },
+          ]
+        : []),
+    ],
+    [points, underwater, hasPayouts],
+  );
+
+  const periodLabel =
+    PERIOD_OPTIONS.find((option) => option.value === period)?.label ?? period;
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h2 className="text-panel-title font-semibold">
+            Rendimento acumulado em {periodLabel}
+          </h2>
+          {last === undefined ? null : (
+            <span className="text-[0.8125rem]">
+              <MoneyChange value={last.result} />
+            </span>
+          )}
+        </div>
+        <Segmented<PeriodParam>
+          label="Janela do gráfico"
+          value={period}
+          options={PERIOD_OPTIONS}
+          onChange={onPeriod}
+        />
+      </div>
+
+      {points.length < 2 ? (
+        <p className="py-12 text-center text-[0.8125rem] text-ink-3">
+          {points.length === 0
+            ? 'Ainda não há posição deste título na janela escolhida.'
+            : 'Um dia só não desenha uma série: escolha uma janela maior.'}
+        </p>
+      ) : (
+        <SeriesChart
+          dates={dates}
+          series={series}
+          valueFormat="money"
+          ariaLabel={`Rendimento acumulado de ${assetTitle(resource.asset)} em ${periodLabel}`}
+          xTickLabel={(date) => formatShortDate(date)}
+          tooltipDateLabel={(date) => formatFullDate(date)}
+        />
+      )}
+    </>
+  );
+};
+
+/**
+ * A evolução da posição, para qualquer ativo: o investido embaixo, o rendimento
+ * em cima e os proventos recebidos fechando a pilha — a mesma leitura da Visão
+ * geral, só que de um papel. Aporte e rendimento ficam separados.
+ */
+const EvolutionPanel = ({
+  resource,
+}: {
+  readonly resource: AssetPageResource;
+}): React.ReactElement | null => {
+  const points = resource.series.value_points;
+
+  const bands = useMemo(
+    () =>
+      growthBands(
+        points.map((point) => ({
+          date: point.date,
+          contributions: point.cost_basis,
+          total: point.value,
+          result: point.result,
+          payouts: point.payouts,
+          with_payouts: point.with_payouts,
+        })),
+      ),
+    [points],
+  );
+
+  if (points.length < 2) return null;
+
+  return (
+    <Panel title="Evolução da posição" hint="investido, rendimento e proventos recebidos">
+      <div className="p-4">
+        <SeriesChart
+          dates={bands.dates}
+          series={[
+            {
+              id: 'valor',
+              label: 'Valor da posição',
+              color: SEMANTIC_COLORS.ink,
+              points: bands.total,
+            },
+          ]}
+          bands={[
+            {
+              id: 'investido',
+              label: 'Investido',
+              color: CONTRIBUTIONS_COLOR,
+              values: bands.contributions,
+            },
+            {
+              id: 'rendimento',
+              label: bands.underwater ? 'Resultado' : 'Rendimento',
+              color: resultColor(bands.underwater),
+              values: bands.result,
+            },
+            ...(bands.hasPayouts
+              ? [
+                  {
+                    id: 'proventos',
+                    label: 'Proventos recebidos',
+                    color: SEMANTIC_COLORS.payouts,
+                    values: bands.payouts,
+                  },
+                ]
+              : []),
+          ]}
+          valueFormat="money"
+          fromZero
+          ariaLabel={`Evolução da posição em ${assetTitle(resource.asset)}`}
+          xTickLabel={(date) => formatShortDate(date)}
+          tooltipDateLabel={(date) => formatFullDate(date)}
+        />
+      </div>
+    </Panel>
+  );
+};
+
 /** `29.10000000` → `29,10`. Só o rótulo da linha de referência precisa disto. */
 const formatPrice = (value: string): string => {
   const [whole = '0', fraction = ''] = value.split('.');
@@ -612,6 +946,13 @@ const formatPrice = (value: string): string => {
  * propósito — a pergunta de quem já tem o papel é quanto ele rende sobre o que
  * foi pago por ele, não sobre o que ele vale agora.
  */
+/** O bloco só existe para o papel que já pagou, ou vai pagar, algum provento. */
+const hasRegisteredPayouts = (resource: AssetPageResource): boolean =>
+  compareDecimal(resource.lifetime.payouts_received, '0') !== 0 ||
+  compareDecimal(resource.payouts.total_12m, '0') !== 0 ||
+  resource.payouts.upcoming.length > 0 ||
+  usedPayoutSlices(resource.payouts.months).length > 0;
+
 const PayoutsPanel = ({
   resource,
 }: {
@@ -644,9 +985,8 @@ const PayoutsPanel = ({
           ? '12 meses'
           : `12 meses · yield sobre custo ${percentText(yieldOnCost)}`
       }
-      className="flex flex-col"
     >
-      <div className="flex flex-1 flex-col gap-3 p-4">
+      <div className="grid gap-x-6 gap-y-4 p-4 md:grid-cols-[minmax(0,1fr)_17rem]">
         {slices.length === 0 ? (
           <p className="py-8 text-center text-[0.8125rem] text-ink-3">
             Este papel não pagou provento nos últimos doze meses.
@@ -660,31 +1000,39 @@ const PayoutsPanel = ({
           />
         )}
 
-        {resource.payouts.upcoming.map((payout) => (
-          <p
-            key={payout.transaction_id}
-            className="flex items-baseline justify-between gap-3 border-t border-line pt-3 text-[0.8125rem]"
-          >
-            <span className="flex items-baseline gap-2">
-              <span className="tabular text-ink-3">
-                {formatShortDate(payout.settlement_date)}
-              </span>
-              <span>
-                {PAYOUT_KIND_LABELS[payout.payout_kind] ?? payout.payout_kind} · a receber
-              </span>
+        <div className="flex flex-col justify-end gap-3 md:border-l md:border-line md:pl-6">
+          <p className="flex items-baseline justify-between gap-3 text-[0.8125rem]">
+            <span className="text-ink-2">Total 12M</span>
+            <span className="font-medium">
+              <Money value={resource.payouts.total_12m} />
             </span>
-            <MoneyChange value={payout.net_amount} />
           </p>
-        ))}
-      </div>
+          <p className="flex items-baseline justify-between gap-3 text-[0.8125rem]">
+            <span className="text-ink-2">Recebido na vida do papel</span>
+            <span className="font-medium">
+              <Money value={resource.lifetime.payouts_received} />
+            </span>
+          </p>
 
-      {/* O rodapé fica colado embaixo mesmo com conteúdo curto (O-10). */}
-      <footer className="mt-auto flex items-baseline justify-between gap-3 border-t border-line px-4 py-3 text-[0.8125rem]">
-        <span className="text-ink-2">Total 12M</span>
-        <span className="font-medium">
-          <Money value={resource.payouts.total_12m} />
-        </span>
-      </footer>
+          {resource.payouts.upcoming.map((payout) => (
+            <p
+              key={payout.transaction_id}
+              className="flex items-baseline justify-between gap-3 border-t border-line pt-3 text-[0.8125rem]"
+            >
+              <span className="flex items-baseline gap-2">
+                <span className="tabular text-ink-3">
+                  {formatShortDate(payout.settlement_date)}
+                </span>
+                <span>
+                  {PAYOUT_KIND_LABELS[payout.payout_kind] ?? payout.payout_kind} · a
+                  receber
+                </span>
+              </span>
+              <MoneyChange value={payout.net_amount} />
+            </p>
+          ))}
+        </div>
+      </div>
     </Panel>
   );
 };
@@ -722,32 +1070,109 @@ const percentText = (ratio: string): string => {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Os lançamentos do ativo, com filtro por tipo. A lista é curta de propósito:
- * ela existe para reconhecer o lançamento, não para auditá-lo — a coluna
- * "Efeito" e a seleção em lote são de Movimentações (T-04), que o menu
- * do ativo abre já filtrada por ele.
+ * O histórico do ativo: cada lançamento em uma linha, com filtro por tipo e as
+ * mesmas ações de Movimentações — editar, duplicar e excluir (com desfazer).
+ * A auditoria em lote e a coluna "Efeito" continuam sendo de Movimentações
+ * (T-04), que o menu do ativo abre já filtrada por ele.
  */
-const TransactionsPanel = ({
+const HistoryPanel = ({
   resource,
   kind,
   onKind,
+  onChanged,
 }: {
   readonly resource: AssetPageResource;
   readonly kind: TransactionKind | null;
   readonly onKind: (value: string | null) => void;
+  readonly onChanged: () => void;
 }): React.ReactElement => {
+  const entry = useEntry();
   const options = kindOptions(resource.transactions.facets);
+  const title = assetTitle(resource.asset);
+  const [notice, setNotice] = useState<
+    | { readonly kind: 'deleted'; readonly undoId: string }
+    | { readonly kind: 'error'; readonly message: string }
+    | null
+  >(null);
+  const [busy, setBusy] = useState(false);
+  const [toDelete, setToDelete] = useState<
+    AssetPageResource['transactions']['recent'][number] | null
+  >(null);
+
+  const remove = async (id: string): Promise<void> => {
+    setBusy(true);
+    try {
+      const receipt = await deleteTransaction(id);
+      setNotice({ kind: 'deleted', undoId: receipt.undo.undo_id });
+    } catch {
+      setNotice({
+        kind: 'error',
+        message: 'Não foi possível excluir. Nada foi alterado.',
+      });
+    }
+    setBusy(false);
+    onChanged();
+  };
+
+  const undo = async (undoId: string): Promise<void> => {
+    setBusy(true);
+    try {
+      await undoDeletion(undoId);
+      setNotice(null);
+    } catch (cause) {
+      setNotice({
+        kind: 'error',
+        message: cause instanceof Error ? cause.message : 'Não foi possível desfazer.',
+      });
+    }
+    setBusy(false);
+    onChanged();
+  };
+
+  const duplicate = (
+    transaction: AssetPageResource['transactions']['recent'][number],
+  ): void => {
+    const request = duplicateRequest({
+      ...transaction,
+      asset_id: resource.asset.asset_id,
+      ticker: resource.asset.ticker,
+      asset_name: resource.asset.name,
+    });
+    if (request === null) return;
+    entry.openEntry({
+      tab: request.tab,
+      asset: request.asset,
+      portfolioId: request.portfolioId,
+      ...(request.seed === undefined ? {} : { seed: request.seed }),
+    });
+  };
 
   return (
     <Panel
-      title="Lançamentos"
+      title="Histórico"
       action={
         <span className="text-[0.8125rem] text-ink-3">
           {transactionsCountLabel(resource.transactions.total)}
         </span>
       }
-      className="flex flex-col"
     >
+      <ConfirmDialog
+        open={toDelete !== null}
+        title="Excluir lançamento?"
+        subject={
+          toDelete === null
+            ? ''
+            : `${TRANSACTION_KIND_LABELS[toDelete.kind]} de ${title} em ${formatFullDate(toDelete.trade_date)}`
+        }
+        consequence="O preço médio e o resultado de tudo que veio depois serão recalculados. Você terá alguns minutos para desfazer."
+        onCancel={() => setToDelete(null)}
+        onConfirm={() => {
+          const target = toDelete;
+          setToDelete(null);
+          if (target !== null) void remove(target.id);
+        }}
+      />
+
       {options.length <= 1 ? null : (
         <div
           role="group"
@@ -767,153 +1192,145 @@ const TransactionsPanel = ({
         </div>
       )}
 
-      <div className="flex-1 px-1 py-1">
-        {resource.transactions.recent.length === 0 ? (
-          <p className="px-3 py-8 text-[0.8125rem] text-ink-3">
-            {kind === null
-              ? 'Este papel ainda não tem lançamento.'
-              : 'Nenhum lançamento deste tipo.'}
-          </p>
-        ) : (
-          <table className="w-full table-fixed">
-            <caption className="sr-only">
-              Lançamentos de {assetTitle(resource.asset)}
-            </caption>
+      {notice === null ? null : (
+        <p
+          role="status"
+          className="flex items-center justify-between gap-3 border-b border-line bg-panel-2 px-4 py-2 text-[0.8125rem]"
+        >
+          <span>
+            {notice.kind === 'deleted' ? 'Lançamento excluído.' : notice.message}
+          </span>
+          {notice.kind === 'deleted' ? (
+            <Button disabled={busy} onClick={() => void undo(notice.undoId)}>
+              Desfazer
+            </Button>
+          ) : null}
+        </p>
+      )}
+
+      {resource.transactions.recent.length === 0 ? (
+        <p className="px-4 py-8 text-[0.8125rem] text-ink-3">
+          {kind === null
+            ? 'Este papel ainda não tem lançamento.'
+            : 'Nenhum lançamento deste tipo.'}
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[46rem] text-[0.8125rem]">
+            <caption className="sr-only">Histórico de {title}</caption>
             <thead>
-              <tr className="text-label tracking-wide text-ink-3 uppercase">
-                <th className="w-[6.5rem] px-2 py-1.5 text-left font-medium">Data</th>
-                <th className="px-2 py-1.5 text-left font-medium">Tipo</th>
-                <th className="w-[7rem] px-2 py-1.5 text-right font-medium">
-                  Qtd × preço
+              <tr className="tabular text-label tracking-[0.06em] text-ink-3 uppercase">
+                <th className="w-28 px-4 py-2 text-left font-medium">Data</th>
+                <th className="px-3 py-2 text-left font-medium">Tipo</th>
+                <th className="px-3 py-2 text-left font-medium">Carteira</th>
+                <th className="px-3 py-2 text-left font-medium">Instituição</th>
+                <th className="px-3 py-2 text-right font-medium">Quantidade</th>
+                <th className="px-3 py-2 text-right font-medium">Preço</th>
+                <th className="px-3 py-2 text-right font-medium">Valor</th>
+                <th className="w-11 px-1.5 py-2">
+                  <span className="sr-only">Ações</span>
                 </th>
-                <th className="w-[5.75rem] px-2 py-1.5 text-right font-medium">Valor</th>
               </tr>
             </thead>
             <tbody>
-              {resource.transactions.recent.map((transaction) => (
-                <tr
-                  key={transaction.id}
-                  className="border-t border-line"
-                  title={rowTitle(transaction)}
-                >
-                  <td className="tabular px-2 py-2 whitespace-nowrap">
-                    {formatFullDate(transaction.trade_date)}
-                  </td>
-                  <td className="truncate px-2 py-2">
-                    {TRANSACTION_KIND_LABELS[transaction.kind]}
-                  </td>
-                  <td className="px-2 py-2 text-right whitespace-nowrap">
-                    {hasQuantityAndPrice(transaction.kind) ? (
-                      <span className="tabular">
-                        <Quantity value={transaction.quantity} decimals={0} /> ×{' '}
-                        <Money value={transaction.unit_price} bare />
+              {resource.transactions.recent.map((transaction) => {
+                const quantified = hasQuantityAndPrice(transaction.kind);
+                const editable = transaction.kind !== 'corporate_event';
+                const label = `${TRANSACTION_KIND_LABELS[transaction.kind]} de ${formatFullDate(transaction.trade_date)}`;
+
+                return (
+                  <tr
+                    key={transaction.id}
+                    className="border-t border-line hover:bg-panel-2"
+                    title={rowTitle(transaction)}
+                  >
+                    <td className="tabular px-4 py-2.5 whitespace-nowrap">
+                      {formatFullDate(transaction.trade_date)}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {TRANSACTION_KIND_LABELS[transaction.kind]}
+                      {transaction.payout_kind === null ? null : (
+                        <span className="text-ink-3">
+                          {' · '}
+                          {PAYOUT_KIND_LABELS[transaction.payout_kind] ??
+                            transaction.payout_kind}
+                        </span>
+                      )}
+                      {transaction.kind === 'payout' &&
+                      transaction.confirmed_at === null ? (
+                        <span className="text-attention"> · a receber</span>
+                      ) : null}
+                    </td>
+                    <td className="max-w-0 min-w-24 px-3 py-2.5 text-ink-2">
+                      <span className="block truncate">{transaction.portfolio_name}</span>
+                    </td>
+                    <td className="max-w-0 min-w-24 px-3 py-2.5 text-ink-2">
+                      <span className="block truncate">
+                        {transaction.institution_name ?? '—'}
                       </span>
-                    ) : (
-                      <span className="text-ink-3">—</span>
-                    )}
-                  </td>
-                  <td className="px-2 py-2 text-right">
-                    {transaction.kind === 'payout' ? (
-                      <MoneyChange value={transaction.net_amount} bare />
-                    ) : (
-                      <Money value={transaction.net_amount} bare />
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      {quantified ? (
+                        <Quantity value={transaction.quantity} decimals={0} />
+                      ) : (
+                        <span className="text-ink-3">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      {quantified ? (
+                        <Money value={transaction.unit_price} />
+                      ) : (
+                        <span className="text-ink-3">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      {transaction.kind === 'payout' ? (
+                        <MoneyChange value={transaction.net_amount} />
+                      ) : (
+                        <Money value={transaction.net_amount} />
+                      )}
+                    </td>
+                    <td className="w-11 px-1.5 py-1">
+                      <Menu
+                        label={`Ações de ${label}`}
+                        items={[
+                          {
+                            id: 'edit',
+                            label: 'Editar',
+                            icon: <Icon name="pencil" />,
+                            hint: editable ? undefined : 'Evento não é editado aqui',
+                            disabled: !editable,
+                            onSelect: () => entry.openEdit(transaction.id, title),
+                          },
+                          {
+                            id: 'duplicate',
+                            label: 'Duplicar',
+                            icon: <Icon name="copy" />,
+                            disabled: !editable,
+                            onSelect: () => duplicate(transaction),
+                          },
+                          {
+                            id: 'delete',
+                            label: 'Excluir',
+                            icon: <Icon name="trash" />,
+                            destructive: true,
+                            onSelect: () => setToDelete(transaction),
+                          },
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
     </Panel>
   );
 };
 
 /* -------------------------------------------------------------------------- */
-
-/**
- * O cadastro: o que o papel é, de onde vem o preço dele e que eventos já foram
- * aplicados. É o bloco que responde "por que este número está assim".
- */
-const AssetDataPanel = ({
-  resource,
-  onManualPrice,
-  onTransfer,
-}: {
-  readonly resource: AssetPageResource;
-  readonly onManualPrice: () => void;
-  readonly onTransfer: () => void;
-}): React.ReactElement => {
-  const asset = resource.asset;
-  const fixedIncome = fixedIncomeFacts(asset);
-
-  return (
-    <Panel title="Dados do ativo" className="flex flex-col">
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2.5 p-4 text-[0.8125rem]">
-        {asset.category_name === null ? null : (
-          <Fact label="Categoria">
-            {asset.category_name}
-            <span className="text-ink-3">
-              {' · '}
-              {asset.category_automatic ? 'automática' : 'manual'}
-            </span>
-          </Fact>
-        )}
-        <Fact label="Tipo">{b3TypeLabel(asset.b3_type)}</Fact>
-        {asset.sector === null ? null : <Fact label="Setor">{asset.sector}</Fact>}
-        <Fact label="Fonte de preço">
-          {asset.price_source === 'manual' ? 'manual' : 'automática · fechamento diário'}
-        </Fact>
-        <Fact label="Origem">
-          {asset.origin === 'market' ? 'Base de mercado' : 'Cadastrado à mão'}
-        </Fact>
-        <Fact label="Carteiras">
-          {resource.portfolios.length === 0
-            ? '—'
-            : resource.portfolios.map((item) => item.portfolio_name).join(', ')}
-        </Fact>
-
-        {fixedIncome.map((fact) => (
-          <Fact key={fact.label} label={fact.label}>
-            {fact.value}
-          </Fact>
-        ))}
-      </dl>
-
-      {/* Os eventos aplicados, que é o que explica uma quantidade que mudou sem
-          nenhuma compra. O anunciado aparece marcado: ele ainda não mexeu em
-          nada, e a confirmação é de M-14. */}
-      {resource.corporate_events.length === 0 ? null : (
-        <div className="border-t border-line px-4 py-3">
-          <Label>Eventos corporativos</Label>
-          <ul className="mt-2 flex flex-col gap-1.5 text-[0.8125rem]">
-            {resource.corporate_events.map((event) => (
-              <li key={event.id} className="flex items-baseline justify-between gap-3">
-                <span>
-                  {CORPORATE_EVENT_LABELS[event.kind] ?? event.kind}{' '}
-                  <span className="tabular text-ink-2">
-                    {eventRatioLabel(event.ratio_from, event.ratio_to)}
-                  </span>
-                </span>
-                <span className="tabular flex items-baseline gap-2 text-ink-3">
-                  {formatShortDate(event.record_date)}
-                  {event.confirmed_at === null ? (
-                    <span className="text-attention">a confirmar</span>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <footer className="mt-auto flex flex-wrap gap-2 border-t border-line px-4 py-3">
-        <Button onClick={onManualPrice}>Preço manual</Button>
-        <Button onClick={onTransfer}>Mover entre carteiras</Button>
-      </footer>
-    </Panel>
-  );
-};
 
 const B3_TYPE_LABELS: Readonly<Record<string, string>> = {
   stock: 'Ação',
@@ -921,24 +1338,10 @@ const B3_TYPE_LABELS: Readonly<Record<string, string>> = {
   etf: 'ETF',
   bdr: 'BDR',
   treasury: 'Tesouro Direto',
-  cash: 'Caixa',
 };
 
 const b3TypeLabel = (type: string | null): string =>
   type === null ? 'Renda fixa' : (B3_TYPE_LABELS[type] ?? type);
-
-const Fact = ({
-  label,
-  children,
-}: {
-  readonly label: string;
-  readonly children: React.ReactNode;
-}): React.ReactElement => (
-  <>
-    <dt className="whitespace-nowrap text-ink-3">{label}</dt>
-    <dd className="truncate text-right">{children}</dd>
-  </>
-);
 
 /* -------------------------------------------------------------------------- */
 

@@ -52,7 +52,7 @@ export const createConnection = (options: ConnectionOptions): Sql =>
 /** Usado pelo healthcheck profundo: verifica o Postgres separadamente do Redis. */
 export const pingDatabase = async (sql: Connection): Promise<boolean> => {
   try {
-    const rows = await sql<{ ok: number }[]>`select 1 as ok`;
+    const rows = await sql<{ ok: number }[]>`SELECT 1 AS ok`;
     return rows[0]?.ok === 1;
   } catch {
     return false;

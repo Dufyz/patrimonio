@@ -51,6 +51,8 @@ export const positionResourceSchema = z.object({
 
   category_id: uuid.nullable(),
   category_name: z.string().nullable(),
+  /** A classe da categoria: o grupo dela, ou ela mesma quando está solta. */
+  class_name: z.string().nullable(),
   /** `class.acoes`, nunca um hexadecimal: a cor sai do tema, não da resposta. */
   color_token: z.string().nullable(),
 
@@ -139,9 +141,8 @@ export const positionsResourceSchema = z.object({
   groups: z.array(positionGroupSchema),
   total: positionSummarySchema,
   /**
-   * O retorno do recorte inteiro, quando ele é uma carteira só: sai da série de
-   * cota, que é a única medida que aporte e resgate não contaminam. Nulo quando
-   * o recorte são todas as carteiras, porque a cota é por carteira.
+   * O retorno da carteira: sai da série de cota, que é a única medida que aporte
+   * e resgate não contaminam. Nulo quando a carteira não tem cota para comparar.
    */
   day_change_ratio: decimalString.nullable(),
   return_12m_ratio: decimalString.nullable(),
@@ -149,7 +150,26 @@ export const positionsResourceSchema = z.object({
   payouts_12m: decimalString,
   /** As pastilhas de categoria, contadas antes do filtro de categoria. */
   facets: z.array(positionFacetSchema),
+  /** As instituições onde há posição no recorte, contadas antes do filtro de instituição. */
+  institution_facets: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      count: z.number().int().nonnegative(),
+    }),
+  ),
   price_health: positionHealthSchema,
+  /**
+   * Presente quando alguma linha foi reavaliada a preço de pregão. `applied` de
+   * `requested` diz quantas cotações chegaram: o resto segue a preço de fechamento.
+   */
+  live: z
+    .object({
+      as_of: z.string(),
+      applied: z.number().int().nonnegative(),
+      requested: z.number().int().nonnegative(),
+    })
+    .nullable(),
 });
 
 export type PositionsResource = z.infer<typeof positionsResourceSchema>;

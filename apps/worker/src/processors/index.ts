@@ -1,4 +1,3 @@
-export { alertsStage } from './alerts.stage.js';
 export { backupStage, runBackup } from './backup.stage.js';
 export type { BackupReport, BackupStageDeps } from './backup.stage.js';
 export { closeStage } from './close.stage.js';

@@ -1,8 +1,12 @@
-import type { PositionResource, PositionsResource } from '@patrimonio/contracts';
+import type {
+  ClosedPosition,
+  PositionResource,
+  PositionsResource,
+} from '@patrimonio/contracts';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
-import { fetchPositions } from '../api/positions.js';
+import { fetchClosedPositions, fetchPositions } from '../api/positions.js';
 import { Toolbar } from '../components/controls.js';
 import {
   Money,
@@ -15,37 +19,43 @@ import { Menu } from '../components/overlay.js';
 import { useEntry } from '../components/entry_provider.js';
 import type { OpenEntryRequest } from '../components/entry_provider.js';
 import { KeepPrevious } from '../components/pending.js';
+import { SkeletonRegion, SkeletonStats, SkeletonTable } from '../components/skeleton.js';
 import { usePreferences } from '../components/preferences.js';
 import {
   Button,
-  Chip,
   IconButton,
-  Label,
   Panel,
   PriceHealthDot,
-  Segmented,
+  SearchInput,
 } from '../components/primitives.js';
 import type { TableColumn } from '../components/table.js';
 import { DataTable } from '../components/table.js';
+import { ChoiceDropdown, FilterDropdown } from '../components/filter_dropdown.js';
 import { assetSlug } from '../lib/asset_page.js';
+import { CSV_BOM, listFromParam, listToParam } from '../lib/statement.js';
 import type { AssetNaming } from '../lib/asset_page.js';
 import {
   DEFAULT_GROUP_BY,
   effectiveGroupBy,
   groupByOptions,
   isGroupByParam,
-  positionDetail,
   positionId,
   positionLabel,
+  positionsCsv,
+  positionsCsvFilename,
   positionTitle,
   positionsCountLabel,
   priceStamp,
   toGroupBy,
   toSummary,
+  closedAsRow,
   toTableGroups,
+  withClosedRows,
 } from '../lib/positions.js';
-import type { GroupByParam } from '../lib/positions.js';
+import type { GroupByParam, PositionRow } from '../lib/positions.js';
 import { ManualPriceDialog } from './manual_price_dialog.js';
+import { CustodyTransferDialog } from './custody_transfer_dialog.js';
+import { Icon } from '../components/icon.js';
 
 /**
  * T-02 · Posições.
@@ -53,8 +63,8 @@ import { ManualPriceDialog } from './manual_price_dialog.js';
  * A tabela de tudo que está em carteira hoje. A tela responde uma pergunta — o
  * que eu tenho — e tudo nela existe para responder mais depressa: o
  * agrupamento é escolha de quem olha, o estado do preço aparece sem clique, e a
- * linha abre embaixo dela mesma em vez de levar para outra página, porque
- * conferir uma posição quase sempre significa compará-la com as vizinhas.
+ * linha leva direto à página do ativo — o detalhe vive lá, e não numa gaveta
+ * que repete metade dela.
  *
  * Nenhum número desta tela é calculado aqui. Subtotal, total, peso, resultado e
  * contagem chegam prontos da `api`; o que acontece neste arquivo é escolher
@@ -70,8 +80,11 @@ export type PositionsScreenProps = {
   /** Nulo é o escopo de todas as carteiras. */
   readonly portfolioId: string | null;
   readonly scopeLabel: string;
-  /** Abre a página do ativo (T-03), pelo apelido dele no endereço. */
-  readonly onOpenAsset: (slug: string) => void;
+  /**
+   * Abre a página do ativo (T-03), pelo apelido dele no endereço. A carteira é a
+   * da linha: em Todas as carteiras a mesma ação abre o papel na carteira certa.
+   */
+  readonly onOpenAsset: (slug: string, portfolioId: string | null) => void;
   /** Abre Movimentações filtrada por este ativo, em todo o período. */
   readonly onOpenStatement?: ((search: string) => void) | undefined;
 };
@@ -92,13 +105,18 @@ export const PositionsScreen = ({
     allPortfolios,
   );
   const search = params.get('busca') ?? '';
-  const category = params.get('classe');
+  const rawCategory = params.get('classe');
+  const rawInstitution = params.get('instituicao');
+  const categoryIds = useMemo(() => listFromParam(rawCategory), [rawCategory]);
+  const institutionIds = useMemo(() => listFromParam(rawInstitution), [rawInstitution]);
 
   const [draft, setDraft] = useState(search);
   const [resource, setResource] = useState<PositionsResource | null>(null);
+  const [closed, setClosed] = useState<readonly ClosedPosition[]>([]);
   const [pending, setPending] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [manualPriceFor, setManualPriceFor] = useState<PositionResource | null>(null);
+  const [transferFor, setTransferFor] = useState<PositionResource | null>(null);
   const [reloads, setReloads] = useState(0);
   const entry = useEntry();
 
@@ -132,15 +150,40 @@ export const PositionsScreen = ({
 
   useEffect(() => setDraft(search), [search]);
 
+  // Intraday: a tela se refaz sozinha enquanto está aberta e visível. A cotação
+  // tem cache de um minuto na api, então reabrir não gasta cota a mais.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') setReloads((count) => count + 1);
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     setPending(true);
 
     fetchPositions(
-      { portfolioId, groupBy: toGroupBy(groupByParam), search, categoryId: category },
+      {
+        portfolioId,
+        groupBy: toGroupBy(groupByParam),
+        search,
+        categoryIds,
+        institutionIds,
+      },
       controller.signal,
     )
-      .then((next) => {
+      .then(async (next) => {
+        // As encerradas acompanham a tabela; se a consulta delas falha, a tabela
+        // aberta continua valendo — não são o assunto da tela.
+        const history = await fetchClosedPositions(
+          portfolioId,
+          search,
+          controller.signal,
+        ).catch(() => null);
+        if (controller.signal.aborted) return;
+
+        setClosed(history === null ? [] : history.positions);
         setResource(next);
         setError(null);
       })
@@ -153,12 +196,52 @@ export const PositionsScreen = ({
       });
 
     return () => controller.abort();
-  }, [portfolioId, groupByParam, search, category, reloads, entry.version]);
+  }, [
+    portfolioId,
+    groupByParam,
+    search,
+    categoryIds,
+    institutionIds,
+    reloads,
+    entry.version,
+  ]);
 
-  const groups = useMemo(
-    () => (resource === null ? [] : toTableGroups(resource.groups)),
-    [resource],
-  );
+  const exportCsv = (data: PositionsResource): void => {
+    const blob = new Blob([CSV_BOM, positionsCsv(data.groups)], {
+      type: 'text/csv;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = positionsCsvFilename(data.as_of ?? 'hoje');
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const groups = useMemo(() => {
+    if (resource === null) return [];
+
+    // Instituição não é conhecida nas encerradas: com esse filtro ativo elas
+    // saem, e com filtro de classe ficam só as das classes escolhidas.
+    const wanted = new Set(
+      resource.facets
+        .filter((facet) => categoryIds.includes(facet.id))
+        .map((facet) => facet.label),
+    );
+    const visible =
+      institutionIds.length > 0
+        ? []
+        : closed.filter(
+            (item) =>
+              categoryIds.length === 0 || wanted.has(item.class_name ?? 'Sem categoria'),
+          );
+
+    return withClosedRows(
+      toTableGroups(resource.groups),
+      visible.map((item) => closedAsRow(item, portfolioId)),
+      resource.group_by,
+    );
+  }, [resource, closed, categoryIds, institutionIds, portfolioId]);
 
   const total = resource === null ? null : toSummary(resource.total);
   const stamp = resource === null ? null : priceStamp(resource);
@@ -171,9 +254,9 @@ export const PositionsScreen = ({
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-0.5">
-          <h1 className="text-[1.375rem] leading-7 font-semibold">Posições</h1>
-          <p className="text-[0.8125rem] text-ink-3">
-            {scopeLabel} · posições abertas hoje
+          <h1 className="text-screen-title leading-7 font-semibold">Posições</h1>
+          <p className="text-xs text-ink-3">
+            {scopeLabel} · posições abertas hoje, com as encerradas ao fim de cada grupo
           </p>
         </div>
 
@@ -183,15 +266,26 @@ export const PositionsScreen = ({
             aria-pressed={valuesHidden}
             onClick={toggleHidden}
           >
-            {valuesHidden ? '⦰' : '◉'}
+            <Icon name={valuesHidden ? 'eye-off' : 'eye'} />
           </IconButton>
-          <Button variant="primary" shortcut="N" onClick={() => entry.openEntry()}>
+          <Button
+            variant="primary"
+            icon="plus"
+            shortcut="N"
+            onClick={() => entry.openEntry()}
+          >
             Lançamento
           </Button>
         </Toolbar>
       </header>
 
-      {resource === null ? null : (
+      {resource === null ? (
+        error === null ? (
+          <SkeletonRegion label="Carregando os totais">
+            <SkeletonStats count={4} />
+          </SkeletonRegion>
+        ) : null
+      ) : (
         <dl className="flex flex-wrap gap-x-6 gap-y-1 text-[0.8125rem] text-ink-2">
           <div className="flex items-baseline gap-2">
             <dt>{positionsCountLabel(resource.total)}</dt>
@@ -226,106 +320,158 @@ export const PositionsScreen = ({
         </dl>
       )}
 
-      <Panel>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="search"
-              value={draft}
-              aria-label="Buscar posição"
-              placeholder="Buscar ativo"
-              className="h-control w-48 rounded-control border border-line bg-panel px-3 text-sm"
-              onChange={(event) => setDraft(event.target.value)}
-            />
+      {
+        <Panel>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line px-4 py-3">
+            {/* Busca e categorias dividem o espaço que sobra e quebram entre si; o
+              agrupamento fica no canto, sem quebrar junto com elas. */}
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-2">
+              <SearchInput
+                value={draft}
+                label="Buscar posição"
+                placeholder="Buscar ativo"
+                className="w-44 shrink-0"
+                onChange={setDraft}
+              />
 
-            {resource === null ? null : (
-              <div
-                role="group"
-                aria-label="Filtrar por categoria"
-                className="flex flex-wrap gap-2"
-              >
-                <Chip
-                  selected={category === null}
-                  count={resource.total.count}
-                  onClick={() => update({ classe: null })}
-                >
-                  Todas
-                </Chip>
-                {resource.facets.map((facet) => (
-                  <Chip
-                    key={facet.id}
-                    selected={category === facet.id}
-                    count={facet.count}
-                    colorToken={facet.color_token ?? undefined}
-                    onClick={() =>
-                      update({ classe: category === facet.id ? null : facet.id })
+              {resource === null ? null : (
+                <>
+                  <FilterDropdown
+                    label="Classe"
+                    selected={categoryIds}
+                    options={resource.facets.map((facet) => ({
+                      id: facet.id,
+                      label: facet.label,
+                      count: facet.count,
+                      colorToken: facet.color_token,
+                    }))}
+                    onChange={(ids) => update({ classe: listToParam(ids) })}
+                  />
+                  <FilterDropdown
+                    label="Instituição"
+                    selected={institutionIds}
+                    options={resource.institution_facets.map((facet) => ({
+                      id: facet.id,
+                      label: facet.label,
+                      count: facet.count,
+                    }))}
+                    onChange={(ids) => update({ instituicao: listToParam(ids) })}
+                  />
+                  <ChoiceDropdown<GroupByParam>
+                    label="Agrupar"
+                    value={groupByParam}
+                    options={groupByOptions(allPortfolios)}
+                    onChange={(value) =>
+                      update({ agrupar: value === DEFAULT_GROUP_BY ? null : value })
                     }
-                  >
-                    {facet.label}
-                  </Chip>
-                ))}
-              </div>
+                  />
+                  {categoryIds.length + institutionIds.length + (search === '' ? 0 : 1) >
+                  0 ? (
+                    <Button
+                      variant="ghost"
+                      aria-label="Limpar todos os filtros"
+                      onClick={() =>
+                        update({ classe: null, instituicao: null, busca: null })
+                      }
+                    >
+                      Limpar
+                    </Button>
+                  ) : null}
+                </>
+              )}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <IconButton
+                label="Exportar CSV"
+                icon="export"
+                disabled={resource === null || resource.groups.length === 0}
+                onClick={() => resource !== null && exportCsv(resource)}
+              />
+            </div>
+          </div>
+
+          <div>
+            {error !== null ? (
+              <p className="px-4 py-6 text-sm text-negative">{error}</p>
+            ) : resource === null ? (
+              <SkeletonRegion label="Carregando as posições">
+                <SkeletonTable rows={9} columns={7} />
+              </SkeletonRegion>
+            ) : (
+              <KeepPrevious pending={pending}>
+                <DataTable<PositionRow>
+                  screen={SCREEN}
+                  caption={`Posições de ${scopeLabel}`}
+                  columns={columnsFor(allPortfolios && groupByParam !== 'carteira')}
+                  groups={groups}
+                  rowId={positionId}
+                  rowLabel={positionLabel}
+                  isRowDisabled={(row) => row.closed === true}
+                  {...(total === null ? {} : { total })}
+                  openOnClick
+                  onOpenRow={(row) =>
+                    onOpenAsset(assetSlug(toAssetRef(row)), row.portfolio_id)
+                  }
+                  rowActions={(row) => (
+                    <RowMenu
+                      position={row}
+                      onManualPrice={setManualPriceFor}
+                      onTransferCustody={setTransferFor}
+                      onOpenAsset={onOpenAsset}
+                      onOpenStatement={onOpenStatement}
+                      onEntry={entry.openEntry}
+                    />
+                  )}
+                  emptyState={
+                    <EmptyState
+                      filtered={
+                        search !== '' ||
+                        categoryIds.length > 0 ||
+                        institutionIds.length > 0
+                      }
+                      hasClose={resource !== null && resource.as_of !== null}
+                      onClear={() =>
+                        update({ busca: null, classe: null, instituicao: null })
+                      }
+                    />
+                  }
+                />
+              </KeepPrevious>
             )}
           </div>
+          <footer className="flex flex-wrap justify-between gap-x-6 gap-y-1 border-t border-line px-4 py-3 text-xs text-ink-3">
+            <span>
+              {stamp ??
+                'Carteira ainda não consolidada: a tabela aparece depois da primeira consolidação.'}
+              {hasCaveat
+                ? ' Nem toda linha usa preço do dia — o ponto ao lado do preço indica as exceções.'
+                : ''}
+            </span>
+            <span>
+              Telas estreitas escondem colunas secundárias; a linha nunca quebra.
+            </span>
+          </footer>
+        </Panel>
+      }
 
-          <div className="flex items-center gap-2">
-            <Label>Agrupar</Label>
-            <Segmented<GroupByParam>
-              label="Agrupar por"
-              value={groupByParam}
-              options={groupByOptions(allPortfolios)}
-              onChange={(value) =>
-                update({ agrupar: value === DEFAULT_GROUP_BY ? null : value })
-              }
-            />
-          </div>
-        </div>
-
-        <div className="py-1">
-          {error !== null ? (
-            <p className="px-4 py-6 text-sm text-negative">{error}</p>
-          ) : (
-            <KeepPrevious pending={pending}>
-              <DataTable<PositionResource>
-                screen={SCREEN}
-                caption={`Posições de ${scopeLabel}`}
-                columns={COLUMNS}
-                groups={groups}
-                rowId={positionId}
-                rowLabel={positionLabel}
-                {...(total === null ? {} : { total })}
-                renderExpansion={(row) => (
-                  <PositionDetail position={row} onOpenAsset={onOpenAsset} />
-                )}
-                rowActions={(row) => (
-                  <RowMenu
-                    position={row}
-                    onManualPrice={setManualPriceFor}
-                    onOpenAsset={onOpenAsset}
-                    onOpenStatement={onOpenStatement}
-                    onEntry={entry.openEntry}
-                  />
-                )}
-                emptyState={
-                  <EmptyState
-                    filtered={search !== '' || category !== null}
-                    hasClose={resource !== null && resource.as_of !== null}
-                    onClear={() => update({ busca: null, classe: null })}
-                  />
-                }
-              />
-            </KeepPrevious>
-          )}
-        </div>
-      </Panel>
-
-      <footer className="flex flex-wrap justify-between gap-x-6 gap-y-1 px-1 text-[0.75rem] text-ink-3">
-        <span>
-          {stamp ?? 'Ainda não há fechamento: a tabela aparece depois do primeiro.'}
-          {hasCaveat ? ' Nem toda linha usa preço do dia — veja a coluna Detalhe.' : ''}
-        </span>
-        <span>Telas estreitas escondem colunas secundárias; a linha nunca quebra.</span>
-      </footer>
+      {transferFor === null ? null : (
+        <CustodyTransferDialog
+          target={{
+            portfolio_id: transferFor.portfolio_id,
+            asset_id: transferFor.asset_id,
+            ticker: transferFor.ticker,
+            name: transferFor.name,
+            institution_id: transferFor.institution_id,
+            institution_name: transferFor.institution_name,
+          }}
+          onClose={() => setTransferFor(null)}
+          onSaved={() => {
+            setTransferFor(null);
+            setReloads((count) => count + 1);
+          }}
+        />
+      )}
 
       <ManualPriceDialog
         position={manualPriceFor}
@@ -348,7 +494,7 @@ export const PositionsScreen = ({
  * essencial primeiro, e `Ativo` e `Valor` nunca saem — uma tabela de posições
  * sem valor não é uma tabela de posições.
  */
-const COLUMNS: readonly TableColumn<PositionResource>[] = [
+const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
   {
     id: 'ativo',
     header: 'Ativo',
@@ -360,11 +506,22 @@ const COLUMNS: readonly TableColumn<PositionResource>[] = [
     sortValue: (row) => positionTitle(row),
     cell: (row) => (
       <span className="block min-w-0">
-        <span className="block truncate font-medium" title={row.name}>
-          {positionTitle(row)}
+        <span className="flex items-center gap-2 truncate font-medium" title={row.name}>
+          <span className="truncate">{positionTitle(row)}</span>
+          {row.closed === true ? (
+            <span className="shrink-0 rounded-sm border border-line px-1.5 py-px text-[0.6875rem] font-medium tracking-wide text-ink-3 uppercase">
+              Fechado
+            </span>
+          ) : null}
         </span>
         <span className="block truncate text-[0.75rem] text-ink-3">
-          {row.institution_name ?? 'Sem instituição'}
+          {row.closed === true
+            ? [row.category_name, 'Posição encerrada']
+                .filter((part): part is string => part !== null)
+                .join(' · ')
+            : [row.category_name, row.institution_name ?? 'Sem instituição']
+                .filter((part): part is string => part !== null)
+                .join(' · ')}
         </span>
       </span>
     ),
@@ -405,8 +562,18 @@ const COLUMNS: readonly TableColumn<PositionResource>[] = [
     ),
   },
   {
+    id: 'investido',
+    header: 'Investido',
+    numeric: true,
+    hideBelow: 1100,
+    sortable: true,
+    sortValue: (row) => row.cost_basis,
+    cell: (row) => <Money value={row.cost_basis} />,
+    summary: (summary) => <Money value={summary['custo'] ?? null} />,
+  },
+  {
     id: 'valor',
-    header: 'Valor',
+    header: 'Atualizado',
     numeric: true,
     essential: true,
     sortable: true,
@@ -426,7 +593,7 @@ const COLUMNS: readonly TableColumn<PositionResource>[] = [
   },
   {
     id: 'resultado',
-    header: 'Resultado',
+    header: 'P&L',
     numeric: true,
     hideBelow: 1100,
     sortable: true,
@@ -450,46 +617,46 @@ const COLUMNS: readonly TableColumn<PositionResource>[] = [
       </span>
     ),
   },
-  {
-    id: 'dia',
-    header: 'Dia',
-    numeric: true,
-    hideBelow: 1400,
-    sortable: true,
-    sortValue: (row) => row.day_change_ratio,
-    cell: (row) => <PercentChange value={row.day_change_ratio} />,
-  },
-  {
-    id: 'rent_12m',
-    header: 'Rent. 12M',
-    numeric: true,
-    hideBelow: 1400,
-    sortable: true,
-    sortValue: (row) => row.return_12m_ratio,
-    cell: (row) => <PercentChange value={row.return_12m_ratio} />,
-  },
-  {
-    id: 'detalhe',
-    header: 'Detalhe',
-    hideBelow: 1400,
-    cell: (row) => {
-      const detail = positionDetail(row);
-      if (detail === null) return null;
-      return (
-        // A coluna tem teto: sem ele, um vencimento por extenso empurra a
-        // tabela para fora do painel em vez de cortar com reticências.
-        <span
-          className={`inline-block max-w-32 truncate align-bottom ${
-            detail.tone === 'attention' ? 'text-attention' : 'text-ink-2'
-          }`}
-          title={detail.text}
-        >
-          {detail.text}
-        </span>
-      );
-    },
-  },
 ];
+
+const CLOSED_VISIBLE = new Set(['investido', 'valor', 'resultado']);
+
+/** Em Todas as carteiras, a coluna que diz de qual carteira é cada linha. */
+const PORTFOLIO_COLUMN: TableColumn<PositionRow> = {
+  id: 'carteira',
+  header: 'Carteira',
+  hideBelow: 1000,
+  sortable: true,
+  sortValue: (row) => row.portfolio_name,
+  cell: (row) =>
+    row.closed === true ? (
+      <span className="text-ink-3">—</span>
+    ) : (
+      <span className="block truncate" title={row.portfolio_name}>
+        {row.portfolio_name}
+      </span>
+    ),
+};
+
+/** Encerrada mostra investido, vendido e resultado; o resto é traço. */
+const CLOSED_COLUMNS: readonly TableColumn<PositionRow>[] = BASE_COLUMNS.map((column) =>
+  column.id === 'ativo' || CLOSED_VISIBLE.has(column.id)
+    ? column
+    : {
+        ...column,
+        cell: (row: PositionRow) =>
+          row.closed === true ? <span className="text-ink-3">—</span> : column.cell(row),
+      },
+);
+
+const WITH_PORTFOLIO: readonly TableColumn<PositionRow>[] = [
+  CLOSED_COLUMNS[0] as TableColumn<PositionRow>,
+  PORTFOLIO_COLUMN,
+  ...CLOSED_COLUMNS.slice(1),
+];
+
+const columnsFor = (withPortfolio: boolean): readonly TableColumn<PositionRow>[] =>
+  withPortfolio ? WITH_PORTFOLIO : CLOSED_COLUMNS;
 
 /* -------------------------------------------------------------------------- */
 
@@ -507,6 +674,7 @@ const seedOf = (position: PositionResource): OpenEntryRequest => ({
 const RowMenu = ({
   position,
   onManualPrice,
+  onTransferCustody,
   onOpenAsset,
   onOpenStatement,
   onEntry,
@@ -514,41 +682,51 @@ const RowMenu = ({
   readonly position: PositionResource;
   readonly onEntry: (request: OpenEntryRequest) => void;
   readonly onManualPrice: (position: PositionResource) => void;
-  readonly onOpenAsset: (slug: string) => void;
+  readonly onTransferCustody: (position: PositionResource) => void;
+  readonly onOpenAsset: (slug: string, portfolioId: string | null) => void;
   readonly onOpenStatement: ((search: string) => void) | undefined;
 }): React.ReactElement => (
   <Menu
     label={`Ações de ${positionTitle(position)}`}
     items={[
       {
-        id: 'open_asset',
-        label: 'Abrir o ativo',
-        onSelect: () => onOpenAsset(assetSlug(toAssetRef(position))),
-      },
-      {
         id: 'buy_sell',
         label: 'Lançar compra ou venda',
+        icon: <Icon name="plus" />,
         shortcut: 'L',
         onSelect: () => onEntry({ tab: 'buy', ...seedOf(position) }),
       },
       {
         id: 'payout',
         label: 'Lançar provento',
+        icon: <Icon name="coin" />,
         onSelect: () => onEntry({ tab: 'payout', ...seedOf(position) }),
       },
       {
-        id: 'transfer',
-        label: 'Mover para outra carteira',
-        onSelect: () => onEntry({ tab: 'transfer', ...seedOf(position) }),
+        id: 'open_asset',
+        label: 'Abrir ativo',
+        icon: <Icon name="tag" />,
+        shortcut: '↵',
+        separatorBefore: true,
+        onSelect: () =>
+          onOpenAsset(assetSlug(toAssetRef(position)), position.portfolio_id),
       },
       {
         id: 'manual_price',
         label: 'Definir preço manual',
+        icon: <Icon name="pencil" />,
         onSelect: () => onManualPrice(position),
+      },
+      {
+        id: 'transfer_custody',
+        label: 'Transferir custódia',
+        icon: <Icon name="swap" />,
+        onSelect: () => onTransferCustody(position),
       },
       {
         id: 'transactions',
         label: 'Ver lançamentos',
+        icon: <Icon name="swap" />,
         disabled: onOpenStatement === undefined,
         onSelect: () => onOpenStatement?.(positionTitle(position)),
       },
@@ -569,75 +747,6 @@ const toAssetRef = (position: PositionResource): AssetNaming => ({
 });
 
 /**
- * O detalhe da linha, aberto embaixo dela. É o "abrir o ativo sem sair da
- * tela": o que cabe em quatro números e responde a pergunta imediata — quanto
- * custou, quanto vale, de onde veio o preço. A página inteira do ativo abre no
- * botão ao lado do nome.
- */
-const PositionDetail = ({
-  position,
-  onOpenAsset,
-}: {
-  readonly position: PositionResource;
-  readonly onOpenAsset: (slug: string) => void;
-}): React.ReactElement => {
-  const detail = positionDetail(position);
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <p className="text-sm font-medium">{position.name}</p>
-        <Button onClick={() => onOpenAsset(assetSlug(toAssetRef(position)))}>
-          Abrir a página do ativo
-        </Button>
-      </div>
-
-      <dl className="flex flex-wrap gap-x-8 gap-y-2 text-[0.8125rem]">
-        <Fact label="Custo total">
-          <Money value={position.cost_basis} />
-        </Fact>
-        <Fact label="Valor hoje">
-          <Money value={position.value} />
-        </Fact>
-        <Fact label="Resultado aberto">
-          <MoneyChange value={position.open_result} />
-        </Fact>
-        <Fact label="Peso na carteira">
-          <Percent value={position.weight} decimals={1} />
-        </Fact>
-        <Fact label="Carteira">
-          <span>{position.portfolio_name}</span>
-        </Fact>
-        <Fact label="Custódia">
-          <span>{position.institution_name ?? '—'}</span>
-        </Fact>
-        {position.category_name === null ? null : (
-          <Fact label="Categoria">
-            <span>{position.category_name}</span>
-          </Fact>
-        )}
-        {detail === null ? null : <Fact label="Preço">{detail.text}</Fact>}
-      </dl>
-    </div>
-  );
-};
-
-const Fact = ({
-  label,
-  children,
-}: {
-  readonly label: string;
-  readonly children: React.ReactNode;
-}): React.ReactElement => (
-  <div className="flex flex-col gap-0.5">
-    <dt>
-      <Label>{label}</Label>
-    </dt>
-    <dd>{children}</dd>
-  </div>
-);
-
-/**
  * O-08 · "Nada encontrado" e "nada cadastrado" são estados diferentes, e dizer
  * a frase errada manda a pessoa procurar o problema no lugar errado.
  */
@@ -656,7 +765,7 @@ const EmptyState = ({
         ? 'Nenhuma posição corresponde ao filtro.'
         : hasClose
           ? 'Esta carteira não tem posição aberta hoje.'
-          : 'Ainda não houve fechamento: a primeira tabela aparece depois dele.'}
+          : 'Carteira ainda não consolidada: a primeira tabela aparece depois da primeira consolidação.'}
     </p>
     {filtered ? (
       <Button onClick={onClear}>Limpar filtros</Button>

@@ -11,3 +11,8 @@ outras cotações da chamada continuam valendo.
 `historico-3mo.json` é a série com `range=3mo&interval=1d`, com `date` em epoch
 de segundos. Três meses é o que o plano gratuito dá — dez anos de backfill vêm
 do COTAHIST.
+
+`tickers-bova.json` é a busca de papéis (`/v2/tickers?search=BOVA`): `results` com
+`symbol`, `name` e `assetType`. Foi montada a partir da documentação da brapi,
+sem captura real; `pnpm verify:sources` confere o formato contra a API de
+verdade e deve ser usada para regravá-la.

@@ -13,11 +13,36 @@ Pré-requisitos: Node 22, pnpm 10 e Docker.
 ```bash
 cp .env.example .env     # packages/env valida tudo no boot
 pnpm install
+pnpm build              # os pacotes internos são lidos de dist/: refaça depois de cada pull
 pnpm infra:up            # Postgres (5433), Postgres de teste (5434) e Redis (6380)
-pnpm migrate up          # cria o schema; a api também faz isso no boot
-pnpm seed:business-days  # calendário da B3, 2000–2035
+pnpm bootstrap           # a carga inicial, na ordem da seção abaixo
 pnpm dev                 # api :3333, worker e web :5173
 ```
+
+### Carga inicial
+
+`pnpm bootstrap [--desde=AAAA-MM-DD]` executa, em ordem, os passos abaixo e
+imprime o que cada um carregou. Um passo que falha por causa da fonte não impede
+os seguintes: o resumo no fim diz o comando que repete só ele. Sem `--desde`, os
+índices e o histórico de preços partem de cinco anos atrás.
+
+| Passo | Comando                       | O que carrega                                                                           |
+| ----- | ----------------------------- | --------------------------------------------------------------------------------------- |
+| 1     | `pnpm migrate up`             | O schema, o calendário da B3 (2000–2035) e as categorias; a api também faz isso no boot |
+| 2     | `pnpm seed:institutions`      | As instituições do STR (Banco Central) e da CVM                                         |
+| 3     | `pnpm seed:instruments`       | O catálogo de ações, units, FIIs, ETFs e BDRs, pelo COTAHIST                            |
+| 4     | `pnpm seed:tesouro`           | Os títulos do Tesouro Direto à venda                                                    |
+| 5     | `pnpm seed:indices --desde=…` | CDI, Selic, IPCA, IBOV e IFIX; pede o recálculo das carteiras                           |
+| 6     | `pnpm seed:cotahist --de=…`   | O histórico de fechamentos dos ativos já cadastrados                                    |
+
+Cada comando é repetível: reexecutar não duplica linha. A tela de Dados de mercado,
+em Configurações, lista cada catálogo com contagem, data da última carga e estado,
+e mostra o comando que resolve o que estiver vazio.
+
+Para ver o produto com um cenário completo, `packages/db/src/seeds/dev_seed.sql`
+popula um banco recém-migrado com dados de demonstração. Eles ficam marcados — a
+barra lateral mostra "Demonstração" enquanto existirem — e `pnpm demo:remove` apaga
+só eles, sem tocar nos lançamentos reais.
 
 | Endereço                                 | O que é                               |
 | ---------------------------------------- | ------------------------------------- |
@@ -31,19 +56,26 @@ autenticar: ela entra na Fase 2, junto com a publicação.
 
 ## Comandos
 
-| Comando                                   | O que faz                                          |
-| ----------------------------------------- | -------------------------------------------------- |
-| `pnpm dev`                                | Sobe api, worker e web ao mesmo tempo              |
-| `pnpm build`                              | `turbo build`, reconstruindo só o afetado          |
-| `pnpm lint`                               | ESLint em todos os pacotes                         |
-| `pnpm typecheck`                          | Regra de camada + `tsc --noEmit` em todos          |
-| `pnpm test`                               | Vitest, contra Postgres e Redis reais              |
-| `pnpm test:live`                          | Bateria de contrato contra as APIs reais; noturna  |
-| `pnpm verify:sources`                     | A mesma bateria, gravando o resultado no banco     |
-| `pnpm format`                             | Prettier                                           |
-| `pnpm verify`                             | Lint, typecheck e testes, na ordem do CI           |
-| `pnpm migrate [up \| down [n] \| status]` | Runner de migration; `--test` usa o banco de teste |
-| `pnpm infra:up` / `infra:reset`           | Sobe o ambiente / apaga os volumes e recria        |
+| Comando                                   | O que faz                                                                                  |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `pnpm dev`                                | Sobe api, worker e web ao mesmo tempo                                                      |
+| `pnpm build`                              | `turbo build`, reconstruindo só o afetado                                                  |
+| `pnpm lint`                               | ESLint em todos os pacotes                                                                 |
+| `pnpm typecheck`                          | Regra de camada + `tsc --noEmit` em todos                                                  |
+| `pnpm test`                               | Vitest, contra Postgres e Redis reais                                                      |
+| `pnpm test:live`                          | Bateria de contrato contra as APIs reais; noturna                                          |
+| `pnpm verify:sources`                     | A mesma bateria, gravando o resultado no banco                                             |
+| `pnpm format`                             | Prettier                                                                                   |
+| `pnpm verify`                             | Lint, typecheck e testes, na ordem do CI                                                   |
+| `pnpm migrate [up \| down [n] \| status]` | Runner de migration; `--test` usa o banco de teste                                         |
+| `pnpm infra:up` / `infra:reset`           | Sobe o ambiente / apaga os volumes e recria                                                |
+| `pnpm bootstrap`                          | A carga inicial completa, na ordem da seção acima                                          |
+| `pnpm seed:institutions`                  | Carrega as instituições do STR e da CVM (baixa os CSVs; `--str=`/`--cvm=` aceitam arquivo) |
+| `pnpm seed:instruments`                   | Carrega o catálogo de papéis pelo COTAHIST (`--ano=`, `--arquivo=`)                        |
+| `pnpm seed:tesouro`                       | Carrega o catálogo do Tesouro Direto                                                       |
+| `pnpm seed:indices`                       | Carrega o histórico de índices (`--desde=AAAA-MM-DD`)                                      |
+| `pnpm seed:cotahist`                      | Carrega o histórico de preços (`--ano=`, `--de=`/`--ate=`, `--papeis=`, `--arquivo=`)      |
+| `pnpm demo:remove`                        | Apaga os dados de demonstração do `dev_seed.sql`                                           |
 
 ## Estrutura
 
@@ -118,17 +150,21 @@ imprime o ano para comparação, e cada divergência encontrada vira uma linha e
 
 ## Fase 2 · Livro de lançamentos
 
-O livro inteiro, pela API: carteiras com alvo de alocação, instituições com
-exposição ao FGC por emissor, categorias em dois níveis com regra automática,
+O livro inteiro, pela API: carteiras com alvo de alocação, instituições
+com país, categorias em dois níveis com regra automática,
 ativos de mercado que nascem no primeiro lançamento e títulos de renda fixa
 cadastrados à mão.
 
-Os sete tipos de lançamento gravam, editam e excluem com o efeito calculado
-antes de salvar: compra e venda com liquidação sugerida em dia útil, aporte e
-resgate sobre um caixa que é ativo sintético por instituição, provento com
-quantidade apurada na data-com e recebimento confirmado depois, transferência de
-duas pernas que preserva o preço médio, e evento corporativo aplicado só por
-confirmação.
+Os quatro tipos de lançamento gravam, editam e excluem com o efeito calculado
+antes de salvar: compra e venda com liquidação sugerida em dia útil, provento com
+quantidade apurada na data-com e recebimento confirmado depois, e evento
+corporativo aplicado só por confirmação.
+
+O app controla investimentos, não conta bancária: não há caixa. Comprar é
+aportar e vender é resgatar; o provento (dividendo, JCP, juros, rendimento) é
+rendimento recebido que sai do patrimônio — conta na rentabilidade e em
+“Recebido”, mas não no valor da carteira —, e a amortização devolve principal,
+que também sai como resgate.
 
 Toda escrita aceita `Idempotency-Key`, toda exclusão deixa desfazer por alguns
 segundos, e uma linha de texto — `compra 100 itub4 36,84 ontem` — vira
@@ -140,11 +176,11 @@ divergir do que fica salvo, a confiança no app acaba ali.
 Enquanto a projeção diária e o preço de mercado não existem, peso e alocação
 saem do custo, e a resposta diz isso no campo `basis`. O motor de preço médio
 vive em `packages/calc` e cobre compra, venda com resultado realizado,
-transferência, evento corporativo e amortização; o resto de `calc` — cota,
+evento corporativo e amortização; o resto de `calc` — cota,
 marcação na curva, IR e projeção — chega em E3.
 
-O que está declarado e ainda não calcula nada: os estágios `alerts` e `import`
-atravessam o pipeline e registram que a implementação chega em E7. `exporter` tem
+O que está declarado e ainda não calcula nada: o estágio `import`
+atravessa o pipeline e registra que a implementação chega em E7. `exporter` tem
 só a superfície.
 
 ## Fase 4 · Dados de mercado
@@ -167,8 +203,16 @@ antes dele gravaria o título rendendo zero. Três agendamentos com quinze minut
 de diferença funcionariam na maioria dos dias, e "na maioria dos dias" é o
 problema.
 
+Quem escolhe um papel, um título ou um índice escolhe de um catálogo que a
+plataforma mantém. O catálogo de papéis (`listed_instrument`) vem do COTAHIST e
+é independente da carteira: o ativo só nasce no primeiro lançamento que o usa. O
+Tesouro entra no mesmo catálogo, um título por tipo, cupom e vencimento. A busca
+consulta o catálogo local e, só quando ele não acha nada, pergunta à brapi — uma
+requisição da cota por busca, registrada como `lookup`. Proventos e eventos
+corporativos não têm fonte: são lançados à mão.
+
 Lançar hoje uma compra de 2015 dispara o backfill daquele papel desde 2015, que
-busca só os dias úteis sem preço e pede o recálculo ao terminar — é esse último
+busca só os dias úteis sem preço — no COTAHIST e, para o que ele ainda não cobre, na brapi — e pede o recálculo ao terminar — é esse último
 recálculo que põe a série na tela. Renda fixa de banco não dispara backfill:
 nenhuma fonte tem preço dela, e ela é marcada na curva.
 
@@ -205,7 +249,7 @@ visíveis. Filtrar também é da `api`, pela mesma razão — um filtro aplicado
 navegador faria o subtotal descrever linhas que a tela escondeu.
 
 Uma distinção que parece detalhe e não é. A variação do dia e o retorno de doze
-meses **de uma linha** saem do valor unitário, que aporte e resgate não
+meses **de uma linha** saem do valor unitário, que compra e venda não
 contaminam: comprar mais do mesmo papel muda a quantidade, não o preço. As
 mesmas medidas **de um grupo** não existem — a média ponderada de variações só
 valeria sem fluxo no período —, e o retorno de um conjunto sai da série de cota,

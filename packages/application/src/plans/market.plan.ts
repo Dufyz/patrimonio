@@ -1,7 +1,6 @@
 import type { DateOnly, PriceSourceKind, PriceableAsset } from '@patrimonio/domain';
-import { addDays } from '@patrimonio/domain';
+import { treasuryTicker } from '@patrimonio/domain';
 
-import type { AlertFinding } from '../interfaces/alert.repository.js';
 import type {
   AssetPriceWrite,
   IndexQuoteWrite,
@@ -14,7 +13,7 @@ import type {
 
 /**
  * O plano da coleta: ele decide o que vai para `asset_price` e `index_quote`, o
- * que ficou sem preço e quais alertas isso abre. Função pura — o contexto entra
+ * que ficou sem preço. Função pura — o contexto entra
  * carregado, e nenhuma linha aqui faz I/O nem chama `new Date()`.
  *
  * A regra que governa este arquivo, e que vale mais do que todas as outras do
@@ -23,10 +22,6 @@ import type {
  * notar meses depois. Papel sem cotação entra em `missing`, a posição dele vale
  * o custo e a linha fica marcada.
  */
-export const PRICE_STALE_RULE = 'price_stale';
-export const PRICE_MISSING_RULE = 'price_missing';
-export const CORPORATE_EVENT_RULE = 'corporate_event_pending';
-
 export type MarketIngestionContext = {
   readonly reference_date: DateOnly;
   /** Os papéis que precisam de preço, vindos do livro. */
@@ -37,13 +32,6 @@ export type MarketIngestionContext = {
   readonly treasury: readonly TreasuryQuote[];
   readonly treasury_source: string;
   readonly treasury_source_kind: PriceSourceKind | 'none';
-  /**
-   * Quantos dias úteis um preço pode ter antes de ser considerado atrasado. Vem
-   * de `PRICE_STALE_AFTER_DAYS`.
-   */
-  readonly stale_after_days: number;
-  /** O preço mais recente que cada papel já tinha, para medir o atraso. */
-  readonly latest_known: ReadonlyMap<string, DateOnly>;
 };
 
 export type MarketIngestionPlan = {
@@ -51,7 +39,6 @@ export type MarketIngestionPlan = {
   readonly index_quotes: readonly IndexQuoteWrite[];
   /** Papéis com posição aberta que ficaram sem preço do dia. */
   readonly missing: readonly PriceableAsset[];
-  readonly findings: readonly AlertFinding[];
   readonly report: {
     readonly reference_date: DateOnly;
     readonly source: string;
@@ -71,6 +58,14 @@ export type MarketIngestionPlan = {
 const treasuryKey = (kind: string, maturity: DateOnly): string =>
   `${kind}\u0000${maturity}`;
 
+/** O título que o ativo representa, pelo código; o par indexador-vencimento é o legado. */
+const quoteTicker = (quote: TreasuryQuote): string =>
+  treasuryTicker({
+    kind: quote.kind,
+    coupon: quote.coupon,
+    maturity_date: quote.maturity_date,
+  });
+
 const isTreasury = (asset: PriceableAsset): boolean =>
   asset.b3_type === 'treasury' && asset.indexer !== null && asset.maturity_date !== null;
 
@@ -81,21 +76,30 @@ export const planMarketIngestion = (
     context.closing.quotes.map((quote) => [quote.ticker.toUpperCase(), quote]),
   );
 
-  const byTreasury = new Map<string, TreasuryQuote>(
-    context.treasury.map((quote) => [
-      treasuryKey(quote.kind, quote.maturity_date),
-      quote,
-    ]),
+  const byTreasuryTicker = new Map<string, TreasuryQuote>(
+    context.treasury.map((quote) => [quoteTicker(quote), quote]),
   );
+
+  // Ativo cadastrado antes do código derivado só tem indexador e vencimento. Em
+  // empate, o título sem juros semestrais é o que a chave sempre significou.
+  const byTreasury = new Map<string, TreasuryQuote>();
+  for (const quote of [...context.treasury].sort(
+    (left, right) => Number(left.coupon) - Number(right.coupon),
+  )) {
+    const key = treasuryKey(quote.kind, quote.maturity_date);
+    if (!byTreasury.has(key)) byTreasury.set(key, quote);
+  }
 
   const prices: AssetPriceWrite[] = [];
   const missing: PriceableAsset[] = [];
 
   for (const asset of context.assets) {
     if (isTreasury(asset)) {
-      const quote = byTreasury.get(
-        treasuryKey(asset.indexer ?? '', asset.maturity_date ?? context.reference_date),
-      );
+      const quote =
+        byTreasuryTicker.get(asset.ticker.toUpperCase()) ??
+        byTreasury.get(
+          treasuryKey(asset.indexer ?? '', asset.maturity_date ?? context.reference_date),
+        );
 
       if (quote === undefined || context.treasury_source_kind === 'none') {
         missing.push(asset);
@@ -135,7 +139,6 @@ export const planMarketIngestion = (
     prices,
     index_quotes: context.index_quotes,
     missing,
-    findings: findingsFor(context, missing),
     report: {
       reference_date: context.reference_date,
       source: context.closing.source,
@@ -147,61 +150,6 @@ export const planMarketIngestion = (
       requests: context.closing.requests,
     },
   };
-};
-
-/**
- * Os alertas que a coleta abre. Dois, e eles dizem coisas diferentes:
- *
- * - `price_missing` — nunca houve preço para o papel. A posição entra pelo custo
- *   e o usuário precisa decidir: preço manual, ou aceitar.
- * - `price_stale` — houve, e está velho. O número na tela ainda é um número, só
- *   não é o de hoje, e a tolerância vem de configuração.
- *
- * Separá-los importa porque a ação é diferente. Um alerta só de "preço com
- * problema" mandaria o usuário investigar os dois do mesmo jeito.
- */
-const findingsFor = (
-  context: MarketIngestionContext,
-  missing: readonly PriceableAsset[],
-): readonly AlertFinding[] => {
-  const findings: AlertFinding[] = [];
-
-  const limit = addDays(context.reference_date, -Math.abs(context.stale_after_days));
-
-  for (const asset of missing) {
-    const known = context.latest_known.get(asset.asset_id);
-
-    if (known === undefined) {
-      findings.push({
-        rule_kind: PRICE_MISSING_RULE,
-        subject_id: asset.asset_id,
-        portfolio_id: null,
-        payload: {
-          ticker: asset.ticker,
-          reference_date: context.reference_date,
-          basis: 'cost',
-        },
-      });
-      continue;
-    }
-
-    // Dentro da tolerância não é alerta: a B3 não negocia todo papel todo dia, e
-    // avisar por isso treinaria o usuário a ignorar o painel.
-    if (known >= limit) continue;
-
-    findings.push({
-      rule_kind: PRICE_STALE_RULE,
-      subject_id: asset.asset_id,
-      portfolio_id: null,
-      payload: {
-        ticker: asset.ticker,
-        last_price_date: known,
-        reference_date: context.reference_date,
-      },
-    });
-  }
-
-  return findings;
 };
 
 /**

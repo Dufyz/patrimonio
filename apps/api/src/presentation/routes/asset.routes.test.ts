@@ -19,8 +19,24 @@ beforeEach(async () => {
   await resetSourceTables(harness.sql);
 });
 
-const criarCategoria = (body: Record<string, unknown>) =>
-  request(harness.app).post('/api/categories').send(body);
+const criarCategoria = async (body: {
+  readonly name: string;
+  readonly color_token: string;
+  readonly auto_rule?: Record<string, unknown>;
+}): Promise<{ body: { category: { id: string } } }> => {
+  const rows = await harness.sql<{ id: string }[]>`
+    INSERT INTO category (id, name, color_token, auto_rule)
+    VALUES (
+      GEN_RANDOM_UUID(), ${body.name}, ${body.color_token},
+      ${body.auto_rule === undefined ? null : JSON.stringify(body.auto_rule)}::JSONB
+    )
+    RETURNING id
+  `;
+  const id = rows[0]?.id;
+  if (id === undefined) throw new Error('categoria de teste não foi criada');
+
+  return { body: { category: { id } } };
+};
 
 const criarAtivo = (body: Record<string, unknown>) =>
   request(harness.app).post('/api/assets').send(body);

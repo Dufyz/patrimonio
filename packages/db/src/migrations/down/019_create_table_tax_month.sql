@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS tax_month;
+DROP TYPE IF EXISTS asset_class;

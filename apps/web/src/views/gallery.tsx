@@ -1,3 +1,4 @@
+import { Icon } from '../components/icon.js';
 import { useMemo, useState } from 'react';
 
 import type { TableGroup } from '../lib/table/model.js';
@@ -299,12 +300,11 @@ const DATES = Array.from({ length: 13 }, (_, index) => {
 });
 
 const SCREENS = [
-  { id: 'visao', label: 'Visão geral', icon: '▦' },
-  { id: 'posicoes', label: 'Posições', icon: '≡' },
-  { id: 'movimentacoes', label: 'Movimentações', icon: '⇄' },
-  { id: 'desempenho', label: 'Desempenho', icon: '◹' },
-  { id: 'estrategia', label: 'Estratégia', icon: '◎' },
-  { id: 'objetivos', label: 'Objetivos', icon: '⚑' },
+  { id: 'visao', label: 'Visão geral', icon: <Icon name="grid" /> },
+  { id: 'posicoes', label: 'Posições', icon: <Icon name="list" /> },
+  { id: 'movimentacoes', label: 'Movimentações', icon: <Icon name="swap" /> },
+  { id: 'estrategia', label: 'Estratégia', icon: <Icon name="target" /> },
+  { id: 'objetivos', label: 'Objetivos', icon: <Icon name="flag" /> },
 ];
 
 const PORTFOLIOS = [
@@ -347,7 +347,6 @@ export const Gallery = (): React.ReactElement => {
         go_overview: () => setScreen('visao'),
         go_positions: () => setScreen('posicoes'),
         go_transactions: () => setScreen('movimentacoes'),
-        go_performance: () => setScreen('desempenho'),
         go_strategy: () => setScreen('estrategia'),
         go_goals: () => setScreen('objetivos'),
         new_transaction: openHelp,
@@ -408,9 +407,7 @@ export const Gallery = (): React.ReactElement => {
       <div className="flex flex-col gap-5">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-screen-title font-semibold tracking-tight">
-              Design system
-            </h1>
+            <h1 className="text-screen-title leading-7 font-semibold">Design system</h1>
             <p className="text-[0.8125rem] text-ink-3">
               E5 · cada peça com dado das pranchas, nos dois temas e nas duas densidades
             </p>
@@ -440,7 +437,7 @@ export const Gallery = (): React.ReactElement => {
               label={hidden ? 'Mostrar valores' : 'Ocultar valores'}
               onClick={() => setHidden(!hidden)}
             >
-              ◉
+              <Icon name="eye" />
             </IconButton>
             <Button shortcut="?" onClick={openHelp}>
               Atalhos
@@ -449,7 +446,7 @@ export const Gallery = (): React.ReactElement => {
         </header>
 
         <OverviewHeader
-          label="Patrimônio · todas as carteiras"
+          label="Patrimônio · Longo prazo"
           principal="487320.55"
           change={{ amount: '1512.30', ratio: '0.0031', periodLabel: 'em outubro' }}
           caveat="dois preços de 03/10"
@@ -571,7 +568,7 @@ export const Gallery = (): React.ReactElement => {
               </ControlGroup>
 
               <ControlGroup label="Botões">
-                <Button variant="primary" shortcut="N">
+                <Button variant="primary" icon="plus" shortcut="N">
                   Lançamento
                 </Button>
                 <Button>Exportar CSV</Button>

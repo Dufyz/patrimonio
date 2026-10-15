@@ -99,14 +99,6 @@ describe('lançamento por texto', () => {
     expect(resultado.missing).toContain('preço unitário');
   });
 
-  it('aporte não exige ativo nem preço', () => {
-    const resultado = interpretTransactionText('aporte 5000', hoje);
-
-    expect(resultado.kind).toBe('deposit');
-    expect(resultado.quantity).toBe('5000');
-    expect(resultado.ambiguous).toBe(false);
-  });
-
   it('código fora do padrão da B3 ainda vira candidato a ativo', () => {
     const resultado = interpretTransactionText(
       'compra 10 tesouro-ipca-2029 3.412,55',

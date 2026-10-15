@@ -336,7 +336,7 @@ describe('barras de proporção', () => {
         label="Composição por classe"
         slices={[
           { id: 'a', label: 'Ações', colorToken: 'class.acoes', share: '0.997' },
-          { id: 'b', label: 'Caixa', colorToken: 'class.caixa', share: '0.003' },
+          { id: 'b', label: 'Outros', colorToken: 'class.outros', share: '0.003' },
         ]}
       />,
     );

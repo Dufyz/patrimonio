@@ -12,6 +12,13 @@ const api = vi.hoisted(() => ({
   refreshMarket: vi.fn(),
 }));
 
+const registers = vi.hoisted(() => ({
+  createPortfolio: vi.fn(),
+  updatePortfolio: vi.fn(),
+  deletePortfolio: vi.fn(),
+}));
+
+vi.mock('../api/registers.js', () => registers);
 vi.mock('../api/settings.js', () => ({
   fetchSettings: vi.fn(),
   runBackup: api.runBackup,
@@ -23,20 +30,13 @@ vi.mock('../api/market.js', () => ({
 
 const LONGO = '0191e5a0-0000-7000-8000-00000000e001';
 const IMOVEL = '0191e5a0-0000-7000-8000-00000000e002';
-const CORRETORA = '0191e5a0-0000-7000-8000-00000000e101';
-const BANCO = '0191e5a0-0000-7000-8000-00000000e102';
-const TESOURO = '0191e5a0-0000-7000-8000-00000000e103';
-const RF = '0191e5a0-0000-7000-8000-00000000e201';
-const POS = '0191e5a0-0000-7000-8000-00000000e202';
-const ACOES = '0191e5a0-0000-7000-8000-00000000e205';
-const CDI = '019b0000-0000-7000-8000-000000000001';
 
 const settings: Settings = {
   portfolios: [
     {
       id: LONGO,
       name: 'Longo prazo',
-      benchmark: { id: CDI, name: 'CDI' },
+      benchmark: { value: 'CDI', name: 'CDI' },
       strategy_categories: 5,
       goals: ['Independência financeira'],
       blocking: { transactions: 41, assets: 9 },
@@ -51,106 +51,6 @@ const settings: Settings = {
     },
   ],
   archived_portfolios: [{ id: 'a', name: 'Viagem 2024', archived_on: '2026-03-04' }],
-  alerts: [
-    { kind: 'price_stale', enabled: true, scope: 'global', threshold: { days: 3 } },
-    { kind: 'corporate_event_pending', enabled: true, scope: 'global', threshold: null },
-  ],
-  categories: [
-    {
-      id: RF,
-      parent_id: null,
-      name: 'Renda fixa',
-      color_token: 'class.rf',
-      auto_rule: null,
-      sort_order: 1,
-      assets: 16,
-      strategies: 4,
-      children: 1,
-    },
-    {
-      id: POS,
-      parent_id: RF,
-      name: 'Pós-fixada',
-      color_token: 'class.rf_pos',
-      auto_rule: { indexer: 'cdi_pct' },
-      sort_order: 2,
-      assets: 16,
-      strategies: 3,
-      children: 0,
-    },
-    {
-      id: ACOES,
-      parent_id: null,
-      name: 'Ações',
-      color_token: 'class.acoes',
-      auto_rule: { b3_type: 'stock' },
-      sort_order: 3,
-      assets: 0,
-      strategies: 0,
-      children: 0,
-    },
-  ],
-  institutions: [
-    {
-      id: CORRETORA,
-      name: 'Corretora A',
-      role: 'custodian',
-      fgc_covered: false,
-      brokerage_per_order: '0.00',
-      custody_monthly_fee: '0.00',
-      portfolios: ['Longo prazo', 'Entrada do imóvel'],
-      cash: '7192.87',
-      fgc: null,
-      blocking: { transactions: 12, assets: 1 },
-    },
-    {
-      id: BANCO,
-      name: 'Banco B',
-      role: 'both',
-      fgc_covered: true,
-      brokerage_per_order: '4.90',
-      custody_monthly_fee: '0.00',
-      portfolios: ['Entrada do imóvel'],
-      cash: '4120.08',
-      fgc: {
-        exposure: '93260.00',
-        limit: '250000.00',
-        used_pct: '37.30',
-        over_limit: false,
-      },
-      blocking: { transactions: 3, assets: 2 },
-    },
-    {
-      id: TESOURO,
-      name: 'Tesouro Direto',
-      role: 'issuer',
-      fgc_covered: false,
-      brokerage_per_order: '0.00',
-      custody_monthly_fee: '0.00',
-      portfolios: [],
-      cash: null,
-      fgc: null,
-      blocking: { transactions: 0, assets: 0 },
-    },
-  ],
-  benchmarks: [
-    {
-      id: CDI,
-      name: 'CDI',
-      kind: 'index',
-      rebalance: 'never',
-      definition: { index: 'CDI' },
-      used_by: 1,
-    },
-    {
-      id: 'b2',
-      name: 'IPCA + 6%',
-      kind: 'index_plus_rate',
-      rebalance: 'never',
-      definition: { index: 'IPCA', rate: 0.06 },
-      used_by: 0,
-    },
-  ],
   ledger_defaults: {
     undo_window_seconds: 8,
     jcp_withholding_pct: '15',
@@ -169,8 +69,26 @@ const settings: Settings = {
   },
 };
 
+const catalog = (
+  key: MarketHealth['catalogs'][number]['key'],
+  total: number,
+): MarketHealth['catalogs'][number] => ({
+  key,
+  total,
+  last_loaded: total === 0 ? null : '2026-10-07T18:00:00Z',
+  state: total === 0 ? 'pending' : 'loaded',
+});
+
 const health: MarketHealth = {
   reference_date: '2026-10-07',
+  catalogs: [
+    catalog('institutions', 312),
+    catalog('instruments', 1840),
+    catalog('treasury', 0),
+    catalog('indices', 5200),
+    catalog('price_history', 0),
+  ],
+  demo: { portfolios: 0, assets: 0, institutions: 0 },
   sources: [
     {
       source: 'brapi',
@@ -254,10 +172,11 @@ const montar = (
 beforeEach(() => {
   api.runBackup.mockReset();
   api.refreshMarket.mockReset();
+  for (const mock of Object.values(registers)) mock.mockReset();
 });
 
 describe('SettingsView', () => {
-  it('desenha as nove seções, na ordem da prancha', () => {
+  it('desenha as quatro seções, na ordem da prancha', () => {
     montar();
 
     const titles = screen
@@ -266,18 +185,13 @@ describe('SettingsView', () => {
 
     expect(titles).toEqual([
       'Carteiras',
-      'Alertas',
-      'Categorias de ativo',
-      'Instituições',
-      'Benchmarks',
       'Dados de mercado',
-      'Lançamentos',
       'Exibição',
       'Dados e backup',
     ]);
   });
 
-  it('a carteira com lançamentos mostra o que impede excluí-la, com a contagem', () => {
+  it('a carteira mostra o conteúdo que será excluído com ela, sem benchmark nem objetivo', () => {
     montar();
 
     const carteiras = within(screen.getByRole('table', { name: 'Carteiras abertas' }));
@@ -286,81 +200,73 @@ describe('SettingsView', () => {
     expect(within(longo).getByText('41 lançamentos · 9 ativos')).toBeTruthy();
 
     const imovel = carteiras.getByRole('row', { name: /Entrada do imóvel/ });
-    expect(within(imovel).getByText('nada: pode ser excluída')).toBeTruthy();
+    expect(within(imovel).getByText('vazia')).toBeTruthy();
+    expect(carteiras.queryByRole('columnheader', { name: 'Benchmark' })).toBeNull();
+    expect(carteiras.queryByRole('columnheader', { name: 'Objetivo' })).toBeNull();
     expect(screen.getByText(/1 arquivada · Viagem 2024/)).toBeTruthy();
   });
 
-  it('criar e editar cadastro ficam desabilitados até T-10', () => {
+  it('criar carteira abre o modal e grava só o nome, sem campo de benchmark', async () => {
+    const user = userEvent.setup();
+    registers.createPortfolio.mockResolvedValue({});
     montar();
 
-    for (const name of [
-      '+ Nova carteira',
-      '+ Categoria',
-      '+ Instituição',
-      '+ Benchmark composto',
-    ]) {
-      expect(
-        (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
-        name,
-      ).toBe(true);
-    }
-    expect(
-      (
-        screen.getByRole('button', {
-          name: /Editar a carteira Longo prazo/,
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'Nova carteira' }));
+    const dialog = screen.getByRole('dialog', { name: 'Nova carteira' });
+
+    await user.type(within(dialog).getByLabelText('Nome'), 'Viagem 2027');
+    expect(within(dialog).queryByLabelText('Benchmark')).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: /Salvar/ }));
+
+    expect(registers.createPortfolio).toHaveBeenCalledWith({ name: 'Viagem 2027' });
   });
 
-  it('os alertas mostram o limite como a prancha escreve, e o interruptor é só leitura', () => {
+  it('carteira sem nome não é enviada, e o erro aparece no campo', async () => {
+    const user = userEvent.setup();
     montar();
 
-    const row = screen.getByRole('row', { name: /Preço atrasado/ });
-    expect(within(row).getByText('3 dias')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Nova carteira' }));
+    const dialog = screen.getByRole('dialog', { name: 'Nova carteira' });
+    await user.click(within(dialog).getByRole('button', { name: /Salvar/ }));
 
-    const toggle = within(row).getByRole('switch') as HTMLButtonElement;
-    expect(toggle.getAttribute('aria-checked')).toBe('true');
-    expect(toggle.disabled).toBe(true);
+    expect(within(dialog).getByText('Dê um nome à carteira.')).toBeTruthy();
+    expect(registers.createPortfolio).not.toHaveBeenCalled();
   });
 
-  it('o grupo de categorias soma o que há dentro, e a regra vira frase', () => {
+  it('excluir carteira com lançamentos exclui tudo, depois do aviso e de dois checks', async () => {
+    const user = userEvent.setup();
+    registers.deletePortfolio.mockResolvedValue({});
     montar();
 
-    const grupo = screen.getByRole('row', { name: /^Renda fixa/ });
-    expect(within(grupo).getByText('16')).toBeTruthy();
-    expect(within(grupo).getByText('4 carteiras')).toBeTruthy();
-    expect(
-      within(grupo).getByText('1 categoria dentro · 16 ativos · 4 estratégias'),
-    ).toBeTruthy();
+    await user.click(
+      screen.getByRole('button', { name: 'Editar a carteira Longo prazo' }),
+    );
+    await user.click(screen.getByRole('button', { name: /Excluir carteira/ }));
 
-    expect(screen.getByText('Indexador CDI ou Selic')).toBeTruthy();
-    expect(screen.getByText('Tipo B3: ação ou unit')).toBeTruthy();
-  });
+    const dialog = screen.getByRole('dialog', { name: /Excluir Longo prazo\?/ });
+    expect(within(dialog).getByText(/tudo será apagado junto/)).toBeTruthy();
+    expect(within(dialog).getByText(/41 lançamentos, 9 ativos/)).toBeTruthy();
+    expect(within(dialog).queryByRole('radio')).toBeNull();
 
-  it('só quem emite e é coberto tem barra de FGC; os outros dizem por que não', () => {
-    montar();
+    const confirm = within(dialog).getByRole('button', {
+      name: 'Excluir carteira e tudo nela',
+    });
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
 
-    const meter = screen.getByRole('meter', { name: /Banco B contra o limite do FGC/ });
-    expect(meter.getAttribute('aria-valuenow')).toBe('37');
+    // Só o nome não basta...
+    await user.type(within(dialog).getByLabelText(/Digite Longo prazo/), 'Longo prazo');
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
 
-    expect(
-      within(screen.getByRole('row', { name: /Corretora A/ })).getByText('não se aplica'),
-    ).toBeTruthy();
-    expect(
-      within(screen.getByRole('row', { name: /Tesouro Direto/ })).getByText(
-        'sem cobertura do FGC',
-      ),
-    ).toBeTruthy();
-  });
+    // ...nem só o aceite: os dois juntos destravam o botão.
+    await user.click(within(dialog).getByRole('checkbox', { name: /Entendo/ }));
+    expect((confirm as HTMLButtonElement).disabled).toBe(false);
+    await user.click(confirm);
+    await user.click(await screen.findByRole('button', { name: 'Sim, excluir' }));
 
-  it('o benchmark composto declara a taxa e a fonte é "Calculado"', () => {
-    montar();
-
-    const row = screen.getByRole('row', { name: /IPCA \+ 6%/ });
-    expect(within(row).getByText('IPCA + 6% a.a., por dia útil')).toBeTruthy();
-    expect(within(row).getByText('Calculado')).toBeTruthy();
-    expect(within(row).getByText('Comparação opcional')).toBeTruthy();
+    expect(registers.deletePortfolio).toHaveBeenCalledWith(LONGO, {
+      confirm_name: 'Longo prazo',
+      transactions: 'delete',
+    });
   });
 
   it('dados de mercado mostram cobertura, falha com a mensagem e os papéis sem preço', () => {
@@ -373,6 +279,44 @@ describe('SettingsView', () => {
     expect(screen.getByText('brapi respondeu 503')).toBeTruthy();
     expect(screen.getByText(/KNRI11 sem cotação do dia/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Definir preço de KNRI11' })).toBeTruthy();
+  });
+
+  it('cada catálogo mostra contagem e estado, e o vazio diz o comando que o preenche', () => {
+    montar();
+
+    const table = within(
+      screen.getByRole('table', { name: 'Catálogos da carga inicial' }),
+    );
+
+    const instruments = table.getByRole('row', { name: /Instrumentos listados/ });
+    expect(within(instruments).getByText('1840')).toBeTruthy();
+    expect(within(instruments).getByText('carregado')).toBeTruthy();
+
+    const treasury = table.getByRole('row', { name: /Tesouro Direto/ });
+    expect(within(treasury).getByText('pnpm seed:tesouro')).toBeTruthy();
+    expect(within(treasury).getByText(/pendente/)).toBeTruthy();
+
+    const history = table.getByRole('row', { name: /Histórico de preços/ });
+    expect(within(history).getByText('pnpm seed:cotahist')).toBeTruthy();
+  });
+
+  it('sem dado de demonstração, não há aviso', () => {
+    montar();
+
+    expect(screen.queryByText('Dados de demonstração')).toBeNull();
+  });
+
+  it('com dado de demonstração, o aviso diz o quê e como remover', () => {
+    montar({
+      market: {
+        kind: 'ready',
+        value: { ...health, demo: { portfolios: 4, assets: 37, institutions: 8 } },
+      },
+    });
+
+    expect(screen.getByText('Dados de demonstração')).toBeTruthy();
+    expect(screen.getByText(/4 carteiras, 37 ativos, 8 instituições/)).toBeTruthy();
+    expect(screen.getByText('pnpm demo:remove')).toBeTruthy();
   });
 
   it('a leitura de mercado que falha não vira "nenhuma fonte": mostra o erro e deixa tentar de novo', () => {
@@ -400,7 +344,6 @@ describe('SettingsView', () => {
     ).toBeTruthy();
     expect(screen.getByText('15%')).toBeTruthy();
     expect(screen.getByText('8 s')).toBeTruthy();
-    expect(screen.getByText(/Banco B/, { selector: 'span span' })).toBeTruthy();
   });
 
   it('exibição troca o tema e a densidade sem recarregar', async () => {
@@ -439,11 +382,13 @@ describe('SettingsView', () => {
       },
     });
 
-    expect(screen.getByText('Backup desligado nesta instalação')).toBeTruthy();
-    expect(
-      (screen.getByRole('button', { name: 'Fazer backup agora' }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    // O motivo mora na dica do botão, e não num texto ao lado dele.
+    expect(screen.queryByText('Backup desligado nesta instalação')).toBeNull();
+    const button = screen.getByRole('button', {
+      name: 'Fazer backup agora',
+    }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.title).toBe('Backup desligado nesta instalação');
   });
 
   it('a falha do backup vem com a mensagem do erro', () => {
@@ -466,20 +411,32 @@ describe('SettingsView', () => {
     expect(screen.getByText(/bucket recusou o upload/)).toBeTruthy();
   });
 
-  it('exportar, importar e apagar tudo ficam desabilitados até as histórias deles', () => {
+  it('importar, exportar e apagar estão de pé', () => {
     montar();
 
     for (const name of [
+      'Importar arquivo',
       'CSV por tabela',
       'JSON completo',
-      'Importar arquivo',
       'Apagar',
     ]) {
       expect(
         (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
         name,
-      ).toBe(true);
+      ).toBe(false);
     }
+  });
+
+  it('apagar tudo só libera o botão com a frase inteira', async () => {
+    const user = userEvent.setup();
+    montar();
+
+    await user.click(screen.getByRole('button', { name: 'Apagar' }));
+    const confirm = screen.getByRole('button', { name: 'Apagar tudo' });
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+
+    await user.type(screen.getByPlaceholderText('APAGAR TUDO'), 'APAGAR TUDO');
+    expect((confirm as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('instalação vazia diz como começar, e erro de leitura não vira tela vazia', () => {
@@ -489,8 +446,6 @@ describe('SettingsView', () => {
         value: {
           ...settings,
           portfolios: [],
-          categories: [],
-          institutions: [],
           archived_portfolios: [],
         },
       },

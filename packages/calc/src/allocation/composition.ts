@@ -30,6 +30,12 @@ export type AllocationLine = {
 export type CompositionTarget = {
   readonly category_id: string;
   readonly target_pct: string;
+  /**
+   * `group` é o alvo do grupo inteiro: vale para tudo que está dentro dele, e as
+   * categorias do grupo ficam sem alvo próprio. O id de uma linha "Outros" é o do
+   * grupo, e por isso o escopo precisa ser dito, não deduzido do id.
+   */
+  readonly scope?: 'category' | 'group' | undefined;
 };
 
 export type CompositionOptions = {
@@ -129,12 +135,21 @@ export const composeAllocation = (
     options.tolerance_pp === undefined ? null : new Decimal(options.tolerance_pp);
 
   const targetByCategory = new Map(
-    targets.map((target) => [target.category_id, target.target_pct]),
+    targets
+      .filter((target) => target.scope !== 'group')
+      .map((target) => [target.category_id, target.target_pct]),
+  );
+  const targetByGroup = new Map(
+    targets
+      .filter((target) => target.scope === 'group')
+      .map((target) => [target.category_id, target.target_pct]),
   );
 
   const categoryNode = (line: AllocationLine): CompositionNode => {
     const value = new Decimal(line.value);
-    const target = targetByCategory.get(line.category_id) ?? null;
+    // Dentro de um grupo com alvo próprio, a categoria é só a composição dele.
+    const covered = line.group_id !== null && targetByGroup.has(line.group_id);
+    const target = covered ? null : (targetByCategory.get(line.category_id) ?? null);
 
     return {
       id: line.category_id,
@@ -173,7 +188,9 @@ export const composeAllocation = (
       .map((line) => targetByCategory.get(line.category_id))
       .filter((target): target is string => target !== undefined);
 
-    const groupTarget = declared.length === 0 ? null : sum(declared).toFixed(2);
+    const groupTarget =
+      targetByGroup.get(groupId) ??
+      (declared.length === 0 ? null : sum(declared).toFixed(2));
 
     roots.push({
       id: groupId,

@@ -3,9 +3,16 @@ import { useState } from 'react';
 
 import { refreshMarket } from '../../api/market.js';
 import { Button } from '../../components/primitives.js';
+import { SkeletonRegion, SkeletonTable } from '../../components/skeleton.js';
 import type { Resource } from '../../lib/use_resource.js';
 import {
+  CATALOG_COMMAND,
+  CATALOG_LABEL,
+  DEMO_REMOVE_COMMAND,
   SOURCE_STATUS,
+  demoSummary,
+  hasDemoData,
+  orderedCatalogs,
   formatInstant,
   missingPricesText,
   runKindLabel,
@@ -25,6 +32,7 @@ import {
   TH,
   TH_RIGHT,
 } from './parts.js';
+import { Icon } from '../../components/icon.js';
 
 /**
  * M-16 · Dados de mercado, em Configurações.
@@ -105,22 +113,76 @@ export const MarketSection = ({
     <SettingsSection
       id="mercado"
       title="Dados de mercado"
-      description="Preços e índices são baixados para o app por rotinas agendadas; nenhuma tela depende de uma API estar no ar. Quando a fonte principal falha, o app usa a alternativa e marca o preço como atrasado até a fonte voltar ou você definir um preço manual."
+      description="Preços e índices são baixados para o app por rotinas agendadas; nenhuma tela depende de uma API estar no ar. Quando a fonte principal falha, o app usa a alternativa e marca o preço como atrasado até a fonte voltar ou você definir um preço manual. Proventos e eventos corporativos não têm fonte: são lançados à mão, no modal de lançamento."
       action={
-        <Button disabled={refreshing} onClick={refresh}>
-          <span aria-hidden="true">↻</span> {refreshing ? 'Pedindo…' : 'Atualizar agora'}
+        <Button disabled={refreshing} icon="undo" onClick={refresh}>
+          {refreshing ? 'Pedindo…' : 'Atualizar agora'}
         </Button>
       }
     >
       {state.kind === 'loading' ? (
-        <p aria-busy="true" className="p-4 text-[0.8125rem] text-ink-3">
-          Lendo a situação das fontes…
-        </p>
+        <SkeletonRegion label="Lendo a situação das fontes" className="p-4">
+          <SkeletonTable rows={3} columns={4} />
+        </SkeletonRegion>
       ) : state.kind === 'error' ? (
         <Failed error={state.error} onRetry={reload} />
       ) : (
         <>
+          {hasDemoData(state.value.demo) ? (
+            <p
+              role="note"
+              className="border-b border-line bg-attention-soft px-4 py-2.5 text-[0.8125rem]"
+            >
+              <strong className="font-semibold">Dados de demonstração</strong>:{' '}
+              {demoSummary(state.value.demo)}. Para apagá-los sem tocar nos lançamentos
+              reais, rode <code className="tabular">{DEMO_REMOVE_COMMAND}</code>.
+            </p>
+          ) : null}
+
           <table className="w-full text-[0.8125rem]">
+            <caption className="sr-only">Catálogos da carga inicial</caption>
+            <thead>
+              <tr>
+                <th scope="col" className={TH}>
+                  Catálogo
+                </th>
+                <th scope="col" className={TH_RIGHT}>
+                  Registros
+                </th>
+                <th scope="col" className={TH}>
+                  Última carga
+                </th>
+                <th scope="col" className={TH}>
+                  Situação
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {orderedCatalogs(state.value.catalogs).map((catalog) => (
+                <tr key={catalog.key} className={ROW}>
+                  <th scope="row" className={`${TD} text-left font-medium`}>
+                    {CATALOG_LABEL[catalog.key]}
+                  </th>
+                  <td className={`${TD} tabular text-right`}>{catalog.total}</td>
+                  <td className={`${TD} tabular`}>
+                    {formatInstant(catalog.last_loaded)}
+                  </td>
+                  <td className={TD}>
+                    {catalog.state === 'pending' ? (
+                      <StatusDot tone="attention">
+                        pendente · rode{' '}
+                        <code className="tabular">{CATALOG_COMMAND[catalog.key]}</code>
+                      </StatusDot>
+                    ) : (
+                      <StatusDot tone="ok">carregado</StatusDot>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <table className="mt-4 w-full border-t border-line text-[0.8125rem]">
             <caption className="sr-only">Situação de cada fonte de dados</caption>
             <thead>
               <tr>
@@ -195,7 +257,7 @@ export const MarketSection = ({
 
           {state.value.recent_failures.length === 0 ? null : (
             <ul className="border-t border-line px-4 py-3 text-[0.8125rem]">
-              <li className="mb-1 text-label tracking-wide text-ink-3 uppercase">
+              <li className="mb-1 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
                 Falhas recentes
               </li>
               {state.value.recent_failures.map((run) => (
@@ -215,7 +277,7 @@ export const MarketSection = ({
           {state.value.missing_prices.length === 0 ? null : (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-attention-soft px-4 py-3 text-[0.8125rem]">
               <span className="text-attention">
-                <span aria-hidden="true">⚠ </span>
+                <Icon name="warning" className="mr-1.5 inline align-text-bottom" />
                 {missingPricesText(state.value.missing_prices)}
                 {' · '}
                 posição de {formatDate(state.value.reference_date as DateOnly)}

@@ -1,4 +1,10 @@
-import type { IndexProvider, QuoteSource, TreasurySource } from '@patrimonio/application';
+import type {
+  IndexProvider,
+  InstrumentCatalogSource,
+  PriceHistorySource,
+  QuoteSource,
+  TreasurySource,
+} from '@patrimonio/application';
 import { environment } from '@patrimonio/env';
 import {
   BOLSAI_SHAPE,
@@ -11,10 +17,14 @@ import {
   createTesouroJsonProvider,
   createTreasuryChain,
   createHttpClient,
+  createIndexProviderSet,
+  createPriceIndexProvider,
   sleep,
   withRetry,
 } from '@patrimonio/market';
 import type { HttpClient } from '@patrimonio/market';
+
+import { createInstrumentCatalogSource, createPriceHistorySource } from './cotahist.js';
 
 /**
  * A montagem das fontes. É o único arquivo do worker que conhece o nome de um
@@ -25,6 +35,8 @@ import type { HttpClient } from '@patrimonio/market';
  * global entra por injeção no cliente, que é o que permite ao teste responder
  * com arquivo gravado sem tocar a rede.
  */
+const PRICE_INDEX_SYMBOLS = { IBOV: '^BVSP', IFIX: 'IFIX.SA' } as const;
+
 const RETRY = { attempts: 3, backoffMs: 500, sleep } as const;
 
 const clientFor = (source: string, passthrough: readonly number[] = []): HttpClient =>
@@ -42,9 +54,13 @@ export type MarketSources = {
   readonly quotes: QuoteSource;
   readonly indices: IndexProvider;
   readonly treasury: TreasurySource;
+  readonly instruments: InstrumentCatalogSource;
+  readonly history: PriceHistorySource;
 };
 
-export const createMarketSources = (): MarketSources => {
+export const createMarketSources = (options: {
+  readonly year: () => number;
+}): MarketSources => {
   const brapi = createBrapiProvider({
     // O 404 da brapi é resposta sobre o papel — "não conheço esse ticker" — e
     // não falha da coleta. Ele é lido, e o papel entra em `missing`.
@@ -61,18 +77,29 @@ export const createMarketSources = (): MarketSources => {
     http: clientFor(BOLSAI_SOURCE, [404]),
     shape: BOLSAI_SHAPE,
     url: (tickers) => `https://api.usebolsai.com/v1/quotes?tickers=${tickers.join(',')}`,
-    historyUrl: (ticker, from, to) =>
-      `https://api.usebolsai.com/v1/history?ticker=${ticker}&from=${from}&to=${to}`,
   });
+
+  const quotes = createQuoteChain([brapi, alternativo]);
 
   return {
     // A ordem é a da configuração: principal primeiro, alternativa depois, e o
     // `source_kind` do preço gravado sai da posição.
-    quotes: createQuoteChain([brapi, alternativo]),
-    indices: createBcbProvider({ http: clientFor('bcb') }),
+    quotes,
+    // CDI, Selic e IPCA vêm do Banco Central; IBOV e IFIX, da cadeia de cotações.
+    // Se uma das duas cai, a outra continua alimentando seus índices.
+    indices: createIndexProviderSet('indices', [
+      createBcbProvider({ http: clientFor('bcb') }),
+      createPriceIndexProvider({
+        id: 'cotacoes',
+        quotes,
+        symbols: PRICE_INDEX_SYMBOLS,
+      }),
+    ]),
     treasury: createTreasuryChain([
       createTesouroJsonProvider({ http: clientFor('tesouro-direto') }),
       createTesouroCsvProvider({ http: clientFor('tesouro-transparente') }),
     ]),
+    instruments: createInstrumentCatalogSource({ year: options.year }),
+    history: createPriceHistorySource({ currentYear: options.year }),
   };
 };

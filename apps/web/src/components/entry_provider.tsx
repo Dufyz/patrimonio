@@ -9,7 +9,9 @@ import {
 
 import type { DeletionReceipt } from '../api/transactions.js';
 import { undoDeletion } from '../api/transactions.js';
+import { fetchInstitutions } from '../api/institutions.js';
 import { fetchSettings } from '../api/settings.js';
+import { SkeletonLines, SkeletonRegion } from './skeleton.js';
 import type { SaveReceipt } from '../api/entry.js';
 import {
   ENTRY_TABS,
@@ -22,13 +24,12 @@ import type { EntryReference, EntryTab } from '../lib/entry.js';
 import { browserStorage, readRaw, writeRaw } from '../lib/preferences.js';
 import type { PickedAsset } from '../views/entry/asset_picker.js';
 import type { AssetSearch } from '../views/entry/asset_picker.js';
-import { CashFormView } from '../views/entry/cash_form.js';
+import { EventFormView } from '../views/entry/event_form.js';
 import { ConfirmEntry } from '../views/entry/confirm_form.js';
 import { EditEntry } from '../views/entry/edit_form.js';
 import { PayoutFormView } from '../views/entry/payout_form.js';
 import { TradeFormView } from '../views/entry/trade_form.js';
 import type { TradeSeed } from '../views/entry/trade_form.js';
-import { TransferFormView } from '../views/entry/transfer_form.js';
 import { Modal } from './overlay.js';
 import { Button, Segmented } from './primitives.js';
 import { useShortcuts } from './shortcuts.js';
@@ -49,7 +50,7 @@ export type OpenEntryRequest = {
   readonly tab?: EntryTab;
   readonly asset?: PickedAsset | null;
   readonly portfolioId?: string | null;
-  readonly seed?: Pick<TradeSeed, 'quantity' | 'price' | 'fees' | 'note'>;
+  readonly seed?: Pick<TradeSeed, 'quantity' | 'price' | 'fees'>;
 };
 
 export type EntryApi = {
@@ -113,10 +114,13 @@ export const EntryProvider = ({
     const controller = new AbortController();
     setReference({ status: 'loading' });
 
-    fetchSettings(controller.signal)
-      .then((settings) => {
+    Promise.all([fetchSettings(controller.signal), fetchInstitutions(controller.signal)])
+      .then(([settings, institutions]) => {
         if (!controller.signal.aborted) {
-          setReference({ status: 'ready', reference: referenceOf(settings) });
+          setReference({
+            status: 'ready',
+            reference: referenceOf(settings, institutions),
+          });
         }
       })
       .catch((cause: unknown) => {
@@ -213,6 +217,7 @@ export const EntryProvider = ({
 
       <Modal
         narrow
+        guard
         title={title}
         subtitle={
           dialog?.kind === 'entry'
@@ -223,7 +228,9 @@ export const EntryProvider = ({
         onClose={close}
       >
         {dialog === null ? null : reference.status === 'loading' ? (
-          <p className="py-6 text-center text-sm text-ink-3">Carregando…</p>
+          <SkeletonRegion label="Carregando" className="py-4">
+            <SkeletonLines lines={5} />
+          </SkeletonRegion>
         ) : reference.status === 'error' ? (
           <div className="flex flex-col gap-3">
             <p
@@ -336,15 +343,9 @@ export const EntryForms = ({
           options={ENTRY_TABS.map((item) => ({
             value: item.id,
             label: item.label,
-            ...(item.unavailable === undefined ? {} : { title: item.unavailable }),
           }))}
           value={tab}
-          onChange={(next) => {
-            // Evento aparece, mas ainda não tem preview na api: não abre.
-            if (ENTRY_TABS.find((item) => item.id === next)?.unavailable === undefined) {
-              onTab(next);
-            }
-          }}
+          onChange={onTab}
         />
       </div>
 
@@ -372,24 +373,14 @@ export const EntryForms = ({
           onSaved={onSaved}
           onCancel={onCancel}
         />
-      ) : tab === 'deposit' || tab === 'withdrawal' ? (
-        <CashFormView
-          key={tab}
-          kind={tab}
-          reference={reference}
-          seed={{ portfolioId, institutionId, date: today }}
-          onSaved={onSaved}
-          onCancel={onCancel}
-        />
-      ) : tab === 'transfer' ? (
-        <TransferFormView
-          reference={reference}
-          seed={{ asset, fromPortfolioId: portfolioId, institutionId, date: today }}
+      ) : (
+        <EventFormView
+          seed={{ asset, date: today }}
           {...searchProps}
           onSaved={onSaved}
           onCancel={onCancel}
         />
-      ) : null}
+      )}
     </div>
   );
 };

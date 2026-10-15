@@ -1,12 +1,4 @@
-import type {
-  MarketHealth,
-  Settings,
-  SettingsAlertRule,
-  SettingsBackup,
-  SettingsBenchmark,
-  SettingsCategory,
-  SettingsInstitution,
-} from '@patrimonio/contracts';
+import type { MarketHealth, Settings, SettingsBackup } from '@patrimonio/contracts';
 
 /**
  * T-08 · O que a tela de Configurações decide sozinha: texto, ordem e a forma de
@@ -17,12 +9,7 @@ import type {
 
 export const SECTIONS = [
   { id: 'carteiras', label: 'Carteiras' },
-  { id: 'alertas', label: 'Alertas' },
-  { id: 'categorias', label: 'Categorias de ativo' },
-  { id: 'instituicoes', label: 'Instituições' },
-  { id: 'benchmarks', label: 'Benchmarks' },
   { id: 'mercado', label: 'Dados de mercado' },
-  { id: 'lancamentos', label: 'Lançamentos' },
   { id: 'exibicao', label: 'Exibição' },
   { id: 'backup', label: 'Dados e backup' },
 ] as const;
@@ -40,7 +27,7 @@ export const plural = (count: number, one: string, many: string): string =>
   `${count} ${count === 1 ? one : many}`;
 
 /* -------------------------------------------------------------------------- */
-/* Carteiras, categorias e instituições: o que impede excluir                  */
+/* Carteira: o que impede excluir                                             */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -55,301 +42,58 @@ export const portfolioHold = (blocking: {
     ? null
     : `${plural(blocking.transactions, 'lançamento', 'lançamentos')} · ${plural(blocking.assets, 'ativo', 'ativos')}`;
 
-export const institutionHold = portfolioHold;
-
-export const categoryHold = (
-  category: Pick<SettingsCategory, 'assets' | 'strategies' | 'children'>,
-): string | null => {
-  const parts = [
-    category.children > 0
-      ? plural(category.children, 'categoria dentro', 'categorias dentro')
-      : null,
-    category.assets > 0 ? plural(category.assets, 'ativo', 'ativos') : null,
-    category.strategies > 0
-      ? plural(category.strategies, 'estratégia', 'estratégias')
-      : null,
-  ].filter((part): part is string => part !== null);
-
-  return parts.length === 0 ? null : parts.join(' · ');
-};
-
 export const portfolioCount = (count: number): string =>
   plural(count, 'carteira', 'carteiras');
 
 /* -------------------------------------------------------------------------- */
-/* Alertas                                                                    */
-/* -------------------------------------------------------------------------- */
+/* Catálogos da carga inicial                                                 */
 
-type AlertCopy = { readonly label: string; readonly description: string };
+type CatalogKey = MarketHealth['catalogs'][number]['key'];
 
-/**
- * O vocabulário das regras, na ordem da prancha. O servidor guarda o `kind` e
- * não o texto: a lista cresce por cadastro, e frase de interface não é dado.
- * Regra que a tela não conhece aparece com o `kind` — e nunca some, porque
- * esconder uma regra ligada é pior do que mostrá-la sem tradução.
- */
-export const ALERT_COPY: Readonly<Record<string, AlertCopy>> = {
-  price_stale: {
-    label: 'Preço atrasado',
-    description: 'Fonte principal sem cotação de um ativo com posição',
-  },
-  price_missing: {
-    label: 'Preço ausente',
-    description: 'Nunca houve preço para o papel: a posição entra pelo custo',
-  },
-  payout_unconfirmed: {
-    label: 'Provento não confirmado',
-    description: 'Data de pagamento passou e o provento não foi marcado como recebido',
-  },
-  negative_cash: {
-    label: 'Caixa negativo',
-    description: 'Saldo de uma conta fixa abaixo de zero em qualquer data',
-  },
-  corporate_event_pending: {
-    label: 'Evento corporativo',
-    description:
-      'Desdobramento, grupamento ou bonificação anunciado para ativo com posição',
-  },
-  uncategorized_asset: {
-    label: 'Ativo sem categoria',
-    description: 'Ativo novo não cumpre nenhuma regra de categoria',
-  },
-  backup_failed: {
-    label: 'Backup falhou',
-    description: 'Backup automático não concluído',
-  },
-  upcoming_maturity: {
-    label: 'Vencimento próximo',
-    description: 'Título de renda fixa vence dentro do prazo',
-  },
-  off_strategy: {
-    label: 'Fora da estratégia',
-    description: 'Categoria passa da tolerância definida na estratégia da carteira',
-  },
-  idle_cash: {
-    label: 'Caixa parado',
-    description: 'Saldo em conta sem render por mais tempo que o limite',
-  },
-  asset_concentration: {
-    label: 'Concentração em um ativo',
-    description: 'Ativo passa do peso máximo definido na estratégia',
-  },
-  issuer_concentration: {
-    label: 'Concentração em um emissor',
-    description: 'Soma por emissor passa do limite do patrimônio ou do FGC',
-  },
-  strategy_review: {
-    label: 'Revisão da estratégia',
-    description: 'Data de revisão definida na estratégia chega',
-  },
-  goal_behind: {
-    label: 'Objetivo abaixo do ritmo',
-    description: 'Aporte médio de 12 meses fica abaixo do necessário',
-  },
+export const CATALOG_LABEL: Readonly<Record<CatalogKey, string>> = {
+  institutions: 'Instituições',
+  instruments: 'Instrumentos listados',
+  treasury: 'Tesouro Direto',
+  indices: 'Índices',
+  price_history: 'Histórico de preços',
 };
 
-export const alertCopy = (kind: string): AlertCopy =>
-  ALERT_COPY[kind] ?? { label: kind, description: 'Regra sem descrição cadastrada' };
-
-const numberField = (threshold: Record<string, unknown>, key: string): string | null => {
-  const value = threshold[key];
-  if (typeof value === 'number') return String(value);
-  if (typeof value === 'string' && value.trim() !== '') return value;
-  return null;
+/** O comando que preenche cada catálogo; é o que a pendência mostra. */
+export const CATALOG_COMMAND: Readonly<Record<CatalogKey, string>> = {
+  institutions: 'pnpm seed:institutions',
+  instruments: 'pnpm seed:instruments',
+  treasury: 'pnpm seed:tesouro',
+  indices: 'pnpm seed:indices',
+  price_history: 'pnpm seed:cotahist',
 };
 
-/**
- * O limite da regra, como a prancha o escreve: `3 dias`, `da carteira`, `—`.
- * Regra "da carteira" lê o limite de cada carteira, e a configuração global não
- * tem número para mostrar; limite que a tela não sabe ler vira traço.
- */
-export const alertLimit = (
-  rule: Pick<SettingsAlertRule, 'scope' | 'threshold'>,
-): string => {
-  if (rule.scope === 'per_portfolio') return 'da carteira';
-  if (rule.threshold === null) return '—';
+/** Os catálogos na ordem em que a carga os executa. */
+export const CATALOG_ORDER: readonly CatalogKey[] = [
+  'institutions',
+  'instruments',
+  'treasury',
+  'indices',
+  'price_history',
+];
 
-  const days = numberField(rule.threshold, 'days');
-  const pct = numberField(rule.threshold, 'pct');
-
-  const parts = [
-    pct === null ? null : `${pct.replace('.', ',')}%`,
-    days === null ? null : plural(Number(days), 'dia', 'dias'),
-  ].filter((part): part is string => part !== null);
-
-  return parts.length === 0 ? '—' : parts.join(' · ');
-};
-
-/** Regras na ordem da prancha; as que a tela não conhece vão para o fim, por nome. */
-export const sortAlerts = (rules: readonly SettingsAlertRule[]): SettingsAlertRule[] => {
-  const order = Object.keys(ALERT_COPY);
-  const rank = (kind: string): number => {
-    const index = order.indexOf(kind);
-    return index === -1 ? order.length : index;
-  };
-
-  return [...rules].sort(
-    (a, b) => rank(a.kind) - rank(b.kind) || a.kind.localeCompare(b.kind),
+export const orderedCatalogs = (
+  catalogs: MarketHealth['catalogs'],
+): MarketHealth['catalogs'] =>
+  [...catalogs].sort(
+    (a, b) => CATALOG_ORDER.indexOf(a.key) - CATALOG_ORDER.indexOf(b.key),
   );
-};
 
-/* -------------------------------------------------------------------------- */
-/* Categorias                                                                 */
-/* -------------------------------------------------------------------------- */
+export const hasDemoData = (demo: MarketHealth['demo']): boolean =>
+  demo.portfolios + demo.assets + demo.institutions > 0;
 
-const B3_TYPE_LABEL: Readonly<Record<string, string>> = {
-  stock: 'ação ou unit',
-  fii: 'fundo imobiliário',
-  etf: 'ETF',
-  bdr: 'BDR',
-  treasury: 'Tesouro',
-  cash: 'saldo em conta',
-};
+export const DEMO_REMOVE_COMMAND = 'pnpm demo:remove';
 
-const INDEXER_LABEL: Readonly<Record<string, string>> = {
-  cdi_pct: 'CDI ou Selic',
-  selic_plus: 'CDI ou Selic',
-  ipca_plus: 'IPCA',
-  prefixed: 'prefixado',
-};
-
-/**
- * A regra automática em palavras: `Tipo B3: ação ou unit`, `Indexador IPCA`.
- * As chaves que a regra pode olhar são fechadas (L-03), então o que não for
- * delas é descartado em vez de impresso cru.
- */
-export const autoRuleText = (rule: Record<string, unknown> | null): string => {
-  if (rule === null) return '—';
-
-  const parts: string[] = [];
-  const b3 = rule['b3_type'];
-  const indexer = rule['indexer'];
-  const origin = rule['origin'];
-  const sector = rule['sector'];
-
-  if (typeof b3 === 'string') parts.push(`Tipo B3: ${B3_TYPE_LABEL[b3] ?? b3}`);
-  if (typeof indexer === 'string')
-    parts.push(`Indexador ${INDEXER_LABEL[indexer] ?? indexer}`);
-  if (origin === 'manual') parts.push('Cadastrado à mão');
-  if (origin === 'market') parts.push('Da base de mercado');
-  if (typeof sector === 'string') parts.push(`Setor: ${sector}`);
-
-  return parts.length === 0 ? '—' : parts.join(' · ');
-};
-
-export type CategoryGroup = {
-  readonly group: SettingsCategory;
-  readonly children: readonly SettingsCategory[];
-};
-
-/** Grupos de topo, cada um com as categorias de dentro, na ordem do cadastro. */
-export const groupCategories = (
-  categories: readonly SettingsCategory[],
-): CategoryGroup[] => {
-  const bySort = (a: SettingsCategory, b: SettingsCategory): number =>
-    a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'pt-BR');
-
-  return categories
-    .filter((category) => category.parent_id === null)
-    .sort(bySort)
-    .map((group) => ({
-      group,
-      children: categories
-        .filter((category) => category.parent_id === group.id)
-        .sort(bySort),
-    }));
-};
-
-/* -------------------------------------------------------------------------- */
-/* Instituições                                                               */
-/* -------------------------------------------------------------------------- */
-
-export const ROLE_LABEL: Readonly<Record<SettingsInstitution['role'], string>> = {
-  custodian: 'Custódia',
-  issuer: 'Emissor',
-  both: 'Custódia e emissor',
-};
-
-/**
- * O que a coluna de exposição diz quando não há barra. Quem só custodia não tem
- * exposição a medir; quem emite e não é coberto não tem teto — e dizer qual dos
- * dois é o que impede a ausência da barra de parecer esquecimento.
- */
-export const fgcNote = (institution: SettingsInstitution): string => {
-  if (institution.role === 'custodian') return 'não se aplica';
-  if (!institution.fgc_covered) return 'sem cobertura do FGC';
-  return '—';
-};
-
-/* -------------------------------------------------------------------------- */
-/* Benchmarks                                                                 */
-/* -------------------------------------------------------------------------- */
-
-const INDEX_HOW: Readonly<Record<string, string>> = {
-  CDI: 'Série diária acumulada',
-  SELIC: 'Série diária acumulada',
-  IPCA: 'Mensal, distribuída por dia útil',
-  IBOV: 'Pontos de fechamento',
-  IFIX: 'Pontos de fechamento',
-};
-
-const INDEX_SOURCE: Readonly<Record<string, string>> = {
-  CDI: 'Banco Central',
-  SELIC: 'Banco Central',
-  IPCA: 'IBGE, via Banco Central',
-  IBOV: 'B3',
-  IFIX: 'B3',
-};
-
-const indexOf = (definition: Record<string, unknown>): string | null =>
-  typeof definition['index'] === 'string' ? definition['index'] : null;
-
-export const benchmarkHow = (benchmark: SettingsBenchmark): string => {
-  const index = indexOf(benchmark.definition);
-
-  if (benchmark.kind === 'index') {
-    return index === null ? '—' : (INDEX_HOW[index] ?? 'Série do índice');
-  }
-
-  if (benchmark.kind === 'index_plus_rate') {
-    const rate = benchmark.definition['rate'];
-    // A taxa fica como o usuário a definiu: 0.06 é 6% ao ano, e a conversão é
-    // de apresentação, feita sobre o texto para não passar por ponto flutuante.
-    const pct = typeof rate === 'number' ? ratioToPercentText(String(rate)) : null;
-    return index === null || pct === null ? '—' : `${index} + ${pct}% a.a., por dia útil`;
-  }
-
-  return `Rebalanceado ${REBALANCE_TEXT[benchmark.rebalance]}`;
-};
-
-const REBALANCE_TEXT: Readonly<Record<SettingsBenchmark['rebalance'], string>> = {
-  monthly: 'todo mês',
-  daily: 'todo dia',
-  never: 'nunca',
-};
-
-/** `0.06` → `6`, `0.055` → `5,5`. Deslocamento da vírgula sobre o texto. */
-export const ratioToPercentText = (ratio: string): string | null => {
-  const match = /^(\d+)(?:\.(\d+))?$/.exec(ratio);
-  if (match === null) return null;
-
-  const whole = match[1] ?? '0';
-  const fraction = match[2] ?? '';
-  const padded = `${fraction}00`;
-  const integer = `${whole}${padded.slice(0, 2)}`.replace(/^0+(?=\d)/, '');
-  const rest = padded.slice(2).replace(/0+$/, '');
-
-  return rest === '' ? integer : `${integer},${rest}`;
-};
-
-export const benchmarkSource = (benchmark: SettingsBenchmark): string => {
-  if (benchmark.kind !== 'index') return 'Calculado';
-  const index = indexOf(benchmark.definition);
-  return index === null ? '—' : (INDEX_SOURCE[index] ?? '—');
-};
-
-export const benchmarkUse = (usedBy: number): string =>
-  usedBy === 0 ? 'Comparação opcional' : portfolioCount(usedBy);
+export const demoSummary = (demo: MarketHealth['demo']): string =>
+  [
+    plural(demo.portfolios, 'carteira', 'carteiras'),
+    plural(demo.assets, 'ativo', 'ativos'),
+    plural(demo.institutions, 'instituição', 'instituições'),
+  ].join(', ');
 
 /* -------------------------------------------------------------------------- */
 /* Dados de mercado                                                           */
@@ -467,6 +211,4 @@ export const backupSummary = (backup: SettingsBackup): BackupSummary => {
 
 /** Settings pode estar vazio, e a tela diz isso em vez de abrir sem seção. */
 export const isEmptyInstallation = (settings: Settings): boolean =>
-  settings.portfolios.length === 0 &&
-  settings.categories.length === 0 &&
-  settings.institutions.length === 0;
+  settings.portfolios.length === 0;

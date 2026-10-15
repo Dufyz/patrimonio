@@ -89,6 +89,7 @@ const renderTable = (props: Partial<DataTableProps<Position>> = {}) =>
         rowLabel={(row) => row.ticker}
         total={{ valor: '487320.55' }}
         width={1440}
+        rowsPerGroup={5}
         {...props}
       />
     </PreferencesProvider>,
@@ -144,6 +145,20 @@ describe('tabela densa', () => {
     expect(onOpenRow).toHaveBeenCalledOnce();
   });
 
+  it('com `openOnClick`, o clique simples na linha a abre; sem ele, não', async () => {
+    const user = userEvent.setup();
+    const onOpenRow = vi.fn();
+    const { unmount } = renderTable({ onOpenRow });
+
+    await user.click(screen.getByRole('row', { name: 'ITUB4' }));
+    expect(onOpenRow).not.toHaveBeenCalled();
+    unmount();
+
+    renderTable({ onOpenRow, openOnClick: true });
+    await user.click(screen.getByRole('row', { name: 'ITUB4' }));
+    expect(onOpenRow).toHaveBeenCalledOnce();
+  });
+
   it('`L` lança e `E` edita a linha com foco', async () => {
     const user = userEvent.setup();
     const onNewTransaction = vi.fn();
@@ -193,12 +208,18 @@ describe('tabela densa', () => {
     expect(last?.textContent).toContain('487.320,55');
   });
 
-  it('desmarcar uma coluna a tira da tabela', async () => {
-    const user = userEvent.setup();
+  it('a tabela não oferece escolha de colunas: a largura decide o que cabe', () => {
     renderTable();
+    expect(screen.queryByRole('checkbox', { name: /Peso/u })).not.toBeInTheDocument();
+    expect(screen.queryByText('Colunas')).not.toBeInTheDocument();
+  });
 
-    await user.click(screen.getByRole('checkbox', { name: /Peso/u }));
-    expect(screen.queryByRole('columnheader', { name: /Peso/u })).not.toBeInTheDocument();
+  it('sem teto por grupo, todas as linhas aparecem de uma vez', () => {
+    renderTable({ rowsPerGroup: undefined });
+    expect(screen.getByText('DEBCIA')).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: /Mostrar mais/u }),
+    ).not.toBeInTheDocument();
   });
 
   it('filtro sem resultado mantém a barra e oferece sair do vazio', () => {

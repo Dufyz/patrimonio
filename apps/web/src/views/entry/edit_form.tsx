@@ -7,6 +7,7 @@ import { deleteTransaction } from '../../api/transactions.js';
 import type { DeletionReceipt } from '../../api/transactions.js';
 import { ConfirmDialog } from '../../components/overlay.js';
 import { Button } from '../../components/primitives.js';
+import { SkeletonLines, SkeletonRegion } from '../../components/skeleton.js';
 import { TRANSACTION_KIND_LABELS } from '../../lib/asset_page.js';
 import {
   buildUpdateBody,
@@ -24,8 +25,9 @@ import type {
 } from '../../lib/entry.js';
 import { formatShortDate } from '../../lib/positions.js';
 import { EffectPanel } from './effect_table.js';
-import { Callout, Field, Input, Select, useVisibleErrors } from './fields.js';
+import { Callout, Field, Input, MoneyInput, Select, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
+import { InstitutionPicker } from './institution_picker.js';
 import { usePreview, useSave } from './hooks.js';
 
 /**
@@ -49,15 +51,7 @@ type Loaded =
   | { readonly status: 'ready'; readonly transaction: TransactionResource };
 
 const effectKindOf = (transaction: TransactionResource): EffectKind =>
-  transaction.kind === 'buy' ||
-  transaction.kind === 'sell' ||
-  transaction.kind === 'deposit' ||
-  transaction.kind === 'withdrawal'
-    ? transaction.kind
-    : 'payout';
-
-const isCash = (transaction: TransactionResource): boolean =>
-  transaction.kind === 'deposit' || transaction.kind === 'withdrawal';
+  transaction.kind === 'buy' || transaction.kind === 'sell' ? transaction.kind : 'payout';
 
 /** O lançamento, carregado; o formulário só existe quando ele chegou. */
 export const EditEntry = ({
@@ -98,7 +92,9 @@ export const EditEntry = ({
 
   if (loaded.status === 'loading') {
     return (
-      <p className="py-6 text-center text-sm text-ink-3">Carregando o lançamento…</p>
+      <SkeletonRegion label="Carregando o lançamento" className="py-4">
+        <SkeletonLines lines={5} />
+      </SkeletonRegion>
     );
   }
 
@@ -116,11 +112,7 @@ export const EditEntry = ({
   if (!isEditable(loaded.transaction)) {
     return (
       <div className="flex flex-col gap-3">
-        <Callout tone="info">
-          {loaded.transaction.transfer_group_id === null
-            ? 'Eventos corporativos não são editados aqui.'
-            : 'Este lançamento é uma perna de transferência: editar só uma ponta desfaria o total. Exclua a transferência e lance de novo.'}
-        </Callout>
+        <Callout tone="info">Eventos corporativos não são editados aqui.</Callout>
         <div className="flex justify-end">
           <Button onClick={onCancel}>Fechar</Button>
         </div>
@@ -248,7 +240,6 @@ export const EditFormView = ({
     }
   };
 
-  const cash = isCash(transaction);
   const payout = transaction.kind === 'payout';
   const kindLabel = TRANSACTION_KIND_LABELS[transaction.kind];
   const subject = [kindLabel, assetLabel, formatShortDate(transaction.trade_date)]
@@ -328,14 +319,14 @@ export const EditFormView = ({
           </Field>
         </div>
 
-        <div className={`grid gap-3 ${cash ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+        <div className="grid gap-3 sm:grid-cols-3">
           <Field
-            label={cash ? 'Valor' : 'Quantidade'}
+            label="Quantidade"
             error={visible.show('quantity')}
             hint={before(changed('quantity'), original.quantity)}
           >
             {(control) => (
-              <Input
+              <MoneyInput
                 {...control}
                 numeric
                 inputMode="decimal"
@@ -347,33 +338,32 @@ export const EditFormView = ({
               />
             )}
           </Field>
-          {cash ? null : (
-            <Field
-              label={payout ? 'Valor por ação' : 'Preço unitário'}
-              error={visible.show('price')}
-              hint={before(changed('price'), twoDecimals(original.price))}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  numeric
-                  inputMode="decimal"
-                  invalid={control['aria-invalid']}
-                  changed={changed('price')}
-                  value={form.price}
-                  onBlur={touch('price')}
-                  onChange={(event) => set('price', event.target.value)}
-                />
-              )}
-            </Field>
-          )}
+          <Field
+            label={payout ? 'Valor por ação' : 'Preço unitário'}
+            error={visible.show('price')}
+            hint={before(changed('price'), twoDecimals(original.price))}
+          >
+            {(control) => (
+              <MoneyInput
+                maxDecimals={8}
+                {...control}
+                numeric
+                inputMode="decimal"
+                invalid={control['aria-invalid']}
+                changed={changed('price')}
+                value={form.price}
+                onBlur={touch('price')}
+                onChange={(event) => set('price', event.target.value)}
+              />
+            )}
+          </Field>
           <Field
             label="Taxas"
             error={visible.show('fees')}
             hint={before(changed('fees'), twoDecimals(original.fees))}
           >
             {(control) => (
-              <Input
+              <MoneyInput
                 {...control}
                 numeric
                 inputMode="decimal"
@@ -394,7 +384,7 @@ export const EditFormView = ({
             hint={before(changed('tax'), twoDecimals(original.tax))}
           >
             {(control) => (
-              <Input
+              <MoneyInput
                 {...control}
                 numeric
                 inputMode="decimal"
@@ -441,31 +431,18 @@ export const EditFormView = ({
             )}
           >
             {(control) => (
-              <Select
-                {...control}
+              <InstitutionPicker
+                control={control}
                 invalid={control['aria-invalid']}
                 changed={changed('institution')}
                 options={reference.institutions}
-                value={form.institutionId}
+                value={form.institutionId === '' ? null : form.institutionId}
                 onBlur={touch('institution')}
-                onChange={(event) => set('institutionId', event.target.value)}
+                onChange={(id) => set('institutionId', id ?? '')}
               />
             )}
           </Field>
         </div>
-
-        <Field label="Observação" hint={before(changed('note'), original.note)}>
-          {(control) => (
-            <Input
-              {...control}
-              invalid={false}
-              changed={changed('note')}
-              placeholder="opcional"
-              value={form.note}
-              onChange={(event) => set('note', event.target.value)}
-            />
-          )}
-        </Field>
 
         {hasChanges ? (
           <EffectPanel

@@ -7,6 +7,12 @@
  * sete casos de mudança de formato, mais um teste por provedor que fala com a
  * API real e roda só na verificação noturna.
  */
+export {
+  PRICE_INDEX_LOOKBACK_DAYS,
+  createIndexProviderSet,
+  createPriceIndexProvider,
+} from './providers/price_index.provider.js';
+export type { PriceIndexSymbols } from './providers/price_index.provider.js';
 export { createQuoteChain, createTreasuryChain } from './chain.js';
 
 export {
@@ -23,6 +29,12 @@ export {
   quoteUrl,
 } from './providers/brapi.provider.js';
 export {
+  BRAPI_TICKERS_PATH,
+  createBrapiTickerLookup,
+  instrumentTypeOf,
+  tickersUrl,
+} from './providers/brapi_tickers.provider.js';
+export {
   BOLSAI_DAILY_CEILING,
   BOLSAI_SHAPE,
   BOLSAI_SOURCE,
@@ -31,8 +43,10 @@ export {
 export type { JsonQuoteOptions, QuoteShape } from './providers/json_quote.provider.js';
 export { COTAHIST_SOURCE, readCotahist, readLines } from './cotahist/reader.js';
 export type { CotahistReport, ReadOptions } from './cotahist/reader.js';
-export { RECORD_LENGTH, parseRecord } from './cotahist/layout.js';
-export type { CotahistRecord } from './cotahist/layout.js';
+export { RECORD_LENGTH, parseInstrumentRecord, parseRecord } from './cotahist/layout.js';
+export type { CotahistInstrumentRecord, CotahistRecord } from './cotahist/layout.js';
+export { readCotahistInstruments } from './cotahist/instruments.js';
+export type { CotahistInstrument, CotahistInstruments } from './cotahist/instruments.js';
 export { WARNING_RATIO, budgetFor, monthlyProjection } from './usage.js';
 export type { Budget } from './usage.js';
 export {

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --env-file=../../.env src/cmd/server.ts",
+    "dev": "pnpm turbo build --filter=@patrimonio/api^... && tsx watch --env-file=../../.env src/cmd/server.ts",
     "start": "node --env-file-if-exists=../../.env dist/cmd/server.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

@@ -1,1 +1,1 @@
-drop table if exists goal;
+DROP TABLE IF EXISTS goal;

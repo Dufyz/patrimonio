@@ -33,6 +33,7 @@ const position = (overrides: Partial<PositionResource> = {}): PositionResource =
   institution_name: 'Corretora A',
   category_id: 'cccc1111-1111-4111-8111-111111111111',
   category_name: 'Ações',
+  class_name: 'Ações',
   color_token: 'class.acoes',
   unit: 'quantity',
   quantity: '500',
@@ -125,6 +126,7 @@ const cdb: PositionGroup = {
       institution_name: 'Banco C',
       category_id: 'cccc3333-3333-4333-8333-333333333333',
       category_name: 'RF prefixada',
+      class_name: 'RF prefixada',
       color_token: 'class.rf-pre',
       unit: 'curve',
       quantity: null,
@@ -159,6 +161,10 @@ const resource = (overrides: Partial<PositionsResource> = {}): PositionsResource
   day_change_ratio: '0.002',
   return_12m_ratio: '0.1592',
   payouts_12m: '14218.40',
+  institution_facets: [
+    { id: 'sem-instituicao', label: 'Sem instituição', count: 1 },
+    { id: 'inst-b', label: 'Banco B', count: 5 },
+  ],
   facets: [
     {
       id: 'cccc1111-1111-4111-8111-111111111111',
@@ -173,6 +179,7 @@ const resource = (overrides: Partial<PositionsResource> = {}): PositionsResource
       count: 9,
     },
   ],
+  live: null,
   price_health: { fresh: 27, stale: 1, manual: 0, missing: 0 },
   ...overrides,
 });
@@ -273,9 +280,9 @@ describe('tela de Posições', () => {
     expect(group).not.toBeNull();
     expect(within(group as HTMLElement).getByText('Ações')).toBeInTheDocument();
     expect(within(group as HTMLElement).getByText('6')).toBeInTheDocument();
-    // A sexta linha está atrás do "mostrar mais", e o subtotal continua inteiro.
-    expect(screen.getByText(/Mostrar mais 1/)).toBeInTheDocument();
-    expect(screen.queryByText('BBAS3')).toBeNull();
+    // O grupo mostra todas as linhas ao abrir: não há "mostrar mais".
+    expect(screen.getByText('BBAS3')).toBeInTheDocument();
+    expect(screen.queryByText(/Mostrar mais/)).toBeNull();
   });
 
   it('o total geral vem da api junto com os subtotais', async () => {
@@ -292,23 +299,19 @@ describe('tela de Posições', () => {
     // Um título de banco se apresenta pelo nome: o código gerado é chave, não nome.
     const row = (await screen.findByText('CDB Prefixado Banco C 2028')).closest('tr');
     expect(within(row as HTMLElement).getByText('curva')).toBeInTheDocument();
-    expect(
-      within(row as HTMLElement).getByText('Pré 14,10% · 14/06/2028'),
-    ).toBeInTheDocument();
+    expect(within(row as HTMLElement).queryByText(/Pré 14,10%/)).toBeNull();
   });
 
-  it('clicar na linha abre o ativo embaixo dela, sem sair da tela', async () => {
+  it('clicar na linha leva à página do ativo, sem abrir detalhe embaixo dela', async () => {
     const user = userEvent.setup();
     show();
 
     const row = (await screen.findByText('ITUB4')).closest('tr');
     await user.click(row as HTMLElement);
 
-    expect(await screen.findByText('Itaú Unibanco PN')).toBeInTheDocument();
-    expect(screen.getByText('Custo total')).toBeInTheDocument();
-
-    await user.click(row as HTMLElement);
-    await waitFor(() => expect(screen.queryByText('Custo total')).toBeNull());
+    expect(opened).toEqual(['itub4']);
+    expect(screen.queryByText('Custo total')).toBeNull();
+    expect(row).not.toHaveAttribute('aria-expanded');
   });
 
   it('cada linha tem menu com lançar, preço manual e abrir o ativo', async () => {
@@ -330,20 +333,7 @@ describe('tela de Posições', () => {
     show();
 
     await user.click(await screen.findByRole('button', { name: 'Ações de ITUB4' }));
-    await user.click(screen.getByRole('menuitem', { name: /Abrir o ativo/ }));
-
-    expect(opened).toEqual(['itub4']);
-  });
-
-  it('o detalhe da linha também leva à página inteira do ativo (T-03)', async () => {
-    const user = userEvent.setup();
-    show();
-
-    const row = (await screen.findByText('ITUB4')).closest('tr');
-    await user.click(row as HTMLElement);
-    await user.click(
-      await screen.findByRole('button', { name: 'Abrir a página do ativo' }),
-    );
+    await user.click(screen.getByRole('menuitem', { name: /Abrir ativo/ }));
 
     expect(opened).toEqual(['itub4']);
   });
@@ -357,17 +347,17 @@ describe('tela de Posições', () => {
         name: 'Ações de CDB Prefixado Banco C 2028',
       }),
     );
-    await user.click(screen.getByRole('menuitem', { name: /Abrir o ativo/ }));
+    await user.click(screen.getByRole('menuitem', { name: /Abrir ativo/ }));
 
     expect(opened).toEqual(['aaaa3333-3333-4333-8333-333333333333']);
   });
 
-  it('abrir o preço manual não abre o detalhe da linha junto', async () => {
+  it('abrir o menu da linha não leva à página do ativo junto', async () => {
     const user = userEvent.setup();
     show();
 
     await user.click(await screen.findByRole('button', { name: 'Ações de ITUB4' }));
-    expect(screen.queryByText('Custo total')).toBeNull();
+    expect(opened).toEqual([]);
   });
 
   it('o preço manual sai da linha, em pt-BR, e volta como efeito calculado', async () => {
@@ -412,7 +402,8 @@ describe('tela de Posições', () => {
     show();
 
     await screen.findByText('28 posições');
-    await user.click(screen.getByRole('radio', { name: 'Instituição' }));
+    await user.click(screen.getByRole('button', { name: 'Agrupar' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Instituição' }));
 
     await waitFor(() => expect(calls.at(-1)).toContain('group_by=institution'));
   });
@@ -431,12 +422,39 @@ describe('tela de Posições', () => {
     show();
 
     await screen.findByText('ITUB4');
-    const filters = screen.getByRole('group', { name: 'Filtrar por categoria' });
-    await user.click(within(filters).getByRole('button', { name: /Ações/ }));
+    await user.click(screen.getByRole('button', { name: /^Classe/ }));
+    const list = screen.getByRole('group', { name: 'Classe' });
+    await user.click(within(list).getByRole('checkbox', { name: /Ações/ }));
 
     await waitFor(() =>
       expect(calls.at(-1)).toContain('category_id=cccc1111-1111-4111-8111-111111111111'),
     );
+    // O botão fechado diz o que está valendo.
+    expect(
+      screen.getByRole('button', { name: /^Categoria · Ações/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('o filtro aceita várias categorias e soma com a instituição', async () => {
+    const user = userEvent.setup();
+    show();
+
+    await screen.findByText('ITUB4');
+    await user.click(screen.getByRole('button', { name: /^Classe/ }));
+    const list = screen.getByRole('group', { name: 'Classe' });
+    const boxes = within(list).getAllByRole('checkbox');
+    await user.click(boxes[0] as HTMLElement);
+    await user.click(boxes[1] as HTMLElement);
+    await waitFor(() => expect(calls.at(-1)).toMatch(/category_id=[^&]+%2C[^&]+/));
+    await user.keyboard('{Escape}');
+
+    await user.click(screen.getByRole('button', { name: /^Instituição/ }));
+    await user.click(
+      within(screen.getByRole('group', { name: 'Instituição' })).getAllByRole(
+        'checkbox',
+      )[0] as HTMLElement,
+    );
+    await waitFor(() => expect(calls.at(-1)).toContain('institution_id='));
   });
 
   it('a busca espera a digitação parar antes de virar pedido', async () => {
@@ -476,15 +494,19 @@ describe('tela de Posições', () => {
       await screen.findByText('Nenhuma posição corresponde ao filtro.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Limpar filtros' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Limpar todos os filtros' }),
+    ).toBeInTheDocument();
   });
 
-  it('carteira sem fechamento diz isso em vez de abrir em branco', async () => {
+  it('carteira sem consolidação diz isso em vez de abrir em branco', async () => {
     answerWith(
       resource({
         as_of: null,
         computed_at: null,
         groups: [],
         facets: [],
+        institution_facets: [],
         total: {
           count: 0,
           value: '0',
@@ -497,7 +519,7 @@ describe('tela de Posições', () => {
     );
     show();
 
-    expect(await screen.findByText(/Ainda não houve fechamento/)).toBeInTheDocument();
+    expect(await screen.findByText(/Carteira ainda não consolidada/)).toBeInTheDocument();
   });
 
   it('a api fora do ar aparece como mensagem, não como tabela vazia', async () => {
