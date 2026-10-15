@@ -1,6 +1,5 @@
 import type {
   PerformanceBenchmarkResource,
-  PerformanceMethodResource,
   PerformanceResource,
 } from '@patrimonio/contracts';
 import type { DateOnly } from '@patrimonio/domain';
@@ -128,30 +127,3 @@ export const availableToAdd = (
   resource.available.filter(
     (item) => !resource.selected.some((chosen) => chosen.id === item.id),
   );
-
-/** O método dito em palavras: a tela declara como cada número foi calculado. */
-export const methodLines = (
-  method: PerformanceMethodResource,
-  consolidated = false,
-): readonly { readonly label: string; readonly text: string }[] => [
-  {
-    label: consolidated ? 'Todas' : 'Carteira',
-    text: consolidated
-      ? 'cota reconstruída sobre a soma das carteiras: o fluxo líquido do dia entra ao valor de cota do dia anterior, e aporte não vira rentabilidade. Cada carteira, na tabela de distribuição, usa a cota gravada dela.'
-      : 'variação da cota gravada da carteira. Aporte e resgate criam ou desfazem cotas e não mexem no valor delas — por isso aporte não vira rentabilidade.',
-  },
-  {
-    label: 'Classes',
-    text: 'retorno de Dietz modificado: o ganho do período sobre o capital médio investido, com cada fluxo pesando pelo tempo em que ficou na classe. É uma aproximação — a classe não tem cota — e o provento recebido entra somando no ganho.',
-  },
-  {
-    label: 'Benchmarks',
-    text: 'produto dos fatores diários do índice, entre as mesmas datas da carteira. Índice sem dado no período aparece como traço, não como zero.',
-  },
-  {
-    label: 'Janelas',
-    text: method.annualized
-      ? 'anualizadas.'
-      : 'nada é anualizado. Janela maior que o histórico da carteira aparece como traço.',
-  },
-];

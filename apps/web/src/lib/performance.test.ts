@@ -7,7 +7,6 @@ import {
   benchmarkColor,
   chartSeries,
   extraBenchmarks,
-  methodLines,
   removeBenchmark,
   shortMonth,
   windowLabel,
@@ -99,26 +98,5 @@ describe('o gráfico', () => {
     const series = chartSeries({ ...chart, benchmarks: [] }, [CDI], 'Longo prazo');
 
     expect(series).toHaveLength(1);
-  });
-});
-
-describe('o método', () => {
-  const method = {
-    portfolio: 'portfolio_quota',
-    class: 'modified_dietz',
-    benchmark: 'compound_daily_factors',
-    annualized: false,
-  } as const;
-
-  it('declara os quatro números e diz que nada é anualizado', () => {
-    const lines = methodLines(method);
-
-    expect(lines.map((line) => line.label)).toEqual([
-      'Carteira',
-      'Classes',
-      'Benchmarks',
-      'Janelas',
-    ]);
-    expect(lines[3]?.text).toMatch(/nada é anualizado/);
   });
 });

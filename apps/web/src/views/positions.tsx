@@ -19,6 +19,7 @@ import { Menu } from '../components/overlay.js';
 import { useEntry } from '../components/entry_provider.js';
 import type { OpenEntryRequest } from '../components/entry_provider.js';
 import { KeepPrevious } from '../components/pending.js';
+import { SkeletonRegion, SkeletonStats, SkeletonTable } from '../components/skeleton.js';
 import { usePreferences } from '../components/preferences.js';
 import {
   Button,
@@ -53,6 +54,7 @@ import {
 } from '../lib/positions.js';
 import type { GroupByParam, PositionRow } from '../lib/positions.js';
 import { ManualPriceDialog } from './manual_price_dialog.js';
+import { CustodyTransferDialog } from './custody_transfer_dialog.js';
 import { Icon } from '../components/icon.js';
 
 /**
@@ -114,6 +116,7 @@ export const PositionsScreen = ({
   const [pending, setPending] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [manualPriceFor, setManualPriceFor] = useState<PositionResource | null>(null);
+  const [transferFor, setTransferFor] = useState<PositionResource | null>(null);
   const [reloads, setReloads] = useState(0);
   const entry = useEntry();
 
@@ -277,7 +280,13 @@ export const PositionsScreen = ({
         </Toolbar>
       </header>
 
-      {resource === null ? null : (
+      {resource === null ? (
+        error === null ? (
+          <SkeletonRegion label="Carregando os totais">
+            <SkeletonStats count={4} />
+          </SkeletonRegion>
+        ) : null
+      ) : (
         <dl className="flex flex-wrap gap-x-6 gap-y-1 text-[0.8125rem] text-ink-2">
           <div className="flex items-baseline gap-2">
             <dt>{positionsCountLabel(resource.total)}</dt>
@@ -386,6 +395,10 @@ export const PositionsScreen = ({
           <div>
             {error !== null ? (
               <p className="px-4 py-6 text-sm text-negative">{error}</p>
+            ) : resource === null ? (
+              <SkeletonRegion label="Carregando as posições">
+                <SkeletonTable rows={9} columns={7} />
+              </SkeletonRegion>
             ) : (
               <KeepPrevious pending={pending}>
                 <DataTable<PositionRow>
@@ -405,6 +418,7 @@ export const PositionsScreen = ({
                     <RowMenu
                       position={row}
                       onManualPrice={setManualPriceFor}
+                      onTransferCustody={setTransferFor}
                       onOpenAsset={onOpenAsset}
                       onOpenStatement={onOpenStatement}
                       onEntry={entry.openEntry}
@@ -441,6 +455,24 @@ export const PositionsScreen = ({
           </footer>
         </Panel>
       }
+
+      {transferFor === null ? null : (
+        <CustodyTransferDialog
+          target={{
+            portfolio_id: transferFor.portfolio_id,
+            asset_id: transferFor.asset_id,
+            ticker: transferFor.ticker,
+            name: transferFor.name,
+            institution_id: transferFor.institution_id,
+            institution_name: transferFor.institution_name,
+          }}
+          onClose={() => setTransferFor(null)}
+          onSaved={() => {
+            setTransferFor(null);
+            setReloads((count) => count + 1);
+          }}
+        />
+      )}
 
       <ManualPriceDialog
         position={manualPriceFor}
@@ -639,6 +671,7 @@ const seedOf = (position: PositionResource): OpenEntryRequest => ({
 const RowMenu = ({
   position,
   onManualPrice,
+  onTransferCustody,
   onOpenAsset,
   onOpenStatement,
   onEntry,
@@ -646,6 +679,7 @@ const RowMenu = ({
   readonly position: PositionResource;
   readonly onEntry: (request: OpenEntryRequest) => void;
   readonly onManualPrice: (position: PositionResource) => void;
+  readonly onTransferCustody: (position: PositionResource) => void;
   readonly onOpenAsset: (slug: string, portfolioId: string | null) => void;
   readonly onOpenStatement: ((search: string) => void) | undefined;
 }): React.ReactElement => (
@@ -671,13 +705,20 @@ const RowMenu = ({
         icon: <Icon name="tag" />,
         shortcut: '↵',
         separatorBefore: true,
-        onSelect: () => onOpenAsset(assetSlug(toAssetRef(position)), position.portfolio_id),
+        onSelect: () =>
+          onOpenAsset(assetSlug(toAssetRef(position)), position.portfolio_id),
       },
       {
         id: 'manual_price',
         label: 'Definir preço manual',
         icon: <Icon name="pencil" />,
         onSelect: () => onManualPrice(position),
+      },
+      {
+        id: 'transfer_custody',
+        label: 'Transferir custódia',
+        icon: <Icon name="swap" />,
+        onSelect: () => onTransferCustody(position),
       },
       {
         id: 'transactions',

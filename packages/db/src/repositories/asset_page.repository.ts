@@ -95,6 +95,7 @@ const EMPTY_VIEW = (asset: AssetPageIdentityRow | null): AssetPageView => ({
   corporate_events: [],
   portfolios: [],
   custodians: [],
+  custody_transfers: [],
 });
 
 /**
@@ -765,10 +766,42 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
                        ORDER BY c.institution_name
                      )
                 FROM (
-                  SELECT DISTINCT l.institution_id, i.name AS institution_name
-                    FROM ledger l
-                    JOIN institution i ON i.id = l.institution_id
+                  -- Só a custódia em vigor: a instituição do lançamento ou da
+                  -- transferência mais recente. As anteriores ficam no histórico
+                  -- de custódia, e não como se o papel estivesse em todas.
+                  SELECT e.institution_id, i.name AS institution_name
+                    FROM (
+                      SELECT l.institution_id, l.trade_date AS event_date, l.created_at
+                        FROM ledger l
+                      UNION ALL
+                      SELECT c2.to_institution_id, c2.transfer_date, c2.created_at
+                        FROM custody_transfer c2
+                        JOIN scope s3 ON s3.portfolio_id = c2.portfolio_id
+                        JOIN target t3 ON t3.asset_id = c2.asset_id
+                    ) e
+                    JOIN institution i ON i.id = e.institution_id
+                   ORDER BY e.event_date DESC, e.created_at DESC
+                   LIMIT 1
                 ) c
+            ), '[]'::JSON),
+            'custody_transfers', COALESCE((
+              SELECT JSON_AGG(
+                       JSON_BUILD_OBJECT(
+                         'id', ct.id,
+                         'transfer_date', ct.transfer_date,
+                         'from_institution_id', ct.from_institution_id,
+                         'from_institution_name', fi.name,
+                         'to_institution_id', ct.to_institution_id,
+                         'to_institution_name', ti.name,
+                         'note', ct.note
+                       )
+                       ORDER BY ct.transfer_date DESC, ct.created_at DESC
+                     )
+                FROM custody_transfer ct
+                JOIN scope s4 ON s4.portfolio_id = ct.portfolio_id
+                JOIN target t4 ON t4.asset_id = ct.asset_id
+                JOIN institution fi ON fi.id = ct.from_institution_id
+                JOIN institution ti ON ti.id = ct.to_institution_id
             ), '[]'::JSON)
           ) AS page
         `;

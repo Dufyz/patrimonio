@@ -199,6 +199,19 @@ export type {
   SetManualPriceResponse,
 } from './asset/manualPrice.schema.js';
 export {
+  custodyTransferResourceSchema,
+  deleteCustodyTransferSchema,
+  listCustodyTransfersResponseSchema,
+  listCustodyTransfersSchema,
+  transferCustodyResponseSchema,
+  transferCustodySchema,
+} from './asset/custodyTransfer.schema.js';
+export type {
+  CustodyTransferResource,
+  TransferCustodyBody,
+  TransferCustodyResponse,
+} from './asset/custodyTransfer.schema.js';
+export {
   interpretTransactionSchema,
   textInterpretationSchema,
 } from './transaction/interpretTransaction.schema.js';

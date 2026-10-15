@@ -130,20 +130,36 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
           JOIN as_of a ON a.position_date = pd.position_date
          WHERE pd.quantity <> 0 OR pd.market_value <> 0
       ),
-      -- Onde o papel está custodiado: a instituição do lançamento mais recente
-      -- daquela carteira para aquele ativo. A projeção não tem a coluna,
-      -- e não deveria ter: custódia é fato do livro, não da projeção.
-      custodian AS (
-        SELECT DISTINCT ON (t.portfolio_id, t.asset_id)
-               t.portfolio_id,
+      -- Onde o papel está custodiado: a instituição do lançamento ou da
+      -- transferência de custódia mais recente daquela carteira para aquele
+      -- ativo. A projeção não tem a coluna, e não deveria ter: custódia é fato
+      -- do livro, não da projeção.
+      custody_events AS (
+        SELECT t.portfolio_id,
                t.asset_id,
                t.institution_id,
-               i.name AS institution_name
+               t.trade_date AS event_date,
+               t.created_at
           FROM transaction t
-          JOIN scope s ON s.portfolio_id = t.portfolio_id
-          JOIN institution i ON i.id = t.institution_id
          WHERE t.asset_id IS NOT NULL
-         ORDER BY t.portfolio_id, t.asset_id, t.trade_date DESC, t.created_at DESC
+        UNION ALL
+        SELECT c.portfolio_id,
+               c.asset_id,
+               c.to_institution_id,
+               c.transfer_date,
+               c.created_at
+          FROM custody_transfer c
+      ),
+      custodian AS (
+        SELECT DISTINCT ON (e.portfolio_id, e.asset_id)
+               e.portfolio_id,
+               e.asset_id,
+               e.institution_id,
+               i.name AS institution_name
+          FROM custody_events e
+          JOIN scope s ON s.portfolio_id = e.portfolio_id
+          JOIN institution i ON i.id = e.institution_id
+         ORDER BY e.portfolio_id, e.asset_id, e.event_date DESC, e.created_at DESC
       ),
       decorated AS (
         SELECT op.portfolio_id,

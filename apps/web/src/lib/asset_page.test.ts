@@ -250,6 +250,7 @@ const resource = (overrides: Partial<AssetPageResource> = {}): AssetPageResource
   corporate_events: [],
   portfolios: [],
   custodians: [],
+  custody_transfers: [],
   ...overrides,
 });
 

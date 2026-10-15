@@ -5,12 +5,19 @@ import { useSearchParams } from 'react-router';
 import { fetchMarketHealth } from '../../api/market.js';
 import { fetchSettings } from '../../api/settings.js';
 import { KeepPrevious } from '../../components/pending.js';
+import {
+  SkeletonHeader,
+  SkeletonLines,
+  SkeletonPanel,
+  SkeletonRegion,
+  SkeletonTable,
+} from '../../components/skeleton.js';
 import { SECTIONS, isEmptyInstallation, sectionFromParam } from '../../lib/settings.js';
 import type { SectionId } from '../../lib/settings.js';
 import type { Resource } from '../../lib/use_resource.js';
 import { useResource } from '../../lib/use_resource.js';
 import { MarketSection } from './market.js';
-import { BackupSection, DisplaySection, LedgerSection } from './preferences.js';
+import { BackupSection, DisplaySection } from './preferences.js';
 import { PortfoliosSection } from './registers.js';
 
 /**
@@ -146,9 +153,19 @@ export const SettingsView = ({
 
   if (state.kind === 'loading') {
     return (
-      <p aria-busy="true" className="p-8 text-center text-[0.8125rem] text-ink-3">
-        Carregando as configurações…
-      </p>
+      <SkeletonRegion label="Carregando as configurações" className="flex flex-col gap-4">
+        <SkeletonHeader />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[13rem_1fr]">
+          <SkeletonLines lines={5} className="hidden lg:flex" />
+          <div className="flex min-w-0 flex-col gap-4">
+            <SkeletonPanel title="Carteiras">
+              <SkeletonTable rows={3} columns={3} />
+            </SkeletonPanel>
+            <SkeletonPanel title="Dados de mercado" />
+            <SkeletonPanel title="Exibição" />
+          </div>
+        </div>
+      </SkeletonRegion>
     );
   }
   if (state.kind === 'error') return <Failed error={state.error} onRetry={reload} />;
@@ -179,7 +196,6 @@ export const SettingsView = ({
           ) : null}
           <PortfoliosSection settings={settings} onChanged={reload} />
           <MarketSection resource={market} />
-          <LedgerSection settings={settings} />
           <DisplaySection />
           <BackupSection settings={settings} onChanged={reload} />
         </KeepPrevious>

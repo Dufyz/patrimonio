@@ -283,6 +283,21 @@ export const assetPageCustodianSchema = z.object({
   institution_name: z.string(),
 });
 
+/**
+ * Uma troca de custodiante, com os nomes já resolvidos: a página mostra de onde
+ * para onde o papel foi, e não deveria precisar de uma segunda leitura só para
+ * trocar identificador por nome.
+ */
+export const assetPageCustodyTransferSchema = z.object({
+  id: uuid,
+  transfer_date: dateOnly,
+  from_institution_id: uuid,
+  from_institution_name: z.string(),
+  to_institution_id: uuid,
+  to_institution_name: z.string(),
+  note: z.string().nullable(),
+});
+
 export const assetPageResourceSchema = z.object({
   portfolio_id: uuid,
   portfolio_name: z.string().nullable(),
@@ -304,6 +319,8 @@ export const assetPageResourceSchema = z.object({
   corporate_events: z.array(assetPageCorporateEventSchema),
   portfolios: z.array(assetPagePortfolioSchema),
   custodians: z.array(assetPageCustodianSchema),
+  /** Da mais recente para a mais antiga. Vazio quando o papel nunca trocou de mãos. */
+  custody_transfers: z.array(assetPageCustodyTransferSchema),
 });
 
 export type AssetPageResource = z.infer<typeof assetPageResourceSchema>;

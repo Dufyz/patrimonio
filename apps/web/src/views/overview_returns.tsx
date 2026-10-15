@@ -3,7 +3,7 @@ import { normalizeBenchmark } from '@patrimonio/domain';
 import type { DateOnly } from '@patrimonio/domain';
 import { useRef, useState } from 'react';
 
-import { Chip, Label, Panel } from '../components/primitives.js';
+import { Chip } from '../components/primitives.js';
 import { SeriesChart } from '../components/series_chart.js';
 import { useDismiss } from '../components/use_dismiss.js';
 import { formatDate, monthTicks } from '../lib/overview.js';
@@ -14,7 +14,6 @@ import {
   benchmarkColor,
   chartSeries,
   extraBenchmarks,
-  methodLines,
   removeBenchmark,
 } from '../lib/performance.js';
 
@@ -214,22 +213,3 @@ export const ReturnsChart = ({
     </div>
   );
 };
-
-export const Method = ({
-  data,
-}: {
-  readonly data: PerformanceResource;
-}): React.ReactElement => (
-  <Panel title="Como estes números são calculados">
-    <dl className="grid grid-cols-1 gap-x-6 gap-y-2 p-4 text-[0.8125rem] md:grid-cols-[8rem_1fr]">
-      {methodLines(data.method, data.scope.portfolio_id === null).map((line) => (
-        <div key={line.label} className="contents">
-          <dt>
-            <Label>{line.label}</Label>
-          </dt>
-          <dd className="text-ink-2">{line.text}</dd>
-        </div>
-      ))}
-    </dl>
-  </Panel>
-);

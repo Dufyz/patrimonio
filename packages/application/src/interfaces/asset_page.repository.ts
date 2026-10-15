@@ -199,6 +199,16 @@ export type AssetPagePortfolioRow = {
   readonly value: string;
 };
 
+export type AssetPageCustodyTransferRow = {
+  readonly id: string;
+  readonly transfer_date: DateOnly;
+  readonly from_institution_id: string;
+  readonly from_institution_name: string;
+  readonly to_institution_id: string;
+  readonly to_institution_name: string;
+  readonly note: string | null;
+};
+
 export type AssetPageCustodianRow = {
   readonly institution_id: string;
   readonly institution_name: string;
@@ -241,6 +251,7 @@ export type AssetPageView = {
   readonly corporate_events: readonly AssetPageCorporateEventRow[];
   readonly portfolios: readonly AssetPagePortfolioRow[];
   readonly custodians: readonly AssetPageCustodianRow[];
+  readonly custody_transfers: readonly AssetPageCustodyTransferRow[];
 };
 
 export type AssetPageRepository = {

@@ -15,6 +15,8 @@ import { Icon } from './components/icon.js';
 import type { IconName } from './components/icon.js';
 import { EntryProvider, useEntry } from './components/entry_provider.js';
 import { SearchPalette } from './components/search_palette.js';
+import { SkeletonRegion, SkeletonTable } from './components/skeleton.js';
+import { WelcomeScreen } from './views/welcome.js';
 import { ShortcutProvider, useShortcuts } from './components/shortcuts.js';
 import { ALL_PORTFOLIOS, AppShell } from './components/shell.js';
 import type { ScreenItem } from './components/shell.js';
@@ -131,6 +133,7 @@ const Workbench = (): React.ReactElement => {
   const [values, setValues] = useState<Readonly<Record<string, string>>>({});
   const [total, setTotal] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState<Error | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
 
   const [reloads, setReloads] = useState(0);
@@ -140,16 +143,18 @@ const Workbench = (): React.ReactElement => {
     const controller = new AbortController();
     fetchPortfolios(controller.signal)
       .then((list) => {
+        setFailed(null);
         setPortfolios(list.portfolios);
         setValues(list.values);
         setTotal(list.total);
         setLoaded(true);
       })
-      .catch(() => {
-        setPortfolios([]);
-        setValues({});
-        setTotal(null);
-        setLoaded(controller.signal.aborted ? false : true);
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        // Falha ao ler as carteiras não é "nenhuma carteira": mostrar a tela de
+        // boas-vindas para quem tem carteira e uma api fora do ar seria mentir.
+        setFailed(error instanceof Error ? error : new Error(String(error)));
+        setLoaded(true);
       });
     return () => controller.abort();
   }, [reloads]);
@@ -277,15 +282,50 @@ const Workbench = (): React.ReactElement => {
     if (targetScope !== null) void navigate(`/${targetScope}/ativo/${slug}`);
   };
 
-  if (!loaded) return <div className="p-6 text-[0.8125rem] text-ink-3">Carregando…</div>;
+  if (!loaded) return <WorkbenchSkeleton />;
+
+  if (failed !== null) {
+    return (
+      <main role="alert" className="mx-auto max-w-md p-8 text-center">
+        <h1 className="text-panel-title font-semibold text-negative">
+          Não foi possível carregar as carteiras
+        </h1>
+        <p className="mt-2 text-[0.8125rem] text-ink-2">{failed.message}</p>
+        <button
+          type="button"
+          className="mt-4 h-control cursor-pointer rounded-control border border-line px-3 text-[0.8125rem] hover:bg-panel-2"
+          onClick={() => {
+            setLoaded(false);
+            setReloads((count) => count + 1);
+          }}
+        >
+          Tentar de novo
+        </button>
+      </main>
+    );
+  }
 
   const first = portfolios[0];
   if (first === undefined) {
-    return (
-      <div className="p-6">
-        <SettingsScreen />
-      </div>
-    );
+    // Configurações continua alcançável: é onde se importa um backup, e quem o
+    // restaura ainda não tem carteira.
+    if (onSettings) {
+      return (
+        <div className="flex flex-col gap-3 p-6">
+          <div>
+            <button
+              type="button"
+              className="cursor-pointer text-[0.8125rem] text-accent hover:underline"
+              onClick={() => navigate(`/${scope}/visao-geral`)}
+            >
+              ← Voltar
+            </button>
+          </div>
+          <SettingsScreen />
+        </div>
+      );
+    }
+    return <WelcomeScreen onOpenSettings={() => navigate(`/${scope}/configuracoes`)} />;
   }
   if (!allPortfolios && portfolioId === null) {
     return <Navigate to={`/${ALL_SCOPE}/visao-geral`} replace />;
@@ -293,11 +333,7 @@ const Workbench = (): React.ReactElement => {
   if (allPortfolios && asset !== undefined) {
     return <Navigate to={`/${ALL_SCOPE}/posicoes`} replace />;
   }
-  if (
-    allPortfolios &&
-    !onSettings &&
-    !screens.some((item) => item.path === screen)
-  ) {
+  if (allPortfolios && !onSettings && !screens.some((item) => item.path === screen)) {
     return <Navigate to={`/${ALL_SCOPE}/visao-geral`} replace />;
   }
 
@@ -319,7 +355,9 @@ const Workbench = (): React.ReactElement => {
           const toAll = nextScope === ALL_PORTFOLIOS;
           const available = toAll ? SCREENS.filter((item) => item.consolidated) : SCREENS;
           const target = available.find((item) => item.id === nextScreen) ?? available[0];
-          const slug = toAll ? ALL_SCOPE : (scopeForPortfolioId(nextScope, slugs) ?? scope);
+          const slug = toAll
+            ? ALL_SCOPE
+            : (scopeForPortfolioId(nextScope, slugs) ?? scope);
           navigate(`/${slug}/${target?.path ?? 'visao-geral'}`);
         }}
         onOpenSearch={() => setSearchOpen(true)}
@@ -366,7 +404,9 @@ const Workbench = (): React.ReactElement => {
             onOpenAsset={openAssetIn}
           />
         ) : current?.id === 'estrategia' ? (
-          portfolioId === null ? null : <StrategyScreen portfolioId={portfolioId} />
+          portfolioId === null ? null : (
+            <StrategyScreen portfolioId={portfolioId} />
+          )
         ) : current?.id === 'objetivos' ? (
           portfolioId === null ? null : (
             <GoalsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
@@ -387,6 +427,22 @@ const Workbench = (): React.ReactElement => {
     </EntryProvider>
   );
 };
+
+/** A moldura inteira em cinza, enquanto a lista de carteiras não chegou. */
+const WorkbenchSkeleton = (): React.ReactElement => (
+  <div className="flex min-h-screen">
+    <aside className="hidden w-64 shrink-0 border-r border-line p-4 md:block">
+      <SkeletonRegion label="Carregando as carteiras">
+        <SkeletonTable rows={7} columns={1} />
+      </SkeletonRegion>
+    </aside>
+    <main className="min-w-0 flex-1 p-6">
+      <SkeletonRegion label="Carregando">
+        <SkeletonTable rows={8} columns={5} />
+      </SkeletonRegion>
+    </main>
+  </div>
+);
 
 /** As ações da paleta que o modal de lançamento executa. */
 const READY_ACTIONS: ReadonlySet<SearchActionId> = new Set([

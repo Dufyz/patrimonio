@@ -14,6 +14,7 @@ export { createCategoryRepository } from './repositories/category.repository.js'
 export { createInstrumentCatalogRepository } from './repositories/instrument_catalog.repository.js';
 export { createAssetRepository } from './repositories/asset.repository.js';
 export { createLedgerRepository } from './repositories/ledger.repository.js';
+export { createCustodyTransferRepository } from './repositories/custody_transfer.repository.js';
 export { createManualPriceRepository } from './repositories/manual_price.repository.js';
 export { createTransactionRepository } from './repositories/transaction.repository.js';
 export { createPayoutDismissalRepository } from './repositories/payout_dismissal.repository.js';

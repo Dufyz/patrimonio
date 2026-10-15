@@ -7,6 +7,7 @@ import { deleteTransaction } from '../../api/transactions.js';
 import type { DeletionReceipt } from '../../api/transactions.js';
 import { ConfirmDialog } from '../../components/overlay.js';
 import { Button } from '../../components/primitives.js';
+import { SkeletonLines, SkeletonRegion } from '../../components/skeleton.js';
 import { TRANSACTION_KIND_LABELS } from '../../lib/asset_page.js';
 import {
   buildUpdateBody,
@@ -91,7 +92,9 @@ export const EditEntry = ({
 
   if (loaded.status === 'loading') {
     return (
-      <p className="py-6 text-center text-sm text-ink-3">Carregando o lançamento…</p>
+      <SkeletonRegion label="Carregando o lançamento" className="py-4">
+        <SkeletonLines lines={5} />
+      </SkeletonRegion>
     );
   }
 

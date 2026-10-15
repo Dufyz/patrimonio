@@ -16,13 +16,8 @@ import { ImportDialog } from './import_dialog.js';
 import { ActionNote, SettingsSection, StatusDot, Switch } from './parts.js';
 
 /**
- * Lançamentos, Exibição e Dados e backup: as três seções que são ajuste do
- * próprio app, e não cadastro.
- *
- * **Lançamentos** mostra o que o formulário preenche sozinho. A liquidação vem
- * da regra do domínio — a mesma que sugere a data no lançamento — e a alíquota
- * do JCP e a janela do desfazer vêm da instalação; nenhuma é gravada pela tela,
- * e a seção diz isso em vez de oferecer um botão que não salva.
+ * Exibição e Dados e backup: as duas seções que são ajuste do próprio app, e não
+ * cadastro.
  *
  * **Exibição** é do navegador: tema, densidade e valores ocultos ficam em
  * `localStorage` e não viajam em link (`desenvolvimento-web.md`, seção 5).
@@ -52,40 +47,6 @@ const Row = ({
     </div>
   </div>
 );
-
-const settlementText = (settings: Settings): string =>
-  settings.ledger_defaults.settlement
-    .map((item) => `${item.label} D+${item.business_days}`)
-    .join(' · ');
-
-export const LedgerSection = ({
-  settings,
-}: {
-  readonly settings: Settings;
-}): React.ReactElement => {
-  const defaults = settings.ledger_defaults;
-
-  return (
-    <SettingsSection
-      id="lancamentos"
-      title="Lançamentos"
-      description="Valores que o formulário de lançamento preenche sozinho. Todos podem ser alterados em cada lançamento. Estes são definidos na instalação; para mudá-los, altere a configuração do servidor."
-    >
-      <Row
-        title="Liquidação padrão"
-        hint="Data em que o dinheiro sai ou entra, contada em dias úteis"
-      >
-        <span className="tabular">{settlementText(settings)}</span>
-      </Row>
-      <Row title="IR retido em JCP" hint="Calcula o líquido a partir do bruto informado">
-        <span className="tabular">{defaults.jcp_withholding_pct.replace('.', ',')}%</span>
-      </Row>
-      <Row title="Desfazer" hint="Tempo para desfazer depois de excluir um lançamento">
-        <span className="tabular">{defaults.undo_window_seconds} s</span>
-      </Row>
-    </SettingsSection>
-  );
-};
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Claro' },

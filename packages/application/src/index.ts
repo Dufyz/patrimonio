@@ -76,6 +76,7 @@ export { ASSET_PAGE_TRANSACTION_LIMIT } from './interfaces/asset_page.repository
 export type {
   AssetPageCorporateEventRow,
   AssetPageCustodianRow,
+  AssetPageCustodyTransferRow,
   AssetPageFacetRow,
   AssetPageFilter,
   AssetPageIdentityRow,
@@ -209,6 +210,11 @@ export type {
   ManualPriceDraft,
   ManualPriceRepository,
 } from './interfaces/manual_price.repository.js';
+export type {
+  CurrentCustody,
+  CustodyTransferDraft,
+  CustodyTransferRepository,
+} from './interfaces/custody_transfer.repository.js';
 export type {
   ClassifiedLedgerRow,
   LedgerRepository,
@@ -412,6 +418,17 @@ export type {
   SetManualPriceInput,
   SetManualPriceResult,
 } from './usecases/asset/manualPrice.usecase.js';
+export {
+  deleteCustodyTransfer,
+  listCustodyTransfers,
+  transferCustody,
+} from './usecases/asset/custodyTransfer.usecase.js';
+export type {
+  CustodyTransferDeps,
+  CustodyTransferReadDeps,
+  TransferCustodyInput,
+  TransferCustodyResult,
+} from './usecases/asset/custodyTransfer.usecase.js';
 export { createFixedIncomeAsset } from './usecases/asset/createFixedIncomeAsset.usecase.js';
 export type {
   CreateFixedIncomeDeps,

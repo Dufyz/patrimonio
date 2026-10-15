@@ -11,6 +11,7 @@ import type { DeletionReceipt } from '../api/transactions.js';
 import { undoDeletion } from '../api/transactions.js';
 import { fetchInstitutions } from '../api/institutions.js';
 import { fetchSettings } from '../api/settings.js';
+import { SkeletonLines, SkeletonRegion } from './skeleton.js';
 import type { SaveReceipt } from '../api/entry.js';
 import {
   ENTRY_TABS,
@@ -227,7 +228,9 @@ export const EntryProvider = ({
         onClose={close}
       >
         {dialog === null ? null : reference.status === 'loading' ? (
-          <p className="py-6 text-center text-sm text-ink-3">Carregando…</p>
+          <SkeletonRegion label="Carregando" className="py-4">
+            <SkeletonLines lines={5} />
+          </SkeletonRegion>
         ) : reference.status === 'error' ? (
           <div className="flex flex-col gap-3">
             <p

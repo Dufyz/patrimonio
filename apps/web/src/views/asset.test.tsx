@@ -190,6 +190,7 @@ const resource = (overrides: Partial<AssetPageResource> = {}): AssetPageResource
       value: '18420.00',
     },
   ],
+  custody_transfers: [],
   custodians: [
     {
       institution_id: 'bbbb1111-1111-4111-8111-111111111111',

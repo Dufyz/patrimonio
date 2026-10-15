@@ -176,7 +176,7 @@ beforeEach(() => {
 });
 
 describe('SettingsView', () => {
-  it('desenha as nove seções, na ordem da prancha', () => {
+  it('desenha as quatro seções, na ordem da prancha', () => {
     montar();
 
     const titles = screen
@@ -186,7 +186,6 @@ describe('SettingsView', () => {
     expect(titles).toEqual([
       'Carteiras',
       'Dados de mercado',
-      'Lançamentos',
       'Exibição',
       'Dados e backup',
     ]);

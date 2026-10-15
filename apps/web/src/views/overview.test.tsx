@@ -485,7 +485,7 @@ describe('o atalho para a página do ativo', () => {
   });
 });
 
-describe('por classe e método', () => {
+describe('por classe', () => {
   it('classe sem base no período: traço, e não 0,00%', () => {
     show(ready(overview));
 
@@ -495,17 +495,6 @@ describe('por classe e método', () => {
     const caixa = within(tabela).getByRole('row', { name: /Cripto/ });
 
     expect(within(caixa).getAllByText('—')).toHaveLength(4);
-  });
-
-  it('o método está escrito na tela', () => {
-    show(ready(overview));
-
-    const metodo = screen
-      .getByText('Como estes números são calculados')
-      .closest('section') as HTMLElement;
-
-    expect(within(metodo).getByText(/Dietz modificado/)).toBeInTheDocument();
-    expect(within(metodo).getByText(/nada é anualizado/)).toBeInTheDocument();
   });
 });
 

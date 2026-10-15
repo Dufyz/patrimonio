@@ -18,6 +18,14 @@ import { ConfirmDialog, Menu } from '../components/overlay.js';
 import { useEntry } from '../components/entry_provider.js';
 import type { OpenEntryRequest } from '../components/entry_provider.js';
 import { KeepPrevious } from '../components/pending.js';
+import {
+  SkeletonChart,
+  SkeletonHeader,
+  SkeletonPanel,
+  SkeletonRegion,
+  SkeletonStats,
+  SkeletonTable,
+} from '../components/skeleton.js';
 import { usePreferences } from '../components/preferences.js';
 import {
   Button,
@@ -57,6 +65,8 @@ import { formatFullDate, formatShortDate } from '../lib/positions.js';
 import { SEMANTIC_COLORS, colorForSeries, colorForToken } from '../lib/tokens.js';
 import { deleteTransaction, undoDeletion } from '../api/transactions.js';
 import { ManualPriceDialog } from './manual_price_dialog.js';
+import { CustodyHistory } from './custody_history.js';
+import { CustodyTransferDialog } from './custody_transfer_dialog.js';
 import {
   ArchiveAssetDialog,
   AssetDialog,
@@ -107,6 +117,7 @@ export const AssetScreen = ({
   const [pending, setPending] = useState(true);
   const [error, setError] = useState<{ message: string; status: number } | null>(null);
   const [manualPriceOpen, setManualPriceOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [dialog, setDialog] = useState<'edit' | 'delete' | 'archive' | null>(null);
   const [reloads, setReloads] = useState(0);
   const entry = useEntry();
@@ -159,10 +170,19 @@ export const AssetScreen = ({
   }
 
   if (resource === null) {
-    return (
-      <p className="px-1 py-10 text-sm text-ink-3">
-        {pending ? 'Carregando o ativo…' : 'Nada a mostrar.'}
-      </p>
+    return pending ? (
+      <SkeletonRegion label="Carregando o ativo" className="flex flex-col gap-4">
+        <SkeletonHeader />
+        <SkeletonStats count={5} />
+        <SkeletonPanel>
+          <SkeletonChart />
+        </SkeletonPanel>
+        <SkeletonPanel title="Lançamentos">
+          <SkeletonTable rows={5} columns={5} />
+        </SkeletonPanel>
+      </SkeletonRegion>
+    ) : (
+      <p className="px-1 py-10 text-sm text-ink-3">Nada a mostrar.</p>
     );
   }
 
@@ -278,6 +298,14 @@ export const AssetScreen = ({
                   onSelect: () => setManualPriceOpen(true),
                 },
                 {
+                  id: 'transfer_custody',
+                  label: 'Transferir custódia',
+                  hint: resource.position === null ? 'sem posição aberta' : undefined,
+                  icon: <Icon name="swap" />,
+                  disabled: resource.position === null,
+                  onSelect: () => setTransferOpen(true),
+                },
+                {
                   id: 'transactions',
                   label: 'Ver todos os lançamentos',
                   icon: <Icon name="swap" />,
@@ -361,6 +389,12 @@ export const AssetScreen = ({
             onChanged={() => setReloads((count) => count + 1)}
           />
           <PayoutsPanel resource={resource} />
+          <CustodyHistory
+            portfolioId={portfolioId}
+            assetId={resource.asset.asset_id}
+            transfers={resource.custody_transfers}
+            onChanged={() => setReloads((count) => count + 1)}
+          />
         </div>
       </KeepPrevious>
 
@@ -395,6 +429,24 @@ export const AssetScreen = ({
           asset={resource.asset}
           onClose={() => setDialog(null)}
           onDone={onBack}
+        />
+      ) : null}
+
+      {transferOpen ? (
+        <CustodyTransferDialog
+          target={{
+            portfolio_id: portfolioId,
+            asset_id: resource.asset.asset_id,
+            ticker: resource.asset.ticker,
+            name: resource.asset.name,
+            institution_id: resource.custodians[0]?.institution_id ?? null,
+            institution_name: resource.custodians[0]?.institution_name ?? null,
+          }}
+          onClose={() => setTransferOpen(false)}
+          onSaved={() => {
+            setTransferOpen(false);
+            setReloads((count) => count + 1);
+          }}
         />
       ) : null}
 

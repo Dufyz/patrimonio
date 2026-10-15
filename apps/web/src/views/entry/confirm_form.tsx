@@ -5,6 +5,7 @@ import { confirmPayout, dismissPayout, fetchTransaction } from '../../api/entry.
 import type { SaveReceipt } from '../../api/entry.js';
 import { Money } from '../../components/number.js';
 import { Button } from '../../components/primitives.js';
+import { SkeletonLines, SkeletonRegion } from '../../components/skeleton.js';
 import { PAYOUT_KIND_LABELS } from '../../lib/asset_page.js';
 import { buildConfirmBody, inputValue, isPendingPayout } from '../../lib/entry.js';
 import { formatShortDate } from '../../lib/positions.js';
@@ -68,7 +69,11 @@ export const ConfirmEntry = ({
   }, [transactionId]);
 
   if (loaded.status === 'loading') {
-    return <p className="py-6 text-center text-sm text-ink-3">Carregando o provento…</p>;
+    return (
+      <SkeletonRegion label="Carregando o provento" className="py-4">
+        <SkeletonLines lines={5} />
+      </SkeletonRegion>
+    );
   }
 
   if (loaded.status === 'error' || !isPendingPayout(loaded.transaction)) {

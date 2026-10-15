@@ -11,6 +11,7 @@ import type { CorporateEventRepository } from './corporate_event.repository.js';
 import type { InstitutionRepository } from './institution.repository.js';
 import type { InstrumentCatalogRepository } from './instrument_catalog.repository.js';
 import type { LedgerRepository } from './ledger.repository.js';
+import type { CustodyTransferRepository } from './custody_transfer.repository.js';
 import type { ManualPriceRepository } from './manual_price.repository.js';
 import type { MarketIngestionRepository } from './market_ingestion.repository.js';
 import type { OutboxRepository } from './outbox.repository.js';
@@ -47,6 +48,7 @@ export type TransactionalRepositories = {
   readonly assets: AssetRepository;
   readonly ledger: LedgerRepository;
   readonly manualPrices: ManualPriceRepository;
+  readonly custodyTransfers: CustodyTransferRepository;
   readonly transactions: TransactionRepository;
   readonly payoutDismissals: PayoutDismissalRepository;
   readonly transactionUndos: TransactionUndoRepository;

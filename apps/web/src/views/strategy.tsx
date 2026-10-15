@@ -10,6 +10,12 @@ import { Money, MoneyChange, Percent, Points } from '../components/number.js';
 import { Modal } from '../components/overlay.js';
 import { KeepPrevious } from '../components/pending.js';
 import { usePreferences } from '../components/preferences.js';
+import {
+  SkeletonHeader,
+  SkeletonPanel,
+  SkeletonRegion,
+  SkeletonTable,
+} from '../components/skeleton.js';
 import { Button, IconButton, Kbd, Label, Panel } from '../components/primitives.js';
 import { formatDate, percentAsRatio } from '../lib/overview.js';
 import {
@@ -739,9 +745,12 @@ export const StrategyView = ({
 
   if (state.kind === 'loading') {
     return (
-      <p aria-busy="true" className="p-8 text-center text-[0.8125rem] text-ink-3">
-        Carregando a estratégia…
-      </p>
+      <SkeletonRegion label="Carregando a estratégia" className="flex flex-col gap-4">
+        <SkeletonHeader />
+        <SkeletonPanel>
+          <SkeletonTable rows={7} columns={5} />
+        </SkeletonPanel>
+      </SkeletonRegion>
     );
   }
   if (state.kind === 'error') return <Failed error={state.error} onRetry={reload} />;

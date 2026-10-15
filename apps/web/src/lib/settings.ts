@@ -10,7 +10,6 @@ import type { MarketHealth, Settings, SettingsBackup } from '@patrimonio/contrac
 export const SECTIONS = [
   { id: 'carteiras', label: 'Carteiras' },
   { id: 'mercado', label: 'Dados de mercado' },
-  { id: 'lancamentos', label: 'Lançamentos' },
   { id: 'exibicao', label: 'Exibição' },
   { id: 'backup', label: 'Dados e backup' },
 ] as const;

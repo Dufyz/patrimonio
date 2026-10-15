@@ -44,7 +44,15 @@ import { listParam, readParams, writeParams } from '../lib/url_state.js';
 import { Icon } from '../components/icon.js';
 import { ClassesTable } from './overview_classes.js';
 import { PortfoliosTable } from './overview_portfolios.js';
-import { Method, ReturnsChart } from './overview_returns.js';
+import { ReturnsChart } from './overview_returns.js';
+import {
+  SkeletonChart,
+  SkeletonHeader,
+  SkeletonPanel,
+  SkeletonRegion,
+  SkeletonStats,
+  SkeletonTable,
+} from '../components/skeleton.js';
 
 /**
  * T-01 · Visão geral — a prancha `04 · Visão geral`, que também carrega o que
@@ -384,9 +392,24 @@ const Failed = ({
 );
 
 const Skeleton = (): React.ReactElement => (
-  <p aria-busy="true" className="p-8 text-center text-[0.8125rem] text-ink-3">
-    Carregando a visão geral…
-  </p>
+  <SkeletonRegion label="Carregando a visão geral" className="flex flex-col gap-4">
+    <SkeletonHeader />
+    <SkeletonStats count={4} />
+    <SkeletonPanel>
+      <SkeletonChart />
+    </SkeletonPanel>
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <SkeletonPanel title="Carteiras">
+        <SkeletonTable rows={4} columns={3} />
+      </SkeletonPanel>
+      <SkeletonPanel title="Classes de ativo">
+        <SkeletonTable rows={4} columns={3} />
+      </SkeletonPanel>
+    </div>
+    <SkeletonPanel title="Maiores posições">
+      <SkeletonTable rows={5} columns={4} />
+    </SkeletonPanel>
+  </SkeletonRegion>
 );
 
 /** O gráfico do cabeçalho: aporte e rendimento em reais, empilhados. */
@@ -459,9 +482,9 @@ const ReturnsCard = ({
     >
       <div className="p-4">
         {state.kind === 'loading' ? (
-          <p aria-busy="true" className="text-[0.8125rem] text-ink-3">
-            Carregando o retorno…
-          </p>
+          <SkeletonRegion label="Carregando o retorno">
+            <SkeletonChart />
+          </SkeletonRegion>
         ) : state.kind === 'error' ? (
           <ReturnsFailed error={state.error} onRetry={reload} />
         ) : state.value.reference_date === null ? (
@@ -661,12 +684,6 @@ export const OverviewView = ({
               {...(onOpenAsset === undefined ? {} : { onOpenAsset })}
             />
           </Panel>
-
-          {performance !== null &&
-          performance.state.kind === 'ready' &&
-          performance.state.value.reference_date !== null ? (
-            <Method data={performance.state.value} />
-          ) : null}
         </KeepPrevious>
       )}
     </div>

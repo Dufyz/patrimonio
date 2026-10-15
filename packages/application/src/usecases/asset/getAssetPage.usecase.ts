@@ -108,5 +108,6 @@ export const getAssetPage = (deps: GetAssetPageDeps) =>
       corporate_events: view.corporate_events.map((event) => ({ ...event })),
       portfolios: view.portfolios.map((portfolio) => ({ ...portfolio })),
       custodians: view.custodians.map((custodian) => ({ ...custodian })),
+      custody_transfers: view.custody_transfers.map((transfer) => ({ ...transfer })),
     };
   });

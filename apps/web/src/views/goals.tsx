@@ -8,6 +8,13 @@ import { GoalProgressBar } from '../components/bars.js';
 import { Money, Percent } from '../components/number.js';
 import { KeepPrevious } from '../components/pending.js';
 import { usePreferences } from '../components/preferences.js';
+import {
+  SkeletonChart,
+  SkeletonHeader,
+  SkeletonPanel,
+  SkeletonRegion,
+  SkeletonTable,
+} from '../components/skeleton.js';
 import { Button, IconButton, Label, Panel } from '../components/primitives.js';
 import { SeriesChart } from '../components/series_chart.js';
 import {
@@ -416,9 +423,15 @@ export const GoalsView = ({
 
   if (state.kind === 'loading') {
     return (
-      <p aria-busy="true" className="p-8 text-center text-[0.8125rem] text-ink-3">
-        Carregando os objetivos…
-      </p>
+      <SkeletonRegion label="Carregando os objetivos" className="flex flex-col gap-4">
+        <SkeletonHeader />
+        <SkeletonPanel title="Objetivos">
+          <SkeletonTable rows={3} columns={4} />
+        </SkeletonPanel>
+        <SkeletonPanel>
+          <SkeletonChart />
+        </SkeletonPanel>
+      </SkeletonRegion>
     );
   }
   if (state.kind === 'error') return <Failed error={state.error} onRetry={reload} />;

@@ -19,6 +19,7 @@ import { createCorporateEventRepository } from './repositories/corporate_event.r
 import { createInstitutionRepository } from './repositories/institution.repository.js';
 import { createInstrumentCatalogRepository } from './repositories/instrument_catalog.repository.js';
 import { createLedgerRepository } from './repositories/ledger.repository.js';
+import { createCustodyTransferRepository } from './repositories/custody_transfer.repository.js';
 import { createManualPriceRepository } from './repositories/manual_price.repository.js';
 import { createMarketIngestionRepository } from './repositories/market_ingestion.repository.js';
 import { createOverviewRepository } from './repositories/overview.repository.js';
@@ -65,6 +66,7 @@ export const createRepositories = (
   assets: createAssetRepository(sql),
   ledger: createLedgerRepository(sql),
   manualPrices: createManualPriceRepository(sql),
+  custodyTransfers: createCustodyTransferRepository(sql),
   transactions: createTransactionRepository(sql),
   payoutDismissals: createPayoutDismissalRepository(sql),
   transactionUndos: createTransactionUndoRepository(sql),

@@ -105,6 +105,8 @@ export type {
 export { parseTransactionFromDB } from './transaction/transaction.parsers.js';
 
 // ─── Preço manual ────────────────────────────────────────────────────────────
+export type { CustodyTransfer } from './custody_transfer/custody_transfer.entities.js';
+export { parseCustodyTransferFromDB } from './custody_transfer/custody_transfer.parsers.js';
 export type { ManualPrice } from './manual_price/manual_price.entities.js';
 export { parseManualPriceFromDB } from './manual_price/manual_price.parsers.js';
 

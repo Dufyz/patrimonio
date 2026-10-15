@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { refreshMarket } from '../../api/market.js';
 import { Button } from '../../components/primitives.js';
+import { SkeletonRegion, SkeletonTable } from '../../components/skeleton.js';
 import type { Resource } from '../../lib/use_resource.js';
 import {
   CATALOG_COMMAND,
@@ -120,9 +121,9 @@ export const MarketSection = ({
       }
     >
       {state.kind === 'loading' ? (
-        <p aria-busy="true" className="p-4 text-[0.8125rem] text-ink-3">
-          Lendo a situação das fontes…
-        </p>
+        <SkeletonRegion label="Lendo a situação das fontes" className="p-4">
+          <SkeletonTable rows={3} columns={4} />
+        </SkeletonRegion>
       ) : state.kind === 'error' ? (
         <Failed error={state.error} onRetry={reload} />
       ) : (

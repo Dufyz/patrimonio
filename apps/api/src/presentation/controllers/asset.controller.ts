@@ -8,11 +8,15 @@ import type {
   listAssets,
   listManualPrices,
   setManualPrice,
+  transferCustody,
+  listCustodyTransfers,
+  deleteCustodyTransfer,
   updateAsset,
 } from '@patrimonio/application';
 import type {
   CreateAssetBody,
   SetManualPriceBody,
+  TransferCustodyBody,
   UpdateAssetBody,
 } from '@patrimonio/contracts';
 import type { RequestHandler } from 'express';
@@ -31,6 +35,9 @@ export type AssetDeps = {
     readonly setManualPrice: ReturnType<typeof setManualPrice>;
     readonly listManualPrices: ReturnType<typeof listManualPrices>;
     readonly deleteManualPrice: ReturnType<typeof deleteManualPrice>;
+    readonly transferCustody: ReturnType<typeof transferCustody>;
+    readonly listCustodyTransfers: ReturnType<typeof listCustodyTransfers>;
+    readonly deleteCustodyTransfer: ReturnType<typeof deleteCustodyTransfer>;
   };
 };
 
@@ -44,6 +51,9 @@ export type AssetController = {
   readonly setManualPrice: RequestHandler;
   readonly listManualPrices: RequestHandler;
   readonly deleteManualPrice: RequestHandler;
+  readonly transferCustody: RequestHandler;
+  readonly listCustodyTransfers: RequestHandler;
+  readonly deleteCustodyTransfer: RequestHandler;
 };
 
 type AssetQuery = {
@@ -219,5 +229,62 @@ export const createAssetController = (deps: AssetDeps): AssetController => ({
     }
 
     response.status(200).json({ message: 'Preço manual removido' });
+  },
+
+  /**
+   * Transferir o ativo para outra instituição. A origem é a custódia atual, lida
+   * do livro; a troca não vende nem compra, e por isso não enfileira recálculo.
+   */
+  transferCustody: async (request, response) => {
+    const body = request.body as TransferCustodyBody;
+
+    const result = await deps.usecases.transferCustody({
+      portfolio_id: String(request.params['portfolio_id']),
+      asset_id: String(request.params['asset_id']),
+      to_institution_id: body.to_institution_id,
+      transfer_date: body.transfer_date,
+      note: body.note ?? null,
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(201).json({
+      custody_transfer: result.value.transfer,
+      from_institution_name: result.value.from_institution_name,
+      to_institution_name: result.value.to_institution_name,
+      message: 'Custódia transferida',
+    });
+  },
+
+  listCustodyTransfers: async (request, response) => {
+    const result = await deps.usecases.listCustodyTransfers(
+      String(request.params['portfolio_id']),
+      String(request.params['asset_id']),
+    );
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({ custody_transfers: result.value });
+  },
+
+  deleteCustodyTransfer: async (request, response) => {
+    const result = await deps.usecases.deleteCustodyTransfer(
+      String(request.params['portfolio_id']),
+      String(request.params['asset_id']),
+      String(request.params['transfer_id']),
+    );
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({ message: 'Transferência desfeita' });
   },
 });

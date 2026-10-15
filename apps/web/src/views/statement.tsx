@@ -10,6 +10,7 @@ import { useEntry } from '../components/entry_provider.js';
 import { Money, MoneyChange, Quantity } from '../components/number.js';
 import { ConfirmDialog, Menu, Modal } from '../components/overlay.js';
 import { KeepPrevious } from '../components/pending.js';
+import { SkeletonRegion, SkeletonStats, SkeletonTable } from '../components/skeleton.js';
 import { FilterDropdown } from '../components/filter_dropdown.js';
 import { PeriodRangeButton } from '../components/period_control.js';
 import { usePreferences } from '../components/preferences.js';
@@ -335,7 +336,13 @@ export const StatementScreen = ({
         </Toolbar>
       </header>
 
-      {data === null ? null : (
+      {data === null ? (
+        resource.state.kind === 'loading' ? (
+          <SkeletonRegion label="Carregando o resumo do período">
+            <SkeletonStats count={4} />
+          </SkeletonRegion>
+        ) : null
+      ) : (
         <dl
           aria-label="Resumo do período"
           className="flex flex-wrap gap-x-6 gap-y-1 text-[0.8125rem] text-ink-2"
@@ -514,7 +521,11 @@ export const StatementScreen = ({
             </p>
           ) : (
             <KeepPrevious pending={resource.pending}>
-              {data === null ? null : (
+              {data === null ? (
+                <SkeletonRegion label="Carregando as movimentações">
+                  <SkeletonTable rows={9} columns={7} />
+                </SkeletonRegion>
+              ) : (
                 <StatementTable
                   data={data}
                   width={width}

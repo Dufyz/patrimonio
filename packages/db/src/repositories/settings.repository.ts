@@ -183,7 +183,8 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
             'manual_price', (SELECT COALESCE(JSON_AGG(t ORDER BY t.price_date), '[]'::JSON) FROM manual_price t),
             'announced_payout', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM announced_payout t),
             'corporate_event', (SELECT COALESCE(JSON_AGG(t ORDER BY t.record_date), '[]'::JSON) FROM corporate_event t),
-            'payout_dismissal', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM payout_dismissal t)
+            'payout_dismissal', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM payout_dismissal t),
+            'custody_transfer', (SELECT COALESCE(JSON_AGG(t ORDER BY t.transfer_date, t.created_at), '[]'::JSON) FROM custody_transfer t)
           )
         )::TEXT AS document
       `;
