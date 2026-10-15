@@ -429,6 +429,21 @@ export type {
   TransferCustodyInput,
   TransferCustodyResult,
 } from './usecases/asset/custodyTransfer.usecase.js';
+export {
+  getCaixinha,
+  loadCaixinha,
+  previewCaixinhaRedemption,
+  redeemCaixinha,
+  valueCaixinha,
+} from './usecases/asset/caixinha.usecase.js';
+export type {
+  CaixinhaDeps,
+  CaixinhaRedemptionInput,
+  CaixinhaRedemptionPreview,
+  CaixinhaRedemptionResult,
+  CaixinhaState,
+  CaixinhaView,
+} from './usecases/asset/caixinha.usecase.js';
 export { createFixedIncomeAsset } from './usecases/asset/createFixedIncomeAsset.usecase.js';
 export type {
   CreateFixedIncomeDeps,

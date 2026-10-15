@@ -59,6 +59,7 @@ const merged = (
     tax_withheld: input.tax_withheld ?? current.tax_withheld,
     ...(current.payout_kind === null ? {} : { payout_kind: current.payout_kind }),
     ...(current.record_date === null ? {} : { record_date: current.record_date }),
+    ...(current.maturity_date === null ? {} : { maturity_date: current.maturity_date }),
     ...(input.origin_request_id === undefined
       ? {}
       : { origin_request_id: input.origin_request_id }),

@@ -26,6 +26,13 @@ import {
   TAXES,
   parseRate,
 } from './fixed_income_dialog.js';
+import {
+  CaixinhaFields,
+  caixinhaErrors,
+  caixinhaFormOf,
+  caixinhaPatch,
+} from './caixinha_terms.js';
+import type { CaixinhaForm } from './caixinha_terms.js';
 import { useSubmit } from './use_submit.js';
 
 /**
@@ -44,6 +51,11 @@ const trimRate = (rate: string | null): string =>
     : rate.includes('.')
       ? rate.replace(/0+$/, '').replace(/\.$/, '')
       : rate;
+
+const MODELS: readonly { value: 'title' | 'caixinha'; label: string }[] = [
+  { value: 'title', label: 'Título único' },
+  { value: 'caixinha', label: 'Caixinha' },
+];
 
 export const AssetDialog = ({
   asset,
@@ -83,6 +95,8 @@ export const AssetDialog = ({
   const [liquidityDays, setLiquidityDays] = useState(
     asset.liquidity_days === null ? '' : String(asset.liquidity_days),
   );
+  const [isCaixinha, setIsCaixinha] = useState(asset.redemption_rule !== null);
+  const [terms, setTerms] = useState<CaixinhaForm>(caixinhaFormOf(asset));
   const [tax, setTax] = useState<FixedIncomeBody['tax_regime']>(
     asset.tax_regime ?? 'regressive',
   );
@@ -124,25 +138,39 @@ export const AssetDialog = ({
         issuer: issuer === '' ? 'Escolha o emissor.' : undefined,
         rate: parseRate(rate) === null ? 'Informe a taxa, como 112,00.' : undefined,
         issuedAt: issuedAt === '' ? 'Informe a data da aplicação.' : undefined,
-        maturity:
-          maturity === ''
+        maturity: isCaixinha
+          ? undefined
+          : maturity === ''
             ? 'Informe o vencimento.'
             : issuedAt !== '' && maturity <= issuedAt
               ? 'O vencimento vem depois da aplicação.'
               : undefined,
         days:
-          liquidity === 'd_plus_n' && !/^[1-9]\d*$/.test(liquidityDays.trim())
+          !isCaixinha &&
+          liquidity === 'd_plus_n' &&
+          !/^[1-9]\d*$/.test(liquidityDays.trim())
             ? 'Informe os dias.'
             : undefined,
       }
     : {};
-  const curveValid = Object.values(curveErrors).every((error) => error === undefined);
+  const caixinhaProblems = isCaixinha ? caixinhaErrors(terms, issuedAt) : {};
+  const curveValid =
+    Object.values(curveErrors).every((error) => error === undefined) &&
+    Object.values(caixinhaProblems).every((error) => error === undefined);
+  const original = caixinhaFormOf(asset);
   const curveChanged =
     curve &&
     (indexer !== asset.indexer ||
       parseRate(rate) !== trimRate(asset.rate) ||
       issuedAt !== asset.issued_at ||
-      maturity !== asset.maturity_date ||
+      (!isCaixinha && maturity !== asset.maturity_date) ||
+      isCaixinha !== (asset.redemption_rule !== null) ||
+      (isCaixinha &&
+        (terms.rule !== original.rule ||
+          terms.expiry !== original.expiry ||
+          terms.maturity !== original.maturity ||
+          terms.term !== original.term ||
+          terms.liquidity !== original.liquidity)) ||
       tax !== asset.tax_regime);
 
   const curvePatch = (): AssetPatch =>
@@ -152,9 +180,15 @@ export const AssetDialog = ({
           indexer,
           rate: parseRate(rate) ?? '0',
           issued_at: issuedAt,
-          maturity_date: maturity,
-          liquidity,
-          liquidity_days: liquidity === 'd_plus_n' ? Number(liquidityDays) : null,
+          ...(isCaixinha
+            ? caixinhaPatch(terms)
+            : {
+                redemption_rule: null,
+                lot_term_months: null,
+                maturity_date: maturity,
+                liquidity,
+                liquidity_days: liquidity === 'd_plus_n' ? Number(liquidityDays) : null,
+              }),
           tax_regime: tax,
         }
       : {};
@@ -289,6 +323,18 @@ export const AssetDialog = ({
               )}
             </Field>
 
+            {asset.origin === 'manual' ? (
+              <div className="flex flex-col gap-1.5">
+                <Label>Modelo</Label>
+                <Segmented
+                  label="Modelo"
+                  options={MODELS}
+                  value={isCaixinha ? 'caixinha' : 'title'}
+                  onChange={(value) => setIsCaixinha(value === 'caixinha')}
+                />
+              </div>
+            ) : null}
+
             <div className="flex flex-col gap-1.5">
               <Label>Indexador</Label>
               <Segmented
@@ -299,7 +345,9 @@ export const AssetDialog = ({
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div
+              className={isCaixinha ? 'grid grid-cols-2 gap-4' : 'grid grid-cols-3 gap-4'}
+            >
               <Field label="Taxa" error={attempted ? curveErrors.rate : undefined}>
                 {(control) => (
                   <span className="relative block">
@@ -332,49 +380,62 @@ export const AssetDialog = ({
                   />
                 )}
               </Field>
-              <Field
-                label="Vencimento"
-                error={attempted ? curveErrors.maturity : undefined}
-              >
-                {(control) => (
-                  <Input
-                    {...control}
-                    type="date"
-                    invalid={attempted && curveErrors.maturity !== undefined}
-                    value={maturity}
-                    onChange={(event) => setMaturity(event.target.value)}
-                  />
-                )}
-              </Field>
+              {isCaixinha ? null : (
+                <Field
+                  label="Vencimento"
+                  error={attempted ? curveErrors.maturity : undefined}
+                >
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="date"
+                      invalid={attempted && curveErrors.maturity !== undefined}
+                      value={maturity}
+                      onChange={(event) => setMaturity(event.target.value)}
+                    />
+                  )}
+                </Field>
+              )}
             </div>
 
+            {isCaixinha ? (
+              <CaixinhaFields
+                form={terms}
+                onChange={setTerms}
+                attempted={attempted}
+                issuedAt={issuedAt}
+              />
+            ) : null}
+
             <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label>Liquidez</Label>
-                <Segmented
-                  label="Liquidez"
-                  options={LIQUIDITIES}
-                  value={liquidity}
-                  onChange={setLiquidity}
-                />
-                {liquidity === 'd_plus_n' ? (
-                  <Field
-                    label="Dias de carência"
-                    error={attempted ? curveErrors.days : undefined}
-                  >
-                    {(control) => (
-                      <Input
-                        {...control}
-                        numeric
-                        inputMode="numeric"
-                        invalid={attempted && curveErrors.days !== undefined}
-                        value={liquidityDays}
-                        onChange={(event) => setLiquidityDays(event.target.value)}
-                      />
-                    )}
-                  </Field>
-                ) : null}
-              </div>
+              {isCaixinha ? null : (
+                <div className="flex flex-col gap-1.5">
+                  <Label>Liquidez</Label>
+                  <Segmented
+                    label="Liquidez"
+                    options={LIQUIDITIES}
+                    value={liquidity}
+                    onChange={setLiquidity}
+                  />
+                  {liquidity === 'd_plus_n' ? (
+                    <Field
+                      label="Dias de carência"
+                      error={attempted ? curveErrors.days : undefined}
+                    >
+                      {(control) => (
+                        <Input
+                          {...control}
+                          numeric
+                          inputMode="numeric"
+                          invalid={attempted && curveErrors.days !== undefined}
+                          value={liquidityDays}
+                          onChange={(event) => setLiquidityDays(event.target.value)}
+                        />
+                      )}
+                    </Field>
+                  ) : null}
+                </div>
+              )}
               <div className="flex flex-col gap-1.5">
                 <Label>Imposto de renda</Label>
                 <Segmented

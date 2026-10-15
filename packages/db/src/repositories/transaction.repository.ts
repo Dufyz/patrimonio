@@ -127,6 +127,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
         payout_kind: row.payout_kind ?? null,
         expected_net_amount: row.expected_net_amount ?? null,
         record_date: row.record_date ?? null,
+        maturity_date: row.maturity_date ?? null,
         confirmed_at: row.confirmed_at ?? null,
         event_ratio_from: row.event_ratio_from ?? null,
         event_ratio_to: row.event_ratio_to ?? null,
@@ -140,7 +141,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
           (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
            quantity, unit_price, fees, gross_amount, tax_withheld, net_amount,
            payout_kind, expected_net_amount, record_date, confirmed_at,
-           event_ratio_from, event_ratio_to, idempotency_key)
+           event_ratio_from, event_ratio_to, idempotency_key, maturity_date)
         SELECT (entry ->> 'id')::UUID,
                (entry ->> 'kind')::transaction_kind,
                (entry ->> 'trade_date')::DATE,
@@ -160,7 +161,8 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
                (entry ->> 'confirmed_at')::TIMESTAMPTZ,
                (entry ->> 'event_ratio_from')::NUMERIC,
                (entry ->> 'event_ratio_to')::NUMERIC,
-               entry ->> 'idempotency_key'
+               entry ->> 'idempotency_key',
+               (entry ->> 'maturity_date')::DATE
           -- text antes de jsonb: com o cast direto o driver infere o parâmetro
           -- como json e reencoda a string, que chega escalar.
           FROM JSONB_ARRAY_ELEMENTS(${payload}::TEXT::JSONB) AS entry
@@ -185,6 +187,22 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
       const row = rows[0];
 
       return success(row === undefined ? null : parseTransactionFromDB(row));
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
+  reassignInstitution: async (assetId: string, institutionId: string) => {
+    try {
+      const rows = await sql`
+        UPDATE transaction
+           SET institution_id = ${institutionId}
+         WHERE asset_id = ${assetId}
+           AND institution_id <> ${institutionId}
+        RETURNING id
+      `;
+
+      return success(rows.length);
     } catch (error) {
       return failure(getRepositoryError(error));
     }

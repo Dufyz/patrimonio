@@ -1,5 +1,10 @@
 import {
   archiveAssetSchema,
+  caixinhaRedemptionPlanSchema,
+  caixinhaResponseSchema,
+  getCaixinhaSchema,
+  previewCaixinhaRedemptionSchema,
+  redeemCaixinhaSchema,
   deleteManualPriceSchema,
   deleteCustodyTransferSchema,
   listCustodyTransfersResponseSchema,
@@ -237,6 +242,62 @@ export const ASSET_ROUTE_DOCS: readonly RouteDoc[] = [
         schema: errorResponseSchema,
       },
       404: { description: 'Transferência inexistente.', schema: errorResponseSchema },
+    },
+  },
+  {
+    method: 'get',
+    path: '/portfolios/:portfolio_id/assets/:asset_id/caixinha',
+    tag: TAG,
+    summary: 'Lotes da caixinha numa data, com valor e IR de cada um',
+    request: getCaixinhaSchema,
+    responses: {
+      200: {
+        description:
+          'Cada aplicação aberta é um lote, marcado na curva a partir da própria data. ' +
+          'O IR é o estimado se o lote fosse resgatado na data.',
+        schema: caixinhaResponseSchema,
+      },
+      400: { description: 'O ativo não é uma caixinha.', schema: errorResponseSchema },
+      404: { description: 'Ativo não encontrado.', schema: errorResponseSchema },
+    },
+  },
+  {
+    method: 'post',
+    path: '/portfolios/:portfolio_id/assets/:asset_id/caixinha/redemptions/preview',
+    tag: TAG,
+    summary: 'Quais lotes um resgate consome e quanto cai na conta',
+    request: previewCaixinhaRedemptionSchema,
+    responses: {
+      200: {
+        description:
+          'O plano de consumo pela regra da caixinha. Pedido acima do disponível volta ' +
+          'com `insufficient` verdadeiro e nenhum lote consumido.',
+        schema: caixinhaRedemptionPlanSchema,
+      },
+      400: { description: 'O ativo não é uma caixinha.', schema: errorResponseSchema },
+    },
+  },
+  {
+    method: 'post',
+    path: '/portfolios/:portfolio_id/assets/:asset_id/caixinha/redemptions',
+    tag: TAG,
+    summary: 'Registrar resgate da caixinha',
+    request: redeemCaixinhaSchema,
+    responses: {
+      201: {
+        description:
+          'Gravado como venda do ativo: o principal consumido é a quantidade e o IR, a taxa.',
+        schema: z.object({
+          transaction: z.unknown(),
+          redemption: caixinhaRedemptionPlanSchema.nullable(),
+          recalculation: z.unknown(),
+          message: z.string(),
+        }),
+      },
+      400: {
+        description: 'Valor acima do disponível, ou ativo que não é caixinha.',
+        schema: errorResponseSchema,
+      },
     },
   },
 ];

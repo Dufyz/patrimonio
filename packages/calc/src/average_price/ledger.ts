@@ -17,6 +17,10 @@ export type LedgerEntry = {
   readonly kind: LedgerKind;
   /** `YYYY-MM-DD`: data de negócio, nunca `Date` com fuso. */
   readonly trade_date: string;
+  /** Quando o dinheiro liquida; na caixinha, quando o lote fica disponível para resgate. */
+  readonly settlement_date?: string | undefined;
+  /** Só no aporte de caixinha: quando o lote vence. */
+  readonly maturity_date?: string | null | undefined;
   readonly quantity: string;
   readonly unit_price: string;
   readonly fees: string;

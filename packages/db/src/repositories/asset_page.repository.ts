@@ -237,6 +237,8 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
                    a.liquidity,
                    a.liquidity_days::INT AS liquidity_days,
                    a.tax_regime,
+                   a.redemption_rule,
+                   a.lot_term_months::INT AS lot_term_months,
                    -- Título de banco marcado na curva: a quantidade dele não
                    -- diz nada a quem lê, e a tela mostra traço em vez dela.
                    CASE
@@ -474,7 +476,7 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
                               price_source, category_id, category_name, color_token,
                               category_automatic, issuer_id, issuer_name, archived_at, indexer,
                               rate, issued_at, maturity_date, liquidity,
-                              liquidity_days, tax_regime
+                              liquidity_days, tax_regime, redemption_rule, lot_term_months
                          FROM asset_row
                      ) ar),
             'portfolio_name', (SELECT portfolio_name FROM scope LIMIT 1),

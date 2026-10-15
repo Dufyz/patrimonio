@@ -31,6 +31,7 @@ export const parseTransactionFromDB = (row: Row): Transaction => ({
   payout_kind: asEnumOrNull(row, 'payout_kind', PAYOUT_KINDS),
   expected_net_amount: asNumericOrNull(row, 'expected_net_amount'),
   record_date: asDateOnlyOrNull(row, 'record_date'),
+  maturity_date: asDateOnlyOrNull(row, 'maturity_date'),
   confirmed_at: asIsoStringOrNull(row, 'confirmed_at'),
   event_ratio_from: asNumericOrNull(row, 'event_ratio_from'),
   event_ratio_to: asNumericOrNull(row, 'event_ratio_to'),

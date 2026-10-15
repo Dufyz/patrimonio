@@ -3,14 +3,21 @@ import {
   buildQuotaSeries,
   curveValue,
   isZeroAmount,
+  lotsFromLedger,
   moneyDifference,
   multiplyMoney,
   sumValues,
   toMoney,
   toPrice,
   toQuantity,
+  valueLots,
 } from '@patrimonio/calc';
-import type { CurveIndexer, CurveValue, LedgerEntry } from '@patrimonio/calc';
+import type {
+  CurveIndexer,
+  CurveValue,
+  LedgerEntry,
+  RedemptionRule,
+} from '@patrimonio/calc';
 import type { B3Type, ComputedPriceKind, DateOnly } from '@patrimonio/domain';
 
 import type {
@@ -39,6 +46,12 @@ export type FixedIncomeTerms = {
   readonly rate: string;
   readonly issued_at: DateOnly;
   readonly maturity_date: DateOnly | null;
+  /** Só na caixinha: cada aplicação é um lote, marcado na curva da própria data. */
+  readonly redemption_rule?: RedemptionRule | null | undefined;
+  /** Liquidez no vencimento: o resgate só alcança lote já vencido. */
+  readonly lot_matured_only?: boolean | undefined;
+  /** Caixinha cujos lotes vencem: meses entre o aporte e o vencimento do lote. */
+  readonly lot_term_months?: number | null | undefined;
 };
 
 export type CloseAsset = {
@@ -79,6 +92,8 @@ export type DailyCloseContext = {
   readonly prices: ReadonlyMap<string, PriceOn>;
   /** O fator da curva na data, por ativo de renda fixa. */
   readonly curves: ReadonlyMap<string, CurveValue>;
+  /** O fator da curva de cada lote de caixinha na data, por id da aplicação. */
+  readonly lot_curves?: ReadonlyMap<string, CurveValue> | undefined;
   /** A linha do dia anterior da série. Nula no primeiro dia da carteira. */
   readonly previous: CloseSeed | null;
 };
@@ -160,6 +175,52 @@ const valuePosition = (
 };
 
 /**
+ * A caixinha vale a soma dos lotes, cada um na curva da própria data de
+ * aplicação. O custo continua sendo o do livro: o principal restante.
+ */
+const FALLBACK_TERMS: FixedIncomeTerms = {
+  indexer: 'cdi_pct',
+  rate: '0',
+  issued_at: '1970-01-01',
+  maturity_date: null,
+};
+
+const valueLotted = (
+  bucket: readonly LedgerEntry[],
+  rule: RedemptionRule,
+  terms: FixedIncomeTerms,
+  costBasis: string,
+  lotCurves: ReadonlyMap<string, CurveValue>,
+  referenceDate: DateOnly,
+): Valued => {
+  const lots = lotsFromLedger(bucket, rule, {
+    default_maturity: terms.maturity_date,
+    default_term_months: terms.lot_term_months,
+    matured_only: terms.lot_matured_only === true,
+  });
+  const open = lots.filter((lot) => Number(lot.remaining) > 0);
+
+  if (open.some((lot) => !lotCurves.has(lot.id))) {
+    return { market_value: costBasis, kind: 'missing', accrued_interest: '0.00' };
+  }
+
+  const valuation = valueLots({
+    lots,
+    factors: new Map([...lotCurves].map(([id, curve]) => [id, curve.factor])),
+    reference_date: referenceDate,
+    tax_regime: 'exempt',
+  });
+
+  const gaps = open.some((lot) => (lotCurves.get(lot.id)?.missing_days.length ?? 0) > 0);
+
+  return {
+    market_value: valuation.gross_value,
+    kind: gaps ? 'stale' : 'fresh',
+    accrued_interest: moneyDifference(valuation.gross_value, costBasis),
+  };
+};
+
+/**
  * Dinheiro que cruzou a fronteira do patrimônio no dia. Não há caixa: comprar é
  * aportar e vender é resgatar, e a amortização devolve principal, que também
  * sai. O líquido da compra é negativo e o da venda, positivo, então o fluxo é o
@@ -222,14 +283,26 @@ export const planDailyClose = (context: DailyCloseContext): DailyClosePlan => {
     // simplesmente não é escrita.
     if (isZeroAmount(quantity) && isZeroAmount(costBasis)) continue;
 
-    const valued = valuePosition(
-      asset,
-      quantity,
-      costBasis,
-      context.prices.get(assetId),
-      context.curves.get(assetId),
-      context.reference_date,
-    );
+    const rule = asset?.fixed_income?.redemption_rule ?? null;
+
+    const valued =
+      rule === null
+        ? valuePosition(
+            asset,
+            quantity,
+            costBasis,
+            context.prices.get(assetId),
+            context.curves.get(assetId),
+            context.reference_date,
+          )
+        : valueLotted(
+            bucket,
+            rule,
+            asset?.fixed_income ?? FALLBACK_TERMS,
+            costBasis,
+            context.lot_curves ?? new Map(),
+            context.reference_date,
+          );
 
     health[valued.kind] += 1;
     if (valued.kind === 'missing') pricedAtCost.push(assetId);

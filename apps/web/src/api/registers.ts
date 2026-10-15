@@ -76,6 +76,8 @@ export type AssetPatch = {
   readonly liquidity?: FixedIncomeBody['liquidity'] | null;
   readonly liquidity_days?: number | null;
   readonly tax_regime?: FixedIncomeBody['tax_regime'] | null;
+  readonly redemption_rule?: FixedIncomeBody['redemption_rule'] | null;
+  readonly lot_term_months?: number | null;
 };
 
 export const updateAsset = (id: string, body: AssetPatch): Promise<unknown> =>
@@ -94,9 +96,14 @@ export type FixedIncomeBody = {
   readonly indexer: 'cdi_pct' | 'ipca_plus' | 'prefixed' | 'selic_plus';
   readonly rate: string;
   readonly issued_at: string;
-  readonly maturity_date: string;
+  /** Ausente na caixinha cujo vencimento é o de cada lote (ou que não vence). */
+  readonly maturity_date?: string;
   readonly liquidity: 'daily' | 'at_maturity' | 'd_plus_n';
   readonly liquidity_days?: number;
+  /** Presente só na caixinha: cada aporte é um lote e a regra diz qual sai primeiro. */
+  readonly redemption_rule?: 'oldest_first' | 'newest_first';
+  /** Caixinha cujos lotes vencem: meses entre o aporte e o vencimento do lote. */
+  readonly lot_term_months?: number;
   readonly tax_regime: 'regressive' | 'exempt';
   readonly name?: string;
 };

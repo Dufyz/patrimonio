@@ -9,6 +9,7 @@ import type {
   PayoutKind,
   PositionUnit,
   PriceSource,
+  RedemptionRule,
   TaxRegime,
   TransactionKind,
 } from '@patrimonio/domain';
@@ -67,6 +68,8 @@ export type AssetPageIdentityRow = {
   readonly liquidity: LiquidityKind | null;
   readonly liquidity_days: number | null;
   readonly tax_regime: TaxRegime | null;
+  readonly redemption_rule: RedemptionRule | null;
+  readonly lot_term_months: number | null;
 };
 
 export type AssetPagePositionRow = {

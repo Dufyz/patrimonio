@@ -5,6 +5,7 @@ import type {
 } from '@patrimonio/application';
 import {
   asDateOnly,
+  asDateOnlyOrNull,
   asNumeric,
   asString,
   asStringOrNull,
@@ -25,6 +26,8 @@ const parseLedgerRowFromDB = (row: Row): LedgerRow => ({
   id: asString(row, 'id'),
   kind: asString(row, 'kind') as LedgerRow['kind'],
   trade_date: asDateOnly(row, 'trade_date'),
+  settlement_date: asDateOnly(row, 'settlement_date'),
+  maturity_date: asDateOnlyOrNull(row, 'maturity_date'),
   quantity: asNumeric(row, 'quantity'),
   unit_price: asNumeric(row, 'unit_price'),
   fees: asNumeric(row, 'fees'),

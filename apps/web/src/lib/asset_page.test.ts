@@ -50,6 +50,8 @@ const identity = (
   liquidity: null,
   liquidity_days: null,
   tax_regime: null,
+  redemption_rule: null,
+  lot_term_months: null,
   ...overrides,
 });
 

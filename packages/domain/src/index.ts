@@ -57,6 +57,7 @@ export {
   INDEXERS,
   LIQUIDITY_KINDS,
   PRICE_SOURCES,
+  REDEMPTION_RULES,
   TAX_REGIMES,
   describeFixedIncome,
   fixedIncomeTicker,
@@ -70,6 +71,7 @@ export type {
   Indexer,
   LiquidityKind,
   PriceSource,
+  RedemptionRule,
   TaxRegime,
 } from './asset/asset.entities.js';
 export { parseAssetFromDB } from './asset/asset.parsers.js';

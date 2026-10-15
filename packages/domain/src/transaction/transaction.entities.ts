@@ -45,6 +45,8 @@ export type Transaction = {
   /** O líquido previsto, guardado quando o recebido veio diferente. */
   readonly expected_net_amount: string | null;
   readonly record_date: DateOnly | null;
+  /** Só no aporte de caixinha: quando o lote vence. */
+  readonly maturity_date: DateOnly | null;
   /** Nulo enquanto o provento está "a receber". */
   readonly confirmed_at: string | null;
   readonly event_ratio_from: string | null;

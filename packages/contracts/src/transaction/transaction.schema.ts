@@ -29,6 +29,7 @@ export const transactionResourceSchema = z.object({
   payout_kind: payoutKindSchema.nullable(),
   expected_net_amount: decimalString.nullable(),
   record_date: dateOnly.nullable(),
+  maturity_date: dateOnly.nullable(),
   confirmed_at: z.string().nullable(),
   event_ratio_from: decimalString.nullable(),
   event_ratio_to: decimalString.nullable(),
@@ -94,6 +95,8 @@ export const transactionWritableSchema = z
     tax_withheld: nonNegativeDecimal.optional(),
     payout_kind: payoutKindSchema.optional(),
     record_date: dateOnly.optional(),
+    /** Aporte de caixinha: vencimento do lote. */
+    maturity_date: dateOnly.optional(),
   })
   .refine((body) => body.asset_id === undefined || body.asset === undefined, {
     message: 'informe o ativo pelo id ou pelos dados do cadastro, não os dois',

@@ -61,6 +61,8 @@ const resource = (overrides: Partial<AssetPageResource> = {}): AssetPageResource
     liquidity: null,
     liquidity_days: null,
     tax_regime: null,
+    redemption_rule: null,
+    lot_term_months: null,
   },
   price: {
     value: '36.84',

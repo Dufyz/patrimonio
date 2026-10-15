@@ -110,6 +110,8 @@ export const createAssetRepository = (sql: Connection): AssetRepository => ({
       liquidity: draft.liquidity,
       liquidity_days: draft.liquidity_days,
       tax_regime: draft.tax_regime,
+      redemption_rule: draft.redemption_rule,
+      lot_term_months: draft.lot_term_months,
     });
 
     try {

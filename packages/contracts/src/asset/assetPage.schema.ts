@@ -68,6 +68,9 @@ export const assetPageIdentitySchema = z.object({
   liquidity: liquidityKindSchema.nullable(),
   liquidity_days: z.number().int().nullable(),
   tax_regime: taxRegimeSchema.nullable(),
+  /** Preenchida só na caixinha: o ativo tem lotes e esta é a regra do resgate. */
+  redemption_rule: z.enum(['oldest_first', 'newest_first']).nullable(),
+  lot_term_months: z.number().int().nullable(),
 });
 
 export type AssetPageIdentity = z.infer<typeof assetPageIdentitySchema>;

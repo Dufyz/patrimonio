@@ -199,6 +199,21 @@ export type {
   SetManualPriceResponse,
 } from './asset/manualPrice.schema.js';
 export {
+  caixinhaLotSchema,
+  caixinhaRedemptionPlanSchema,
+  caixinhaResponseSchema,
+  caixinhaSliceSchema,
+  getCaixinhaSchema,
+  previewCaixinhaRedemptionSchema,
+  redeemCaixinhaSchema,
+  redemptionRuleResourceSchema,
+} from './asset/caixinha.schema.js';
+export type {
+  CaixinhaRedemptionBody,
+  CaixinhaRedemptionPlan,
+  GetCaixinhaResponse,
+} from './asset/caixinha.schema.js';
+export {
   custodyTransferResourceSchema,
   deleteCustodyTransferSchema,
   listCustodyTransfersResponseSchema,

@@ -12,6 +12,8 @@ export const PRICE_SOURCES = ['auto', 'manual'] as const;
 export const INDEXERS = ['cdi_pct', 'ipca_plus', 'prefixed', 'selic_plus'] as const;
 export const LIQUIDITY_KINDS = ['daily', 'at_maturity', 'd_plus_n'] as const;
 export const TAX_REGIMES = ['regressive', 'exempt'] as const;
+/** Qual lote da caixinha o resgate consome primeiro. */
+export const REDEMPTION_RULES = ['oldest_first', 'newest_first'] as const;
 
 /**
  * O tipo do papel na B3. Não é derivável do ticker — `TAEE11` é unit e `KNRI11`
@@ -25,6 +27,7 @@ export type PriceSource = (typeof PRICE_SOURCES)[number];
 export type Indexer = (typeof INDEXERS)[number];
 export type LiquidityKind = (typeof LIQUIDITY_KINDS)[number];
 export type TaxRegime = (typeof TAX_REGIMES)[number];
+export type RedemptionRule = (typeof REDEMPTION_RULES)[number];
 export type B3Type = (typeof B3_TYPES)[number];
 
 export const isIndexer = (value: unknown): value is Indexer =>
@@ -52,6 +55,16 @@ export type Asset = {
   readonly liquidity: LiquidityKind | null;
   readonly liquidity_days: number | null;
   readonly tax_regime: TaxRegime | null;
+  /**
+   * Preenchida só na caixinha: o ativo tem lotes, um por aplicação, e a regra
+   * diz qual deles o resgate consome primeiro. Nula é o título de lote único.
+   */
+  readonly redemption_rule: RedemptionRule | null;
+  /**
+   * Caixinha que não vence mas cujos lotes vencem: o prazo padrão de cada aporte,
+   * em meses. Exclusivo com `maturity_date`, que é a caixinha inteira vencendo.
+   */
+  readonly lot_term_months: number | null;
   readonly archived_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;

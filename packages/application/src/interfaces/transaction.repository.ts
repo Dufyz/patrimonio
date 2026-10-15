@@ -30,6 +30,7 @@ export type TransactionWrite = {
   readonly payout_kind?: PayoutKind | null | undefined;
   readonly expected_net_amount?: string | null | undefined;
   readonly record_date?: DateOnly | null | undefined;
+  readonly maturity_date?: DateOnly | null | undefined;
   readonly confirmed_at?: string | null | undefined;
   readonly event_ratio_from?: string | null | undefined;
   readonly event_ratio_to?: string | null | undefined;
@@ -93,4 +94,10 @@ export type TransactionRepository = {
   ) => Promise<Either<AppError, Transaction | null>>;
 
   readonly remove: (id: string) => Promise<Either<AppError, Transaction | null>>;
+
+  /** Passa todos os lançamentos de um ativo para outra instituição; devolve quantos. */
+  readonly reassignInstitution: (
+    assetId: string,
+    institutionId: string,
+  ) => Promise<Either<AppError, number>>;
 };

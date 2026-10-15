@@ -82,6 +82,22 @@ export type {
   RedemptionInput,
 } from './fixed_income/regressive.js';
 
+export {
+  REDEMPTION_RULES,
+  lotsFromLedger,
+  planRedemption,
+  valueLots,
+} from './fixed_income/lots.js';
+export type {
+  FactorsByLot,
+  Lot,
+  LotsValuation,
+  RedemptionPlan,
+  RedemptionRule,
+  RedemptionSlice,
+  ValuedLot,
+} from './fixed_income/lots.js';
+
 // ─── Cota, janelas e benchmark ───────────────────────────────────────────────
 export {
   INITIAL_QUOTA_VALUE,

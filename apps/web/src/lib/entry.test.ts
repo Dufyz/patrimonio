@@ -221,6 +221,7 @@ const original: TransactionResource = {
   payout_kind: null,
   expected_net_amount: null,
   record_date: null,
+  maturity_date: null,
   confirmed_at: null,
   event_ratio_from: null,
   event_ratio_to: null,

@@ -65,6 +65,7 @@ import { formatFullDate, formatShortDate } from '../lib/positions.js';
 import { SEMANTIC_COLORS, colorForSeries, colorForToken } from '../lib/tokens.js';
 import { deleteTransaction, undoDeletion } from '../api/transactions.js';
 import { ManualPriceDialog } from './manual_price_dialog.js';
+import { CaixinhaPanel } from './caixinha_panel.js';
 import { CustodyHistory } from './custody_history.js';
 import { CustodyTransferDialog } from './custody_transfer_dialog.js';
 import {
@@ -376,6 +377,15 @@ export const AssetScreen = ({
               )}
             </div>
           </section>
+
+          {resource.asset.redemption_rule === null ? null : (
+            <CaixinhaPanel
+              portfolioId={portfolioId}
+              asset={resource.asset}
+              reloadKey={reloads}
+              onChanged={() => setReloads((count) => count + 1)}
+            />
+          )}
 
           <EvolutionPanel resource={resource} />
 

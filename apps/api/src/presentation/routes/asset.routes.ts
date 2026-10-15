@@ -4,6 +4,9 @@ import {
   createAssetSchema,
   deleteAssetSchema,
   getAssetSchema,
+  getCaixinhaSchema,
+  previewCaixinhaRedemptionSchema,
+  redeemCaixinhaSchema,
   listAssetsSchema,
   listManualPricesSchema,
   setManualPriceSchema,
@@ -61,6 +64,21 @@ export const assetRoutes = (deps: AssetDeps): Router => {
     '/portfolios/:portfolio_id/assets/:asset_id/custody-transfers/:transfer_id',
     validate(deleteCustodyTransferSchema),
     controller.deleteCustodyTransfer,
+  );
+  router.get(
+    '/portfolios/:portfolio_id/assets/:asset_id/caixinha',
+    validate(getCaixinhaSchema),
+    controller.caixinha,
+  );
+  router.post(
+    '/portfolios/:portfolio_id/assets/:asset_id/caixinha/redemptions/preview',
+    validate(previewCaixinhaRedemptionSchema),
+    controller.previewCaixinhaRedemption,
+  );
+  router.post(
+    '/portfolios/:portfolio_id/assets/:asset_id/caixinha/redemptions',
+    validate(redeemCaixinhaSchema),
+    controller.redeemCaixinha,
   );
 
   return router;

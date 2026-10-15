@@ -43,6 +43,9 @@ const fixedIncomeOf = (asset: Asset): FixedIncomeTerms | null => {
     rate: asset.rate,
     issued_at: asset.issued_at,
     maturity_date: asset.maturity_date,
+    redemption_rule: asset.redemption_rule,
+    lot_matured_only: asset.liquidity === 'at_maturity',
+    lot_term_months: asset.lot_term_months,
   };
 };
 

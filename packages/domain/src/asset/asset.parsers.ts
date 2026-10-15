@@ -16,6 +16,7 @@ import {
   INDEXERS,
   LIQUIDITY_KINDS,
   PRICE_SOURCES,
+  REDEMPTION_RULES,
   TAX_REGIMES,
 } from './asset.entities.js';
 import type { Asset } from './asset.entities.js';
@@ -37,6 +38,8 @@ export const parseAssetFromDB = (row: Row): Asset => ({
   liquidity: asEnumOrNull(row, 'liquidity', LIQUIDITY_KINDS),
   liquidity_days: asIntegerOrNull(row, 'liquidity_days'),
   tax_regime: asEnumOrNull(row, 'tax_regime', TAX_REGIMES),
+  redemption_rule: asEnumOrNull(row, 'redemption_rule', REDEMPTION_RULES),
+  lot_term_months: asIntegerOrNull(row, 'lot_term_months'),
   archived_at: asIsoStringOrNull(row, 'archived_at'),
   created_at: asIsoString(row, 'created_at'),
   updated_at: asIsoString(row, 'updated_at'),
