@@ -63,6 +63,25 @@ export const fetchCategories = (
 ): Promise<readonly CategoryResource[]> =>
   request('/api/categories', categoriesParser, signal === undefined ? {} : { signal });
 
+export type CategoryBody = {
+  readonly name: string;
+  readonly color_token: string;
+  /** Ausente cria uma classe; presente, uma categoria dentro da classe. */
+  readonly parent_id?: string | null;
+};
+
+export const createCategory = (body: CategoryBody): Promise<unknown> =>
+  send('POST', '/api/categories', body);
+
+/** Renomear, recolorir ou mover (`parent_id`) a categoria. O id não muda. */
+export const updateCategory = (
+  id: string,
+  body: Partial<CategoryBody>,
+): Promise<unknown> => send('PATCH', `/api/categories/${id}`, body);
+
+export const deleteCategory = (id: string): Promise<unknown> =>
+  send('DELETE', `/api/categories/${id}`);
+
 export type AssetPatch = {
   readonly ticker?: string;
   readonly name?: string;

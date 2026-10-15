@@ -142,3 +142,94 @@ describe('editar e excluir categoria', () => {
     expect(response.status).toBe(200);
   });
 });
+
+describe('montar as classes da estratégia', () => {
+  const mover = (id: string, parentId: string | null) =>
+    request(harness.app).patch(`/api/categories/${id}`).send({ parent_id: parentId });
+
+  it('mover uma categoria para outra classe mantém o id', async () => {
+    const acoes = await criar({ name: 'Ações', color_token: 'class.acoes' });
+    const fiis = await criar({ name: 'FIIs', color_token: 'class.fiis' });
+    const etf = await criar({
+      name: 'ETF de FIIs',
+      color_token: 'class.etf',
+      parent_id: acoes.body.category.id,
+    });
+
+    const response = await mover(etf.body.category.id, fiis.body.category.id);
+
+    expect(response.status).toBe(200);
+    expect(response.body.category.id).toBe(etf.body.category.id);
+    expect(response.body.category.parent_id).toBe(fiis.body.category.id);
+  });
+
+  it('classe com categorias dentro não vira categoria de outra classe', async () => {
+    const acoes = await criar({ name: 'Ações', color_token: 'class.acoes' });
+    const fiis = await criar({ name: 'FIIs', color_token: 'class.fiis' });
+    await criar({
+      name: 'ETF de FIIs',
+      color_token: 'class.etf',
+      parent_id: fiis.body.category.id,
+    });
+
+    const response = await mover(fiis.body.category.id, acoes.body.category.id);
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/1 categoria dentro/);
+  });
+
+  it('mover para uma classe que já tem alvo próprio, sendo a categoria alvo também, é recusado', async () => {
+    const acoes = await criar({ name: 'Ações', color_token: 'class.acoes' });
+    const fiis = await criar({ name: 'FIIs', color_token: 'class.fiis' });
+    const etf = await criar({
+      name: 'ETF de ações',
+      color_token: 'class.etf',
+      parent_id: acoes.body.category.id,
+    });
+    const filha = await criar({
+      name: 'ETF de FIIs',
+      color_token: 'class.etf',
+      parent_id: fiis.body.category.id,
+    });
+
+    const carteira = await request(harness.app)
+      .post('/api/portfolios')
+      .send({ name: 'Principal' });
+    // O alvo está na classe Ações e na categoria ETF de FIIs (dentro de FIIs, que não tem alvo).
+    const estrategia = await request(harness.app)
+      .put(`/api/portfolios/${carteira.body.portfolio.id}/strategy`)
+      .send({
+        targets: [
+          { category_id: acoes.body.category.id, target_pct: '60.00' },
+          { category_id: filha.body.category.id, target_pct: '40.00' },
+        ],
+      });
+    expect(estrategia.status).toBe(200);
+
+    const response = await mover(filha.body.category.id, acoes.body.category.id);
+
+    expect(response.status).toBe(409);
+    expect(response.body.message).toMatch(/Principal/);
+
+    // A categoria sem alvo próprio entra sem problema.
+    const livre = await mover(etf.body.category.id, fiis.body.category.id);
+    expect(livre.status).toBe(200);
+  });
+
+  it('classe com alvo em carteira não é excluída', async () => {
+    const acoes = await criar({ name: 'Ações', color_token: 'class.acoes' });
+    const carteira = await request(harness.app)
+      .post('/api/portfolios')
+      .send({ name: 'Principal' });
+    await request(harness.app)
+      .put(`/api/portfolios/${carteira.body.portfolio.id}/strategy`)
+      .send({ targets: [{ category_id: acoes.body.category.id, target_pct: '100.00' }] });
+
+    const response = await request(harness.app).delete(
+      `/api/categories/${acoes.body.category.id}`,
+    );
+
+    expect(response.status).toBe(409);
+    expect(response.body.message).toMatch(/alvo em 1 carteira/);
+  });
+});

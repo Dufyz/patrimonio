@@ -146,7 +146,11 @@ export {
 } from './allocation/weights.js';
 export type { AssetLedgerEntry } from './allocation/weights.js';
 
-export { duplicatedCategories, sumTargets } from './allocation/targets.js';
+export {
+  duplicatedCategories,
+  overlappingGroups,
+  sumTargets,
+} from './allocation/targets.js';
 export type { AllocationTarget, TargetSum } from './allocation/targets.js';
 
 export { composeAllocation, outOfTolerance } from './allocation/composition.js';

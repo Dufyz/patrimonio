@@ -40,6 +40,7 @@ import {
   listFromParam,
   listToParam,
   hasMarketColumns,
+  isLedgerEntry,
   monthItems,
   monthName,
   monthTitle,
@@ -416,9 +417,9 @@ export const StatementScreen = ({
                   options={data.facets
                     .filter(
                       (facet) =>
-                        facet.group !== 'event' ||
+                        (facet.group !== 'event' && facet.group !== 'custody') ||
                         facet.count > 0 ||
-                        groups.includes('event'),
+                        groups.includes(facet.group),
                     )
                     .map((facet) => ({
                       id: groupToParam(facet.group),
@@ -644,6 +645,7 @@ const KIND_PILL: Readonly<Record<StatementRow['kind'], string>> = {
   sell: 'bg-attention-soft text-attention',
   payout: 'bg-positive-soft text-positive',
   corporate_event: 'bg-panel-2 text-ink-2',
+  custody_transfer: 'bg-panel-2 text-ink-2',
 };
 
 const Dash = (): React.ReactElement => <span className="text-ink-3">—</span>;
@@ -858,16 +860,17 @@ const StatementLine = ({
   const value = valueCell(row);
   const effect = effectView(row.effect, hidden);
   const detail = typeDetail(row);
-  const editable = row.kind !== 'corporate_event';
+  const ledger = isLedgerEntry(row);
+  const editable = ledger && row.kind !== 'corporate_event';
 
   // Os atalhos que o menu anuncia: E edita, D duplica, ⌫ exclui, X marca.
   const onKeyDown = (event: React.KeyboardEvent<HTMLTableRowElement>): void => {
     if (event.target !== event.currentTarget || event.metaKey || event.ctrlKey) return;
     const key = event.key.toLowerCase();
     if (key === 'e' && editable) onEdit();
-    else if (key === 'd' && duplicateRequest(row) !== null) onDuplicate();
-    else if (key === 'x') onToggle();
-    else if (key === 'backspace' || key === 'delete') onDelete();
+    else if (key === 'd' && ledger && duplicateRequest(row) !== null) onDuplicate();
+    else if (key === 'x' && ledger) onToggle();
+    else if ((key === 'backspace' || key === 'delete') && ledger) onDelete();
     else return;
     event.preventDefault();
   };
@@ -882,11 +885,13 @@ const StatementLine = ({
       className={`group border-b border-line outline-offset-[-2px] ${checked ? 'bg-accent-soft' : 'hover:bg-panel-2'}`}
     >
       <td className="py-(--row-pad) pr-0 pl-4">
-        <Checkbox
-          aria-label={`Selecionar ${rowLabel(row)}`}
-          checked={checked}
-          onCheckedChange={onToggle}
-        />
+        {ledger ? (
+          <Checkbox
+            aria-label={`Selecionar ${rowLabel(row)}`}
+            checked={checked}
+            onCheckedChange={onToggle}
+          />
+        ) : null}
       </td>
       <td
         className="tabular px-3 py-(--row-pad) whitespace-nowrap"
@@ -930,7 +935,9 @@ const StatementLine = ({
         </td>
       ) : null}
       <td className="px-3 py-(--row-pad) text-right font-medium whitespace-nowrap">
-        {value.signed ? (
+        {!ledger ? (
+          <Dash />
+        ) : value.signed ? (
           <MoneyChange value={value.value} />
         ) : (
           <Money value={value.value} />
@@ -992,7 +999,7 @@ const StatementLine = ({
               destructive: true,
               onSelect: onDelete,
             },
-          ]}
+          ].filter((item) => ledger || item.id === 'open_asset')}
         />
       </td>
     </tr>

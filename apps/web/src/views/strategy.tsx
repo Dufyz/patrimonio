@@ -38,11 +38,13 @@ import {
   withEdit,
 } from '../lib/strategy.js';
 import type { Draft, EditableRow } from '../lib/strategy.js';
+import { plural } from '../lib/settings.js';
 import { colorForToken } from '../lib/tokens.js';
 import type { Resource } from '../lib/use_resource.js';
 import { useResource } from '../lib/use_resource.js';
 import { Icon } from '../components/icon.js';
 import { MoneyInput } from './entry/fields.js';
+import { ClassesDialog } from './strategy_classes.js';
 
 /**
  * T-06 · Estratégia — a prancha `09 · Estratégia`.
@@ -120,7 +122,7 @@ const Rules = ({
           <Label>Tolerância</Label>
           <span className="tabular text-base font-semibold">{`± ${tolerance} pp`}</span>
           <p className="text-[0.8125rem] text-ink-2">
-            Acima disso a categoria entra em Requer atenção.
+            Acima disso a classe entra em Requer atenção.
           </p>
         </div>
         <div className="flex flex-col gap-1 border-line p-4 md:border-l">
@@ -144,12 +146,15 @@ const TargetField = ({
   row,
   draft,
   onChange,
+  shown,
 }: {
   readonly row: EditableRow;
   readonly draft: Draft;
   readonly onChange: (id: string, text: string) => void;
+  /** O que o campo mostra enquanto a pessoa não digitou nada nele. */
+  readonly shown?: string | undefined;
 }): React.ReactElement => {
-  const text = valueText(row, draft);
+  const text = row.id in draft || shown === undefined ? valueText(row, draft) : shown;
   const error = fieldError(text);
 
   return (
@@ -270,21 +275,39 @@ const Cells = ({
   </>
 );
 
+/** A categoria dentro de uma classe sem alvo próprio: só composição. */
+const MemberCells = ({ line }: { readonly line: Line }): React.ReactElement => (
+  <>
+    <td className="px-4 text-right">
+      <Percent value={percentAsRatio(line.current_pct)} decimals={1} />
+    </td>
+    <td />
+    <td />
+    <td className="px-4 text-right">
+      <Money value={line.value} />
+    </td>
+    <td />
+    <td />
+  </>
+);
+
 const Distribution = ({
   data,
   rows,
   draft,
   onChange,
   onRestore,
+  onManageClasses,
 }: {
   readonly data: AllocationResource;
   readonly rows: readonly EditableRow[];
   readonly draft: Draft;
   readonly onChange: (id: string, text: string) => void;
   readonly onRestore: () => void;
+  readonly onManageClasses: () => void;
 }): React.ReactElement => {
   const { composition, strategy_defined: defined, rules } = data;
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const scale = useMemo(() => barScale(composition.nodes), [composition.nodes]);
   const state = saveState(rows, draft);
   const editing = Object.keys(draft).length > 0;
@@ -292,53 +315,81 @@ const Distribution = ({
   const tolerance = rules.tolerance_pp;
 
   const toggle = (id: string): void =>
-    setCollapsed((current) => {
+    setOpen((current) => {
       const next = new Set(current);
       if (!next.delete(id)) next.add(id);
       return next;
     });
 
-  const rowFor = (id: string): EditableRow | undefined =>
-    rows.find((row) => row.id === id);
-
-  const categoryRow = (line: Line, indent: boolean): React.ReactElement => {
-    const editable = rowFor(line.id);
+  /** A linha da classe: o alvo é dela, e a barra e o desvio também. */
+  const classRow = (node: Node): React.ReactElement => {
+    const own = rows.find((row) => row.id === node.id);
+    // Estratégia salva por categoria, de antes de o alvo ser da classe: a classe
+    // mostra a soma delas, e digitar nela passa o alvo para a classe.
+    const sum = node.level === 'group' ? groupTotal(rows, draft, node.id) : null;
+    const shown = sum === null ? undefined : inputText(sum);
+    const members = node.children.filter((child) => child.id !== node.id);
+    const expandable = node.level === 'group' && members.length > 0;
+    const expanded = open.has(node.id);
 
     return (
-      <tr key={line.id} className="h-(--row-height) border-b border-line">
-        <th scope="row" className={`px-4 text-left font-normal ${indent ? 'pl-10' : ''}`}>
+      <tr key={node.id} className="h-(--row-height) border-b border-line bg-panel-2">
+        <th scope="row" className="px-4 text-left font-semibold">
           <span className="flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="size-2 shrink-0 rounded-xs"
-              style={{ backgroundColor: colorForToken(line.color_token) }}
-            />
-            <span className={indent ? '' : 'font-semibold'}>{line.name}</span>
+            {expandable ? (
+              <button
+                type="button"
+                aria-expanded={expanded}
+                aria-label={`${expanded ? 'Recolher' : 'Expandir'} ${node.name}`}
+                className="flex cursor-pointer items-center gap-2"
+                onClick={() => toggle(node.id)}
+              >
+                <span aria-hidden="true" className="w-3 text-ink-3">
+                  <Icon name={expanded ? 'chevron-down' : 'chevron-right'} />
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="size-2 shrink-0 rounded-xs"
+                  style={{ backgroundColor: colorForToken(node.color_token) }}
+                />
+                {node.name}
+              </button>
+            ) : (
+              <span className="flex items-center gap-2 pl-5">
+                <span
+                  aria-hidden="true"
+                  className="size-2 shrink-0 rounded-xs"
+                  style={{ backgroundColor: colorForToken(node.color_token) }}
+                />
+                {node.name}
+              </span>
+            )}
+            {expandable ? (
+              <span className="text-[0.75rem] font-normal whitespace-nowrap text-ink-3">
+                {plural(members.length, 'categoria', 'categorias')}
+              </span>
+            ) : null}
           </span>
         </th>
         <td className="px-4 text-right">
-          {editable === undefined ? (
-            <span className="text-ink-3" title="Sem categoria não recebe alvo">
-              —
-            </span>
+          {own === undefined ? (
+            <span className="text-ink-3">—</span>
           ) : (
-            <TargetField row={editable} draft={draft} onChange={onChange} />
+            <TargetField row={own} draft={draft} onChange={onChange} shown={shown} />
           )}
         </td>
-        <Cells line={line} defined={defined} scale={scale} tolerance={tolerance} />
+        <Cells line={node} defined={defined} scale={scale} tolerance={tolerance} />
       </tr>
     );
   };
 
   return (
     <Panel
-      title="Distribuição por categoria"
-      hint={`Alvo em dois níveis: grupo e categoria. O grupo é a soma das categorias. Tolerância ± ${inputText(fromPercent(tolerance))} pp.`}
+      title="Distribuição por classe"
+      hint={`Dê um alvo a cada classe. As categorias dentro dela contam para o alvo. Tolerância ± ${inputText(fromPercent(tolerance))} pp.`}
       action={
         <span className="flex items-center gap-2">
-          <Button disabled title="Criar e reorganizar categorias chega com Configurações">
-            Categorias
-          </Button>
+          <Button onClick={onManageClasses}>Classes</Button>
           <Button disabled={!editing} onClick={onRestore}>
             Restaurar
           </Button>
@@ -347,11 +398,11 @@ const Distribution = ({
     >
       <div className="overflow-x-auto">
         <table className="w-full min-w-250 border-collapse text-[0.8125rem]">
-          <caption className="sr-only">Distribuição por categoria contra o alvo</caption>
+          <caption className="sr-only">Distribuição por classe contra o alvo</caption>
           <thead>
             <tr className="border-b border-line bg-panel-2 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
               <th scope="col" className="px-4 py-2 text-left font-medium">
-                Categoria
+                Classe
               </th>
               <th scope="col" className="px-4 py-2 text-right font-medium">
                 Alvo
@@ -377,45 +428,34 @@ const Distribution = ({
             </tr>
           </thead>
           <tbody>
-            {composition.nodes.flatMap((node) => {
-              if (node.level !== 'group') return [categoryRow(node, false)];
-
-              const sum = groupTotal(rows, draft, node.id);
-              const open = !collapsed.has(node.id);
-
-              return [
-                <tr
-                  key={node.id}
-                  className="h-(--row-height) border-b border-line bg-panel-2"
-                >
-                  <th scope="row" className="px-4 text-left font-semibold">
-                    <button
-                      type="button"
-                      aria-expanded={open}
-                      aria-label={`${open ? 'Recolher' : 'Expandir'} ${node.name}`}
-                      className="flex cursor-pointer items-center gap-2"
-                      onClick={() => toggle(node.id)}
-                    >
-                      <span aria-hidden="true" className="w-3 text-ink-3">
-                        <Icon name={open ? 'chevron-down' : 'chevron-right'} />
-                      </span>
-                      {node.name}
-                    </button>
-                  </th>
-                  <td className="tabular px-4 text-right font-semibold">
-                    {defined || editing ? (sum === null ? '—' : targetLabel(sum)) : '—'}
-                  </td>
-                  <Cells
-                    line={node}
-                    defined={defined}
-                    scale={scale}
-                    tolerance={tolerance}
-                    bar={false}
-                  />
-                </tr>,
-                ...(open ? node.children.map((child) => categoryRow(child, true)) : []),
-              ];
-            })}
+            {composition.nodes.flatMap((node) => [
+              classRow(node),
+              ...(node.level === 'group' && open.has(node.id)
+                ? node.children
+                    .filter((child) => child.id !== node.id)
+                    .map((child) => (
+                      <tr
+                        key={child.id}
+                        className="h-(--row-height) border-b border-line"
+                      >
+                        <th scope="row" className="px-4 pl-12 text-left font-normal">
+                          <span className="flex items-center gap-2">
+                            <span
+                              aria-hidden="true"
+                              className="size-2 shrink-0 rounded-xs"
+                              style={{
+                                backgroundColor: colorForToken(child.color_token),
+                              }}
+                            />
+                            {child.name}
+                          </span>
+                        </th>
+                        <td />
+                        <MemberCells line={child} />
+                      </tr>
+                    ))
+                : []),
+            ])}
           </tbody>
           <tfoot>
             <tr className="h-(--row-height) font-semibold">
@@ -603,11 +643,11 @@ const PlanDialog = ({
       {plan === null ? null : (
         <div className="mt-4 flex flex-col gap-3">
           <table className="w-full border-collapse text-[0.8125rem]">
-            <caption className="sr-only">Plano de aporte por categoria</caption>
+            <caption className="sr-only">Plano de aporte por classe</caption>
             <thead>
               <tr className="border-y border-line bg-panel-2 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
                 <th scope="col" className="px-3 py-2 text-left font-medium">
-                  Categoria
+                  Classe
                 </th>
                 <th scope="col" className="px-3 py-2 text-right font-medium">
                   Aportar
@@ -710,6 +750,7 @@ export const StrategyView = ({
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [planning, setPlanning] = useState(false);
+  const [managing, setManaging] = useState(false);
 
   const data = state.kind === 'ready' ? state.value : null;
   const rows = useMemo(
@@ -822,6 +863,7 @@ export const StrategyView = ({
               setFailure(null);
               setDraft(EMPTY_DRAFT);
             }}
+            onManageClasses={() => setManaging(true)}
           />
         </KeepPrevious>
       )}
@@ -837,6 +879,16 @@ export const StrategyView = ({
           setDraft(EMPTY_DRAFT);
         }}
       />
+
+      {managing ? (
+        <ClassesDialog
+          onClose={() => setManaging(false)}
+          onChanged={() => {
+            setDraft(EMPTY_DRAFT);
+            reload();
+          }}
+        />
+      ) : null}
 
       {planning ? (
         <PlanDialog

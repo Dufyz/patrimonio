@@ -221,7 +221,13 @@ export type {
   LedgerRow,
   PortfolioHolding,
 } from './interfaces/ledger.repository.js';
-export type { CategoryRepository } from './interfaces/category.repository.js';
+export type {
+  CategoryDraft,
+  CategoryRepository,
+  CategoryTargetRow,
+  CategoryUsage,
+  CategoryWrite,
+} from './interfaces/category.repository.js';
 export type { InstitutionRepository } from './interfaces/institution.repository.js';
 export type {
   InstrumentCatalogRepository,
@@ -450,8 +456,16 @@ export type {
   CreateFixedIncomeInput,
   FixedIncomeKind,
 } from './usecases/asset/createFixedIncomeAsset.usecase.js';
-export { listCategories } from './usecases/category/category.usecases.js';
-export type { CategoryDeps } from './usecases/category/category.usecases.js';
+export {
+  createCategory,
+  deleteCategory,
+  listCategories,
+  updateCategory,
+} from './usecases/category/category.usecases.js';
+export type {
+  CategoryDeps,
+  CategoryWriteDeps,
+} from './usecases/category/category.usecases.js';
 export { listInstitutions } from './usecases/institution/institution.usecases.js';
 export type { InstitutionDeps } from './usecases/institution/institution.usecases.js';
 

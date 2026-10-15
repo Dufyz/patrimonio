@@ -172,6 +172,8 @@ export type LotsValuation = {
   readonly lots: readonly ValuedLot[];
   readonly principal: string;
   readonly gross_value: string;
+  /** Rendimento acumulado de todos os lotes: valor bruto menos o principal. */
+  readonly accrued_interest: string;
   readonly tax_due: string;
   readonly net_value: string;
 };
@@ -232,6 +234,7 @@ export const valueLots = (input: {
     lots: valued,
     principal: money(principal),
     gross_value: money(gross),
+    accrued_interest: money(gross.minus(principal)),
     tax_due: money(tax),
     net_value: money(gross.minus(tax)),
   };

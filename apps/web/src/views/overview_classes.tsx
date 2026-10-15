@@ -2,7 +2,10 @@ import type { OverviewResource, PerformanceResource } from '@patrimonio/contract
 
 type PerformanceClassRow = PerformanceResource['breakdown']['classes'][number];
 
+import { useState } from 'react';
+
 import { CompositionBar } from '../components/bars.js';
+import { Icon } from '../components/icon.js';
 import { Money, Percent, Points } from '../components/number.js';
 import { percentAsRatio, trimDecimals } from '../lib/overview.js';
 import { windowLabel } from '../lib/performance.js';
@@ -26,22 +29,41 @@ type ClassLine = {
   readonly deviation: string | null;
   readonly hasTarget: boolean;
   readonly overTolerance: boolean;
+  /** As categorias dentro da classe; vazio quando a classe é uma categoria solta. */
+  readonly members: readonly ClassLine[];
 };
 
-/** Grupo é só um agrupamento: a classe, com alvo e retorno próprios, é a categoria. */
-const flatten = (nodes: OverviewResource['composition']['nodes']): readonly ClassLine[] =>
-  nodes.flatMap((node) =>
-    (node.level === 'group' && node.children.length > 0 ? node.children : [node]).map(
-      (line) => ({
-        id: line.id,
-        name: line.name,
-        colorToken: line.color_token,
-        value: line.value,
-        currentPct: line.current_pct,
-        deviation: line.deviation_pp,
-        hasTarget: line.target_pct !== null,
-        overTolerance: line.over_tolerance,
-      }),
+const toLine = (
+  line: OverviewResource['composition']['nodes'][number],
+  members: readonly ClassLine[],
+): ClassLine => ({
+  id: line.id,
+  name: line.name,
+  colorToken: line.color_token,
+  value: line.value,
+  currentPct: line.current_pct,
+  deviation: line.deviation_pp,
+  hasTarget: line.target_pct !== null,
+  overTolerance: line.over_tolerance,
+  members,
+});
+
+/**
+ * A classe é o grupo: uma linha por classe, com a categoria dentro como detalhe.
+ * Categoria solta, sem grupo, é a própria classe. A "Outros" de um grupo (ativo
+ * classificado direto nele) tem o id do grupo e já está no valor da classe.
+ */
+const classLines = (
+  nodes: OverviewResource['composition']['nodes'],
+): readonly ClassLine[] =>
+  nodes.map((node) =>
+    toLine(
+      node,
+      node.level === 'group'
+        ? node.children
+            .filter((child) => child.id !== node.id)
+            .map((child) => toLine(child, []))
+        : [],
     ),
   );
 
@@ -53,7 +75,8 @@ export const ClassesTable = ({
   /** Ausente enquanto carrega ou quando falha: o retorno vira traço. */
   readonly performance: PerformanceResource | null;
 }): React.ReactElement => {
-  const lines = flatten(overview.composition.nodes);
+  const lines = classLines(overview.composition.nodes);
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   // Todas as carteiras: o alvo é de cada carteira, e a soma delas não tem um.
   // A coluna some em vez de aparecer só com traço. O retorno da classe é Dietz
   // sobre a soma dos fluxos, e esse vale para qualquer escopo.
@@ -134,13 +157,34 @@ export const ClassesTable = ({
             </tr>
           </thead>
           <tbody>
-            {lines.map((line) => {
+            {lines.flatMap((line) => {
               const row = returns.get(line.id);
+              const expanded = open.has(line.id);
+              const members = line.members.filter((member) => member.value !== '0.00');
 
-              return (
+              const classRow = (
                 <tr key={line.id} className="h-(--row-height) border-t border-line">
                   <th scope="row" className="px-4 text-left font-normal">
                     <span className="flex items-center gap-2">
+                      {members.length > 0 ? (
+                        <button
+                          type="button"
+                          aria-expanded={expanded}
+                          aria-label={`${expanded ? 'Recolher' : 'Expandir'} ${line.name}`}
+                          className="flex w-3 cursor-pointer items-center text-ink-3"
+                          onClick={() =>
+                            setOpen((current) => {
+                              const next = new Set(current);
+                              if (!next.delete(line.id)) next.add(line.id);
+                              return next;
+                            })
+                          }
+                        >
+                          <Icon name={expanded ? 'chevron-down' : 'chevron-right'} />
+                        </button>
+                      ) : (
+                        <span aria-hidden="true" className="w-3" />
+                      )}
                       <span
                         aria-hidden="true"
                         className="size-2 shrink-0 rounded-xs"
@@ -180,6 +224,28 @@ export const ClassesTable = ({
                   ))}
                 </tr>
               );
+
+              const memberRows = expanded
+                ? members.map((member) => (
+                    <tr
+                      key={member.id}
+                      className="h-(--row-height) border-t border-line text-ink-2"
+                    >
+                      <th scope="row" className="px-4 pl-12 text-left font-normal">
+                        {member.name}
+                      </th>
+                      <td className="px-4 text-right">
+                        <Money value={member.value} />
+                      </td>
+                      <td className="px-4 text-right">
+                        <Percent value={percentAsRatio(member.currentPct)} decimals={1} />
+                      </td>
+                      <td colSpan={RETURN_KEYS.length + (consolidated ? 0 : 1)} />
+                    </tr>
+                  ))
+                : [];
+
+              return [classRow, ...memberRows];
             })}
           </tbody>
         </table>

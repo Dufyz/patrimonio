@@ -79,6 +79,7 @@ const withoutGroupColumns = (row: PositionViewRow): PositionRow => ({
   institution_name: row.institution_name,
   category_id: row.category_id,
   category_name: row.category_name,
+  class_name: row.class_name,
   color_token: row.color_token,
   unit: row.unit,
   quantity: row.quantity,

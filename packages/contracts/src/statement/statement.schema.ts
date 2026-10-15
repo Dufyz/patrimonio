@@ -34,20 +34,29 @@ import {
 /**
  * Os tipos como as pastilhas os agrupam.
  */
-export const STATEMENT_GROUPS = ['buy', 'sell', 'payout', 'event'] as const;
+export const STATEMENT_GROUPS = ['buy', 'sell', 'payout', 'event', 'custody'] as const;
 
 export const statementGroupSchema = z.enum(STATEMENT_GROUPS);
 
 export type StatementGroup = z.infer<typeof statementGroupSchema>;
 
+/**
+ * Os tipos de linha do extrato: os do livro e a troca de custódia, que não
+ * é lançamento (não muda quantidade nem dinheiro), mas é um fato que aparece entre eles.
+ */
+export const STATEMENT_KINDS = [...TRANSACTION_KINDS, 'custody_transfer'] as const;
+
+export type StatementKind = (typeof STATEMENT_KINDS)[number];
+
 /** Quais tipos de lançamento cada grupo reúne. */
 export const STATEMENT_GROUP_KINDS: Readonly<
-  Record<StatementGroup, readonly (typeof TRANSACTION_KINDS)[number][]>
+  Record<StatementGroup, readonly (StatementKind)[]>
 > = {
   buy: ['buy'],
   sell: ['sell'],
   payout: ['payout'],
   event: ['corporate_event'],
+  custody: ['custody_transfer'],
 };
 
 export const getStatementSchema = z.object({
@@ -137,6 +146,11 @@ export const statementEffectSchema = z.discriminatedUnion('type', [
     quantity_before: decimalString,
     quantity_after: decimalString,
   }),
+  z.object({
+    type: z.literal('custody_transfer'),
+    from_institution: z.string().nullable(),
+    to_institution: z.string().nullable(),
+  }),
   /** O lançamento não muda posição nem resultado. */
   z.object({ type: z.literal('none') }),
 ]);
@@ -145,7 +159,7 @@ export type StatementEffect = z.infer<typeof statementEffectSchema>;
 
 export const statementRowSchema = z.object({
   id: uuid,
-  kind: z.enum(TRANSACTION_KINDS),
+  kind: z.enum(STATEMENT_KINDS),
   payout_kind: z.enum(PAYOUT_KINDS).nullable(),
   trade_date: dateOnly,
   settlement_date: dateOnly,

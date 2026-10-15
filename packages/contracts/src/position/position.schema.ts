@@ -51,6 +51,8 @@ export const positionResourceSchema = z.object({
 
   category_id: uuid.nullable(),
   category_name: z.string().nullable(),
+  /** A classe da categoria: o grupo dela, ou ela mesma quando está solta. */
+  class_name: z.string().nullable(),
   /** `class.acoes`, nunca um hexadecimal: a cor sai do tema, não da resposta. */
   color_token: z.string().nullable(),
 

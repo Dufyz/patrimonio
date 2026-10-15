@@ -46,6 +46,8 @@ export const caixinhaResponseSchema = z.object({
   lots: z.array(caixinhaLotSchema),
   principal: decimalString,
   gross_value: decimalString,
+  /** Soma do rendimento dos lotes abertos. */
+  accrued_interest: decimalString,
   tax_due: decimalString,
   net_value: decimalString,
   /** Algum dia útil sem índice publicado: o valor é o melhor disponível. */

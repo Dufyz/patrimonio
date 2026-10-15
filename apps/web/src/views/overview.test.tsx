@@ -496,6 +496,72 @@ describe('por classe', () => {
 
     expect(within(caixa).getAllByText('—')).toHaveLength(4);
   });
+
+  it('uma linha por classe, e as categorias dela abrem por baixo', async () => {
+    const grupo = {
+      ...overview,
+      composition: {
+        ...overview.composition,
+        nodes: [
+          {
+            id: 'grp-rv',
+            name: 'Ações',
+            color_token: 'class.acoes',
+            level: 'group' as const,
+            value: '120000.00',
+            current_pct: '37.60',
+            target_pct: '40.00',
+            deviation_pp: '-2.40',
+            over_tolerance: false,
+            amount_to_move: '7000.00',
+            target_value: '127000.00',
+            children: [
+              {
+                id: 'cat-acoes',
+                name: 'Ações / Units',
+                color_token: 'class.acoes',
+                level: 'category' as const,
+                value: '112000.00',
+                current_pct: '35.10',
+                target_pct: null,
+                deviation_pp: null,
+                over_tolerance: false,
+                amount_to_move: null,
+                target_value: null,
+                children: [],
+              },
+              {
+                id: 'cat-etf',
+                name: 'ETF de ações',
+                color_token: 'class.etf',
+                level: 'category' as const,
+                value: '8000.00',
+                current_pct: '2.50',
+                target_pct: null,
+                deviation_pp: null,
+                over_tolerance: false,
+                amount_to_move: null,
+                target_value: null,
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    show(ready(grupo));
+
+    const tabela = screen.getByRole('table', {
+      name: 'Distribuição e retorno por classe de ativo',
+    });
+    expect(within(tabela).getByRole('row', { name: /Ações/ })).toBeInTheDocument();
+    expect(within(tabela).queryByText('ETF de ações')).not.toBeInTheDocument();
+
+    await userEvent.click(within(tabela).getByRole('button', { name: 'Expandir Ações' }));
+
+    expect(within(tabela).getByText('ETF de ações')).toBeInTheDocument();
+    expect(within(tabela).getByText('Ações / Units')).toBeInTheDocument();
+  });
 });
 
 describe('benchmarks no gráfico de retorno', () => {

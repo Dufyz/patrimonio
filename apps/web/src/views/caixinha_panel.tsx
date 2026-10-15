@@ -229,7 +229,9 @@ const LotsTable = ({
             <td className="px-3 py-2.5 text-right">
               <Money value={view.gross_value} />
             </td>
-            <td />
+            <td className="px-3 py-2.5 text-right">
+              <Money value={view.accrued_interest} />
+            </td>
             <td className="px-3 py-2.5 text-right text-ink-2">
               <Money value={view.tax_due} />
             </td>

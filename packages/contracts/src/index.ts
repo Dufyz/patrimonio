@@ -61,6 +61,15 @@ export { listInstitutionsSchema } from './institution/listInstitutions.schema.js
 export { categoryResourceSchema } from './category/category.schema.js';
 export type { CategoryResource } from './category/category.schema.js';
 export { listCategoriesSchema } from './category/listCategories.schema.js';
+export {
+  createCategorySchema,
+  deleteCategorySchema,
+  updateCategorySchema,
+} from './category/writeCategory.schema.js';
+export type {
+  CreateCategoryBody,
+  UpdateCategoryBody,
+} from './category/writeCategory.schema.js';
 
 export {
   assetOriginSchema,

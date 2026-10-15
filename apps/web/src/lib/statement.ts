@@ -41,6 +41,7 @@ const GROUP_PARAMS: Readonly<Record<StatementGroup, string>> = {
   sell: 'vendas',
   payout: 'proventos',
   event: 'eventos',
+  custody: 'custodia',
 };
 
 export const GROUP_LABELS: Readonly<Record<StatementGroup, string>> = {
@@ -48,6 +49,7 @@ export const GROUP_LABELS: Readonly<Record<StatementGroup, string>> = {
   sell: 'Vendas',
   payout: 'Proventos',
   event: 'Eventos',
+  custody: 'Custódia',
 };
 
 export const groupToParam = (group: StatementGroup): string => GROUP_PARAMS[group];
@@ -115,7 +117,12 @@ export const sinceLabel = (date: DateOnly): string => {
 export const entriesLabel = (count: number): string =>
   `${count} ${count === 1 ? 'lançamento' : 'lançamentos'}`;
 
-export const typeLabel = (row: StatementRow): string => TRANSACTION_KIND_LABELS[row.kind];
+/** A troca de custodiante é fato do livro, mas não um lançamento: não se edita nem se exclui aqui. */
+export const isLedgerEntry = (row: StatementRow): boolean =>
+  row.kind !== 'custody_transfer';
+
+export const typeLabel = (row: StatementRow): string =>
+  row.kind === 'custody_transfer' ? 'Custódia' : TRANSACTION_KIND_LABELS[row.kind];
 
 /** O "rendimento" ao lado de "Provento": o subtipo, em cinza. */
 export const typeDetail = (row: StatementRow): string | null =>
@@ -173,7 +180,7 @@ export const valueCell = (
 
 /** Sem quantidade, preço ou taxa — evento — a célula é traço. */
 export const hasMarketColumns = (row: StatementRow): boolean =>
-  row.kind !== 'corporate_event';
+  row.kind !== 'corporate_event' && row.kind !== 'custody_transfer';
 
 /* -------------------------------------------------------------------------- */
 /* Efeito                                                                     */
@@ -239,6 +246,11 @@ export const effectView = (effect: StatementEffect, hidden = false): EffectView 
         )} → ${ratio(effect.quantity_after)}`,
         tone: 'neutral',
       };
+    case 'custody_transfer':
+      return {
+        text: `${effect.from_institution ?? '—'} → ${effect.to_institution ?? '—'}`,
+        tone: 'neutral',
+      };
     case 'none':
       return { text: '—', tone: 'neutral' };
   }
@@ -253,9 +265,10 @@ export const selectionState = (
   rows: readonly StatementRow[],
   selected: ReadonlySet<string>,
 ): SelectionState => {
-  const count = rows.filter((row) => selected.has(row.id)).length;
+  const selectable = rows.filter(isLedgerEntry);
+  const count = selectable.filter((row) => selected.has(row.id)).length;
   if (count === 0) return 'none';
-  return count === rows.length ? 'all' : 'some';
+  return count === selectable.length ? 'all' : 'some';
 };
 
 export const toggleSelected = (
@@ -275,7 +288,7 @@ export const toggleAll = (
 ): ReadonlySet<string> =>
   selectionState(rows, selected) === 'all'
     ? new Set<string>()
-    : new Set(rows.map((row) => row.id));
+    : new Set(rows.filter(isLedgerEntry).map((row) => row.id));
 
 /** Mantém só o que ainda está na página: página nova não herda seleção velha. */
 export const pruneSelection = (
@@ -294,7 +307,11 @@ export const selectionKinds = (rows: readonly StatementRow[]): string => {
 
   return [...counts.entries()]
     .map(([kind, count]) => {
-      const label = TRANSACTION_KIND_LABELS[kind as StatementRow['kind']].toLowerCase();
+      const label = (
+        kind === 'custody_transfer'
+          ? 'Custódia'
+          : TRANSACTION_KIND_LABELS[kind as keyof typeof TRANSACTION_KIND_LABELS]
+      ).toLowerCase();
       return `${count} ${count === 1 ? label : pluralKind(label)}`;
     })
     .join(' · ');

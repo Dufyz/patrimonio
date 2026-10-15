@@ -322,6 +322,7 @@ export const createAssetController = (deps: AssetDeps): AssetController => ({
       lots: valuation.lots,
       principal: valuation.principal,
       gross_value: valuation.gross_value,
+      accrued_interest: valuation.accrued_interest,
       tax_due: valuation.tax_due,
       net_value: valuation.net_value,
       incomplete,

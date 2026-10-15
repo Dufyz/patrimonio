@@ -94,7 +94,7 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
       const list = sql.array([...real]);
       return sql`(${sql(column)} = ANY(${list}::UUID[]) ${hasNone ? sql`OR ${sql(column)} IS NULL` : sql``})`;
     };
-    const categoryMatch = matches(filter.categoryIds, 'f.category_id', 'sem-categoria');
+    const categoryMatch = matches(filter.categoryIds, 'f.class_id', 'sem-categoria');
     const institutionMatch = matches(
       filter.institutionIds,
       'f.institution_id',
@@ -177,6 +177,10 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
                a.category_id,
                c.name AS category_name,
                c.color_token,
+               -- A classe é o grupo da categoria; categoria solta é a própria classe.
+               COALESCE(cp.id, c.id) AS class_id,
+               COALESCE(cp.name, c.name) AS class_name,
+               COALESCE(cp.color_token, c.color_token) AS class_color_token,
                op.position_date,
                op.computed_at,
                op.price_source_kind,
@@ -214,6 +218,7 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
           JOIN scope s ON s.portfolio_id = op.portfolio_id
           JOIN asset a ON a.id = op.asset_id
           LEFT JOIN category c ON c.id = a.category_id
+          LEFT JOIN category cp ON cp.id = c.parent_id
           LEFT JOIN custodian cu
             ON cu.portfolio_id = op.portfolio_id
            AND cu.asset_id = op.asset_id
@@ -271,6 +276,8 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
       grouped AS (
         SELECT f.*,
                CASE ${filter.groupBy}::TEXT
+                 WHEN 'class'
+                   THEN COALESCE(f.class_id::TEXT, 'sem-categoria')
                  WHEN 'category'
                    THEN COALESCE(f.category_id::TEXT, 'sem-categoria')
                  WHEN 'institution'
@@ -279,14 +286,16 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
                  ELSE 'sem-grupo'
                END AS group_key,
                CASE ${filter.groupBy}::TEXT
+                 WHEN 'class' THEN COALESCE(f.class_name, 'Sem categoria')
                  WHEN 'category' THEN COALESCE(f.category_name, 'Sem categoria')
                  WHEN 'institution'
                    THEN COALESCE(f.institution_name, 'Sem instituição')
                  WHEN 'portfolio' THEN f.portfolio_name
                  ELSE 'Posições'
                END AS group_label,
-               CASE
-                 WHEN ${filter.groupBy}::TEXT = 'category' THEN f.color_token
+               CASE ${filter.groupBy}::TEXT
+                 WHEN 'class' THEN f.class_color_token
+                 WHEN 'category' THEN f.color_token
                END AS group_color_token,
                SUM(f.market_value) OVER () AS scope_value
           FROM filtered f
@@ -313,6 +322,7 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
                  g.institution_name,
                  g.category_id,
                  g.category_name,
+                 g.class_name,
                  g.color_token,
                  g.unit,
                  CASE WHEN g.unit = 'quantity' THEN g.quantity::TEXT END AS quantity,
@@ -382,9 +392,9 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
              GROUP BY GROUPING SETS ((g.group_key), ())
           ),
           facets AS (
-            SELECT COALESCE(s.category_id::TEXT, 'sem-categoria') AS id,
-                   COALESCE(s.category_name, 'Sem categoria') AS label,
-                   s.color_token,
+            SELECT COALESCE(s.class_id::TEXT, 'sem-categoria') AS id,
+                   COALESCE(s.class_name, 'Sem categoria') AS label,
+                   s.class_color_token AS color_token,
                    COUNT(*)::INT AS count,
                    SUM(s.market_value) AS value
               FROM searched s
@@ -538,7 +548,8 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
                  a.ticker,
                  a.name,
                  c.name AS category_name,
-                 c.color_token,
+                 COALESCE(cp.name, c.name) AS class_name,
+                 COALESCE(cp.color_token, c.color_token) AS color_token,
                  b.first_trade_date::TEXT AS first_trade_date,
                  b.closed_on::TEXT AS closed_on,
                  b.invested::TEXT AS invested,
@@ -553,6 +564,7 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
             FROM book b
             JOIN asset a ON a.id = b.asset_id
             LEFT JOIN category c ON c.id = a.category_id
+            LEFT JOIN category cp ON cp.id = c.parent_id
            WHERE b.asset_id NOT IN (SELECT asset_id FROM still_open)
              AND (${search}::TEXT IS NULL
                   OR a.ticker ILIKE ${search}::TEXT OR a.name ILIKE ${search}::TEXT)

@@ -33,6 +33,7 @@ const position = (overrides: Partial<PositionResource> = {}): PositionResource =
   institution_name: 'Corretora A',
   category_id: 'c1',
   category_name: 'Ações',
+  class_name: 'Ações',
   color_token: 'class.acoes',
   unit: 'quantity',
   quantity: '500',
@@ -55,8 +56,9 @@ const position = (overrides: Partial<PositionResource> = {}): PositionResource =
 });
 
 describe('agrupamento', () => {
-  it('as opções do seletor são categoria, instituição e sem grupo', () => {
+  it('as opções do seletor são classe, categoria, instituição e sem grupo', () => {
     expect(groupByOptions(false).map((option) => option.value)).toEqual([
+      'classe',
       'categoria',
       'instituicao',
       'nenhum',
@@ -65,17 +67,19 @@ describe('agrupamento', () => {
 
   it('por carteira só aparece em todas as carteiras', () => {
     expect(groupByOptions(true).map((option) => option.value)).toEqual([
+      'classe',
       'categoria',
       'instituicao',
       'carteira',
       'nenhum',
     ]);
     expect(effectiveGroupBy('carteira', true)).toBe('carteira');
-    expect(effectiveGroupBy('carteira', false)).toBe('categoria');
+    expect(effectiveGroupBy('carteira', false)).toBe('classe');
     expect(toGroupBy('carteira')).toBe('portfolio');
   });
 
   it('a URL é em português e o campo da api é o nome do campo', () => {
+    expect(toGroupBy('classe')).toBe('class');
     expect(toGroupBy('categoria')).toBe('category');
     expect(toGroupBy('instituicao')).toBe('institution');
     expect(toGroupBy('nenhum')).toBe('none');
@@ -284,6 +288,7 @@ describe('encerradas na tabela', () => {
         ticker,
         name: ticker,
         category_name: category,
+        class_name: category,
         color_token: null,
         first_trade_date: '2020-01-01',
         closed_on: '2021-01-01',

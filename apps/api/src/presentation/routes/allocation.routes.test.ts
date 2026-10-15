@@ -102,7 +102,9 @@ const estrategiaDaPrancha = async (): Promise<void> => {
 };
 
 const estrategia = async (query = ''): Promise<request.Response> =>
-  request(harness.app).get(`/api/allocation?portfolio_id=${longo}&on_date=${DIA}${query}`);
+  request(harness.app).get(
+    `/api/allocation?portfolio_id=${longo}&on_date=${DIA}${query}`,
+  );
 
 type Node = {
   id: string;
@@ -219,9 +221,16 @@ describe('GET /api/allocation · a estratégia lida', () => {
     expect(variavel.children.map((child) => child.name)).toEqual(['Ações', 'FIIs']);
 
     const fixa = achar(nodes, 'Renda fixa');
-    expect(fixa).toMatchObject({ value: '400.00', target_pct: '37.00', deviation_pp: '3.00' });
+    expect(fixa).toMatchObject({
+      value: '400.00',
+      target_pct: '37.00',
+      deviation_pp: '3.00',
+    });
 
-    const somaDosAlvos = nodes.reduce((total, node) => total + Number(node.target_pct ?? 0), 0);
+    const somaDosAlvos = nodes.reduce(
+      (total, node) => total + Number(node.target_pct ?? 0),
+      0,
+    );
     expect(somaDosAlvos).toBe(100);
   });
 
@@ -235,7 +244,10 @@ describe('GET /api/allocation · a estratégia lida', () => {
     expect(achar(nodes, 'Ações').over_tolerance).toBe(false);
     expect(achar(nodes, 'Prefixada').over_tolerance).toBe(false);
     // Inflação: 25,00 contra 25 — no alvo.
-    expect(achar(nodes, 'Inflação')).toMatchObject({ deviation_pp: '0.00', over_tolerance: false });
+    expect(achar(nodes, 'Inflação')).toMatchObject({
+      deviation_pp: '0.00',
+      over_tolerance: false,
+    });
     // Caixa: 10,00 contra 3, 7 pp acima.
     expect(achar(nodes, 'Caixa').over_tolerance).toBe(true);
   });
@@ -281,7 +293,10 @@ describe('GET /api/allocation · a estratégia lida', () => {
 
     expect(response.body.strategy_defined).toBe(false);
     expect(response.body.rules.reviewed_on).toBeNull();
-    expect(response.body.composition.target_sum).toMatchObject({ total_pct: '0.00', closes: true });
+    expect(response.body.composition.target_sum).toMatchObject({
+      total_pct: '0.00',
+      closes: true,
+    });
 
     for (const nome of ['Ações', 'FIIs', 'Caixa', 'Renda variável']) {
       expect(achar(nodes, nome)).toMatchObject({
@@ -303,7 +318,11 @@ describe('GET /api/allocation · a estratégia lida', () => {
 
     const nodes = (await estrategia()).body.composition.nodes as Node[];
 
-    expect(nodes.map((node) => node.name)).toEqual(['Renda variável', 'Renda fixa', 'Caixa']);
+    expect(nodes.map((node) => node.name)).toEqual([
+      'Renda variável',
+      'Renda fixa',
+      'Caixa',
+    ]);
     expect(nodes[0]?.children.map((child) => child.name)).toEqual(['Ações', 'FIIs']);
     expect(nodes[1]?.children.map((child) => child.name)).toEqual([
       'Inflação',
@@ -425,7 +444,9 @@ describe('GET /api/allocation · o aporte', () => {
     await estrategiaDaPrancha();
 
     const { contribution } = (await estrategia('&contribution=400.00')).body;
-    const acoesParte = contribution.shares.find((share: { name: string }) => share.name === 'Ações');
+    const acoesParte = contribution.shares.find(
+      (share: { name: string }) => share.name === 'Ações',
+    );
 
     expect(acoesParte).toMatchObject({ category_id: acoes, color_token: 'class.acoes' });
   });
@@ -484,7 +505,9 @@ describe('GET /api/allocation · o que a rota recusa', () => {
   });
 
   it('carteira arquivada é 404', async () => {
-    await request(harness.app).post(`/api/portfolios/${longo}/archive`).send({ archived: true });
+    await request(harness.app)
+      .post(`/api/portfolios/${longo}/archive`)
+      .send({ archived: true });
 
     const response = await estrategia();
 
@@ -502,5 +525,65 @@ describe('GET /api/allocation · o que a rota recusa', () => {
       const response = await estrategia(`&contribution=${valor}`);
       expect(response.status).toBe(400);
     }
+  });
+});
+
+describe('o alvo no grupo', () => {
+  const estrategiaPorGrupo = async () =>
+    request(harness.app)
+      .put(`/api/portfolios/${longo}/strategy`)
+      .send({
+        targets: [
+          { category_id: renda_variavel, target_pct: '60' },
+          { category_id: renda_fixa, target_pct: '30' },
+          { category_id: caixa, target_pct: '10' },
+        ],
+      });
+
+  it('o alvo do grupo vale para tudo dentro dele, e as categorias ficam sem alvo próprio', async () => {
+    await carteiraDaPrancha();
+    expect((await estrategiaPorGrupo()).status).toBe(200);
+
+    const { composition } = (await estrategia()).body;
+    const nodes = composition.nodes as Node[];
+    const grupo = nodes.find((node) => node.name === 'Renda variável');
+
+    expect(grupo).toMatchObject({
+      level: 'group',
+      value: '500.00',
+      current_pct: '50.00',
+      target_pct: '60.00',
+      deviation_pp: '-10.00',
+      amount_to_move: '100.00',
+    });
+    expect(grupo?.children.map((child) => child.target_pct)).toEqual([null, null]);
+    expect(composition.target_sum).toMatchObject({ total_pct: '100.00', closes: true });
+  });
+
+  it('o aporte trata o grupo como uma linha só', async () => {
+    await carteiraDaPrancha();
+    await estrategiaPorGrupo();
+
+    const { contribution } = (await estrategia('&contribution=100')).body;
+
+    expect(contribution.shares[0]).toMatchObject({
+      category_id: renda_variavel,
+      name: 'Renda variável',
+    });
+  });
+
+  it('o alvo do grupo e o de uma categoria dentro dele, juntos, é recusado', async () => {
+    const response = await request(harness.app)
+      .put(`/api/portfolios/${longo}/strategy`)
+      .send({
+        targets: [
+          { category_id: renda_variavel, target_pct: '60' },
+          { category_id: acoes, target_pct: '20' },
+          { category_id: caixa, target_pct: '20' },
+        ],
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/já cobre as categorias/);
   });
 });

@@ -222,7 +222,7 @@ export const PositionsScreen = ({
     if (resource === null) return [];
 
     // Instituição não é conhecida nas encerradas: com esse filtro ativo elas
-    // saem, e com filtro de categoria ficam só as das categorias escolhidas.
+    // saem, e com filtro de classe ficam só as das classes escolhidas.
     const wanted = new Set(
       resource.facets
         .filter((facet) => categoryIds.includes(facet.id))
@@ -233,8 +233,7 @@ export const PositionsScreen = ({
         ? []
         : closed.filter(
             (item) =>
-              categoryIds.length === 0 ||
-              wanted.has(item.category_name ?? 'Sem categoria'),
+              categoryIds.length === 0 || wanted.has(item.class_name ?? 'Sem categoria'),
           );
 
     return withClosedRows(
@@ -338,7 +337,7 @@ export const PositionsScreen = ({
               {resource === null ? null : (
                 <>
                   <FilterDropdown
-                    label="Categoria"
+                    label="Classe"
                     selected={categoryIds}
                     options={resource.facets.map((facet) => ({
                       id: facet.id,
@@ -517,8 +516,12 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
         </span>
         <span className="block truncate text-[0.75rem] text-ink-3">
           {row.closed === true
-            ? 'Posição encerrada'
-            : (row.institution_name ?? 'Sem instituição')}
+            ? [row.category_name, 'Posição encerrada']
+                .filter((part): part is string => part !== null)
+                .join(' · ')
+            : [row.category_name, row.institution_name ?? 'Sem instituição']
+                .filter((part): part is string => part !== null)
+                .join(' · ')}
         </span>
       </span>
     ),

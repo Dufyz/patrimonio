@@ -166,7 +166,13 @@ export const assetClassFor = (
  * ações?") e por instituição ("quanto está na corretora que vou encerrar?").
  * Por carteira só faz sentido no escopo de todas elas.
  */
-export const POSITION_GROUP_BY = ['category', 'institution', 'portfolio', 'none'] as const;
+export const POSITION_GROUP_BY = [
+  'class',
+  'category',
+  'institution',
+  'portfolio',
+  'none',
+] as const;
 
 export type PositionGroupBy = (typeof POSITION_GROUP_BY)[number];
 

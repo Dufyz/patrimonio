@@ -249,7 +249,7 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
         -- que ela tem até ele.
         class_values AS (
           SELECT pt.label,
-                 COALESCE(c.id::TEXT, ${SEM_CATEGORIA}) AS category_id,
+                 COALESCE(cl.id::TEXT, ${SEM_CATEGORIA}) AS category_id,
                  SUM(pos.market_value)::TEXT AS value
             FROM points pt
            CROSS JOIN scope s
@@ -264,13 +264,15 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
              AND pos.position_date = last.position_date
             JOIN asset a ON a.id = pos.asset_id
             LEFT JOIN category c ON c.id = a.category_id
-           GROUP BY pt.label, c.id
+            -- A classe é o grupo da categoria; categoria solta é a própria classe.
+            LEFT JOIN category cl ON cl.id = COALESCE(c.parent_id, c.id)
+           GROUP BY pt.label, cl.id
         ),
         -- O que entrou na classe e o que ela pagou, por dia. Compra e venda
         -- movem a classe com o sinal contrário ao do líquido; a amortização devolve
         -- principal e sai como fluxo, não como rendimento.
         flows AS (
-          SELECT COALESCE(c.id::TEXT, ${SEM_CATEGORIA}) AS category_id,
+          SELECT COALESCE(cl.id::TEXT, ${SEM_CATEGORIA}) AS category_id,
                  t.trade_date,
                  SUM(
                    CASE t.kind
@@ -291,11 +293,12 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
             FROM transaction t
             JOIN asset a ON a.id = t.asset_id
             LEFT JOIN category c ON c.id = a.category_id
+            LEFT JOIN category cl ON cl.id = COALESCE(c.parent_id, c.id)
            WHERE t.portfolio_id IN (SELECT id FROM scope)
              AND t.trade_date > ${query.flows_from}::DATE
              AND t.trade_date <= ${query.reference}::DATE
              AND (t.kind <> 'payout' OR t.confirmed_at IS NOT NULL)
-           GROUP BY c.id, t.trade_date
+           GROUP BY cl.id, t.trade_date
         ),
         used AS (
           SELECT category_id FROM class_values
@@ -303,13 +306,14 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
           SELECT category_id FROM flows
         ),
         categories AS (
-          SELECT COALESCE(c.id::TEXT, ${SEM_CATEGORIA}) AS category_id,
-                 COALESCE(c.name, 'Sem categoria') AS name,
-                 COALESCE(c.color_token, 'class.outros') AS color_token
+          SELECT COALESCE(cl.id::TEXT, ${SEM_CATEGORIA}) AS category_id,
+                 COALESCE(cl.name, 'Sem categoria') AS name,
+                 COALESCE(cl.color_token, 'class.outros') AS color_token
             FROM asset a
             LEFT JOIN category c ON c.id = a.category_id
-           GROUP BY c.id, c.name, c.color_token
-          HAVING COALESCE(c.id::TEXT, ${SEM_CATEGORIA}) IN (SELECT category_id FROM used)
+            LEFT JOIN category cl ON cl.id = COALESCE(c.parent_id, c.id)
+           GROUP BY cl.id, cl.name, cl.color_token
+          HAVING COALESCE(cl.id::TEXT, ${SEM_CATEGORIA}) IN (SELECT category_id FROM used)
         ),
         -- A cota de cada carteira em cada ponto, para o retorno de cada uma.
         -- Só Todas as carteiras pede: com uma carteira, ela é o próprio escopo.

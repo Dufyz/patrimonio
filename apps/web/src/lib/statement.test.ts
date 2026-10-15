@@ -7,6 +7,8 @@ import {
   entriesLabel,
   groupFromParam,
   groupToParam,
+  hasMarketColumns,
+  isLedgerEntry,
   monthItems,
   monthName,
   monthTitle,
@@ -21,6 +23,7 @@ import {
   toggleAll,
   toggleSelected,
   typeDetail,
+  typeLabel,
   valueCell,
 } from './statement.js';
 
@@ -219,5 +222,33 @@ describe('CSV', () => {
   it('texto que parece fórmula vira texto e aspas são escapadas', () => {
     const csv = statementCsv([row({ ticker: null, asset_name: '=1+1 "x"' })]);
     expect(csv).toContain(`"'=1+1 ""x"""`);
+  });
+});
+
+describe('transferência de custódia', () => {
+  const troca = row({
+    id: 'c1',
+    kind: 'custody_transfer',
+    effect: {
+      type: 'custody_transfer',
+      from_institution: 'Itaú',
+      to_institution: 'Nubank',
+    },
+  });
+
+  it('é rotulada como custódia e o efeito diz de onde e para onde', () => {
+    expect(typeLabel(troca)).toBe('Custódia');
+    expect(effectView(troca.effect).text).toBe('Itaú → Nubank');
+    expect(groupToParam('custody')).toBe('custodia');
+    expect(groupFromParam('custodia')).toBe('custody');
+  });
+
+  it('não é lançamento: sem colunas de mercado e fora da seleção em lote', () => {
+    expect(isLedgerEntry(troca)).toBe(false);
+    expect(hasMarketColumns(troca)).toBe(false);
+
+    const compra = row({ id: 'b1' });
+    expect([...toggleAll([compra, troca], new Set())]).toEqual(['b1']);
+    expect(selectionState([compra, troca], new Set(['b1']))).toBe('all');
   });
 });

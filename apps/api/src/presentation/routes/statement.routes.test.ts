@@ -187,6 +187,7 @@ describe('o recorte', () => {
       'sell',
       'payout',
       'event',
+      'custody',
     ]);
     expect(body.institutions.map((item) => item.name)).toEqual(['Corretora A']);
   });
@@ -253,5 +254,37 @@ describe('o recorte', () => {
     const docs = await request(harness.app).get('/api/docs.json');
 
     expect(docs.body.paths['/api/statement']?.get?.tags).toContain('Lançamentos');
+  });
+});
+
+describe('a transferência de custódia no extrato', () => {
+  it('aparece entre os lançamentos, com de onde e para onde, e não mexe nos totais', async () => {
+    const compraWege = await lancar(compra('WEGE3', '2026-08-10', '100', '40.00'));
+    const destino = await seedInstitution(harness.sql, 'Corretora B');
+
+    const feita = await request(harness.app)
+      .post(`/api/portfolios/${carteira}/assets/${compraWege.asset_id}/custody-transfers`)
+      .send({ to_institution_id: destino, transfer_date: '2026-09-01' });
+    expect(feita.status, JSON.stringify(feita.body)).toBe(201);
+
+    const body = await extrato('from=2026-08-01&to=2026-12-31');
+
+    const troca = body.rows.find((row) => row.kind === 'custody_transfer');
+    expect(troca?.ticker).toBe('WEGE3');
+    expect(troca?.trade_date).toBe('2026-09-01');
+    expect(troca?.institution_name).toBe('Corretora B');
+    expect(troca?.effect).toEqual({
+      type: 'custody_transfer',
+      from_institution: 'Corretora A',
+      to_institution: 'Corretora B',
+    });
+    // Ordem de data: a troca vem antes da compra de agosto.
+    expect(body.rows.map((row) => row.kind)).toEqual(['custody_transfer', 'buy']);
+    // Não é dinheiro: o resumo só tem a compra.
+    expect(body.summary.buys).toBe('4000.00');
+    expect(body.facets.find((facet) => facet.group === 'custody')?.count).toBe(1);
+
+    const soTroca = await extrato('group=custodia'.replace('custodia', 'custody'));
+    expect(soTroca.rows.map((row) => row.kind)).toEqual(['custody_transfer']);
   });
 });

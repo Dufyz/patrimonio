@@ -398,7 +398,7 @@ export const AssetScreen = ({
             onKind={(value) => update({ tipo: value })}
             onChanged={() => setReloads((count) => count + 1)}
           />
-          <PayoutsPanel resource={resource} />
+          {hasRegisteredPayouts(resource) ? <PayoutsPanel resource={resource} /> : null}
           <CustodyHistory
             portfolioId={portfolioId}
             assetId={resource.asset.asset_id}
@@ -946,6 +946,13 @@ const formatPrice = (value: string): string => {
  * propósito — a pergunta de quem já tem o papel é quanto ele rende sobre o que
  * foi pago por ele, não sobre o que ele vale agora.
  */
+/** O bloco só existe para o papel que já pagou, ou vai pagar, algum provento. */
+const hasRegisteredPayouts = (resource: AssetPageResource): boolean =>
+  compareDecimal(resource.lifetime.payouts_received, '0') !== 0 ||
+  compareDecimal(resource.payouts.total_12m, '0') !== 0 ||
+  resource.payouts.upcoming.length > 0 ||
+  usedPayoutSlices(resource.payouts.months).length > 0;
+
 const PayoutsPanel = ({
   resource,
 }: {

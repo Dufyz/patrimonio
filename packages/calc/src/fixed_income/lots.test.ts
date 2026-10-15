@@ -165,6 +165,10 @@ describe('valor e IR por lote', () => {
       '200.00',
     ]);
     expect(valuation.gross_value).toBe('1760.00');
+    expect(Number(valuation.accrued_interest)).toBeCloseTo(
+      Number(valuation.gross_value) - Number(valuation.principal),
+      2,
+    );
     expect(valuation.principal).toBe('1700.00');
   });
 

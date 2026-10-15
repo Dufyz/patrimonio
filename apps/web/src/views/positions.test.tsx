@@ -33,6 +33,7 @@ const position = (overrides: Partial<PositionResource> = {}): PositionResource =
   institution_name: 'Corretora A',
   category_id: 'cccc1111-1111-4111-8111-111111111111',
   category_name: 'Ações',
+  class_name: 'Ações',
   color_token: 'class.acoes',
   unit: 'quantity',
   quantity: '500',
@@ -125,6 +126,7 @@ const cdb: PositionGroup = {
       institution_name: 'Banco C',
       category_id: 'cccc3333-3333-4333-8333-333333333333',
       category_name: 'RF prefixada',
+      class_name: 'RF prefixada',
       color_token: 'class.rf-pre',
       unit: 'curve',
       quantity: null,
@@ -420,8 +422,8 @@ describe('tela de Posições', () => {
     show();
 
     await screen.findByText('ITUB4');
-    await user.click(screen.getByRole('button', { name: /^Categoria/ }));
-    const list = screen.getByRole('group', { name: 'Categoria' });
+    await user.click(screen.getByRole('button', { name: /^Classe/ }));
+    const list = screen.getByRole('group', { name: 'Classe' });
     await user.click(within(list).getByRole('checkbox', { name: /Ações/ }));
 
     await waitFor(() =>
@@ -438,8 +440,8 @@ describe('tela de Posições', () => {
     show();
 
     await screen.findByText('ITUB4');
-    await user.click(screen.getByRole('button', { name: /^Categoria/ }));
-    const list = screen.getByRole('group', { name: 'Categoria' });
+    await user.click(screen.getByRole('button', { name: /^Classe/ }));
+    const list = screen.getByRole('group', { name: 'Classe' });
     const boxes = within(list).getAllByRole('checkbox');
     await user.click(boxes[0] as HTMLElement);
     await user.click(boxes[1] as HTMLElement);

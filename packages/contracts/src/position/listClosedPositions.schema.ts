@@ -23,6 +23,8 @@ export const closedPositionSchema = z.object({
   ticker: z.string(),
   name: z.string(),
   category_name: z.string().nullable(),
+  /** A classe da categoria: o grupo dela, ou ela mesma quando está solta. */
+  class_name: z.string().nullable(),
   color_token: z.string().nullable(),
   first_trade_date: dateOnly,
   closed_on: dateOnly,

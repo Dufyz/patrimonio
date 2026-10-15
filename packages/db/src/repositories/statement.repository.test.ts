@@ -48,7 +48,7 @@ type Filter = Parameters<ReturnType<typeof createStatementRepository>['page']>[0
 const filter = (overrides: Partial<Filter> = {}): Filter => ({
   portfolioId: CARTEIRA,
   institutionIds: [] as readonly string[],
-  groups: [] as readonly ('buy' | 'sell' | 'payout' | 'event')[],
+  groups: [] as readonly ('buy' | 'sell' | 'payout' | 'event' | 'custody')[],
   search: null,
   from: '2026-09-01',
   to: '2026-10-31',
@@ -183,6 +183,7 @@ describe('resumo, pastilhas e subtotais', () => {
       sell: 1,
       payout: 4,
       event: 0,
+      custody: 0,
     });
     expect(view.facets_total).toBe(8);
   });

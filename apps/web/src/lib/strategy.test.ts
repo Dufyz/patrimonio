@@ -107,10 +107,12 @@ describe('texto digitado → centésimos', () => {
 });
 
 describe('as linhas editáveis', () => {
-  it('são as categorias — dos grupos e da raiz —, nunca o grupo', () => {
+  it('são o grupo, as categorias dentro dele e as da raiz', () => {
     expect(rows.map((row) => row.id)).toEqual([
+      'rv',
       'acoes',
       'fiis',
+      'rf',
       'inflacao',
       'prefixada',
       'posfixada',
@@ -122,6 +124,45 @@ describe('as linhas editáveis', () => {
       colorToken: 'class.acoes',
     });
     expect(rows.find((row) => row.id === 'caixa')?.groupId).toBeNull();
+  });
+
+  it('o grupo só tem alvo próprio quando nenhuma categoria dele tem o seu', () => {
+    // Na prancha o alvo está nas categorias: o do grupo é a soma, e não é dele.
+    expect(rows.find((row) => row.id === 'rv')).toMatchObject({
+      kind: 'group',
+      saved: 0,
+    });
+
+    const porGrupo = editableRows([
+      line('rv', 'Renda variável', '50.00', '60.00', {
+        level: 'group',
+        children: [
+          line('acoes', 'Ações', '30.00', null) as never,
+          line('fiis', 'FIIs', '20.00', null) as never,
+        ],
+      }),
+      line('caixa', 'Caixa', '50.00', '40.00'),
+    ]);
+
+    expect(porGrupo.find((row) => row.id === 'rv')).toMatchObject({ saved: 6000 });
+    expect(porGrupo.find((row) => row.id === 'acoes')).toMatchObject({ saved: 0 });
+  });
+
+  it('a linha "Outros" do grupo, que tem o id dele, não vira um campo à parte', () => {
+    const comOutros = editableRows([
+      line('rv', 'Renda variável', '50.00', null, {
+        level: 'group',
+        children: [
+          line('rv', 'Outros', '10.00', null) as never,
+          line('acoes', 'Ações', '40.00', null) as never,
+        ],
+      }),
+    ]);
+
+    expect(comOutros.map((row) => `${row.kind}:${row.id}`)).toEqual([
+      'group:rv',
+      'category:acoes',
+    ]);
   });
 
   it('ativo sem categoria não recebe alvo', () => {
@@ -336,5 +377,39 @@ describe('zero', () => {
       expect(isZeroDecimal(zero), zero).toBe(true);
     for (const other of ['0.01', '-1.00', '10', '', null])
       expect(isZeroDecimal(other), String(other)).toBe(false);
+  });
+});
+
+describe('alvo no grupo', () => {
+  it('dar alvo ao grupo zera o das categorias dele, e a soma fecha com o grupo', () => {
+    const draft = withEdit(rows, EMPTY_DRAFT, 'rv', '60');
+
+    expect(draft).toMatchObject({ acoes: '0', fiis: '0' });
+    expect(saveState(rows, draft)).toMatchObject({ total: 10_000 });
+    expect(groupTotal(rows, draft, 'rv')).toBe(6000);
+    expect(buildBody(rows, draft).targets.map((target) => target.category_id)).toEqual([
+      'rv',
+      'inflacao',
+      'prefixada',
+      'caixa',
+    ]);
+  });
+
+  it('dar alvo a uma categoria tira o do grupo', () => {
+    const porGrupo = withEdit(rows, EMPTY_DRAFT, 'rv', '60');
+    const draft = withEdit(rows, porGrupo, 'acoes', '30');
+
+    // O grupo volta ao que estava salvo (sem alvo próprio), e a soma é a das categorias.
+    expect(draft['rv']).toBeUndefined();
+    expect(groupTotal(rows, draft, 'rv')).toBe(3000);
+  });
+
+  it('o corpo nunca leva o grupo e uma categoria dele juntos', () => {
+    const body = buildBody(rows, withEdit(rows, EMPTY_DRAFT, 'rv', '60'));
+    const ids = body.targets.map((target) => target.category_id);
+
+    expect(ids).toContain('rv');
+    expect(ids).not.toContain('acoes');
+    expect(ids).not.toContain('fiis');
   });
 });

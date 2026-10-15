@@ -31,6 +31,11 @@ export type StatementEffectView =
       readonly quantity_before: string;
       readonly quantity_after: string;
     }
+  | {
+      readonly type: 'custody_transfer';
+      readonly from_institution: string | null;
+      readonly to_institution: string | null;
+    }
   | { readonly type: 'none' };
 
 const NONE: StatementEffectView = { type: 'none' };
@@ -66,6 +71,13 @@ export const statementEffect = (
 
     case 'payout':
       return payoutEffect(row);
+
+    case 'custody_transfer':
+      return {
+        type: 'custody_transfer',
+        from_institution: row.from_institution_name ?? null,
+        to_institution: row.institution_name,
+      };
 
     case 'corporate_event':
       if (

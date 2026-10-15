@@ -87,27 +87,49 @@ export type EditableRow = {
   readonly name: string;
   readonly colorToken: string;
   readonly saved: Hundredths;
+  /** `group` é o alvo do grupo inteiro; `category`, o de uma categoria só. */
+  readonly kind: 'group' | 'category';
   /** O grupo em que a categoria está, ou nulo na raiz. */
   readonly groupId: string | null;
 };
 
 /**
- * Quem recebe alvo: toda categoria — as de dentro dos grupos e as soltas na
- * raiz, como Caixa. O grupo não: ele é a soma das categorias, e um alvo próprio
- * seria um número que pode divergir das partes.
+ * Quem recebe alvo: o grupo, que vale para tudo dentro dele, e cada categoria
+ * dentro dele ou solta na raiz, como Caixa. Num grupo, vale um dos dois: o alvo
+ * do grupo (as categorias ficam só como composição) ou o de cada categoria, e o
+ * grupo passa a ser a soma delas.
+ *
+ * A linha "Outros" do grupo (ativo classificado direto no grupo) tem o id do
+ * próprio grupo e não recebe alvo à parte: o do grupo já a cobre.
  */
 export const editableRows = (nodes: readonly Node[]): readonly EditableRow[] =>
   nodes.flatMap((node): readonly EditableRow[] => {
     if (node.level === 'group') {
-      return node.children
-        .filter((child) => child.id !== NO_CATEGORY_ID)
-        .map((child) => ({
-          id: child.id,
-          name: child.name,
-          colorToken: child.color_token,
-          saved: fromPercent(child.target_pct),
-          groupId: node.id,
-        }));
+      // O alvo é do grupo quando ele tem alvo e nenhuma categoria tem o seu.
+      const ownTarget =
+        node.target_pct !== null &&
+        node.children.every((child) => child.target_pct === null);
+
+      return [
+        {
+          id: node.id,
+          name: node.name,
+          colorToken: node.color_token,
+          saved: ownTarget ? fromPercent(node.target_pct) : 0,
+          kind: 'group',
+          groupId: null,
+        },
+        ...node.children
+          .filter((child) => child.id !== NO_CATEGORY_ID && child.id !== node.id)
+          .map((child): EditableRow => ({
+            id: child.id,
+            name: child.name,
+            colorToken: child.color_token,
+            saved: fromPercent(child.target_pct),
+            kind: 'category',
+            groupId: node.id,
+          })),
+      ];
     }
 
     if (node.id === NO_CATEGORY_ID) return [];
@@ -118,6 +140,7 @@ export const editableRows = (nodes: readonly Node[]): readonly EditableRow[] =>
         name: node.name,
         colorToken: node.color_token,
         saved: fromPercent(node.target_pct),
+        kind: 'category',
         groupId: null,
       },
     ];
@@ -138,7 +161,53 @@ const parsed = (row: EditableRow, draft: Draft): Hundredths | null =>
 export const fieldError = (text: string): string | null =>
   toHundredths(text) === null ? 'Use um número de 0 a 100, com até duas casas' : null;
 
-/** Digitar o valor que já estava salvo desfaz a alteração em vez de contá-la. */
+/**
+ * Num grupo vale o alvo dele ou o das categorias, nunca os dois: com alvo no grupo,
+ * as categorias dentro dele não contam.
+ */
+export const effectiveRows = (
+  rows: readonly EditableRow[],
+  draft: Draft,
+): readonly EditableRow[] => {
+  const covered = new Set(
+    rows
+      .filter((row) => row.kind === 'group' && (parsed(row, draft) ?? 0) > 0)
+      .map((row) => row.id),
+  );
+
+  return rows.filter((row) =>
+    row.kind === 'group' ? covered.has(row.id) : !covered.has(row.groupId ?? ''),
+  );
+};
+
+/**
+ * Como o grupo está sendo alvo: `group` quando ele tem alvo próprio, `categories`
+ * quando o alvo está nas categorias dentro dele, `free` quando nenhum tem.
+ */
+export const groupMode = (
+  rows: readonly EditableRow[],
+  draft: Draft,
+  groupId: string,
+): 'group' | 'categories' | 'free' => {
+  const own = rows.find((row) => row.kind === 'group' && row.id === groupId);
+  if (own !== undefined && (parsed(own, draft) ?? 0) > 0) return 'group';
+
+  const inside = rows.some(
+    (row) =>
+      row.kind === 'category' && row.groupId === groupId && (parsed(row, draft) ?? 0) > 0,
+  );
+
+  return inside ? 'categories' : 'free';
+};
+
+const withoutKeys = (draft: Draft, ids: ReadonlySet<string>): Draft =>
+  Object.fromEntries(Object.entries(draft).filter(([key]) => !ids.has(key)));
+
+/**
+ * Digitar o valor que já estava salvo desfaz a alteração em vez de contá-la. E o
+ * último campo mexido vence: dar alvo ao grupo zera o das categorias dele, e dar
+ * alvo a uma categoria tira o do grupo.
+ */
 export const withEdit = (
   rows: readonly EditableRow[],
   draft: Draft,
@@ -148,11 +217,28 @@ export const withEdit = (
   const row = rows.find((candidate) => candidate.id === id);
   if (row === undefined) return draft;
 
-  if (toHundredths(text) === row.saved) {
-    return Object.fromEntries(Object.entries(draft).filter(([key]) => key !== id));
+  const value = toHundredths(text);
+  let next: Draft = draft;
+
+  if (value !== null && value > 0) {
+    const others = rows.filter((candidate) =>
+      row.kind === 'group' ? candidate.groupId === row.id : candidate.id === row.groupId,
+    );
+
+    // O que fica de fora do novo alvo vai a zero, ou volta ao salvo se já era zero.
+    for (const other of others) {
+      next =
+        other.saved === 0
+          ? withoutKeys(next, new Set([other.id]))
+          : { ...next, [other.id]: '0' };
+    }
   }
 
-  return { ...draft, [id]: text };
+  // Campo apagado fica no rascunho: tirá-lo faria o campo voltar ao que mostrava
+  // antes, e quem apaga para digitar um número novo veria o antigo reaparecer.
+  if (value === row.saved && text.trim() !== '') return withoutKeys(next, new Set([id]));
+
+  return { ...next, [id]: text };
 };
 
 /* -------------------------------------------------------------------------- */
@@ -196,7 +282,10 @@ export const saveState = (rows: readonly EditableRow[], draft: Draft): SaveState
     };
   }
 
-  const total = rows.reduce((sum, row) => sum + (parsed(row, draft) ?? 0), 0);
+  const total = effectiveRows(rows, draft).reduce(
+    (sum, row) => sum + (parsed(row, draft) ?? 0),
+    0,
+  );
 
   // Zero em tudo é "sem estratégia definida", que o banco aceita. Qualquer outra
   // soma que não feche 100% é recusada antes de ir, com o que falta dito.
@@ -230,15 +319,26 @@ export const saveState = (rows: readonly EditableRow[], draft: Draft): SaveState
   };
 };
 
-/** O subtotal de um grupo com o que está digitado: o grupo é a soma das categorias. */
+/**
+ * O alvo de um grupo com o que está digitado: o dele, se o grupo tem alvo próprio,
+ * e senão a soma das categorias dentro dele.
+ */
 export const groupTotal = (
   rows: readonly EditableRow[],
   draft: Draft,
   groupId: string,
 ): Hundredths | null => {
+  const own = rows.find((row) => row.kind === 'group' && row.id === groupId);
+  if (own !== undefined) {
+    const value = parsed(own, draft);
+    if (value === null || value > 0) return value;
+  }
+
   let total = 0;
 
-  for (const row of rows.filter((candidate) => candidate.groupId === groupId)) {
+  for (const row of rows.filter(
+    (candidate) => candidate.kind === 'category' && candidate.groupId === groupId,
+  )) {
     const value = parsed(row, draft);
     if (value === null) return null;
     total += value;
@@ -255,7 +355,7 @@ export const buildBody = (
   rows: readonly EditableRow[],
   draft: Draft,
 ): PutStrategyBody => ({
-  targets: rows.flatMap((row) => {
+  targets: effectiveRows(rows, draft).flatMap((row) => {
     const value = parsed(row, draft) ?? 0;
     return value === 0
       ? []

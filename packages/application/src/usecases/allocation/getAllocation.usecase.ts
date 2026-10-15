@@ -172,6 +172,18 @@ export const getAllocation = (deps: GetAllocationDeps) =>
     const strategyDefined = snapshot.targets.length > 0;
 
     /**
+     * O alvo de um grupo vale para tudo dentro dele — Ações cobre Ações / Units e
+     * ETF de ações —, e as categorias do grupo ficam sem alvo próprio: são só a
+     * composição. Sem alvo no grupo, cada categoria tem o seu.
+     */
+    const groupIds = new Set(
+      snapshot.categories.flatMap((row) => (row.group_id === null ? [] : [row.group_id])),
+    );
+    const targetedGroups = new Set(
+      [...groupIds].filter((groupId) => declared.has(groupId) && strategyDefined),
+    );
+
+    /**
      * Quem tem alvo: toda categoria do cadastro, com a linha declarada ou zero.
      * Ativo sem categoria fica de fora — não há categoria onde declarar alvo —,
      * e só entra no total.
@@ -179,12 +191,23 @@ export const getAllocation = (deps: GetAllocationDeps) =>
     const targetOf = (row: AllocationCategoryRow): string | null =>
       !strategyDefined || row.category_id === NO_CATEGORY
         ? null
-        : (declared.get(row.category_id) ?? '0.00');
+        : row.group_id !== null && targetedGroups.has(row.group_id)
+          ? null
+          : (declared.get(row.category_id) ?? '0.00');
 
-    const targets = snapshot.categories.flatMap((row) => {
-      const target = targetOf(row);
-      return target === null ? [] : [{ category_id: row.category_id, target_pct: target }];
-    });
+    const targets = [
+      ...snapshot.categories.flatMap((row) => {
+        const target = targetOf(row);
+        return target === null
+          ? []
+          : [{ category_id: row.category_id, target_pct: target }];
+      }),
+      ...[...targetedGroups].map((groupId) => ({
+        category_id: groupId,
+        target_pct: declared.get(groupId) ?? '0.00',
+        scope: 'group' as const,
+      })),
+    ];
 
     const composition = composeAllocation(snapshot.categories.map(toLine), targets, {
       tolerance_pp: TOLERANCE_PP,
@@ -194,25 +217,51 @@ export const getAllocation = (deps: GetAllocationDeps) =>
       snapshot.categories.map((row) => [row.category_id, row] as const),
     );
 
+    // O aporte enxerga o grupo com alvo como uma linha só, pelo valor dele inteiro.
+    const contributionLines = [
+      ...snapshot.categories
+        .filter((row) => row.group_id === null || !targetedGroups.has(row.group_id))
+        .map((row) => ({
+          category_id: row.category_id,
+          value: row.value,
+          target_pct: targetOf(row),
+        })),
+      ...[...targetedGroups].map((groupId) => ({
+        category_id: groupId,
+        value: composition.nodes.find((node) => node.id === groupId)?.value ?? '0.00',
+        target_pct: declared.get(groupId) ?? '0.00',
+      })),
+    ];
+
+    const presentationOf = (
+      categoryId: string,
+    ): { readonly name: string; readonly color_token: string } => {
+      if (targetedGroups.has(categoryId)) {
+        const members = snapshot.categories.filter((row) => row.group_id === categoryId);
+        return {
+          name: members[0]?.group_name ?? categoryId,
+          color_token: members[0]?.color_token ?? FALLBACK_TOKEN,
+        };
+      }
+
+      const row = colors.get(categoryId);
+      return {
+        name: row?.category_name ?? categoryId,
+        color_token: row?.color_token ?? FALLBACK_TOKEN,
+      };
+    };
+
     const contribution: AllocationContribution | null =
       input.contribution === undefined
         ? null
         : (() => {
-            const plan = planContribution(
-              snapshot.categories.map((row) => ({
-                category_id: row.category_id,
-                value: row.value,
-                target_pct: targetOf(row),
-              })),
-              input.contribution,
-            );
+            const plan = planContribution(contributionLines, input.contribution);
 
             return {
               ...plan,
               shares: plan.shares.map((share) => ({
                 category_id: share.category_id,
-                name: colors.get(share.category_id)?.category_name ?? share.category_id,
-                color_token: colors.get(share.category_id)?.color_token ?? FALLBACK_TOKEN,
+                ...presentationOf(share.category_id),
                 amount: share.amount,
                 deviation_after_pp: share.deviation_after_pp,
               })),

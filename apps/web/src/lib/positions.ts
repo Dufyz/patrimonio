@@ -30,6 +30,7 @@ import { decimalComma, quoted, safeText } from './statement.js';
  * nome do campo; a tradução é esta tabela, e ela é a única.
  */
 export const GROUP_BY_PARAM = {
+  classe: 'class',
   categoria: 'category',
   instituicao: 'institution',
   carteira: 'portfolio',
@@ -40,7 +41,7 @@ export type GroupByParam = keyof typeof GROUP_BY_PARAM;
 
 export const GROUP_BY_PARAMS = Object.keys(GROUP_BY_PARAM) as readonly GroupByParam[];
 
-export const DEFAULT_GROUP_BY: GroupByParam = 'categoria';
+export const DEFAULT_GROUP_BY: GroupByParam = 'classe';
 
 export const toGroupBy = (param: GroupByParam): PositionGroupBy => GROUP_BY_PARAM[param];
 
@@ -55,6 +56,7 @@ export type GroupByOption = {
  * opção que não faz nada é pior que uma opção a menos.
  */
 export const groupByOptions = (allPortfolios: boolean): readonly GroupByOption[] => [
+  { value: 'classe', label: 'Classe' },
   { value: 'categoria', label: 'Categoria' },
   { value: 'instituicao', label: 'Instituição' },
   ...(allPortfolios ? ([{ value: 'carteira', label: 'Carteira' }] as const) : []),
@@ -226,6 +228,7 @@ export const closedAsRow = (
   institution_name: null,
   category_id: null,
   category_name: closed.category_name,
+  class_name: closed.class_name,
   color_token: closed.color_token,
   unit: 'quantity',
   quantity: null,
@@ -289,8 +292,9 @@ export const withClosedRows = (
   };
 
   for (const row of closed) {
-    if (groupBy === 'category') {
-      const label = row.category_name ?? NO_CATEGORY_LABEL;
+    if (groupBy === 'class' || groupBy === 'category') {
+      const label =
+        (groupBy === 'class' ? row.class_name : row.category_name) ?? NO_CATEGORY_LABEL;
       const match = next.find((group) => group.label === label);
       place(row, match?.key ?? `encerradas:${label}`, label);
     } else if (groupBy === 'none' && next.length === 1) {

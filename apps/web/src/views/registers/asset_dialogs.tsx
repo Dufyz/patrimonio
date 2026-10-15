@@ -124,9 +124,29 @@ export const AssetDialog = ({
 
   const options = useMemo(() => {
     const parents = new Set(categories.map((item) => item.parent_id));
+    const byId = new Map(categories.map((item) => [item.id, item]));
+
+    // Só categoria recebe ativo, não grupo; o nome leva o grupo para a lista dizer
+    // onde "ETF de ações" fica na estratégia.
     return categories
       .filter((item) => !parents.has(item.id))
-      .map((item) => ({ id: item.id, name: item.name }));
+      .map((item) => {
+        const group = item.parent_id === null ? null : byId.get(item.parent_id);
+        return {
+          id: item.id,
+          name:
+            group === null || group === undefined
+              ? item.name
+              : `${group.name} › ${item.name}`,
+          order: [group?.sort_order ?? item.sort_order, item.sort_order],
+        };
+      })
+      .sort(
+        (left, right) =>
+          (left.order[0] ?? 0) - (right.order[0] ?? 0) ||
+          (left.order[1] ?? 0) - (right.order[1] ?? 0),
+      )
+      .map(({ id, name }) => ({ id, name }));
   }, [categories]);
 
   const tickerError = ticker.trim() === '' ? 'Informe o código.' : undefined;

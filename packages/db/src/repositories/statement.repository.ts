@@ -43,9 +43,10 @@ const GROUP_KINDS: Readonly<Record<string, readonly string[]>> = {
   sell: ['sell'],
   payout: ['payout'],
   event: ['corporate_event'],
+  custody: ['custody_transfer'],
 };
 
-const FACET_ORDER = ['buy', 'sell', 'payout', 'event'] as const;
+const FACET_ORDER = ['buy', 'sell', 'payout', 'event', 'custody'] as const;
 
 /** `%` e `_` digitados pela pessoa são texto, não curinga. */
 const likePattern = (term: string): string =>
@@ -77,17 +78,70 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
            WHERE p.archived_at IS NULL
              AND (${filter.portfolioId}::UUID IS NULL OR p.id = ${filter.portfolioId}::UUID)
         ),
+        -- Lançamentos e transferências de custódia, na mesma lista: a troca de
+        -- custodiante não mexe em quantidade nem em dinheiro, mas é um fato do
+        -- livro e quem corrige o passado precisa vê-lo entre os outros.
         scoped AS (
-          SELECT t.*,
+          SELECT t.id,
+                 t.kind::TEXT AS kind,
+                 t.payout_kind::TEXT AS payout_kind,
+                 t.trade_date,
+                 t.settlement_date,
+                 t.portfolio_id,
                  s.name AS portfolio_name,
+                 t.institution_id,
                  i.name AS institution_name,
+                 NULL::TEXT AS from_institution_name,
+                 t.asset_id,
                  a.ticker,
                  a.name AS asset_name,
-                 a.b3_type
+                 a.b3_type::TEXT AS b3_type,
+                 t.quantity,
+                 t.unit_price,
+                 t.fees,
+                 t.gross_amount,
+                 t.tax_withheld,
+                 t.net_amount,
+                 t.expected_net_amount,
+                 t.confirmed_at,
+                 t.event_ratio_from,
+                 t.event_ratio_to
             FROM transaction t
             JOIN scope s ON s.id = t.portfolio_id
             JOIN institution i ON i.id = t.institution_id
             LEFT JOIN asset a ON a.id = t.asset_id
+
+          UNION ALL
+
+          SELECT c.id,
+                 'custody_transfer',
+                 NULL::TEXT,
+                 c.transfer_date,
+                 c.transfer_date,
+                 c.portfolio_id,
+                 s.name,
+                 c.to_institution_id,
+                 ti.name,
+                 fi.name,
+                 c.asset_id,
+                 a.ticker,
+                 a.name,
+                 a.b3_type::TEXT,
+                 0::NUMERIC,
+                 0::NUMERIC,
+                 0::NUMERIC,
+                 0::NUMERIC,
+                 0::NUMERIC,
+                 0::NUMERIC,
+                 NULL::NUMERIC,
+                 c.created_at,
+                 NULL::NUMERIC,
+                 NULL::NUMERIC
+            FROM custody_transfer c
+            JOIN scope s ON s.id = c.portfolio_id
+            JOIN institution ti ON ti.id = c.to_institution_id
+            JOIN institution fi ON fi.id = c.from_institution_id
+            LEFT JOIN asset a ON a.id = c.asset_id
         ),
         matching AS (
           SELECT *
@@ -155,6 +209,7 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
                          WHEN 'buy' THEN 'buy'
                          WHEN 'sell' THEN 'sell'
                          WHEN 'payout' THEN 'payout'
+                         WHEN 'custody_transfer' THEN 'custody'
                          ELSE 'event'
                        END AS grp,
                        COUNT(*) AS total
@@ -204,6 +259,7 @@ export const createStatementRepository = (sql: Connection): StatementRepository 
                        'portfolio_name', p.portfolio_name,
                        'institution_id', p.institution_id,
                        'institution_name', p.institution_name,
+                       'from_institution_name', p.from_institution_name,
                        'asset_id', p.asset_id,
                        'ticker', p.ticker,
                        'asset_name', p.asset_name,

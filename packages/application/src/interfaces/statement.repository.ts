@@ -18,7 +18,7 @@ import type { AppError } from '../errors/app-error.js';
  */
 
 /** Os tipos como as pastilhas os agrupam. A fonte da verdade é o contrato. */
-export type StatementGroupKey = 'buy' | 'sell' | 'payout' | 'event';
+export type StatementGroupKey = 'buy' | 'sell' | 'payout' | 'event' | 'custody';
 
 export type StatementFilter = {
   /** Nulo significa todas as carteiras ativas. */
@@ -41,7 +41,8 @@ export type StatementFilter = {
  */
 export type StatementLedgerRow = {
   readonly id: string;
-  readonly kind: TransactionKind;
+  /** `custody_transfer` é a troca de custodiante, que não é um lançamento do livro. */
+  readonly kind: TransactionKind | 'custody_transfer';
   readonly payout_kind: PayoutKind | null;
   readonly trade_date: DateOnly;
   readonly settlement_date: DateOnly;
@@ -49,6 +50,8 @@ export type StatementLedgerRow = {
   readonly portfolio_name: string;
   readonly institution_id: string;
   readonly institution_name: string | null;
+  /** Só na transferência de custódia: de onde o papel saiu. */
+  readonly from_institution_name?: string | null;
   readonly asset_id: string | null;
   readonly ticker: string | null;
   readonly asset_name: string | null;

@@ -14,7 +14,7 @@ export const listPositionsSchema = z.object({
   query: z.object({
     /** Ausente significa todas as carteiras ativas. */
     portfolio_id: uuid.optional(),
-    group_by: positionGroupBySchema.default('category'),
+    group_by: positionGroupBySchema.default('class'),
     /** Casa com código e com nome do ativo, sem distinguir maiúscula. */
     search: z.string().trim().max(120).optional(),
     /**

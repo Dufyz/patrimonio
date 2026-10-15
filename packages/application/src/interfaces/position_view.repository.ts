@@ -53,6 +53,7 @@ export type PositionViewRow = {
   readonly institution_name: string | null;
   readonly category_id: string | null;
   readonly category_name: string | null;
+  readonly class_name: string | null;
   readonly color_token: string | null;
   readonly unit: PositionUnit;
   readonly quantity: string | null;
@@ -129,6 +130,7 @@ export type ClosedPositionRow = {
   readonly ticker: string;
   readonly name: string;
   readonly category_name: string | null;
+  readonly class_name: string | null;
   readonly color_token: string | null;
   readonly first_trade_date: DateOnly;
   readonly closed_on: DateOnly;
