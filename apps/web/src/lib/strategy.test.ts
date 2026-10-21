@@ -320,10 +320,11 @@ describe('o corpo do PUT', () => {
 
 describe('geometria das barras', () => {
   it('o fundo é o maior valor, arredondado para cima de dez em dez', () => {
-    expect(barScale(nodes)).toBe(40);
-    expect(barScale([line('a', 'A', '8.00', '9.00')])).toBe(10);
-    expect(barScale([line('a', 'A', '40.00', '41.00')])).toBe(50);
-    expect(barScale([])).toBe(10);
+    expect(barScale(nodes)).toBe(60);
+    expect(barScale([line('a', 'A', '8.00', '9.00')])).toBe(60);
+    expect(barScale([line('a', 'A', '40.00', '41.00')])).toBe(60);
+    expect(barScale([line('a', 'A', '70.00', '71.00')])).toBe(80);
+    expect(barScale([])).toBe(60);
   });
 
   it('o alvo maior que o atual também define o fundo', () => {

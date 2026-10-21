@@ -1,7 +1,7 @@
 import type { AssetResource } from '@patrimonio/contracts';
 
-import { Label, Segmented } from '../../components/primitives.js';
-import { Field, Input } from '../entry/fields.js';
+import { Segmented } from '../../components/primitives.js';
+import { Field, Input, FieldLabel } from '../entry/fields.js';
 
 /**
  * As condições que só a caixinha tem, compartilhadas pelo cadastro e pela edição.
@@ -127,91 +127,116 @@ export const CaixinhaFields = ({
   const set = (changes: Partial<CaixinhaForm>): void => onChange({ ...form, ...changes });
 
   return (
-    <div className="flex flex-col gap-4 rounded-panel border border-line bg-panel-2 p-4">
-      <div className="flex flex-col gap-1.5">
-        <Label>Vencimento</Label>
-        <Segmented
-          label="Vencimento"
-          options={EXPIRIES}
-          value={form.expiry}
-          onChange={(expiry) => set({ expiry })}
-        />
-        <p className="text-xs text-ink-3">
-          {form.expiry === 'asset'
-            ? 'Todos os lotes vencem junto com a caixinha, e o aporte só vale até lá.'
-            : form.expiry === 'lot'
-              ? 'A caixinha segue aberta; cada aporte vence no prazo abaixo, ajustável na hora de aportar.'
-              : 'Nem a caixinha nem os lotes têm vencimento.'}
-        </p>
-      </div>
-
-      {form.expiry === 'asset' ? (
-        <Field
-          label="Vencimento da caixinha"
-          error={attempted ? errors.maturity : undefined}
+    <div className="flex flex-col gap-1.5">
+      <FieldLabel>Regras dos lotes</FieldLabel>
+      <div className="flex flex-col divide-y divide-line rounded-panel border border-line-2">
+        <TermRow
+          title="Vencimento"
+          hint={
+            form.expiry === 'asset'
+              ? 'Todos os lotes vencem junto com a caixinha, e o aporte só vale até lá.'
+              : form.expiry === 'lot'
+                ? 'Cada aporte carrega o próprio vencimento, ajustável na hora de aportar.'
+                : 'Nem a caixinha nem os lotes têm vencimento.'
+          }
         >
-          {(control) => (
-            <Input
-              {...control}
-              type="date"
-              invalid={attempted && errors.maturity !== undefined}
-              value={form.maturity}
-              onChange={(event) => set({ maturity: event.target.value })}
-            />
-          )}
-        </Field>
-      ) : null}
+          <Segmented
+            label="Vencimento"
+            options={EXPIRIES}
+            value={form.expiry}
+            onChange={(expiry) => set({ expiry })}
+          />
+        </TermRow>
 
-      {form.expiry === 'lot' ? (
-        <Field
-          label="Prazo de cada lote (meses)"
-          error={attempted ? errors.term : undefined}
-          hint="60 meses = lotes que vencem 5 anos depois do aporte."
+        {form.expiry === 'asset' ? (
+          <div className="px-4 py-3">
+            <Field
+              label="Vencimento da caixinha"
+              error={attempted ? errors.maturity : undefined}
+            >
+              {(control) => (
+                <Input
+                  {...control}
+                  type="date"
+                  invalid={attempted && errors.maturity !== undefined}
+                  value={form.maturity}
+                  onChange={(event) => set({ maturity: event.target.value })}
+                />
+              )}
+            </Field>
+          </div>
+        ) : null}
+
+        {form.expiry === 'lot' ? (
+          <div className="px-4 py-3">
+            <Field
+              label="Prazo de cada lote (meses)"
+              error={attempted ? errors.term : undefined}
+              hint="60 meses = lotes que vencem 5 anos depois do aporte."
+            >
+              {(control) => (
+                <Input
+                  {...control}
+                  numeric
+                  inputMode="numeric"
+                  invalid={attempted && errors.term !== undefined}
+                  value={form.term}
+                  onChange={(event) => set({ term: event.target.value })}
+                />
+              )}
+            </Field>
+          </div>
+        ) : null}
+
+        <TermRow
+          title="Liquidez"
+          hint={
+            form.liquidity === 'daily'
+              ? 'Resgate disponível em qualquer dia útil.'
+              : 'O resgate só alcança lote já vencido.'
+          }
         >
-          {(control) => (
-            <Input
-              {...control}
-              numeric
-              inputMode="numeric"
-              invalid={attempted && errors.term !== undefined}
-              value={form.term}
-              onChange={(event) => set({ term: event.target.value })}
-            />
-          )}
-        </Field>
-      ) : null}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label>Liquidez</Label>
           <Segmented
             label="Liquidez"
             options={LIQUIDITIES}
             value={form.liquidity}
             onChange={(liquidity) => set({ liquidity })}
           />
-          <p className="text-xs text-ink-3">
-            {form.liquidity === 'daily'
-              ? 'O resgate alcança qualquer lote, vencido ou não.'
-              : 'O resgate só alcança lote já vencido.'}
-          </p>
-          {attempted && errors.liquidity !== undefined ? (
-            <p className="text-[0.71875rem] text-negative">{errors.liquidity}</p>
-          ) : null}
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>Resgate consome</Label>
+        </TermRow>
+        {attempted && errors.liquidity !== undefined ? (
+          <p className="px-4 py-2 text-[0.71875rem] text-negative">{errors.liquidity}</p>
+        ) : null}
+
+        <TermRow
+          title="Resgate consome"
+          hint="Define quais lotes são baixados primeiro, o imposto e o saldo restante."
+        >
           <Segmented
             label="Resgate consome"
             options={RULES}
             value={form.rule}
             onChange={(rule) => set({ rule })}
           />
-          <p className="text-xs text-ink-3">
-            Confira no extrato do banco qual lote ele debita.
-          </p>
-        </div>
+        </TermRow>
       </div>
     </div>
   );
 };
+
+const TermRow = ({
+  title,
+  hint,
+  children,
+}: {
+  readonly title: string;
+  readonly hint: string;
+  readonly children: React.ReactNode;
+}): React.ReactElement => (
+  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+    <div className="min-w-0 flex-1 basis-48">
+      <div className="text-[0.8125rem] font-semibold">{title}</div>
+      <div className="text-xs text-ink-3">{hint}</div>
+    </div>
+    <div className="shrink-0">{children}</div>
+  </div>
+);

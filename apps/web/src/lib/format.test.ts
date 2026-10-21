@@ -56,15 +56,15 @@ describe('formatação de número', () => {
   });
 
   it('modo compacto encurta milhar e milhão', () => {
-    expect(formatCompact('318900').text).toBe('R$ 318,9k');
-    expect(formatCompact('1200000').text).toBe('R$ 1,2M');
-    expect(formatCompact('300000').text).toBe('R$ 300k');
-    expect(formatCompact('1500000000').text).toBe('R$ 1,5B');
+    expect(formatCompact('318900').text).toBe('318,9k');
+    expect(formatCompact('1200000').text).toBe('1,2M');
+    expect(formatCompact('300000').text).toBe('300k');
+    expect(formatCompact('1500000000').text).toBe('1,5B');
   });
 
   it('modo compacto não encurta o que já cabe', () => {
-    expect(formatCompact('999').text).toBe('R$ 999');
-    expect(formatCompact('0').text).toBe('R$ 0');
+    expect(formatCompact('999').text).toBe('999');
+    expect(formatCompact('0').text).toBe('0');
   });
 
   it('valor oculto vira marca de largura fixa e o percentual continua visível', () => {

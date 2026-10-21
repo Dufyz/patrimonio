@@ -233,9 +233,10 @@ const Evolution = ({
         },
         {
           id: 'rendimento',
-          label: bands.underwater ? 'Resultado acumulado' : 'Rendimento acumulado',
+          label: bands.underwater ? 'Resultado' : 'Rendimento',
           color: resultColor(bands.underwater),
           values: bands.result,
+          signed: true,
         },
         ...(bands.hasPayouts
           ? [
@@ -244,12 +245,15 @@ const Evolution = ({
                 label: 'Proventos recebidos',
                 color: SEMANTIC_COLORS.payouts,
                 values: bands.payouts,
+                signed: true,
               },
             ]
           : []),
       ]}
       valueFormat="money"
       fromZero
+      endDot
+      inception={overview.scope.inception as DateOnly | null}
       ariaLabel="Evolução do patrimônio, separando aporte, rendimento e proventos"
       xTickLabel={(date) => ticks.get(date) ?? ''}
       tooltipDateLabel={(date) => formatDate(date)}

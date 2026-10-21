@@ -74,6 +74,8 @@ type ValueProps = {
   readonly className?: string;
   /** Força o valor a aparecer mesmo com o modo de valores ocultos ligado. */
   readonly alwaysVisible?: boolean;
+  /** Sem `R$`: preço e preço médio nas tabelas (prancha 13). */
+  readonly bare?: boolean;
 };
 
 /** Valor em reais: `R$ 1.204,10`. Escondido vira `R$ •••••`. */
@@ -83,12 +85,14 @@ export const Money = ({
   tone = 'neutral',
   className,
   alwaysVisible = false,
+  bare = false,
 }: ValueProps): React.ReactElement => {
   const hidden = useValuesHidden() && !alwaysVisible;
   return (
     <NumberCell
       value={formatMoney(value, {
         hidden,
+        ...(bare ? { bare } : {}),
         ...(decimals === undefined ? {} : { decimals }),
       })}
       tone={tone}
@@ -101,9 +105,10 @@ export const Money = ({
 export const MoneyChange = ({
   value,
   decimals,
+  tone = 'signed',
   className,
   alwaysVisible = false,
-}: Omit<ValueProps, 'tone'>): React.ReactElement => {
+}: ValueProps): React.ReactElement => {
   const hidden = useValuesHidden() && !alwaysVisible;
   return (
     <NumberCell
@@ -111,7 +116,7 @@ export const MoneyChange = ({
         hidden,
         ...(decimals === undefined ? {} : { decimals }),
       })}
-      tone="signed"
+      tone={tone}
       {...(className === undefined ? {} : { className })}
     />
   );

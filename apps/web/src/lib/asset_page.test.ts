@@ -8,6 +8,7 @@ import {
   eventRatioLabel,
   fixedIncomeFacts,
   hasQuantityAndPrice,
+  historyCsv,
   isPeriodParam,
   kindOptions,
   liquidityLabel,
@@ -318,5 +319,34 @@ describe('a ressalva de procedência', () => {
     });
 
     expect(priceStamp(semData)).toBeNull();
+  });
+});
+
+describe('historyCsv', () => {
+  const row = {
+    id: '00000000-0000-4000-8000-000000000001',
+    kind: 'buy',
+    payout_kind: null,
+    trade_date: '2026-09-30',
+    settlement_date: '2026-09-30',
+    quantity: '12',
+    unit_price: '182.82',
+    net_amount: '-2193.84',
+    fees: '0',
+    confirmed_at: null,
+    portfolio_id: '00000000-0000-4000-8000-000000000002',
+    portfolio_name: 'Investimentos',
+    institution_name: null,
+  } as const;
+
+  it('usa ponto e vírgula e vírgula decimal, e deixa vazio o que não se aplica', () => {
+    const csv = historyCsv([row, { ...row, kind: 'payout', net_amount: '96.12' }]);
+    const [header, buy, payout] = csv.split('\r\n');
+
+    expect(header).toBe(
+      '"Data";"Tipo";"Carteira";"Instituição";"Quantidade";"Preço";"Valor"',
+    );
+    expect(buy).toBe('30/09/2026;"Compra";"Investimentos";"";12;182,82;-2193,84');
+    expect(payout).toBe('30/09/2026;"Provento";"Investimentos";"";;;96,12');
   });
 });

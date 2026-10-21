@@ -229,7 +229,7 @@ describe('editar e salvar', () => {
     expect(
       within(bar).getByText(/Soma 90% · faltam 10 pp para salvar/),
     ).toBeInTheDocument();
-    expect(within(bar).getByRole('button', { name: /Salvar estratégia/ })).toBeDisabled();
+    expect(within(bar).getByRole('button', { name: /^Salvar/ })).toBeDisabled();
   });
 
   it('trocar 60/40 por 50/50 fecha a soma e libera o salvar', async () => {
@@ -240,7 +240,7 @@ describe('editar e salvar', () => {
 
     const bar = screen.getByRole('region', { name: 'Alterações não salvas' });
     expect(within(bar).getByText('2 alterações não salvas')).toBeInTheDocument();
-    expect(within(bar).getByRole('button', { name: /Salvar estratégia/ })).toBeEnabled();
+    expect(within(bar).getByRole('button', { name: /^Salvar/ })).toBeEnabled();
   });
 
   it('envia só o que tem alvo, com ponto e duas casas', async () => {
@@ -248,7 +248,7 @@ describe('editar e salvar', () => {
 
     await retype('Renda variável', '30,5');
     await retype('Caixa', '69,5');
-    await userEvent.click(screen.getByRole('button', { name: /Salvar estratégia/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Salvar/ }));
 
     await waitFor(() =>
       expect(onSave).toHaveBeenCalledWith({
@@ -267,7 +267,7 @@ describe('editar e salvar', () => {
 
     expect(field('Renda variável')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('Corrija 1 campo para salvar')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Salvar estratégia/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Salvar/ })).toBeDisabled();
   });
 
   it('descartar volta ao salvo e some com a barra', async () => {
@@ -305,7 +305,7 @@ describe('editar e salvar', () => {
 
     await retype('Renda variável', '50');
     await retype('Caixa', '50');
-    await userEvent.click(screen.getByRole('button', { name: /Salvar estratégia/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Salvar/ }));
 
     expect(await screen.findByText('A soma dos alvos é 99,99')).toBeInTheDocument();
     expect(field('Renda variável')).toHaveValue('50');
@@ -338,7 +338,7 @@ describe('planejar aporte', () => {
     const dialog = screen.getByRole('dialog', { name: 'Planejar aporte' });
     await userEvent.type(
       within(dialog).getByRole('textbox', { name: 'Valor do aporte' }),
-      '4.000,00',
+      '4000,00',
     );
     await userEvent.click(within(dialog).getByRole('button', { name: 'Calcular' }));
 

@@ -17,7 +17,9 @@ describe('tela de quem não tem carteira', () => {
     show();
 
     expect(
-      screen.getByRole('heading', { name: 'Comece pela primeira carteira' }),
+      screen.getByRole('heading', {
+        name: 'Seu patrimônio aparece aqui depois do primeiro lançamento',
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Criar primeira carteira/ }),
@@ -29,7 +31,7 @@ describe('tela de quem não tem carteira', () => {
 
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
     expect(screen.getByText('Crie uma carteira')).toBeInTheDocument();
-    expect(screen.getByText('Registre os lançamentos')).toBeInTheDocument();
+    expect(screen.getByText('Defina a estratégia')).toBeInTheDocument();
   });
 
   it('criar a carteira abre o modal de nova carteira', async () => {

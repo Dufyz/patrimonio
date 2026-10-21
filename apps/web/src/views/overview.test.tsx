@@ -355,7 +355,7 @@ describe('quanto eu tenho hoje', () => {
   it('o patrimônio abre a tela, com a data da consolidação ao lado do nome', () => {
     show(ready(overview));
 
-    expect(screen.getByText('R$ 318.904,12')).toBeInTheDocument();
+    expect(screen.getAllByText('R$ 318.904,12')[0]).toBeInTheDocument();
     expect(screen.getByText(/consolidação de 06\/10\/2026/)).toBeInTheDocument();
   });
 
@@ -430,7 +430,7 @@ describe('o que a tela faz quando não há número', () => {
       }),
     );
 
-    expect(screen.getByText('R$ 318.904,12')).toBeInTheDocument();
+    expect(screen.getAllByText('R$ 318.904,12')[0]).toBeInTheDocument();
     expect(screen.getByText(/recalculando/)).toBeInTheDocument();
   });
 });
@@ -494,7 +494,8 @@ describe('por classe', () => {
     });
     const caixa = within(tabela).getByRole('row', { name: /Cripto/ });
 
-    expect(within(caixa).getAllByText('—')).toHaveLength(4);
+    // Sem alvo (vs alvo) e sem base nas quatro janelas de retorno: cinco traços.
+    expect(within(caixa).getAllByText('—')).toHaveLength(5);
   });
 
   it('uma linha por classe, e as categorias dela abrem por baixo', async () => {

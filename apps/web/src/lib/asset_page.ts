@@ -312,3 +312,38 @@ export const hasQuantityAndPrice = (kind: TransactionKind): boolean =>
  */
 export const usesValueChart = (resource: AssetPageResource): boolean =>
   resource.series.points.length === 0 && resource.series.value_points.length >= 2;
+
+/* -------------------------------------------------------------------------- */
+
+type HistoryCsvRow = AssetPageResource['transactions']['recent'][number];
+
+/**
+ * O CSV do histórico: o que está na tabela, com `;` e vírgula decimal, que é
+ * como a planilha em português abre sem pedir nada. Texto livre vai entre
+ * aspas; nenhum número é refeito aqui — as strings da `api` só trocam o ponto.
+ */
+export const historyCsv = (rows: readonly HistoryCsvRow[]): string => {
+  const quoted = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+  const decimal = (value: string): string => value.replace('.', ',');
+  const header = [
+    'Data',
+    'Tipo',
+    'Carteira',
+    'Instituição',
+    'Quantidade',
+    'Preço',
+    'Valor',
+  ];
+  const lines = rows.map((row) =>
+    [
+      formatFullDate(row.trade_date),
+      quoted(TRANSACTION_KIND_LABELS[row.kind]),
+      quoted(row.portfolio_name),
+      quoted(row.institution_name ?? ''),
+      hasQuantityAndPrice(row.kind) ? decimal(row.quantity) : '',
+      hasQuantityAndPrice(row.kind) ? decimal(row.unit_price) : '',
+      decimal(row.net_amount),
+    ].join(';'),
+  );
+  return [header.map(quoted).join(';'), ...lines].join('\r\n');
+};

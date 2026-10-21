@@ -23,6 +23,7 @@ import {
 import type { EntryReference, EntryTab } from '../lib/entry.js';
 import { browserStorage, readRaw, writeRaw } from '../lib/preferences.js';
 import type { PickedAsset } from '../views/entry/asset_picker.js';
+import type { EntryWizard } from '../views/entry/wizard.js';
 import type { AssetSearch } from '../views/entry/asset_picker.js';
 import { EventFormView } from '../views/entry/event_form.js';
 import { ConfirmEntry } from '../views/entry/confirm_form.js';
@@ -32,6 +33,10 @@ import { TradeFormView } from '../views/entry/trade_form.js';
 import type { TradeSeed } from '../views/entry/trade_form.js';
 import { Modal } from './overlay.js';
 import { Button, Segmented } from './primitives.js';
+import { Field, FieldLabel } from '../views/entry/fields.js';
+import { FormShell } from '../views/entry/form_shell.js';
+import { AssetPicker } from '../views/entry/asset_picker.js';
+import { EntrySummary } from '../views/entry/wizard.js';
 import { useShortcuts } from './shortcuts.js';
 
 /**
@@ -52,6 +57,8 @@ export type OpenEntryRequest = {
   readonly portfolioId?: string | null;
   readonly seed?: Pick<TradeSeed, 'quantity' | 'price' | 'fees'>;
 };
+
+export type EntryStep = 'pick' | 'fill';
 
 export type EntryApi = {
   readonly openEntry: (request?: OpenEntryRequest) => void;
@@ -106,6 +113,9 @@ export const EntryProvider = ({
   const [version, setVersion] = useState(0);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [reference, setReference] = useState<Reference>({ status: 'loading' });
+  // O primeiro passo escolhe a operação e o ativo; o segundo preenche. Quem abre
+  // já com o ativo (a página dele, a paleta) começa no segundo.
+  const [step, setStep] = useState<EntryStep>('pick');
 
   // A lista de carteiras e instituições é lida a cada abertura: criar uma
   // carteira em Configurações e lançar nela em seguida não pode exigir recarregar.
@@ -147,8 +157,10 @@ export const EntryProvider = ({
   }, []);
 
   const openEntry = useCallback(
-    (request: OpenEntryRequest = {}) =>
-      open({ kind: 'entry', tab: request.tab ?? 'buy', request }),
+    (request: OpenEntryRequest = {}) => {
+      setStep(request.asset === undefined || request.asset === null ? 'pick' : 'fill');
+      open({ kind: 'entry', tab: request.tab ?? 'buy', request });
+    },
     [open],
   );
   const openEdit = useCallback(
@@ -209,21 +221,24 @@ export const EntryProvider = ({
       ? 'Editar lançamento'
       : dialog?.kind === 'confirm'
         ? 'Confirmar recebimento'
-        : 'Novo lançamento';
+        : 'Cadastrar transação';
 
   return (
     <EntryContext.Provider value={api}>
       {children}
 
       <Modal
-        narrow
+        narrow={
+          dialog?.kind === 'confirm' || (dialog?.kind === 'entry' && step === 'pick')
+        }
+        wide={dialog?.kind === 'edit' || (dialog?.kind === 'entry' && step === 'fill')}
         guard
         title={title}
-        subtitle={
-          dialog?.kind === 'entry'
-            ? 'Abre N de qualquer tela, já com a carteira e o ativo da tela atual'
-            : dialog?.label
-        }
+        {...(dialog?.kind === 'entry'
+          ? { aside: <StepIndicator step={step} /> }
+          : dialog?.label === undefined
+            ? {}
+            : { subtitle: dialog.label })}
         open={dialog !== null}
         onClose={close}
       >
@@ -270,6 +285,8 @@ export const EntryProvider = ({
             // Nova abertura, novo formulário: nada do lançamento anterior sobra.
             key={opened}
             tab={dialog.tab}
+            step={step}
+            onStep={setStep}
             request={dialog.request}
             reference={reference.reference}
             scopePortfolioId={scopePortfolioId}
@@ -300,9 +317,24 @@ export const EntryProvider = ({
   );
 };
 
-/** As abas e o formulário da aba ativa. */
+/** "Passo 1 de 2" e os dois traços, no canto do cabeçalho. */
+const StepIndicator = ({ step }: { readonly step: EntryStep }): React.ReactElement => (
+  <span className="flex items-center gap-3 text-xs text-ink-3">
+    Passo {step === 'pick' ? 1 : 2} de 2
+    <span aria-hidden="true" className="flex gap-1">
+      <span className="h-0.5 w-6 rounded-full bg-ink" />
+      <span
+        className={`h-0.5 w-6 rounded-full ${step === 'fill' ? 'bg-ink' : 'bg-line-2'}`}
+      />
+    </span>
+  </span>
+);
+
+/** O assistente: escolher a operação e o ativo, depois preencher. */
 export const EntryForms = ({
   tab,
+  step,
+  onStep,
   request,
   reference,
   scopePortfolioId,
@@ -312,6 +344,8 @@ export const EntryForms = ({
   onCancel,
 }: {
   readonly tab: EntryTab;
+  readonly step: EntryStep;
+  readonly onStep: (step: EntryStep) => void;
   readonly request: OpenEntryRequest;
   readonly reference: EntryReference;
   readonly scopePortfolioId: string | null;
@@ -326,17 +360,21 @@ export const EntryForms = ({
 }): React.ReactElement => {
   const remembered = useMemo(() => readRaw(browserStorage(), LAST_INSTITUTION_KEY), []);
   const today = useMemo(() => todayDateOnly(), []);
+  const [picked, setPicked] = useState<PickedAsset | null>(request.asset ?? null);
 
   const portfolioId =
     request.portfolioId === undefined
       ? pickPortfolio(reference, scopePortfolioId)
       : request.portfolioId;
   const institutionId = pickInstitution(reference, remembered);
-  const asset = request.asset ?? null;
+  const asset = picked;
   const searchProps = search === undefined ? {} : { search };
+  const trade = tab === 'buy' || tab === 'sell';
+  const tabLabel = ENTRY_TABS.find((item) => item.id === tab)?.label ?? '';
 
-  return (
-    <div className="flex flex-col gap-4">
+  const operation = (
+    <div className="flex flex-col gap-1.5">
+      <FieldLabel>Operação</FieldLabel>
       <div className="max-w-full overflow-x-auto">
         <Segmented
           label="Tipo de lançamento"
@@ -345,11 +383,73 @@ export const EntryForms = ({
             label: item.label,
           }))}
           value={tab}
-          onChange={onTab}
+          onChange={(next) => {
+            onTab(next);
+            // Só compra e venda aceitam um papel que ainda não é ativo.
+            if (picked?.id === null && next !== 'buy' && next !== 'sell') setPicked(null);
+          }}
         />
       </div>
+    </div>
+  );
 
-      {tab === 'buy' || tab === 'sell' ? (
+  if (step === 'pick') {
+    return (
+      <FormShell
+        pending={false}
+        canSave={picked !== null}
+        saveLabel="Próximo"
+        saveShortcut={null}
+        showCancel={false}
+        onSave={() => {
+          if (picked !== null) onStep('fill');
+        }}
+        onCancel={onCancel}
+      >
+        {operation}
+        <Field label="Ativo">
+          {(control) => (
+            <AssetPicker
+              control={control}
+              invalid={false}
+              portfolioId={portfolioId}
+              value={picked}
+              onChange={setPicked}
+              allowNew={trade}
+              autoFocus
+              {...searchProps}
+            />
+          )}
+        </Field>
+      </FormShell>
+    );
+  }
+
+  const wizard: EntryWizard = {
+    summary: (
+      <EntrySummary
+        items={[
+          { term: 'Ativo', value: picked?.label ?? '—' },
+          ...(picked?.name === null || picked?.name === undefined
+            ? []
+            : [{ term: 'Nome', value: picked.name }]),
+          { term: 'Operação', value: tabLabel },
+          ...(picked?.held === null || picked?.held === undefined
+            ? []
+            : [{ term: 'Posição atual', value: picked.held }]),
+        ]}
+      />
+    ),
+    onBack: () => onStep('pick'),
+    onAgain: () => {
+      setPicked(null);
+      onStep('pick');
+    },
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      {trade ? (
         <TradeFormView
           key={tab}
           kind={tab}
@@ -362,6 +462,7 @@ export const EntryForms = ({
             ...request.seed,
           }}
           {...searchProps}
+          wizard={wizard}
           onSaved={onSaved}
           onCancel={onCancel}
         />
@@ -370,6 +471,7 @@ export const EntryForms = ({
           reference={reference}
           seed={{ asset, portfolioId, institutionId, date: today }}
           {...searchProps}
+          wizard={wizard}
           onSaved={onSaved}
           onCancel={onCancel}
         />
@@ -377,6 +479,7 @@ export const EntryForms = ({
         <EventFormView
           seed={{ asset, date: today }}
           {...searchProps}
+          wizard={wizard}
           onSaved={onSaved}
           onCancel={onCancel}
         />

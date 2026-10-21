@@ -67,8 +67,20 @@ describe('moldura da aplicação', () => {
   it('a barra lateral mostra o valor de cada carteira', () => {
     shell();
     const nav = screen.getByRole('navigation');
-    expect(within(nav).getByText('R$ 318,9k')).toBeVisible();
-    expect(within(nav).getByText('R$ 84,8k')).toBeVisible();
+    expect(within(nav).getByText('318,9k')).toBeVisible();
+    expect(within(nav).getByText('84,8k')).toBeVisible();
+  });
+
+  it('o botão de recolher leva a barra ao trilho e a lembra', async () => {
+    const user = userEvent.setup();
+    shell();
+
+    await user.click(screen.getByRole('button', { name: 'Recolher barra lateral' }));
+
+    expect(screen.getByRole('navigation')).toHaveClass('w-[60px]');
+    expect(screen.getByRole('button', { name: 'Expandir barra lateral' })).toBeVisible();
+    expect(globalThis.localStorage.getItem('patrimonio:sidebar-collapsed')).toBe('1');
+    globalThis.localStorage.removeItem('patrimonio:sidebar-collapsed');
   });
 
   it('trocar de carteira mantém a tela atual', async () => {
@@ -109,7 +121,7 @@ describe('moldura da aplicação', () => {
   it('em tela média a barra lateral colapsa para ícones', () => {
     shell({ width: 1100 });
     expect(screen.queryByText('Buscar')).not.toBeInTheDocument();
-    expect(screen.getByRole('navigation')).toHaveClass('w-14');
+    expect(screen.getByRole('navigation')).toHaveClass('w-[60px]');
   });
 
   it('em tela estreita a barra lateral vira gaveta, sem perder a seleção', async () => {
@@ -300,8 +312,8 @@ describe('atalhos de teclado', () => {
       </div>,
     );
 
-    expect(screen.getByText('R$ 318,9k')).toBeVisible();
+    expect(screen.getByText('318,9k')).toBeVisible();
     await user.keyboard('h');
-    expect(screen.queryByText('R$ 318,9k')).not.toBeInTheDocument();
+    expect(screen.queryByText('318,9k')).not.toBeInTheDocument();
   });
 });

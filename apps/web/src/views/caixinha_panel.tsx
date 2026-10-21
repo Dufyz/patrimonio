@@ -1,11 +1,7 @@
 import type { AssetPageResource, GetCaixinhaResponse } from '@patrimonio/contracts';
 import { useEffect, useState } from 'react';
 
-import {
-  fetchCaixinha,
-  previewCaixinhaRedemption,
-  redeemCaixinha,
-} from '../api/caixinha.js';
+import { previewCaixinhaRedemption, redeemCaixinha } from '../api/caixinha.js';
 import type { RedemptionBody } from '../api/caixinha.js';
 import { createTransaction } from '../api/entry.js';
 import { Money } from '../components/number.js';
@@ -15,7 +11,7 @@ import { SkeletonLines, SkeletonRegion } from '../components/skeleton.js';
 import { newAttemptKey, todayDateOnly } from '../lib/entry.js';
 import { parseAmountInput } from '../lib/positions.js';
 import { formatDate } from '../lib/overview.js';
-import { useResource } from '../lib/use_resource.js';
+import type { Resource } from '../lib/use_resource.js';
 import { Field, Input, MoneyInput } from './entry/fields.js';
 
 /**
@@ -33,8 +29,6 @@ const RULE_LABELS = {
   oldest_first: 'o lote mais antigo primeiro',
   newest_first: 'o lote mais novo primeiro',
 } as const;
-
-type Dialog = 'contribute' | 'redeem' | null;
 
 /** Soma meses a uma data, sem passar do fim do mês (31/01 + 1 mês = 28/02). */
 const addMonths = (date: string, months: number): string => {
@@ -64,41 +58,45 @@ const termsHint = (asset: AssetPageResource['asset']): string => {
   return `${vence} · ${liquidez}`;
 };
 
+export type CaixinhaDialog = 'contribute' | 'redeem' | null;
+
+/** Os lotes da caixinha; quem abre Aportar e Resgatar é o cabeçalho da página. */
 export const CaixinhaPanel = ({
   portfolioId,
   asset,
-  reloadKey,
+  lots,
+  dialog,
+  onDialog,
   onChanged,
 }: {
   readonly portfolioId: string;
   readonly asset: AssetPageResource['asset'];
-  readonly reloadKey: number;
+  readonly lots: Resource<GetCaixinhaResponse | null>;
+  readonly dialog: CaixinhaDialog;
+  readonly onDialog: (dialog: CaixinhaDialog) => void;
   readonly onChanged: () => void;
 }): React.ReactElement => {
-  const lots = useResource(
-    (signal) => fetchCaixinha(portfolioId, asset.asset_id, signal),
-    [portfolioId, asset.asset_id, reloadKey],
-  );
-  const [dialog, setDialog] = useState<Dialog>(null);
-
   const rule = asset.redemption_rule;
+  const view = lots.state.kind === 'ready' ? lots.state.value : null;
 
   return (
     <>
       <Panel
-        title="Lotes da caixinha"
+        title="Lotes"
         hint={
-          rule === null
+          view === null
             ? undefined
-            : `${termsHint(asset)} · o resgate consome ${RULE_LABELS[rule]} · IR estimado se resgatado hoje`
-        }
-        action={
-          <div className="flex gap-2">
-            <Button onClick={() => setDialog('contribute')}>Aportar</Button>
-            <Button onClick={() => setDialog('redeem')}>Resgatar</Button>
-          </div>
+            : view.lots.length === 1
+              ? '1 aporte'
+              : `${view.lots.length} aportes`
         }
       >
+        {rule === null ? null : (
+          <p className="border-b border-line bg-panel-2 px-4 py-2.5 text-[0.8125rem] text-ink-2 first-letter:uppercase">
+            {termsHint(asset)} · o resgate consome {RULE_LABELS[rule]} · IR estimado como
+            se o lote fosse resgatado hoje
+          </p>
+        )}
         {lots.state.kind === 'loading' ? (
           <SkeletonRegion label="Carregando os lotes" className="px-4 py-3">
             <SkeletonLines lines={4} />
@@ -110,7 +108,7 @@ export const CaixinhaPanel = ({
               <Button onClick={lots.reload}>Tentar de novo</Button>
             </div>
           </div>
-        ) : (
+        ) : lots.state.value === null ? null : (
           <LotsTable view={lots.state.value} />
         )}
       </Panel>
@@ -119,9 +117,9 @@ export const CaixinhaPanel = ({
         <ContributeDialog
           portfolioId={portfolioId}
           asset={asset}
-          onClose={() => setDialog(null)}
+          onClose={() => onDialog(null)}
           onSaved={() => {
-            setDialog(null);
+            onDialog(null);
             onChanged();
           }}
         />
@@ -131,10 +129,10 @@ export const CaixinhaPanel = ({
         <RedeemDialog
           portfolioId={portfolioId}
           asset={asset}
-          available={lots.state.kind === 'ready' ? lots.state.value.gross_value : null}
-          onClose={() => setDialog(null)}
+          available={view === null ? null : view.gross_value}
+          onClose={() => onDialog(null)}
           onSaved={() => {
-            setDialog(null);
+            onDialog(null);
             onChanged();
           }}
         />

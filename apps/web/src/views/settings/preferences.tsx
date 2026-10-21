@@ -13,7 +13,13 @@ import { backupSummary } from '../../lib/settings.js';
 import { Callout, Field, Input } from '../entry/fields.js';
 import { DeleteDialog } from '../registers/delete_dialog.js';
 import { ImportDialog } from './import_dialog.js';
-import { ActionNote, SettingsSection, StatusDot, Switch } from './parts.js';
+import {
+  ActionNote,
+  SettingsPanel,
+  SettingsSection,
+  StatusDot,
+  Switch,
+} from './parts.js';
 
 /**
  * Exibição e Dados e backup: as duas seções que são ajuste do próprio app, e não
@@ -29,17 +35,23 @@ import { ActionNote, SettingsSection, StatusDot, Switch } from './parts.js';
 const Row = ({
   title,
   hint,
+  tone = 'default',
   children,
 }: {
   readonly title: string;
   readonly hint: React.ReactNode;
+  readonly tone?: 'default' | 'danger';
   readonly children: React.ReactNode;
 }): React.ReactElement => (
   // A linha nunca quebra: o texto à esquerda é quem cede (`min-w-0 flex-1`) e as
   // ações à direita não encolhem nem passam para a segunda linha (`shrink-0`).
   <div className="flex items-center justify-between gap-4 border-t border-line px-4 py-3 first:border-t-0">
     <div className="min-w-0 flex-1">
-      <div className="text-[0.8125rem] font-medium">{title}</div>
+      <div
+        className={`text-[0.8125rem] font-medium ${tone === 'danger' ? 'text-negative' : ''}`}
+      >
+        {title}
+      </div>
       <div className="text-[0.8125rem] text-ink-3">{hint}</div>
     </div>
     <div className="flex shrink-0 items-center gap-2 text-[0.8125rem] whitespace-nowrap">
@@ -68,28 +80,37 @@ export const DisplaySection = (): React.ReactElement => {
       title="Exibição"
       description="Preferências de leitura. Valem para este navegador."
     >
-      <Row title="Tema" hint="Sistema segue a configuração do computador">
-        <Segmented
-          label="Tema"
-          options={THEME_OPTIONS}
-          value={theme}
-          onChange={setTheme}
-        />
-      </Row>
-      <Row title="Densidade das tabelas" hint="Compacta mostra cerca de 30% mais linhas">
-        <Segmented
-          label="Densidade das tabelas"
-          options={DENSITY_OPTIONS}
-          value={density}
-          onChange={setDensity}
-        />
-      </Row>
-      <Row
-        title="Ocultar valores ao abrir"
-        hint="Mostra R$ ••••• até apertar H; percentuais continuam visíveis"
-      >
-        <Switch checked={hidden} label="Ocultar valores ao abrir" onChange={setHidden} />
-      </Row>
+      <SettingsPanel>
+        <Row title="Tema" hint="Sistema segue a configuração do computador.">
+          <Segmented
+            label="Tema"
+            options={THEME_OPTIONS}
+            value={theme}
+            onChange={setTheme}
+          />
+        </Row>
+        <Row
+          title="Densidade das tabelas"
+          hint="Compacta mostra cerca de 30% mais linhas."
+        >
+          <Segmented
+            label="Densidade das tabelas"
+            options={DENSITY_OPTIONS}
+            value={density}
+            onChange={setDensity}
+          />
+        </Row>
+        <Row
+          title="Ocultar valores ao abrir"
+          hint="Mostra R$ ••••• até apertar H; percentuais continuam visíveis."
+        >
+          <Switch
+            checked={hidden}
+            label="Ocultar valores ao abrir"
+            onChange={setHidden}
+          />
+        </Row>
+      </SettingsPanel>
     </SettingsSection>
   );
 };
@@ -174,48 +195,57 @@ export const BackupSection = ({
       title="Dados e backup"
       description="Os dados são seus e ficam exportáveis a qualquer momento, em formatos abertos."
     >
-      <Row title="Exportar tudo" hint="Lançamentos, ativos, carteiras e configurações">
-        <Button disabled={exporting !== null} onClick={() => download('csv')}>
-          {exporting === 'csv' ? 'Exportando…' : 'CSV por tabela'}
-        </Button>
-        <Button disabled={exporting !== null} onClick={() => download('json')}>
-          {exporting === 'json' ? 'Exportando…' : 'JSON completo'}
-        </Button>
-      </Row>
-      <Row
-        title="Backup automático"
-        hint="Todo dia às 03:00, cifrado; mantém 7 diários, 4 semanais e 6 mensais"
-      >
-        {backup.enabled ? <BackupState backup={backup} /> : null}
-        <Button
-          disabled={running || !backup.enabled || backup.pending}
-          // Desligado, o motivo vai na dica do botão em vez de num texto ao lado
-          // dele, que empurraria o botão para outra linha.
-          {...(backup.enabled ? {} : { title: backupSummary(backup).text })}
-          onClick={run}
+      <SettingsPanel>
+        <Row title="Exportar tudo" hint="Lançamentos, ativos, carteiras e configurações.">
+          <Button disabled={exporting !== null} onClick={() => download('csv')}>
+            {exporting === 'csv' ? 'Exportando…' : 'CSV por tabela'}
+          </Button>
+          <Button disabled={exporting !== null} onClick={() => download('json')}>
+            {exporting === 'json' ? 'Exportando…' : 'JSON completo'}
+          </Button>
+        </Row>
+        <Row
+          title="Backup automático"
+          hint="Todo dia às 03:00, cifrado; mantém 7 diários, 4 semanais e 6 mensais."
         >
-          {running ? 'Pedindo…' : 'Fazer backup agora'}
-        </Button>
-      </Row>
-      {receipt === null ? null : (
-        <div className="border-t border-line px-4 py-3">
-          <ActionNote tone={receipt.tone}>{receipt.text}</ActionNote>
-        </div>
-      )}
-      <Row
-        title="Importar planilha"
-        hint="Para a migração inicial: mapeia as colunas da sua planilha para lançamentos e mostra uma prévia antes de gravar"
-      >
-        <Button onClick={() => setImporting(true)}>Importar arquivo</Button>
-      </Row>
-      <Row
-        title="Apagar todos os dados"
-        hint="Remove lançamentos, ativos e carteiras. Pede para digitar a frase de confirmação."
-      >
-        <Button variant="destructive" onClick={() => setDeleting(true)}>
-          Apagar
-        </Button>
-      </Row>
+          {backup.enabled ? <BackupState backup={backup} /> : null}
+          <Button
+            disabled={running || !backup.enabled || backup.pending}
+            // Desligado, o motivo vai na dica do botão em vez de num texto ao lado
+            // dele, que empurraria o botão para outra linha.
+            {...(backup.enabled ? {} : { title: backupSummary(backup).text })}
+            onClick={run}
+          >
+            {running ? 'Pedindo…' : 'Fazer backup agora'}
+          </Button>
+        </Row>
+        {receipt === null ? null : (
+          <div className="border-t border-line px-4 py-3">
+            <ActionNote tone={receipt.tone}>{receipt.text}</ActionNote>
+          </div>
+        )}
+        <Row
+          title="Importar planilha"
+          hint="Mapeia as colunas da sua planilha para lançamentos e mostra uma prévia antes de gravar."
+        >
+          <Button onClick={() => setImporting(true)}>Importar arquivo</Button>
+        </Row>
+      </SettingsPanel>
+      <SettingsPanel tone="danger">
+        <Row
+          title="Apagar todos os dados"
+          hint="Remove lançamentos, ativos e carteiras. Pede para digitar a frase de confirmação."
+          tone="danger"
+        >
+          <Button
+            variant="destructive"
+            className="border-negative"
+            onClick={() => setDeleting(true)}
+          >
+            Apagar dados
+          </Button>
+        </Row>
+      </SettingsPanel>
       {importing ? (
         <ImportDialog
           settings={settings}

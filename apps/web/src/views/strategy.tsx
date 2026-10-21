@@ -33,7 +33,6 @@ import {
   parseAmount,
   saveState,
   targetLabel,
-  toleranceBand,
   valueText,
   withEdit,
 } from '../lib/strategy.js';
@@ -159,9 +158,13 @@ const TargetField = ({
 
   return (
     <span
-      className={`inline-flex h-8 w-24 items-center rounded-control border bg-panel pr-2 ${
-        error === null ? 'border-line-strong' : 'border-negative'
-      } ${row.id in draft ? 'ring-1 ring-accent' : ''}`}
+      className={`inline-flex h-[30px] w-[84px] items-center rounded-control border pr-2.5 ${
+        error !== null
+          ? 'border-negative bg-panel'
+          : row.id in draft
+            ? 'border-attention bg-attention-soft'
+            : 'border-line-strong bg-panel'
+      }`}
       title={error ?? undefined}
     >
       <input
@@ -183,13 +186,10 @@ const TargetField = ({
 const DeviationBar = ({
   line,
   scale,
-  tolerance,
 }: {
   readonly line: Line;
   readonly scale: number;
-  readonly tolerance: string;
 }): React.ReactElement => {
-  const band = toleranceBand(line.target_pct, tolerance, scale);
   const label =
     line.target_pct === null
       ? `${line.name}: atual ${line.current_pct}%, sem alvo`
@@ -199,23 +199,14 @@ const DeviationBar = ({
     <span
       role="img"
       aria-label={label}
-      className="relative block h-2 w-56 rounded-full bg-panel-2"
+      className="relative block h-2 w-55 rounded-[4px] bg-panel-2 shadow-[inset_0_0_0_1px_var(--color-line)]"
     >
-      {band === null ? null : (
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-0 bg-ink/5"
-          style={{ left: `${band.left}%`, width: `${band.width}%` }}
-        />
-      )}
       <span
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 rounded-full"
-        style={{
-          width: `${barPosition(line.current_pct, scale)}%`,
-          minWidth: 3,
-          backgroundColor: colorForToken(line.color_token),
-        }}
+        className={`absolute inset-y-0 left-0 rounded-[4px] ${
+          line.over_tolerance ? 'bg-attention' : 'bg-accent'
+        }`}
+        style={{ width: `${barPosition(line.current_pct, scale)}%` }}
       />
       {line.target_pct === null ? null : (
         <span
@@ -232,7 +223,6 @@ const Cells = ({
   line,
   defined,
   scale,
-  tolerance,
   bar = true,
 }: {
   /** O grupo é a soma das categorias: a barra é de quem tem alvo próprio. */
@@ -240,7 +230,6 @@ const Cells = ({
   readonly line: Line;
   readonly defined: boolean;
   readonly scale: number;
-  readonly tolerance: string;
 }): React.ReactElement => (
   <>
     <td className="px-4 text-right">
@@ -256,9 +245,7 @@ const Cells = ({
         <Points value={defined ? line.deviation_pp : null} tone="neutral" />
       )}
     </td>
-    <td className="px-4">
-      {bar ? <DeviationBar line={line} scale={scale} tolerance={tolerance} /> : null}
-    </td>
+    <td className="px-4">{bar ? <DeviationBar line={line} scale={scale} /> : null}</td>
     <td className="px-4 text-right">
       <Money value={line.value} />
     </td>
@@ -269,7 +256,7 @@ const Cells = ({
       {isZeroDecimal(line.amount_to_move) ? (
         <Money value={line.amount_to_move} />
       ) : (
-        <MoneyChange value={defined ? line.amount_to_move : null} />
+        <MoneyChange value={defined ? line.amount_to_move : null} tone="neutral" />
       )}
     </td>
   </>
@@ -298,6 +285,7 @@ const Distribution = ({
   onChange,
   onRestore,
   onManageClasses,
+  bar,
 }: {
   readonly data: AllocationResource;
   readonly rows: readonly EditableRow[];
@@ -305,6 +293,8 @@ const Distribution = ({
   readonly onChange: (id: string, text: string) => void;
   readonly onRestore: () => void;
   readonly onManageClasses: () => void;
+  /** A barra de salvar fica dentro do painel, entre a tabela e a nota. */
+  readonly bar?: React.ReactNode;
 }): React.ReactElement => {
   const { composition, strategy_defined: defined, rules } = data;
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
@@ -333,15 +323,15 @@ const Distribution = ({
     const expanded = open.has(node.id);
 
     return (
-      <tr key={node.id} className="h-(--row-height) border-b border-line bg-panel-2">
-        <th scope="row" className="px-4 text-left font-semibold">
+      <tr key={node.id} className="h-12 border-b border-line bg-panel-2">
+        <th scope="row" className="px-4 text-left font-semibold whitespace-nowrap">
           <span className="flex items-center gap-2">
             {expandable ? (
               <button
                 type="button"
                 aria-expanded={expanded}
                 aria-label={`${expanded ? 'Recolher' : 'Expandir'} ${node.name}`}
-                className="flex cursor-pointer items-center gap-2"
+                className="flex cursor-pointer items-center gap-2 text-left whitespace-nowrap"
                 onClick={() => toggle(node.id)}
               >
                 <span aria-hidden="true" className="w-3 text-ink-3">
@@ -355,7 +345,7 @@ const Distribution = ({
                 {node.name}
               </button>
             ) : (
-              <span className="flex items-center gap-2 pl-5">
+              <span className="flex items-center gap-2 pl-5 whitespace-nowrap">
                 <span
                   aria-hidden="true"
                   className="size-2 shrink-0 rounded-xs"
@@ -378,7 +368,7 @@ const Distribution = ({
             <TargetField row={own} draft={draft} onChange={onChange} shown={shown} />
           )}
         </td>
-        <Cells line={node} defined={defined} scale={scale} tolerance={tolerance} />
+        <Cells line={node} defined={defined} scale={scale} />
       </tr>
     );
   };
@@ -438,7 +428,7 @@ const Distribution = ({
                         key={child.id}
                         className="h-(--row-height) border-b border-line"
                       >
-                        <th scope="row" className="px-4 pl-12 text-left font-normal">
+                        <th scope="row" className="px-4 pl-12 text-left font-normal whitespace-nowrap">
                           <span className="flex items-center gap-2">
                             <span
                               aria-hidden="true"
@@ -485,6 +475,7 @@ const Distribution = ({
           </tfoot>
         </table>
       </div>
+      {bar}
       <p className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3 text-[0.75rem] text-ink-3">
         <span>
           Os alvos são editados direto na tabela. Ao alterar, aparece uma barra para
@@ -526,15 +517,26 @@ const SaveBar = ({
     <div
       role="region"
       aria-label="Alterações não salvas"
-      className={`sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-panel border px-4 py-3 shadow-lg ${
-        state.blocked ? 'border-negative bg-negative-soft' : 'border-line bg-panel'
+      className={`flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 ${
+        state.blocked ? 'bg-negative-soft' : 'bg-attention-soft'
       }`}
     >
-      <span
-        role={state.blocked || failure !== null ? 'alert' : 'status'}
-        className={`text-[0.8125rem] ${state.blocked || failure !== null ? 'text-negative' : ''}`}
-      >
-        {failure ?? state.message}
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem]">
+        <span
+          aria-hidden="true"
+          className={state.blocked ? 'text-negative' : 'text-attention'}
+        >
+          <Icon name="warning" />
+        </span>
+        <span
+          role={state.blocked || failure !== null ? 'alert' : 'status'}
+          className={`font-semibold ${state.blocked || failure !== null ? 'text-negative' : ''}`}
+        >
+          {failure ?? state.message}
+        </span>
+        {state.blocked || failure !== null || state.total === null ? null : (
+          <span className="text-ink-2">soma dos alvos {targetLabel(state.total)}</span>
+        )}
       </span>
       <span className="flex gap-2">
         <Button disabled={saving} onClick={onDiscard}>
@@ -546,7 +548,7 @@ const SaveBar = ({
           disabled={!state.canSave || saving}
           onClick={onSave}
         >
-          Salvar estratégia
+          Salvar
         </Button>
       </span>
     </div>
@@ -864,21 +866,22 @@ export const StrategyView = ({
               setDraft(EMPTY_DRAFT);
             }}
             onManageClasses={() => setManaging(true)}
+            bar={
+              <SaveBar
+                rows={rows}
+                draft={draft}
+                saving={saving}
+                failure={failure}
+                onSave={() => void save()}
+                onDiscard={() => {
+                  setFailure(null);
+                  setDraft(EMPTY_DRAFT);
+                }}
+              />
+            }
           />
         </KeepPrevious>
       )}
-
-      <SaveBar
-        rows={rows}
-        draft={draft}
-        saving={saving}
-        failure={failure}
-        onSave={() => void save()}
-        onDiscard={() => {
-          setFailure(null);
-          setDraft(EMPTY_DRAFT);
-        }}
-      />
 
       {managing ? (
         <ClassesDialog

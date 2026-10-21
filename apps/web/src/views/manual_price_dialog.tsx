@@ -5,9 +5,9 @@ import type { SetManualPriceResponse } from '@patrimonio/contracts';
 import { setManualPrice } from '../api/manual_price.js';
 import { Money } from '../components/number.js';
 import { Modal } from '../components/overlay.js';
-import { Button, Label } from '../components/primitives.js';
+import { Button } from '../components/primitives.js';
 import { amountInputValue, parseAmountInput } from '../lib/positions.js';
-import { MoneyInput } from './entry/fields.js';
+import { Callout, FieldLabel, MoneyInput } from './entry/fields.js';
 
 /**
  * L-14 · Definir o preço de um ativo à mão.
@@ -83,8 +83,8 @@ export const ManualPriceDialog = ({
     <Modal
       open
       guard
-      title="Definir preço manual"
-      subtitle={`${position.ticker} · ${position.name}`}
+      title={`Preço manual · ${position.ticker}`}
+      subtitle="Para quando a fonte automática falha ou o ativo não tem cotação"
       onClose={onClose}
       footer={
         result === null ? (
@@ -107,55 +107,72 @@ export const ManualPriceDialog = ({
     >
       {result === null ? (
         <div className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
-            <Label>Data do preço</Label>
-            <input
-              type="date"
-              value={date}
-              data-autofocus
-              className="h-control rounded-control border border-line bg-panel px-3 text-sm"
-              onChange={(event) => setDate(event.target.value)}
-            />
-          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <label className="flex flex-col gap-1.5">
+              <FieldLabel>Data do preço</FieldLabel>
+              <input
+                type="date"
+                value={date}
+                data-autofocus
+                className="h-control rounded-control border border-line-2 bg-panel px-3 text-sm"
+                onChange={(event) => setDate(event.target.value)}
+              />
+            </label>
 
-          <label className="flex flex-col gap-1.5">
-            <Label>Preço</Label>
-            <MoneyInput
-              invalid={false}
-              maxDecimals={8}
-              value={price}
-              aria-label="Preço"
-              onChange={(event) => setPrice(event.target.value)}
-            />
-          </label>
+            <label className="flex flex-col gap-1.5">
+              <FieldLabel>Preço</FieldLabel>
+              <MoneyInput
+                invalid={false}
+                maxDecimals={8}
+                value={price}
+                aria-label="Preço"
+                onChange={(event) => setPrice(event.target.value)}
+              />
+            </label>
+          </div>
 
-          <p className="text-[0.8125rem] text-ink-3">
-            O preço manual vale até a fonte automática voltar a responder por este ativo,
-            e a linha fica marcada enquanto vale.
-          </p>
+          <Callout tone="info">
+            Vale até a fonte automática voltar a responder. Nas tabelas, o preço aparece
+            com a marca “manual”.
+          </Callout>
 
           {error === null ? null : <p className="text-sm text-negative">{error}</p>}
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <dl className="flex flex-wrap gap-x-8 gap-y-2 text-[0.8125rem]">
-            <div className="flex flex-col gap-0.5">
-              <dt>
-                <Label>Valor antes</Label>
-              </dt>
-              <dd>
-                <Money value={result.preview.position_value.before} />
-              </dd>
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <dt>
-                <Label>Valor depois</Label>
-              </dt>
-              <dd>
-                <Money value={result.preview.position_value.after} />
-              </dd>
-            </div>
-          </dl>
+          <table className="w-full overflow-hidden rounded-panel border border-line text-[0.8125rem]">
+            <caption className="sr-only">Efeito do preço manual</caption>
+            <thead className="bg-panel-2">
+              <tr>
+                <th
+                  scope="col"
+                  className="px-3 py-2 text-left tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase"
+                >
+                  Efeito
+                </th>
+                <th
+                  scope="col"
+                  className="px-3 py-2 text-right tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase"
+                >
+                  Antes → depois
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t border-line">
+                <th scope="row" className="px-3 py-2.5 text-left font-medium">
+                  Valor da posição
+                </th>
+                <td className="px-3 py-2.5 text-right">
+                  <Money value={result.preview.position_value.before} />
+                  {' → '}
+                  <strong className="font-semibold">
+                    <Money value={result.preview.position_value.after} />
+                  </strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
           {/*
           A tabela não muda na hora, e dizer isso é mais honesto que deixar

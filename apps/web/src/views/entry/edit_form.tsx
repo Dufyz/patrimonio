@@ -27,6 +27,7 @@ import { formatShortDate } from '../../lib/positions.js';
 import { EffectPanel } from './effect_table.js';
 import { Callout, Field, Input, MoneyInput, Select, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
+import { EntrySummary } from './wizard.js';
 import { InstitutionPicker } from './institution_picker.js';
 import { usePreview, useSave } from './hooks.js';
 
@@ -260,6 +261,23 @@ export const EditFormView = ({
         pending={save.pending}
         canSave={hasChanges}
         saveLabel="Salvar alterações"
+        summary={
+          <EntrySummary
+            items={[
+              { term: 'Ativo', value: assetLabel ?? '—' },
+              {
+                term: 'Operação',
+                value:
+                  transaction.kind === 'buy'
+                    ? 'Compra'
+                    : transaction.kind === 'sell'
+                      ? 'Venda'
+                      : 'Provento',
+              },
+              { term: 'Criado em', value: fullDate(transaction.created_at.slice(0, 10)) },
+            ]}
+          />
+        }
         onSave={() => void submit()}
         onCancel={onCancel}
         error={
@@ -466,10 +484,6 @@ export const EditFormView = ({
             Altere um campo para ver o efeito da edição antes de salvar.
           </p>
         )}
-
-        <p className="text-[0.75rem] text-ink-3">
-          Criado em {fullDate(transaction.created_at.slice(0, 10))}
-        </p>
       </FormShell>
 
       <ConfirmDialog

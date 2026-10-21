@@ -7,6 +7,7 @@ import {
   isEmptyInstallation,
   missingPricesText,
   portfolioHold,
+  matchSections,
   sectionFromParam,
 } from './settings.js';
 
@@ -21,8 +22,8 @@ const backup = (overrides: Partial<SettingsBackup>): SettingsBackup => ({
 describe('a seção pedida pela URL', () => {
   it('uma seção conhecida abre ela; qualquer outra abre a primeira', () => {
     expect(sectionFromParam('backup')).toBe('backup');
-    expect(sectionFromParam('inexistente')).toBe('carteiras');
-    expect(sectionFromParam(null)).toBe('carteiras');
+    expect(sectionFromParam('inexistente')).toBe('exibicao');
+    expect(sectionFromParam(null)).toBe('exibicao');
   });
 });
 
@@ -104,5 +105,14 @@ describe('a instalação vazia', () => {
     expect(
       isEmptyInstallation({ portfolios: [{ id: 'p' }] } as unknown as Settings),
     ).toBe(false);
+  });
+});
+
+describe('matchSections', () => {
+  it('acha por rótulo ou palavra-chave, sem acento', () => {
+    expect(matchSections('').length).toBe(4);
+    expect(matchSections('cotacao').map((section) => section.id)).toEqual(['mercado']);
+    expect(matchSections('TEMA').map((section) => section.id)).toEqual(['exibicao']);
+    expect(matchSections('zzz')).toEqual([]);
   });
 });

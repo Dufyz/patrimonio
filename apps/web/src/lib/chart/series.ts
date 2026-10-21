@@ -40,6 +40,8 @@ export type Series = {
   readonly points: readonly Point[];
   /** Benchmark é tracejado, para não disputar com a série da carteira. */
   readonly dashed?: boolean | undefined;
+  /** Preenche a área entre a linha e a base: a série da própria carteira. */
+  readonly area?: boolean | undefined;
 };
 
 /**

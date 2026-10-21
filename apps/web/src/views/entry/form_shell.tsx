@@ -16,11 +16,14 @@ export const FormShell = ({
   onSaveAgain,
   onCancel,
   saveLabel = 'Salvar',
+  saveShortcut = '⌘↵',
+  showCancel = true,
   pending,
   canSave = true,
   error,
   destructive,
   secondary,
+  summary,
   children,
 }: {
   readonly onSave: () => void;
@@ -28,6 +31,10 @@ export const FormShell = ({
   readonly onSaveAgain?: (() => void) | undefined;
   readonly onCancel: () => void;
   readonly saveLabel?: string;
+  /** `null` tira a tecla do botão — o "Próximo" de um passo que não grava. */
+  readonly saveShortcut?: string | null;
+  /** Falso nos passos de um assistente: quem volta é o `secondary`. */
+  readonly showCancel?: boolean;
   readonly pending: boolean;
   /** Falso quando não há o que salvar — uma edição sem nenhuma mudança. */
   readonly canSave?: boolean;
@@ -35,6 +42,8 @@ export const FormShell = ({
   readonly error?: string | null | undefined;
   readonly destructive?: React.ReactNode;
   readonly secondary?: React.ReactNode;
+  /** O resumo à esquerda dos campos, no segundo passo do assistente. */
+  readonly summary?: React.ReactNode;
   readonly children: React.ReactNode;
 }): React.ReactElement => {
   const cancel = useRequestClose(onCancel);
@@ -44,33 +53,40 @@ export const FormShell = ({
       noValidate
       // `contents`: o formulário não gera caixa, e o rodapé gruda no fundo do corpo
       // rolável do modal em vez de ficar preso ao fim do formulário. O `bottom`
-      // negativo cancela o respiro (`py-[18px]`) do corpo: `sticky` respeita o
+      // negativo cancela o respiro (`py-5`) do corpo: `sticky` respeita o
       // padding do contêiner de rolagem e, com `bottom-0`, pararia 18 px acima.
       className="contents"
       onSubmit={(event) => event.preventDefault()}
       onKeyDown={submitKeys(onSave, onSaveAgain)}
     >
-      {children}
+      {summary === undefined ? (
+        children
+      ) : (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-[13rem_minmax(0,1fr)]">
+          <div className="self-start">{summary}</div>
+          <div className="flex min-w-0 flex-col gap-4">{children}</div>
+        </div>
+      )}
 
       {error === null || error === undefined ? null : (
         <Callout tone="error">{error}</Callout>
       )}
 
-      <div className="sticky -bottom-[18px] z-10 -mx-5 -mb-[18px] flex flex-wrap items-center justify-between gap-3 border-t border-line bg-panel-2 px-5 py-3.5">
+      <div className="sticky -bottom-5 z-10 -mx-6 -mb-5 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-panel px-6 py-4">
         <div className="flex items-center gap-2">
           {destructive}
+          {secondary}
+        </div>
+        <div className="flex items-center gap-2">
           {onSaveAgain === undefined ? null : (
             <Button disabled={pending || !canSave} shortcut="⇧↵" onClick={onSaveAgain}>
               Salvar e novo
             </Button>
           )}
-          {secondary}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={cancel}>Cancelar</Button>
+          {showCancel ? <Button onClick={cancel}>Cancelar</Button> : null}
           <Button
             variant="primary"
-            shortcut="⌘↵"
+            {...(saveShortcut === null ? {} : { shortcut: saveShortcut })}
             disabled={pending || !canSave}
             onClick={onSave}
           >

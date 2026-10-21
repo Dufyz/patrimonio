@@ -185,6 +185,9 @@ const resource = (overrides: Partial<PositionsResource> = {}): PositionsResource
 });
 
 const calls: string[] = [];
+/** Só os pedidos da tabela: as encerradas vêm em outro pedido, logo depois. */
+const tableCalls = (): string[] =>
+  calls.filter((call) => call.startsWith('/api/positions?'));
 const posted: unknown[] = [];
 
 /** A resposta de L-14, que o preço manual lê para mostrar o antes → depois. */
@@ -402,19 +405,20 @@ describe('tela de Posições', () => {
     show();
 
     await screen.findByText('28 posições');
-    await user.click(screen.getByRole('button', { name: 'Agrupar' }));
+    await user.click(screen.getByRole('button', { name: 'Exibição' }));
+    await user.click(screen.getByRole('button', { name: 'Agrupar por' }));
     await user.click(screen.getByRole('menuitem', { name: 'Instituição' }));
 
-    await waitFor(() => expect(calls.at(-1)).toContain('group_by=institution'));
+    await waitFor(() => expect(tableCalls().at(-1)).toContain('group_by=institution'));
   });
 
   it('o padrão não é escrito na URL nem repetido no pedido', async () => {
     show();
     await screen.findByText('28 posições');
 
-    expect(calls[0]).toContain('group_by=category');
-    expect(calls[0]).not.toContain('search=');
-    expect(calls[0]).not.toContain('category_id=');
+    expect(tableCalls()[0]).toContain('group_by=class');
+    expect(tableCalls()[0]).not.toContain('search=');
+    expect(tableCalls()[0]).not.toContain('category_id=');
   });
 
   it('a pastilha de categoria filtra pela api, e a contagem dela não muda', async () => {
@@ -422,17 +426,20 @@ describe('tela de Posições', () => {
     show();
 
     await screen.findByText('ITUB4');
-    await user.click(screen.getByRole('button', { name: /^Classe/ }));
+    await user.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await user.click(screen.getByRole('menuitem', { name: /Classe/ }));
     const list = screen.getByRole('group', { name: 'Classe' });
     await user.click(within(list).getByRole('checkbox', { name: /Ações/ }));
 
     await waitFor(() =>
-      expect(calls.at(-1)).toContain('category_id=cccc1111-1111-4111-8111-111111111111'),
+      expect(tableCalls().at(-1)).toContain(
+        'category_id=cccc1111-1111-4111-8111-111111111111',
+      ),
     );
-    // O botão fechado diz o que está valendo.
+    // A etiqueta diz o que está valendo: campo, operador e valor.
     expect(
-      screen.getByRole('button', { name: /^Categoria · Ações/ }),
-    ).toBeInTheDocument();
+      screen.getByRole('button', { name: 'Editar filtro Classe' }),
+    ).toHaveTextContent('Ações');
   });
 
   it('o filtro aceita várias categorias e soma com a instituição', async () => {
@@ -440,21 +447,23 @@ describe('tela de Posições', () => {
     show();
 
     await screen.findByText('ITUB4');
-    await user.click(screen.getByRole('button', { name: /^Classe/ }));
+    await user.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await user.click(screen.getByRole('menuitem', { name: /Classe/ }));
     const list = screen.getByRole('group', { name: 'Classe' });
     const boxes = within(list).getAllByRole('checkbox');
     await user.click(boxes[0] as HTMLElement);
     await user.click(boxes[1] as HTMLElement);
-    await waitFor(() => expect(calls.at(-1)).toMatch(/category_id=[^&]+%2C[^&]+/));
+    await waitFor(() => expect(tableCalls().at(-1)).toMatch(/category_id=[^&]+%2C[^&]+/));
     await user.keyboard('{Escape}');
 
-    await user.click(screen.getByRole('button', { name: /^Instituição/ }));
+    await user.click(screen.getByRole('button', { name: 'Adicionar filtro' }));
+    await user.click(screen.getByRole('menuitem', { name: /Instituição/ }));
     await user.click(
       within(screen.getByRole('group', { name: 'Instituição' })).getAllByRole(
         'checkbox',
       )[0] as HTMLElement,
     );
-    await waitFor(() => expect(calls.at(-1)).toContain('institution_id='));
+    await waitFor(() => expect(tableCalls().at(-1)).toContain('institution_id='));
   });
 
   it('a busca espera a digitação parar antes de virar pedido', async () => {
@@ -462,12 +471,12 @@ describe('tela de Posições', () => {
     show();
 
     await screen.findByText('28 posições');
-    const before = calls.length;
+    const before = tableCalls().length;
     await user.type(screen.getByLabelText('Buscar posição'), 'itub');
 
-    await waitFor(() => expect(calls.at(-1)).toContain('search=itub'));
+    await waitFor(() => expect(tableCalls().at(-1)).toContain('search=itub'));
     // Quatro letras, um pedido — e não quatro.
-    expect(calls.length).toBe(before + 1);
+    expect(tableCalls().length).toBe(before + 1);
   });
 
   it('filtro sem resultado diz que o filtro é o problema, e oferece limpá-lo', async () => {
@@ -494,9 +503,6 @@ describe('tela de Posições', () => {
       await screen.findByText('Nenhuma posição corresponde ao filtro.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Limpar filtros' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Limpar todos os filtros' }),
-    ).toBeInTheDocument();
   });
 
   it('carteira sem consolidação diz isso em vez de abrir em branco', async () => {

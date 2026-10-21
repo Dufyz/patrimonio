@@ -69,7 +69,7 @@ export const windowLabel = (
 export const benchmarkColor = (position: number): string =>
   position === 0 ? BENCHMARK_COLOR : colorForSeries(position);
 
-export const PORTFOLIO_COLOR = colorForSeries(0);
+export const PORTFOLIO_COLOR = 'var(--color-accent)';
 
 /** O que o gráfico desenha: carteira e benchmarks em razão, como o formatador espera. */
 export const chartSeries = (
@@ -88,6 +88,7 @@ export const chartSeries = (
       label: portfolioName,
       color: PORTFOLIO_COLOR,
       points: points(chart.portfolio),
+      area: true,
     },
     ...chart.benchmarks.flatMap((entry) => {
       const position = selected.findIndex((item) => item.id === entry.id);

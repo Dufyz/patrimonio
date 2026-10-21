@@ -7,8 +7,18 @@ import {
   PortfolioDialog,
 } from '../registers/portfolio_dialogs.js';
 import { notifyPortfoliosChanged } from '../../lib/portfolio_events.js';
-import { plural, portfolioHold } from '../../lib/settings.js';
-import { EditButton, Muted, ROW, SettingsSection, TD, TH } from './parts.js';
+import { colorForSeries } from '../../lib/tokens.js';
+import { plural } from '../../lib/settings.js';
+import {
+  EditButton,
+  Muted,
+  ROW,
+  SettingsPanel,
+  SettingsSection,
+  TD,
+  TH,
+  TH_RIGHT,
+} from './parts.js';
 
 /**
  * As seções de cadastro: carteiras. Nenhuma faz conta — contagem, soma e percentual chegam da `api`
@@ -45,42 +55,52 @@ export const PortfoliosSection = ({
       <SettingsSection
         id="carteiras"
         title="Carteiras"
-        description="Uma carteira separa o dinheiro por propósito. Cada uma tem estratégia e objetivos próprios, e cada posição pertence a uma carteira só. A ordem aqui é a ordem da barra lateral."
-        action={
-          <Button icon="plus" onClick={() => setEditing({ kind: 'create' })}>
-            Nova carteira
-          </Button>
-        }
+        description="Uma carteira separa o dinheiro por propósito. Cada uma tem estratégia e objetivos próprios, e cada posição pertence a uma carteira só."
       >
-        {settings.portfolios.length === 0 ? (
-          <p className="p-4 text-[0.8125rem] text-ink-3">
-            Nenhuma carteira ainda. Crie a primeira para começar a lançar.
-          </p>
-        ) : (
-          <table className="w-full text-[0.8125rem] whitespace-nowrap">
-            <caption className="sr-only">Carteiras abertas</caption>
-            <thead>
-              <tr>
-                <th scope="col" className={TH}>
-                  Carteira
-                </th>
-                <th scope="col" className={TH}>
-                  Estratégia
-                </th>
-                <th scope="col" className={TH}>
-                  Conteúdo
-                </th>
-                <th scope="col" className="w-12" />
-              </tr>
-            </thead>
-            <tbody>
-              {settings.portfolios.map((portfolio) => {
-                const hold = portfolioHold(portfolio.blocking);
-
-                return (
+        <SettingsPanel
+          title="Suas carteiras"
+          action={
+            <Button icon="plus" onClick={() => setEditing({ kind: 'create' })}>
+              Nova carteira
+            </Button>
+          }
+        >
+          {settings.portfolios.length === 0 ? (
+            <p className="p-4 text-[0.8125rem] text-ink-3">
+              Nenhuma carteira ainda. Crie a primeira para começar a lançar.
+            </p>
+          ) : (
+            <table className="w-full text-[0.8125rem] whitespace-nowrap">
+              <caption className="sr-only">Carteiras abertas</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className={TH}>
+                    Carteira
+                  </th>
+                  <th scope="col" className={TH}>
+                    Estratégia
+                  </th>
+                  <th scope="col" className={TH_RIGHT}>
+                    Lançamentos
+                  </th>
+                  <th scope="col" className={TH_RIGHT}>
+                    Ativos
+                  </th>
+                  <th scope="col" className="w-12" />
+                </tr>
+              </thead>
+              <tbody>
+                {settings.portfolios.map((portfolio, index) => (
                   <tr key={portfolio.id} className={ROW}>
                     <th scope="row" className={`${TD} text-left font-medium`}>
-                      {portfolio.name}
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          aria-hidden="true"
+                          className="size-2 shrink-0 rounded-xs"
+                          style={{ backgroundColor: colorForSeries(index) }}
+                        />
+                        {portfolio.name}
+                      </span>
                     </th>
                     <td className={TD}>
                       {portfolio.strategy_categories === 0 ? (
@@ -89,14 +109,14 @@ export const PortfoliosSection = ({
                         plural(portfolio.strategy_categories, 'categoria', 'categorias')
                       )}
                     </td>
-                    <td className={TD}>
-                      {hold === null ? (
-                        <Muted>vazia</Muted>
-                      ) : (
-                        <span title="Excluir a carteira exclui também estes lançamentos">
-                          {hold}
-                        </span>
-                      )}
+                    <td
+                      className={`${TD} tabular text-right`}
+                      title="Excluir a carteira exclui também estes lançamentos"
+                    >
+                      {portfolio.blocking.transactions}
+                    </td>
+                    <td className={`${TD} tabular text-right`}>
+                      {portfolio.blocking.assets}
                     </td>
                     <td className="pr-4 text-right">
                       <EditButton
@@ -105,24 +125,24 @@ export const PortfoliosSection = ({
                       />
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-        <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-line px-4 py-3 text-[0.8125rem]">
-          <span className="text-ink-2">
-            <strong className="font-medium text-ink">Carteiras arquivadas</strong> saem da
-            barra lateral; o histórico fica guardado.
-          </span>
-          <span className="text-ink-3">
-            {settings.archived_portfolios.length === 0
-              ? 'nenhuma arquivada'
-              : `${plural(settings.archived_portfolios.length, 'arquivada', 'arquivadas')} · ${settings.archived_portfolios
-                  .map((portfolio) => portfolio.name)
-                  .join(', ')}`}
-          </span>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-line px-4 py-3 text-[0.8125rem]">
+            <span className="text-ink-2">
+              A ordem aqui é a ordem da barra lateral. Carteiras arquivadas saem dela; o
+              histórico fica guardado.
+            </span>
+            <span className="text-ink-3">
+              {settings.archived_portfolios.length === 0
+                ? 'nenhuma arquivada'
+                : `${plural(settings.archived_portfolios.length, 'arquivada', 'arquivadas')} · ${settings.archived_portfolios
+                    .map((portfolio) => portfolio.name)
+                    .join(', ')}`}
+            </span>
+          </div>
+        </SettingsPanel>
       </SettingsSection>
       {editing.kind === 'create' || editing.kind === 'edit' ? (
         <PortfolioDialog

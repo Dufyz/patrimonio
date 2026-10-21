@@ -8,6 +8,9 @@ import { useSearchParams } from 'react-router';
 
 import { fetchClosedPositions, fetchPositions } from '../api/positions.js';
 import { Toolbar } from '../components/controls.js';
+import type { DisplayColumn, FilterField } from '../components/filter_bar.js';
+import { FilterBar, ToolbarIconButton, ToolbarSearch } from '../components/filter_bar.js';
+import { useShortcuts } from '../components/shortcuts.js';
 import {
   Money,
   MoneyChange,
@@ -21,16 +24,9 @@ import type { OpenEntryRequest } from '../components/entry_provider.js';
 import { KeepPrevious } from '../components/pending.js';
 import { SkeletonRegion, SkeletonStats, SkeletonTable } from '../components/skeleton.js';
 import { usePreferences } from '../components/preferences.js';
-import {
-  Button,
-  IconButton,
-  Panel,
-  PriceHealthDot,
-  SearchInput,
-} from '../components/primitives.js';
+import { Button, IconButton, Panel, PriceHealthDot } from '../components/primitives.js';
 import type { TableColumn } from '../components/table.js';
 import { DataTable } from '../components/table.js';
-import { ChoiceDropdown, FilterDropdown } from '../components/filter_dropdown.js';
 import { assetSlug } from '../lib/asset_page.js';
 import { CSV_BOM, listFromParam, listToParam } from '../lib/statement.js';
 import type { AssetNaming } from '../lib/asset_page.js';
@@ -52,10 +48,13 @@ import {
   toTableGroups,
   withClosedRows,
 } from '../lib/positions.js';
-import type { GroupByParam, PositionRow } from '../lib/positions.js';
+import type { PositionRow } from '../lib/positions.js';
 import { ManualPriceDialog } from './manual_price_dialog.js';
 import { CustodyTransferDialog } from './custody_transfer_dialog.js';
 import { Icon } from '../components/icon.js';
+import type { ColumnPreference } from '../lib/table/columns.js';
+import { EMPTY_COLUMN_PREFERENCE, toggleColumn } from '../lib/table/columns.js';
+import type { Sort } from '../lib/table/model.js';
 
 /**
  * T-02 · Posições.
@@ -73,6 +72,12 @@ import { Icon } from '../components/icon.js';
  */
 
 const SCREEN = 'posicoes';
+
+/** O tipo e a instituição vêm ocultos: a linha do ativo é de uma linha só. */
+const DEFAULT_COLUMN_PREFERENCE: ColumnPreference = {
+  ...EMPTY_COLUMN_PREFERENCE,
+  hidden: ['tipo'],
+};
 
 /** O que ainda não existe, e qual história o entrega. */
 
@@ -118,7 +123,16 @@ export const PositionsScreen = ({
   const [manualPriceFor, setManualPriceFor] = useState<PositionResource | null>(null);
   const [transferFor, setTransferFor] = useState<PositionResource | null>(null);
   const [reloads, setReloads] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [columnPreference, setColumnPreference] = useState<ColumnPreference>(
+    DEFAULT_COLUMN_PREFERENCE,
+  );
+  const [sort, setSort] = useState<Sort | null>(null);
   const entry = useEntry();
+
+  // `F` abre a lista de campos, como o botão Filtrar promete.
+  const shortcuts = useMemo(() => ({ filter: () => setFilterOpen(true) }), []);
+  useShortcuts(shortcuts);
 
   // O padrão nunca é escrito na URL: `/posicoes` é o recorte sem filtro, e não
   // `/posicoes?agrupar=categoria&busca=&classe=`.
@@ -250,6 +264,56 @@ export const PositionsScreen = ({
     resource.price_health.fresh < resource.total.count &&
     resource.total.count > 0;
 
+  const tableColumns = columnsFor(allPortfolios && groupByParam !== 'carteira');
+
+  const filterFields = useMemo<readonly FilterField[]>(
+    () =>
+      resource === null
+        ? []
+        : [
+            {
+              id: 'classe',
+              label: 'Classe',
+              icon: 'tag',
+              options: resource.facets.map((facet) => ({
+                id: facet.id,
+                label: facet.label,
+                count: facet.count,
+                colorToken: facet.color_token,
+              })),
+              selected: categoryIds,
+              onChange: (ids) => update({ classe: listToParam(ids) }),
+            },
+            {
+              id: 'instituicao',
+              label: 'Instituição',
+              icon: 'bank',
+              options: resource.institution_facets.map((facet) => ({
+                id: facet.id,
+                label: facet.label,
+                count: facet.count,
+              })),
+              selected: institutionIds,
+              onChange: (ids) => update({ instituicao: listToParam(ids) }),
+            },
+          ],
+    [resource, categoryIds, institutionIds, update],
+  );
+
+  const sortOptions = tableColumns
+    .filter((column) => column.sortable === true)
+    .flatMap((column) => [
+      { value: `${column.id}:desc`, label: `${column.header} ↓` },
+      { value: `${column.id}:asc`, label: `${column.header} ↑` },
+    ]);
+
+  const displayColumns: readonly DisplayColumn[] = tableColumns.map((column) => ({
+    id: column.id,
+    label: column.header,
+    locked: column.essential === true,
+    hidden: columnPreference.hidden.includes(column.id),
+  }));
+
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -309,87 +373,58 @@ export const PositionsScreen = ({
               <Money value={resource.payouts_12m} />
             </dd>
           </div>
-          {resource.return_12m_ratio === null ? null : (
-            <div className="flex items-baseline gap-2">
-              <dt>rent. 12M da carteira</dt>
-              <dd className="font-semibold">
-                <PercentChange value={resource.return_12m_ratio} />
-              </dd>
-            </div>
-          )}
         </dl>
       )}
 
       {
         <Panel>
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line px-4 py-3">
-            {/* Busca e categorias dividem o espaço que sobra e quebram entre si; o
-              agrupamento fica no canto, sem quebrar junto com elas. */}
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-2">
-              <SearchInput
+          <FilterBar
+            open={filterOpen}
+            onOpenChange={setFilterOpen}
+            search={
+              <ToolbarSearch
                 value={draft}
                 label="Buscar posição"
                 placeholder="Buscar ativo"
-                className="w-44 shrink-0"
                 onChange={setDraft}
               />
-
-              {resource === null ? null : (
-                <>
-                  <FilterDropdown
-                    label="Classe"
-                    selected={categoryIds}
-                    options={resource.facets.map((facet) => ({
-                      id: facet.id,
-                      label: facet.label,
-                      count: facet.count,
-                      colorToken: facet.color_token,
-                    }))}
-                    onChange={(ids) => update({ classe: listToParam(ids) })}
-                  />
-                  <FilterDropdown
-                    label="Instituição"
-                    selected={institutionIds}
-                    options={resource.institution_facets.map((facet) => ({
-                      id: facet.id,
-                      label: facet.label,
-                      count: facet.count,
-                    }))}
-                    onChange={(ids) => update({ instituicao: listToParam(ids) })}
-                  />
-                  <ChoiceDropdown<GroupByParam>
-                    label="Agrupar"
-                    value={groupByParam}
-                    options={groupByOptions(allPortfolios)}
-                    onChange={(value) =>
-                      update({ agrupar: value === DEFAULT_GROUP_BY ? null : value })
-                    }
-                  />
-                  {categoryIds.length + institutionIds.length + (search === '' ? 0 : 1) >
-                  0 ? (
-                    <Button
-                      variant="ghost"
-                      aria-label="Limpar todos os filtros"
-                      onClick={() =>
-                        update({ classe: null, instituicao: null, busca: null })
-                      }
-                    >
-                      Limpar
-                    </Button>
-                  ) : null}
-                </>
-              )}
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              <IconButton
+            }
+            fields={filterFields}
+            extraCount={search === '' ? 0 : 1}
+            display={{
+              groupBy: {
+                label: 'Agrupar por',
+                value: groupByParam,
+                options: groupByOptions(allPortfolios),
+                onChange: (value) =>
+                  update({ agrupar: value === DEFAULT_GROUP_BY ? null : value }),
+              },
+              sortBy: {
+                label: 'Ordenar por',
+                value: sort === null ? '' : `${sort.columnId}:${sort.direction}`,
+                options: [{ value: '', label: 'Padrão' }, ...sortOptions],
+                onChange: (value) => {
+                  const [columnId = '', direction = 'desc'] = value.split(':');
+                  setSort(
+                    columnId === ''
+                      ? null
+                      : { columnId, direction: direction === 'asc' ? 'asc' : 'desc' },
+                  );
+                },
+              },
+              columns: displayColumns,
+              onToggleColumn: (id) =>
+                setColumnPreference((current) => toggleColumn(current, id)),
+            }}
+            actions={
+              <ToolbarIconButton
                 label="Exportar CSV"
                 icon="export"
                 disabled={resource === null || resource.groups.length === 0}
                 onClick={() => resource !== null && exportCsv(resource)}
               />
-            </div>
-          </div>
+            }
+          />
 
           <div>
             {error !== null ? (
@@ -403,11 +438,14 @@ export const PositionsScreen = ({
                 <DataTable<PositionRow>
                   screen={SCREEN}
                   caption={`Posições de ${scopeLabel}`}
-                  columns={columnsFor(allPortfolios && groupByParam !== 'carteira')}
+                  columns={tableColumns}
                   groups={groups}
                   rowId={positionId}
                   rowLabel={positionLabel}
                   isRowDisabled={(row) => row.closed === true}
+                  columnPreference={columnPreference}
+                  sort={sort}
+                  onSortChange={setSort}
                   {...(total === null ? {} : { total })}
                   openOnClick
                   onOpenRow={(row) =>
@@ -440,17 +478,12 @@ export const PositionsScreen = ({
               </KeepPrevious>
             )}
           </div>
-          <footer className="flex flex-wrap justify-between gap-x-6 gap-y-1 border-t border-line px-4 py-3 text-xs text-ink-3">
-            <span>
-              {stamp ??
-                'Carteira ainda não consolidada: a tabela aparece depois da primeira consolidação.'}
-              {hasCaveat
-                ? ' Nem toda linha usa preço do dia — o ponto ao lado do preço indica as exceções.'
-                : ''}
-            </span>
-            <span>
-              Telas estreitas escondem colunas secundárias; a linha nunca quebra.
-            </span>
+          <footer className="border-t border-line px-4 py-3 text-xs text-ink-3">
+            {stamp ??
+              'Carteira ainda não consolidada: a tabela aparece depois da primeira consolidação.'}
+            {hasCaveat
+              ? ' Nem toda linha usa preço do dia — o ponto ao lado do preço indica as exceções.'
+              : ''}
           </footer>
         </Panel>
       }
@@ -505,24 +538,29 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
     // ordenar "Tesouro IPCA+ 2035" por `IPCA2035` é ordenação invisível.
     sortValue: (row) => positionTitle(row),
     cell: (row) => (
-      <span className="block min-w-0">
-        <span className="flex items-center gap-2 truncate font-medium" title={row.name}>
-          <span className="truncate">{positionTitle(row)}</span>
-          {row.closed === true ? (
-            <span className="shrink-0 rounded-sm border border-line px-1.5 py-px text-[0.6875rem] font-medium tracking-wide text-ink-3 uppercase">
-              Fechado
-            </span>
-          ) : null}
-        </span>
-        <span className="block truncate text-[0.75rem] text-ink-3">
-          {row.closed === true
-            ? [row.category_name, 'Posição encerrada']
-                .filter((part): part is string => part !== null)
-                .join(' · ')
-            : [row.category_name, row.institution_name ?? 'Sem instituição']
-                .filter((part): part is string => part !== null)
-                .join(' · ')}
-        </span>
+      <span className="flex min-w-0 items-center gap-2 font-semibold" title={row.name}>
+        <span className="truncate">{positionTitle(row)}</span>
+        {row.closed === true ? (
+          <span className="shrink-0 rounded-sm bg-accent-soft px-1.5 py-px text-[0.6875rem] font-medium text-accent">
+            Fechado
+          </span>
+        ) : null}
+      </span>
+    ),
+  },
+  {
+    id: 'tipo',
+    header: 'Tipo · instituição',
+    hideBelow: 1400,
+    cell: (row) => (
+      <span className="block truncate text-ink-2">
+        {row.closed === true
+          ? [row.category_name, 'Posição encerrada']
+              .filter((part): part is string => part !== null)
+              .join(' · ')
+          : [row.category_name, row.institution_name ?? 'Sem instituição']
+              .filter((part): part is string => part !== null)
+              .join(' · ')}
       </span>
     ),
   },
@@ -546,7 +584,7 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
       row.unit === 'curve' ? (
         <span className="text-ink-3">curva</span>
       ) : (
-        <Money value={row.avg_price} />
+        <Money value={row.avg_price} bare />
       ),
   },
   {
@@ -554,12 +592,16 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
     header: 'Preço',
     numeric: true,
     hideBelow: 1100,
-    cell: (row) => (
-      <span className="whitespace-nowrap">
-        <PriceHealthDot kind={row.price_health} />
-        <Money value={row.price} />
-      </span>
-    ),
+    // Na curva não há preço de mercado nem ponto de saúde: só o traço.
+    cell: (row) =>
+      row.unit === 'curve' || row.price === null ? (
+        <span className="text-ink-3">—</span>
+      ) : (
+        <span className="whitespace-nowrap">
+          <PriceHealthDot kind={row.price_health} />
+          <Money value={row.price} bare />
+        </span>
+      ),
   },
   {
     id: 'investido',

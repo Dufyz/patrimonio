@@ -41,8 +41,8 @@ export const barState = (status: GoalResource['status']): BarState =>
       : 'on_track';
 
 export const STATUS_LABEL: Readonly<Record<GoalResource['status'], string>> = {
-  on_track: 'No caminho',
-  behind: 'Atrás do necessário',
+  on_track: 'No ritmo',
+  behind: 'Abaixo do ritmo',
   overdue: 'Prazo vencido',
   reached: 'Atingido',
   no_projection: 'Sem projeção',
@@ -173,4 +173,36 @@ export const chartSeries = (goal: GoalResource): readonly Series[] => {
       })),
     },
   ];
+};
+
+/* -------------------------------------------------------------------------- */
+/* Contra o prazo                                                              */
+
+export type Lateness = {
+  readonly text: string;
+  readonly tone: 'positive' | 'attention';
+};
+
+/**
+ * Quanto a chegada se afasta do prazo, dito em meses: `+21 meses`, `no prazo`,
+ * `6 meses antes`. Os dois números chegam da `api`; aqui só se subtrai.
+ */
+export const latenessOf = (
+  monthsToArrival: number | null,
+  monthsRemaining: number | null,
+): Lateness | null => {
+  if (monthsToArrival === null || monthsRemaining === null) return null;
+  const diff = monthsToArrival - monthsRemaining;
+  const unit = (n: number): string => (n === 1 ? 'mês' : 'meses');
+
+  if (diff > 0) return { text: `+${diff} ${unit(diff)}`, tone: 'attention' };
+  if (diff === 0) return { text: 'no prazo', tone: 'positive' };
+  return { text: `${-diff} ${unit(-diff)} antes`, tone: 'positive' };
+};
+
+/** `IPCA+6` → `IPCA + 6%`: a premissa como a prancha a escreve. */
+export const assumptionLabel = (assumption: string | null): string | null => {
+  if (assumption === null) return null;
+  const text = assumption.replace(/\s*\+\s*/g, ' + ');
+  return /[%]/.test(text) ? text : /\d$/.test(text) ? `${text}%` : text;
 };

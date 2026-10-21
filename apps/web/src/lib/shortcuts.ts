@@ -32,6 +32,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
     scope: 'global',
   },
   { id: 'new_transaction', sequence: ['n'], label: 'Novo lançamento', scope: 'global' },
+  { id: 'filter', sequence: ['f'], label: 'Filtrar a lista', scope: 'global' },
   { id: 'hide_values', sequence: ['h'], label: 'Ocultar valores', scope: 'global' },
   { id: 'help', sequence: ['?'], label: 'Esta ajuda', scope: 'global' },
 

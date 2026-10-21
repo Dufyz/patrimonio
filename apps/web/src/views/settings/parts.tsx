@@ -1,4 +1,4 @@
-import { IconButton, Panel } from '../../components/primitives.js';
+import { IconButton } from '../../components/primitives.js';
 import type { Tone } from '../../lib/settings.js';
 
 /**
@@ -7,27 +7,61 @@ import type { Tone } from '../../lib/settings.js';
  * `components/`, e este não é o caso.
  */
 
-/** Cada seção é um painel com âncora, para a navegação lateral levar até ela. */
+/**
+ * Cada seção tem âncora, título e descrição fora do painel — como na prancha 20 —
+ * e os painéis dela vêm dentro. A navegação lateral leva até a âncora.
+ */
 export const SettingsSection = ({
   id,
   title,
   description,
-  action,
   children,
 }: {
   readonly id: string;
   readonly title: string;
   readonly description: React.ReactNode;
-  readonly action?: React.ReactNode;
   readonly children: React.ReactNode;
 }): React.ReactElement => (
-  <div id={`secao-${id}`} className="scroll-mt-4">
-    <Panel title={title} {...(action === undefined ? {} : { action })}>
-      <p className="border-b border-line px-4 py-3 text-[0.8125rem] text-ink-2">
-        {description}
-      </p>
-      {children}
-    </Panel>
+  <section id={`secao-${id}`} aria-labelledby={`titulo-${id}`} className="scroll-mt-4">
+    <h2 id={`titulo-${id}`} className="text-panel-title font-semibold">
+      {title}
+    </h2>
+    <p className="mt-1 mb-3 max-w-[60rem] text-[0.8125rem] text-ink-2">{description}</p>
+    <div className="flex flex-col gap-3">{children}</div>
+  </section>
+);
+
+/** O painel de dentro de uma seção: borda, linhas separadas e, às vezes, cabeçalho. */
+export const SettingsPanel = ({
+  title,
+  hint,
+  action,
+  tone = 'default',
+  children,
+}: {
+  readonly title?: React.ReactNode;
+  readonly hint?: React.ReactNode;
+  readonly action?: React.ReactNode;
+  readonly tone?: 'default' | 'danger';
+  readonly children: React.ReactNode;
+}): React.ReactElement => (
+  <div
+    className={`min-w-0 overflow-hidden rounded-panel border bg-panel shadow-panel ${
+      tone === 'danger' ? 'border-negative' : 'border-line'
+    }`}
+  >
+    {title === undefined && action === undefined ? null : (
+      <header className="flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-2.5">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h3 className="text-[0.8125rem] font-semibold">{title}</h3>
+          {hint === undefined ? null : (
+            <span className="truncate text-xs text-ink-3">{hint}</span>
+          )}
+        </div>
+        {action}
+      </header>
+    )}
+    {children}
   </div>
 );
 

@@ -10,7 +10,7 @@ import { Icon } from '../icon.js';
  *
  * O diálogo do shadcn (Radix) com a pele da prancha 13: raio 12, borda
  * `line-2`, sombra em duas camadas, cabeçalho com título em 16/600, corpo com
- * 18 × 20 de respiro e rodapé sobre `panel-2`.
+ * respiro de 20 × 24 e rodapé branco, separado por uma linha (v2).
  */
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -53,19 +53,23 @@ export const DialogHeader = ({
   className,
   children,
   closeLabel = 'Fechar',
+  aside,
   ...props
 }: React.ComponentProps<'header'> & {
   readonly closeLabel?: string;
+  /** O que fica à esquerda do X: o "Passo 1 de 2" de um assistente. */
+  readonly aside?: React.ReactNode;
 }): React.ReactElement => (
   <header
     data-slot="dialog-header"
     className={cn(
-      'flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 pt-[18px] pb-3.5',
+      'flex shrink-0 items-start justify-between gap-3 border-b border-line px-6 pt-5 pb-4',
       className,
     )}
     {...props}
   >
     <div className="flex min-w-0 items-start gap-3">{children}</div>
+    {aside === undefined ? null : <div className="ml-auto shrink-0">{aside}</div>}
     <DialogPrimitive.Close
       aria-label={closeLabel}
       className="-mt-0.5 -mr-1 inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control text-ink-3 hover:bg-panel-2 hover:text-ink"
@@ -104,7 +108,7 @@ export const DialogBody = ({
   <div
     data-slot="dialog-body"
     className={cn(
-      'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-[18px]',
+      'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5',
       className,
     )}
     {...props}
@@ -118,7 +122,7 @@ export const DialogFooter = ({
   <footer
     data-slot="dialog-footer"
     className={cn(
-      'flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-line bg-panel-2 px-5 py-3.5',
+      'flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-line bg-panel px-6 py-4',
       className,
     )}
     {...props}

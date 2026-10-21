@@ -8,20 +8,62 @@ import type { MarketHealth, Settings, SettingsBackup } from '@patrimonio/contrac
  */
 
 export const SECTIONS = [
-  { id: 'carteiras', label: 'Carteiras' },
-  { id: 'mercado', label: 'Dados de mercado' },
-  { id: 'exibicao', label: 'Exibição' },
-  { id: 'backup', label: 'Dados e backup' },
+  {
+    id: 'exibicao',
+    group: 'Pessoal',
+    label: 'Exibição',
+    icon: 'eye',
+    keywords: 'tema claro escuro densidade tabelas ocultar valores',
+  },
+  {
+    id: 'carteiras',
+    group: 'Espaço',
+    label: 'Carteiras',
+    icon: 'archive',
+    keywords: 'carteira estratégia arquivada ordem barra lateral',
+  },
+  {
+    id: 'mercado',
+    group: 'Dados',
+    label: 'Dados de mercado',
+    icon: 'swap',
+    keywords: 'preço cotação fontes índices catálogo coleta atualizar manual',
+  },
+  {
+    id: 'backup',
+    group: 'Dados',
+    label: 'Dados e backup',
+    icon: 'arrow-right',
+    keywords: 'exportar csv json importar planilha apagar backup',
+  },
 ] as const;
 
 export type SectionId = (typeof SECTIONS)[number]['id'];
+
+export const DEFAULT_SECTION: SectionId = 'exibicao';
 
 export const isSectionId = (value: string | null): value is SectionId =>
   SECTIONS.some((section) => section.id === value);
 
 /** A seção que a URL pede, ou a primeira. `?secao=` inválido não quebra a tela. */
 export const sectionFromParam = (value: string | null): SectionId =>
-  isSectionId(value) ? value : 'carteiras';
+  isSectionId(value) ? value : DEFAULT_SECTION;
+
+const fold = (text: string): string =>
+  text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+
+/** As seções que a busca de ajuste deixa: rótulo ou palavra-chave contém o texto. */
+export const matchSections = (query: string): readonly (typeof SECTIONS)[number][] => {
+  const needle = fold(query.trim());
+  if (needle === '') return SECTIONS;
+
+  return SECTIONS.filter((section) =>
+    fold(`${section.label} ${section.keywords}`).includes(needle),
+  );
+};
 
 export const plural = (count: number, one: string, many: string): string =>
   `${count} ${count === 1 ? one : many}`;
@@ -106,6 +148,8 @@ const SOURCE_LABEL: Readonly<Record<string, string>> = {
   'tesouro-direto': 'Tesouro Direto',
   'tesouro-transparente': 'Tesouro Transparente',
   cotahist: 'B3 · COTAHIST',
+  cotacoes: 'Cotações (IBOV/IFIX)',
+  reconcile: 'Reconciliação',
 };
 
 const KIND_LABEL: Readonly<Record<string, string>> = {
@@ -115,6 +159,8 @@ const KIND_LABEL: Readonly<Record<string, string>> = {
   backfill: 'Histórico de ativo',
   cotahist: 'Carga inicial',
   contract_check: 'Verificação de formato',
+  live: 'Prévia do pregão',
+  reconcile: 'Reconciliação',
 };
 
 export const sourceLabel = (source: string): string => SOURCE_LABEL[source] ?? source;
@@ -212,3 +258,53 @@ export const backupSummary = (backup: SettingsBackup): BackupSummary => {
 /** Settings pode estar vazio, e a tela diz isso em vez de abrir sem seção. */
 export const isEmptyInstallation = (settings: Settings): boolean =>
   settings.portfolios.length === 0;
+
+/* -------------------------------------------------------------------------- */
+/* Resumo das fontes                                                          */
+/* -------------------------------------------------------------------------- */
+
+export type MarketSummary = {
+  readonly tone: Tone;
+  readonly title: string;
+  /** Quantos itens pedem atenção; zero quando tudo está em dia. */
+  readonly warnings: number;
+  readonly lastLoad: string | null;
+};
+
+/**
+ * A frase de cima das fontes: tudo em dia, com aviso ou falhando. Contar é só
+ * contar o que a `api` já marcou — nenhuma regra de negócio aqui.
+ */
+export const marketSummary = (health: MarketHealth): MarketSummary => {
+  const pending = health.catalogs.filter((catalog) => catalog.state === 'pending').length;
+  const failing = health.sources.filter((source) => source.status === 'failing').length;
+  const attention = health.sources.filter(
+    (source) =>
+      source.status === 'stale' ||
+      (source.status === 'ok' && source.coverage.missing > 0),
+  ).length;
+  const warnings = pending + failing + attention;
+
+  const instants = [
+    ...health.catalogs.map((catalog) => catalog.last_loaded),
+    ...health.sources.map((source) => source.last_run?.finished_at ?? null),
+  ].filter((value): value is string => value !== null);
+  const lastLoad =
+    instants.length === 0
+      ? null
+      : (instants.reduce((a, b) => (new Date(a) > new Date(b) ? a : b)) as string);
+
+  return {
+    tone: failing > 0 ? 'error' : warnings > 0 ? 'attention' : 'ok',
+    title: failing > 0 ? 'Fonte falhando' : 'Fontes funcionando',
+    warnings,
+    lastLoad,
+  };
+};
+
+/** `2026-10-15` → `15/10`: o dia basta ao lado de "último preço de". */
+export const shortDate = (date: string): string => {
+  const [, month, day] = date.split('-');
+
+  return `${day ?? ''}/${month ?? ''}`;
+};

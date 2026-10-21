@@ -5,8 +5,8 @@ import { fetchInstitutions } from '../../api/institutions.js';
 import { createFixedIncomeAsset } from '../../api/registers.js';
 import type { FixedIncomeBody } from '../../api/registers.js';
 import { Modal } from '../../components/overlay.js';
-import { Chip, Label, Segmented } from '../../components/primitives.js';
-import { Field, Input, Select } from '../entry/fields.js';
+import { Button, Segmented } from '../../components/primitives.js';
+import { Field, Input, Select, FieldLabel } from '../entry/fields.js';
 import { FormShell } from '../entry/form_shell.js';
 import {
   CaixinhaFields,
@@ -201,191 +201,306 @@ export const FixedIncomeDialog = ({
   };
 
   const klass = CLASS_BY_KIND[kind];
+  const kindLabel = KINDS.find((item) => item.value === kind)?.label ?? '';
+  const [step, setStep] = useState<1 | 2>(1);
+
+  const next = (): void => {
+    setAttempted(true);
+    if (errors.issuer === undefined) {
+      setAttempted(false);
+      setStep(2);
+    }
+  };
+
+  const stepper = (
+    <span className="flex items-center gap-3 text-xs text-ink-3">
+      Passo {step} de 2
+      <span aria-hidden="true" className="flex gap-1">
+        <span className="h-0.5 w-6 rounded-full bg-ink" />
+        <span
+          className={`h-0.5 w-6 rounded-full ${step === 2 ? 'bg-ink' : 'bg-line-2'}`}
+        />
+      </span>
+    </span>
+  );
 
   return (
     <Modal
       open
       guard
-      title="Cadastrar título"
-      subtitle="Títulos bancários e crédito privado não têm cotação pública; o preço é marcado na curva pela taxa"
+      wide={step === 2}
+      narrow={step === 1}
+      title={`Cadastrar ${kindLabel}`}
+      aside={stepper}
       onClose={onClose}
     >
-      <FormShell
-        pending={pending}
-        error={error}
-        saveLabel="Cadastrar"
-        onSave={save}
-        onCancel={onClose}
-      >
-        <div className="flex flex-col gap-1.5">
-          <Label>Tipo</Label>
-          <Segmented label="Tipo" options={KINDS} value={kind} onChange={setKind} />
-        </div>
-
-        {kind === 'cdb' ? (
-          <div className="flex flex-col gap-1.5">
-            <Label>Modelo</Label>
-            <Segmented
-              label="Modelo"
-              options={MODELS}
-              value={model}
-              onChange={setModel}
-            />
-            {caixinha ? (
-              <p className="text-xs text-ink-3">
-                Um ativo só: cada aporte é um lote com a própria data, e o resgate consome
-                os lotes pela regra abaixo.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
-        <Field
-          label="Emissor"
-          error={attempted ? errors.issuer : undefined}
-          hint={
-            institutions.length === 0
-              ? 'Cadastre a instituição em Configurações › Instituições.'
-              : undefined
-          }
+      {step === 1 ? (
+        <FormShell
+          pending={false}
+          error={null}
+          saveLabel="Próximo"
+          saveShortcut={null}
+          showCancel={false}
+          onSave={next}
+          onCancel={onClose}
         >
-          {(control) => (
-            <Select
-              {...control}
-              invalid={attempted && errors.issuer !== undefined}
-              value={issuer}
-              placeholder="Escolha a instituição"
-              options={institutions}
-              onChange={(event) => setIssuer(event.target.value)}
-            />
-          )}
-        </Field>
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel>Tipo</FieldLabel>
+            <Segmented label="Tipo" options={KINDS} value={kind} onChange={setKind} />
+          </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label>Indexador</Label>
-          <Segmented
-            label="Indexador"
-            options={INDEXERS}
-            value={indexer}
-            onChange={setIndexer}
-          />
-        </div>
+          {kind === 'cdb' ? (
+            <div className="flex flex-col gap-1.5">
+              <FieldLabel>Modelo</FieldLabel>
+              <div role="radiogroup" aria-label="Modelo" className="flex flex-col gap-2">
+                {MODELS.map((option) => (
+                  <ModelCard
+                    key={option.value}
+                    checked={model === option.value}
+                    title={option.label}
+                    description={
+                      option.value === 'title'
+                        ? 'Uma aplicação, com data de aplicação e vencimento próprios.'
+                        : 'Um ativo só: cada aporte é um lote com a própria data, e o resgate consome os lotes pela regra definida no próximo passo.'
+                    }
+                    onSelect={() => setModel(option.value)}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
 
-        <div className={caixinha ? 'grid grid-cols-2 gap-4' : 'grid grid-cols-3 gap-4'}>
-          <Field label="Taxa" error={attempted ? errors.rate : undefined}>
-            {(control) => (
-              <span className="relative block">
-                <Input
-                  {...control}
-                  numeric
-                  inputMode="decimal"
-                  invalid={attempted && errors.rate !== undefined}
-                  className="pr-16"
-                  value={rate}
-                  placeholder="112,00"
-                  onChange={(event) => setRate(event.target.value)}
-                />
-                <span className="pointer-events-none absolute top-0 right-2.5 flex h-[38px] items-center text-xs text-ink-3">
-                  {RATE_SUFFIX[indexer]}
-                </span>
-              </span>
-            )}
-          </Field>
           <Field
-            label={caixinha ? 'Abertura' : 'Aplicação'}
-            error={attempted ? errors.issuedAt : undefined}
+            label="Emissor"
+            error={attempted ? errors.issuer : undefined}
+            hint={
+              institutions.length === 0
+                ? 'Cadastre a instituição em Configurações › Instituições.'
+                : undefined
+            }
           >
             {(control) => (
-              <Input
+              <Select
                 {...control}
-                type="date"
-                invalid={attempted && errors.issuedAt !== undefined}
-                value={issuedAt}
-                onChange={(event) => setIssuedAt(event.target.value)}
+                invalid={attempted && errors.issuer !== undefined}
+                value={issuer}
+                placeholder="Escolha a instituição"
+                options={institutions}
+                onChange={(event) => setIssuer(event.target.value)}
               />
             )}
           </Field>
-          {caixinha ? null : (
-            <Field label="Vencimento" error={attempted ? errors.maturity : undefined}>
-              {(control) => (
-                <Input
-                  {...control}
-                  type="date"
-                  invalid={attempted && errors.maturity !== undefined}
-                  value={maturity}
-                  onChange={(event) => setMaturity(event.target.value)}
+        </FormShell>
+      ) : (
+        <FormShell
+          pending={pending}
+          error={error}
+          saveLabel="Cadastrar e continuar"
+          showCancel={false}
+          onSave={save}
+          onCancel={onClose}
+          secondary={
+            <Button variant="ghost" onClick={() => setStep(1)}>
+              Voltar
+            </Button>
+          }
+        >
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-[13rem_1fr]">
+            <dl className="flex flex-col gap-4 self-start rounded-panel bg-panel-2 p-5 text-[0.8125rem]">
+              <SummaryItem term="Nome exibido">{name.trim() || suggested}</SummaryItem>
+              <SummaryItem term="Classe">Renda fixa · {klass.label}</SummaryItem>
+              <SummaryItem term="Emissor">{issuerName}</SummaryItem>
+              <SummaryItem term="Modelo">
+                {caixinha ? 'Caixinha · aportes em lotes' : 'Título único'}
+              </SummaryItem>
+            </dl>
+
+            <div className="flex min-w-0 flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <FieldLabel>Indexador</FieldLabel>
+                <Segmented
+                  label="Indexador"
+                  options={INDEXERS}
+                  value={indexer}
+                  onChange={setIndexer}
                 />
-              )}
-            </Field>
-          )}
-        </div>
+              </div>
 
-        {caixinha ? (
-          <CaixinhaFields
-            form={terms}
-            onChange={setTerms}
-            attempted={attempted}
-            issuedAt={issuedAt}
-          />
-        ) : null}
-
-        <div className={caixinha ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-2 gap-4'}>
-          {caixinha ? null : (
-            <div className="flex flex-col gap-1.5">
-              <Label>Liquidez</Label>
-              <Segmented
-                label="Liquidez"
-                options={LIQUIDITIES}
-                value={liquidity}
-                onChange={setLiquidity}
-              />
-              {liquidity === 'd_plus_n' ? (
+              <div className="grid grid-cols-3 gap-4">
+                <Field label="Taxa" error={attempted ? errors.rate : undefined}>
+                  {(control) => (
+                    <span className="relative block">
+                      <Input
+                        {...control}
+                        numeric
+                        inputMode="decimal"
+                        invalid={attempted && errors.rate !== undefined}
+                        className="pr-16"
+                        value={rate}
+                        placeholder="112,00"
+                        onChange={(event) => setRate(event.target.value)}
+                      />
+                      <span className="pointer-events-none absolute top-0 right-2.5 flex h-[38px] items-center text-xs text-ink-3">
+                        {RATE_SUFFIX[indexer]}
+                      </span>
+                    </span>
+                  )}
+                </Field>
                 <Field
-                  label="Dias de carência"
-                  error={attempted ? errors.days : undefined}
+                  label={caixinha ? 'Abertura' : 'Aplicação'}
+                  error={attempted ? errors.issuedAt : undefined}
                 >
                   {(control) => (
                     <Input
                       {...control}
-                      numeric
-                      inputMode="numeric"
-                      invalid={attempted && errors.days !== undefined}
-                      value={liquidityDays}
-                      onChange={(event) => setLiquidityDays(event.target.value)}
+                      type="date"
+                      invalid={attempted && errors.issuedAt !== undefined}
+                      value={issuedAt}
+                      onChange={(event) => setIssuedAt(event.target.value)}
                     />
                   )}
                 </Field>
+                {caixinha ? null : (
+                  <Field
+                    label="Vencimento"
+                    error={attempted ? errors.maturity : undefined}
+                  >
+                    {(control) => (
+                      <Input
+                        {...control}
+                        type="date"
+                        invalid={attempted && errors.maturity !== undefined}
+                        value={maturity}
+                        onChange={(event) => setMaturity(event.target.value)}
+                      />
+                    )}
+                  </Field>
+                )}
+              </div>
+
+              {caixinha ? (
+                <CaixinhaFields
+                  form={terms}
+                  onChange={setTerms}
+                  attempted={attempted}
+                  issuedAt={issuedAt}
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <FieldLabel>Liquidez</FieldLabel>
+                    <Segmented
+                      label="Liquidez"
+                      options={LIQUIDITIES}
+                      value={liquidity}
+                      onChange={setLiquidity}
+                    />
+                    {liquidity === 'd_plus_n' ? (
+                      <Field
+                        label="Dias de carência"
+                        error={attempted ? errors.days : undefined}
+                      >
+                        {(control) => (
+                          <Input
+                            {...control}
+                            numeric
+                            inputMode="numeric"
+                            invalid={attempted && errors.days !== undefined}
+                            value={liquidityDays}
+                            onChange={(event) => setLiquidityDays(event.target.value)}
+                          />
+                        )}
+                      </Field>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <FieldLabel>Imposto de renda</FieldLabel>
+                    <Segmented
+                      label="Imposto de renda"
+                      options={TAXES}
+                      value={tax}
+                      onChange={setTax}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {caixinha ? (
+                <div className="flex flex-col gap-1.5">
+                  <FieldLabel>Imposto de renda</FieldLabel>
+                  <Segmented
+                    label="Imposto de renda"
+                    options={TAXES}
+                    value={tax}
+                    onChange={setTax}
+                  />
+                </div>
               ) : null}
+
+              <Field label="Nome exibido" hint="gerado automaticamente; editável">
+                {(control) => (
+                  <Input
+                    {...control}
+                    invalid={false}
+                    value={name}
+                    placeholder={suggested}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                )}
+              </Field>
             </div>
-          )}
-          <div className="flex flex-col gap-1.5">
-            <Label>Imposto de renda</Label>
-            <Segmented
-              label="Imposto de renda"
-              options={TAXES}
-              value={tax}
-              onChange={setTax}
-            />
           </div>
-        </div>
-
-        <Field label="Nome exibido" hint="gerado automaticamente; editável">
-          {(control) => (
-            <Input
-              {...control}
-              invalid={false}
-              value={name}
-              placeholder={suggested}
-              onChange={(event) => setName(event.target.value)}
-            />
-          )}
-        </Field>
-
-        <div className="flex items-center gap-2 text-xs text-ink-2">
-          Classe definida pelo indexador:
-          <Chip colorToken={klass.token}>{klass.label}</Chip>
-        </div>
-      </FormShell>
+        </FormShell>
+      )}
     </Modal>
   );
 };
+
+const SummaryItem = ({
+  term,
+  children,
+}: {
+  readonly term: string;
+  readonly children: React.ReactNode;
+}): React.ReactElement => (
+  <div>
+    <dt className="text-xs text-ink-3">{term}</dt>
+    <dd className="font-semibold">{children}</dd>
+  </div>
+);
+
+/** O cartão de escolha do Modelo: o marcado ganha a borda e o fundo de destaque. */
+const ModelCard = ({
+  checked,
+  title,
+  description,
+  onSelect,
+}: {
+  readonly checked: boolean;
+  readonly title: string;
+  readonly description: string;
+  readonly onSelect: () => void;
+}): React.ReactElement => (
+  <button
+    type="button"
+    role="radio"
+    aria-checked={checked}
+    className={`flex cursor-pointer items-start gap-3 rounded-panel border p-3.5 text-left ${
+      checked ? 'border-accent bg-accent-soft' : 'border-line-2 bg-panel hover:bg-panel-2'
+    }`}
+    onClick={onSelect}
+  >
+    <span
+      aria-hidden="true"
+      className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border ${
+        checked ? 'border-accent' : 'border-line-2'
+      }`}
+    >
+      {checked ? <span className="size-2 rounded-full bg-accent" /> : null}
+    </span>
+    <span className="min-w-0">
+      <span className="block text-[0.8125rem] font-semibold">{title}</span>
+      <span className="block text-xs text-ink-3">{description}</span>
+    </span>
+  </button>
+);

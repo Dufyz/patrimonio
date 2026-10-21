@@ -184,6 +184,8 @@ export const ReturnsChart = ({
           dates={chart.dates as DateOnly[]}
           series={chartSeries(chart, benchmarks.selected, scope.name)}
           valueFormat="percent"
+          endLabels
+          inception={scope.inception as DateOnly | null}
           ariaLabel="Retorno acumulado da carteira contra os benchmarks"
           xTickLabel={(date) => ticks.get(date) ?? ''}
           tooltipDateLabel={(date) => formatDate(date)}

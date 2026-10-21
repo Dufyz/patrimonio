@@ -75,6 +75,7 @@ export const AppShell = ({
     () => forcedWidth ?? globalThis.innerWidth ?? 1440,
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(readCollapsed);
 
   useEffect(() => {
     if (forcedWidth !== undefined) return;
@@ -85,7 +86,9 @@ export const AppShell = ({
 
   const width = forcedWidth ?? viewport;
   const asDrawer = width < DRAWER_BELOW;
-  const iconsOnly = !asDrawer && width < ICONS_BELOW;
+  // A pessoa recolhe a barra quando quer (prancha 11B); em janela estreita ela
+  // vira trilho sozinha. Na gaveta o recolhimento não se aplica.
+  const iconsOnly = !asDrawer && (collapsed || width < ICONS_BELOW);
 
   const scopeLabel =
     scope === ALL_PORTFOLIOS
@@ -108,6 +111,16 @@ export const AppShell = ({
       onOpenSettings={onOpenSettings}
       settingsActive={settingsActive}
       demo={demo}
+      onToggleCollapsed={
+        asDrawer
+          ? undefined
+          : () =>
+              setCollapsed((current) => {
+                const next = !(current || width < ICONS_BELOW);
+                writeCollapsed(next);
+                return next;
+              })
+      }
     />
   );
 
@@ -136,7 +149,7 @@ export const AppShell = ({
         <nav
           aria-label="Navegação"
           className={`sticky top-0 h-dvh shrink-0 self-start border-r border-line bg-panel ${
-            iconsOnly ? 'w-14' : 'w-[248px]'
+            iconsOnly ? 'w-[60px]' : 'w-[248px]'
           }`}
         >
           {sidebar}
@@ -164,8 +177,34 @@ export const AppShell = ({
   );
 };
 
+const COLLAPSED_KEY = 'patrimonio:sidebar-collapsed';
+
+const readCollapsed = (): boolean => {
+  try {
+    return globalThis.localStorage.getItem(COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
+const writeCollapsed = (value: boolean): void => {
+  try {
+    globalThis.localStorage.setItem(COLLAPSED_KEY, value ? '1' : '0');
+  } catch {
+    // Janela anônima ou armazenamento bloqueado: a barra só não lembra.
+  }
+};
+
+/** `GL` para todas as carteiras, as duas primeiras letras nas demais. */
+const initials = (id: string, label: string): string =>
+  id === ALL_PORTFOLIOS ? 'GL' : label.slice(0, 2).toUpperCase();
+
 const NAV_BASE =
   'flex w-full cursor-pointer items-center gap-2.5 rounded-control px-2.5 py-[7px] text-left text-[0.84375rem] outline-none focus-visible:ring-2 focus-visible:ring-focus/40';
+
+/** O item do trilho recolhido: 40 × 36, centralizado (prancha 11B). */
+const RAIL_BASE =
+  'flex h-9 w-10 cursor-pointer items-center justify-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-focus/40';
 
 /** O título de bloco da barra lateral: mono 10,5, peso 600, caixa alta. */
 const GroupTitle = ({
@@ -194,7 +233,9 @@ const Sidebar = ({
   onOpenSettings,
   settingsActive,
   demo,
+  onToggleCollapsed,
 }: {
+  readonly onToggleCollapsed?: (() => void) | undefined;
   readonly portfolios: readonly PortfolioItem[];
   readonly screens: readonly ScreenItem[];
   readonly scope: string;
@@ -207,7 +248,9 @@ const Sidebar = ({
   readonly settingsActive: boolean;
   readonly demo: boolean;
 }): React.ReactElement => (
-  <div className="flex h-full flex-col px-3 pt-3.5 pb-3">
+  <div
+    className={`flex h-full flex-col pt-3.5 pb-3 ${iconsOnly ? 'items-center px-0' : 'px-3'}`}
+  >
     {demo ? (
       <p
         role="note"
@@ -218,21 +261,64 @@ const Sidebar = ({
       </p>
     ) : null}
 
-    <button
-      type="button"
-      aria-label="Buscar"
-      className="mb-1.5 inline-flex h-control w-full cursor-pointer items-center justify-between gap-2 rounded-control border border-line-2 bg-panel px-[11px] text-[0.78125rem] font-medium text-ink-3 hover:bg-panel-2"
-      onClick={onOpenSearch}
-    >
-      <span className="flex items-center gap-2">
+    {onToggleCollapsed === undefined && !iconsOnly ? (
+      <p className="px-1.5 pb-3 text-[0.9375rem] font-semibold tracking-[-0.01em]">
+        Patrimônio
+      </p>
+    ) : onToggleCollapsed === undefined ? null : (
+      <div
+        className={`flex items-center ${
+          iconsOnly ? 'mb-1 justify-center' : 'justify-between pr-1 pb-3 pl-1.5'
+        }`}
+      >
+        {iconsOnly ? null : (
+          <span className="text-[0.9375rem] font-semibold tracking-[-0.01em]">
+            Patrimônio
+          </span>
+        )}
+        <button
+          type="button"
+          aria-label={iconsOnly ? 'Expandir barra lateral' : 'Recolher barra lateral'}
+          title={iconsOnly ? 'Expandir barra lateral' : 'Recolher barra lateral'}
+          className="inline-flex size-7 cursor-pointer items-center justify-center rounded-control text-ink-3 hover:bg-panel-2 hover:text-ink"
+          onClick={onToggleCollapsed}
+        >
+          <Icon name="sidebar" />
+        </button>
+      </div>
+    )}
+
+    {iconsOnly ? (
+      <button
+        type="button"
+        aria-label="Buscar"
+        title="Buscar (⌘K)"
+        className="mb-1.5 inline-flex size-9 cursor-pointer items-center justify-center rounded-control text-ink-3 hover:bg-panel-2 hover:text-ink"
+        onClick={onOpenSearch}
+      >
         <Icon name="search" />
-        {iconsOnly ? null : 'Buscar'}
-      </span>
-      {iconsOnly ? null : <Kbd>⌘K</Kbd>}
-    </button>
+      </button>
+    ) : (
+      <button
+        type="button"
+        aria-label="Buscar"
+        className="mb-2 inline-flex h-control w-full cursor-pointer items-center justify-between gap-2 rounded-control border border-line-2 bg-panel px-[11px] text-[0.78125rem] font-medium text-ink-3 hover:bg-panel-2"
+        onClick={onOpenSearch}
+      >
+        <span className="flex items-center gap-2">
+          <Icon name="search" />
+          Buscar
+        </span>
+        <Kbd>⌘K</Kbd>
+      </button>
+    )}
 
     {/* Só esta região rola: a busca e Configurações ficam onde estão. */}
-    <div className="-mx-1 flex min-h-0 flex-1 flex-col overflow-y-auto px-1">
+    <div
+      className={`flex min-h-0 flex-1 flex-col overflow-y-auto ${
+        iconsOnly ? 'items-center' : '-mx-1 px-1'
+      }`}
+    >
       {iconsOnly ? null : <GroupTitle>Carteiras</GroupTitle>}
 
       <ul className="flex flex-col gap-px">
@@ -242,15 +328,21 @@ const Sidebar = ({
               type="button"
               aria-current={portfolio.id === scope ? 'true' : undefined}
               title={portfolio.label}
-              className={`${NAV_BASE} min-h-9 justify-between py-1.5 ${
+              className={`${iconsOnly ? RAIL_BASE : `${NAV_BASE} min-h-9 justify-between py-1.5`} ${
                 portfolio.id === scope
                   ? 'bg-accent-soft font-semibold text-ink'
                   : 'text-ink hover:bg-panel-2'
               }`}
               onClick={() => onNavigate(portfolio.id, screen)}
             >
-              <span className="min-w-0 flex-1 truncate">
-                {iconsOnly ? portfolio.label.slice(0, 1) : portfolio.label}
+              <span
+                className={
+                  iconsOnly
+                    ? 'tabular text-[0.6875rem] font-semibold'
+                    : 'min-w-0 flex-1 truncate'
+                }
+              >
+                {iconsOnly ? initials(portfolio.id, portfolio.label) : portfolio.label}
               </span>
               {iconsOnly ? null : (
                 <span className="text-xs font-normal text-ink-3">
@@ -263,7 +355,7 @@ const Sidebar = ({
       </ul>
 
       {iconsOnly ? (
-        <div className="mt-2.5 border-t border-line pt-2" />
+        <div className="my-2 w-8 border-t border-line" />
       ) : (
         <GroupTitle className="mt-2.5 truncate border-t border-line pt-4">
           {scopeLabel}
@@ -277,9 +369,9 @@ const Sidebar = ({
               type="button"
               aria-current={item.id === screen ? 'page' : undefined}
               title={item.label}
-              className={`${NAV_BASE} ${
+              className={`${iconsOnly ? RAIL_BASE : NAV_BASE} ${
                 item.id === screen
-                  ? 'bg-accent-soft font-medium text-ink'
+                  ? 'bg-nav-active font-medium text-ink'
                   : 'text-ink-2 hover:bg-panel-2 hover:text-ink'
               }`}
               onClick={() => onNavigate(scope, item.id)}
@@ -302,9 +394,9 @@ const Sidebar = ({
         type="button"
         title="Configurações"
         aria-current={settingsActive ? 'page' : undefined}
-        className={`${NAV_BASE} ${
+        className={`${iconsOnly ? RAIL_BASE : NAV_BASE} ${
           settingsActive
-            ? 'bg-accent-soft font-medium text-ink'
+            ? 'bg-nav-active font-medium text-ink'
             : 'text-ink-2 hover:bg-panel-2 hover:text-ink'
         }`}
         onClick={onOpenSettings}

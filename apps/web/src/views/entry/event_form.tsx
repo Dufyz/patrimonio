@@ -10,6 +10,8 @@ import { AssetPicker } from './asset_picker.js';
 import { EffectPanel } from './effect_table.js';
 import { Callout, Field, Input, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
+import { BackButton } from './wizard.js';
+import type { EntryWizard } from './wizard.js';
 import { usePreview, useSave } from './hooks.js';
 
 /**
@@ -31,6 +33,7 @@ export const EventFormView = ({
   search,
   onSaved,
   onCancel,
+  wizard,
 }: {
   readonly seed: EventSeed;
   readonly search?: AssetSearch;
@@ -40,6 +43,8 @@ export const EventFormView = ({
     institutionId: string | null,
   ) => void;
   readonly onCancel: () => void;
+  /** No assistente do lançamento: o resumo, o Voltar e o "salvar e novo". */
+  readonly wizard?: EntryWizard | undefined;
 }): React.ReactElement => {
   const [asset, setAsset] = useState<PickedAsset | null>(seed.asset);
   const [kind, setKind] = useState<EventKind>('split');
@@ -74,6 +79,14 @@ export const EventFormView = ({
 
   return (
     <FormShell
+      {...(wizard === undefined
+        ? {}
+        : {
+            summary: wizard.summary,
+            secondary: <BackButton onBack={wizard.onBack} />,
+            showCancel: false,
+            saveLabel: 'Cadastrar',
+          })}
       pending={save.pending}
       onSave={() => void submit()}
       onCancel={onCancel}
@@ -90,21 +103,23 @@ export const EventFormView = ({
         />
       </div>
 
-      <Field label="Ativo" error={visible.show('asset')}>
-        {(control) => (
-          <AssetPicker
-            control={control}
-            invalid={control['aria-invalid']}
-            portfolioId={null}
-            value={asset}
-            onChange={setAsset}
-            allowNew={false}
-            onBlur={touch('asset')}
-            autoFocus={asset === null}
-            {...(search === undefined ? {} : { search })}
-          />
-        )}
-      </Field>
+      {wizard !== undefined ? null : (
+        <Field label="Ativo" error={visible.show('asset')}>
+          {(control) => (
+            <AssetPicker
+              control={control}
+              invalid={control['aria-invalid']}
+              portfolioId={null}
+              value={asset}
+              onChange={setAsset}
+              allowNew={false}
+              onBlur={touch('asset')}
+              autoFocus={asset === null}
+              {...(search === undefined ? {} : { search })}
+            />
+          )}
+        </Field>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Data com" error={visible.show('recordDate')}>

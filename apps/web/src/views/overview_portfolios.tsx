@@ -95,6 +95,8 @@ export const PortfoliosTable = ({
               >
                 <th scope="row" className="px-4 text-left font-normal">
                   <span className="flex items-center gap-2">
+                    {/* O mesmo recuo da seta das classes: os nomes alinham. */}
+                    <span aria-hidden="true" className="w-3.5 shrink-0" />
                     <span
                       aria-hidden="true"
                       className="size-2 shrink-0 rounded-xs"

@@ -382,7 +382,9 @@ export const barScale = (nodes: readonly Node[]): number => {
   );
   const largest = Math.max(0, ...values.filter(Number.isFinite));
 
-  return Math.max(10, Math.ceil(largest / 10) * 10);
+  // A barra nunca é menor que 60 pp: com um alvo só de 5%, ocupar a trilha
+  // inteira faria 5% parecer tudo.
+  return Math.max(60, Math.ceil(largest / 10) * 10);
 };
 
 /** Posição em percentual do fundo da barra, presa a 0–100. */

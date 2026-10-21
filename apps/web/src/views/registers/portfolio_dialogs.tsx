@@ -93,6 +93,52 @@ export const PortfolioDialog = ({
             />
           )}
         </Field>
+
+        {portfolio === null ? null : (
+          <table className="w-full overflow-hidden rounded-panel border border-line text-[0.8125rem]">
+            <caption className="sr-only">Conteúdo da carteira</caption>
+            <thead className="bg-panel-2">
+              <tr>
+                <th
+                  scope="col"
+                  className="px-3 py-2 text-left tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase"
+                >
+                  Conteúdo
+                </th>
+                <th
+                  scope="col"
+                  className="px-3 py-2 text-right tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase"
+                >
+                  Hoje
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['Lançamentos', String(portfolio.blocking.transactions)],
+                ['Ativos', String(portfolio.blocking.assets)],
+                [
+                  'Estratégia',
+                  portfolio.strategy_categories === 0
+                    ? 'sem estratégia'
+                    : plural(portfolio.strategy_categories, 'categoria', 'categorias'),
+                ],
+              ].map(([term, value]) => (
+                <tr key={term} className="border-t border-line">
+                  <th scope="row" className="px-3 py-2 text-left font-normal">
+                    {term}
+                  </th>
+                  <td className="px-3 py-2 text-right font-semibold tabular">{value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        <Callout tone="info">
+          Alvo por classe e metas não ficam aqui: são editados nas telas Estratégia e
+          Objetivos da própria carteira.
+        </Callout>
       </FormShell>
     </Modal>
   );

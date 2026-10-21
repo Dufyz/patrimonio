@@ -52,6 +52,8 @@ type BaseOptions = {
   /** D-03: esconde o valor em reais, preservando a largura. */
   readonly hidden?: boolean;
   readonly decimals?: number;
+  /** Sem o `R$` na frente: colunas de preço, onde a unidade já está no cabeçalho. */
+  readonly bare?: boolean;
 };
 
 const unavailable = (): FormattedNumber => ({
@@ -122,8 +124,8 @@ export const formatMoney = (
   value: NumberInput,
   options: BaseOptions = {},
 ): FormattedNumber => {
-  const prefix = 'R$ ';
-  if (options.hidden === true) return masked('R$');
+  const prefix = options.bare === true ? '' : 'R$ ';
+  if (options.hidden === true) return masked(options.bare === true ? '' : 'R$');
 
   const parts = value === null || value === undefined ? null : parseDecimal(value);
   if (parts === null) return unavailable();
@@ -235,14 +237,14 @@ const TIERS = [
 
 /**
  * Forma compacta, só onde não cabe o número inteiro: eixo de gráfico e barra
- * lateral. `"318900"` → `R$ 318,9k`. Zeros à direita somem, então `300000` é
+ * lateral. `"318900"` → `318,9k`. Zeros à direita somem, então `300000` é
  * `300k` e não `300,0k`.
  */
 export const formatCompact = (
   value: NumberInput,
   options: BaseOptions = {},
 ): FormattedNumber => {
-  if (options.hidden === true) return masked('R$');
+  if (options.hidden === true) return masked('');
 
   const parts = value === null || value === undefined ? null : parseDecimal(value);
   if (parts === null) return unavailable();
@@ -255,10 +257,10 @@ export const formatCompact = (
     const rounded = roundToPlaces(parts, decimals);
     const fraction = trimFraction(rounded.fraction, 0);
     const shown = { ...rounded, fraction };
-    return assemble(shown, `R$ ${render(shown)}`, options.signed === true);
+    return assemble(shown, `${render(shown)}`, options.signed === true);
   }
 
   const scaled = roundToPlaces(shiftPoint(parts, -tier.places), decimals);
   const shown = { ...scaled, fraction: trimFraction(scaled.fraction, 0) };
-  return assemble(shown, `R$ ${render(shown)}${tier.suffix}`, options.signed === true);
+  return assemble(shown, `${render(shown)}${tier.suffix}`, options.signed === true);
 };

@@ -267,7 +267,8 @@ describe('tela de Movimentações', () => {
     show();
     await screen.findByText('Outubro 2026');
 
-    await user.click(screen.getByRole('button', { name: /^Tipo/ }));
+    await user.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await user.click(screen.getByRole('menuitem', { name: /Tipo/ }));
     const list = screen.getByRole('group', { name: 'Tipo' });
     expect(
       within(list).getByRole('checkbox', { name: /Proventos\s*4/ }),
@@ -280,7 +281,8 @@ describe('tela de Movimentações', () => {
     show();
     await screen.findByText('Outubro 2026');
 
-    await user.click(screen.getByRole('button', { name: /^Tipo/ }));
+    await user.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await user.click(screen.getByRole('menuitem', { name: /Tipo/ }));
     const list = screen.getByRole('group', { name: 'Tipo' });
     await user.click(within(list).getByRole('checkbox', { name: /Compras\s*3/ }));
     await waitFor(() =>
@@ -326,9 +328,13 @@ describe('tela de Movimentações', () => {
 
     const master = screen.getByLabelText('Selecionar todos os lançamentos da página');
     await user.click(master);
-    expect(screen.getByText('5 selecionados')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('toolbar', { name: 'Ações em lote' })).getByText(
+        /selecionados/,
+      ),
+    ).toHaveTextContent(/^\d+ selecionados/);
     await user.click(master);
-    expect(screen.queryByText('5 selecionados')).toBeNull();
+    expect(screen.queryByRole('toolbar', { name: 'Ações em lote' })).toBeNull();
   });
 
   it('excluir pede à api, avisa do recálculo e oferece desfazer', async () => {

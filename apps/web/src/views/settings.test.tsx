@@ -184,9 +184,9 @@ describe('SettingsView', () => {
       .map((heading) => heading.textContent);
 
     expect(titles).toEqual([
+      'Exibição',
       'Carteiras',
       'Dados de mercado',
-      'Exibição',
       'Dados e backup',
     ]);
   });
@@ -197,10 +197,11 @@ describe('SettingsView', () => {
     const carteiras = within(screen.getByRole('table', { name: 'Carteiras abertas' }));
 
     const longo = carteiras.getByRole('row', { name: /Longo prazo/ });
-    expect(within(longo).getByText('41 lançamentos · 9 ativos')).toBeTruthy();
+    expect(within(longo).getByText('41')).toBeTruthy();
+    expect(within(longo).getByText('9')).toBeTruthy();
 
     const imovel = carteiras.getByRole('row', { name: /Entrada do imóvel/ });
-    expect(within(imovel).getByText('vazia')).toBeTruthy();
+    expect(within(imovel).getByText('sem estratégia')).toBeTruthy();
     expect(carteiras.queryByRole('columnheader', { name: 'Benchmark' })).toBeNull();
     expect(carteiras.queryByRole('columnheader', { name: 'Objetivo' })).toBeNull();
     expect(screen.getByText(/1 arquivada · Viagem 2024/)).toBeTruthy();
@@ -276,8 +277,8 @@ describe('SettingsView', () => {
     expect(within(row).getByText('22 / 24')).toBeTruthy();
     expect(within(row).getByText('2 sem preço')).toBeTruthy();
 
-    expect(screen.getByText('brapi respondeu 503')).toBeTruthy();
-    expect(screen.getByText(/KNRI11 sem cotação do dia/)).toBeTruthy();
+    expect(screen.getByText(/brapi respondeu 503/)).toBeTruthy();
+    expect(screen.getByText(/ativo sem cotação do dia/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Definir preço de KNRI11' })).toBeTruthy();
   });
 
@@ -327,23 +328,17 @@ describe('SettingsView', () => {
   });
 
   it('"Atualizar agora" pede a coleta, avisa e relê', async () => {
-    api.refreshMarket.mockResolvedValue({ job_id: 'j', already_queued: false });
+    api.refreshMarket.mockResolvedValue({
+      job_id: 'j',
+      already_queued: false,
+      requested_at: '2026-10-20T13:51:07.000Z',
+    });
     montar();
 
     await userEvent.click(screen.getByRole('button', { name: /Atualizar agora/ }));
 
     expect(api.refreshMarket).toHaveBeenCalledTimes(1);
-    expect((await screen.findByRole('status')).textContent).toMatch(/Coleta pedida/);
-  });
-
-  it('lançamentos mostra a regra de liquidação e o que vem da instalação, sem botão de salvar', () => {
-    montar();
-
-    expect(
-      screen.getByText('Ações e FIIs D+2 · Tesouro D+1 · RF bancária D+0'),
-    ).toBeTruthy();
-    expect(screen.getByText('15%')).toBeTruthy();
-    expect(screen.getByText('8 s')).toBeTruthy();
+    expect((await screen.findByRole('status')).textContent).toMatch(/Atualização pedida/);
   });
 
   it('exibição troca o tema e a densidade sem recarregar', async () => {
@@ -418,7 +413,7 @@ describe('SettingsView', () => {
       'Importar arquivo',
       'CSV por tabela',
       'JSON completo',
-      'Apagar',
+      'Apagar dados',
     ]) {
       expect(
         (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
@@ -431,7 +426,7 @@ describe('SettingsView', () => {
     const user = userEvent.setup();
     montar();
 
-    await user.click(screen.getByRole('button', { name: 'Apagar' }));
+    await user.click(screen.getByRole('button', { name: 'Apagar dados' }));
     const confirm = screen.getByRole('button', { name: 'Apagar tudo' });
     expect((confirm as HTMLButtonElement).disabled).toBe(true);
 

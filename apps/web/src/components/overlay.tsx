@@ -271,11 +271,17 @@ export const Modal = ({
   onClose,
   footer,
   narrow = false,
+  wide = false,
+  aside,
   tone,
   guard = false,
   children,
 }: {
   readonly narrow?: boolean;
+  /** O passo largo de um assistente, com o resumo ao lado dos campos. */
+  readonly wide?: boolean;
+  /** À esquerda do X, no cabeçalho: "Passo 1 de 2". */
+  readonly aside?: React.ReactNode;
   readonly title: string;
   readonly subtitle?: string | undefined;
   readonly open: boolean;
@@ -314,7 +320,7 @@ export const Modal = ({
     <ModalCloseContext.Provider value={guard ? requestClose : null}>
       <Dialog open={open} onOpenChange={(next) => (next ? undefined : requestClose())}>
         <DialogContent
-          className={narrow ? 'max-w-[35rem]' : 'max-w-2xl'}
+          className={wide ? 'max-w-[52rem]' : narrow ? 'max-w-[35rem]' : 'max-w-2xl'}
           onInputCapture={markDirty}
           onChangeCapture={markDirty}
           onClickCapture={(event) => {
@@ -334,7 +340,7 @@ export const Modal = ({
             wanted.focus();
           }}
         >
-          <DialogHeader>
+          <DialogHeader {...(aside === undefined ? {} : { aside })}>
             {tone === 'danger' ? (
               <span
                 aria-hidden="true"

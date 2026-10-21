@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import type { ColumnPreference, ColumnVisibility } from '../lib/table/columns.js';
 import { EMPTY_COLUMN_PREFERENCE, visibleColumns } from '../lib/table/columns.js';
-import type { GroupSummary, TableGroup, TableState } from '../lib/table/model.js';
+import type { GroupSummary, Sort, TableGroup, TableState } from '../lib/table/model.js';
 import {
   EMPTY_TABLE_STATE,
   buildRowModel,
@@ -71,6 +71,14 @@ export type DataTableProps<Row> = {
   readonly isRowDisabled?: ((row: Row) => boolean) | undefined;
   /** Largura imposta, para teste e para a comparação visual. */
   readonly width?: number | undefined;
+  /** As colunas que a pessoa escolheu em Exibição; a largura ainda pode escondê-las. */
+  readonly columnPreference?: ColumnPreference | undefined;
+  /**
+   * A ordenação vinda da tela, para o menu Exibição e o cabeçalho falarem da
+   * mesma coisa. Ausente, a tabela guarda a dela.
+   */
+  readonly sort?: Sort | null | undefined;
+  readonly onSortChange?: ((sort: Sort | null) => void) | undefined;
 };
 
 const alignClass = (numeric: boolean): string => (numeric ? 'text-right' : 'text-left');
@@ -97,6 +105,9 @@ export const DataTable = <Row,>({
   emptyState,
   isRowDisabled,
   width: forcedWidth,
+  columnPreference = EMPTY_COLUMN_PREFERENCE,
+  sort: controlledSort,
+  onSortChange,
 }: DataTableProps<Row>): React.ReactElement => {
   const container = useRef<HTMLDivElement>(null);
   // A etapa de largura é da tela, não deste elemento: a prancha 18 as define
@@ -104,9 +115,12 @@ export const DataTable = <Row,>({
   const measured = useViewportWidth(1440);
   const width = forcedWidth ?? measured;
 
-  // A prancha não tem escolha de colunas: quem decide o que cabe é a largura.
-  const preference: ColumnPreference = EMPTY_COLUMN_PREFERENCE;
-  const [state, setState] = useState<TableState>(EMPTY_TABLE_STATE);
+  // Duas forças decidem as colunas: a escolha de quem usa (Exibição) e a
+  // largura do momento. A segunda nunca grava nada na primeira.
+  const preference: ColumnPreference = columnPreference;
+  const [ownState, setState] = useState<TableState>(EMPTY_TABLE_STATE);
+  const state: TableState =
+    controlledSort === undefined ? ownState : { ...ownState, sort: controlledSort };
 
   const shown = useMemo(
     () => visibleColumns(columns, width, preference),
@@ -161,8 +175,13 @@ export const DataTable = <Row,>({
     [model, isRowDisabled],
   );
 
-  const onSort = (columnId: string): void =>
+  const onSort = (columnId: string): void => {
+    if (controlledSort !== undefined && onSortChange !== undefined) {
+      onSortChange(nextSort(controlledSort, columnId));
+      return;
+    }
     setState((current) => ({ ...current, sort: nextSort(current.sort, columnId) }));
+  };
 
   /**
    * Seta navega, Enter abre, `L` lança, `E` edita. Nenhum deles dispara com o

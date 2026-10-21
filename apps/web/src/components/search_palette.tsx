@@ -268,7 +268,7 @@ const PaletteDialog = ({
             <section
               key={section.group}
               aria-label={section.title}
-              className="flex flex-col gap-px px-2 py-1.5"
+              className="flex flex-col gap-1 px-2 py-1.5"
             >
               <div className="px-2.5 pt-1.5 pb-1">
                 <Label>{section.title}</Label>
@@ -379,7 +379,7 @@ const Option = ({
         ? 'cursor-not-allowed text-ink-3'
         : active
           ? 'cursor-pointer bg-accent-soft'
-          : 'cursor-pointer hover:bg-panel-2'
+          : 'cursor-pointer bg-panel-2 hover:bg-line'
     }`}
     onMouseMove={onHover}
     // O campo mantém o foco: perder o foco no clique fecharia a paleta pelo

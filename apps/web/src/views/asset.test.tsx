@@ -320,47 +320,46 @@ describe('o cabeçalho', () => {
 
     expect(screen.getAllByText('Ações').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Bancos').length).toBeGreaterThan(0);
-    expect(screen.getByText('Corretora A')).toBeInTheDocument();
+    expect(screen.getAllByText('Corretora A').length).toBeGreaterThan(0);
   });
 
-  it('a página não tem trilha: a navegação lateral já leva a Posições', async () => {
+  it('a trilha Posições / ativo está no alto da página', async () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    expect(screen.queryByRole('navigation', { name: 'Trilha' })).not.toBeInTheDocument();
+    const trilha = screen.getByRole('navigation', { name: 'Trilha' });
+    expect(within(trilha).getByRole('button', { name: 'Posições' })).toBeInTheDocument();
+    expect(within(trilha).getByText('ITUB4')).toBeInTheDocument();
   });
 });
 
 describe('a posição', () => {
-  it('mostra exatamente as oito linhas pedidas', async () => {
+  it('a faixa de números traz as quatro células e a linha de apoio da prancha', async () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    const bloco = screen.getByText(/Sua posição/).closest('div');
-    expect(bloco).not.toBeNull();
-    const dentro = within(bloco as HTMLElement);
+    const faixa = screen.getByRole('region', { name: 'Posição' });
+    const dentro = within(faixa);
 
     const labels = [
-      'Quantidade',
-      'Preço médio',
-      'Valor investido',
       'Valor atualizado',
+      'Valor investido',
+      'Resultado',
+      'Peso na carteira',
       'Rentabilidade (TWR)',
       'Rentabilidade (TIR)',
-      'Peso na carteira',
-      'Tipo do ativo',
+      'Proventos recebidos',
     ];
     for (const label of labels) expect(dentro.getByText(label)).toBeInTheDocument();
-    expect(bloco?.querySelectorAll('dt')).toHaveLength(labels.length);
+    expect(faixa.querySelectorAll('dt')).toHaveLength(labels.length);
 
-    expect(dentro.getByText('500')).toBeInTheDocument();
-    expect(dentro.getByText('R$ 29,10')).toBeInTheDocument();
     expect(dentro.getByText('R$ 14.550,00')).toBeInTheDocument();
     expect(dentro.getByText('R$ 18.420,00')).toBeInTheDocument();
+    expect(dentro.getByText(/preço médio/)).toHaveTextContent('R$ 29,10');
+    expect(dentro.getByText(/ações ×/)).toHaveTextContent('500');
     expect(dentro.getAllByText(signed('+23,1%')).length).toBeGreaterThan(0);
     expect(dentro.getAllByText(signed('+18,4%')).length).toBeGreaterThan(0);
     expect(dentro.getByText('5,8%')).toBeInTheDocument();
-    expect(dentro.getByText('Ação')).toBeInTheDocument();
   });
 
   it('posição zerada diz isso, em vez de mostrar seis zeros', async () => {
@@ -424,10 +423,11 @@ describe('a posição', () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    expect(screen.getByText('Valor na curva')).toBeInTheDocument();
-    expect(screen.getByText('Juros acumulados')).toBeInTheDocument();
-    expect(screen.queryByText('Quantidade')).not.toBeInTheDocument();
-    expect(screen.queryByText('Preço médio')).not.toBeInTheDocument();
+    const faixa = within(screen.getByRole('region', { name: 'Posição' }));
+    expect(faixa.getByText('Valor atualizado')).toBeInTheDocument();
+    expect(faixa.getByText('R$ 16.500,00')).toBeInTheDocument();
+    expect(faixa.queryByText('Quantidade')).not.toBeInTheDocument();
+    expect(faixa.queryByText(/preço médio/)).not.toBeInTheDocument();
   });
 });
 
@@ -449,7 +449,7 @@ describe('o gráfico de preço', () => {
 
     expect(screen.getAllByText(signed('+17,5%')).length).toBeGreaterThan(0);
     expect(screen.getAllByText(signed('+21,4%')).length).toBeGreaterThan(0);
-    expect(screen.getByText('com proventos')).toBeInTheDocument();
+    expect(screen.getByText(/com proventos/)).toBeInTheDocument();
   });
 
   it('as compras aparecem marcadas sobre a linha', async () => {
@@ -503,7 +503,7 @@ describe('o gráfico de preço', () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    expect(screen.getByText('série ajustada por evento')).toBeInTheDocument();
+    expect(screen.getByText(/série ajustada por evento/)).toBeInTheDocument();
   });
 });
 
@@ -555,7 +555,7 @@ describe('o histórico', () => {
     expect(screen.getAllByText(signed('R$ 1.755,00')).length).toBeGreaterThan(0);
     const compra = screen.getByText('10/06/2026').closest('tr') as HTMLElement;
     expect(within(compra).getByText('50')).toBeInTheDocument();
-    expect(within(compra).getByText(signed('R$ 35,10'))).toBeInTheDocument();
+    expect(within(compra).getAllByText(signed('R$ 35,10')).length).toBeGreaterThan(0);
     expect(screen.getAllByText(signed('+R$ 96,12')).length).toBeGreaterThan(0);
     expect(screen.getByText('24 lançamentos')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Histórico' })).toBeInTheDocument();
@@ -578,7 +578,7 @@ describe('o histórico', () => {
     await screen.findByRole('heading', { name: 'ITUB4' });
 
     const linha = screen.getByText('20/10/2026').closest('tr');
-    expect(within(linha as HTMLElement).getByText('—')).toBeInTheDocument();
+    expect(within(linha as HTMLElement).getAllByText('—').length).toBeGreaterThan(0);
     // "A receber" não ocupa coluna aqui — ele está no bloco de Proventos, onde
     // a prancha o põe —, e a linha inteira o diz na dica.
     expect(linha).toHaveAttribute('title', expect.stringContaining('a receber'));
@@ -588,7 +588,13 @@ describe('o histórico', () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    await userEvent.click(screen.getByRole('button', { name: /Compra18/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /Tipo/ }));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: 'Tipo' })).getByRole('checkbox', {
+        name: /Compra\s*18/,
+      }),
+    );
 
     await waitFor(() => expect(calls.at(-1)).toContain('kind=buy'));
   });
@@ -597,8 +603,10 @@ describe('o histórico', () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    expect(screen.getByRole('button', { name: /Todos24/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Compra18/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /Tipo/ }));
+    const lista = within(screen.getByRole('group', { name: 'Tipo' }));
+    expect(lista.getByRole('checkbox', { name: /Compra\s*18/ })).toBeInTheDocument();
   });
 });
 
@@ -696,9 +704,9 @@ describe('título de renda fixa', () => {
     show();
 
     expect(
-      await screen.findByRole('heading', { name: /Rendimento acumulado em/ }),
+      await screen.findByRole('heading', { name: 'Rendimento acumulado' }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /Preço em/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Preço' })).not.toBeInTheDocument();
   });
 
   it('a evolução da posição separa investido de rendimento', async () => {
@@ -708,14 +716,15 @@ describe('título de renda fixa', () => {
     expect(await screen.findByText('Evolução da posição')).toBeInTheDocument();
   });
 
-  it('o nome do título aparece uma vez, e as condições dele na posição', async () => {
+  it('o nome do título aparece na trilha e no título, e as condições dele na faixa', async () => {
     answerWith(cdb);
     show();
 
-    await screen.findByRole('heading', { name: /Rendimento acumulado em/ });
+    await screen.findByRole('heading', { name: 'Rendimento acumulado' });
 
+    // Na trilha e no título; o subtítulo não o repete.
     expect(screen.getAllByText('CDB · ITAÚ UNIBANCO · 10/2031 · 100% CDI')).toHaveLength(
-      1,
+      2,
     );
     expect(screen.getByText('Vencimento')).toBeInTheDocument();
     expect(screen.queryByText('Preço médio')).not.toBeInTheDocument();

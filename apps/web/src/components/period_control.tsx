@@ -4,14 +4,13 @@ import type { DateRange } from 'react-day-picker';
 import { WEEKDAY_INITIALS } from '../lib/calendar.js';
 import type { Period } from '../lib/period.js';
 import {
-  PERIOD_BUTTONS,
-  PERIOD_LABELS,
+  PERIOD_FULL_LABELS,
   PERIOD_SHORTCUTS,
   formatRange,
   resolvePeriod,
 } from '../lib/period.js';
 import { Icon } from './icon.js';
-import { Button, Label, Segmented } from './primitives.js';
+import { Button, Label } from './primitives.js';
 import { Calendar } from './ui/calendar.js';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.js';
 
@@ -57,36 +56,28 @@ export const PeriodControl = ({
 }: PeriodControlProps): React.ReactElement => {
   const [open, setOpen] = useState(false);
 
-  const custom = value.kind === 'custom';
-  const customLabel = custom
-    ? formatRange(resolvePeriod(value, today, inception), today)
-    : '…';
+  const range = formatRange(resolvePeriod(value, today, inception), today);
+  const name =
+    value.kind === 'preset' ? PERIOD_FULL_LABELS[value.preset] : 'Personalizado';
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <Segmented
-        label="Período"
-        options={PERIOD_BUTTONS.map((preset) => ({
-          value: preset,
-          label: PERIOD_LABELS[preset],
-        }))}
-        value={value.kind === 'preset' ? value.preset : null}
-        onChange={(preset) => onChange({ kind: 'preset', preset })}
-        extra={
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              aria-expanded={open}
-              className={`tabular cursor-pointer px-[11px] text-xs font-medium whitespace-nowrap ${
-                custom ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-panel-2'
-              }`}
-            >
-              {customLabel}
-            </button>
-          </PopoverTrigger>
-        }
-      />
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={`Período: ${name}`}
+          className="inline-flex h-control cursor-pointer items-center gap-2 rounded-control border border-line-2 bg-panel px-[11px] text-[0.78125rem] font-medium text-ink hover:bg-panel-2"
+        >
+          <Icon name="calendar" />
+          <span>{name}</span>
+          <span className="tabular text-[0.71875rem] font-normal text-ink-3">
+            {range}
+          </span>
+          <Icon name="chevron-down" />
+        </button>
+      </PopoverTrigger>
       <RangePopover
         value={value}
         today={today}
@@ -140,6 +131,40 @@ export const PeriodRangeButton = ({
 const RangePopover = ({
   value,
   today,
+  inception,
+  onChange,
+  onClose,
+}: PeriodControlProps & { readonly onClose: () => void }): React.ReactElement => {
+  return (
+    <PopoverContent
+      role="dialog"
+      aria-label="Período personalizado"
+      collisionPadding={16}
+      className="flex max-w-[calc(100vw-2rem)] flex-wrap"
+    >
+      <RangeBody
+        value={value}
+        today={today}
+        inception={inception}
+        onChange={onChange}
+        onClose={onClose}
+      />
+    </PopoverContent>
+  );
+};
+
+/** O conteúdo do calendário, para quem o hospeda num popover próprio. */
+export const PeriodRangeBody = (
+  props: PeriodControlProps & { readonly onClose: () => void },
+): React.ReactElement => (
+  <div className="flex max-w-[calc(100vw-2rem)] flex-wrap">
+    <RangeBody {...props} />
+  </div>
+);
+
+const RangeBody = ({
+  value,
+  today,
   onChange,
   onClose,
 }: PeriodControlProps & { readonly onClose: () => void }): React.ReactElement => {
@@ -156,18 +181,22 @@ const RangePopover = ({
   const anchor = range?.to ?? todayDate;
 
   return (
-    <PopoverContent
-      role="dialog"
-      aria-label="Período personalizado"
-      collisionPadding={16}
-      className="flex max-w-[calc(100vw-2rem)] flex-wrap"
-    >
+    <>
       <div className="w-44 border-r border-line py-2 max-sm:w-full max-sm:border-r-0 max-sm:border-b">
         {PERIOD_SHORTCUTS.map((shortcut) => (
           <button
             key={shortcut.preset}
             type="button"
-            className="block w-full cursor-pointer px-4 py-2 text-left text-[0.84375rem] hover:bg-panel-2"
+            aria-current={
+              value.kind === 'preset' && value.preset === shortcut.preset
+                ? 'true'
+                : undefined
+            }
+            className={`mx-2 block w-[calc(100%-1rem)] cursor-pointer rounded-control px-2 py-2 text-left text-[0.84375rem] ${
+              value.kind === 'preset' && value.preset === shortcut.preset
+                ? 'bg-accent-soft font-semibold'
+                : 'hover:bg-panel-2'
+            }`}
             onClick={() => {
               onChange({ kind: 'preset', preset: shortcut.preset });
               onClose();
@@ -176,7 +205,11 @@ const RangePopover = ({
             {shortcut.label}
           </button>
         ))}
-        <span className="mx-2 mt-1 block rounded-control bg-accent-soft px-2 py-2 text-left text-[0.84375rem] font-semibold">
+        <span
+          className={`mx-2 mt-1 block rounded-control px-2 py-2 text-left text-[0.84375rem] ${
+            value.kind === 'custom' ? 'bg-accent-soft font-semibold' : 'text-ink-2'
+          }`}
+        >
           Personalizado
         </span>
       </div>
@@ -230,6 +263,6 @@ const RangePopover = ({
           </div>
         </div>
       </div>
-    </PopoverContent>
+    </>
   );
 };

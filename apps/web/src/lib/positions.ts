@@ -380,7 +380,7 @@ export const parseAmountInput = (typed: string): string | null => {
   // escreve) também são milhar; `36.84` continua sendo decimal.
   const normalized = trimmed.includes(',')
     ? trimmed.replaceAll('.', '').replace(',', '.')
-    : /^-?\d{1,3}(\.\d{3})+$/.test(trimmed)
+    : /^-?[1-9]\d{0,2}(\.\d{3})+$/.test(trimmed)
       ? trimmed.replaceAll('.', '')
       : trimmed;
 

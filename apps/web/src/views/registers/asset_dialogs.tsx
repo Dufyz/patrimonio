@@ -14,9 +14,9 @@ import {
 } from '../../api/registers.js';
 import type { AssetPatch, FixedIncomeBody } from '../../api/registers.js';
 import { Modal } from '../../components/overlay.js';
-import { Button, Label, Segmented } from '../../components/primitives.js';
+import { Button, Segmented } from '../../components/primitives.js';
 import { colorForToken } from '../../lib/tokens.js';
-import { Callout, Field, Input, Select } from '../entry/fields.js';
+import { Callout, Field, Input, Select, FieldLabel } from '../entry/fields.js';
 import { FormShell } from '../entry/form_shell.js';
 import { DeleteDialog } from './delete_dialog.js';
 import {
@@ -345,7 +345,7 @@ export const AssetDialog = ({
 
             {asset.origin === 'manual' ? (
               <div className="flex flex-col gap-1.5">
-                <Label>Modelo</Label>
+                <FieldLabel>Modelo</FieldLabel>
                 <Segmented
                   label="Modelo"
                   options={MODELS}
@@ -356,7 +356,7 @@ export const AssetDialog = ({
             ) : null}
 
             <div className="flex flex-col gap-1.5">
-              <Label>Indexador</Label>
+              <FieldLabel>Indexador</FieldLabel>
               <Segmented
                 label="Indexador"
                 options={INDEXERS}
@@ -430,7 +430,7 @@ export const AssetDialog = ({
             <div className="grid grid-cols-2 gap-4">
               {isCaixinha ? null : (
                 <div className="flex flex-col gap-1.5">
-                  <Label>Liquidez</Label>
+                  <FieldLabel>Liquidez</FieldLabel>
                   <Segmented
                     label="Liquidez"
                     options={LIQUIDITIES}
@@ -457,7 +457,7 @@ export const AssetDialog = ({
                 </div>
               )}
               <div className="flex flex-col gap-1.5">
-                <Label>Imposto de renda</Label>
+                <FieldLabel>Imposto de renda</FieldLabel>
                 <Segmented
                   label="Imposto de renda"
                   options={TAXES}

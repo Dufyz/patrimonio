@@ -201,7 +201,7 @@ describe('sem texto', () => {
     const view = model('');
 
     expect(view.sections.map((section) => section.group)).toEqual(['screens', 'actions']);
-    expect(view.sections[0]?.items).toHaveLength(4);
+    expect(view.sections[0]?.items).toHaveLength(SCREENS.length);
     expect(view.total).toBe(view.shown);
   });
 

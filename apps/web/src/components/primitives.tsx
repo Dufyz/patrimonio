@@ -234,7 +234,7 @@ export const Segmented = <T extends string>({
   <div
     role="radiogroup"
     aria-label={label}
-    className="inline-flex h-control items-stretch overflow-hidden rounded-control border border-line-2 bg-panel"
+    className="inline-flex h-control items-stretch self-start overflow-hidden rounded-control border border-line-2 bg-panel"
   >
     {options.map((option) => (
       <button
@@ -245,7 +245,7 @@ export const Segmented = <T extends string>({
         {...(option.title === undefined ? {} : { title: option.title })}
         className={`tabular cursor-pointer border-r border-line-2 px-[11px] text-xs font-medium whitespace-nowrap last:border-r-0 ${
           option.value === value
-            ? 'bg-accent-soft text-accent'
+            ? 'bg-seg-active text-seg-active-ink'
             : 'text-ink-2 hover:bg-panel-2'
         }`}
         onClick={() => onChange(option.value)}

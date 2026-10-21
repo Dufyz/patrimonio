@@ -75,7 +75,7 @@ const controlClass = (options: {
       ? 'border-negative bg-negative-soft'
       : options.changed === true
         ? 'border-attention bg-attention-soft'
-        : 'border-line-2 bg-panel',
+        : 'border-line-2 bg-field',
     options.numeric === true ? 'tabular text-right' : '',
   ].join(' ');
 
@@ -293,4 +293,13 @@ export const Callout = ({
     </span>
     <div className="min-w-0">{children}</div>
   </div>
+);
+
+/** O rótulo de um grupo de botões ou de um bloco que não é um campo de texto. */
+export const FieldLabel = ({
+  children,
+}: {
+  readonly children: React.ReactNode;
+}): React.ReactElement => (
+  <span className="text-xs font-medium text-ink-2">{children}</span>
 );

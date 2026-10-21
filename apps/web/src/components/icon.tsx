@@ -21,6 +21,12 @@ const PATHS = {
       <rect x="9" y="9" width="5" height="5" rx="1" />
     </>
   ),
+  sidebar: (
+    <>
+      <rect x="2" y="3" width="12" height="10" rx="2" />
+      <path d="M6 3v10" />
+    </>
+  ),
   list: <path d="M2 4h12 M2 8h12 M2 12h12" />,
   swap: <path d="M3 5h10L10 2 M13 11H3l3 3" />,
   trend: <path d="M2 13l4-5 3 3 5-7" />,
@@ -109,8 +115,33 @@ const PATHS = {
       <path d="M3 6v7.5h10V6 M6.5 9h3" />
     </>
   ),
-  /** Exportar: a seta sai da bandeja. Não é `archive` — a caixa fechada quer dizer guardar. */
-  export: <path d="M8 10V2 M5 5l3-3 3 3 M2.5 9v4.5h11V9" />,
+  /** Exportar CSV: seta saindo de uma bandeja — não o arquivo-morto de `archive`. */
+  export: <path d="M8 10V2.5 M5 5l3-2.5L11 5 M2.5 9.5v3a1 1 0 001 1h9a1 1 0 001-1v-3" />,
+  filter: <path d="M2 3h12l-4.5 5.5V13l-3-1.5v-3z" />,
+  sliders: (
+    <>
+      <path d="M2 5h5 M11 5h3 M2 11h2 M8 11h6" />
+      <circle cx="9" cy="5" r="1.6" />
+      <circle cx="6" cy="11" r="1.6" />
+    </>
+  ),
+  hash: <path d="M6 2L5 14 M11 2l-1 12 M2.5 6h11 M2.5 10h11" />,
+  wallet: (
+    <>
+      <rect x="2" y="4" width="12" height="9" rx="1.5" />
+      <path d="M2 6.5h12 M10.5 9.5H12" />
+    </>
+  ),
+  bank: (
+    <path d="M2 6l6-3.5L14 6 M3.5 6.5v5 M6.5 6.5v5 M9.5 6.5v5 M12.5 6.5v5 M2 13h12" />
+  ),
+  cash: (
+    <>
+      <rect x="1.5" y="4" width="13" height="8" rx="1" />
+      <circle cx="8" cy="8" r="1.8" />
+    </>
+  ),
+  growth: <path d="M2 12l4-4 3 3 5-6 M10 5h4v4" />,
   pencil: <path d="M10.5 2.5l3 3L6 13H3v-3z" />,
   copy: (
     <>
