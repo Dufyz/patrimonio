@@ -13,28 +13,24 @@ export const SECTIONS = [
     group: 'Pessoal',
     label: 'Exibição',
     icon: 'eye',
-    keywords: 'tema claro escuro densidade tabelas ocultar valores',
   },
   {
     id: 'carteiras',
     group: 'Espaço',
     label: 'Carteiras',
     icon: 'archive',
-    keywords: 'carteira estratégia arquivada ordem barra lateral',
   },
   {
     id: 'mercado',
     group: 'Dados',
     label: 'Dados de mercado',
     icon: 'swap',
-    keywords: 'preço cotação fontes índices catálogo coleta atualizar manual',
   },
   {
     id: 'backup',
     group: 'Dados',
     label: 'Dados e backup',
     icon: 'arrow-right',
-    keywords: 'exportar csv json importar planilha apagar backup',
   },
 ] as const;
 
@@ -48,22 +44,6 @@ export const isSectionId = (value: string | null): value is SectionId =>
 /** A seção que a URL pede, ou a primeira. `?secao=` inválido não quebra a tela. */
 export const sectionFromParam = (value: string | null): SectionId =>
   isSectionId(value) ? value : DEFAULT_SECTION;
-
-const fold = (text: string): string =>
-  text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
-
-/** As seções que a busca de ajuste deixa: rótulo ou palavra-chave contém o texto. */
-export const matchSections = (query: string): readonly (typeof SECTIONS)[number][] => {
-  const needle = fold(query.trim());
-  if (needle === '') return SECTIONS;
-
-  return SECTIONS.filter((section) =>
-    fold(`${section.label} ${section.keywords}`).includes(needle),
-  );
-};
 
 export const plural = (count: number, one: string, many: string): string =>
   `${count} ${count === 1 ? one : many}`;

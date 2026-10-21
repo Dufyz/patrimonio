@@ -7,7 +7,6 @@ import {
   isEmptyInstallation,
   missingPricesText,
   portfolioHold,
-  matchSections,
   sectionFromParam,
 } from './settings.js';
 
@@ -105,14 +104,5 @@ describe('a instalação vazia', () => {
     expect(
       isEmptyInstallation({ portfolios: [{ id: 'p' }] } as unknown as Settings),
     ).toBe(false);
-  });
-});
-
-describe('matchSections', () => {
-  it('acha por rótulo ou palavra-chave, sem acento', () => {
-    expect(matchSections('').length).toBe(4);
-    expect(matchSections('cotacao').map((section) => section.id)).toEqual(['mercado']);
-    expect(matchSections('TEMA').map((section) => section.id)).toEqual(['exibicao']);
-    expect(matchSections('zzz')).toEqual([]);
   });
 });
