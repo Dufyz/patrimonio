@@ -222,11 +222,12 @@ describe('atualizar agora', () => {
 
     expect(response.status).toBe(202);
     expect(response.body.job_id).toMatch(/^[0-9a-f-]{36}$/u);
-    expect(response.body.dedupe_key).toBe('market:2026-10-06');
+    expect(response.body.dedupe_key).toBe('reset:2026-10-06');
     expect(response.body.already_queued).toBe(false);
+    expect(Date.parse(response.body.requested_at)).not.toBeNaN();
   });
 
-  it('dois pedidos seguidos viram uma coleta', async () => {
+  it('dois pedidos seguidos viram um reset', async () => {
     const primeiro = await request(harness.app).post('/api/market/refresh').send({});
     const segundo = await request(harness.app).post('/api/market/refresh').send({});
 

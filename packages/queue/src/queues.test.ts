@@ -17,9 +17,9 @@ describe('declaração das filas', () => {
     expect(QUEUES.backup.concurrency).toBe(1);
   });
 
-  it('mercado e fechamento rodam em dia útil, na ordem do pipeline', () => {
-    expect(QUEUES.market.schedule).toEqual(['30 18 * * 1-5', '0 9 * * 1-5']);
-    expect(QUEUES.close.schedule).toEqual(['0 19 * * 1-5']);
+  it('o mercado roda em dia útil às 9h; o fechamento é encadeado, sem agenda própria', () => {
+    expect(QUEUES.market.schedule).toEqual(['0 9 * * 1-5']);
+    expect(QUEUES.close.schedule).toBeUndefined();
     expect(QUEUES.backup.schedule).toEqual(['0 3 * * *']);
   });
 

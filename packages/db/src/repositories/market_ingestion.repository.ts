@@ -238,6 +238,30 @@ export const createMarketIngestionRepository = (
     }
   },
 
+  lastPriceDate: async () => {
+    try {
+      const [row] = await sql<{ last: string | null }[]>`
+        SELECT MAX(price_date)::TEXT AS last FROM asset_price
+      `;
+
+      return success((row?.last ?? null) as DateOnly | null);
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
+  firstTradeDate: async () => {
+    try {
+      const [row] = await sql<{ first: string | null }[]>`
+        SELECT MIN(trade_date)::TEXT AS first FROM transaction
+      `;
+
+      return success((row?.first ?? null) as DateOnly | null);
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
   markHistorySynced: async (assetIds: readonly string[]) => {
     if (assetIds.length === 0) return success(0);
 

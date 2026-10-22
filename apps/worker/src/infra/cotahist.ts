@@ -13,6 +13,7 @@ import type {
   InstrumentCatalogSource,
   PriceHistorySource,
   PriceQuote,
+  QuoteSource,
 } from '@patrimonio/application';
 import {
   COTAHIST_SOURCE,
@@ -29,6 +30,17 @@ import type { Either } from '@patrimonio/shared';
  */
 export const cotahistAnnualUrl = (year: number): string =>
   `https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_A${year}.ZIP`;
+
+/**
+ * O arquivo diário do COTAHIST (`COTAHIST_DDMMAAAA.ZIP`): só o pregão do dia,
+ * publicado pela B3 por volta das 21:35. É pequeno, então a coleta do D-1 baixa
+ * ele e não o arquivo anual, que tem centenas de megabytes.
+ */
+export const cotahistDailyUrl = (date: string): string => {
+  const [year, month, day] = date.split('-');
+
+  return `https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_D${day}${month}${year}.ZIP`;
+};
 
 const isUrl = (location: string): boolean => /^https?:\/\//u.test(location);
 
@@ -261,6 +273,72 @@ export const createPriceHistorySource = (
       records_kept: recordsKept,
       missing: tickers.filter((ticker) => !found.has(ticker.toUpperCase())),
       unavailable_years: unavailable,
+    });
+  },
+});
+
+export type CotahistQuoteOptions = {
+  /** O histórico por intervalo, para o backfill: os arquivos anuais. */
+  readonly history: PriceHistorySource;
+  /** Um caminho ou endereço que substitui o da B3, por data: usado em teste. */
+  readonly locationFor?: ((date: string) => string | undefined) | undefined;
+};
+
+/**
+ * A única fonte de preço de papel de bolsa: o fechamento oficial da B3.
+ *
+ * - **O dia** vem do arquivo diário. Arquivo ausente (404) é "ainda não foi
+ *   publicado", uma indisponibilidade transitória: o estágio tenta de novo, e
+ *   nada é gravado enquanto isso — ausência nunca vira zero.
+ * - **O histórico** vem dos arquivos anuais, os mesmos do catálogo e da carga
+ *   inicial.
+ *
+ * Preço de outro dia que apareça no arquivo é descartado: o arquivo diário só
+ * tem o pregão dele, e um preço com data errada entraria na série parecendo certo.
+ */
+export const createCotahistQuoteSource = (options: CotahistQuoteOptions): QuoteSource => ({
+  fetchClosing: async (tickers, date) => {
+    const location = options.locationFor?.(date) ?? cotahistDailyUrl(date);
+
+    try {
+      const report = await withCotahistFile(location, (path) =>
+        readCotahist(readLines(path), { tickers, from: date, to: date }),
+      );
+
+      if (report.isFailure()) return failure(report.value);
+
+      const quotes = report.value.quotes.filter((quote) => quote.price_date === date);
+      const found = new Set(quotes.map((quote) => quote.ticker.toUpperCase()));
+
+      return success({
+        quotes,
+        missing: tickers.filter((ticker) => !found.has(ticker.toUpperCase())),
+        source: COTAHIST_SOURCE,
+        source_kind: 'primary' as const,
+        requests: 1,
+      });
+    } catch (error) {
+      const reason =
+        error instanceof NotFound
+          ? `o arquivo de ${date} ainda não foi publicado (HTTP 404)`
+          : error instanceof Error
+            ? error.message
+            : String(error);
+
+      return failure(new MarketDataUnavailableError(`${COTAHIST_SOURCE}: ${reason}`));
+    }
+  },
+
+  fetchHistory: async (ticker, from, to) => {
+    const read = await options.history.fetchRange([ticker], from, to);
+    if (read.isFailure()) return failure(read.value);
+
+    return success({
+      quotes: read.value.quotes,
+      missing: read.value.missing,
+      source: COTAHIST_SOURCE,
+      source_kind: 'primary' as const,
+      requests: 0,
     });
   },
 });

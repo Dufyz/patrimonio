@@ -28,34 +28,16 @@ export {
   createBrapiProvider,
   quoteUrl,
 } from './providers/brapi.provider.js';
-export {
-  BRAPI_TICKERS_PATH,
-  createBrapiTickerLookup,
-  instrumentTypeOf,
-  tickersUrl,
-} from './providers/brapi_tickers.provider.js';
-export {
-  BOLSAI_DAILY_CEILING,
-  BOLSAI_SHAPE,
-  BOLSAI_SOURCE,
-  createJsonQuoteProvider,
-} from './providers/json_quote.provider.js';
-export type { JsonQuoteOptions, QuoteShape } from './providers/json_quote.provider.js';
 export { COTAHIST_SOURCE, readCotahist, readLines } from './cotahist/reader.js';
 export type { CotahistReport, ReadOptions } from './cotahist/reader.js';
 export { RECORD_LENGTH, parseInstrumentRecord, parseRecord } from './cotahist/layout.js';
 export type { CotahistInstrumentRecord, CotahistRecord } from './cotahist/layout.js';
 export { readCotahistInstruments } from './cotahist/instruments.js';
 export type { CotahistInstrument, CotahistInstruments } from './cotahist/instruments.js';
-export { WARNING_RATIO, budgetFor, monthlyProjection } from './usage.js';
-export type { Budget } from './usage.js';
 export {
   TESOURO_CSV_SOURCE,
   TESOURO_CSV_URL,
-  TESOURO_JSON_SOURCE,
-  TESOURO_JSON_URL,
   createTesouroCsvProvider,
-  createTesouroJsonProvider,
   kindFromName,
 } from './providers/tesouro.provider.js';
 

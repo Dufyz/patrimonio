@@ -1,7 +1,12 @@
 import { closeDatabase, createConnection } from '../postgresql.js';
+import { fetchInstitutionNames } from '../seeds/fetch_institutions.js';
 import { loadBusinessDays } from '../seeds/load_business_days.js';
+import { loadInstitutions } from '../seeds/load_institutions.js';
 import { runMigrations } from './runner.js';
 import type { RunResult } from './runner.js';
+
+/** Abaixo disso o catálogo é considerado vazio (o seed de demonstração cria só algumas). */
+const MIN_INSTITUTIONS = 50;
 
 /**
  * Sobe o schema e carrega o calendário de dias úteis. O calendário é dado de
@@ -24,6 +29,25 @@ export const migrateDatabase = async (
   try {
     const { rows, years } = await loadBusinessDays(sql);
     options?.log?.(`calendário carregado: ${rows} dias, ${years}`);
+
+    // As instituições são dado de referência como o calendário, mas vêm de fora:
+    // carrega só enquanto o catálogo está vazio, e uma fonte fora do ar não
+    // derruba o boot — a próxima subida tenta de novo.
+    const [counted] = await sql<{ total: string }[]>`
+      SELECT COUNT(*)::TEXT AS total FROM institution WHERE country = 'BR'
+    `;
+
+    if (Number(counted?.total ?? 0) < MIN_INSTITUTIONS) {
+      try {
+        const { names } = await fetchInstitutionNames();
+        const loaded = await loadInstitutions(sql, names);
+        options?.log?.(`instituições carregadas: ${loaded.inserted} novas`);
+      } catch (error) {
+        options?.log?.(
+          `instituições não carregadas (${error instanceof Error ? error.message : String(error)}); tenta de novo na próxima subida`,
+        );
+      }
+    }
   } finally {
     await closeDatabase(sql);
   }

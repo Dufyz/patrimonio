@@ -15,29 +15,17 @@ cp .env.example .env     # packages/env valida tudo no boot
 pnpm install
 pnpm build              # os pacotes internos são lidos de dist/: refaça depois de cada pull
 pnpm infra:up            # Postgres (5433), Postgres de teste (5434) e Redis (6380)
-pnpm bootstrap           # a carga inicial, na ordem da seção abaixo
 pnpm dev                 # api :3333, worker e web :5173
 ```
 
-### Carga inicial
+### Dados de mercado
 
-`pnpm bootstrap [--desde=AAAA-MM-DD]` executa, em ordem, os passos abaixo e
-imprime o que cada um carregou. Um passo que falha por causa da fonte não impede
-os seguintes: o resumo no fim diz o comando que repete só ele. Sem `--desde`, os
-índices e o histórico de preços partem de cinco anos atrás.
-
-| Passo | Comando                       | O que carrega                                                                           |
-| ----- | ----------------------------- | --------------------------------------------------------------------------------------- |
-| 1     | `pnpm migrate up`             | O schema, o calendário da B3 (2000–2035) e as categorias; a api também faz isso no boot |
-| 2     | `pnpm seed:institutions`      | As instituições do STR (Banco Central) e da CVM                                         |
-| 3     | `pnpm seed:instruments`       | O catálogo de ações, units, FIIs, ETFs e BDRs, pelo COTAHIST                            |
-| 4     | `pnpm seed:tesouro`           | Os títulos do Tesouro Direto à venda                                                    |
-| 5     | `pnpm seed:indices --desde=…` | CDI, Selic, IPCA, IBOV e IFIX; pede o recálculo das carteiras                           |
-| 6     | `pnpm seed:cotahist --de=…`   | O histórico de fechamentos dos ativos já cadastrados                                    |
-
-Cada comando é repetível: reexecutar não duplica linha. A tela de Dados de mercado,
-em Configurações, lista cada catálogo com contagem, data da última carga e estado,
-e mostra o comando que resolve o que estiver vazio.
+Não há carga manual. Uma instalação nova é: migrar, subir api e worker e clicar em
+**Atualizar agora** em Configurações › Dados de mercado, que carrega tudo até o D-1
+(preços desde a primeira compra, índices, Tesouro, catálogo de papéis e
+instituições). Depois disso o worker sincroniza sozinho: todo dia útil às 9h e
+sempre que volta a ligar, preenchendo os dias úteis que faltarem. O calendário da B3
+(2000–2035) e as categorias entram na migração.
 
 Para ver o produto com um cenário completo, `packages/db/src/seeds/dev_seed.sql`
 popula um banco recém-migrado com dados de demonstração. Eles ficam marcados — a
@@ -69,12 +57,6 @@ autenticar: ela entra na Fase 2, junto com a publicação.
 | `pnpm verify`                             | Lint, typecheck e testes, na ordem do CI                                                   |
 | `pnpm migrate [up \| down [n] \| status]` | Runner de migration; `--test` usa o banco de teste                                         |
 | `pnpm infra:up` / `infra:reset`           | Sobe o ambiente / apaga os volumes e recria                                                |
-| `pnpm bootstrap`                          | A carga inicial completa, na ordem da seção acima                                          |
-| `pnpm seed:institutions`                  | Carrega as instituições do STR e da CVM (baixa os CSVs; `--str=`/`--cvm=` aceitam arquivo) |
-| `pnpm seed:instruments`                   | Carrega o catálogo de papéis pelo COTAHIST (`--ano=`, `--arquivo=`)                        |
-| `pnpm seed:tesouro`                       | Carrega o catálogo do Tesouro Direto                                                       |
-| `pnpm seed:indices`                       | Carrega o histórico de índices (`--desde=AAAA-MM-DD`)                                      |
-| `pnpm seed:cotahist`                      | Carrega o histórico de preços (`--ano=`, `--de=`/`--ate=`, `--papeis=`, `--arquivo=`)      |
 | `pnpm demo:remove`                        | Apaga os dados de demonstração do `dev_seed.sql`                                           |
 
 ## Estrutura

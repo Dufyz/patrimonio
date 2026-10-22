@@ -16,6 +16,7 @@ import {
   MarketDataUnavailableError,
   isFormatChangedError,
 } from '../../errors/app-error.js';
+import { lastBusinessDay } from './lastBusinessDay.js';
 import type { Clock } from '../../interfaces/clock.js';
 import type {
   IndexProvider,
@@ -72,6 +73,8 @@ export type CollectMarketDataResult = {
   readonly missing: readonly string[];
   readonly source: string;
   readonly source_kind: PriceSourceKind | 'none';
+  /** Falso quando as cotações do dia não vieram: o dia segue pendente. */
+  readonly quotes_ok: boolean;
 };
 
 export type CollectMarketDataDeps = {
@@ -125,7 +128,12 @@ const CALENDAR_LOOKBACK_DAYS = 10;
 
 export const collectMarketData = (deps: CollectMarketDataDeps) =>
   either(async function* (input: CollectMarketDataInput) {
-    const date = input.reference_date ?? deps.clock.today();
+    // Sem data pedida, a coleta é a do D-1: o último pregão anterior a hoje.
+    const date =
+      input.reference_date ??
+      (yield* await deps.unitOfWork.run((repositories) =>
+        lastBusinessDay(repositories, deps.clock.today()),
+      ));
 
     // Dia sem pregão não tem preço para coletar. Pedir cotação num feriado
     // devolveria o fechamento de ontem com a data de hoje, que é como um preço
@@ -160,6 +168,7 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
         missing: [],
         source: 'none',
         source_kind: 'none',
+        quotes_ok: true,
       };
 
       return nothing;
@@ -269,7 +278,11 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
           })
         : await deps.quotes.fetchClosing(tickers, date);
 
-    if (closingResult.isFailure()) {
+    // Cotação que não veio (arquivo do dia ainda não publicado, fonte fora do
+    // ar) não derruba o resto: índices e Tesouro do dia entram, a execução fica
+    // registrada como falha com o motivo, e o dia continua pendente para a
+    // próxima sincronização. Só formato mudado interrompe tudo.
+    if (closingResult.isFailure() && isFormatChangedError(closingResult.value)) {
       yield* await deps.unitOfWork.run(async (repositories) =>
         repositories.market.recordRun(
           runOf({
@@ -287,7 +300,16 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
       return yield* closingResult;
     }
 
-    const closing = closingResult.value;
+    const closing: SourcedClosing = closingResult.isSuccess()
+      ? closingResult.value
+      : {
+          quotes: [],
+          missing: tickers,
+          source: 'quotes',
+          source_kind: 'none',
+          requests: 0,
+          skipped: [closingResult.value.message],
+        };
 
     const plan = planMarketIngestion({
       reference_date: date,
@@ -380,6 +402,7 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
           missing: plan.missing.map((asset) => asset.ticker),
           source: closing.source,
           source_kind: closing.source_kind,
+          quotes_ok: !chainDown,
         });
       },
     );

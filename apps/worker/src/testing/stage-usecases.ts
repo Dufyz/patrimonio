@@ -3,8 +3,10 @@ import {
   closeDay,
   collectMarketData,
   recalculatePortfolio,
+  syncMarket,
 } from '@patrimonio/application';
 import type { Clock, UnitOfWork } from '@patrimonio/application';
+import { success } from '@patrimonio/shared';
 
 import type { StageUseCases } from '../infra/define-stage.js';
 import { scriptedIndices, scriptedQuotes, scriptedTreasury } from './market.js';
@@ -23,12 +25,23 @@ export const stageUseCases = (
 ): StageUseCases => ({
   recalculatePortfolio: recalculatePortfolio({ unitOfWork, clock }),
   closeDay: closeDay({ unitOfWork, clock }),
-  collectMarketData: collectMarketData({
+  // A sincronização de verdade, com as fontes roteirizadas. Os passos que não
+  // são o assunto dos testes de estágio (histórico, catálogos) respondem vazio.
+  syncMarket: syncMarket({
     unitOfWork,
     clock,
-    quotes: scriptedQuotes(script),
-    indices: scriptedIndices(script),
-    treasury: scriptedTreasury(script),
+    collectDay: collectMarketData({
+      unitOfWork,
+      clock,
+      quotes: scriptedQuotes(script),
+      indices: scriptedIndices(script),
+      treasury: scriptedTreasury(script),
+    }),
+    loadPriceHistory: async () => success(null),
+    loadIndexHistory: async () => success(null),
+    syncPriceHistory: async () => success(null),
+    backfillAsset: async () => success(null),
+    refreshInstrumentCatalog: async () => success(null),
   }),
   backfillAsset: backfillAsset({
     unitOfWork,

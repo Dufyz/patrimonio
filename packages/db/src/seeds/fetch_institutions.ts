@@ -4,30 +4,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
-import { environment } from '@patrimonio/env';
-
-import { createConnection, closeDatabase } from '../postgresql.js';
 import {
   mergeInstitutionNames,
   parseCvmIntermediaries,
   parseStrParticipants,
-} from '../seeds/institutions.js';
-import { loadInstitutions } from '../seeds/load_institutions.js';
+} from './institutions.js';
 
-/**
- * `pnpm seed:institutions [--test] [--str=<arquivo|url>] [--cvm=<arquivo|url>]`
- *
- * Carrega as instituições brasileiras: os participantes do STR (Banco Central) e
- * os intermediários da CVM. Sem argumentos, baixa os dois arquivos oficiais.
- * Idempotente: quem já existe fica como está.
- */
 const STR_URL =
   'https://www.bcb.gov.br/content/estabilidadefinanceira/str1/ParticipantesSTR.csv';
 const CVM_URL = 'https://dados.cvm.gov.br/dados/INTERMED/CAD/DADOS/cad_intermed.zip';
-
-const argv = process.argv.slice(2);
-const flag = (name: string): string | undefined =>
-  argv.find((item) => item.startsWith(`--${name}=`))?.slice(name.length + 3);
 
 const decode = (bytes: Uint8Array): string => {
   try {
@@ -71,32 +56,18 @@ const read = async (source: string): Promise<string> => {
   return decode(isZip(bytes) ? await unzip(bytes) : bytes);
 };
 
-const useTest = argv.includes('--test');
-const connection = useTest
-  ? environment.database.testConnection
-  : environment.database.connection;
+export type InstitutionSources = { readonly str?: string; readonly cvm?: string };
 
-if (connection === undefined) {
-  process.stderr.write('DB_TEST_CONNECTION não está definida\n');
-  process.exit(1);
-}
+/** Baixa (ou lê de arquivo) STR e CVM e devolve os nomes únicos, já mesclados. */
+export const fetchInstitutionNames = async (
+  sources: InstitutionSources = {},
+): Promise<{
+  readonly names: readonly string[];
+  readonly str: number;
+  readonly cvm: number;
+}> => {
+  const str = parseStrParticipants(await read(sources.str ?? STR_URL));
+  const cvm = parseCvmIntermediaries(await read(sources.cvm ?? CVM_URL));
 
-const sql = createConnection({
-  connection,
-  poolSize: 1,
-  applicationName: 'patrimonio-seed',
-});
-
-try {
-  const str = parseStrParticipants(await read(flag('str') ?? STR_URL));
-  const cvm = parseCvmIntermediaries(await read(flag('cvm') ?? CVM_URL));
-  const names = mergeInstitutionNames(str, cvm);
-
-  const { inserted, received } = await loadInstitutions(sql, names);
-
-  process.stdout.write(
-    `instituições: ${str.length} do STR, ${cvm.length} da CVM, ${received} únicas, ${inserted} novas\n`,
-  );
-} finally {
-  await closeDatabase(sql);
-}
+  return { names: mergeInstitutionNames(str, cvm), str: str.length, cvm: cvm.length };
+};

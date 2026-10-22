@@ -15,7 +15,7 @@ export const INSTITUTION_ROUTE_DOCS: readonly RouteDoc[] = [
     responses: {
       200: {
         description:
-          'O catálogo carregado por `pnpm seed:institutions`, usado na busca do lançamento.',
+          'O catálogo de instituições, carregado e renovado pelo app; usado na busca do lançamento.',
         schema: z.object({ institutions: z.array(institutionResourceSchema) }),
       },
     },

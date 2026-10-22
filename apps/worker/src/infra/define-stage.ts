@@ -5,9 +5,8 @@ import type {
   UnitOfWork,
   backfillAsset,
   closeDay,
-  collectMarketData,
   recalculatePortfolio,
-  refreshInstrumentCatalog,
+  syncMarket,
   syncPriceHistory,
 } from '@patrimonio/application';
 import { isAppError } from '@patrimonio/application';
@@ -36,15 +35,11 @@ export type StageJobData = {
 export type StageUseCases = {
   readonly recalculatePortfolio: ReturnType<typeof recalculatePortfolio>;
   readonly closeDay: ReturnType<typeof closeDay>;
-  readonly collectMarketData: ReturnType<typeof collectMarketData>;
   readonly backfillAsset: ReturnType<typeof backfillAsset>;
-  /**
-   * A recarga do catálogo de papéis, que o estágio de mercado tenta depois da
-   * coleta do dia. Ausente nos testes de estágio que medem só o pipeline.
-   */
-  readonly refreshInstrumentCatalog?: ReturnType<typeof refreshInstrumentCatalog>;
-  /** O histórico desde a estreia, carregado depois do trabalho principal do estágio. */
+  /** O histórico desde a estreia de um papel, carregado depois do backfill dele. */
   readonly syncPriceHistory?: ReturnType<typeof syncPriceHistory>;
+  /** A sincronização até o D-1: incremental no agendamento, reset no botão. */
+  readonly syncMarket: ReturnType<typeof syncMarket>;
 };
 
 export type StageDeps = {
@@ -64,7 +59,7 @@ export type StageDefinition<T> = {
    * O evento que o agendamento insere na outbox, quando o estágio tem job
    * repetível. Sem isso, um estágio agendado não teria o que pedir.
    */
-  readonly scheduledEvent?: (deps: StageDeps) => OutboxEventDraft;
+  readonly scheduledEvent?: (deps: StageDeps) => OutboxEventDraft | Promise<OutboxEventDraft>;
 };
 
 /**
@@ -92,7 +87,7 @@ export const defineStage = <T>(
       // Job repetível: não executa o estágio, insere o pedido na outbox. O
       // relay despacha, e assim o histórico de execução fica no Postgres.
       if (job.data.source === 'schedule') {
-        const draft = definition.scheduledEvent?.(deps);
+        const draft = await definition.scheduledEvent?.(deps);
 
         if (draft === undefined) {
           log.warn('estágio agendado sem evento declarado: nada a inserir');

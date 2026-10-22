@@ -3,8 +3,11 @@ import {
   closeDay,
   collectMarketData,
   createDebouncePolicy,
+  loadIndexHistory,
+  loadPriceHistory,
   recalculatePortfolio,
   refreshInstrumentCatalog,
+  syncMarket,
   syncPriceHistory,
 } from '@patrimonio/application';
 import type {
@@ -30,6 +33,7 @@ import {
 import type { Queues, RedisConnection } from '@patrimonio/queue';
 
 import { logger } from './infra/logger.js';
+import { createInstitutionsRefresher } from './infra/institutions.js';
 import { createMarketSources } from './infra/market.js';
 
 /**
@@ -41,10 +45,10 @@ import { createMarketSources } from './infra/market.js';
 export type WorkerUseCases = {
   readonly recalculatePortfolio: ReturnType<typeof recalculatePortfolio>;
   readonly closeDay: ReturnType<typeof closeDay>;
-  readonly collectMarketData: ReturnType<typeof collectMarketData>;
   readonly backfillAsset: ReturnType<typeof backfillAsset>;
-  readonly refreshInstrumentCatalog: ReturnType<typeof refreshInstrumentCatalog>;
   readonly syncPriceHistory: ReturnType<typeof syncPriceHistory>;
+  /** A sincronização até o D-1: incremental no agendamento, reset no botão. */
+  readonly syncMarket: ReturnType<typeof syncMarket>;
 };
 
 export type WorkerContainer = {
@@ -94,6 +98,18 @@ export const createContainer = (): WorkerContainer => {
     year: () => Number(systemClock.today().slice(0, 4)),
   });
 
+  const backfillAssetUseCase = backfillAsset({
+    unitOfWork,
+    clock: systemClock,
+    quotes: market.quotes,
+    treasury: market.treasury,
+  });
+  const syncPriceHistoryUseCase = syncPriceHistory({
+    unitOfWork,
+    clock: systemClock,
+    history: market.history,
+  });
+
   return {
     sql,
     redis,
@@ -104,29 +120,40 @@ export const createContainer = (): WorkerContainer => {
     usecases: {
       recalculatePortfolio: recalculatePortfolio({ unitOfWork, clock: systemClock }),
       closeDay: closeDay({ unitOfWork, clock: systemClock }),
-      collectMarketData: collectMarketData({
+      backfillAsset: backfillAssetUseCase,
+      syncPriceHistory: syncPriceHistoryUseCase,
+      syncMarket: syncMarket({
         unitOfWork,
         clock: systemClock,
-        quotes: market.quotes,
-        indices: market.indices,
-        treasury: market.treasury,
-      }),
-      backfillAsset: backfillAsset({
-        unitOfWork,
-        clock: systemClock,
-        quotes: market.quotes,
-        treasury: market.treasury,
-        history: market.history,
-      }),
-      refreshInstrumentCatalog: refreshInstrumentCatalog({
-        unitOfWork,
-        clock: systemClock,
-        instruments: market.instruments,
-      }),
-      syncPriceHistory: syncPriceHistory({
-        unitOfWork,
-        clock: systemClock,
-        history: market.history,
+        collectDay: collectMarketData({
+          unitOfWork,
+          clock: systemClock,
+          quotes: market.quotes,
+          indices: market.indices,
+          treasury: market.treasury,
+        }),
+        loadPriceHistory: loadPriceHistory({
+          unitOfWork,
+          clock: systemClock,
+          history: market.history,
+        }),
+        loadIndexHistory: loadIndexHistory({
+          unitOfWork,
+          clock: systemClock,
+          indices: market.indices,
+        }),
+        syncPriceHistory: syncPriceHistoryUseCase,
+        backfillAsset: backfillAssetUseCase,
+        refreshInstrumentCatalog: refreshInstrumentCatalog({
+          unitOfWork,
+          clock: systemClock,
+          instruments: market.instruments,
+        }),
+        refreshInstitutions: createInstitutionsRefresher({
+          unitOfWork,
+          clock: systemClock,
+          sql,
+        }),
       }),
     },
     shutdown: async () => {

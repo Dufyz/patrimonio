@@ -237,6 +237,7 @@ export const getMarketHealth = (deps: MarketHealthDeps) =>
  */
 export type RefreshMarketInput = {
   readonly on_date?: DateOnly | undefined;
+  /** Com ativo, é o backfill daquele papel; sem, é o reset completo. */
   readonly asset_id?: string | undefined;
   readonly origin_request_id?: string | undefined;
 };
@@ -253,25 +254,25 @@ export const refreshMarketData = (deps: {
   either(async function* (input: RefreshMarketInput) {
     return yield* await deps.unitOfWork.run<AppError, RefreshMarketResult>(
       async (repositories) => {
-        // Sem data pedida, "agora" é o último pregão: coletar um domingo é não
-        // coletar nada, e o botão pareceria não fazer coisa alguma.
+        // Sem data pedida, "agora" é o D-1: o último pregão anterior a hoje.
         let date = input.on_date ?? deps.clock.today();
         if (input.on_date === undefined) {
           const last = await lastBusinessDay(repositories, date);
           if (last.isFailure()) return last;
           date = last.value;
         }
+
         const enqueued = await repositories.outbox.enqueue([
           {
             stage: 'market',
-            // Com ativo é backfill daquele papel; sem, é a coleta do dia.
+            // Com ativo é backfill daquele papel; sem, é o reset completo.
             dedupe_key:
               input.asset_id === undefined
-                ? dedupeKey.market(date)
+                ? dedupeKey.reset(date)
                 : dedupeKey.backfill(input.asset_id),
             payload:
               input.asset_id === undefined
-                ? { reference_date: date }
+                ? { reference_date: date, mode: 'reset' }
                 : { reference_date: date, asset_id: input.asset_id },
             ...(input.origin_request_id === undefined
               ? {}

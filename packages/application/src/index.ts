@@ -18,11 +18,6 @@ export {
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 export type { Clock } from './interfaces/clock.js';
-export type {
-  LiveQuote,
-  LiveQuoteReading,
-  LiveQuoteSource,
-} from './interfaces/live_quotes.js';
 export type { BusinessDayRepository } from './interfaces/business_day.repository.js';
 export type {
   EnqueuedEvent,
@@ -108,10 +103,7 @@ export type {
   SourceStatus,
 } from './interfaces/market_ingestion.repository.js';
 export type {
-  AnnouncedPayoutSample,
   ClosingResult,
-  CorporateActionProvider,
-  CorporateEventSample,
   IndexProvider,
   IndexSample,
   PriceQuote,
@@ -569,11 +561,6 @@ export type {
   LoadIndexHistoryInput,
   LoadIndexHistoryResult,
 } from './usecases/market/loadIndexHistory.usecase.js';
-export { loadTreasuryCatalog } from './usecases/market/loadTreasuryCatalog.usecase.js';
-export type {
-  LoadTreasuryCatalogDeps,
-  LoadTreasuryCatalogResult,
-} from './usecases/market/loadTreasuryCatalog.usecase.js';
 export {
   TREASURY_CATALOG_SOURCE,
   treasuryInstruments,
@@ -590,24 +577,21 @@ export type {
   RefreshInstrumentCatalogInput,
   RefreshInstrumentCatalogResult,
 } from './usecases/market/refreshInstrumentCatalog.usecase.js';
+export { lastBusinessDay } from './usecases/market/lastBusinessDay.js';
+export { syncMarket, MAX_DAILY_FILES } from './usecases/market/syncMarket.usecase.js';
+export type {
+  SyncMarketDeps,
+  SyncMarketInput,
+  SyncMarketResult,
+  SyncMode,
+  SyncStep,
+} from './usecases/market/syncMarket.usecase.js';
 export { backfillAsset } from './usecases/market/backfillAsset.usecase.js';
 export type {
   BackfillAssetDeps,
   BackfillAssetInput,
   BackfillAssetResult,
 } from './usecases/market/backfillAsset.usecase.js';
-export { materializeAnnouncedPayouts } from './usecases/market/materializeAnnouncedPayouts.usecase.js';
-export type {
-  MaterializePayoutsDeps,
-  MaterializePayoutsInput,
-  MaterializePayoutsResult,
-} from './usecases/market/materializeAnnouncedPayouts.usecase.js';
-export { ingestCorporateActions } from './usecases/market/ingestCorporateActions.usecase.js';
-export type {
-  IngestCorporateActionsDeps,
-  IngestCorporateActionsInput,
-  IngestCorporateActionsResult,
-} from './usecases/market/ingestCorporateActions.usecase.js';
 export { getAssetPriceSeries } from './usecases/market/assetPriceSeries.usecase.js';
 export type {
   AssetPriceSeriesDeps,

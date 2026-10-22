@@ -251,20 +251,6 @@ export type { DailyFactor, IndexObservation, IndexUnit } from './index_series/fa
 
 // ─── Série de preço ajustada ─────────────────────────────────────────────────
 export { adjustForEvents } from './prices/adjusted.js';
-export {
-  changeRatio,
-  liveValuation,
-  shiftSummary,
-  sumDeltas,
-  valueDelta,
-  weightOf,
-} from './prices/live.js';
-export type {
-  LiveValuation,
-  LiveValuationInput,
-  ShiftedSummary,
-  SummaryShape,
-} from './prices/live.js';
 export type {
   AdjustedPoint,
   AdjustedSeries,

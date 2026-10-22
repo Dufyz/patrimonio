@@ -51,7 +51,7 @@ export const createMarketController = (deps: MarketDeps): MarketController => ({
   },
 
   /**
-   * "Atualizar agora" devolve 202 com `job_id` e `already_queued`: a coleta leva
+   * "Atualizar agora" devolve 202 com `job_id`, `already_queued` e `requested_at` (o instante do clique, que a tela usa para saber quando a atualização terminou): a coleta leva
    * segundos, e a tela não espera a fonte responder. Dois cliques seguidos viram
    * uma coleta, pela coalescência da outbox.
    */
@@ -72,13 +72,14 @@ export const createMarketController = (deps: MarketDeps): MarketController => ({
     }
 
     response.status(202).json({
+      requested_at: new Date().toISOString(),
       reference_date: result.value.reference_date,
       job_id: result.value.queued.id,
       dedupe_key: result.value.queued.dedupe_key,
       already_queued: result.value.queued.already_queued,
       message:
         body.asset_id === undefined
-          ? 'Coleta enfileirada.'
+          ? 'Atualização completa enfileirada.'
           : 'Backfill do ativo enfileirado.',
     });
   },

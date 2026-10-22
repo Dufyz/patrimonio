@@ -65,7 +65,6 @@ import {
 import type {
   Clock,
   InstrumentLookup,
-  LiveQuoteSource,
   TransactionalRepositories,
   UnitOfWork,
 } from '@patrimonio/application';
@@ -78,13 +77,6 @@ import {
 import type { Sql } from '@patrimonio/db';
 import { environment } from '@patrimonio/env';
 import {
-  BRAPI_FREE_MONTHLY_CEILING,
-  createBrapiProvider,
-  createBrapiTickerLookup,
-  createHttpClient,
-  createQuoteChain,
-  withRetry,
-  sleep,
 } from '@patrimonio/market';
 import {
   closeQueues,
@@ -95,7 +87,6 @@ import {
 import type { Queues, RedisConnection } from '@patrimonio/queue';
 
 import { systemClock } from './infra/config/clock.js';
-import { createLiveQuoteSource } from './infra/live_quotes.js';
 
 /**
  * Monta repositórios, gateways e casos de uso uma vez, no boot. Nenhum
@@ -109,7 +100,6 @@ export const createApiUseCases = (deps: {
   /** A busca de papéis ao vivo; sem ela, a busca fica no catálogo local. */
   readonly lookup?: InstrumentLookup | undefined;
   /** A cotação de pregão da tela de Posições; sem ela, vale o fechamento. */
-  readonly live?: LiveQuoteSource | undefined;
 }) => ({
   createPortfolio: createPortfolio({ unitOfWork: deps.unitOfWork }),
   updatePortfolio: updatePortfolio({ unitOfWork: deps.unitOfWork }),
@@ -191,7 +181,6 @@ export const createApiUseCases = (deps: {
   getMarketHealth: getMarketHealth({
     unitOfWork: deps.unitOfWork,
     clock: deps.clock,
-    ceilings: { brapi: BRAPI_FREE_MONTHLY_CEILING },
     staleAfterDays: environment.market.priceStaleAfterDays,
   }),
   refreshMarketData: refreshMarketData({
@@ -207,7 +196,6 @@ export const createApiUseCases = (deps: {
   listPositions: listPositions({
     positionViews: deps.repositories.positionViews,
     clock: deps.clock,
-    live: deps.live,
   }),
   // T-03 lê fora da transação pela mesma razão.
   getAssetPage: getAssetPage({
@@ -313,39 +301,6 @@ export const createContainer = (version: string): ApiContainer => {
       unitOfWork,
       repositories,
       clock: systemClock,
-      live: createLiveQuoteSource({
-        quotes: createQuoteChain([
-          createBrapiProvider({
-            http: withRetry(
-              createHttpClient({
-                fetch: (url, init) => globalThis.fetch(url, init),
-                timeoutMs: environment.market.requestTimeoutMs,
-                source: 'brapi',
-                passthroughStatuses: [404],
-              }),
-              { attempts: 2, backoffMs: 300, sleep },
-            ),
-            ...(environment.market.brapiToken === undefined
-              ? {}
-              : { token: environment.market.brapiToken }),
-            tickersPerRequest: 1,
-          }),
-        ]),
-        today: () => systemClock.today(),
-      }),
-      lookup: createBrapiTickerLookup({
-        http: withRetry(
-          createHttpClient({
-            fetch: (url, init) => globalThis.fetch(url, init),
-            timeoutMs: environment.market.requestTimeoutMs,
-            source: 'brapi',
-          }),
-          { attempts: 2, backoffMs: 300, sleep },
-        ),
-        ...(environment.market.brapiToken === undefined
-          ? {}
-          : { token: environment.market.brapiToken }),
-      }),
     }),
     clock: systemClock,
     version,

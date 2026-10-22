@@ -10,9 +10,9 @@ import type { TransactionalRepositories } from '../../interfaces/unit-of-work.js
 const LOOKBACK_DAYS = 10;
 
 /**
- * O último pregão até `today`, inclusive. É a "data de hoje" de tudo que fala de
- * preço: no domingo não há cotação do dia, há a de sexta, e pedir ou cobrar a
- * de domingo produz alarme falso (cobrança) ou coleta vazia (pedido).
+ * O último pregão ESTRITAMENTE ANTERIOR a `today` — o D-1. É a "data de hoje" de
+ * tudo que fala de preço: o sistema trabalha só com fechamento, e o arquivo do
+ * dia sai à noite. Na segunda-feira o D-1 é a sexta; num domingo, também.
  *
  * Calendário vazio devolve `today`: sem calendário carregado não há como saber,
  * e o comportamento anterior é o menos surpreendente.
@@ -23,7 +23,7 @@ export const lastBusinessDay = async (
 ): Promise<Either<AppError, DateOnly>> => {
   const calendar = await repositories.businessDays.listBetween(
     addDays(today, -LOOKBACK_DAYS),
-    today,
+    addDays(today, -1),
   );
   if (calendar.isFailure()) return calendar;
 

@@ -31,14 +31,10 @@ export const SCHEDULE_TIMEZONE = 'America/Sao_Paulo';
 export const QUEUES: Record<Stage, QueueDeclaration> = {
   // Sob demanda, pela outbox.
   recalc: { name: QUEUE_NAMES.recalc, concurrency: 1 },
-  // Dias úteis, 18:30 e 09:00.
-  market: {
-    name: QUEUE_NAMES.market,
-    concurrency: 2,
-    schedule: ['30 18 * * 1-5', '0 9 * * 1-5'],
-  },
-  // Dias úteis, 19:00 — depois dos preços.
-  close: { name: QUEUE_NAMES.close, concurrency: 1, schedule: ['0 19 * * 1-5'] },
+  // Dias úteis, 09:00: o arquivo do D-1 já saiu na noite anterior.
+  market: { name: QUEUE_NAMES.market, concurrency: 2, schedule: ['0 9 * * 1-5'] },
+  // Encadeado: o estágio de mercado, ao terminar, enfileira o fechamento.
+  close: { name: QUEUE_NAMES.close, concurrency: 1 },
   import: { name: QUEUE_NAMES.import, concurrency: 1 },
   // Diário, 03:00.
   backup: { name: QUEUE_NAMES.backup, concurrency: 1, schedule: ['0 3 * * *'] },

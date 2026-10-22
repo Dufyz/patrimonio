@@ -110,7 +110,7 @@ export const getMarketHealthSchema = z.object({
 export const refreshMarketSchema = z.object({
   body: z.object({
     on_date: dateOnly.optional(),
-    /** Com ativo, é um backfill daquele papel em vez da coleta do dia. */
+    /** Com ativo, é um backfill daquele papel em vez do reset completo. */
     asset_id: uuid.optional(),
   }),
 });

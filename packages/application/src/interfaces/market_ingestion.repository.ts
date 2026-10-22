@@ -138,6 +138,12 @@ export type MarketIngestionRepository = {
     limit: number,
   ) => Promise<Either<AppError, PendingHistoryAsset[]>>;
 
+  /** A data do preço mais recente gravado; nulo quando não há nenhum. */
+  readonly lastPriceDate: () => Promise<Either<AppError, DateOnly | null>>;
+
+  /** A data do primeiro lançamento de qualquer carteira; nulo sem lançamentos. */
+  readonly firstTradeDate: () => Promise<Either<AppError, DateOnly | null>>;
+
   readonly markHistorySynced: (
     assetIds: readonly string[],
   ) => Promise<Either<AppError, number>>;

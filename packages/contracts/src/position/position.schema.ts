@@ -159,17 +159,6 @@ export const positionsResourceSchema = z.object({
     }),
   ),
   price_health: positionHealthSchema,
-  /**
-   * Presente quando alguma linha foi reavaliada a preço de pregão. `applied` de
-   * `requested` diz quantas cotações chegaram: o resto segue a preço de fechamento.
-   */
-  live: z
-    .object({
-      as_of: z.string(),
-      applied: z.number().int().nonnegative(),
-      requested: z.number().int().nonnegative(),
-    })
-    .nullable(),
 });
 
 export type PositionsResource = z.infer<typeof positionsResourceSchema>;

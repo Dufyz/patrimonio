@@ -5,16 +5,15 @@ import type {
   QuoteSource,
   TreasurySource,
 } from '@patrimonio/application';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { environment } from '@patrimonio/env';
 import {
-  BOLSAI_SHAPE,
-  BOLSAI_SOURCE,
   createBcbProvider,
   createBrapiProvider,
-  createJsonQuoteProvider,
   createQuoteChain,
   createTesouroCsvProvider,
-  createTesouroJsonProvider,
   createTreasuryChain,
   createHttpClient,
   createIndexProviderSet,
@@ -24,7 +23,11 @@ import {
 } from '@patrimonio/market';
 import type { HttpClient } from '@patrimonio/market';
 
-import { createInstrumentCatalogSource, createPriceHistorySource } from './cotahist.js';
+import {
+  createCotahistQuoteSource,
+  createInstrumentCatalogSource,
+  createPriceHistorySource,
+} from './cotahist.js';
 
 /**
  * A montagem das fontes. É o único arquivo do worker que conhece o nome de um
@@ -61,45 +64,46 @@ export type MarketSources = {
 export const createMarketSources = (options: {
   readonly year: () => number;
 }): MarketSources => {
+  // A brapi serve só os índices de pontos (IBOV e IFIX), que o COTAHIST não tem.
+  // O 404 dela é resposta sobre o símbolo — "não conheço" — e não falha da coleta.
   const brapi = createBrapiProvider({
-    // O 404 da brapi é resposta sobre o papel — "não conheço esse ticker" — e
-    // não falha da coleta. Ele é lido, e o papel entra em `missing`.
     http: clientFor('brapi', [404]),
     ...(environment.market.brapiToken === undefined
       ? {}
       : { token: environment.market.brapiToken }),
-    // Um por requisição no plano gratuito. Num plano pago, só este número muda.
+    // Um por requisição no plano gratuito.
     tickersPerRequest: 1,
   });
 
-  const alternativo = createJsonQuoteProvider({
-    id: BOLSAI_SOURCE,
-    http: clientFor(BOLSAI_SOURCE, [404]),
-    shape: BOLSAI_SHAPE,
-    url: (tickers) => `https://api.usebolsai.com/v1/quotes?tickers=${tickers.join(',')}`,
-  });
-
-  const quotes = createQuoteChain([brapi, alternativo]);
+  const indexQuotes = createQuoteChain([brapi]);
+  const history = createPriceHistorySource({ currentYear: options.year });
 
   return {
-    // A ordem é a da configuração: principal primeiro, alternativa depois, e o
-    // `source_kind` do preço gravado sai da posição.
-    quotes,
-    // CDI, Selic e IPCA vêm do Banco Central; IBOV e IFIX, da cadeia de cotações.
-    // Se uma das duas cai, a outra continua alimentando seus índices.
+    // O preço de papel de bolsa é o fechamento oficial da B3 (COTAHIST), sempre
+    // do pregão anterior: o arquivo do dia sai à noite, e a coleta roda de manhã.
+    quotes: createCotahistQuoteSource({ history }),
+    // CDI, Selic e IPCA vêm do Banco Central; IBOV e IFIX, da brapi.
     indices: createIndexProviderSet('indices', [
       createBcbProvider({ http: clientFor('bcb') }),
       createPriceIndexProvider({
         id: 'cotacoes',
-        quotes,
+        quotes: indexQuotes,
         symbols: PRICE_INDEX_SYMBOLS,
       }),
     ]),
+    // O Tesouro Transparente recusa por volume: sem repetição automática (cada
+    // tentativa conta no limite), com arquivo guardado em disco entre execuções.
     treasury: createTreasuryChain([
-      createTesouroJsonProvider({ http: clientFor('tesouro-direto') }),
-      createTesouroCsvProvider({ http: clientFor('tesouro-transparente') }),
+      createTesouroCsvProvider({
+        http: createHttpClient({
+          fetch: (url, init) => globalThis.fetch(url, init),
+          timeoutMs: environment.market.requestTimeoutMs * 6,
+          source: 'tesouro-transparente',
+        }),
+        cacheDir: join(tmpdir(), 'patrimonio-cache'),
+      }),
     ]),
     instruments: createInstrumentCatalogSource({ year: options.year }),
-    history: createPriceHistorySource({ currentYear: options.year }),
+    history,
   };
 };

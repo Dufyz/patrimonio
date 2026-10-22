@@ -208,46 +208,6 @@ export type TreasurySource = {
   >;
 };
 
-// ─── Proventos e eventos anunciados ──────────────────────────────────────────
-
-export type AnnouncedPayoutSample = {
-  readonly ticker: string;
-  readonly payout_kind: 'dividend' | 'jcp' | 'income' | 'interest' | 'amortization';
-  readonly record_date: DateOnly;
-  readonly payment_date: DateOnly | null;
-  readonly amount_per_share: string;
-};
-
-export type CorporateEventSample = {
-  readonly ticker: string;
-  readonly kind: 'split' | 'reverse_split' | 'bonus';
-  readonly record_date: DateOnly;
-  readonly ratio_from: string;
-  readonly ratio_to: string;
-};
-
-/**
- * Proventos e eventos corporativos anunciados. Nenhuma fonte gratuita cobre
- * isso de forma confiável hoje, e é por isso que o provedor é opcional: sem ele
- * o lançamento continua manual, como já é, e nada no pipeline muda.
- */
-export type CorporateActionProvider = {
-  readonly id: string;
-  readonly fetchAnnouncements: (
-    tickers: readonly string[],
-    from: DateOnly,
-    to: DateOnly,
-  ) => Promise<
-    Either<
-      AppError,
-      {
-        readonly payouts: readonly AnnouncedPayoutSample[];
-        readonly events: readonly CorporateEventSample[];
-      }
-    >
-  >;
-};
-
 // ─── Catálogo de instrumentos ────────────────────────────────────────────────
 
 /** Um papel como a fonte do catálogo o descreve. */

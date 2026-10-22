@@ -12,6 +12,7 @@ import {
   marketStage,
   recalcStage,
 } from '../processors/index.js';
+import { incrementalSyncEvent } from '../processors/market.stage.js';
 
 const container = createContainer();
 
@@ -36,22 +37,22 @@ const workers = [
 const scheduled = await registerSchedules(container.queues);
 logger.info({ scheduled }, 'jobs repetíveis registrados');
 
-// Histórico pendente (ativos cadastrados antes desta carga, ou criados com o
-// worker parado) não espera o próximo fechamento: a fila é lida na subida. Roda
-// solto e não bloqueia o worker; falha só vira aviso.
-void container.usecases
-  .syncPriceHistory({})
-  .then((result) => {
-    if (result.isFailure()) {
-      logger.warn(
-        { err: result.value.message },
-        'histórico de cotações não foi carregado',
-      );
-    } else if (result.value.synced.length > 0) {
-      logger.info(result.value, 'histórico de cotações carregado');
-    }
-  })
-  .catch((error: unknown) => logger.warn({ err: String(error) }, 'histórico falhou'));
+// Retomada: uma máquina desligada às 09:00 não pode deixar buraco. Ao subir, o
+// worker pede a sincronização incremental do D-1, que preenche os dias úteis que
+// faltam. O pedido vai pela outbox, como o do agendamento; falha só vira aviso.
+try {
+  const enqueued = await container.repositories.outbox.enqueue([
+    await incrementalSyncEvent(deps),
+  ]);
+
+  if (enqueued.isFailure()) {
+    logger.warn({ err: enqueued.value.message }, 'retomada não foi enfileirada');
+  } else {
+    logger.info('sincronização incremental pedida na subida');
+  }
+} catch (error) {
+  logger.warn({ err: String(error) }, 'retomada não foi pedida');
+}
 
 const relay = startRelay({
   unitOfWork: container.unitOfWork,
