@@ -314,14 +314,25 @@ body {
       [type='submit'],
       [type='reset']
     ):not(:disabled),
+  input:is([type='file'], [type='range']):not(:disabled),
+  label:has(> input:is([type='checkbox'], [type='radio']):not(:disabled)),
   [role='button']:not([aria-disabled='true']),
+  [role='link']:not([aria-disabled='true']),
   [role='tab'],
   [role='menuitem']:not([aria-disabled='true']):not([data-disabled]),
+  [role='menuitemcheckbox']:not([aria-disabled='true']):not([data-disabled]),
+  [role='menuitemradio']:not([aria-disabled='true']):not([data-disabled]),
   [role='option']:not([aria-disabled='true']):not([data-disabled]),
   [role='switch'],
   [role='checkbox'],
   [role='radio'],
   [data-clickable] {
+    cursor: pointer;
+  }
+
+  /* Separado da lista acima: um pseudo-elemento que o navegador não conhece
+     invalida a regra inteira, e o ícone do seletor de data só existe no WebKit. */
+  input:is([type='date'], [type='month']):not(:disabled)::-webkit-calendar-picker-indicator {
     cursor: pointer;
   }
 
