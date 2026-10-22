@@ -164,15 +164,6 @@ export const PositionsScreen = ({
 
   useEffect(() => setDraft(search), [search]);
 
-  // Intraday: a tela se refaz sozinha enquanto está aberta e visível. A cotação
-  // tem cache de um minuto na api, então reabrir não gasta cota a mais.
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') setReloads((count) => count + 1);
-    }, 60_000);
-    return () => clearInterval(timer);
-  }, []);
-
   useEffect(() => {
     const controller = new AbortController();
     setPending(true);

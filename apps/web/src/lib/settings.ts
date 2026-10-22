@@ -80,15 +80,6 @@ export const CATALOG_LABEL: Readonly<Record<CatalogKey, string>> = {
   price_history: 'Histórico de preços',
 };
 
-/** O comando que preenche cada catálogo; é o que a pendência mostra. */
-export const CATALOG_COMMAND: Readonly<Record<CatalogKey, string>> = {
-  institutions: 'pnpm seed:institutions',
-  instruments: 'pnpm seed:instruments',
-  treasury: 'pnpm seed:tesouro',
-  indices: 'pnpm seed:indices',
-  price_history: 'pnpm seed:cotahist',
-};
-
 /** Os catálogos na ordem em que a carga os executa. */
 export const CATALOG_ORDER: readonly CatalogKey[] = [
   'institutions',
@@ -129,7 +120,6 @@ const SOURCE_LABEL: Readonly<Record<string, string>> = {
   'tesouro-transparente': 'Tesouro Transparente',
   cotahist: 'B3 · COTAHIST',
   cotacoes: 'Cotações (IBOV/IFIX)',
-  reconcile: 'Reconciliação',
 };
 
 const KIND_LABEL: Readonly<Record<string, string>> = {
@@ -139,8 +129,6 @@ const KIND_LABEL: Readonly<Record<string, string>> = {
   backfill: 'Histórico de ativo',
   cotahist: 'Carga inicial',
   contract_check: 'Verificação de formato',
-  live: 'Prévia do pregão',
-  reconcile: 'Reconciliação',
 };
 
 export const sourceLabel = (source: string): string => SOURCE_LABEL[source] ?? source;
@@ -288,3 +276,108 @@ export const shortDate = (date: string): string => {
 
   return `${day ?? ''}/${month ?? ''}`;
 };
+
+/* -------------------------------------------------------------------------- */
+/* Dados de mercado: um painel só                                             */
+/* -------------------------------------------------------------------------- */
+
+type SourceHealth = MarketHealth['sources'][number];
+
+/** Os três dados que a sincronização traz todo dia, na ordem em que a tela os mostra. */
+export const DATA_KINDS: readonly (readonly [SourceHealth['kind'], string])[] = [
+  ['quotes', 'Preços de bolsa'],
+  ['indices', 'Índices'],
+  ['treasury', 'Tesouro Direto'],
+];
+
+export type DataRow = {
+  readonly kind: SourceHealth['kind'];
+  readonly label: string;
+  /** A fonte da execução mais recente do dado; nula se nunca rodou. */
+  readonly health: SourceHealth | null;
+};
+
+/**
+ * A situação de cada dado do dia, pela execução mais recente dele. Fonte que o
+ * app deixou de usar não aparece: só a última execução de cada tipo conta, e uma
+ * linha antiga fica atrás da nova.
+ */
+export const currentDataRows = (health: MarketHealth): readonly DataRow[] =>
+  DATA_KINDS.map(([kind, label]) => {
+    const latest = health.sources
+      .filter((source) => source.kind === kind && source.last_run !== null)
+      .sort(
+        (a, b) =>
+          Date.parse(b.last_run?.finished_at ?? '') -
+          Date.parse(a.last_run?.finished_at ?? ''),
+      )[0];
+
+    return { kind, label, health: latest ?? null };
+  });
+
+export type DataSummary = {
+  readonly tone: Tone;
+  readonly title: string;
+  readonly lastLoad: string | null;
+};
+
+/** A frase do cabeçalho: os dados de ontem estão aqui? */
+export const dataSummary = (health: MarketHealth): DataSummary => {
+  const rows = currentDataRows(health);
+  const runs = rows.flatMap((row) => (row.health?.last_run ? [row.health] : []));
+  const failing = rows.filter((row) => row.health?.status === 'failing').length;
+
+  const lastLoad =
+    runs.length === 0
+      ? null
+      : runs
+          .map((source) => source.last_run?.finished_at ?? '')
+          .reduce((a, b) => (Date.parse(a) > Date.parse(b) ? a : b));
+
+  if (runs.length === 0) {
+    return { tone: 'neutral', title: 'Sem coleta ainda', lastLoad };
+  }
+
+  if (failing > 0) {
+    return {
+      tone: 'error',
+      title: plural(failing, 'dado falhando', 'dados falhando'),
+      lastLoad,
+    };
+  }
+
+  const stale = rows.some(
+    (row) => row.health?.status === 'stale' || (row.health?.coverage.missing ?? 0) > 0,
+  );
+
+  return {
+    tone: stale ? 'attention' : 'ok',
+    title: `Dados até ${shortDate(health.reference_date)}`,
+    lastLoad,
+  };
+};
+
+/** A linha de referência: o que cada catálogo tem, numa frase. */
+export const referenceSummary = (health: MarketHealth): string => {
+  const count = (key: CatalogKey): number =>
+    health.catalogs.find((catalog) => catalog.key === key)?.total ?? 0;
+
+  return [
+    plural(count('institutions'), 'instituição', 'instituições'),
+    plural(count('instruments'), 'papel listado', 'papéis listados'),
+    plural(count('treasury'), 'título do Tesouro', 'títulos do Tesouro'),
+  ].join(' · ');
+};
+
+export const referenceLoadedAt = (health: MarketHealth): string | null => {
+  const instants = health.catalogs
+    .map((catalog) => catalog.last_loaded)
+    .filter((value): value is string => value !== null);
+
+  return instants.length === 0
+    ? null
+    : instants.reduce((a, b) => (Date.parse(a) > Date.parse(b) ? a : b));
+};
+
+export const referencePending = (health: MarketHealth): boolean =>
+  health.catalogs.some((catalog) => catalog.state === 'pending');

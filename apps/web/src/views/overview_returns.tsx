@@ -202,8 +202,8 @@ export const ReturnsChart = ({
                 : `${gap.name} (série a partir de ${formatDate(gap.available_from as DateOnly)})`,
             )
             .join('; ')}
-          . O benchmark aparece como traço, e não como uma linha mais curta. Carregue o
-          histórico com pnpm seed:indices.
+          . O benchmark aparece como traço, e não como uma linha mais curta. Use
+          Atualizar agora em Configurações para carregar o histórico.
         </p>
       )}
       {missing.length === 0 ? null : (

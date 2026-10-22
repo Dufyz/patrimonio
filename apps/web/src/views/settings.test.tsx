@@ -271,34 +271,49 @@ describe('SettingsView', () => {
   });
 
   it('dados de mercado mostram cobertura, falha com a mensagem e os papéis sem preço', () => {
-    montar();
+    const base = health.sources[0]!;
+    const failing = {
+      ...base,
+      source: 'bcb',
+      kind: 'indices',
+      status: 'failing',
+      last_run: {
+        ...base.last_run!,
+        id: 'r2',
+        source: 'bcb',
+        kind: 'indices',
+        ok: false,
+        error: 'bcb respondeu 503',
+      },
+      coverage: { items: 0, missing: 0 },
+    } as MarketHealth['sources'][number];
 
-    const row = screen.getByRole('row', { name: /Cotações/ });
+    montar({
+      market: { kind: 'ready', value: { ...health, sources: [base, failing] } },
+    });
+
+    const row = screen.getByRole('row', { name: /Preços de bolsa/ });
     expect(within(row).getByText('22 / 24')).toBeTruthy();
     expect(within(row).getByText('2 sem preço')).toBeTruthy();
 
-    expect(screen.getByText(/brapi respondeu 503/)).toBeTruthy();
+    const indices = screen.getByRole('row', { name: /Índices/ });
+    expect(within(indices).getByText('falhando')).toBeTruthy();
+    expect(screen.getByText(/bcb respondeu 503/)).toBeTruthy();
+
+    const treasury = screen.getByRole('row', { name: /Tesouro Direto/ });
+    expect(within(treasury).getByText('nunca coletou')).toBeTruthy();
+
     expect(screen.getByText(/ativo sem cotação do dia/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Definir preço de KNRI11' })).toBeTruthy();
   });
 
-  it('cada catálogo mostra contagem e estado, e o vazio diz o comando que o preenche', () => {
+  it('a referência é uma linha só, com contagens e aviso do que ainda vai carregar', () => {
     montar();
 
-    const table = within(
-      screen.getByRole('table', { name: 'Catálogos da carga inicial' }),
-    );
-
-    const instruments = table.getByRole('row', { name: /Instrumentos listados/ });
-    expect(within(instruments).getByText('1840')).toBeTruthy();
-    expect(within(instruments).getByText('carregado')).toBeTruthy();
-
-    const treasury = table.getByRole('row', { name: /Tesouro Direto/ });
-    expect(within(treasury).getByText('pnpm seed:tesouro')).toBeTruthy();
-    expect(within(treasury).getByText(/pendente/)).toBeTruthy();
-
-    const history = table.getByRole('row', { name: /Histórico de preços/ });
-    expect(within(history).getByText('pnpm seed:cotahist')).toBeTruthy();
+    expect(screen.getByText(/312 instituições/)).toBeTruthy();
+    expect(screen.getByText(/1840 papéis listados/)).toBeTruthy();
+    expect(screen.getByText(/carregando na próxima atualização/)).toBeTruthy();
+    expect(screen.queryByRole('table', { name: 'Catálogos da carga inicial' })).toBeNull();
   });
 
   it('sem dado de demonstração, não há aviso', () => {
@@ -327,7 +342,7 @@ describe('SettingsView', () => {
     expect(screen.queryByText('Nenhuma fonte registrou coleta ainda.')).toBeNull();
   });
 
-  it('"Atualizar agora" pede a coleta, avisa e relê', async () => {
+  it('há um só "Atualizar agora": pede o reset completo e avisa', async () => {
     api.refreshMarket.mockResolvedValue({
       job_id: 'j',
       already_queued: false,
@@ -335,9 +350,11 @@ describe('SettingsView', () => {
     });
     montar();
 
+    expect(screen.getAllByRole('button', { name: /Atualizar/ })).toHaveLength(1);
     await userEvent.click(screen.getByRole('button', { name: /Atualizar agora/ }));
 
     expect(api.refreshMarket).toHaveBeenCalledTimes(1);
+    expect(api.refreshMarket).toHaveBeenCalledWith();
     expect((await screen.findByRole('status')).textContent).toMatch(/Atualização pedida/);
   });
 

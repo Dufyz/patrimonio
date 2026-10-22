@@ -242,7 +242,6 @@ describe('procedência do número', () => {
     payouts_12m: '0',
     facets: [],
     institution_facets: [],
-    live: null,
     price_health: { fresh: 0, stale: 0, manual: 0, missing: 0 },
     ...overrides,
   });

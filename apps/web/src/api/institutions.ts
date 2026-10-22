@@ -4,7 +4,7 @@ import type { InstitutionResource } from '@patrimonio/contracts';
 import { request } from './client.js';
 import type { Parser } from './client.js';
 
-/** O catálogo de instituições vem da carga (`pnpm seed:institutions`). */
+/** O catálogo de instituições vem da carga (carregado sozinho pelo app). */
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;

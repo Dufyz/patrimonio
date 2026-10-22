@@ -332,24 +332,6 @@ export const positionsCountLabel = (total: PositionSummary): string =>
 export const priceStamp = (resource: PositionsResource): string | null => {
   if (resource.as_of === null) return null;
 
-  const hhmm = (iso: string): string | null => {
-    const at = new Date(iso);
-    return Number.isNaN(at.getTime())
-      ? null
-      : `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
-  };
-
-  if (resource.live !== null && resource.live.applied > 0) {
-    const live = resource.live;
-    const at = hhmm(live.as_of);
-    const rest = live.requested - live.applied;
-    return `Cotações ao vivo${at === null ? '' : ` às ${at}`} em ${live.applied} de ${live.requested} papéis${
-      rest > 0
-        ? ` — os demais seguem a preço de fechamento de ${formatShortDate(resource.as_of)}`
-        : ''
-    }. Renda fixa segue na curva.`;
-  }
-
   const stamp = resource.computed_at === null ? null : new Date(resource.computed_at);
   const time =
     stamp === null || Number.isNaN(stamp.getTime())

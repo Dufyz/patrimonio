@@ -179,7 +179,6 @@ const resource = (overrides: Partial<PositionsResource> = {}): PositionsResource
       count: 9,
     },
   ],
-  live: null,
   price_health: { fresh: 27, stale: 1, manual: 0, missing: 0 },
   ...overrides,
 });

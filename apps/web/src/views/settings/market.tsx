@@ -6,18 +6,17 @@ import { Button } from '../../components/primitives.js';
 import { SkeletonRegion, SkeletonTable } from '../../components/skeleton.js';
 import type { Resource } from '../../lib/use_resource.js';
 import {
-  CATALOG_COMMAND,
-  CATALOG_LABEL,
   DEMO_REMOVE_COMMAND,
   SOURCE_STATUS,
+  currentDataRows,
+  dataSummary,
   demoSummary,
-  hasDemoData,
-  orderedCatalogs,
   formatInstant,
-  marketSummary,
-  plural,
+  hasDemoData,
+  referenceLoadedAt,
+  referencePending,
+  referenceSummary,
   shortDate,
-  runKindLabel,
   sourceLabel,
 } from '../../lib/settings.js';
 import { formatDate } from '../../lib/overview.js';
@@ -42,11 +41,14 @@ import { ALL_SCOPE } from '../../lib/scope.js';
 /**
  * M-16 · Dados de mercado, em Configurações.
  *
- * A seção responde uma pergunta: o número que está na tela é de hoje? Por isso
- * cada fonte mostra situação, horário da última coleta e cobertura, e a falha
- * vem com a mensagem do erro. A leitura é a de `/market/health` e não faz parte
- * de `/settings`: ela muda sozinha enquanto uma coleta roda, e tem releitura
- * própria depois do "atualizar agora".
+ * A tela responde uma pergunta: os dados de ontem estão aqui? Um cabeçalho diz
+ * até que dia os dados vão, uma tabela mostra cada dado do dia (preços, índices,
+ * Tesouro) com a última coleta, a cobertura e a mensagem da falha, e uma linha
+ * resume os catálogos de referência, que se recarregam sozinhos.
+ *
+ * "Atualizar agora" é o reset completo: refaz tudo na hora. A coleta roda no
+ * worker, depois de a rota já ter respondido 202, então a tela relê até uma
+ * coleta posterior ao clique aparecer.
  */
 
 const POLL_MS = 3000;
@@ -67,23 +69,6 @@ const Failed = ({
   </div>
 );
 
-const budgetText = (
-  budget: MarketHealth['sources'][number]['budget'],
-): React.ReactElement => {
-  if (budget === null) return <Muted>—</Muted>;
-
-  return (
-    <span
-      className={
-        budget.exceeded ? 'text-negative' : budget.warning ? 'text-attention' : ''
-      }
-      title={`${budget.remaining} requisições restantes no mês`}
-    >
-      {budget.used} / {budget.ceiling}
-    </span>
-  );
-};
-
 const PositionsLink = ({ children }: { readonly children: React.ReactNode }) => {
   const to = `/${ALL_SCOPE}/posicoes`;
   const className = 'text-accent hover:underline';
@@ -99,46 +84,24 @@ const PositionsLink = ({ children }: { readonly children: React.ReactNode }) => 
   );
 };
 
-/**
- * O clique atualiza tudo: cotações, índices, Tesouro, catálogos, cargas e
- * histórico. Ficam de fora só a busca de papéis (`lookup`, que roda quando
- * alguém digita) e o COTAHIST de fechamento, que só roda quando há dia a
- * consolidar.
- */
-const isBatchSource = (source: MarketHealth['sources'][number]): boolean =>
-  source.kind !== 'lookup' && !(source.kind === 'quotes' && source.source === 'cotahist');
-
-/** O lote da execução; as anteriores à coluna caem no horário em que terminaram. */
-const batchOf = (run: MarketHealth['sources'][number]['last_run']): string | null =>
-  run === null ? null : (run.batch_at ?? run.finished_at);
-
 const MarketBody = ({
   health,
   refreshing,
   waiting,
-  waitingBatch,
   onRefresh,
   onManual,
 }: {
   readonly health: MarketHealth;
   readonly refreshing: boolean;
   readonly waiting: boolean;
-  /** O lote que a tela espera; as fontes anteriores a ele ainda não rodaram nesta atualização. */
-  readonly waitingBatch: number | null;
   readonly onRefresh: () => void;
   readonly onManual: (target: ManualPriceTarget) => void;
 }): React.ReactElement => {
-  const summary = marketSummary(health);
+  const summary = dataSummary(health);
+  const rows = currentDataRows(health);
   const missing = health.missing_prices;
   const shown = missing.slice(0, 3);
-  // O lote mais recente entre as fontes: quem ficou para trás aparece em destaque.
-  const latestBatch = health.sources.reduce<number | null>((latest, source) => {
-    if (!isBatchSource(source)) return latest;
-    const batch = batchOf(source.last_run);
-    if (batch === null) return latest;
-    const time = Date.parse(batch);
-    return latest === null || time > latest ? time : latest;
-  }, null);
+  const loadedAt = referenceLoadedAt(health);
 
   return (
     <>
@@ -159,14 +122,11 @@ const MarketBody = ({
             <span className="text-ink">{summary.title}</span>
           </StatusDot>
         }
-        hint={[
-          summary.warnings === 0 ? null : plural(summary.warnings, 'aviso', 'avisos'),
+        hint={
           summary.lastLoad === null
-            ? null
-            : `última carga ${formatInstant(summary.lastLoad)}`,
-        ]
-          .filter((part) => part !== null)
-          .join(' · ')}
+            ? undefined
+            : `última coleta ${formatInstant(summary.lastLoad)}`
+        }
         action={
           <Button disabled={refreshing} icon="undo" onClick={onRefresh}>
             {waiting ? 'Atualizando…' : refreshing ? 'Pedindo…' : 'Atualizar agora'}
@@ -174,52 +134,7 @@ const MarketBody = ({
         }
       >
         <table className="w-full text-[0.8125rem]">
-          <caption className="sr-only">Catálogos da carga inicial</caption>
-          <thead>
-            <tr>
-              <th scope="col" className={TH}>
-                Catálogo
-              </th>
-              <th scope="col" className={TH_RIGHT}>
-                Registros
-              </th>
-              <th scope="col" className={TH_RIGHT}>
-                Última carga
-              </th>
-              <th scope="col" className={TH_RIGHT}>
-                Situação
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {orderedCatalogs(health.catalogs).map((catalog) => (
-              <tr key={catalog.key} className={ROW}>
-                <th scope="row" className={`${TD} text-left font-medium`}>
-                  {CATALOG_LABEL[catalog.key]}
-                </th>
-                <td className={`${TD} tabular text-right`}>{catalog.total}</td>
-                <td className={`${TD} tabular text-right`}>
-                  {formatInstant(catalog.last_loaded)}
-                </td>
-                <td className={`${TD} text-right`}>
-                  {catalog.state === 'pending' ? (
-                    <StatusDot tone="attention">
-                      pendente · rode{' '}
-                      <code className="tabular">{CATALOG_COMMAND[catalog.key]}</code>
-                    </StatusDot>
-                  ) : (
-                    <StatusDot tone="ok">carregado</StatusDot>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </SettingsPanel>
-
-      <SettingsPanel>
-        <table className="w-full text-[0.8125rem]">
-          <caption className="sr-only">Situação de cada fonte de dados</caption>
+          <caption className="sr-only">Situação de cada dado do dia</caption>
           <thead>
             <tr>
               <th scope="col" className={TH}>
@@ -235,106 +150,83 @@ const MarketBody = ({
                 Cobertura
               </th>
               <th scope="col" className={TH_RIGHT}>
-                Cota do mês
-              </th>
-              <th scope="col" className={TH_RIGHT}>
                 Situação
               </th>
             </tr>
           </thead>
           <tbody>
-            {health.sources.length === 0 ? (
-              <tr className={ROW}>
-                <td colSpan={6} className={`${TD} text-ink-3`}>
-                  Nenhuma fonte registrou coleta ainda.
-                </td>
-              </tr>
-            ) : (
-              health.sources.map((source) => {
-                const status = SOURCE_STATUS[source.status];
-                const batch = batchOf(source.last_run);
-                const reference = waitingBatch ?? latestBatch;
-                const behind =
-                  isBatchSource(source) &&
-                  batch !== null &&
-                  reference !== null &&
-                  Date.parse(batch) < reference;
-                const pending = behind && waitingBatch !== null;
+            {rows.map((row) => {
+              const source = row.health;
+              const run = source?.last_run ?? null;
+              const status = source === null ? null : SOURCE_STATUS[source.status];
 
-                return (
-                  <tr key={`${source.source}:${source.kind}`} className={ROW}>
-                    <th scope="row" className={`${TD} text-left font-medium`}>
-                      {runKindLabel(source.kind)}
-                    </th>
-                    <td className={TD}>{sourceLabel(source.source)}</td>
-                    <td
-                      className={`${TD} tabular text-right ${behind ? 'text-attention' : ''}`}
-                      title={
-                        [
-                          behind && latestBatch !== null
-                            ? `Não rodou junto com a última atualização (${formatInstant(new Date(latestBatch).toISOString())})`
-                            : null,
-                          source.last_run?.ok === false && source.last_success_at
-                            ? `Última coleta bem-sucedida: ${formatInstant(source.last_success_at)}`
-                            : null,
-                        ]
-                          .filter((part) => part !== null)
-                          .join(' · ') || undefined
-                      }
-                    >
-                      {pending ? 'aguardando…' : formatInstant(batch)}
-                    </td>
-                    <td className={`${TD} tabular text-right`}>
-                      {source.last_run === null ? (
-                        <Muted>—</Muted>
-                      ) : source.coverage.missing > 0 ? (
-                        <span className="text-attention">
-                          {source.coverage.items - source.coverage.missing} /{' '}
-                          {source.coverage.items}
-                        </span>
-                      ) : (
-                        source.coverage.items
-                      )}
-                    </td>
-                    <td className={`${TD} tabular text-right`}>
-                      {budgetText(source.budget)}
-                    </td>
-                    <td className={`${TD} text-right`}>
+              return (
+                <tr key={row.kind} className={ROW}>
+                  <th scope="row" className={`${TD} text-left font-medium`}>
+                    {row.label}
+                  </th>
+                  <td className={TD}>
+                    {source === null ? <Muted>—</Muted> : sourceLabel(source.source)}
+                  </td>
+                  <td className={`${TD} tabular text-right`}>
+                    {formatInstant(run?.finished_at ?? null)}
+                  </td>
+                  <td className={`${TD} tabular text-right`}>
+                    {source === null || run === null ? (
+                      <Muted>—</Muted>
+                    ) : source.coverage.missing > 0 ? (
+                      <span className="text-attention">
+                        {source.coverage.items - source.coverage.missing} /{' '}
+                        {source.coverage.items}
+                      </span>
+                    ) : (
+                      source.coverage.items
+                    )}
+                  </td>
+                  <td className={`${TD} text-right`}>
+                    {source === null || status === null ? (
+                      <StatusDot tone="neutral">nunca coletou</StatusDot>
+                    ) : (
                       <StatusDot tone={status.tone}>
                         {source.status === 'ok' && source.coverage.missing > 0
-                          ? source.kind === 'reconcile'
-                            ? `${source.coverage.missing} ${source.coverage.missing === 1 ? 'dia' : 'dias'} na fila`
-                            : `${source.coverage.missing} sem preço`
+                          ? `${source.coverage.missing} sem preço`
                           : status.label}
                       </StatusDot>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
-        <p className="border-t border-line px-4 py-2 text-xs text-ink-3">
-          A hora é a do lote: o instante do clique em “Atualizar agora” (ou do início da
-          rotina). Hora em destaque = a fonte não rodou junto com a última atualização.
-        </p>
-
-        {health.recent_failures.length === 0 ? null : (
+        {rows.some((row) => row.health?.last_run?.ok === false) ? (
           <ul className="border-t border-line px-4 py-3 text-[0.8125rem]">
-            <li className="mb-1 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
-              Falhas recentes
-            </li>
-            {health.recent_failures.map((run) => (
-              <li key={run.id} className="py-0.5">
-                <span className="tabular text-negative">
-                  {formatInstant(run.finished_at)} · {sourceLabel(run.source)} ·{' '}
-                  {runKindLabel(run.kind)}: {run.error ?? 'sem mensagem de erro'}
-                </span>
-              </li>
-            ))}
+            {rows.map((row) => {
+              const run = row.health?.last_run ?? null;
+              if (run === null || run.ok) return null;
+
+              return (
+                <li key={row.kind} className="py-0.5">
+                  <span className="tabular text-negative">
+                    {row.label}: {run.error ?? 'sem mensagem de erro'}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
-        )}
+        ) : null}
+
+        <p className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-2.5 text-xs text-ink-3">
+          <span>
+            <span className="font-medium text-ink-2">Referência</span> ·{' '}
+            {referenceSummary(health)}
+            {referencePending(health) ? ' · carregando na próxima atualização' : ''}
+          </span>
+          <span className="tabular">
+            {loadedAt === null ? 'sem carga ainda' : `carga ${formatInstant(loadedAt)}`}
+          </span>
+        </p>
       </SettingsPanel>
 
       {missing.length === 0 ? null : (
@@ -361,9 +253,6 @@ const MarketBody = ({
                   {item.last_price_date === null
                     ? 'nunca teve preço'
                     : `último preço de ${shortDate(item.last_price_date)}`}
-                  {item.ticker.startsWith('TD-')
-                    ? ' · o Tesouro Transparente publica com atraso de dias'
-                    : ''}
                 </span>
                 <button
                   type="button"
@@ -406,10 +295,9 @@ export const MarketSection = ({
   const [refreshing, setRefreshing] = useState(false);
   const [note, setNote] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [manual, setManual] = useState<ManualPriceTarget | null>(null);
-  // O instante do pedido, enquanto a coleta não terminou. A coleta roda no
-  // worker, depois de a rota já ter respondido 202: sem reler até ela acabar, a
-  // tela mostra o pedido "feito" e as fontes como estavam, que parece um botão
-  // que não atualiza nada.
+  // O instante do pedido, enquanto a atualização não terminou. Sem reler até
+  // uma coleta posterior ao clique aparecer, a tela mostra o pedido "feito" e os
+  // dados como estavam, que parece um botão que não atualiza nada.
   const [waiting, setWaiting] = useState<{
     readonly since: number;
     readonly batch: number;
@@ -437,19 +325,15 @@ export const MarketSection = ({
   useEffect(() => {
     if (waiting === null || state.kind !== 'ready') return;
 
-    // A atualização termina pela reconciliação, o último passo dela, e todas as
-    // execuções carregam o lote do clique: a passada do lote aparecer quer dizer
-    // que as demais já foram gravadas.
-    const finished = state.value.sources.some(
-      (source) =>
-        source.kind === 'reconcile' &&
-        batchOf(source.last_run) !== null &&
-        Date.parse(batchOf(source.last_run) ?? '') >= waiting.batch,
-    );
+    // Terminou quando um dado do dia registra uma execução posterior ao clique.
+    const finished = currentDataRows(state.value).some((row) => {
+      const at = row.health?.last_run?.finished_at;
+      return at !== undefined && Date.parse(at) >= waiting.batch;
+    });
 
     if (finished) {
       setWaiting(null);
-      setNote({ tone: 'ok', text: 'Atualização concluída. Fontes e preços relidos.' });
+      setNote({ tone: 'ok', text: 'Atualização concluída. Dados relidos.' });
     }
   }, [waiting, state]);
 
@@ -463,7 +347,7 @@ export const MarketSection = ({
           tone: 'ok',
           text: receipt.already_queued
             ? 'Já havia uma atualização na fila: o pedido foi somado a ela.'
-            : 'Atualização pedida. A situação das fontes atualiza quando ela terminar.',
+            : 'Atualização pedida. A tela atualiza quando ela terminar.',
         });
         setWaiting({ since, batch: Date.parse(receipt.requested_at) });
         reload();
@@ -472,7 +356,7 @@ export const MarketSection = ({
         setNote({
           tone: 'error',
           text:
-            error instanceof Error ? error.message : 'Não foi possível pedir a coleta',
+            error instanceof Error ? error.message : 'Não foi possível pedir a atualização',
         }),
       )
       .finally(() => setRefreshing(false));
@@ -482,7 +366,7 @@ export const MarketSection = ({
     <SettingsSection
       id="mercado"
       title="Dados de mercado"
-      description="Preços e índices chegam por rotinas agendadas; nenhuma tela depende de uma API estar no ar. Se a fonte principal falha, o app usa a alternativa e marca o preço como atrasado. Proventos e eventos não têm fonte: são lançados à mão."
+      description="Os dados chegam sozinhos: todo dia útil às 9h e sempre que o app volta a ligar, até o último pregão (D-1). 'Atualizar agora' refaz tudo na hora. Proventos e eventos não têm fonte: são lançados à mão."
     >
       {state.kind === 'loading' ? (
         <SettingsPanel>
@@ -499,7 +383,6 @@ export const MarketSection = ({
           health={state.value}
           refreshing={refreshing || waiting !== null}
           waiting={waiting !== null}
-          waitingBatch={waiting === null ? null : waiting.batch}
           onRefresh={refresh}
           onManual={setManual}
         />

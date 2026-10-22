@@ -243,16 +243,16 @@ describe('papel do mercado no seletor', () => {
     expect(body).not.toHaveProperty('asset_id');
   });
 
-  it('diz que a carga inicial não foi executada quando o catálogo está vazio', async () => {
+  it('diz que os dados de mercado não foram carregados quando o catálogo está vazio', async () => {
     const user = userEvent.setup();
     show('buy', { asset: null, search: searchWith({ catalog_empty: true }) });
 
     await user.type(screen.getByPlaceholderText('Código ou nome do ativo'), 'bova');
 
     expect(
-      await screen.findByText(/carga inicial não foi executada/),
+      await screen.findByText(/dados de mercado ainda não foram carregados/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/pnpm bootstrap/)).toBeInTheDocument();
+    expect(screen.getByText(/Atualizar agora/)).toBeInTheDocument();
   });
 
   it('oferece cadastrar título de renda fixa quando a busca não acha', async () => {

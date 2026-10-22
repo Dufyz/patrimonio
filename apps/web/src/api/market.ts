@@ -43,7 +43,10 @@ const receiptParser = {
   },
 };
 
-/** Enfileira a coleta do dia e devolve na hora; a tela relê em seguida. */
+/**
+ * "Atualizar agora": enfileira o reset completo e devolve na hora; a tela relê
+ * em seguida até uma coleta posterior ao clique aparecer.
+ */
 export const refreshMarket = async (): Promise<RefreshReceipt> =>
   request('/api/market/refresh', receiptParser, {
     method: 'POST',
