@@ -76,6 +76,21 @@ export const registerSchedules = async (queues: Queues): Promise<string[]> => {
   const registered: string[] = [];
 
   for (const declaration of ALL_QUEUES) {
+    const wanted = new Set(
+      (declaration.schedule ?? []).map(
+        (_pattern, index) => `${declaration.name}:schedule:${index}`,
+      ),
+    );
+
+    // Agendas que saíram da declaração (ex.: o fechamento, que agora é
+    // encadeado) continuariam disparando no Redis se ninguém as removesse.
+    const existing = await queues[declaration.name].getJobSchedulers();
+    for (const scheduler of existing) {
+      if (scheduler.key !== undefined && !wanted.has(scheduler.key)) {
+        await queues[declaration.name].removeJobScheduler(scheduler.key);
+      }
+    }
+
     if (declaration.schedule === undefined) continue;
 
     for (const [index, pattern] of declaration.schedule.entries()) {

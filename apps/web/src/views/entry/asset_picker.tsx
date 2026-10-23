@@ -1,11 +1,18 @@
-import type { SearchAsset, SearchResource } from '@patrimonio/contracts';
-import { useEffect, useId, useRef, useState } from 'react';
+import type {
+  SearchAsset,
+  SearchInstrument,
+  SearchResource,
+} from '@patrimonio/contracts';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { fetchSearch } from '../../api/search.js';
-import { holdingLabel, assetName } from '../../lib/search.js';
+import type { NewAssetDraft } from '../../lib/entry.js';
+import { INSTRUMENT_TYPE_LABELS, holdingLabel, assetName } from '../../lib/search.js';
 import { useDismiss } from '../../components/use_dismiss.js';
 import type { ControlProps } from './fields.js';
 import { Input } from './fields.js';
+import { Icon } from '../../components/icon.js';
+import { FixedIncomeDialog } from '../registers/fixed_income_dialog.js';
 
 /**
  * T-10 · O ativo do lançamento.
@@ -23,7 +30,9 @@ import { Input } from './fields.js';
 
 /** O que o formulário guarda do ativo escolhido. */
 export type PickedAsset = {
-  readonly id: string;
+  /** Nulo no papel do catálogo, que só vira ativo no lançamento. */
+  readonly id: string | null;
+  readonly instrument?: NewAssetDraft | null;
   /** O código, ou o nome quando o ativo não tem um código que alguém reconheça. */
   readonly label: string;
   readonly name: string | null;
@@ -33,12 +42,62 @@ export type PickedAsset = {
 
 export const pickedFromSearch = (asset: SearchAsset): PickedAsset => ({
   id: asset.id,
+  instrument: null,
   label: assetName(asset),
   name: asset.name,
   held: asset.holding?.quantity ?? null,
 });
 
+export const pickedFromInstrument = (instrument: SearchInstrument): PickedAsset => ({
+  id: null,
+  instrument: {
+    ticker: instrument.ticker,
+    name: instrument.name,
+    b3_type: instrument.b3_type,
+  },
+  label: instrument.ticker,
+  name: instrument.name,
+  held: null,
+});
+
+export const CATALOG_EMPTY_MESSAGE =
+  'O catálogo de papéis está vazio: os dados de mercado ainda não foram carregados. ' +
+  'Clique em Atualizar agora em Configurações › Dados de mercado e busque de novo.';
+
 export const SEARCH_DELAY_MS = 200;
+
+type Option =
+  | { readonly kind: 'asset'; readonly key: string; readonly asset: SearchAsset }
+  | {
+      readonly kind: 'instrument';
+      readonly key: string;
+      readonly instrument: SearchInstrument;
+    };
+
+type Found = {
+  readonly options: readonly Option[];
+  readonly catalogEmpty: boolean;
+  readonly unavailable: boolean;
+};
+
+const optionsOf = (resource: SearchResource, allowNew: boolean): Found => ({
+  options: [
+    ...resource.assets.items.map((asset): Option => ({
+      kind: 'asset',
+      key: `asset:${asset.id}`,
+      asset,
+    })),
+    ...(allowNew
+      ? resource.instruments.items.map((instrument): Option => ({
+          kind: 'instrument',
+          key: `instrument:${instrument.ticker}`,
+          instrument,
+        }))
+      : []),
+  ],
+  catalogEmpty: allowNew && resource.instruments.catalog_empty,
+  unavailable: allowNew && resource.instruments.fallback === 'unavailable',
+});
 
 export type AssetSearch = (text: string, signal: AbortSignal) => Promise<SearchResource>;
 
@@ -48,23 +107,33 @@ export const AssetPicker = ({
   onBlur,
   control,
   invalid,
-  search = fetchSearch,
+  portfolioId,
+  search,
   autoFocus = false,
+  allowNew = true,
 }: {
   readonly value: PickedAsset | null;
   readonly onChange: (asset: PickedAsset | null) => void;
   readonly onBlur?: () => void;
   readonly control: ControlProps;
   readonly invalid: boolean;
+  /** A carteira em que o lançamento vai: é nela que a busca mede o que a pessoa tem. */
+  readonly portfolioId: string | null;
   /** A busca no banco. Troca-se nos testes; a identidade precisa ser estável. */
   readonly search?: AssetSearch;
   readonly autoFocus?: boolean;
+  /**
+   * Oferece os papéis do mercado que a pessoa ainda não tem. O provento não:
+   * ele só existe para um ativo que já tem posição.
+   */
+  readonly allowNew?: boolean;
 }): React.ReactElement => {
   const [query, setQuery] = useState(value?.label ?? '');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  const [results, setResults] = useState<readonly SearchAsset[] | null>(null);
+  const [results, setResults] = useState<Found | null>(null);
   const [failed, setFailed] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const listId = useId();
 
@@ -79,17 +148,25 @@ export const AssetPicker = ({
   useDismiss(container, open, () => setOpen(false));
 
   const text = query.trim();
-  const searching = open && value === null && text !== '';
+  const run = useMemo<AssetSearch | null>(
+    () =>
+      search ??
+      (portfolioId === null
+        ? null
+        : (query, signal) => fetchSearch(query, portfolioId, signal)),
+    [search, portfolioId],
+  );
+  const searching = open && value === null && text !== '' && run !== null;
 
   useEffect(() => {
-    if (!searching) return;
+    if (!searching || run === null) return;
 
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      search(text, controller.signal)
+      run(text, controller.signal)
         .then((resource) => {
           if (controller.signal.aborted) return;
-          setResults(resource.assets.items);
+          setResults(optionsOf(resource, allowNew));
           setFailed(false);
           setActive(0);
         })
@@ -102,16 +179,19 @@ export const AssetPicker = ({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [searching, text, search]);
+  }, [searching, text, run, allowNew]);
 
-  const choose = (asset: SearchAsset): void => {
-    const picked = pickedFromSearch(asset);
+  const choose = (option: Option): void => {
+    const picked =
+      option.kind === 'asset'
+        ? pickedFromSearch(option.asset)
+        : pickedFromInstrument(option.instrument);
     setQuery(picked.label);
     setOpen(false);
     onChange(picked);
   };
 
-  const items = results ?? [];
+  const items = results?.options ?? [];
   const showList = searching;
 
   return (
@@ -143,13 +223,13 @@ export const AssetPicker = ({
             event.preventDefault();
             setActive((current) => Math.max(current - 1, 0));
           } else if (event.key === 'Enter' && showList) {
-            const asset = items[active];
+            const option = items[active];
             // Enter escolhe o ativo marcado e não vai adiante: com a lista aberta
             // ele é da lista, não do formulário.
-            if (asset !== undefined) {
+            if (option !== undefined) {
               event.preventDefault();
               event.stopPropagation();
-              choose(asset);
+              choose(option);
             }
           }
         }}
@@ -157,9 +237,9 @@ export const AssetPicker = ({
 
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute top-0 left-3 flex h-control items-center text-ink-3"
+        className="pointer-events-none absolute top-0 left-3 flex h-[38px] items-center text-ink-3"
       >
-        ⌕
+        <Icon name="search" />
       </span>
 
       {value === null ? null : (
@@ -188,11 +268,15 @@ export const AssetPicker = ({
             <li className="px-3 py-2 text-sm text-ink-3">Buscando…</li>
           ) : items.length === 0 ? (
             <li className="px-3 py-2 text-sm text-ink-3">
-              Nenhum ativo cadastrado com “{text}”.
+              {results.catalogEmpty
+                ? CATALOG_EMPTY_MESSAGE
+                : results.unavailable
+                  ? `Nenhum papel com “${text}” no catálogo, e a consulta ao vivo não respondeu.`
+                  : `Nenhum papel encontrado com “${text}”.`}
             </li>
           ) : (
-            items.map((asset, index) => (
-              <li key={asset.id} role="presentation">
+            items.map((option, index) => (
+              <li key={option.key} role="presentation">
                 <button
                   type="button"
                   role="option"
@@ -203,22 +287,75 @@ export const AssetPicker = ({
                   }`}
                   onMouseEnter={() => setActive(index)}
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => choose(asset)}
+                  onClick={() => choose(option)}
                 >
-                  <span className="min-w-0 truncate">
-                    <strong className="tabular font-semibold">{assetName(asset)}</strong>
-                    {assetName(asset) === asset.name ? null : (
-                      <span className="ml-2 text-ink-3">{asset.name}</span>
-                    )}
-                  </span>
-                  <span className="shrink-0 text-[0.75rem] text-ink-3">
-                    {holdingLabel(asset)}
-                  </span>
+                  {option.kind === 'asset' ? (
+                    <>
+                      <span className="min-w-0 truncate">
+                        <strong className="tabular font-semibold">
+                          {assetName(option.asset)}
+                        </strong>
+                        {assetName(option.asset) === option.asset.name ? null : (
+                          <span className="ml-2 text-ink-3">{option.asset.name}</span>
+                        )}
+                      </span>
+                      <span className="shrink-0 text-[0.75rem] text-ink-3">
+                        {holdingLabel(option.asset)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="min-w-0 truncate">
+                        <strong className="tabular font-semibold">
+                          {option.instrument.ticker}
+                        </strong>
+                        <span className="ml-2 text-ink-3">{option.instrument.name}</span>
+                      </span>
+                      <span className="shrink-0 text-[0.75rem] text-ink-3">
+                        {INSTRUMENT_TYPE_LABELS[option.instrument.b3_type]}
+                        {option.instrument.source === 'brapi' ? ' · brapi' : ''}
+                      </span>
+                    </>
+                  )}
                 </button>
               </li>
             ))
           )}
+          {allowNew ? (
+            <li role="presentation" className="mt-1 border-t border-line pt-1">
+              <button
+                type="button"
+                tabIndex={-1}
+                className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-[0.8125rem] text-accent hover:bg-panel-2"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  setOpen(false);
+                  setRegistering(true);
+                }}
+              >
+                <Icon name="plus" />
+                Cadastrar título de renda fixa
+              </button>
+            </li>
+          ) : null}
         </ul>
+      ) : null}
+
+      {registering ? (
+        <FixedIncomeDialog
+          onClose={() => setRegistering(false)}
+          onCreated={(asset) => {
+            setRegistering(false);
+            setQuery(asset.name);
+            onChange({
+              id: asset.id,
+              instrument: null,
+              label: asset.name,
+              name: asset.name,
+              held: null,
+            });
+          }}
+        />
       ) : null}
     </div>
   );

@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import { createTransaction, previewTransaction } from '../../api/entry.js';
 import type { SaveReceipt } from '../../api/entry.js';
 import { Money } from '../../components/number.js';
-import { Label } from '../../components/primitives.js';
 import {
   buildTradeBody,
   effectRows,
@@ -20,8 +19,18 @@ import type {
 import type { AssetSearch, PickedAsset } from './asset_picker.js';
 import { AssetPicker } from './asset_picker.js';
 import { EffectPanel } from './effect_table.js';
-import { Field, Input, Select, useVisibleErrors } from './fields.js';
+import {
+  Field,
+  Input,
+  MoneyInput,
+  Select,
+  useVisibleErrors,
+  FieldLabel,
+} from './fields.js';
 import { FormShell } from './form_shell.js';
+import { BackButton } from './wizard.js';
+import type { EntryWizard } from './wizard.js';
+import { InstitutionPicker } from './institution_picker.js';
 import { previewValue, useSave, usePreview } from './hooks.js';
 
 /**
@@ -45,7 +54,6 @@ export type TradeSeed = {
   readonly quantity?: string;
   readonly price?: string;
   readonly fees?: string;
-  readonly note?: string;
 };
 
 export const TradeFormView = ({
@@ -55,6 +63,7 @@ export const TradeFormView = ({
   search,
   onSaved,
   onCancel,
+  wizard,
 }: {
   readonly kind: TradeKind;
   readonly reference: EntryReference;
@@ -67,6 +76,8 @@ export const TradeFormView = ({
     institutionId: string | null,
   ) => void;
   readonly onCancel: () => void;
+  /** No assistente do lançamento: o resumo, o Voltar e o "salvar e novo". */
+  readonly wizard?: EntryWizard | undefined;
 }): React.ReactElement => {
   const [asset, setAsset] = useState<PickedAsset | null>(seed.asset ?? null);
   const [date, setDate] = useState(seed.date);
@@ -76,13 +87,13 @@ export const TradeFormView = ({
   const [fees, setFees] = useState(seed.fees ?? '');
   const [portfolioId, setPortfolioId] = useState(seed.portfolioId);
   const [institutionId, setInstitutionId] = useState(seed.institutionId);
-  const [note, setNote] = useState(seed.note ?? '');
   const [generation, setGeneration] = useState(0);
 
   const built = useMemo(
     () =>
       buildTradeBody(kind, {
         assetId: asset?.id ?? null,
+        newAsset: asset?.instrument ?? null,
         date,
         settlement,
         quantity,
@@ -90,20 +101,8 @@ export const TradeFormView = ({
         fees,
         portfolioId,
         institutionId,
-        note,
       }),
-    [
-      kind,
-      asset,
-      date,
-      settlement,
-      quantity,
-      price,
-      fees,
-      portfolioId,
-      institutionId,
-      note,
-    ],
+    [kind, asset, date, settlement, quantity, price, fees, portfolioId, institutionId],
   );
 
   const body = built.ok ? built.body : null;
@@ -135,12 +134,12 @@ export const TradeFormView = ({
 
     if (again) {
       // A próxima compra costuma ser da mesma corretora, carteira e dia.
-      setAsset(null);
+      if (wizard === undefined) setAsset(null);
       setQuantity('');
       setPrice('');
       setFees('');
-      setNote('');
       setGeneration((current) => current + 1);
+      wizard?.onAgain();
     }
   };
 
@@ -150,6 +149,14 @@ export const TradeFormView = ({
 
   return (
     <FormShell
+      {...(wizard === undefined
+        ? {}
+        : {
+            summary: wizard.summary,
+            secondary: <BackButton onBack={wizard.onBack} />,
+            showCancel: false,
+            saveLabel: 'Cadastrar',
+          })}
       pending={save.pending}
       canSave={!save.pending}
       onSave={() => void submit(false)}
@@ -157,20 +164,23 @@ export const TradeFormView = ({
       onCancel={onCancel}
       error={save.error !== null && apiField === null ? save.error : null}
     >
-      <Field label="Ativo" error={visible.show('asset')}>
-        {(control) => (
-          <AssetPicker
-            key={generation}
-            control={control}
-            invalid={control['aria-invalid']}
-            value={asset}
-            onChange={setAsset}
-            onBlur={touch('asset')}
-            autoFocus={asset === null}
-            {...(search === undefined ? {} : { search })}
-          />
-        )}
-      </Field>
+      {wizard !== undefined ? null : (
+        <Field label="Ativo" error={visible.show('asset')}>
+          {(control) => (
+            <AssetPicker
+              key={generation}
+              control={control}
+              invalid={control['aria-invalid']}
+              portfolioId={portfolioId}
+              value={asset}
+              onChange={setAsset}
+              onBlur={touch('asset')}
+              autoFocus={asset === null}
+              {...(search === undefined ? {} : { search })}
+            />
+          )}
+        </Field>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Data da operação" error={visible.show('date')}>
@@ -219,7 +229,8 @@ export const TradeFormView = ({
         </Field>
         <Field label="Preço unitário" error={visible.show('price')}>
           {(control) => (
-            <Input
+            <MoneyInput
+              maxDecimals={8}
               {...control}
               numeric
               inputMode="decimal"
@@ -236,7 +247,7 @@ export const TradeFormView = ({
           hint="Em branco, vale a regra da instituição."
         >
           {(control) => (
-            <Input
+            <MoneyInput
               {...control}
               numeric
               inputMode="decimal"
@@ -265,33 +276,20 @@ export const TradeFormView = ({
         </Field>
         <Field label="Instituição" error={visible.show('institution')}>
           {(control) => (
-            <Select
-              {...control}
+            <InstitutionPicker
+              control={control}
               invalid={control['aria-invalid']}
               options={reference.institutions}
-              placeholder="Escolha"
-              value={institutionId ?? ''}
+              value={institutionId}
               onBlur={touch('institution')}
-              onChange={(event) => setInstitutionId(event.target.value || null)}
+              onChange={setInstitutionId}
             />
           )}
         </Field>
       </div>
 
-      <Field label="Observação">
-        {(control) => (
-          <Input
-            {...control}
-            invalid={false}
-            placeholder="opcional"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-          />
-        )}
-      </Field>
-
       <div className="flex items-baseline justify-between border-t border-line pt-3">
-        <Label>{TOTAL_LABEL[kind]}</Label>
+        <FieldLabel>{TOTAL_LABEL[kind]}</FieldLabel>
         <span className="text-lg font-semibold">
           {value === null ? (
             <span className="text-ink-3">—</span>

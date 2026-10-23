@@ -41,8 +41,8 @@ export const barState = (status: GoalResource['status']): BarState =>
       : 'on_track';
 
 export const STATUS_LABEL: Readonly<Record<GoalResource['status'], string>> = {
-  on_track: 'No caminho',
-  behind: 'Atrás do necessário',
+  on_track: 'No ritmo',
+  behind: 'Abaixo do ritmo',
   overdue: 'Prazo vencido',
   reached: 'Atingido',
   no_projection: 'Sem projeção',
@@ -58,19 +58,16 @@ export const BLOCK_REASON: Readonly<
   no_inflation:
     'Falta o IPCA dos últimos 12 meses para projetar uma meta em reais da data alvo.',
   no_history:
-    'Ainda não há fechamento das carteiras deste objetivo: a projeção começa no primeiro.',
+    'A carteira deste objetivo ainda não foi consolidada: a projeção começa na primeira consolidação.',
 };
 
-/** O que vem depois do valor da meta: prazo, premissa e escopo, nessa ordem. */
+/** O que vem depois do valor da meta: prazo e premissa, nessa ordem. */
 export const goalCaptionTail = (goal: GoalResource): string =>
   [
     monthYearLabel(goal.target_date),
     goal.rate === null || goal.rate.assumption === null
       ? 'sem premissa'
       : `premissa ${goal.rate.assumption}`,
-    goal.portfolios.all
-      ? 'conta o patrimônio todo'
-      : `conta só ${goal.portfolios.items.map((item) => item.name).join(', ')}`,
   ].join(' · ');
 
 export const arrivalText = (
@@ -176,4 +173,36 @@ export const chartSeries = (goal: GoalResource): readonly Series[] => {
       })),
     },
   ];
+};
+
+/* -------------------------------------------------------------------------- */
+/* Contra o prazo                                                              */
+
+export type Lateness = {
+  readonly text: string;
+  readonly tone: 'positive' | 'attention';
+};
+
+/**
+ * Quanto a chegada se afasta do prazo, dito em meses: `+21 meses`, `no prazo`,
+ * `6 meses antes`. Os dois números chegam da `api`; aqui só se subtrai.
+ */
+export const latenessOf = (
+  monthsToArrival: number | null,
+  monthsRemaining: number | null,
+): Lateness | null => {
+  if (monthsToArrival === null || monthsRemaining === null) return null;
+  const diff = monthsToArrival - monthsRemaining;
+  const unit = (n: number): string => (n === 1 ? 'mês' : 'meses');
+
+  if (diff > 0) return { text: `+${diff} ${unit(diff)}`, tone: 'attention' };
+  if (diff === 0) return { text: 'no prazo', tone: 'positive' };
+  return { text: `${-diff} ${unit(-diff)} antes`, tone: 'positive' };
+};
+
+/** `IPCA+6` → `IPCA + 6%`: a premissa como a prancha a escreve. */
+export const assumptionLabel = (assumption: string | null): string | null => {
+  if (assumption === null) return null;
+  const text = assumption.replace(/\s*\+\s*/g, ' + ');
+  return /[%]/.test(text) ? text : /\d$/.test(text) ? `${text}%` : text;
 };

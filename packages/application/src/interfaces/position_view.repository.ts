@@ -31,7 +31,10 @@ export type PositionViewFilter = {
   readonly portfolioId: string | null;
   readonly groupBy: PositionGroupBy;
   readonly search: string | null;
-  readonly categoryId: string | null;
+  /** Qualquer uma delas; `sem-categoria` é a ausência. Vazio não filtra. */
+  readonly categoryIds: readonly string[];
+  /** Qualquer uma delas; `sem-instituicao` é a ausência. Vazio não filtra. */
+  readonly institutionIds: readonly string[];
 };
 
 export type PositionViewRow = {
@@ -50,6 +53,7 @@ export type PositionViewRow = {
   readonly institution_name: string | null;
   readonly category_id: string | null;
   readonly category_name: string | null;
+  readonly class_name: string | null;
   readonly color_token: string | null;
   readonly unit: PositionUnit;
   readonly quantity: string | null;
@@ -88,6 +92,12 @@ export type PositionViewFacetRow = {
   readonly count: number;
 };
 
+export type PositionViewInstitutionFacetRow = {
+  readonly id: string;
+  readonly label: string;
+  readonly count: number;
+};
+
 export type PositionViewHeader = {
   readonly as_of: DateOnly | null;
   readonly computed_at: string | null;
@@ -105,9 +115,40 @@ export type PositionView = {
   readonly rows: readonly PositionViewRow[];
   readonly summaries: readonly PositionViewSummaryRow[];
   readonly facets: readonly PositionViewFacetRow[];
+  readonly institution_facets: readonly PositionViewInstitutionFacetRow[];
   readonly header: PositionViewHeader;
+};
+
+export type ClosedPositionFilter = {
+  /** Nulo significa todas as carteiras ativas. */
+  readonly portfolioId: string | null;
+  readonly search: string | null;
+};
+
+export type ClosedPositionRow = {
+  readonly asset_id: string;
+  readonly ticker: string;
+  readonly name: string;
+  readonly category_name: string | null;
+  readonly class_name: string | null;
+  readonly color_token: string | null;
+  readonly first_trade_date: DateOnly;
+  readonly closed_on: DateOnly;
+  readonly invested: string;
+  readonly proceeds: string;
+  readonly payouts_received: string;
+  readonly realized_result: string | null;
+  readonly total_result: string;
+  readonly total_result_ratio: string | null;
 };
 
 export type PositionViewRepository = {
   readonly open: (filter: PositionViewFilter) => Promise<Either<AppError, PositionView>>;
+  /**
+   * Os ativos que a carteira já vendeu e não tem mais. Uma consulta: a conta de
+   * cada papel (investido, vendido, proventos) é agregada no banco.
+   */
+  readonly closed: (
+    filter: ClosedPositionFilter,
+  ) => Promise<Either<AppError, readonly ClosedPositionRow[]>>;
 };

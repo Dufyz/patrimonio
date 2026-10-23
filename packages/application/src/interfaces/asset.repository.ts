@@ -6,6 +6,7 @@ import type {
   Indexer,
   LiquidityKind,
   PriceSource,
+  RedemptionRule,
   TaxRegime,
 } from '@patrimonio/domain';
 import type { Either } from '@patrimonio/shared';
@@ -27,6 +28,8 @@ export type AssetWrite = {
   readonly liquidity?: LiquidityKind | null | undefined;
   readonly liquidity_days?: number | null | undefined;
   readonly tax_regime?: TaxRegime | null | undefined;
+  readonly redemption_rule?: RedemptionRule | null | undefined;
+  readonly lot_term_months?: number | null | undefined;
 };
 
 export type AssetDraft = AssetWrite & {

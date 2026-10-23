@@ -1,4 +1,9 @@
+import { cn } from '../lib/cn.js';
 import { colorForToken } from '../lib/tokens.js';
+import { Icon } from './icon.js';
+import type { IconName } from './icon.js';
+import { UiButton } from './ui/button.js';
+import type { ButtonVariants } from './ui/button.js';
 
 /**
  * As peças menores que a prancha 03 define, e que todas as telas repetem.
@@ -23,16 +28,19 @@ export const Panel = ({
   readonly className?: string | undefined;
 }): React.ReactElement => (
   <section
-    className={`overflow-hidden rounded-panel border border-line bg-panel ${className ?? ''}`}
+    className={cn(
+      'min-w-0 overflow-hidden rounded-panel border border-line bg-panel shadow-panel',
+      className,
+    )}
   >
     {title === undefined && action === undefined ? null : (
-      <header className="flex h-12 items-center justify-between gap-3 border-b border-line px-4">
+      <header className="flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
         <div className="flex min-w-0 items-baseline gap-2">
           {title === undefined ? null : (
             <h2 className="truncate text-panel-title font-semibold">{title}</h2>
           )}
           {hint === undefined ? null : (
-            <span className="truncate text-label text-ink-3">{hint}</span>
+            <span className="truncate text-xs text-ink-3">{hint}</span>
           )}
         </div>
         {action}
@@ -51,70 +59,151 @@ export const Label = ({
   readonly className?: string | undefined;
 }): React.ReactElement => (
   <span
-    className={`tabular text-label tracking-[0.08em] text-ink-3 uppercase ${className ?? ''}`}
+    className={cn(
+      'tabular text-label font-normal tracking-[0.08em] text-ink-3 uppercase',
+      className,
+    )}
   >
     {children}
   </span>
 );
 
-export const Kbd = ({ children }: { readonly children: string }): React.ReactElement => (
-  <kbd className="tabular rounded-xs border border-line bg-panel-2 px-1 text-[0.6875rem] text-ink-3">
+/**
+ * A etiqueta de atalho da prancha 03: mono 10,5 em peso 500, só contorno — sem
+ * preenchimento — e raio 4. Dentro de botão cheio ela herda a cor do texto, com
+ * 70% de opacidade, que é como a prancha desenha o `N` do botão Lançamento.
+ */
+export const Kbd = ({
+  children,
+  onFilled = false,
+  className,
+}: {
+  readonly children: string;
+  /** Sobre um botão cheio (primário, perigo): contorno e texto na cor do botão. */
+  readonly onFilled?: boolean;
+  readonly className?: string | undefined;
+}): React.ReactElement => (
+  <kbd
+    className={cn(
+      'tabular rounded-sm border px-[5px] py-px text-[0.65625rem] leading-[1.2] font-medium',
+      onFilled ? 'border-current opacity-70' : 'border-line-2 text-ink-3',
+      className,
+    )}
+  >
     {children}
   </kbd>
 );
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
-
-const BUTTON_CLASS: Readonly<Record<ButtonVariant, string>> = {
-  primary: 'bg-accent text-accent-ink hover:bg-accent-hover border-transparent',
-  secondary: 'bg-panel text-ink border-line hover:bg-panel-2',
-  ghost: 'bg-transparent text-ink-2 border-transparent hover:bg-panel-2',
-  destructive: 'bg-transparent text-negative border-transparent hover:bg-negative-soft',
-};
-
-export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  readonly variant?: ButtonVariant;
-  readonly shortcut?: string | undefined;
-};
+export type ButtonProps = Omit<React.ComponentProps<'button'>, 'type'> &
+  ButtonVariants & {
+    readonly shortcut?: string | undefined;
+    readonly icon?: IconName | undefined;
+    readonly type?: 'button' | 'submit' | 'reset';
+  };
 
 export const Button = ({
   variant = 'secondary',
   shortcut,
+  icon,
   className,
   children,
+  type = 'button',
   ...rest
 }: ButtonProps): React.ReactElement => (
-  <button
-    type="button"
-    className={`inline-flex h-control cursor-pointer items-center gap-2 rounded-control border px-3 text-sm whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50 ${
-      BUTTON_CLASS[variant]
-    } ${className ?? ''}`}
-    {...rest}
-  >
+  <UiButton type={type} variant={variant} className={className} {...rest}>
+    {icon === undefined ? null : <Icon name={icon} />}
     {children}
-    {shortcut === undefined ? null : <Kbd>{shortcut}</Kbd>}
-  </button>
+    {shortcut === undefined ? null : (
+      <Kbd onFilled={variant === 'primary' || variant === 'danger'}>{shortcut}</Kbd>
+    )}
+  </UiButton>
 );
 
 export const IconButton = ({
   label,
+  icon,
+  row = false,
   className,
   children,
   ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+}: Omit<React.ComponentProps<'button'>, 'type'> & {
   readonly label: string;
+  /**
+   * O botão de ícone de dentro de uma linha (o lápis de editar, o `···`): em
+   * repouso é só o ícone, e a moldura aparece no mouse — como na prancha 05.
+   */
+  readonly row?: boolean;
+  /** O ícone da prancha; `children` cobre o caso raro de um conteúdo próprio. */
+  readonly icon?: IconName | undefined;
 }): React.ReactElement => (
-  <button
+  <UiButton
     type="button"
     aria-label={label}
     title={label}
-    className={`inline-flex size-control cursor-pointer items-center justify-center rounded-control border border-line bg-panel text-ink-2 hover:bg-panel-2 disabled:cursor-not-allowed disabled:opacity-40 ${
-      className ?? ''
-    }`}
+    variant={row ? 'ghost' : 'secondary'}
+    size="icon"
+    className={cn(
+      row &&
+        'size-7 text-ink-2 hover:border-line-2 hover:bg-panel focus-visible:border-line-2',
+      className,
+    )}
     {...rest}
   >
+    {icon === undefined ? null : <Icon name={icon} />}
     {children}
-  </button>
+  </UiButton>
+);
+
+/**
+ * O campo de busca padrão: a caixa de controle da prancha 03 com a lupa à
+ * frente. Toda busca da aplicação passa por aqui — o ícone é sempre o mesmo e
+ * sempre na mesma posição. `inline` é a versão sem caixa, para o topo de uma
+ * lista que abre sobre a tela (seletor com busca).
+ */
+export const SearchInput = ({
+  value,
+  onChange,
+  label,
+  placeholder,
+  inline = false,
+  className,
+  inputClassName,
+  ...rest
+}: Omit<
+  React.ComponentProps<'input'>,
+  'value' | 'onChange' | 'type' | 'placeholder' | 'size'
+> & {
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly label: string;
+  readonly placeholder: string;
+  readonly inline?: boolean;
+  readonly inputClassName?: string | undefined;
+}): React.ReactElement => (
+  <label
+    className={cn(
+      'flex h-control cursor-text items-center gap-2 text-ink-3',
+      inline
+        ? 'border-b border-line px-3'
+        : 'rounded-control border border-line-2 bg-panel px-[11px] focus-within:border-accent focus-within:ring-2 focus-within:ring-accent-soft',
+      className,
+    )}
+  >
+    <Icon name="search" />
+    <input
+      type="search"
+      value={value}
+      aria-label={label}
+      placeholder={placeholder}
+      autoComplete="off"
+      className={cn(
+        'min-w-0 flex-1 bg-transparent text-[0.8125rem] font-normal text-ink outline-none placeholder:text-ink-3 [&::-webkit-search-cancel-button]:hidden',
+        inputClassName,
+      )}
+      onChange={(event) => onChange(event.target.value)}
+      {...rest}
+    />
+  </label>
 );
 
 export type SegmentedOption<T extends string> = {
@@ -145,7 +234,7 @@ export const Segmented = <T extends string>({
   <div
     role="radiogroup"
     aria-label={label}
-    className="inline-flex h-control items-stretch overflow-hidden rounded-control border border-line bg-panel"
+    className="inline-flex h-control items-stretch self-start overflow-hidden rounded-control border border-line-2 bg-panel"
   >
     {options.map((option) => (
       <button
@@ -154,9 +243,9 @@ export const Segmented = <T extends string>({
         role="radio"
         aria-checked={option.value === value}
         {...(option.title === undefined ? {} : { title: option.title })}
-        className={`tabular cursor-pointer border-r border-line px-3 text-[0.8125rem] whitespace-nowrap last:border-r-0 ${
+        className={`tabular cursor-pointer border-r border-line-2 px-[11px] text-xs font-medium whitespace-nowrap last:border-r-0 ${
           option.value === value
-            ? 'bg-accent-soft font-medium text-accent'
+            ? 'bg-seg-active text-seg-active-ink'
             : 'text-ink-2 hover:bg-panel-2'
         }`}
         onClick={() => onChange(option.value)}
@@ -202,10 +291,10 @@ export const Chip = ({
     </>
   );
 
-  const shape = `inline-flex h-control items-center gap-2 rounded-full border px-3 text-[0.8125rem] whitespace-nowrap ${
+  const shape = `inline-flex h-8 items-center gap-2 rounded-full border px-3 text-[0.78125rem] font-medium whitespace-nowrap ${
     selected
       ? 'border-accent bg-accent-soft text-accent'
-      : 'border-line bg-panel text-ink-2'
+      : 'border-line-2 bg-panel text-ink'
   }`;
 
   if (onRemove === undefined) {
@@ -228,10 +317,10 @@ export const Chip = ({
       <button
         type="button"
         aria-label="Remover filtro"
-        className="cursor-pointer text-ink-3 hover:text-ink"
+        className="inline-flex cursor-pointer items-center text-ink-3 hover:text-ink"
         onClick={onRemove}
       >
-        ×
+        <Icon name="close" size={12} />
       </button>
     </span>
   );

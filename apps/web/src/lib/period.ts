@@ -53,6 +53,17 @@ export const PERIOD_LABELS: Readonly<Record<PeriodPreset, string>> = {
   inicio: 'Início',
 };
 
+/** O nome por extenso, como o botão único de período o escreve (prancha 12). */
+export const PERIOD_FULL_LABELS: Readonly<Record<PeriodPreset, string>> = {
+  mes: 'Este mês',
+  mes_anterior: 'Mês anterior',
+  '3m': 'Últimos 3 meses',
+  ytd: 'Ano até hoje',
+  '12m': 'Últimos 12 meses',
+  '24m': 'Últimos 24 meses',
+  inicio: 'Desde o início',
+};
+
 /** Os atalhos que o calendário de período personalizado oferece. */
 export const PERIOD_SHORTCUTS: readonly { preset: PeriodPreset; label: string }[] = [
   { preset: 'mes', label: 'Este mês' },

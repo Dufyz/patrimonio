@@ -9,13 +9,19 @@ import {
   BrowserRouter,
 } from 'react-router';
 
+import { fetchMarketHealth } from './api/market.js';
 import { fetchPortfolios } from './api/portfolios.js';
-import { fetchPositions } from './api/positions.js';
+import { Icon } from './components/icon.js';
+import type { IconName } from './components/icon.js';
 import { EntryProvider, useEntry } from './components/entry_provider.js';
 import { SearchPalette } from './components/search_palette.js';
+import { SkeletonRegion, SkeletonTable } from './components/skeleton.js';
+import { WelcomeScreen } from './views/welcome.js';
 import { ShortcutProvider, useShortcuts } from './components/shortcuts.js';
 import { ALL_PORTFOLIOS, AppShell } from './components/shell.js';
 import type { ScreenItem } from './components/shell.js';
+import { hasDemoData } from './lib/settings.js';
+import { useResource } from './lib/use_resource.js';
 import {
   ALL_SCOPE,
   portfolioIdForScope,
@@ -23,13 +29,13 @@ import {
   scopeForPortfolioId,
 } from './lib/scope.js';
 import { describeShortcut, SHORTCUTS } from './lib/shortcuts.js';
+import { onPortfoliosChanged } from './lib/portfolio_events.js';
 import { targetPath } from './lib/search.js';
 import type { SearchActionId, SearchTarget } from './lib/search.js';
 import { AssetScreen } from './views/asset.js';
 import { Gallery } from './views/gallery.js';
 import { OverviewScreen } from './views/overview.js';
 import { GoalsScreen } from './views/goals.js';
-import { PerformanceScreen } from './views/performance.js';
 import { PositionsScreen } from './views/positions.js';
 import { SettingsScreen } from './views/settings/index.js';
 import { StatementScreen } from './views/statement.js';
@@ -51,26 +57,53 @@ import { StrategyScreen } from './views/strategy.js';
 const SCREENS: readonly (ScreenItem & {
   readonly path: string;
   readonly story: string;
-})[] = [
-  { id: 'visao', label: 'Visão geral', icon: '▦', path: 'visao-geral', story: 'T-01' },
-  { id: 'posicoes', label: 'Posições', icon: '≡', path: 'posicoes', story: 'T-02' },
-  {
-    id: 'movimentacoes',
-    label: 'Movimentações',
-    icon: '⇄',
-    path: 'movimentacoes',
-    story: 'T-04',
-  },
-  {
-    id: 'desempenho',
-    label: 'Desempenho',
-    icon: '◹',
-    path: 'desempenho',
-    story: 'T-05',
-  },
-  { id: 'estrategia', label: 'Estratégia', icon: '◎', path: 'estrategia', story: 'T-06' },
-  { id: 'objetivos', label: 'Objetivos', icon: '⚑', path: 'objetivos', story: 'T-07' },
-];
+  readonly glyph: IconName;
+  /** A tela também existe em "Todas as carteiras". */
+  readonly consolidated: boolean;
+})[] = (
+  [
+    {
+      id: 'visao',
+      label: 'Visão geral',
+      glyph: 'grid',
+      path: 'visao-geral',
+      story: 'T-01',
+      consolidated: true,
+    },
+    {
+      id: 'posicoes',
+      label: 'Posições',
+      glyph: 'list',
+      path: 'posicoes',
+      story: 'T-02',
+      consolidated: true,
+    },
+    {
+      id: 'movimentacoes',
+      label: 'Movimentações',
+      glyph: 'swap',
+      path: 'movimentacoes',
+      story: 'T-04',
+      consolidated: true,
+    },
+    {
+      id: 'estrategia',
+      label: 'Estratégia',
+      glyph: 'target',
+      path: 'estrategia',
+      story: 'T-06',
+      consolidated: false,
+    },
+    {
+      id: 'objetivos',
+      label: 'Objetivos',
+      glyph: 'flag',
+      path: 'objetivos',
+      story: 'T-07',
+      consolidated: false,
+    },
+  ] as const
+).map((item) => ({ ...item, icon: <Icon name={item.glyph} /> }));
 
 export const App = (): React.ReactElement => (
   <BrowserRouter>
@@ -97,65 +130,65 @@ const Workbench = (): React.ReactElement => {
   const navigate = useNavigate();
 
   const [portfolios, setPortfolios] = useState<readonly PortfolioResource[]>([]);
-  const [values, setValues] = useState<ReadonlyMap<string, string>>(new Map());
+  const [values, setValues] = useState<Readonly<Record<string, string>>>({});
+  const [total, setTotal] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState<Error | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const [reloads, setReloads] = useState(0);
+  useEffect(() => onPortfoliosChanged(() => setReloads((count) => count + 1)), []);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchPortfolios(controller.signal)
-      .then(setPortfolios)
-      .catch(() => setPortfolios([]));
+      .then((list) => {
+        setFailed(null);
+        setPortfolios(list.portfolios);
+        setValues(list.values);
+        setTotal(list.total);
+        setLoaded(true);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        // Falha ao ler as carteiras não é "nenhuma carteira": mostrar a tela de
+        // boas-vindas para quem tem carteira e uma api fora do ar seria mentir.
+        setFailed(error instanceof Error ? error : new Error(String(error)));
+        setLoaded(true);
+      });
     return () => controller.abort();
-  }, []);
-
-  /**
-   * O valor de cada carteira na barra lateral vem de um pedido só, agrupado por
-   * carteira: o subtotal de cada grupo é exatamente o número que a barra mostra,
-   * e ele é somado onde todos os outros são somados — na `api`.
-   */
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchPositions(
-      { portfolioId: null, groupBy: 'portfolio', search: '', categoryId: null },
-      controller.signal,
-    )
-      .then((resource) =>
-        setValues(
-          new Map(
-            resource.groups.flatMap((group) =>
-              group.positions[0] === undefined
-                ? []
-                : [[group.positions[0].portfolio_id, group.summary.value] as const],
-            ),
-          ),
-        ),
-      )
-      .catch(() => setValues(new Map()));
-    return () => controller.abort();
-  }, []);
+  }, [reloads]);
 
   const slugs = useMemo(() => portfolioSlugs(portfolios), [portfolios]);
-  const portfolioId = portfolioIdForScope(scope, slugs);
+  const allPortfolios = scope === ALL_SCOPE;
+  const portfolioId = allPortfolios ? null : portfolioIdForScope(scope, slugs);
+
+  // Em "Todas as carteiras" só existem as telas que somam carteiras. As demais
+  // (estratégia, objetivos) medem uma carteira, e a página do ativo pertence ao
+  // papel dentro de uma carteira: abrir uma delas aqui cai na tela mais próxima.
+  const screens = useMemo(
+    () => (allPortfolios ? SCREENS.filter((item) => item.consolidated) : SCREENS),
+    [allPortfolios],
+  );
 
   // Com um ativo na URL, a tela ativa continua sendo Posições: a página do
   // ativo foi aberta de lá, e é para lá que a trilha volta.
   const current =
     asset === undefined
-      ? (SCREENS.find((item) => item.path === screen) ?? SCREENS[0])
+      ? (screens.find((item) => item.path === screen) ?? screens[0])
       : SCREENS[1];
   // Configurações não está na lista de telas da carteira: ela vale para o app
   // inteiro, e o botão dela fica no pé da barra lateral. `/:escopo/configuracoes`
   // mantém o escopo na URL só para a barra lateral continuar a mesma.
   const onSettings = asset === undefined && screen === 'configuracoes';
-  const scopeLabel =
-    portfolioId === null
-      ? 'Todas as carteiras'
-      : (portfolios.find((item) => item.id === portfolioId)?.name ?? 'Carteira');
+  const scopeLabel = allPortfolios
+    ? 'Todas as carteiras'
+    : (portfolios.find((item) => item.id === portfolioId)?.name ?? 'Carteira');
 
   const shortcuts = useMemo(
     () => ({
       ...Object.fromEntries(
-        SCREENS.map((item) => [
+        screens.map((item) => [
           `go_${SHORTCUT_IDS[item.id] ?? item.id}`,
           () => navigate(`/${scope}/${item.path}`),
         ]),
@@ -173,20 +206,20 @@ const Workbench = (): React.ReactElement => {
    */
   const searchScreens = useMemo(
     () => [
-      ...SCREENS.map((item) => {
+      ...screens.map((item) => {
         const shortcut = SHORTCUTS.find(
           (candidate) => candidate.id === `go_${SHORTCUT_IDS[item.id] ?? item.id}`,
         );
         return {
           id: item.id,
           label: item.label,
-          glyph: String(item.icon),
+          glyph: item.glyph,
           shortcut: shortcut === undefined ? null : describeShortcut(shortcut),
         };
       }),
-      { id: SETTINGS_SCREEN, label: 'Configurações', glyph: '☼', shortcut: null },
+      { id: SETTINGS_SCREEN, label: 'Configurações', glyph: 'settings', shortcut: null },
     ],
-    [],
+    [screens],
   );
 
   const searchPortfolios = useMemo(
@@ -196,6 +229,9 @@ const Workbench = (): React.ReactElement => {
     ],
     [portfolios],
   );
+
+  const health = useResource((signal) => fetchMarketHealth(signal), []);
+  const demo = health.state.kind === 'ready' && hasDemoData(health.state.value.demo);
 
   /**
    * "Ver lançamentos" de um ativo abre o extrato todo, e não os últimos três
@@ -216,62 +252,148 @@ const Workbench = (): React.ReactElement => {
         ...Object.fromEntries(SCREENS.map((item) => [item.id, item.path])),
         [SETTINGS_SCREEN]: 'configuracoes',
       },
-      scopeFor: (portfolioId) =>
-        portfolioId === ALL_PORTFOLIOS
-          ? ALL_SCOPE
-          : scopeForPortfolioId(portfolioId, slugs),
+      scopeFor: (id) =>
+        id === ALL_PORTFOLIOS ? ALL_SCOPE : (scopeForPortfolioId(id, slugs) ?? scope),
     });
+
+    // Sem página de ativo em "Todas as carteiras": o ativo aparece em Posições,
+    // já filtrado por ele, com a carteira de cada linha.
+    if (allPortfolios && target.kind === 'asset') {
+      void navigate(
+        `/${ALL_SCOPE}/posicoes?${new URLSearchParams({ busca: target.slug }).toString()}`,
+      );
+      return;
+    }
 
     // Ação não é navegação: quem a executa é o `Palette`, que abre o modal.
     if (path !== null) void navigate(path);
   };
 
+  /**
+   * Abre a página do ativo na carteira da linha. Em "Todas as carteiras" cada
+   * linha de Posições e de Movimentações sabe a sua; a que não sabe (posição
+   * encerrada, que soma carteiras) não abre.
+   */
+  const openAssetIn = (slug: string, rowPortfolioId: string | null): void => {
+    const target = rowPortfolioId ?? portfolioId;
+    if (target === null) return;
+
+    const targetScope = scopeForPortfolioId(target, slugs);
+    if (targetScope !== null) void navigate(`/${targetScope}/ativo/${slug}`);
+  };
+
+  if (!loaded) return <WorkbenchSkeleton />;
+
+  if (failed !== null) {
+    return (
+      <main role="alert" className="mx-auto max-w-md p-8 text-center">
+        <h1 className="text-panel-title font-semibold text-negative">
+          Não foi possível carregar as carteiras
+        </h1>
+        <p className="mt-2 text-[0.8125rem] text-ink-2">{failed.message}</p>
+        <button
+          type="button"
+          className="mt-4 h-control cursor-pointer rounded-control border border-line px-3 text-[0.8125rem] hover:bg-panel-2"
+          onClick={() => {
+            setLoaded(false);
+            setReloads((count) => count + 1);
+          }}
+        >
+          Tentar de novo
+        </button>
+      </main>
+    );
+  }
+
+  const first = portfolios[0];
+  if (first === undefined) {
+    // Configurações continua alcançável: é onde se importa um backup, e quem o
+    // restaura ainda não tem carteira.
+    if (onSettings) {
+      return (
+        <div className="flex flex-col gap-3 p-6">
+          <div>
+            <button
+              type="button"
+              className="cursor-pointer text-[0.8125rem] text-accent hover:underline"
+              onClick={() => navigate(`/${scope}/visao-geral`)}
+            >
+              ← Voltar
+            </button>
+          </div>
+          <SettingsScreen />
+        </div>
+      );
+    }
+    return <WelcomeScreen onOpenSettings={() => navigate(`/${scope}/configuracoes`)} />;
+  }
+  if (!allPortfolios && portfolioId === null) {
+    return <Navigate to={`/${ALL_SCOPE}/visao-geral`} replace />;
+  }
+  if (allPortfolios && asset !== undefined) {
+    return <Navigate to={`/${ALL_SCOPE}/posicoes`} replace />;
+  }
+  if (allPortfolios && !onSettings && !screens.some((item) => item.path === screen)) {
+    return <Navigate to={`/${ALL_SCOPE}/visao-geral`} replace />;
+  }
+
   return (
     <EntryProvider scopePortfolioId={portfolioId}>
       <AppShell
         portfolios={[
-          { id: ALL_PORTFOLIOS, label: 'Todas as carteiras', value: null },
+          { id: ALL_PORTFOLIOS, label: 'Todas as carteiras', value: total },
           ...portfolios.map((portfolio) => ({
             id: portfolio.id,
             label: portfolio.name,
-            value: values.get(portfolio.id) ?? null,
+            value: values[portfolio.id] ?? null,
           })),
         ]}
-        screens={SCREENS.map(({ id, label, icon }) => ({ id, label, icon }))}
+        screens={screens.map(({ id, label, icon }) => ({ id, label, icon }))}
         scope={portfolioId ?? ALL_PORTFOLIOS}
         screen={onSettings ? 'configuracoes' : (current?.id ?? 'visao')}
         onNavigate={(nextScope, nextScreen) => {
-          const target = SCREENS.find((item) => item.id === nextScreen) ?? SCREENS[0];
-          const slug =
-            nextScope === ALL_PORTFOLIOS
-              ? ALL_SCOPE
-              : scopeForPortfolioId(nextScope, slugs);
+          const toAll = nextScope === ALL_PORTFOLIOS;
+          const available = toAll ? SCREENS.filter((item) => item.consolidated) : SCREENS;
+          const target = available.find((item) => item.id === nextScreen) ?? available[0];
+          const slug = toAll
+            ? ALL_SCOPE
+            : (scopeForPortfolioId(nextScope, slugs) ?? scope);
           navigate(`/${slug}/${target?.path ?? 'visao-geral'}`);
         }}
         onOpenSearch={() => setSearchOpen(true)}
         settingsActive={onSettings}
+        demo={demo}
         onOpenSettings={() => navigate(`/${scope}/configuracoes`)}
       >
         {asset !== undefined ? (
-          <AssetScreen
-            assetRef={asset}
-            portfolioId={portfolioId}
-            scopeLabel={scopeLabel}
-            onBack={() => navigate(`/${scope}/posicoes`)}
-            onOpenStatement={openStatement}
-          />
+          portfolioId === null ? null : (
+            <AssetScreen
+              assetRef={asset}
+              portfolioId={portfolioId}
+              scopeLabel={scopeLabel}
+              onBack={() => navigate(`/${scope}/posicoes`)}
+              onOpenStatement={openStatement}
+            />
+          )
         ) : onSettings ? (
           <SettingsScreen />
         ) : current?.id === 'visao' ? (
           <OverviewScreen
             portfolioId={portfolioId}
-            onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
+            {...(allPortfolios
+              ? {}
+              : { onOpenAsset: (slug: string) => navigate(`/${scope}/ativo/${slug}`) })}
+            onOpenScreen={(path) => navigate(`/${scope}/${path}`)}
+            onOpenPortfolio={(id) => {
+              const target = scopeForPortfolioId(id, slugs);
+              if (target !== null) navigate(`/${target}/visao-geral`);
+            }}
           />
         ) : current?.id === 'posicoes' ? (
           <PositionsScreen
             portfolioId={portfolioId}
             scopeLabel={scopeLabel}
-            onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
+            onOpenAsset={openAssetIn}
             onOpenStatement={openStatement}
           />
         ) : current?.id === 'movimentacoes' ? (
@@ -279,14 +401,16 @@ const Workbench = (): React.ReactElement => {
             portfolioId={portfolioId}
             scopeLabel={scopeLabel}
             portfolios={portfolios}
-            onOpenAsset={(slug) => navigate(`/${scope}/ativo/${slug}`)}
+            onOpenAsset={openAssetIn}
           />
-        ) : current?.id === 'desempenho' ? (
-          <PerformanceScreen portfolioId={portfolioId} />
         ) : current?.id === 'estrategia' ? (
-          <StrategyScreen portfolioId={portfolioId} />
+          portfolioId === null ? null : (
+            <StrategyScreen portfolioId={portfolioId} />
+          )
         ) : current?.id === 'objetivos' ? (
-          <GoalsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
+          portfolioId === null ? null : (
+            <GoalsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
+          )
         ) : (
           <ScreenPending label={current?.label ?? ''} story={current?.story ?? ''} />
         )}
@@ -295,6 +419,7 @@ const Workbench = (): React.ReactElement => {
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
         scopeLabel={scopeLabel}
+        portfolioId={portfolioId}
         screens={searchScreens}
         portfolios={searchPortfolios}
         onSelect={openTarget}
@@ -303,12 +428,27 @@ const Workbench = (): React.ReactElement => {
   );
 };
 
+/** A moldura inteira em cinza, enquanto a lista de carteiras não chegou. */
+const WorkbenchSkeleton = (): React.ReactElement => (
+  <div className="flex min-h-screen">
+    <aside className="hidden w-64 shrink-0 border-r border-line p-4 md:block">
+      <SkeletonRegion label="Carregando as carteiras">
+        <SkeletonTable rows={7} columns={1} />
+      </SkeletonRegion>
+    </aside>
+    <main className="min-w-0 flex-1 p-6">
+      <SkeletonRegion label="Carregando">
+        <SkeletonTable rows={8} columns={5} />
+      </SkeletonRegion>
+    </main>
+  </div>
+);
+
 /** As ações da paleta que o modal de lançamento executa. */
 const READY_ACTIONS: ReadonlySet<SearchActionId> = new Set([
   'new_transaction',
   'buy_asset',
   'payout_asset',
-  'move_asset',
 ]);
 
 /**
@@ -328,6 +468,24 @@ const Palette = ({
       {...rest}
       readyActions={READY_ACTIONS}
       onSelect={(target) => {
+        if (target.kind === 'instrument') {
+          entry.openEntry({
+            tab: 'buy',
+            asset: {
+              id: null,
+              instrument: {
+                ticker: target.ticker,
+                name: target.name,
+                b3_type: target.b3_type,
+              },
+              label: target.ticker,
+              name: target.name,
+              held: null,
+            },
+          });
+          return;
+        }
+
         if (target.kind !== 'action') {
           onSelect(target);
           return;
@@ -336,15 +494,16 @@ const Palette = ({
         const asset =
           target.assetId === undefined
             ? null
-            : { id: target.assetId, label: target.title ?? '', name: null, held: null };
+            : {
+                id: target.assetId,
+                instrument: null,
+                label: target.title ?? '',
+                name: null,
+                held: null,
+              };
 
         entry.openEntry({
-          tab:
-            target.action === 'payout_asset'
-              ? 'payout'
-              : target.action === 'move_asset'
-                ? 'transfer'
-                : 'buy',
+          tab: target.action === 'payout_asset' ? 'payout' : 'buy',
           asset,
         });
       }}
@@ -359,7 +518,6 @@ const SHORTCUT_IDS: Readonly<Record<string, string>> = {
   visao: 'overview',
   posicoes: 'positions',
   movimentacoes: 'transactions',
-  desempenho: 'performance',
   estrategia: 'strategy',
   objetivos: 'goals',
 };

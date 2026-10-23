@@ -18,8 +18,11 @@ import { formatShortDate } from '../../lib/positions.js';
 import type { AssetSearch, PickedAsset } from './asset_picker.js';
 import { AssetPicker } from './asset_picker.js';
 import { EffectPanel } from './effect_table.js';
-import { Callout, Field, Input, Select, useVisibleErrors } from './fields.js';
+import { Callout, Field, Input, MoneyInput, Select, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
+import { BackButton } from './wizard.js';
+import type { EntryWizard } from './wizard.js';
+import { InstitutionPicker } from './institution_picker.js';
 import { previewValue, usePreview, useSave } from './hooks.js';
 
 /**
@@ -57,6 +60,7 @@ export const PayoutFormView = ({
   search,
   onSaved,
   onCancel,
+  wizard,
 }: {
   readonly reference: EntryReference;
   readonly seed: PayoutSeed;
@@ -67,6 +71,8 @@ export const PayoutFormView = ({
     institutionId: string | null,
   ) => void;
   readonly onCancel: () => void;
+  /** No assistente do lançamento: o resumo, o Voltar e o "salvar e novo". */
+  readonly wizard?: EntryWizard | undefined;
 }): React.ReactElement => {
   const [asset, setAsset] = useState<PickedAsset | null>(seed.asset ?? null);
   const [payoutKind, setPayoutKind] = useState<PayoutKind>('dividend');
@@ -78,7 +84,6 @@ export const PayoutFormView = ({
   const [portfolioId, setPortfolioId] = useState(seed.portfolioId);
   const [institutionId, setInstitutionId] = useState(seed.institutionId);
   const [received, setReceived] = useState(false);
-  const [note, setNote] = useState('');
 
   const built = useMemo(
     () =>
@@ -93,7 +98,6 @@ export const PayoutFormView = ({
         portfolioId,
         institutionId,
         received,
-        note,
       }),
     [
       asset,
@@ -106,7 +110,6 @@ export const PayoutFormView = ({
       portfolioId,
       institutionId,
       received,
-      note,
     ],
   );
 
@@ -140,6 +143,14 @@ export const PayoutFormView = ({
 
   return (
     <FormShell
+      {...(wizard === undefined
+        ? {}
+        : {
+            summary: wizard.summary,
+            secondary: <BackButton onBack={wizard.onBack} />,
+            showCancel: false,
+            saveLabel: 'Cadastrar',
+          })}
       pending={save.pending}
       onSave={() => void submit()}
       onCancel={onCancel}
@@ -158,19 +169,23 @@ export const PayoutFormView = ({
         />
       </div>
 
-      <Field label="Ativo" error={visible.show('asset')}>
-        {(control) => (
-          <AssetPicker
-            control={control}
-            invalid={control['aria-invalid']}
-            value={asset}
-            onChange={setAsset}
-            onBlur={touch('asset')}
-            autoFocus={asset === null}
-            {...(search === undefined ? {} : { search })}
-          />
-        )}
-      </Field>
+      {wizard !== undefined ? null : (
+        <Field label="Ativo" error={visible.show('asset')}>
+          {(control) => (
+            <AssetPicker
+              control={control}
+              invalid={control['aria-invalid']}
+              portfolioId={portfolioId}
+              value={asset}
+              onChange={setAsset}
+              allowNew={false}
+              onBlur={touch('asset')}
+              autoFocus={asset === null}
+              {...(search === undefined ? {} : { search })}
+            />
+          )}
+        </Field>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Data com" error={visible.show('recordDate')}>
@@ -220,7 +235,8 @@ export const PayoutFormView = ({
           error={visible.show(amountField)}
         >
           {(control) => (
-            <Input
+            <MoneyInput
+              maxDecimals={mode === 'per_share' ? 8 : 2}
               {...control}
               numeric
               inputMode="decimal"
@@ -268,7 +284,7 @@ export const PayoutFormView = ({
           }
         >
           {(control) => (
-            <Input
+            <MoneyInput
               {...control}
               numeric
               inputMode="decimal"
@@ -337,41 +353,29 @@ export const PayoutFormView = ({
         </Field>
         <Field label="Instituição" error={visible.show('institution')}>
           {(control) => (
-            <Select
-              {...control}
+            <InstitutionPicker
+              control={control}
               invalid={control['aria-invalid']}
               options={reference.institutions}
-              placeholder="Escolha"
-              value={institutionId ?? ''}
+              value={institutionId}
               onBlur={touch('institution')}
-              onChange={(event) => setInstitutionId(event.target.value || null)}
+              onChange={setInstitutionId}
             />
           )}
         </Field>
       </div>
 
-      <Field label="Observação">
-        {(control) => (
-          <Input
-            {...control}
-            invalid={false}
-            placeholder="opcional"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-          />
-        )}
-      </Field>
-
       {received || preview.status === 'error' ? (
         <EffectPanel
           state={preview}
           rows={(result) => effectRows('payout', result.preview)}
-          idle="Preencha o ativo, as datas e o valor para ver o efeito no caixa."
+          idle="Preencha o ativo, as datas e o valor para ver o efeito no custo."
         />
       ) : (
         <Callout tone="info">
           Proventos futuros entram como “a receber” e aparecem em Próximos eventos. O
-          caixa só muda quando o recebimento é confirmado.
+          dinheiro do provento sai do patrimônio: conta na rentabilidade e em “Recebido”,
+          mas não no valor da carteira.
         </Callout>
       )}
     </FormShell>

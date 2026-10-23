@@ -85,7 +85,7 @@ describe('preview do provento', () => {
     expect(response.body.net_amount).toBe('96.12');
 
     const counted = await harness.sql<{ total: string }[]>`
-      select count(*)::text as total from "transaction" where kind = 'payout'
+      SELECT COUNT(*)::TEXT AS total FROM "transaction" WHERE kind = 'payout'
     `;
     expect(counted[0]?.total).toBe('0');
   });

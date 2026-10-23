@@ -21,10 +21,12 @@ import type {
  * filtrar nada.
  */
 export type ListPositionsInput = {
+  /** Nulo significa todas as carteiras ativas. */
   readonly portfolioId: string | null;
   readonly groupBy: PositionGroupBy;
   readonly search: string | null;
-  readonly categoryId: string | null;
+  readonly categoryIds: readonly string[];
+  readonly institutionIds: readonly string[];
 };
 
 export type ListPositionsDeps = {
@@ -66,6 +68,7 @@ const withoutGroupColumns = (row: PositionViewRow): PositionRow => ({
   institution_name: row.institution_name,
   category_id: row.category_id,
   category_name: row.category_name,
+  class_name: row.class_name,
   color_token: row.color_token,
   unit: row.unit,
   quantity: row.quantity,
@@ -93,7 +96,8 @@ export const listPositions = (deps: ListPositionsDeps) =>
       portfolioId: input.portfolioId,
       groupBy: input.groupBy,
       search: input.search,
-      categoryId: input.categoryId,
+      categoryIds: input.categoryIds,
+      institutionIds: input.institutionIds,
     });
 
     const subtotals = new Map<string, Summary>();
@@ -141,6 +145,7 @@ export const listPositions = (deps: ListPositionsDeps) =>
       return_12m_ratio: view.header.return_12m_ratio,
       payouts_12m: view.header.payouts_12m,
       facets: view.facets.map((facet: PositionViewFacetRow) => ({ ...facet })),
+      institution_facets: view.institution_facets.map((facet) => ({ ...facet })),
       price_health: {
         fresh: view.header.fresh,
         stale: view.header.stale,

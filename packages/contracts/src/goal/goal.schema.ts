@@ -12,7 +12,7 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
  * diz "no caminho" ao lado de uma tabela que diz "chega em 2043" é a que
  * ninguém mais abre.
  *
- * Cinco decisões que o contrato torna impossíveis de desfazer sem quebrar o
+ * Quatro decisões que o contrato torna impossíveis de desfazer sem quebrar o
  * typecheck dos dois lados:
  *
  * - **A taxa viaja com a projeção.** `rate` diz qual taxa foi usada, se é real
@@ -27,10 +27,6 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
  * - **Valor em reais de hoje é a moeda da tela.** Com a meta em reais de hoje a
  *   taxa é a real, a meta é uma linha reta e o aporte é em reais de hoje. A
  *   tela escreve isso, e `rate.basis` é o que o permite.
- * - **Sem carteira ligada é o patrimônio todo.** `portfolios.all` é verdadeiro
- *   quando o objetivo não aponta carteira nenhuma. É a única leitura que
- *   continua certa quando uma carteira nova é criada — ligar "todas" uma a uma
- *   deixaria a nova de fora sem ninguém ter decidido isso.
  */
 export const GOAL_STATUSES = [
   'on_track',
@@ -51,13 +47,6 @@ export const GOAL_BLOCKS = [
 ] as const;
 
 export const goalBlockSchema = z.enum(GOAL_BLOCKS);
-
-export const goalPortfolioSchema = z.object({
-  id: uuid,
-  name: z.string(),
-  /** O último fechamento até a data. Nulo quando a carteira ainda não fechou. */
-  value: decimalString.nullable(),
-});
 
 export const goalRateSchema = z.object({
   /** O texto guardado no objetivo, como o usuário o escreveu. */
@@ -129,14 +118,9 @@ export const goalSchema = z.object({
   target_date: dateOnly,
   amount_in_today_brl: z.boolean(),
   created_on: dateOnly,
-  portfolios: z.object({
-    /** Verdadeiro quando o objetivo é medido pelo patrimônio todo. */
-    all: z.boolean(),
-    items: z.array(goalPortfolioSchema),
-  }),
-  /** O valor das carteiras do objetivo no último fechamento de cada uma. */
+  /** O valor da carteira no último fechamento até a data. */
   current_value: decimalString,
-  /** O fechamento mais recente entre elas. Nulo quando nenhuma fechou. */
+  /** A data desse fechamento. Nulo quando a carteira ainda não fechou. */
   as_of: dateOnly.nullable(),
   /** Nunca passa de 100: o excedente sai em `surplus_brl`. */
   progress_pct: decimalString,
@@ -158,8 +142,7 @@ export const goalsSchema = z.object({
   /** A data de onde a projeção parte: "hoje", ou a data pedida. */
   reference_date: dateOnly,
   scope: z.object({
-    /** Nulo é o consolidado: "todas as carteiras" é a ausência de escopo. */
-    portfolio_id: uuid.nullable(),
+    portfolio_id: uuid,
     name: z.string(),
   }),
   /** Os objetivos abertos, do prazo mais próximo ao mais distante. */
@@ -192,8 +175,7 @@ const rateOverrides = z.string().refine(
 
 export const getGoalsSchema = z.object({
   query: z.object({
-    /** Ausente é o consolidado. A carteira é filtro, não rota. */
-    portfolio_id: uuid.optional(),
+    portfolio_id: uuid,
     on_date: dateOnly.optional(),
     /** A taxa ao ano de cada objetivo, no lugar da premissa guardada. */
     rates: rateOverrides.optional(),

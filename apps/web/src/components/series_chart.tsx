@@ -1,5 +1,5 @@
 import type { DateOnly } from '@patrimonio/domain';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import type { Band, Series } from '../lib/chart/series.js';
 import {
@@ -14,10 +14,10 @@ import {
   tooltipSide,
   valuesOf,
 } from '../lib/chart/series.js';
-import { domainOf, linearScale, niceTicks } from '../lib/chart/scale.js';
-import { formatCompact, formatPercent } from '../lib/format.js';
+import { domainOf, linearScale } from '../lib/chart/scale.js';
+import { formatCompact, formatMoney, formatPercent } from '../lib/format.js';
 import { areaFill } from '../lib/tokens.js';
-import { Money, Percent } from './number.js';
+import { Money, MoneyChange, Percent } from './number.js';
 import { useElementWidth } from './use_element_width.js';
 import { useValuesHidden } from './preferences.js';
 
@@ -36,7 +36,13 @@ import { useValuesHidden } from './preferences.js';
  * interpolação.
  */
 
-const MARGIN = { top: 8, right: 12, bottom: 24, left: 52 } as const;
+/**
+ * O gráfico das pranchas v2 não tem eixo vertical nem grade: o valor está na
+ * legenda, no rótulo do fim da linha e na dica. Sobra a linha de base e as
+ * datas. A margem direita só cresce quando há rótulo de fim de linha.
+ */
+const MARGIN = { top: 8, right: 12, bottom: 24, left: 0 } as const;
+const END_LABEL_MARGIN = 92;
 const DEFAULT_HEIGHT = 240;
 
 export type ChartBand = {
@@ -44,6 +50,8 @@ export type ChartBand = {
   readonly label: string;
   readonly color: string;
   readonly values: readonly Band[];
+  /** O valor na legenda leva sinal e cor de resultado: rendimento, proventos. */
+  readonly signed?: boolean | undefined;
 };
 
 /**
@@ -72,6 +80,10 @@ export type ChartReference = {
   readonly color: string;
   /** Como ela se chama na legenda, quando é diferente do rótulo. */
   readonly legend?: string | undefined;
+  /** Sem entrada na legenda: o rótulo sobre a linha já a nomeia. */
+  readonly hideLegend?: boolean | undefined;
+  /** O valor em negrito depois do nome, na legenda: "Preço médio 171,81". */
+  readonly legendValue?: React.ReactNode;
 };
 
 export type SeriesChartProps = {
@@ -93,6 +105,23 @@ export type SeriesChartProps = {
   /** Como as marcas se chamam na legenda: "Compras", na página do ativo. */
   readonly markerLegend?: string | undefined;
   readonly reference?: ChartReference | undefined;
+  /**
+   * O primeiro lançamento da carteira. Antes dele não há história, e a faixa
+   * hachurada diz isso em vez de deixar uma linha reta no zero parecer dado.
+   */
+  readonly inception?: DateOnly | null | undefined;
+  /** O valor de cada série no fim da linha, fora da área de desenho. */
+  readonly endLabels?: boolean | undefined;
+  /** O ponto sobre o último valor da série marcada com `emphasis`. */
+  readonly endDot?: boolean | undefined;
+  /** Troca o valor da legenda de uma série ou faixa: "Preço +44,7%". */
+  /** Só estas séries levam o rótulo do fim da linha; ausente, todas levam. */
+  readonly endLabelSeries?: readonly string[] | undefined;
+  /** O rótulo do fim em forma compacta, `R$ 277k`, para metas de seis dígitos. */
+  readonly compactEndLabels?: boolean | undefined;
+  /** Série única e óbvia, como o rendimento acumulado, dispensa a legenda. */
+  readonly legend?: boolean | undefined;
+  readonly legendValues?: Readonly<Record<string, React.ReactNode>> | undefined;
 };
 
 export const SeriesChart = ({
@@ -110,7 +139,15 @@ export const SeriesChart = ({
   markers = [],
   markerLegend,
   reference,
+  inception,
+  endLabels = false,
+  endDot = false,
+  legendValues,
+  legend = true,
+  endLabelSeries,
+  compactEndLabels = false,
 }: SeriesChartProps): React.ReactElement => {
+  const hatchId = useId();
   const container = useRef<HTMLDivElement>(null);
   const measured = useElementWidth(container, 720);
   const width = forcedWidth ?? measured;
@@ -126,7 +163,8 @@ export const SeriesChart = ({
   const visibleSeries = series.filter((entry) => isVisible(entry.id));
   const visibleBands = bands.filter((entry) => isVisible(entry.id));
 
-  const plotWidth = Math.max(1, width - MARGIN.left - MARGIN.right);
+  const marginRight = endLabels ? END_LABEL_MARGIN : MARGIN.right;
+  const plotWidth = Math.max(1, width - MARGIN.left - marginRight);
   const plotHeight = Math.max(1, height - MARGIN.top - MARGIN.bottom);
 
   /**
@@ -156,7 +194,15 @@ export const SeriesChart = ({
 
   const x = linearScale([0, Math.max(1, dates.length - 1)], [0, plotWidth]);
   const y = linearScale(domain, [plotHeight, 0]);
-  const ticks = niceTicks(domain[0], domain[1], 4);
+  const baseline = y(Math.max(domain[0], Math.min(0, domain[1])));
+
+  // Onde a história começa: o primeiro dia da série em ou depois do primeiro
+  // lançamento. Antes dele, a faixa hachurada.
+  const inceptionIndex =
+    inception === null || inception === undefined
+      ? -1
+      : dates.findIndex((candidate) => candidate >= inception);
+  const hatchWidth = inceptionIndex > 0 ? x(inceptionIndex) : 0;
 
   const xTickIndexes = useMemo(() => {
     if (dates.length === 0) return [];
@@ -242,30 +288,76 @@ export const SeriesChart = ({
           onPointerLeave={() => setHover(null)}
         >
           <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-            {ticks.map((tick) => (
-              <g key={tick}>
-                <line
-                  x1={0}
-                  x2={plotWidth}
-                  y1={y(tick)}
-                  y2={y(tick)}
-                  className="stroke-line"
-                  strokeWidth={1}
+            {hatchWidth > 0 ? (
+              <g aria-hidden="true">
+                <defs>
+                  <pattern
+                    id={hatchId}
+                    width={7}
+                    height={7}
+                    patternUnits="userSpaceOnUse"
+                    patternTransform="rotate(45)"
+                  >
+                    <line
+                      x1={0}
+                      x2={0}
+                      y1={0}
+                      y2={7}
+                      className="stroke-line"
+                      strokeWidth={1}
+                    />
+                  </pattern>
+                </defs>
+                <rect
+                  x={0}
+                  y={0}
+                  width={hatchWidth}
+                  height={plotHeight}
+                  fill={`url(#${hatchId})`}
                 />
-                <text
-                  x={-8}
-                  y={y(tick)}
-                  dominantBaseline="middle"
-                  textAnchor="end"
-                  className="tabular fill-ink-3 text-label"
-                >
-                  {valueFormat === 'money'
-                    ? formatCompact(String(tick), { hidden: hiddenValues, decimals: 0 })
-                        .text
-                    : formatPercent(String(tick), { decimals: 0 }).text}
-                </text>
+                <line
+                  x1={hatchWidth}
+                  x2={hatchWidth}
+                  y1={0}
+                  y2={plotHeight}
+                  className="stroke-line-2"
+                  strokeWidth={1}
+                  strokeDasharray="3 3"
+                />
+                {hatchWidth > 150 ? (
+                  <text
+                    x={hatchWidth / 2}
+                    y={baseline - 14}
+                    textAnchor="middle"
+                    className="fill-ink-3 text-label"
+                  >
+                    antes do primeiro lançamento
+                  </text>
+                ) : null}
               </g>
-            ))}
+            ) : null}
+
+            {reduced.map((entry) =>
+              entry.area === true
+                ? splitSegments(entry.points).map((segment, index) => (
+                    <path
+                      key={`${entry.id}-area-${index}`}
+                      d={`${linePath(segment, x, y)} L${x(segment.at(-1)?.index ?? 0)},${baseline} L${x(segment[0]?.index ?? 0)},${baseline} Z`}
+                      fill={areaFill(entry.color)}
+                      stroke="none"
+                    />
+                  ))
+                : null,
+            )}
+
+            <line
+              x1={0}
+              x2={plotWidth}
+              y1={baseline}
+              y2={baseline}
+              className="stroke-line-2"
+              strokeWidth={1}
+            />
 
             {visibleBands.map((band) =>
               bandSegments(band.values).map((segment, index) => (
@@ -307,10 +399,15 @@ export const SeriesChart = ({
                   strokeDasharray="6 4"
                 />
                 <text
-                  x={plotWidth - 4}
-                  y={y(Number(reference.value)) + 14}
-                  textAnchor="end"
-                  className="tabular text-label"
+                  x={endLabels ? plotWidth + 8 : plotWidth - 4}
+                  y={
+                    endLabels
+                      ? y(Number(reference.value))
+                      : y(Number(reference.value)) + 14
+                  }
+                  dominantBaseline={endLabels ? 'middle' : undefined}
+                  textAnchor={endLabels ? 'start' : 'end'}
+                  className="tabular text-[0.71875rem] font-semibold"
                   fill={reference.color}
                 >
                   {reference.label}
@@ -332,6 +429,59 @@ export const SeriesChart = ({
                 <title>{marker.label}</title>
               </circle>
             ))}
+
+            {endDot
+              ? (() => {
+                  const last = reduced.at(-1);
+                  const point = last?.points.at(-1);
+                  const value = point === undefined ? null : Number(point.value);
+                  if (last === undefined || value === null || Number.isNaN(value))
+                    return null;
+                  return (
+                    <circle
+                      cx={x(last.points.length - 1)}
+                      cy={y(value)}
+                      r={4.5}
+                      fill={last.color}
+                      stroke="var(--color-panel)"
+                      strokeWidth={1.5}
+                      data-end-dot
+                    />
+                  );
+                })()
+              : null}
+
+            {endLabels
+              ? reduced.map((entry) => {
+                  if (endLabelSeries !== undefined && !endLabelSeries.includes(entry.id))
+                    return null;
+                  const point = entry.points.at(-1);
+                  const value = point === undefined ? null : Number(point.value);
+                  if (point === undefined || value === null || Number.isNaN(value))
+                    return null;
+                  const text =
+                    valueFormat === 'money'
+                      ? hiddenValues
+                        ? '•••••'
+                        : compactEndLabels
+                          ? `R$ ${formatCompact(point.value).body}`
+                          : formatMoney(point.value).body.replace(/^R\$\s?/, '')
+                      : formatPercent(point.value, { signed: true }).text;
+                  return (
+                    <text
+                      key={`${entry.id}-end`}
+                      x={plotWidth + 8}
+                      y={y(value)}
+                      dominantBaseline="middle"
+                      className="tabular text-[0.71875rem] font-semibold"
+                      fill={entry.dashed === true ? 'var(--color-ink-2)' : entry.color}
+                      data-end-label={entry.id}
+                    >
+                      {text}
+                    </text>
+                  );
+                })
+              : null}
 
             {hover === null ? null : (
               <line
@@ -376,7 +526,10 @@ export const SeriesChart = ({
                 id: band.id,
                 label: band.label,
                 color: band.color,
-                value: band.values[hover.index]?.to ?? null,
+                value:
+                  band.values[hover.index]?.amount ??
+                  band.values[hover.index]?.to ??
+                  null,
               })),
               ...visibleSeries.map((entry) => ({
                 id: entry.id,
@@ -400,20 +553,53 @@ export const SeriesChart = ({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <div
+        className={`flex-wrap items-center gap-x-4 gap-y-1 ${legend ? 'flex' : 'hidden'}`}
+      >
         <ChartLegend
           entries={[
-            ...bands.map((band) => ({
-              id: band.id,
-              label: band.label,
-              color: band.color,
-            })),
-            ...series.map((entry) => ({
-              id: entry.id,
-              label: entry.label,
-              color: entry.color,
-              dashed: entry.dashed === true,
-            })),
+            ...bands.map((band) => {
+              const last = [...band.values]
+                .reverse()
+                .find((value) => (value.amount ?? value.to) !== null);
+              const amount = last === undefined ? null : (last.amount ?? last.to ?? null);
+              return {
+                id: band.id,
+                label: band.label,
+                color: band.color,
+                swatch: 'square' as const,
+                value:
+                  legendValues?.[band.id] ??
+                  (amount === null ? undefined : band.signed === true ? (
+                    <MoneyChange value={amount} />
+                  ) : (
+                    <Money value={amount} />
+                  )),
+              };
+            }),
+            ...series.map((entry) => {
+              const last = [...entry.points]
+                .reverse()
+                .find((point) => point.value !== null);
+              return {
+                id: entry.id,
+                label: entry.label,
+                color: entry.color,
+                dashed: entry.dashed === true,
+                swatch: 'line' as const,
+                value:
+                  legendValues?.[entry.id] ??
+                  (last === undefined ? undefined : valueFormat === 'money' ? (
+                    <Money value={last.value} />
+                  ) : (
+                    <span
+                      style={entry.dashed === true ? undefined : { color: entry.color }}
+                    >
+                      <Percent value={last.value} signed />
+                    </span>
+                  )),
+              };
+            }),
           ]}
           isVisible={isVisible}
           onToggle={toggleSeries}
@@ -423,17 +609,18 @@ export const SeriesChart = ({
             controle: esconder "Compras" esconderia os pontos sem esconder
             nenhuma série, e a legenda passaria a prometer o que não faz. */}
         {placedMarkers.length === 0 ? null : (
-          <span className="flex items-center gap-1.5 text-[0.8125rem] text-ink-2">
+          <span className="flex items-center gap-2 text-[0.8125rem] text-ink-2">
             <span
               aria-hidden="true"
-              className="inline-block size-2 rounded-full"
+              className="inline-block size-2.5 rounded-xs"
               style={{ backgroundColor: placedMarkers[0]?.color }}
             />
             {markerLegend ?? 'Marcas'}
+            <span className="tabular font-semibold text-ink">{placedMarkers.length}</span>
           </span>
         )}
 
-        {reference === undefined ? null : (
+        {reference === undefined || reference.hideLegend === true ? null : (
           <span className="flex items-center gap-1.5 text-[0.8125rem] text-ink-2">
             <span
               aria-hidden="true"
@@ -441,6 +628,11 @@ export const SeriesChart = ({
               style={{ borderColor: reference.color }}
             />
             {reference.legend ?? reference.label}
+            {reference.legendValue === undefined ? null : (
+              <span className="tabular font-semibold text-ink">
+                {reference.legendValue}
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -518,33 +710,46 @@ const ChartLegend = ({
     readonly label: string;
     readonly color: string;
     readonly dashed?: boolean;
+    readonly swatch?: 'square' | 'line';
+    readonly value?: React.ReactNode;
   }[];
   readonly isVisible: (id: string) => boolean;
   readonly onToggle: (id: string, isolate: boolean) => void;
 }): React.ReactElement => (
-  <ul className="flex flex-wrap gap-x-4 gap-y-1">
+  <ul className="flex flex-wrap gap-x-6 gap-y-1">
     {entries.map((entry) => (
       <li key={entry.id}>
         <button
           type="button"
           aria-pressed={isVisible(entry.id)}
           title="Clique para isolar a série; Alt+clique para escondê-la"
-          className={`flex cursor-pointer items-center gap-1.5 text-[0.8125rem] ${
+          className={`flex cursor-pointer items-center gap-2 text-[0.8125rem] ${
             isVisible(entry.id) ? 'text-ink-2' : 'text-ink-3 line-through'
           }`}
           onClick={(event) => onToggle(entry.id, !event.altKey)}
         >
-          {/* O traço da legenda repete o traço do gráfico: benchmark é
-              tracejado lá e aqui, senão a legenda não identifica a linha. */}
-          <span
-            aria-hidden="true"
-            className="inline-block h-0 w-4 border-t-2"
-            style={{
-              borderColor: entry.color,
-              borderStyle: entry.dashed === true ? 'dashed' : 'solid',
-            }}
-          />
+          {/* Bandas são quadrados, linhas são traços — e o traço do benchmark
+              é tracejado lá e aqui, senão a legenda não identifica a linha. */}
+          {entry.swatch === 'square' ? (
+            <span
+              aria-hidden="true"
+              className="inline-block size-2.5 rounded-xs"
+              style={{ backgroundColor: entry.color }}
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              className="inline-block h-0 w-4 border-t-2"
+              style={{
+                borderColor: entry.color,
+                borderStyle: entry.dashed === true ? 'dashed' : 'solid',
+              }}
+            />
+          )}
           {entry.label}
+          {entry.value === undefined ? null : (
+            <span className="font-semibold text-ink">{entry.value}</span>
+          )}
         </button>
       </li>
     ))}

@@ -1,6 +1,6 @@
 import {
   confirmPayoutSchema,
-  createCashMovementSchema,
+  corporateEventPreviewSchema,
   createPayoutSchema,
   payoutPreviewSchema,
   previewPayoutSchema,
@@ -8,12 +8,9 @@ import {
   interpretTransactionSchema,
   deletionImpactSchema,
   previewUpdateSchema,
-  previewTransferSchema,
-  transferPositionSchema,
   textInterpretationSchema,
   undoDeletionSchema,
   updateTransactionSchema,
-  transferPreviewSchema,
   dismissPayoutSchema,
   payoutDismissalResourceSchema,
   createTransactionSchema,
@@ -98,37 +95,6 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
   },
   {
     method: 'post',
-    path: '/transactions/cash',
-    tag: TAG,
-    summary: 'Aporte e resgate de caixa',
-    request: createCashMovementSchema,
-    responses: {
-      201: {
-        description:
-          'Gravado. De fora do app conta como aporte; de outra carteira vira transferência com duas pernas, e o patrimônio total não muda.',
-        schema: z.object({
-          transactions: z.array(transactionResourceSchema),
-          preview: transactionPreviewSchema,
-          recalculation: z.array(
-            z.object({
-              job_id: z.string(),
-              dedupe_key: z.string(),
-              already_queued: z.boolean(),
-            }),
-          ),
-          message: z.string(),
-        }),
-      },
-      400: {
-        description:
-          'Origem "de outra carteira" sem a carteira de origem, ou valor inválido.',
-        schema: errorResponseSchema,
-      },
-      404: { description: 'Carteira não encontrada.', schema: errorResponseSchema },
-    },
-  },
-  {
-    method: 'post',
     path: '/transactions/payouts',
     tag: TAG,
     summary: 'Dividendo, JCP, rendimento, juros e amortização',
@@ -158,43 +124,6 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
   },
   {
     method: 'post',
-    path: '/transactions/transfer',
-    tag: TAG,
-    summary: 'Mover uma posição entre carteiras, sem vender',
-    request: transferPositionSchema,
-    responses: {
-      201: {
-        description:
-          'As duas pernas gravadas na mesma transação, ligadas pelo mesmo grupo. O preço médio é preservado e o patrimônio total não muda.',
-        schema: z.object({
-          transactions: z.array(transactionResourceSchema),
-          preview: transferPreviewSchema,
-          recalculation: z.array(
-            z.object({
-              job_id: z.string(),
-              dedupe_key: z.string(),
-              already_queued: z.boolean(),
-            }),
-          ),
-          message: z.string(),
-        }),
-      },
-      400: {
-        description: 'Quantidade maior do que a posição da origem, ou carteiras iguais.',
-        schema: errorResponseSchema,
-      },
-      404: {
-        description: 'Carteira ou ativo não encontrado.',
-        schema: errorResponseSchema,
-      },
-      409: {
-        description: 'Uma das carteiras está arquivada.',
-        schema: errorResponseSchema,
-      },
-    },
-  },
-  {
-    method: 'post',
     path: '/transactions/payouts/preview',
     tag: TAG,
     summary: 'O efeito do provento, antes de salvar',
@@ -202,32 +131,13 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
     responses: {
       200: {
         description:
-          'A quantidade na data-com, o bruto, o IR retido e o líquido — os mesmos que a gravação calcula — e o efeito no caixa. Nada é criado.',
+          'A quantidade na data-com, o bruto, o IR retido e o líquido — os mesmos que a gravação calcula. Nada é criado.',
         schema: payoutPreviewSchema,
       },
       400: {
         description: 'O provento não é válido, ou não havia posição na data-com.',
         schema: errorResponseSchema,
       },
-      404: {
-        description: 'Carteira ou ativo não encontrado.',
-        schema: errorResponseSchema,
-      },
-    },
-  },
-  {
-    method: 'post',
-    path: '/transactions/transfer/preview',
-    tag: TAG,
-    summary: 'O efeito da transferência nas duas carteiras',
-    request: previewTransferSchema,
-    responses: {
-      200: {
-        description:
-          'Antes e depois das duas carteiras, e a variação do patrimônio total, que é zero.',
-        schema: z.object({ preview: transferPreviewSchema }),
-      },
-      400: { description: 'A transferência não é válida.', schema: errorResponseSchema },
       404: {
         description: 'Carteira ou ativo não encontrado.',
         schema: errorResponseSchema,
@@ -295,13 +205,15 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
     method: 'post',
     path: '/transactions/preview',
     tag: TAG,
-    summary: 'O efeito do lançamento, antes de salvar',
+    summary: 'O efeito do lançamento ou do evento corporativo, antes de salvar',
     request: previewTransactionSchema,
     responses: {
       200: {
         description:
-          'Antes e depois de quantidade, preço médio, custo, peso e caixa. Os mesmos números que a gravação produz, e nada é criado.',
-        schema: z.object({ preview: transactionPreviewSchema }),
+          'Antes e depois de quantidade, preço médio, custo e peso. Os mesmos números que a gravação produz, e nada é criado. Para `kind: corporate_event`, o efeito por carteira com posição na data-com: o custo total não muda.',
+        schema: z.object({
+          preview: z.union([transactionPreviewSchema, corporateEventPreviewSchema]),
+        }),
       },
       400: { description: 'O lançamento não é válido.', schema: errorResponseSchema },
       404: {
@@ -351,8 +263,7 @@ export const TRANSACTION_ROUTE_DOCS: readonly RouteDoc[] = [
         }),
       },
       400: {
-        description:
-          'Venda que passaria da posição, ou perna de transferência editada sozinha.',
+        description: 'Venda que passaria da posição.',
         schema: errorResponseSchema,
       },
       404: {

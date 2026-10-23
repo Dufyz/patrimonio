@@ -18,14 +18,15 @@ import type { AppError } from '../errors/app-error.js';
  */
 
 /** Os tipos como as pastilhas os agrupam. A fonte da verdade é o contrato. */
-export type StatementGroupKey = 'buy' | 'sell' | 'payout' | 'cash' | 'transfer' | 'event';
+export type StatementGroupKey = 'buy' | 'sell' | 'payout' | 'event' | 'custody';
 
 export type StatementFilter = {
   /** Nulo significa todas as carteiras ativas. */
   readonly portfolioId: string | null;
-  readonly institutionId: string | null;
-  /** Nulo é "Todos". */
-  readonly group: StatementGroupKey | null;
+  /** Qualquer uma delas. Vazio não filtra. */
+  readonly institutionIds: readonly string[];
+  /** Qualquer um deles. Vazio é "Todos". */
+  readonly groups: readonly StatementGroupKey[];
   /** Casa com código e nome do ativo. */
   readonly search: string | null;
   readonly from: DateOnly | null;
@@ -36,12 +37,12 @@ export type StatementFilter = {
 
 /**
  * Uma linha como o banco a entrega: o lançamento, o nome de quem ele aponta e
- * dois fatos que só o recálculo grava — se a venda ficou isenta e qual é a
- * carteira do outro lado de uma transferência.
+ * um fato que só o recálculo grava: se a venda ficou isenta.
  */
 export type StatementLedgerRow = {
   readonly id: string;
-  readonly kind: TransactionKind;
+  /** `custody_transfer` é a troca de custodiante, que não é um lançamento do livro. */
+  readonly kind: TransactionKind | 'custody_transfer';
   readonly payout_kind: PayoutKind | null;
   readonly trade_date: DateOnly;
   readonly settlement_date: DateOnly;
@@ -49,6 +50,8 @@ export type StatementLedgerRow = {
   readonly portfolio_name: string;
   readonly institution_id: string;
   readonly institution_name: string | null;
+  /** Só na transferência de custódia: de onde o papel saiu. */
+  readonly from_institution_name?: string | null;
   readonly asset_id: string | null;
   readonly ticker: string | null;
   readonly asset_name: string | null;
@@ -61,20 +64,14 @@ export type StatementLedgerRow = {
   readonly net_amount: string;
   readonly expected_net_amount: string | null;
   readonly confirmed_at: string | null;
-  readonly transfer_group_id: string | null;
   readonly event_ratio_from: string | null;
   readonly event_ratio_to: string | null;
-  readonly note: string | null;
   /** Nulo quando a venda ainda não passou pelo recálculo. */
   readonly realized_exempt: boolean | null;
-  /** A carteira da outra perna de uma transferência. */
-  readonly transfer_counterpart: string | null;
 };
 
 export type StatementSummaryRow = {
   readonly count: number;
-  readonly deposits: string;
-  readonly withdrawals: string;
   readonly buys: string;
   readonly sells: string;
   readonly payouts: string;

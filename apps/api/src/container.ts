@@ -3,19 +3,22 @@ import {
   createAsset,
   confirmCorporateEvent,
   confirmPayout,
-  createCashMovement,
   createPayout,
-  createCategory,
   createTransaction,
   createFixedIncomeAsset,
-  createInstitution,
+  deleteAllData,
+  exportData,
   createPortfolio,
   deleteAsset,
   deleteManualPrice,
+  deleteCustodyTransfer,
+  getCaixinha,
+  previewCaixinhaRedemption,
+  redeemCaixinha,
+  listCustodyTransfers,
+  transferCustody,
   deleteTransaction,
   dismissPayout,
-  deleteCategory,
-  deleteInstitution,
   deletePortfolio,
   getAsset,
   getAssetPage,
@@ -31,36 +34,37 @@ import {
   getPerformance,
   getTransaction,
   interpretTransaction,
-  getFgcExposure,
   getPortfolio,
   listAssets,
   listManualPrices,
   listTransactions,
+  createCategory,
+  deleteCategory,
   listCategories,
+  updateCategory,
   listCorporateEvents,
   listInstitutions,
   listPortfolios,
+  listClosedPositions,
   listPositions,
   putStrategy,
   setPortfolioArchived,
   previewPayout,
+  previewCorporateEvent,
   previewTransaction,
-  previewTransfer,
   previewUpdate,
   registerCorporateEvent,
   setManualPrice,
-  transferPosition,
   refreshMarketData,
   undoDeletion,
   updateAsset,
   updateTransaction,
-  updateCategory,
-  updateInstitution,
   createDebouncePolicy,
   updatePortfolio,
 } from '@patrimonio/application';
 import type {
   Clock,
+  InstrumentLookup,
   TransactionalRepositories,
   UnitOfWork,
 } from '@patrimonio/application';
@@ -72,7 +76,8 @@ import {
 } from '@patrimonio/db';
 import type { Sql } from '@patrimonio/db';
 import { environment } from '@patrimonio/env';
-import { BRAPI_FREE_MONTHLY_CEILING } from '@patrimonio/market';
+import {
+} from '@patrimonio/market';
 import {
   closeQueues,
   closeRedisConnection,
@@ -92,6 +97,9 @@ export const createApiUseCases = (deps: {
   readonly unitOfWork: UnitOfWork;
   readonly repositories: TransactionalRepositories;
   readonly clock: Clock;
+  /** A busca de papéis ao vivo; sem ela, a busca fica no catálogo local. */
+  readonly lookup?: InstrumentLookup | undefined;
+  /** A cotação de pregão da tela de Posições; sem ela, vale o fechamento. */
 }) => ({
   createPortfolio: createPortfolio({ unitOfWork: deps.unitOfWork }),
   updatePortfolio: updatePortfolio({ unitOfWork: deps.unitOfWork }),
@@ -103,10 +111,6 @@ export const createApiUseCases = (deps: {
   getPortfolio: getPortfolio({ portfolios: deps.repositories.portfolios }),
   putStrategy: putStrategy({ unitOfWork: deps.unitOfWork }),
   listInstitutions: listInstitutions({ institutions: deps.repositories.institutions }),
-  createInstitution: createInstitution({ unitOfWork: deps.unitOfWork }),
-  updateInstitution: updateInstitution({ institutions: deps.repositories.institutions }),
-  deleteInstitution: deleteInstitution({ unitOfWork: deps.unitOfWork }),
-  getFgcExposure: getFgcExposure({ institutions: deps.repositories.institutions }),
   listCategories: listCategories({ categories: deps.repositories.categories }),
   createCategory: createCategory({ unitOfWork: deps.unitOfWork }),
   updateCategory: updateCategory({ unitOfWork: deps.unitOfWork }),
@@ -121,8 +125,15 @@ export const createApiUseCases = (deps: {
   setManualPrice: setManualPrice({ unitOfWork: deps.unitOfWork }),
   listManualPrices: listManualPrices({ manualPrices: deps.repositories.manualPrices }),
   deleteManualPrice: deleteManualPrice({ unitOfWork: deps.unitOfWork }),
+  transferCustody: transferCustody({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
+  listCustodyTransfers: listCustodyTransfers({
+    custodyTransfers: deps.repositories.custodyTransfers,
+  }),
+  deleteCustodyTransfer: deleteCustodyTransfer({ unitOfWork: deps.unitOfWork }),
+  getCaixinha: getCaixinha({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
+  previewCaixinhaRedemption: previewCaixinhaRedemption({ unitOfWork: deps.unitOfWork }),
+  redeemCaixinha: redeemCaixinha({ unitOfWork: deps.unitOfWork }),
   createTransaction: createTransaction({ unitOfWork: deps.unitOfWork }),
-  createCashMovement: createCashMovement({ unitOfWork: deps.unitOfWork }),
   confirmPayout: confirmPayout({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
   dismissPayout: dismissPayout({ unitOfWork: deps.unitOfWork }),
   createPayout: createPayout({
@@ -135,8 +146,7 @@ export const createApiUseCases = (deps: {
     jcpWithholdingPct: String(environment.tax.jcpWithholdingPct),
   }),
   previewTransaction: previewTransaction({ unitOfWork: deps.unitOfWork }),
-  transferPosition: transferPosition({ unitOfWork: deps.unitOfWork }),
-  previewTransfer: previewTransfer({ unitOfWork: deps.unitOfWork }),
+  previewCorporateEvent: previewCorporateEvent({ unitOfWork: deps.unitOfWork }),
   listCorporateEvents: listCorporateEvents({
     corporateEvents: deps.repositories.corporateEvents,
   }),
@@ -171,7 +181,6 @@ export const createApiUseCases = (deps: {
   getMarketHealth: getMarketHealth({
     unitOfWork: deps.unitOfWork,
     clock: deps.clock,
-    ceilings: { brapi: BRAPI_FREE_MONTHLY_CEILING },
     staleAfterDays: environment.market.priceStaleAfterDays,
   }),
   refreshMarketData: refreshMarketData({
@@ -181,6 +190,9 @@ export const createApiUseCases = (deps: {
   getAssetPriceSeries: getAssetPriceSeries({ unitOfWork: deps.unitOfWork }),
   // T-02 lê fora da transação: a tela de Posições só consulta, e abrir uma
   // transação para duas leituras custaria uma conexão do pool a cada abertura.
+  listClosedPositions: listClosedPositions({
+    positionViews: deps.repositories.positionViews,
+  }),
   listPositions: listPositions({
     positionViews: deps.repositories.positionViews,
     clock: deps.clock,
@@ -192,9 +204,16 @@ export const createApiUseCases = (deps: {
   }),
   // T-04 também lê fora da transação: o extrato só consulta.
   getStatement: getStatement({ statements: deps.repositories.statements }),
-  // T-09 lê fora da transação: a busca são duas consultas de leitura.
-  searchGlobal: searchGlobal({ search: deps.repositories.search }),
-  // A tela de abertura: uma rota, duas consultas — o instantâneo e os alertas.
+  // T-09 lê fora da transação: a busca são duas consultas de leitura. A fonte
+  // ao vivo só entra quando o catálogo não acha nada, e a cota é registrada.
+  searchGlobal: searchGlobal({
+    search: deps.repositories.search,
+    lookup:
+      deps.lookup === undefined
+        ? undefined
+        : { source: deps.lookup, unitOfWork: deps.unitOfWork, clock: deps.clock },
+  }),
+  // A tela de abertura: uma rota, que lê o instantâneo da carteira.
   getOverview: getOverview({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
   // T-05 lê fora da transação, como T-02 a T-04: são duas consultas de leitura.
   getPerformance: getPerformance({
@@ -220,6 +239,8 @@ export const createApiUseCases = (deps: {
     jcpWithholdingPct: environment.tax.jcpWithholdingPct,
     backupEnabled: environment.backup.enabled,
   }),
+  exportData: exportData({ settings: deps.repositories.settings }),
+  deleteAllData: deleteAllData({ unitOfWork: deps.unitOfWork }),
   requestBackup: requestBackup({
     unitOfWork: deps.unitOfWork,
     clock: deps.clock,
@@ -276,7 +297,11 @@ export const createContainer = (version: string): ApiContainer => {
     queues,
     repositories,
     unitOfWork,
-    usecases: createApiUseCases({ unitOfWork, repositories, clock: systemClock }),
+    usecases: createApiUseCases({
+      unitOfWork,
+      repositories,
+      clock: systemClock,
+    }),
     clock: systemClock,
     version,
     startedAt: new Date(),

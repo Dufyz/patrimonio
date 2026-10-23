@@ -5,13 +5,12 @@ import type {
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildCashBody,
+  buildEventBody,
+  eventRows,
   duplicateRequest,
-  buildCashPreviewBody,
   buildConfirmBody,
   buildPayoutBody,
   buildTradeBody,
-  buildTransferBody,
   buildUpdateBody,
   editFormOf,
   effectRows,
@@ -26,7 +25,7 @@ import {
   pickPortfolio,
   todayDateOnly,
 } from './entry.js';
-import type { CashForm, PayoutForm, TradeForm, TransferForm } from './entry.js';
+import type { PayoutForm, TradeForm } from './entry.js';
 
 const LONGO = '0191e5a0-0000-7000-8000-00000000c001';
 const RESERVA = '0191e5a0-0000-7000-8000-00000000c002';
@@ -36,6 +35,7 @@ const LANCAMENTO = '0191e5a0-0000-7000-8000-00000000b001';
 
 const trade: TradeForm = {
   assetId: ITUB4,
+  newAsset: null,
   date: '2026-10-06',
   settlement: '',
   quantity: '100',
@@ -43,7 +43,6 @@ const trade: TradeForm = {
   fees: '',
   portfolioId: LONGO,
   institutionId: CORRETORA,
-  note: '',
 };
 
 describe('parseQuantityInput', () => {
@@ -101,6 +100,21 @@ describe('buildTradeBody', () => {
     expect(built.ok && built.body.kind).toBe('sell');
   });
 
+  it('leva o papel do catálogo no lugar do id do ativo', () => {
+    const built = buildTradeBody('buy', {
+      ...trade,
+      assetId: null,
+      newAsset: { ticker: 'BOVA11', name: 'ISHARES BOVA', b3_type: 'etf' },
+    });
+
+    expect(built.ok && built.body.asset).toEqual({
+      ticker: 'BOVA11',
+      name: 'ISHARES BOVA',
+      b3_type: 'etf',
+    });
+    expect(built.ok && built.body.asset_id).toBeUndefined();
+  });
+
   it('diz o que falta no campo de cada um', () => {
     const built = buildTradeBody('buy', {
       ...trade,
@@ -137,67 +151,6 @@ describe('buildTradeBody', () => {
   });
 });
 
-describe('buildCashBody', () => {
-  const cash: CashForm = {
-    portfolioId: LONGO,
-    institutionId: CORRETORA,
-    date: '2026-10-01',
-    amount: '4.000,00',
-    source: 'external',
-    fromPortfolioId: null,
-    note: '',
-  };
-
-  it('monta o aporte de fora do app', () => {
-    expect(buildCashBody('deposit', cash)).toEqual({
-      ok: true,
-      body: {
-        kind: 'deposit',
-        portfolio_id: LONGO,
-        institution_id: CORRETORA,
-        trade_date: '2026-10-01',
-        amount: '4000.00',
-        source: 'external',
-      },
-    });
-  });
-
-  it('dinheiro de outra carteira pede a origem', () => {
-    const built = buildCashBody('deposit', { ...cash, source: 'other_portfolio' });
-
-    expect(built).toEqual({
-      ok: false,
-      errors: { fromPortfolio: 'Escolha a carteira de origem.' },
-    });
-  });
-
-  it('o preview do aporte é o do lançamento de caixa: um real por real', () => {
-    const preview = buildCashPreviewBody('deposit', cash);
-
-    expect(preview).toEqual({
-      ok: true,
-      body: {
-        kind: 'deposit',
-        portfolio_id: LONGO,
-        institution_id: CORRETORA,
-        trade_date: '2026-10-01',
-        quantity: '4000.00',
-        unit_price: '1',
-      },
-    });
-  });
-
-  it('de outra carteira não há preview de aporte', () => {
-    expect(
-      buildCashPreviewBody('deposit', {
-        ...cash,
-        source: 'other_portfolio',
-        fromPortfolioId: RESERVA,
-      }),
-    ).toBeNull();
-  });
-});
-
 describe('buildPayoutBody', () => {
   const payout: PayoutForm = {
     assetId: ITUB4,
@@ -210,7 +163,6 @@ describe('buildPayoutBody', () => {
     portfolioId: LONGO,
     institutionId: CORRETORA,
     received: false,
-    note: '',
   };
 
   it('manda o valor por ação, sem quantidade: ela vem dos lançamentos', () => {
@@ -252,49 +204,6 @@ describe('buildPayoutBody', () => {
   });
 });
 
-describe('buildTransferBody', () => {
-  const transfer: TransferForm = {
-    assetId: ITUB4,
-    fromPortfolioId: LONGO,
-    toPortfolioId: RESERVA,
-    institutionId: CORRETORA,
-    date: '2026-10-06',
-    quantity: '100',
-    all: false,
-    note: '',
-  };
-
-  it('monta a transferência com a quantidade', () => {
-    const built = buildTransferBody(transfer);
-
-    expect(built.ok && built.body.quantity).toBe('100');
-    expect(built.ok && 'all' in built.body).toBe(false);
-  });
-
-  it('"Tudo" manda `all` e não a quantidade', () => {
-    const built = buildTransferBody({ ...transfer, all: true, quantity: '' });
-
-    expect(built.ok && built.body.all).toBe(true);
-    expect(built.ok && 'quantity' in built.body).toBe(false);
-  });
-
-  it('origem e destino iguais são recusados no destino', () => {
-    const built = buildTransferBody({ ...transfer, toPortfolioId: LONGO });
-
-    expect(!built.ok && built.errors.toPortfolio).toBe(
-      'a carteira de origem e a de destino precisam ser diferentes',
-    );
-  });
-
-  it('sem quantidade nem "Tudo", pede uma das duas', () => {
-    const built = buildTransferBody({ ...transfer, quantity: '' });
-
-    expect(!built.ok && built.errors.quantity).toBe(
-      'Informe a quantidade ou use "Tudo".',
-    );
-  });
-});
-
 const original: TransactionResource = {
   id: LANCAMENTO,
   kind: 'buy',
@@ -312,11 +221,10 @@ const original: TransactionResource = {
   payout_kind: null,
   expected_net_amount: null,
   record_date: null,
+  maturity_date: null,
   confirmed_at: null,
-  transfer_group_id: null,
   event_ratio_from: null,
   event_ratio_to: null,
-  note: null,
   idempotency_key: null,
   created_at: '2025-03-12T10:00:00.000Z',
   updated_at: '2025-03-12T10:00:00.000Z',
@@ -414,9 +322,8 @@ describe('buildUpdateBody', () => {
 });
 
 describe('isEditable e isPendingPayout', () => {
-  it('perna de transferência não se edita sozinha', () => {
+  it('evento corporativo não se edita', () => {
     expect(isEditable(original)).toBe(true);
-    expect(isEditable({ ...original, transfer_group_id: RESERVA })).toBe(false);
     expect(isEditable({ ...original, kind: 'corporate_event' })).toBe(false);
   });
 
@@ -435,14 +342,14 @@ describe('isEditable e isPendingPayout', () => {
 
 describe('buildConfirmBody', () => {
   it('lê o líquido recebido', () => {
-    expect(buildConfirmBody({ netAmount: '84,60', note: '' })).toEqual({
+    expect(buildConfirmBody({ netAmount: '84,60' })).toEqual({
       ok: true,
       body: { net_amount: '84.60' },
     });
   });
 
   it('exige o valor', () => {
-    expect(buildConfirmBody({ netAmount: '', note: '' })).toEqual({
+    expect(buildConfirmBody({ netAmount: '' })).toEqual({
       ok: false,
       errors: { netAmount: 'Informe o valor líquido recebido.' },
     });
@@ -487,7 +394,6 @@ const preview: TransactionPreviewResource = {
     cost_basis: { before: '14550.00', after: '18234.00' },
     weight_pct: { before: '5.80', after: '6.90' },
   },
-  cash: { before: '7192.87', after: '3508.87' },
   portfolio_cost_basis: { before: '250000.00', after: '253684.00' },
   allocation: {
     category_id: LONGO,
@@ -551,13 +457,9 @@ describe('effectRows', () => {
     expect(rows.some((row) => row.id === 'realized')).toBe(false);
   });
 
-  it('aporte e resgate mostram só o caixa e o custo da carteira', () => {
-    expect(effectRows('deposit', preview).map((row) => row.id)).toEqual([
-      'cash',
-      'portfolio_cost',
-    ]);
-    expect(effectRows('withdrawal', preview).map((row) => row.id)).toEqual([
-      'cash',
+  it('provento mostra só o custo da posição e o da carteira', () => {
+    expect(effectRows('payout', preview).map((row) => row.id)).toEqual([
+      'cost_basis',
       'portfolio_cost',
     ]);
   });
@@ -577,7 +479,7 @@ describe('effectRows', () => {
 });
 
 describe('operationTotal', () => {
-  it('a compra mostra o total sem o sinal de saída de caixa', () => {
+  it('a compra mostra o total sem o sinal de saída de dinheiro', () => {
     expect(operationTotal(preview)).toBe('3684.00');
     expect(operationTotal({ ...preview, net_amount: '2895.00' })).toBe('2895.00');
   });
@@ -624,8 +526,6 @@ describe('duplicar', () => {
     quantity: '100.00000000',
     unit_price: '31.04000000',
     fees: '0.00000000',
-    note: null,
-    transfer_group_id: null,
   };
 
   it('compra leva ativo, carteira e números; a data não vai', () => {
@@ -633,12 +533,121 @@ describe('duplicar', () => {
       tab: 'buy',
       asset: { id: 'a1', label: 'ITUB4', name: 'Itaú', held: null },
       portfolioId: 'p1',
-      seed: { quantity: '100', price: '31,04', fees: '0', note: '' },
+      seed: { quantity: '100', price: '31,04', fees: '0' },
     });
   });
 
-  it('perna de transferência e evento corporativo não se duplicam', () => {
-    expect(duplicateRequest({ ...row, transfer_group_id: 't1' })).toBeNull();
+  it('evento corporativo não se duplica', () => {
     expect(duplicateRequest({ ...row, kind: 'corporate_event' })).toBeNull();
+  });
+});
+
+describe('evento corporativo', () => {
+  const ASSET = '33333333-3333-4333-8333-333333333333';
+  const form = (overrides: Partial<Parameters<typeof buildEventBody>[0]> = {}) => ({
+    assetId: ASSET,
+    kind: 'split' as const,
+    factor: '2',
+    recordDate: '2026-06-10',
+    ...overrides,
+  });
+
+  it('desdobramento 1 para N', () => {
+    const built = buildEventBody(form());
+
+    expect(built).toMatchObject({
+      ok: true,
+      body: { event_kind: 'split', ratio_from: '1', ratio_to: '2' },
+    });
+  });
+
+  it('grupamento N para 1', () => {
+    const built = buildEventBody(form({ kind: 'reverse_split', factor: '10' }));
+
+    expect(built).toMatchObject({
+      ok: true,
+      body: { event_kind: 'reverse_split', ratio_from: '10', ratio_to: '1' },
+    });
+  });
+
+  it('bonificação em percentual vira a razão 100 para 100+x', () => {
+    const built = buildEventBody(form({ kind: 'bonus', factor: '10' }));
+
+    expect(built).toMatchObject({
+      ok: true,
+      body: { event_kind: 'bonus', ratio_from: '100', ratio_to: '110' },
+    });
+  });
+
+  it('lê o fator com vírgula', () => {
+    const built = buildEventBody(form({ kind: 'bonus', factor: '2,5' }));
+
+    expect(built).toMatchObject({ ok: true, body: { ratio_to: '102.5' } });
+  });
+
+  it('pede o ativo, o fator e a data, cada um no seu campo', () => {
+    const built = buildEventBody(form({ assetId: null, factor: '', recordDate: '' }));
+
+    expect(built).toEqual({
+      ok: false,
+      errors: {
+        asset: 'Escolha o ativo.',
+        factor: 'Informe o fator.',
+        recordDate: 'Informe a data.',
+      },
+    });
+  });
+
+  it('desdobramento e grupamento precisam de fator maior que 1', () => {
+    expect(buildEventBody(form({ factor: '1' }))).toMatchObject({
+      ok: false,
+      errors: { factor: 'O fator precisa ser maior que 1.' },
+    });
+    expect(buildEventBody(form({ kind: 'bonus', factor: '0' }))).toMatchObject({
+      ok: false,
+      errors: { factor: 'O fator precisa ser maior que zero.' },
+    });
+  });
+
+  it('as linhas do efeito marcam o custo total como sem mudança', () => {
+    const rows = eventRows({
+      kind: 'corporate_event',
+      record_date: '2026-06-10',
+      portfolios: [
+        {
+          portfolio_id: 'a',
+          portfolio_name: 'Longo prazo',
+          quantity: { before: '100', after: '200' },
+          avg_price: { before: '30.00', after: '15.00' },
+          cost_basis: { before: '3000.00', after: '3000.00' },
+        },
+      ],
+    });
+
+    expect(rows.map((row) => row.label)).toEqual([
+      'Quantidade',
+      'Preço médio',
+      'Custo total',
+    ]);
+    expect(rows[2]).toMatchObject({ unchanged: true });
+    expect(rows[0]).toMatchObject({ unchanged: false });
+  });
+
+  it('com várias carteiras, cada linha diz de qual é', () => {
+    const portfolio = (id: string, name: string) => ({
+      portfolio_id: id,
+      portfolio_name: name,
+      quantity: { before: '1', after: '2' },
+      avg_price: { before: '2', after: '1' },
+      cost_basis: { before: '2', after: '2' },
+    });
+
+    const rows = eventRows({
+      kind: 'corporate_event',
+      record_date: '2026-06-10',
+      portfolios: [portfolio('a', 'Longo prazo'), portfolio('b', 'Reserva')],
+    });
+
+    expect(rows.map((row) => row.label)).toContain('Quantidade · Reserva');
   });
 });

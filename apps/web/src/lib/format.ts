@@ -52,14 +52,7 @@ type BaseOptions = {
   /** D-03: esconde o valor em reais, preservando a largura. */
   readonly hidden?: boolean;
   readonly decimals?: number;
-  /**
-   * Omite o `R$`, mantendo casas e separador de milhar.
-   *
-   * É para a coluna que é inteira de reais e já diz isso no cabeçalho — a lista
-   * de lançamentos da página do ativo (prancha 06) escreve `1.755,00` e
-   * `+96,12`. O prefixo repetido em cada linha de uma coluna estreita rouba a
-   * largura das colunas ao lado, e não acrescenta informação nenhuma.
-   */
+  /** Sem o `R$` na frente: colunas de preço, onde a unidade já está no cabeçalho. */
   readonly bare?: boolean;
 };
 
@@ -132,7 +125,7 @@ export const formatMoney = (
   options: BaseOptions = {},
 ): FormattedNumber => {
   const prefix = options.bare === true ? '' : 'R$ ';
-  if (options.hidden === true) return masked(prefix.trim());
+  if (options.hidden === true) return masked(options.bare === true ? '' : 'R$');
 
   const parts = value === null || value === undefined ? null : parseDecimal(value);
   if (parts === null) return unavailable();
@@ -264,7 +257,7 @@ export const formatCompact = (
     const rounded = roundToPlaces(parts, decimals);
     const fraction = trimFraction(rounded.fraction, 0);
     const shown = { ...rounded, fraction };
-    return assemble(shown, render(shown), options.signed === true);
+    return assemble(shown, `${render(shown)}`, options.signed === true);
   }
 
   const scaled = roundToPlaces(shiftPoint(parts, -tier.places), decimals);

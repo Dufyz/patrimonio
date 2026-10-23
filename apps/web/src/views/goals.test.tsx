@@ -17,10 +17,6 @@ const goal: GoalResource = {
   target_date: '2040-01-01',
   amount_in_today_brl: true,
   created_on: '2025-01-01',
-  portfolios: {
-    all: false,
-    items: [{ id: LONGO, name: 'Longo prazo', value: '318904.00' }],
-  },
   current_value: '318904.00',
   as_of: '2026-09-30',
   progress_pct: '21.26',
@@ -106,18 +102,18 @@ describe('GoalsView', () => {
 
     expect(screen.getByRole('heading', { name: 'Objetivos' })).toBeTruthy();
     expect(screen.getByText(/Projeção com 6.00% ao ano \(real\)/)).toBeTruthy();
-    expect(screen.getByText('mar/2043')).toBeTruthy();
-    expect(screen.getByText('jan/2040')).toBeTruthy();
+    expect(screen.getAllByText('mar/2043').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('jan/2040').length).toBeGreaterThan(0);
     expect(screen.getByText('necessário')).toBeTruthy();
     expect(screen.getByText('média 12M')).toBeTruthy();
-    expect(screen.getByText('Atrás do necessário')).toBeTruthy();
+    expect(screen.getByText('Abaixo do ritmo')).toBeTruthy();
   });
 
   it('criar e editar ficam desabilitados até T-10', () => {
     montar({ kind: 'ready', value: dados([goal]) });
 
     expect(
-      (screen.getByRole('button', { name: '+ Novo objetivo' }) as HTMLButtonElement)
+      (screen.getByRole('button', { name: 'Novo objetivo' }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
     expect(
@@ -192,7 +188,7 @@ describe('GoalsView', () => {
     montar({ kind: 'ready', value: dados([atingido]) });
 
     expect(screen.getByText('Meta atingida: não há o que projetar.')).toBeTruthy();
-    expect(screen.getByText(/excedente/)).toBeTruthy();
+    expect(screen.getByText(/Excedente/)).toBeTruthy();
   });
 
   it('prazo vencido é dito como vencido', () => {

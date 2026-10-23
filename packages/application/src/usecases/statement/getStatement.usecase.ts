@@ -39,10 +39,6 @@ const toEntry = (row: StatementHistoryRow): LedgerEntry => ({
   event_ratio_to: row.event_ratio_to,
 });
 
-/** Aporte e resgate movem caixa, não posição: não há preço médio a refazer. */
-const needsReplay = (kind: string): boolean =>
-  kind !== 'deposit' && kind !== 'withdrawal';
-
 export const getStatement = (deps: GetStatementDeps) =>
   either(async function* (filter: StatementFilter) {
     const view = yield* await deps.statements.page(filter);
@@ -51,7 +47,7 @@ export const getStatement = (deps: GetStatementDeps) =>
     let until: DateOnly | null = null;
 
     for (const row of view.rows) {
-      if (row.asset_id === null || !needsReplay(row.kind)) continue;
+      if (row.asset_id === null) continue;
 
       pairs.set(pairKey(row.portfolio_id, row.asset_id), {
         portfolio_id: row.portfolio_id,
@@ -105,8 +101,6 @@ export const getStatement = (deps: GetStatementDeps) =>
         tax_withheld: row.tax_withheld,
         net_amount: row.net_amount,
         confirmed_at: row.confirmed_at,
-        transfer_group_id: row.transfer_group_id,
-        note: row.note,
         effect: statementEffect(row, effects.get(row.id)),
       })),
       earlier: view.earlier,

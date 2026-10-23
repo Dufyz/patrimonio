@@ -43,11 +43,13 @@ export type DailyTotals = {
   readonly total_value: string;
   /**
    * Dinheiro que cruzou a fronteira do patrimônio no dia: aporte menos resgate.
-   * Transferência entre carteiras não entra aqui — ela não é dinheiro novo, e
-   * contá-la inventaria aporte e apagaria rentabilidade.
    */
   readonly net_flow: string;
-  /** Quanto do dia veio de provento, destacado dentro do rendimento. */
+  /**
+   * Provento recebido no dia. Ele sai da carteira — o dinheiro vai para a conta
+   * do investidor, fora do patrimônio —, mas é rendimento: entra no retorno do
+   * dia e depois é resgatado da cota.
+   */
   readonly payouts: string;
 };
 
@@ -55,7 +57,10 @@ export type QuotaDay = {
   readonly position_date: string;
   readonly total_value: string;
   readonly net_flow: string;
-  /** Rendimento do dia, já descontado o fluxo. Negativo quando o mercado caiu. */
+  /**
+   * Rendimento do dia, já descontado o fluxo e somado o provento recebido.
+   * Negativo quando o mercado caiu.
+   */
   readonly income: string;
   readonly payouts: string;
   readonly quota_value: string;
@@ -121,9 +126,10 @@ export const buildQuotaSeries = (
     const netFlow = new Decimal(day.net_flow);
     const payouts = new Decimal(day.payouts);
 
-    // O rendimento é o que sobrou depois de tirar o fluxo da variação. É aqui
-    // que aporte deixa de parecer rentabilidade.
-    const income = totalValue.minus(state.totalValue).minus(netFlow);
+    // O rendimento é o que sobrou depois de tirar o fluxo da variação, mais o
+    // provento que saiu da carteira no dia. É aqui que aporte deixa de parecer
+    // rentabilidade.
+    const income = totalValue.minus(state.totalValue).minus(netFlow).plus(payouts);
 
     // O fluxo entra ao valor de cota conhecido — o de ontem. Cria cotas; não
     // reavalia as que já existiam.
@@ -138,7 +144,18 @@ export const buildQuotaSeries = (
     // `isPositive()` é verdadeiro para zero — e aí a carteira sem cota nenhuma
     // caía na divisão 0/0, gravando `NaN` na coluna `quota_value`.
     if (quotaCount.gt(0)) {
-      quotaValue = totalValue.dividedBy(quotaCount).toDecimalPlaces(QUOTA_DP);
+      // O provento ainda conta no valor da cota do dia: ele foi ganho por quem
+      // tinha a cota. Só depois sai, resgatando cotas ao valor de hoje.
+      quotaValue = totalValue
+        .plus(payouts)
+        .dividedBy(quotaCount)
+        .toDecimalPlaces(QUOTA_DP);
+      if (payouts.gt(0) && quotaValue.gt(0)) {
+        quotaCount = Decimal.max(
+          zero,
+          quotaCount.minus(payouts.dividedBy(quotaValue)),
+        ).toDecimalPlaces(QUOTA_DP);
+      }
     } else if (totalValue.gt(0)) {
       // Resgate total e novo aporte no mesmo dia: a série não reinicia. As cotas
       // são recriadas ao último valor conhecido, que continua positivo.

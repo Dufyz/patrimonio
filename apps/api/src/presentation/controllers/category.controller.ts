@@ -38,7 +38,13 @@ export const createCategoryController = (deps: CategoryDeps): CategoryController
   },
 
   create: async (request, response) => {
-    const result = await deps.usecases.createCategory(request.body as CreateCategoryBody);
+    const body = request.body as CreateCategoryBody;
+    const result = await deps.usecases.createCategory({
+      name: body.name,
+      color_token: body.color_token,
+      parent_id: body.parent_id,
+      auto_rule: body.auto_rule,
+    });
 
     if (result.isFailure()) {
       sendFailure(request, response, result.value);
@@ -49,9 +55,10 @@ export const createCategoryController = (deps: CategoryDeps): CategoryController
   },
 
   update: async (request, response) => {
+    const body = request.body as UpdateCategoryBody;
     const result = await deps.usecases.updateCategory(
       String(request.params['category_id']),
-      request.body as UpdateCategoryBody,
+      body,
     );
 
     if (result.isFailure()) {
@@ -74,6 +81,6 @@ export const createCategoryController = (deps: CategoryDeps): CategoryController
       return;
     }
 
-    response.status(200).json({ result: result.value, message: 'Categoria excluída' });
+    response.status(200).json({ category: result.value, message: 'Categoria excluída' });
   },
 });

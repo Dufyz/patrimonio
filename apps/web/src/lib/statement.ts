@@ -23,8 +23,8 @@ import { decodePeriod, encodePeriod } from './period.js';
  * guarda o recorte, o que vai para o CSV. Nenhuma função aqui soma dinheiro.
  */
 
-/** Quantos lançamentos cabem numa página. */
-export const STATEMENT_PAGE_SIZE = 50;
+/** O extrato traz o período inteiro de uma vez; o teto só protege de um pedido sem fim. */
+export const STATEMENT_LIMIT = 2000;
 
 /** Releitura enquanto o recálculo não termina, em milissegundos. */
 export const RECALCULATION_POLL_MS = 4000;
@@ -40,18 +40,16 @@ const GROUP_PARAMS: Readonly<Record<StatementGroup, string>> = {
   buy: 'compras',
   sell: 'vendas',
   payout: 'proventos',
-  cash: 'caixa',
-  transfer: 'transferencias',
   event: 'eventos',
+  custody: 'custodia',
 };
 
 export const GROUP_LABELS: Readonly<Record<StatementGroup, string>> = {
   buy: 'Compras',
   sell: 'Vendas',
   payout: 'Proventos',
-  cash: 'Aportes e resgates',
-  transfer: 'Transferências',
   event: 'Eventos',
+  custody: 'Custódia',
 };
 
 export const groupToParam = (group: StatementGroup): string => GROUP_PARAMS[group];
@@ -63,6 +61,30 @@ export const groupFromParam = (raw: string | null): StatementGroup | null => {
   return found?.[0] ?? null;
 };
 
+/** `vendas,proventos` → os tipos que o endereço pede, sem repetir nem inventar. */
+export const groupsFromParam = (raw: string | null): readonly StatementGroup[] => [
+  ...new Set(
+    (raw ?? '')
+      .split(',')
+      .map((part) => groupFromParam(part))
+      .filter((group): group is StatementGroup => group !== null),
+  ),
+];
+
+/** O padrão — nenhum tipo escolhido — nunca é escrito na URL. */
+export const groupsToParam = (groups: readonly StatementGroup[]): string | null =>
+  groups.length === 0 ? null : groups.map((group) => GROUP_PARAMS[group]).join(',');
+
+/** `id1,id2` do endereço → lista; vazio vira lista vazia. */
+export const listFromParam = (raw: string | null): readonly string[] =>
+  (raw ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part !== '');
+
+export const listToParam = (ids: readonly string[]): string | null =>
+  ids.length === 0 ? null : ids.join(',');
+
 export const periodFromParam = (raw: string | null): Period =>
   raw === null ? DEFAULT_STATEMENT_PERIOD : decodePeriod(raw);
 
@@ -71,11 +93,6 @@ export const periodToParam = (period: Period): string | null =>
   encodePeriod(period) === encodePeriod(DEFAULT_STATEMENT_PERIOD)
     ? null
     : encodePeriod(period);
-
-export const pageFromParam = (raw: string | null): number => {
-  const value = Number(raw);
-  return Number.isInteger(value) && value >= 1 ? value : 1;
-};
 
 /* -------------------------------------------------------------------------- */
 /* Rótulos                                                                    */
@@ -100,7 +117,12 @@ export const sinceLabel = (date: DateOnly): string => {
 export const entriesLabel = (count: number): string =>
   `${count} ${count === 1 ? 'lançamento' : 'lançamentos'}`;
 
-export const typeLabel = (row: StatementRow): string => TRANSACTION_KIND_LABELS[row.kind];
+/** A troca de custodiante é fato do livro, mas não um lançamento: não se edita nem se exclui aqui. */
+export const isLedgerEntry = (row: StatementRow): boolean =>
+  row.kind !== 'custody_transfer';
+
+export const typeLabel = (row: StatementRow): string =>
+  row.kind === 'custody_transfer' ? 'Custódia' : TRANSACTION_KIND_LABELS[row.kind];
 
 /** O "rendimento" ao lado de "Provento": o subtipo, em cinza. */
 export const typeDetail = (row: StatementRow): string | null =>
@@ -108,12 +130,8 @@ export const typeDetail = (row: StatementRow): string | null =>
     ? (PAYOUT_KIND_LABELS[row.payout_kind]?.toLowerCase() ?? null)
     : null;
 
-/** Aporte e resgate não têm ativo: o que eles movem é o caixa da instituição. */
-export const assetLabel = (row: StatementRow): string => {
-  if (row.ticker !== null) return row.ticker;
-  if (row.asset_name !== null) return row.asset_name;
-  return `Caixa · ${row.institution_name ?? 'sem instituição'}`;
-};
+export const assetLabel = (row: StatementRow): string =>
+  row.ticker ?? row.asset_name ?? '—';
 
 export const rowLabel = (row: StatementRow): string =>
   `${typeLabel(row)} de ${assetLabel(row)} em ${row.trade_date}`;
@@ -130,15 +148,10 @@ export type SummaryItem = {
 const isNonZero = (value: string): boolean => compareDecimal(value, '0') !== 0;
 
 /**
- * As linhas do resumo. Aportes, compras, vendas e proventos aparecem sempre —
- * "vendas R$ 0,00" é uma resposta —, resgates só quando houve, porque a maioria
- * dos recortes não tem e a quinta coluna fixa seria ruído.
+ * As linhas do resumo. Compras (aportes), vendas (resgates) e proventos aparecem
+ * sempre — "vendas R$ 0,00" é uma resposta.
  */
 export const summaryItems = (summary: StatementSummary): readonly SummaryItem[] => [
-  { key: 'deposits', label: 'aportes', value: summary.deposits },
-  ...(isNonZero(summary.withdrawals)
-    ? [{ key: 'withdrawals', label: 'resgates', value: summary.withdrawals }]
-    : []),
   { key: 'buys', label: 'compras', value: summary.buys },
   { key: 'sells', label: 'vendas', value: summary.sells },
   { key: 'payouts', label: 'proventos', value: summary.payouts },
@@ -156,19 +169,18 @@ const unsigned = (value: string): string =>
 
 /**
  * O que a coluna Valor mostra. Compra e venda aparecem em módulo, sem sinal — o
- * tipo já diz a direção —, e dinheiro que entra ou sai do caixa leva sinal,
- * como na prancha. É remoção de caractere, não aritmética.
+ * tipo já diz a direção —, e o provento leva sinal, como na prancha. É remoção de caractere, não aritmética.
  */
 export const valueCell = (
   row: StatementRow,
 ): { readonly value: string; readonly signed: boolean } =>
-  row.kind === 'payout' || row.kind === 'deposit' || row.kind === 'withdrawal'
+  row.kind === 'payout'
     ? { value: row.net_amount, signed: true }
     : { value: unsigned(row.net_amount), signed: false };
 
-/** Sem quantidade, preço ou taxa — aporte, resgate — a célula é traço. */
+/** Sem quantidade, preço ou taxa — evento — a célula é traço. */
 export const hasMarketColumns = (row: StatementRow): boolean =>
-  row.kind !== 'deposit' && row.kind !== 'withdrawal' && row.kind !== 'corporate_event';
+  row.kind !== 'corporate_event' && row.kind !== 'custody_transfer';
 
 /* -------------------------------------------------------------------------- */
 /* Efeito                                                                     */
@@ -179,10 +191,10 @@ export type EffectView = {
 };
 
 const money = (value: string, hidden: boolean): string =>
-  formatMoney(value, { bare: true, hidden }).text;
+  formatMoney(value, { hidden }).text;
 
 const change = (value: string, hidden: boolean): string =>
-  formatMoneyChange(value, { bare: true, hidden }).text;
+  formatMoneyChange(value, { hidden }).text;
 
 const ratio = (value: string): string =>
   value.includes('.') ? value.replace(/0+$/, '').replace(/\.$/, '') : value;
@@ -202,7 +214,7 @@ export const effectView = (effect: StatementEffect, hidden = false): EffectView 
       };
     case 'position_opened':
       return {
-        text: `abre posição · PM ${money(effect.avg_price, hidden)}`,
+        text: `PM ${money(effect.avg_price, hidden)}`,
         tone: 'neutral',
       };
     case 'realized': {
@@ -227,22 +239,16 @@ export const effectView = (effect: StatementEffect, hidden = false): EffectView 
         text: `reduz o custo em ${money(effect.amount, hidden)}`,
         tone: 'neutral',
       };
-    case 'cash_in':
-      return { text: 'vindo de fora do app', tone: 'neutral' };
-    case 'cash_out':
-      return { text: 'saindo do app', tone: 'neutral' };
-    case 'transfer': {
-      const place = effect.counterpart === null ? 'outra carteira' : effect.counterpart;
-      return {
-        text: effect.direction === 'in' ? `vindo de ${place}` : `indo para ${place}`,
-        tone: 'neutral',
-      };
-    }
     case 'corporate_event':
       return {
         text: `${ratio(effect.ratio_from)}:${ratio(effect.ratio_to)} · ${ratio(
           effect.quantity_before,
         )} → ${ratio(effect.quantity_after)}`,
+        tone: 'neutral',
+      };
+    case 'custody_transfer':
+      return {
+        text: `${effect.from_institution ?? '—'} → ${effect.to_institution ?? '—'}`,
         tone: 'neutral',
       };
     case 'none':
@@ -259,9 +265,10 @@ export const selectionState = (
   rows: readonly StatementRow[],
   selected: ReadonlySet<string>,
 ): SelectionState => {
-  const count = rows.filter((row) => selected.has(row.id)).length;
+  const selectable = rows.filter(isLedgerEntry);
+  const count = selectable.filter((row) => selected.has(row.id)).length;
   if (count === 0) return 'none';
-  return count === rows.length ? 'all' : 'some';
+  return count === selectable.length ? 'all' : 'some';
 };
 
 export const toggleSelected = (
@@ -281,7 +288,7 @@ export const toggleAll = (
 ): ReadonlySet<string> =>
   selectionState(rows, selected) === 'all'
     ? new Set<string>()
-    : new Set(rows.map((row) => row.id));
+    : new Set(rows.filter(isLedgerEntry).map((row) => row.id));
 
 /** Mantém só o que ainda está na página: página nova não herda seleção velha. */
 export const pruneSelection = (
@@ -300,7 +307,11 @@ export const selectionKinds = (rows: readonly StatementRow[]): string => {
 
   return [...counts.entries()]
     .map(([kind, count]) => {
-      const label = TRANSACTION_KIND_LABELS[kind as StatementRow['kind']].toLowerCase();
+      const label = (
+        kind === 'custody_transfer'
+          ? 'Custódia'
+          : TRANSACTION_KIND_LABELS[kind as keyof typeof TRANSACTION_KIND_LABELS]
+      ).toLowerCase();
       return `${count} ${count === 1 ? label : pluralKind(label)}`;
     })
     .join(' · ');
@@ -326,13 +337,13 @@ const CSV_HEADER = [
 ] as const;
 
 /** Uma célula de texto que começa como fórmula vira texto, não fórmula. */
-const safeText = (value: string): string =>
+export const safeText = (value: string): string =>
   /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 
-const quoted = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+export const quoted = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 
 /** Decimal com vírgula, que é o que a planilha em português entende. */
-const decimalComma = (value: string): string => value.replace('.', ',');
+export const decimalComma = (value: string): string => value.replace('.', ',');
 
 /**
  * O CSV da seleção: `;` e vírgula decimal, porque é assim que a planilha em

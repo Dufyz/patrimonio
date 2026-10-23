@@ -3,7 +3,7 @@ import type { DateOnly, Transaction } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
 
-import { BadRequestError, NotFoundError } from '../../errors/app-error.js';
+import { NotFoundError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
 import type { EnqueuedEvent } from '../../interfaces/outbox.repository.js';
 import type { TransactionPatch } from '../../interfaces/transaction.repository.js';
@@ -28,7 +28,6 @@ export type UpdateTransactionInput = {
   readonly unit_price?: string | undefined;
   readonly fees?: string | undefined;
   readonly tax_withheld?: string | undefined;
-  readonly note?: string | undefined;
   readonly origin_request_id?: string | undefined;
 };
 
@@ -46,7 +45,6 @@ const merged = (
   input: UpdateTransactionInput,
 ): CreateTransactionInput => {
   const assetId = input.asset_id ?? current.asset_id;
-  const note = input.note ?? current.note;
 
   return {
     kind: current.kind,
@@ -61,7 +59,7 @@ const merged = (
     tax_withheld: input.tax_withheld ?? current.tax_withheld,
     ...(current.payout_kind === null ? {} : { payout_kind: current.payout_kind }),
     ...(current.record_date === null ? {} : { record_date: current.record_date }),
-    ...(note === null ? {} : { note }),
+    ...(current.maturity_date === null ? {} : { maturity_date: current.maturity_date }),
     ...(input.origin_request_id === undefined
       ? {}
       : { origin_request_id: input.origin_request_id }),
@@ -76,16 +74,6 @@ const loadForUpdate = async (
   if (found.isFailure()) return found;
   if (found.value === null) {
     return failure(new NotFoundError(`Lançamento ${id} não encontrado`));
-  }
-
-  // A transferência tem duas pernas ligadas: editar uma sozinha deixaria o
-  // patrimônio total diferente dos dois lados.
-  if (found.value.transfer_group_id !== null) {
-    return failure(
-      new BadRequestError(
-        'Transferência é editada excluindo e refazendo: as duas pernas precisam mudar juntas',
-      ),
-    );
   }
 
   return success(found.value);
@@ -138,7 +126,6 @@ export const updateTransaction = (deps: UpdateTransactionDeps) =>
           gross_amount: row.gross_amount,
           net_amount: row.net_amount,
           tax_withheld: row.tax_withheld ?? current.tax_withheld,
-          note: row.note ?? null,
         };
 
         const updated = await repositories.transactions.update(id, patch);

@@ -24,28 +24,22 @@ const renderPeriod = (value: Period, onChange = vi.fn()) => {
 };
 
 describe('barra de controles', () => {
-  it('todos os controles têm a mesma altura', () => {
+  it('o período é um botão só, com a altura dos controles', () => {
     renderPeriod({ kind: 'preset', preset: '12m' });
-    const group = screen.getByRole('radiogroup', { name: 'Período' });
-    expect(group).toHaveClass('h-control');
-  });
-
-  it('o período escolhido fica marcado', () => {
-    renderPeriod({ kind: 'preset', preset: '12m' });
-    expect(screen.getByRole('radio', { name: '12M' })).toBeChecked();
-    expect(screen.getByRole('radio', { name: 'Mês' })).not.toBeChecked();
+    const trigger = screen.getByRole('button', { name: 'Período: Últimos 12 meses' });
+    expect(trigger).toHaveClass('h-control');
   });
 
   it('o calendário abre com dois meses e atalhos de período comum', async () => {
     const user = userEvent.setup();
     renderPeriod({ kind: 'preset', preset: '12m' });
 
-    await user.click(screen.getByRole('button', { name: '…' }));
+    await user.click(screen.getByRole('button', { name: /^Período:/ }));
 
     const dialog = screen.getByRole('dialog', { name: 'Período personalizado' });
     expect(dialog).toBeVisible();
-    expect(screen.getByText('setembro 2026')).toBeVisible();
-    expect(screen.getByText('outubro 2026')).toBeVisible();
+    expect(screen.getByText(/setembro/)).toBeVisible();
+    expect(screen.getByText(/outubro/)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Últimos 3 meses' })).toBeVisible();
   });
 
@@ -53,20 +47,9 @@ describe('barra de controles', () => {
     const user = userEvent.setup();
     const onChange = renderPeriod({ kind: 'preset', preset: '12m' });
 
-    await user.click(screen.getByRole('button', { name: '…' }));
-
-    const setembro = screen.getByText('setembro 2026').closest('table');
-    const outubro = screen.getByText('outubro 2026').closest('table');
-    await user.click(
-      screen
-        .getAllByRole('button', { name: '1' })
-        .find((node) => setembro?.contains(node)) as HTMLElement,
-    );
-    await user.click(
-      screen
-        .getAllByRole('button', { name: '6' })
-        .find((node) => outubro?.contains(node)) as HTMLElement,
-    );
+    await user.click(screen.getByRole('button', { name: /^Período:/ }));
+    await user.click(screen.getByRole('button', { name: /, 1 de setembro/ }));
+    await user.click(screen.getByRole('button', { name: /, 6 de outubro/ }));
     await user.click(screen.getByRole('button', { name: 'Aplicar' }));
 
     expect(onChange).toHaveBeenCalledWith({
@@ -78,14 +61,16 @@ describe('barra de controles', () => {
 
   it('o botão passa a mostrar o intervalo escolhido', () => {
     renderPeriod({ kind: 'custom', from: '2026-09-01', to: '2026-10-06' });
-    expect(screen.getByRole('button', { name: '01/09 – 06/10' })).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Período: Personalizado' }),
+    ).toHaveTextContent('01/09 – 06/10');
   });
 
   it('o calendário fecha com Esc e devolve o foco ao botão', async () => {
     const user = userEvent.setup();
     renderPeriod({ kind: 'preset', preset: '12m' });
 
-    const trigger = screen.getByRole('button', { name: '…' });
+    const trigger = screen.getByRole('button', { name: /^Período:/ });
     await user.click(trigger);
     await user.keyboard('{Escape}');
 
@@ -96,13 +81,9 @@ describe('barra de controles', () => {
   it('não dá para escolher um dia no futuro', async () => {
     const user = userEvent.setup();
     renderPeriod({ kind: 'preset', preset: '12m' });
-    await user.click(screen.getByRole('button', { name: '…' }));
+    await user.click(screen.getByRole('button', { name: /^Período:/ }));
 
-    const outubro = screen.getByText('outubro 2026').closest('table');
-    const dia7 = screen
-      .getAllByRole('button', { name: '7' })
-      .find((node) => outubro?.contains(node));
-    expect(dia7).toBeDisabled();
+    expect(screen.getByRole('button', { name: /, 7 de outubro/ })).toBeDisabled();
   });
 
   it('filtro aplicado aparece como etiqueta removível', async () => {

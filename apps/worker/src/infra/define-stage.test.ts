@@ -80,7 +80,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await sql`delete from pipeline_outbox`;
+  await sql`DELETE FROM pipeline_outbox`;
   await queues.import.obliterate({ force: true });
   await queues.market.obliterate({ force: true });
 });
@@ -124,8 +124,8 @@ const rowOf = async (id: string) => {
       error: string | null;
     }[]
   >`
-    select started_at, completed_at, failed_at, attempts, error
-      from pipeline_outbox where id = ${id}
+    SELECT started_at, completed_at, failed_at, attempts, error
+      FROM pipeline_outbox WHERE id = ${id}
   `;
 
   return row;
@@ -272,14 +272,14 @@ describe('defineStage', () => {
     try {
       await waitFor(async () => {
         const [row] = await sql<{ total: string }[]>`
-          select count(*)::text as total
-            from pipeline_outbox where dedupe_key = 'market:2026-10-06'
+          SELECT COUNT(*)::TEXT AS total
+            FROM pipeline_outbox WHERE dedupe_key = 'market:2026-10-06'
         `;
         return Number(row?.total) === 1;
       });
 
       const [row] = await sql<{ payload: { reference_date: string } }[]>`
-        select payload from pipeline_outbox where dedupe_key = 'market:2026-10-06'
+        SELECT payload FROM pipeline_outbox WHERE dedupe_key = 'market:2026-10-06'
       `;
 
       expect(row?.payload.reference_date).toBe('2026-10-06');

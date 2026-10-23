@@ -51,7 +51,6 @@ describe('dedupeKey', () => {
     expect(dedupeKey.close('2026-10-06')).toBe('close:2026-10-06');
     expect(dedupeKey.import('abc')).toBe('import:abc');
     expect(dedupeKey.market('2026-10-06')).toBe('market:2026-10-06');
-    expect(dedupeKey.alerts('2026-10-06')).toBe('alerts:2026-10-06');
     expect(dedupeKey.backup('2026-10-06')).toBe('backup:2026-10-06');
   });
 });

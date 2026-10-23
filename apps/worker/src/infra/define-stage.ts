@@ -5,9 +5,9 @@ import type {
   UnitOfWork,
   backfillAsset,
   closeDay,
-  collectMarketData,
   recalculatePortfolio,
-  reconcileAlerts,
+  syncMarket,
+  syncPriceHistory,
 } from '@patrimonio/application';
 import { isAppError } from '@patrimonio/application';
 import { dedupeKey, transition } from '@patrimonio/domain';
@@ -35,9 +35,11 @@ export type StageJobData = {
 export type StageUseCases = {
   readonly recalculatePortfolio: ReturnType<typeof recalculatePortfolio>;
   readonly closeDay: ReturnType<typeof closeDay>;
-  readonly reconcileAlerts: ReturnType<typeof reconcileAlerts>;
-  readonly collectMarketData: ReturnType<typeof collectMarketData>;
   readonly backfillAsset: ReturnType<typeof backfillAsset>;
+  /** O histórico desde a estreia de um papel, carregado depois do backfill dele. */
+  readonly syncPriceHistory?: ReturnType<typeof syncPriceHistory>;
+  /** A sincronização até o D-1: incremental no agendamento, reset no botão. */
+  readonly syncMarket: ReturnType<typeof syncMarket>;
 };
 
 export type StageDeps = {
@@ -57,7 +59,7 @@ export type StageDefinition<T> = {
    * O evento que o agendamento insere na outbox, quando o estágio tem job
    * repetível. Sem isso, um estágio agendado não teria o que pedir.
    */
-  readonly scheduledEvent?: (deps: StageDeps) => OutboxEventDraft;
+  readonly scheduledEvent?: (deps: StageDeps) => OutboxEventDraft | Promise<OutboxEventDraft>;
 };
 
 /**
@@ -85,7 +87,7 @@ export const defineStage = <T>(
       // Job repetível: não executa o estágio, insere o pedido na outbox. O
       // relay despacha, e assim o histórico de execução fica no Postgres.
       if (job.data.source === 'schedule') {
-        const draft = definition.scheduledEvent?.(deps);
+        const draft = await definition.scheduledEvent?.(deps);
 
         if (draft === undefined) {
           log.warn('estágio agendado sem evento declarado: nada a inserir');

@@ -4,6 +4,7 @@ import {
   INDEXERS,
   LIQUIDITY_KINDS,
   PRICE_SOURCES,
+  REDEMPTION_RULES,
   TAX_REGIMES,
 } from '@patrimonio/domain';
 import { z } from 'zod';
@@ -22,6 +23,7 @@ export const indexerSchema = z.enum(INDEXERS);
 export const liquidityKindSchema = z.enum(LIQUIDITY_KINDS);
 export const priceSourceSchema = z.enum(PRICE_SOURCES);
 export const taxRegimeSchema = z.enum(TAX_REGIMES);
+export const redemptionRuleSchema = z.enum(REDEMPTION_RULES);
 
 export const assetResourceSchema = z.object({
   id: uuid,
@@ -40,6 +42,8 @@ export const assetResourceSchema = z.object({
   liquidity: liquidityKindSchema.nullable(),
   liquidity_days: z.number().int().nullable(),
   tax_regime: taxRegimeSchema.nullable(),
+  redemption_rule: redemptionRuleSchema.nullable(),
+  lot_term_months: z.number().int().nullable(),
   archived_at: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -70,7 +74,12 @@ export const fixedIncomeAssetSchema = z.object({
   indexer: indexerSchema,
   rate: nonNegativeDecimal,
   issued_at: dateOnly,
-  maturity_date: dateOnly,
+  /** Ausente só na caixinha, que não tem vencimento próprio. */
+  maturity_date: dateOnly.optional(),
+  /** Presente só na caixinha: ativo com lotes e a regra de consumo no resgate. */
+  redemption_rule: redemptionRuleSchema.optional(),
+  /** Caixinha que não vence mas cujos lotes vencem: prazo padrão do aporte, em meses. */
+  lot_term_months: z.number().int().positive().optional(),
   liquidity: liquidityKindSchema,
   liquidity_days: z.number().int().positive().optional(),
   tax_regime: taxRegimeSchema,
@@ -80,7 +89,8 @@ export const fixedIncomeAssetSchema = z.object({
 });
 
 export const assetWritableSchema = z.object({
-  ticker: z.string().trim().min(1).max(20).optional(),
+  // Folga além dos 20 de hoje: o código gerado de um título passa de 20 (CDB-NUPAGAME--CAIXINHA tem 22).
+  ticker: z.string().trim().min(1).max(60).optional(),
   name: name.optional(),
   b3_type: b3TypeSchema.nullable().optional(),
   category_id: uuid.nullable().optional(),
@@ -94,6 +104,8 @@ export const assetWritableSchema = z.object({
   liquidity: liquidityKindSchema.nullable().optional(),
   liquidity_days: z.number().int().positive().nullable().optional(),
   tax_regime: taxRegimeSchema.nullable().optional(),
+  redemption_rule: redemptionRuleSchema.nullable().optional(),
+  lot_term_months: z.number().int().positive().nullable().optional(),
 });
 
 export type AssetResource = z.infer<typeof assetResourceSchema>;

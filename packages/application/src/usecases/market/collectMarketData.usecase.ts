@@ -1,6 +1,6 @@
 import { dailyFactorsFrom } from '@patrimonio/calc';
 import type { IndexObservation } from '@patrimonio/calc';
-import { dedupeKey } from '@patrimonio/domain';
+import { addDays, dedupeKey } from '@patrimonio/domain';
 import type {
   DateOnly,
   IndexCode,
@@ -12,7 +12,11 @@ import { either, success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
 
 import type { AppError } from '../../errors/app-error.js';
-import { isFormatChangedError } from '../../errors/app-error.js';
+import {
+  MarketDataUnavailableError,
+  isFormatChangedError,
+} from '../../errors/app-error.js';
+import { lastBusinessDay } from './lastBusinessDay.js';
 import type { Clock } from '../../interfaces/clock.js';
 import type {
   IndexProvider,
@@ -30,6 +34,7 @@ import type {
 } from '../../interfaces/unit-of-work.js';
 import { applyPlan } from '../../plans/apply.js';
 import { planMarketIngestion } from '../../plans/market.plan.js';
+import { writeTreasuryCatalog } from './treasuryCatalog.js';
 
 /**
  * A coleta do dia: preços, índices e Tesouro, numa execução só, seguida do
@@ -68,6 +73,8 @@ export type CollectMarketDataResult = {
   readonly missing: readonly string[];
   readonly source: string;
   readonly source_kind: PriceSourceKind | 'none';
+  /** Falso quando as cotações do dia não vieram: o dia segue pendente. */
+  readonly quotes_ok: boolean;
 };
 
 export type CollectMarketDataDeps = {
@@ -76,8 +83,6 @@ export type CollectMarketDataDeps = {
   readonly quotes: QuoteSource;
   readonly indices: IndexProvider;
   readonly treasury: TreasurySource;
-  /** Dias de tolerância antes de um preço ser considerado atrasado. */
-  readonly staleAfterDays: number;
   /** As séries a coletar todo dia. */
   readonly indexCodes?: readonly IndexCode[] | undefined;
 };
@@ -116,11 +121,19 @@ const runOf = (input: {
       : null,
 });
 
-const DEFAULT_CODES: readonly IndexCode[] = ['CDI', 'SELIC', 'IPCA'];
+const DEFAULT_CODES: readonly IndexCode[] = ['CDI', 'SELIC', 'IPCA', 'IBOV', 'IFIX'];
+
+/** O calendário recua alguns dias do começo do mês: o índice de pontos precisa do fechamento anterior. */
+const CALENDAR_LOOKBACK_DAYS = 10;
 
 export const collectMarketData = (deps: CollectMarketDataDeps) =>
   either(async function* (input: CollectMarketDataInput) {
-    const date = input.reference_date ?? deps.clock.today();
+    // Sem data pedida, a coleta é a do D-1: o último pregão anterior a hoje.
+    const date =
+      input.reference_date ??
+      (yield* await deps.unitOfWork.run((repositories) =>
+        lastBusinessDay(repositories, deps.clock.today()),
+      ));
 
     // Dia sem pregão não tem preço para coletar. Pedir cotação num feriado
     // devolveria o fechamento de ontem com a data de hoje, que é como um preço
@@ -133,7 +146,7 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
       if (business.isFailure()) return business;
 
       const month = await repositories.businessDays.listBetween(
-        `${date.slice(0, 7)}-01` as DateOnly,
+        addDays(`${date.slice(0, 7)}-01` as DateOnly, -CALENDAR_LOOKBACK_DAYS),
         date,
       );
       if (month.isFailure()) return month;
@@ -155,6 +168,7 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
         missing: [],
         source: 'none',
         source_kind: 'none',
+        quotes_ok: true,
       };
 
       return nothing;
@@ -167,6 +181,7 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
     const startedAt = deps.clock.now().toISOString();
 
     // ── Índices ──────────────────────────────────────────────────────────────
+    const monthStart = `${date.slice(0, 7)}-01` as DateOnly;
     const indexCodes = deps.indexCodes ?? DEFAULT_CODES;
     const indexResult = await deps.indices.fetchSeries(
       indexCodes,
@@ -211,14 +226,27 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
         byCode.set(sample.index_code, bucket);
       }
 
+      const sourceOf = new Map<IndexCode, string>();
+      for (const sample of indexResult.value) {
+        if (!sourceOf.has(sample.index_code)) {
+          sourceOf.set(sample.index_code, sample.source ?? deps.indices.id);
+        }
+      }
+
       for (const [code, samples] of byCode) {
-        for (const factor of dailyFactorsFrom(samples, calendar.days)) {
+        // Só o índice de pontos usa os dias de antes do mês: os demais se
+        // distribuem pelos dias do próprio mês, e dias a mais mudariam o fator.
+        const days = samples.some((sample) => sample.unit === 'index_points')
+          ? calendar.days
+          : calendar.days.filter((day) => day >= monthStart);
+
+        for (const factor of dailyFactorsFrom(samples, days)) {
           observations.push({
             index_code: code,
             quote_date: factor.quote_date as DateOnly,
             daily_factor: factor.daily_factor,
             raw_value: factor.raw_value,
-            source: deps.indices.id,
+            source: sourceOf.get(code) ?? deps.indices.id,
           });
         }
       }
@@ -250,7 +278,11 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
           })
         : await deps.quotes.fetchClosing(tickers, date);
 
-    if (closingResult.isFailure()) {
+    // Cotação que não veio (arquivo do dia ainda não publicado, fonte fora do
+    // ar) não derruba o resto: índices e Tesouro do dia entram, a execução fica
+    // registrada como falha com o motivo, e o dia continua pendente para a
+    // próxima sincronização. Só formato mudado interrompe tudo.
+    if (closingResult.isFailure() && isFormatChangedError(closingResult.value)) {
       yield* await deps.unitOfWork.run(async (repositories) =>
         repositories.market.recordRun(
           runOf({
@@ -268,31 +300,16 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
       return yield* closingResult;
     }
 
-    const closing = closingResult.value;
-
-    // Regra desligada não gera alerta. A reconciliação completa — que preserva
-    // adiado e ignorado — roda no estágio de alertas; aqui o que importa é não
-    // escrever o que o usuário desligou.
-    const enabledRules = yield* await deps.unitOfWork.run(async (repositories) => {
-      const rules = await repositories.alerts.listRules();
-      if (rules.isFailure()) return rules;
-
-      return success(
-        new Set(rules.value.filter((rule) => rule.enabled).map((rule) => rule.kind)),
-      );
-    });
-
-    const latestKnown = yield* await deps.unitOfWork.run(async (repositories) => {
-      const known = await repositories.prices.latestPricesOn(
-        assets.map((asset) => asset.asset_id),
-        date,
-      );
-      if (known.isFailure()) return known;
-
-      return success(
-        new Map(known.value.map((price) => [price.asset_id, price.price_date])),
-      );
-    });
+    const closing: SourcedClosing = closingResult.isSuccess()
+      ? closingResult.value
+      : {
+          quotes: [],
+          missing: tickers,
+          source: 'quotes',
+          source_kind: 'none',
+          requests: 0,
+          skipped: [closingResult.value.message],
+        };
 
     const plan = planMarketIngestion({
       reference_date: date,
@@ -302,16 +319,21 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
       treasury: treasury.quotes,
       treasury_source: treasury.source,
       treasury_source_kind: treasury.source_kind,
-      stale_after_days: deps.staleAfterDays,
-      latest_known: latestKnown,
     });
 
     const finishedAt = deps.clock.now().toISOString();
+    const chainDown =
+      tickers.length > 0 &&
+      closing.source_kind === 'none' &&
+      (closing.skipped?.length ?? 0) > 0;
 
     return yield* await deps.unitOfWork.run<AppError, CollectMarketDataResult>(
       async (repositories) => {
         const written = await writeIngestion(repositories, plan);
         if (written.isFailure()) return written;
+
+        const catalog = await writeTreasuryCatalog(repositories, treasury.quotes);
+        if (catalog.isFailure()) return catalog;
 
         for (const draft of [
           runOf({
@@ -320,11 +342,17 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
             date,
             startedAt,
             finishedAt,
-            ok: true,
+            // Toda a cadeia fora do ar não falha o estágio — a posição segue no
+            // último preço conhecido —, mas a execução fica registrada como
+            // falha, com o motivo de cada elo, para a tela dizer o que fazer.
+            ok: !chainDown,
             sourceKind: closing.source_kind === 'none' ? null : closing.source_kind,
             requests: closing.requests,
             items: plan.prices.length,
             missing: plan.missing.length,
+            error: chainDown
+              ? new MarketDataUnavailableError((closing.skipped ?? []).join(' · '))
+              : null,
           }),
           runOf({
             source: deps.indices.id,
@@ -360,12 +388,6 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
           outcome: 'succeeded',
           portfolio_id: null,
           reference_date: date,
-          alerts: {
-            upserts: findingsAsAlerts(
-              plan.findings.filter((finding) => enabledRules.has(finding.rule_kind)),
-            ),
-            resolved: [],
-          },
           ...(input.origin_request_id === undefined
             ? {}
             : { origin_request_id: input.origin_request_id }),
@@ -380,6 +402,7 @@ export const collectMarketData = (deps: CollectMarketDataDeps) =>
           missing: plan.missing.map((asset) => asset.ticker),
           source: closing.source,
           source_kind: closing.source_kind,
+          quotes_ok: !chainDown,
         });
       },
     );
@@ -409,31 +432,7 @@ const writeIngestion = async (
   return success(prices.value + indices.value);
 };
 
-/**
- * O achado da regra vira a linha do alerta com `status: 'open'`. A reconciliação
- * completa — que preserva adiado e ignorado — roda no estágio de alertas; aqui a
- * escrita é de inserção, e o `UPSERT` por `(rule_kind, subject_id)` não
- * sobrescreve a decisão do usuário porque não toca em quem já existe com outro
- * status.
- */
-const findingsAsAlerts = (
-  findings: readonly {
-    readonly rule_kind: string;
-    readonly subject_id: string;
-    readonly portfolio_id: string | null;
-    readonly payload: Record<string, unknown>;
-  }[],
-) =>
-  findings.map((finding) => ({
-    rule_kind: finding.rule_kind,
-    subject_id: finding.subject_id,
-    portfolio_id: finding.portfolio_id,
-    payload: finding.payload,
-    status: 'open' as const,
-    snooze_until: null,
-  }));
-
-export { runOf, findingsAsAlerts };
+export { runOf };
 
 /** Os eventos que a coleta pede quando um preço antigo chega. */
 export const recalcEventsFor = (

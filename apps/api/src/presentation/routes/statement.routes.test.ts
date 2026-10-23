@@ -22,7 +22,6 @@ import type { ApiHarness } from '../../testing/harness.js';
 
 let harness: ApiHarness;
 let carteira: string;
-let reserva: string;
 let corretora: string;
 let wege3: string;
 let vale3: string;
@@ -50,8 +49,13 @@ const compra = (
   fees: '0',
 });
 
+const comCarteira = (query: string): string =>
+  query.includes('portfolio_id=')
+    ? query
+    : `portfolio_id=${carteira}${query === '' ? '' : `&${query}`}`;
+
 const extrato = async (query = ''): Promise<StatementResource> => {
-  const response = await request(harness.app).get(`/api/statement?${query}`);
+  const response = await request(harness.app).get(`/api/statement?${comCarteira(query)}`);
   expect(response.status, JSON.stringify(response.body)).toBe(200);
   return statementResourceSchema.parse(response.body);
 };
@@ -73,8 +77,6 @@ beforeEach(async () => {
   carteira = (
     await request(harness.app).post('/api/portfolios').send({ name: 'Longo prazo' })
   ).body.portfolio.id;
-  reserva = (await request(harness.app).post('/api/portfolios').send({ name: 'Reserva' }))
-    .body.portfolio.id;
   corretora = await seedInstitution(harness.sql, 'Corretora A');
 });
 
@@ -125,37 +127,6 @@ describe('o efeito de cada lançamento', () => {
     });
   });
 
-  it('aporte e resgate são dinheiro de fora, e o resumo os separa', async () => {
-    await request(harness.app)
-      .post('/api/transactions/cash')
-      .send({
-        kind: 'deposit',
-        portfolio_id: carteira,
-        institution_id: corretora,
-        trade_date: '2026-10-01',
-        amount: '4000.00',
-      })
-      .expect(201);
-    await request(harness.app)
-      .post('/api/transactions/cash')
-      .send({
-        kind: 'withdrawal',
-        portfolio_id: carteira,
-        institution_id: corretora,
-        trade_date: '2026-10-02',
-        amount: '500.00',
-      })
-      .expect(201);
-
-    const body = await extrato(`portfolio_id=${carteira}&group=cash`);
-
-    expect(body.rows.map((row) => row.effect.type)).toEqual(['cash_out', 'cash_in']);
-    expect(body.summary.deposits).toBe('4000.00');
-    expect(body.summary.withdrawals).toBe('500.00');
-    // O caixa tem nome: "Caixa · Corretora A", e não uma linha sem ativo.
-    expect(body.rows[0]?.asset_name).toBe('Caixa · Corretora A');
-  });
-
   it('provento de FII é isento, e o a receber fica fora do recebido', async () => {
     const fii = await lancar({
       ...compra('BTLG11', '2026-08-10', '140', '100.00'),
@@ -198,36 +169,6 @@ describe('o efeito de cada lançamento', () => {
     // Só o que já caiu na conta: 140 × 0,91.
     expect(body.summary.payouts).toBe('127.40');
   });
-
-  it('a transferência diz o sentido e a carteira do outro lado, nas duas pernas', async () => {
-    const abertura = await lancar(compra('PETR4', '2026-08-10', '100', '30.00'));
-
-    await request(harness.app)
-      .post('/api/transactions/transfer')
-      .send({
-        from_portfolio_id: carteira,
-        to_portfolio_id: reserva,
-        asset_id: abertura.asset_id,
-        institution_id: corretora,
-        trade_date: '2026-09-15',
-        quantity: '40',
-      })
-      .expect(201);
-
-    const origem = await extrato(`portfolio_id=${carteira}&group=transfer`);
-    const destino = await extrato(`portfolio_id=${reserva}&group=transfer`);
-
-    expect(origem.rows[0]?.effect).toEqual({
-      type: 'transfer',
-      direction: 'out',
-      counterpart: 'Reserva',
-    });
-    expect(destino.rows[0]?.effect).toEqual({
-      type: 'transfer',
-      direction: 'in',
-      counterpart: 'Longo prazo',
-    });
-  });
 });
 
 describe('o recorte', () => {
@@ -245,9 +186,8 @@ describe('o recorte', () => {
       'buy',
       'sell',
       'payout',
-      'cash',
-      'transfer',
       'event',
+      'custody',
     ]);
     expect(body.institutions.map((item) => item.name)).toEqual(['Corretora A']);
   });
@@ -269,22 +209,21 @@ describe('o recorte', () => {
     expect(pagina.rows).toHaveLength(1);
   });
 
-  it('uma página sem ativo não paga a segunda consulta', async () => {
-    await request(harness.app)
-      .post('/api/transactions/cash')
-      .send({
-        kind: 'deposit',
-        portfolio_id: carteira,
-        institution_id: corretora,
-        trade_date: '2026-10-01',
-        amount: '100.00',
-      })
-      .expect(201);
+  it('sem carteira o extrato é o de todas as carteiras ativas', async () => {
+    await lancar(compra('WEGE3', '2026-08-10', '100', '40.00'));
 
-    // O caixa tem ativo, mas aporte não precisa de replay: o extrato responde.
-    const body = await extrato('group=cash');
+    const response = await request(harness.app).get('/api/statement');
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    const body = statementResourceSchema.parse(response.body);
 
-    expect(body.rows[0]?.effect.type).toBe('cash_in');
+    expect(body.scope.portfolio_id).toBeNull();
+    expect(body.rows).toHaveLength(1);
+  });
+
+  it('uma página vazia não paga a segunda consulta', async () => {
+    const body = await extrato('group=event');
+
+    expect(body.rows).toEqual([]);
   });
 
   it('período invertido, tipo desconhecido e identificador ruim são recusados com 400', async () => {
@@ -295,7 +234,9 @@ describe('o recorte', () => {
       'from=ontem',
       'limit=0',
     ]) {
-      const response = await request(harness.app).get(`/api/statement?${query}`);
+      const response = await request(harness.app).get(
+        `/api/statement?${comCarteira(query)}`,
+      );
       expect(response.status, query).toBe(400);
     }
   });
@@ -313,5 +254,37 @@ describe('o recorte', () => {
     const docs = await request(harness.app).get('/api/docs.json');
 
     expect(docs.body.paths['/api/statement']?.get?.tags).toContain('Lançamentos');
+  });
+});
+
+describe('a transferência de custódia no extrato', () => {
+  it('aparece entre os lançamentos, com de onde e para onde, e não mexe nos totais', async () => {
+    const compraWege = await lancar(compra('WEGE3', '2026-08-10', '100', '40.00'));
+    const destino = await seedInstitution(harness.sql, 'Corretora B');
+
+    const feita = await request(harness.app)
+      .post(`/api/portfolios/${carteira}/assets/${compraWege.asset_id}/custody-transfers`)
+      .send({ to_institution_id: destino, transfer_date: '2026-09-01' });
+    expect(feita.status, JSON.stringify(feita.body)).toBe(201);
+
+    const body = await extrato('from=2026-08-01&to=2026-12-31');
+
+    const troca = body.rows.find((row) => row.kind === 'custody_transfer');
+    expect(troca?.ticker).toBe('WEGE3');
+    expect(troca?.trade_date).toBe('2026-09-01');
+    expect(troca?.institution_name).toBe('Corretora B');
+    expect(troca?.effect).toEqual({
+      type: 'custody_transfer',
+      from_institution: 'Corretora A',
+      to_institution: 'Corretora B',
+    });
+    // Ordem de data: a troca vem antes da compra de agosto.
+    expect(body.rows.map((row) => row.kind)).toEqual(['custody_transfer', 'buy']);
+    // Não é dinheiro: o resumo só tem a compra.
+    expect(body.summary.buys).toBe('4000.00');
+    expect(body.facets.find((facet) => facet.group === 'custody')?.count).toBe(1);
+
+    const soTroca = await extrato('group=custodia'.replace('custodia', 'custody'));
+    expect(soTroca.rows.map((row) => row.kind)).toEqual(['custody_transfer']);
   });
 });

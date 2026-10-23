@@ -109,6 +109,17 @@ const openQuantity = (rows: readonly LedgerRow[]): number => {
   return total;
 };
 
+/** Os termos que definem a curva de um título: mudar um muda o valor dele em toda data. */
+const CURVE_FIELDS = [
+  'indexer',
+  'rate',
+  'issued_at',
+  'maturity_date',
+  'tax_regime',
+  'redemption_rule',
+  'lot_term_months',
+] as const;
+
 /**
  * Trocar a categoria de um ativo reclassifica todo o histórico dele: a alocação
  * de toda carteira que o tem muda em todas as datas, e por isso a edição pede
@@ -127,9 +138,71 @@ export const updateAsset = (deps: AssetWriteDeps) =>
         return failure(new NotFoundError(`Ativo ${id} não encontrado`));
       }
 
+      const before = current.value;
+
+      // Virar caixinha (ou deixar de ser) muda o que a quantidade significa: nela
+      // é o principal, no título comum é a quantidade negociada. Com lançamento,
+      // os lançamentos antigos passariam a valer outra coisa em silêncio.
+      const rule = patch.redemption_rule;
+      if (rule !== undefined && (rule === null) !== (before.redemption_rule === null)) {
+        const usage = await repositories.assets.usage(id);
+        if (usage.isFailure()) return usage;
+
+        if (usage.value.transactions > 0) {
+          return failure(
+            new ConflictError(
+              `O ativo tem ${usage.value.transactions} lançamento(s): só dá para ` +
+                'convertê-lo em caixinha (ou o contrário) enquanto não tiver nenhum. ' +
+                'Cadastre a caixinha nova e lance os aportes nela',
+            ),
+          );
+        }
+      }
+
+      // Efeito do que a edição deixa: caixinha ou vence inteira, ou os lotes têm
+      // prazo; nunca os dois. E liquidez no vencimento precisa de algum vencimento.
+      const effective = {
+        rule: rule === undefined ? before.redemption_rule : rule,
+        maturity:
+          patch.maturity_date === undefined ? before.maturity_date : patch.maturity_date,
+        term:
+          patch.lot_term_months === undefined
+            ? before.lot_term_months
+            : patch.lot_term_months,
+        liquidity: patch.liquidity === undefined ? before.liquidity : patch.liquidity,
+      };
+
+      if (effective.rule !== null) {
+        if (effective.maturity !== null && effective.term !== null) {
+          return failure(
+            new BadRequestError(
+              'Escolha: a caixinha vence como um todo, ou cada lote vence no seu prazo',
+            ),
+          );
+        }
+
+        if (
+          effective.liquidity === 'at_maturity' &&
+          effective.maturity === null &&
+          effective.term === null
+        ) {
+          return failure(
+            new BadRequestError(
+              'Liquidez no vencimento precisa de um vencimento: da caixinha ou de cada lote',
+            ),
+          );
+        }
+      } else if (effective.term !== null) {
+        return failure(new BadRequestError('Prazo por lote só existe na caixinha'));
+      }
+
       const reclassified =
         patch.category_id !== undefined &&
         patch.category_id !== current.value.category_id;
+
+      const recurved = CURVE_FIELDS.some(
+        (field) => patch[field] !== undefined && patch[field] !== before[field],
+      );
 
       const updated = await repositories.assets.update(id, patch);
       if (updated.isFailure()) return updated;
@@ -137,7 +210,21 @@ export const updateAsset = (deps: AssetWriteDeps) =>
         return failure(new NotFoundError(`Ativo ${id} não encontrado`));
       }
 
-      if (reclassified) {
+      // A caixinha pertence a uma instituição, e toda operação dela é nessa
+      // instituição: trocar o emissor leva os lançamentos junto.
+      const reissued =
+        before.redemption_rule !== null &&
+        updated.value.issuer_id !== null &&
+        updated.value.issuer_id !== before.issuer_id;
+      if (reissued && updated.value.issuer_id !== null) {
+        const moved = await repositories.transactions.reassignInstitution(
+          id,
+          updated.value.issuer_id,
+        );
+        if (moved.isFailure()) return moved;
+      }
+
+      if (reclassified || recurved || reissued) {
         const holdings = await repositories.ledger.portfoliosHoldingAsset(id);
         if (holdings.isFailure()) return holdings;
 

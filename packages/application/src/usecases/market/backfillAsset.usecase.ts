@@ -1,10 +1,16 @@
-import type { DateOnly, PriceSourceKind } from '@patrimonio/domain';
+import type { DateOnly, PriceSourceKind, PriceableAsset } from '@patrimonio/domain';
+import { parseTreasuryTicker } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
+import type { Either } from '@patrimonio/shared';
 
 import { NotFoundError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
 import type { Clock } from '../../interfaces/clock.js';
-import type { QuoteSource } from '../../interfaces/market_data.js';
+import type {
+  QuoteSource,
+  SourcedClosing,
+  TreasurySource,
+} from '../../interfaces/market_data.js';
 import type { AssetPriceWrite } from '../../interfaces/market_ingestion.repository.js';
 import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
 import { applyPlan } from '../../plans/apply.js';
@@ -63,6 +69,53 @@ export type BackfillAssetDeps = {
   readonly unitOfWork: UnitOfWork;
   readonly clock: Clock;
   readonly quotes: QuoteSource;
+  /**
+   * O preço do título público vem da tabela do Tesouro, e não de uma fonte de
+   * cotação de bolsa. Sem ela o backfill do Tesouro fica sem fonte.
+   */
+  readonly treasury?: TreasurySource | undefined;
+};
+
+/** O histórico do título, no formato que o resto do backfill já consome. */
+const treasuryHistory = async (
+  source: TreasurySource,
+  asset: PriceableAsset,
+  window: { readonly from: DateOnly; readonly to: DateOnly },
+): Promise<Either<AppError, SourcedClosing>> => {
+  const identity =
+    parseTreasuryTicker(asset.ticker) ??
+    (asset.indexer === 'ipca_plus' ||
+    asset.indexer === 'prefixed' ||
+    asset.indexer === 'selic_plus'
+      ? asset.maturity_date === null
+        ? null
+        : { kind: asset.indexer, coupon: false, maturity_date: asset.maturity_date }
+      : null);
+
+  if (identity === null) {
+    return success<SourcedClosing>({
+      quotes: [],
+      missing: [asset.ticker],
+      source: 'none',
+      source_kind: 'none',
+      requests: 0,
+    });
+  }
+
+  const history = await source.fetchHistory(identity, window.from, window.to);
+  if (history.isFailure()) return history;
+
+  return success({
+    quotes: history.value.quotes.map((quote) => ({
+      ticker: asset.ticker,
+      price_date: quote.quote_date,
+      close: quote.sell_price,
+    })),
+    missing: [],
+    source: history.value.source,
+    source_kind: history.value.source_kind,
+    requests: history.value.source === 'none' ? 0 : 1,
+  });
 };
 
 export const backfillAsset = (deps: BackfillAssetDeps) =>
@@ -105,8 +158,7 @@ export const backfillAsset = (deps: BackfillAssetDeps) =>
 
     // Preço de mercado existe para papel listado e para Tesouro. Título bancário
     // e crédito privado são marcados na curva, e não têm o que buscar.
-    const hasMarketPrice =
-      context.asset.b3_type !== null && context.asset.b3_type !== 'cash';
+    const hasMarketPrice = context.asset.b3_type !== null;
 
     const window = planBackfillWindow({
       first_trade_date: context.asset.first_trade_date,
@@ -134,11 +186,18 @@ export const backfillAsset = (deps: BackfillAssetDeps) =>
 
     const startedAt = deps.clock.now().toISOString();
 
-    const history = await deps.quotes.fetchHistory(
-      context.asset.ticker,
-      window.from,
-      window.to,
-    );
+    const viaTreasury =
+      context.asset.b3_type === 'treasury' && deps.treasury !== undefined;
+
+    // Papel de bolsa vem do COTAHIST anual (a fonte de preço é uma só) e Tesouro
+    // da tabela do Tesouro. Formato mudado é definitivo; fonte fora do ar é
+    // transitória e o job reexecuta. Os dois sobem, e o `defineStage` decide qual é qual.
+    const history = viaTreasury
+      ? await treasuryHistory(deps.treasury as TreasurySource, context.asset, {
+          from: window.from,
+          to: window.to,
+        })
+      : await deps.quotes.fetchHistory(context.asset.ticker, window.from, window.to);
 
     if (history.isFailure()) {
       yield* await deps.unitOfWork.run(async (repositories) =>
@@ -155,16 +214,14 @@ export const backfillAsset = (deps: BackfillAssetDeps) =>
         ),
       );
 
-      // Formato mudado é definitivo; fonte fora do ar é transitória e o job
-      // reexecuta. Os dois sobem, e o `defineStage` decide qual é qual.
       return yield* history;
     }
 
-    const closing = history.value;
+    const closing: SourcedClosing = history.value;
 
     const rows: AssetPriceWrite[] = closing.quotes
       .filter((quote) => quote.price_date >= window.from && quote.price_date <= window.to)
-      .map((quote) => ({
+      .map((quote): AssetPriceWrite => ({
         asset_id: input.asset_id,
         price_date: quote.price_date,
         close: quote.close,

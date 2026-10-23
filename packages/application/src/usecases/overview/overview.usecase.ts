@@ -7,7 +7,6 @@ import {
   sumValues,
   valueChange,
   weighByValue,
-  weightPct,
 } from '@patrimonio/calc';
 import type {
   AllocationLine,
@@ -15,14 +14,8 @@ import type {
   CompositionNode,
   GrowthPoint,
 } from '@patrimonio/calc';
-import { alertGroupFor } from '@patrimonio/domain';
-import type {
-  AlertGroup,
-  AlertInstance,
-  ComputedPriceKind,
-  DateOnly,
-  RecalcStatus,
-} from '@patrimonio/domain';
+import { TOLERANCE_PP } from '@patrimonio/domain';
+import type { ComputedPriceKind, DateOnly, RecalcStatus } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
 
 import { NotFoundError } from '../../errors/app-error.js';
@@ -36,21 +29,11 @@ import type {
 import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
 
 /**
- * A tela de abertura, que responde duas perguntas nessa ordem: **quanto eu
- * tenho hoje** e **o que precisa de mim**.
+ * A tela de abertura: **quanto eu tenho hoje**, como o patrimônio evoluiu e
+ * como se distribui.
  *
- * A ordem é a tela inteira. O patrimônio e a variação vêm primeiro porque é a
- * pergunta que faz a pessoa abrir o app; o que exige ação vem por último
- * porque é o que a faz fechar — e some da tela quando não há nada pendente, em
- * vez de mostrar um painel vazio dizendo que está tudo bem.
- *
- * ## O que esta resposta não faz
- *
- * Ela não executa regra de alerta. As regras rodam no fechamento do dia e
- * gravam o resultado (`reconcileAlerts`); aqui elas só são lidas. Rodar regra
- * na abertura da tela deixaria o painel lento e, pior, faria o mesmo alerta
- * aparecer e sumir conforme a hora em que a tela foi aberta — e adiar e
- * ignorar deixariam de significar alguma coisa.
+ * O patrimônio e a variação vêm primeiro porque é a pergunta que faz a pessoa
+ * abrir o app.
  *
  * ## Por que a cota consolidada é calculada aqui
  *
@@ -64,9 +47,9 @@ import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
 export type OverviewChange = { readonly amount: string; readonly ratio: string | null };
 
 export type OverviewScope = {
+  /** Nulo é o consolidado. */
   readonly portfolio_id: string | null;
   readonly name: string;
-  readonly purpose: string | null;
   readonly tolerance_pp: string;
   readonly recalc_status: RecalcStatus;
   readonly inception: DateOnly | null;
@@ -76,8 +59,6 @@ export type OverviewTotals = {
   readonly value: string | null;
   readonly day: OverviewChange | null;
   readonly month: OverviewChange | null;
-  /** Quanto o escopo é do patrimônio inteiro. Nulo no consolidado. */
-  readonly weight_pct: string | null;
 };
 
 export type OverviewPeriod = {
@@ -91,6 +72,13 @@ export type OverviewPeriod = {
   readonly payouts: string;
 };
 
+export type OverviewPortfolioShare = {
+  readonly portfolio_id: string;
+  readonly name: string;
+  readonly value: string;
+  readonly weight_pct: string;
+};
+
 export type OverviewTopPosition = {
   readonly asset_id: string;
   readonly ticker: string;
@@ -100,34 +88,6 @@ export type OverviewTopPosition = {
   readonly value: string;
   readonly weight_pct: string;
   readonly price_source_kind: ComputedPriceKind;
-};
-
-export type OverviewPortfolioShare = {
-  readonly portfolio_id: string;
-  readonly name: string;
-  readonly value: string;
-  readonly weight_pct: string;
-};
-
-export type OverviewAttentionItem = {
-  readonly rule_kind: string;
-  readonly subject_id: string;
-  readonly portfolio_id: string | null;
-  readonly payload: Record<string, unknown>;
-  readonly first_seen_at: string;
-};
-
-export type OverviewAttentionGroup = {
-  readonly group: AlertGroup;
-  readonly count: number;
-  readonly items: readonly OverviewAttentionItem[];
-};
-
-export type OverviewAttention = {
-  readonly total: number;
-  /** O mesmo painel conta as duas leituras: esta carteira e todas. */
-  readonly total_all_portfolios: number;
-  readonly groups: readonly OverviewAttentionGroup[];
 };
 
 /**
@@ -157,10 +117,10 @@ export type OverviewResult = {
     readonly total_count: number;
     readonly rows: readonly OverviewTopPosition[];
   };
-  readonly attention: OverviewAttention;
 };
 
 export type OverviewInput = {
+  /** Ausente ou nulo é o consolidado. */
   readonly portfolio_id?: string | null | undefined;
   readonly on_date?: DateOnly | undefined;
   readonly from?: DateOnly | undefined;
@@ -257,19 +217,16 @@ const colorize = (
 ): ColoredComposition => ({
   ...composition,
   nodes: composition.nodes.map((node): ColoredNode => {
-    const children = node.children.map(
-      (child): ColoredNode => ({
-        ...child,
-        color_token: tokens.get(child.id) ?? FALLBACK_TOKEN,
-        children: [],
-      }),
-    );
+    const children = node.children.map((child): ColoredNode => ({
+      ...child,
+      color_token: tokens.get(child.id) ?? FALLBACK_TOKEN,
+      children: [],
+    }));
 
     return {
       ...node,
       children,
-      color_token:
-        tokens.get(node.id) ?? children[0]?.color_token ?? FALLBACK_TOKEN,
+      color_token: tokens.get(node.id) ?? children[0]?.color_token ?? FALLBACK_TOKEN,
     };
   }),
 });
@@ -285,14 +242,12 @@ const allocationLines = (snapshot: OverviewSnapshot): readonly AllocationLine[] 
 
 const scopeOf = (
   snapshot: OverviewSnapshot,
-  portfolioId: string | null,
   portfolio: OverviewPortfolioRow | null,
 ): OverviewScope =>
   portfolio === null
     ? {
         portfolio_id: null,
         name: ALL_PORTFOLIOS_NAME,
-        purpose: null,
         // Sem carteira não há tolerância declarada: o desvio aparece sem a
         // marca de "fora da faixa", que é uma decisão de cada carteira.
         tolerance_pp: '0',
@@ -304,48 +259,12 @@ const scopeOf = (
         inception: snapshot.inception,
       }
     : {
-        portfolio_id: portfolioId,
+        portfolio_id: portfolio.portfolio_id,
         name: portfolio.name,
-        purpose: portfolio.purpose,
-        tolerance_pp: portfolio.tolerance_pp,
+        tolerance_pp: TOLERANCE_PP,
         recalc_status: portfolio.recalc_status,
         inception: snapshot.inception,
       };
-
-const attentionOf = (
-  alerts: readonly AlertInstance[],
-  portfolioId: string | null,
-): OverviewAttention => {
-  const inScope =
-    portfolioId === null
-      ? alerts
-      : alerts.filter(
-          (alert) => alert.portfolio_id === portfolioId || alert.portfolio_id === null,
-        );
-
-  const groups = (['corrigir', 'decidir', 'acompanhar'] as const)
-    .map((group): OverviewAttentionGroup => {
-      const items = inScope
-        .filter((alert) => alertGroupFor(alert.rule_kind) === group)
-        .map((alert) => ({
-          rule_kind: alert.rule_kind,
-          subject_id: alert.subject_id,
-          portfolio_id: alert.portfolio_id,
-          payload: alert.payload,
-          first_seen_at: alert.first_seen_at,
-        }));
-
-      return { group, count: items.length, items };
-    })
-    // Nenhum bloco aparece vazio: grupo sem item sai da tela.
-    .filter((group) => group.count > 0);
-
-  return {
-    total: inScope.length,
-    total_all_portfolios: alerts.length,
-    groups,
-  };
-};
 
 export const getOverview = (deps: OverviewDeps) =>
   either(async function* (input: OverviewInput) {
@@ -376,11 +295,6 @@ export const getOverview = (deps: OverviewDeps) =>
         if (portfolioId !== null && portfolio === null) {
           return failure(new NotFoundError(`Carteira ${portfolioId} não encontrada`));
         }
-
-        // A segunda consulta da rota. O painel conta as duas leituras — esta
-        // carteira e todas —, então o escopo é aplicado depois de ler.
-        const alerts = await repositories.alerts.listActive({ on_date: onDate });
-        if (alerts.isFailure()) return alerts;
 
         const referenceDate = snapshot.reference_date;
 
@@ -443,13 +357,11 @@ export const getOverview = (deps: OverviewDeps) =>
 
         return success({
           reference_date: referenceDate,
-          scope: scopeOf(snapshot, portfolioId, portfolio),
+          scope: scopeOf(snapshot, portfolio),
           totals: {
             value: total,
             day: valueChange(snapshot.anchors.previous_day?.total_value ?? null, total),
             month: valueChange(snapshot.anchors.month_base?.total_value ?? null, total),
-            weight_pct:
-              portfolio === null || total === null ? null : weightPct(total, everything),
           },
           period: {
             from,
@@ -462,11 +374,9 @@ export const getOverview = (deps: OverviewDeps) =>
           series: growthSeries(snapshot.days),
           composition: colorize(
             composeAllocation(allocationLines(snapshot), snapshot.targets, {
-              tolerance_pp: portfolio?.tolerance_pp ?? '0',
+              tolerance_pp: portfolio === null ? '0' : TOLERANCE_PP,
             }),
-            new Map(
-              snapshot.categories.map((row) => [row.category_id, row.color_token]),
-            ),
+            new Map(snapshot.categories.map((row) => [row.category_id, row.color_token])),
           ),
           by_portfolio: shares.map((row) => ({
             portfolio_id: row.portfolio_id,
@@ -487,7 +397,6 @@ export const getOverview = (deps: OverviewDeps) =>
               price_source_kind: row.price_source_kind,
             })),
           },
-          attention: attentionOf(alerts.value, portfolioId),
         });
       },
     );

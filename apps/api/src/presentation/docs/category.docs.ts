@@ -12,21 +12,19 @@ import type { RouteDoc } from './route-doc.js';
 
 const TAG = 'Categorias';
 
-const categoryResponse = z.object({
-  category: categoryResourceSchema,
-  message: z.string(),
-});
+const written = z.object({ category: categoryResourceSchema, message: z.string() });
 
 export const CATEGORY_ROUTE_DOCS: readonly RouteDoc[] = [
   {
     method: 'get',
     path: '/categories',
     tag: TAG,
-    summary: 'Grupos e categorias, na ordem de exibição',
+    summary: 'Categorias e classes, na ordem de exibição',
     request: listCategoriesSchema,
     responses: {
       200: {
-        description: 'Dois níveis: o grupo é a soma das categorias dentro dele.',
+        description:
+          'O catálogo da plataforma mais o que a pessoa criou. Classe é a categoria de primeiro nível; as demais ficam dentro de uma classe.',
         schema: z.object({ categories: z.array(categoryResourceSchema) }),
       },
     },
@@ -35,39 +33,28 @@ export const CATEGORY_ROUTE_DOCS: readonly RouteDoc[] = [
     method: 'post',
     path: '/categories',
     tag: TAG,
-    summary: 'Criar grupo ou categoria',
+    summary: 'Criar classe (sem pai) ou categoria dentro de uma classe',
     request: createCategorySchema,
     responses: {
-      201: { description: 'Categoria criada.', schema: categoryResponse },
+      201: { description: 'Criada.', schema: written },
       400: {
-        description:
-          'Cor fora do design system, ou pai que já está dentro de um grupo: só há dois níveis.',
+        description: 'Corpo inválido, ou três níveis.',
         schema: errorResponseSchema,
       },
-      409: {
-        description: 'Já existe categoria com esse nome no mesmo nível.',
-        schema: errorResponseSchema,
-      },
+      409: { description: 'Nome repetido no mesmo nível.', schema: errorResponseSchema },
     },
   },
   {
     method: 'patch',
     path: '/categories/:category_id',
     tag: TAG,
-    summary: 'Editar categoria, cor e regra automática',
+    summary: 'Renomear, recolorir ou mover a categoria de classe',
     request: updateCategorySchema,
     responses: {
-      200: {
-        description:
-          'Renomear mantém os ativos e lançamentos ligados: o vínculo é por id.',
-        schema: categoryResponse,
-      },
-      400: {
-        description: 'A mudança criaria um terceiro nível.',
-        schema: errorResponseSchema,
-      },
-      404: {
-        description: 'Não existe categoria com esse id.',
+      200: { description: 'Atualizada. O id não muda.', schema: written },
+      404: { description: 'Categoria não encontrada.', schema: errorResponseSchema },
+      409: {
+        description: 'Nome repetido, ou alvo de estratégia duplicado pelo movimento.',
         schema: errorResponseSchema,
       },
     },
@@ -76,20 +63,15 @@ export const CATEGORY_ROUTE_DOCS: readonly RouteDoc[] = [
     method: 'delete',
     path: '/categories/:category_id',
     tag: TAG,
-    summary: 'Excluir categoria sem uso',
+    summary: 'Excluir classe ou categoria sem uso',
     request: deleteCategorySchema,
     responses: {
       200: {
         description: 'Excluída.',
-        schema: z.object({ result: z.object({ id: z.string() }), message: z.string() }),
-      },
-      404: {
-        description: 'Não existe categoria com esse id.',
-        schema: errorResponseSchema,
+        schema: z.object({ category: z.object({ id: z.string() }), message: z.string() }),
       },
       409: {
-        description:
-          'Ainda classifica ativo, aparece em alvo de estratégia ou tem categorias dentro dela.',
+        description: 'Tem categorias dentro, ativos ou alvo de estratégia.',
         schema: errorResponseSchema,
       },
     },

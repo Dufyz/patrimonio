@@ -1,32 +1,21 @@
 import { Decimal } from 'decimal.js';
 
 import { BUSINESS_DAYS_PER_YEAR } from '../fixed_income/curve.js';
-import { monthOf } from '../support/dates.js';
 
 /**
- * O benchmark não é série guardada: é definição, calculada a partir de
- * `index_quote` na hora da leitura. Guardar `50% CDI + 50% IBOV` como série
- * exigiria recalcular a tabela inteira a cada mudança de peso, e o usuário muda
- * peso para experimentar.
+ * O benchmark não é série guardada: é uma expressão, calculada a partir de
+ * `index_quote` na hora da leitura. `IPCA+6` e `110%CDI` não precisam de tabela
+ * nem de recálculo — mudar a taxa é trocar o texto.
  *
  * Os índices são guardados como fator diário justamente para isto: o acumulado de
  * qualquer janela é um produto de fatores, e nunca uma reinterpretação da série.
  */
-export type BenchmarkPart = {
-  readonly index: string;
-  /** Peso relativo. `0,5` e `50` dão o mesmo resultado: a soma é normalizada. */
-  readonly weight: string;
-};
-
 export type BenchmarkDefinition =
   | { readonly kind: 'index'; readonly index: string }
   /** `IPCA + 6%`: o cupom compõe por dia útil sobre o índice, não soma linear. */
   | { readonly kind: 'index_plus_rate'; readonly index: string; readonly rate: string }
-  | { readonly kind: 'blend'; readonly parts: readonly BenchmarkPart[] };
-
-export const REBALANCES = ['daily', 'monthly', 'never'] as const;
-
-export type Rebalance = (typeof REBALANCES)[number];
+  /** `110% do CDI`: o fator diário do índice, escalado pelo percentual. */
+  | { readonly kind: 'percent_of_index'; readonly index: string; readonly percent: string };
 
 const FACTOR_DP = 12;
 const PCT_DP = 2;
@@ -40,7 +29,6 @@ export type FactorsByIndex = ReadonlyMap<string, ReadonlyMap<string, string>>;
 
 export type BenchmarkInput = {
   readonly definition: BenchmarkDefinition;
-  readonly rebalance?: Rebalance | undefined;
   readonly factors: FactorsByIndex;
   /** As datas do período, em ordem crescente. Dia útil. */
   readonly dates: readonly string[];
@@ -65,76 +53,19 @@ const dailySpread = (annualPercent: string): Decimal =>
     .plus(new Big(annualPercent).dividedBy(100))
     .pow(one.dividedBy(new Big(BUSINESS_DAYS_PER_YEAR)));
 
-const normalized = (
-  parts: readonly BenchmarkPart[],
-): readonly { index: string; weight: Decimal }[] => {
-  const total = parts.reduce((sum, part) => sum.plus(new Big(part.weight)), new Big(0));
+/** O fator diário da definição para um dia, a partir do fator do índice. */
+const dailyFactor = (
+  definition: BenchmarkDefinition,
+  index: Decimal,
+  spread: Decimal,
+): Decimal =>
+  definition.kind === 'percent_of_index'
+    ? one.plus(index.minus(1).times(new Big(definition.percent)).dividedBy(100))
+    : index.times(spread);
 
-  if (total.isZero()) {
-    return parts.map((part) => ({ index: part.index, weight: new Big(0) }));
-  }
-
-  return parts.map((part) => ({
-    index: part.index,
-    weight: new Big(part.weight).dividedBy(total),
-  }));
-};
-
-/**
- * O acumulado dia a dia. O rebalanceamento é modelado como nocional por parte:
- * `daily` redistribui todo dia, `monthly` na virada do mês e `never` nunca — e
- * nessa última a parte que subiu passa a pesar mais, que é o comportamento de
- * quem comprou e não mexeu.
- */
+/** O acumulado dia a dia, partindo de 1. */
 export const benchmarkSeries = (input: BenchmarkInput): readonly BenchmarkPoint[] => {
-  const rebalance = input.rebalance ?? 'never';
   const points: BenchmarkPoint[] = [];
-
-  if (input.definition.kind === 'blend') {
-    const parts = normalized(input.definition.parts);
-    const notional = parts.map((part) => part.weight);
-    let accumulated = one;
-    let currentMonth: string | null = null;
-
-    for (const date of input.dates) {
-      const month = monthOf(date);
-
-      // A virada do mês redistribui antes de o dia render: o peso declarado vale
-      // para o mês inteiro que começa.
-      if (rebalance === 'monthly' && currentMonth !== null && month !== currentMonth) {
-        parts.forEach((part, index) => {
-          notional[index] = part.weight.times(accumulated);
-        });
-      }
-      currentMonth = month;
-
-      const previous = accumulated;
-
-      parts.forEach((part, index) => {
-        notional[index] = (notional[index] ?? new Big(0)).times(
-          factorOn(input.factors, part.index, date),
-        );
-      });
-
-      accumulated = notional.reduce((sum, value) => sum.plus(value), new Big(0));
-
-      if (rebalance === 'daily') {
-        parts.forEach((part, index) => {
-          notional[index] = part.weight.times(accumulated);
-        });
-      }
-
-      points.push({
-        date,
-        daily_factor: previous.isZero()
-          ? '1.000000000000'
-          : accumulated.dividedBy(previous).toDecimalPlaces(FACTOR_DP).toFixed(FACTOR_DP),
-        accumulated: accumulated.toDecimalPlaces(FACTOR_DP).toFixed(FACTOR_DP),
-      });
-    }
-
-    return points;
-  }
 
   const spread =
     input.definition.kind === 'index_plus_rate'
@@ -144,7 +75,11 @@ export const benchmarkSeries = (input: BenchmarkInput): readonly BenchmarkPoint[
   let accumulated = one;
 
   for (const date of input.dates) {
-    const daily = factorOn(input.factors, input.definition.index, date).times(spread);
+    const daily = dailyFactor(
+      input.definition,
+      factorOn(input.factors, input.definition.index, date),
+      spread,
+    );
     accumulated = accumulated.times(daily);
 
     points.push({

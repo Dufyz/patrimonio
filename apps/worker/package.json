@@ -11,7 +11,7 @@
     "lint": "eslint src",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify:sources": "tsx src/cmd/verify-sources.ts"
+    "verify:sources": "tsx --env-file-if-exists=../../.env src/cmd/verify-sources.ts"
   },
   "dependencies": {
     "@patrimonio/application": "workspace:*",

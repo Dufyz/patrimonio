@@ -9,8 +9,7 @@ import { request } from './client.js';
  * fechamento e a mesma premissa.
  */
 export type GoalsQuery = {
-  /** Nulo é o consolidado: a carteira é filtro, não rota. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
   /** Taxa ao ano, em %, trocada por objetivo. Vazio usa a premissa guardada. */
   readonly rates?: Readonly<Record<string, string>> | undefined;
 };
@@ -20,7 +19,7 @@ export const fetchGoals = async (
   signal?: AbortSignal,
 ): Promise<GoalsResource> => {
   const search = new URLSearchParams();
-  if (query.portfolioId !== null) search.set('portfolio_id', query.portfolioId);
+  search.set('portfolio_id', query.portfolioId);
 
   const rates = Object.entries(query.rates ?? {});
   if (rates.length > 0) {

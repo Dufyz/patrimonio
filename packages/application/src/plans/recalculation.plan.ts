@@ -1,4 +1,4 @@
-import { applyLedger, curveSeries } from '@patrimonio/calc';
+import { addMonths, applyLedger, curveSeries } from '@patrimonio/calc';
 import type { CurveValue } from '@patrimonio/calc';
 import { indexForIndexer } from '@patrimonio/domain';
 import type { DateOnly } from '@patrimonio/domain';
@@ -137,7 +137,8 @@ const curveLookup = (
       business_days: context.calendar,
       index_factors: [...factors].map(([date, daily_factor]) => ({ date, daily_factor })),
       ...(projected === undefined ? {} : { projected_daily_factor: projected }),
-      from_date: context.from_date,
+      // Lote que venceu antes do intervalo ainda precisa do fator congelado.
+      from_date: through < context.from_date ? through : context.from_date,
       through_date: through,
     });
 
@@ -160,6 +161,73 @@ const curveLookup = (
   }
 
   return byAsset;
+};
+
+/**
+ * O fator da curva de cada lote de caixinha em cada dia. Cada aplicação rende a
+ * partir da própria data, com os termos do ativo, e a chave é o id do lançamento
+ * que abriu o lote.
+ */
+const lotCurveLookup = (
+  context: RecalculationContext,
+): ReadonlyMap<string, ReadonlyMap<DateOnly, CurveValue>> => {
+  const byLot = new Map<string, ReadonlyMap<DateOnly, CurveValue>>();
+
+  for (const entry of context.entries) {
+    if (entry.kind !== 'buy' || entry.asset_id === null || entry.id === undefined)
+      continue;
+
+    const terms = context.assets.get(entry.asset_id)?.fixed_income;
+    if (terms === null || terms === undefined) continue;
+    if ((terms.redemption_rule ?? null) === null) continue;
+
+    const code = indexForIndexer(terms.indexer);
+    const factors: ReadonlyMap<DateOnly, string> =
+      code === null ? new Map() : (context.index_factors.get(code) ?? new Map());
+    const projected = code === null ? undefined : context.projected_factors?.get(code);
+
+    // O lote vence na data do aporte, ou na da caixinha; vencido, a curva congela.
+    const maturity =
+      entry.maturity_date ??
+      terms.maturity_date ??
+      (terms.lot_term_months === null || terms.lot_term_months === undefined
+        ? null
+        : addMonths(entry.trade_date, terms.lot_term_months));
+    const through =
+      maturity !== null && maturity < context.through_date
+        ? maturity
+        : context.through_date;
+
+    const series = curveSeries({
+      principal: '1',
+      issued_at: entry.trade_date,
+      indexer: terms.indexer,
+      rate: terms.rate,
+      business_days: context.calendar,
+      index_factors: [...factors].map(([date, daily_factor]) => ({ date, daily_factor })),
+      ...(projected === undefined ? {} : { projected_daily_factor: projected }),
+      from_date: context.from_date,
+      through_date: through,
+    });
+
+    const byDate = new Map<DateOnly, CurveValue>(
+      series.map((value): readonly [DateOnly, CurveValue] => [
+        value.reference_date,
+        value,
+      ]),
+    );
+
+    const last = series[series.length - 1];
+    if (last !== undefined) {
+      for (const day of context.business_days) {
+        if (day > through) byDate.set(day, { ...last, reference_date: day });
+      }
+    }
+
+    byLot.set(entry.id, byDate);
+  }
+
+  return byLot;
 };
 
 /**
@@ -210,6 +278,7 @@ const realizedFor = (context: RecalculationContext): readonly RealizedResultWrit
 export const planRecalculation = (context: RecalculationContext): RecalculationPlan => {
   const nextPrices = priceWalker(context.prices);
   const curves = curveLookup(context);
+  const lotCurves = lotCurveLookup(context);
 
   const positions: PositionDailyWrite[] = [];
   const days: PortfolioDailyWrite[] = [];
@@ -227,6 +296,12 @@ export const planRecalculation = (context: RecalculationContext): RecalculationP
       if (value !== undefined) curvesOn.set(assetId, value);
     }
 
+    const lotCurvesOn = new Map<string, CurveValue>();
+    for (const [lotId, byDate] of lotCurves) {
+      const value = byDate.get(date);
+      if (value !== undefined) lotCurvesOn.set(lotId, value);
+    }
+
     const close = planDailyClose({
       portfolio_id: context.portfolio_id,
       reference_date: date,
@@ -234,6 +309,7 @@ export const planRecalculation = (context: RecalculationContext): RecalculationP
       assets: context.assets,
       prices,
       curves: curvesOn,
+      lot_curves: lotCurvesOn,
       previous,
     });
 

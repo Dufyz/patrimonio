@@ -35,15 +35,6 @@ export type LedgerRepository = {
   readonly entriesForAsset: (assetId: string) => Promise<Either<AppError, LedgerRow[]>>;
 
   /**
-   * O caixa de uma carteira numa instituição é a soma do que entrou e saiu ali:
-   * não existe coluna de saldo, e por isso a leitura é do livro.
-   */
-  readonly entriesForPortfolioInstitution: (
-    portfolioId: string,
-    institutionId: string,
-  ) => Promise<Either<AppError, LedgerRow[]>>;
-
-  /**
    * A categoria de cada ativo que a carteira tem. É o que transforma posições em
    * alocação por classe sem uma consulta por ativo.
    */
@@ -82,4 +73,7 @@ export type LedgerRepository = {
   readonly allEntries: (
     untilDate: DateOnly,
   ) => Promise<Either<AppError, ClassifiedLedgerRow[]>>;
+
+  /** O lançamento mais antigo da instalação; nulo enquanto não há nenhum. */
+  readonly firstTradeDate: () => Promise<Either<AppError, DateOnly | null>>;
 };

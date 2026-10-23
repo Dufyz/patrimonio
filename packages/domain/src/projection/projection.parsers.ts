@@ -1,25 +1,20 @@
 import {
   asBoolean,
   asDateOnly,
-  asDateOnlyOrNull,
   asEnum,
   asInteger,
   asIsoString,
-  asJsonOrNull,
   asNumeric,
   asNumericOrNull,
   asString,
-  asStringOrNull,
 } from '../support/row.js';
 import type { Row } from '../support/row.js';
 import {
-  ALERT_STATUSES,
   ASSET_CLASSES,
   COMPUTED_PRICE_KINDS,
   PRICE_SOURCE_KINDS,
 } from './projection.entities.js';
 import type {
-  AlertInstance,
   AssetPrice,
   IndexQuote,
   PortfolioDaily,
@@ -81,17 +76,6 @@ export const parseTaxMonthFromDB = (row: Row): TaxMonth => ({
   exempt: asBoolean(row, 'exempt'),
   loss_carried_forward: asNumeric(row, 'loss_carried_forward'),
   computed_at: asIsoString(row, 'computed_at'),
-});
-
-export const parseAlertInstanceFromDB = (row: Row): AlertInstance => ({
-  rule_kind: asString(row, 'rule_kind'),
-  subject_id: asString(row, 'subject_id'),
-  portfolio_id: asStringOrNull(row, 'portfolio_id'),
-  status: asEnum(row, 'status', ALERT_STATUSES),
-  snooze_until: asDateOnlyOrNull(row, 'snooze_until'),
-  payload: asJsonOrNull(row, 'payload') ?? {},
-  first_seen_at: asIsoString(row, 'first_seen_at'),
-  updated_at: asIsoString(row, 'updated_at'),
 });
 
 export const parseAssetPriceFromDB = (row: Row): AssetPrice => ({

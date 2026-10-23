@@ -5,19 +5,27 @@ import type {
   createFixedIncomeAsset,
   deleteAsset,
   getAsset,
+  getCaixinha,
+  previewCaixinhaRedemption,
+  redeemCaixinha,
   listAssets,
   listManualPrices,
   setManualPrice,
+  transferCustody,
+  listCustodyTransfers,
+  deleteCustodyTransfer,
   updateAsset,
 } from '@patrimonio/application';
 import type {
+  CaixinhaRedemptionBody,
   CreateAssetBody,
   SetManualPriceBody,
+  TransferCustodyBody,
   UpdateAssetBody,
 } from '@patrimonio/contracts';
 import type { RequestHandler } from 'express';
 
-import { sendFailure, validatedQuery } from '../middleware/respond.js';
+import { idempotencyKey, sendFailure, validatedQuery } from '../middleware/respond.js';
 
 export type AssetDeps = {
   readonly usecases: {
@@ -31,6 +39,12 @@ export type AssetDeps = {
     readonly setManualPrice: ReturnType<typeof setManualPrice>;
     readonly listManualPrices: ReturnType<typeof listManualPrices>;
     readonly deleteManualPrice: ReturnType<typeof deleteManualPrice>;
+    readonly transferCustody: ReturnType<typeof transferCustody>;
+    readonly listCustodyTransfers: ReturnType<typeof listCustodyTransfers>;
+    readonly deleteCustodyTransfer: ReturnType<typeof deleteCustodyTransfer>;
+    readonly getCaixinha: ReturnType<typeof getCaixinha>;
+    readonly previewCaixinhaRedemption: ReturnType<typeof previewCaixinhaRedemption>;
+    readonly redeemCaixinha: ReturnType<typeof redeemCaixinha>;
   };
 };
 
@@ -44,6 +58,12 @@ export type AssetController = {
   readonly setManualPrice: RequestHandler;
   readonly listManualPrices: RequestHandler;
   readonly deleteManualPrice: RequestHandler;
+  readonly transferCustody: RequestHandler;
+  readonly listCustodyTransfers: RequestHandler;
+  readonly deleteCustodyTransfer: RequestHandler;
+  readonly caixinha: RequestHandler;
+  readonly previewCaixinhaRedemption: RequestHandler;
+  readonly redeemCaixinha: RequestHandler;
 };
 
 type AssetQuery = {
@@ -101,6 +121,8 @@ export const createAssetController = (deps: AssetDeps): AssetController => ({
             liquidity: body.liquidity,
             liquidity_days: body.liquidity_days,
             tax_regime: body.tax_regime,
+            redemption_rule: body.redemption_rule,
+            lot_term_months: body.lot_term_months,
             name: body.name,
             category_id: body.category_id,
           })
@@ -219,5 +241,166 @@ export const createAssetController = (deps: AssetDeps): AssetController => ({
     }
 
     response.status(200).json({ message: 'Preço manual removido' });
+  },
+
+  /**
+   * Transferir o ativo para outra instituição. A origem é a custódia atual, lida
+   * do livro; a troca não vende nem compra, e por isso não enfileira recálculo.
+   */
+  transferCustody: async (request, response) => {
+    const body = request.body as TransferCustodyBody;
+
+    const result = await deps.usecases.transferCustody({
+      portfolio_id: String(request.params['portfolio_id']),
+      asset_id: String(request.params['asset_id']),
+      to_institution_id: body.to_institution_id,
+      transfer_date: body.transfer_date,
+      note: body.note ?? null,
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(201).json({
+      custody_transfer: result.value.transfer,
+      from_institution_name: result.value.from_institution_name,
+      to_institution_name: result.value.to_institution_name,
+      message: 'Custódia transferida',
+    });
+  },
+
+  listCustodyTransfers: async (request, response) => {
+    const result = await deps.usecases.listCustodyTransfers(
+      String(request.params['portfolio_id']),
+      String(request.params['asset_id']),
+    );
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({ custody_transfers: result.value });
+  },
+
+  deleteCustodyTransfer: async (request, response) => {
+    const result = await deps.usecases.deleteCustodyTransfer(
+      String(request.params['portfolio_id']),
+      String(request.params['asset_id']),
+      String(request.params['transfer_id']),
+    );
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({ message: 'Transferência desfeita' });
+  },
+
+  caixinha: async (request, response) => {
+    const query = validatedQuery<{ readonly as_of?: string }>(request);
+
+    const result = await deps.usecases.getCaixinha({
+      portfolio_id: String(request.params['portfolio_id']),
+      asset_id: String(request.params['asset_id']),
+      ...(query?.as_of === undefined ? {} : { as_of: query.as_of }),
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    const { as_of, rule, valuation, incomplete } = result.value;
+
+    response.status(200).json({
+      as_of,
+      redemption_rule: rule,
+      lots: valuation.lots,
+      principal: valuation.principal,
+      gross_value: valuation.gross_value,
+      accrued_interest: valuation.accrued_interest,
+      tax_due: valuation.tax_due,
+      net_value: valuation.net_value,
+      incomplete,
+    });
+  },
+
+  previewCaixinhaRedemption: async (request, response) => {
+    const body = request.body as CaixinhaRedemptionBody;
+
+    const result = await deps.usecases.previewCaixinhaRedemption({
+      portfolio_id: String(request.params['portfolio_id']),
+      asset_id: String(request.params['asset_id']),
+      trade_date: body.trade_date,
+      amount: body.amount,
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    const { plan, rule, incomplete } = result.value;
+
+    response.status(200).json({
+      redemption_rule: rule,
+      slices: plan.slices,
+      gross_value: plan.gross_value,
+      tax_due: plan.tax_due,
+      net_value: plan.net_value,
+      insufficient: plan.insufficient,
+      available_gross: plan.available_gross,
+      incomplete,
+    });
+  },
+
+  redeemCaixinha: async (request, response) => {
+    const body = request.body as CaixinhaRedemptionBody;
+    const key = idempotencyKey(request);
+
+    const result = await deps.usecases.redeemCaixinha({
+      portfolio_id: String(request.params['portfolio_id']),
+      asset_id: String(request.params['asset_id']),
+      trade_date: body.trade_date,
+      amount: body.amount,
+      ...(key === undefined ? {} : { idempotency_key: key }),
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    const { transaction, redemption, queued, replayed } = result.value;
+
+    response.status(replayed ? 200 : 201).json({
+      transaction,
+      redemption:
+        redemption === null
+          ? null
+          : {
+              redemption_rule: redemption.rule,
+              slices: redemption.plan.slices,
+              gross_value: redemption.plan.gross_value,
+              tax_due: redemption.plan.tax_due,
+              net_value: redemption.plan.net_value,
+              insufficient: false,
+              available_gross: redemption.plan.available_gross,
+              incomplete: redemption.incomplete,
+            },
+      recalculation:
+        queued === null
+          ? null
+          : {
+              job_id: queued.id,
+              dedupe_key: queued.dedupe_key,
+              already_queued: queued.already_queued,
+            },
+      message: replayed ? 'Resgate já havia sido registrado' : 'Resgate registrado',
+    });
   },
 });

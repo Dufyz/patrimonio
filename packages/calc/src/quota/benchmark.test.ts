@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  blendDates,
-  cdiAndIbov,
+  shortDates,
   cdiOneYear,
   cdiWithGap,
   neutralIpca,
@@ -28,20 +27,20 @@ describe('índice simples', () => {
     const comBuraco = benchmarkReturn({
       definition: { kind: 'index', index: 'CDI' },
       factors: cdiWithGap,
-      dates: blendDates,
+      dates: shortDates,
     });
     const completo = benchmarkReturn({
       definition: { kind: 'index', index: 'CDI' },
       factors: new Map([
         [
           'CDI',
-          new Map(blendDates.map((date) => [date, '1.000400000000'])) as ReadonlyMap<
+          new Map(shortDates.map((date) => [date, '1.000400000000'])) as ReadonlyMap<
             string,
             string
           >,
         ],
       ]),
-      dates: blendDates,
+      dates: shortDates,
     });
 
     // Um dia a menos de fator é um dia a menos de rendimento — e não o fator do
@@ -105,90 +104,48 @@ describe('índice mais taxa', () => {
   });
 });
 
-describe('benchmark composto', () => {
-  const definition = {
-    kind: 'blend' as const,
-    parts: [
-      { index: 'CDI', weight: '0.5' },
-      { index: 'IBOV', weight: '0.5' },
-    ],
-  };
-
-  it('o peso é normalizado: 0,5 e 50 dão o mesmo resultado', () => {
-    const comFracao = benchmarkReturn({
-      definition,
-      rebalance: 'daily',
-      factors: cdiAndIbov,
-      dates: blendDates,
+describe('percentual do índice', () => {
+  it('110% do CDI rende 10% a mais que o CDI em fator, não em taxa anual', () => {
+    const cdi = benchmarkReturn({
+      definition: { kind: 'index', index: 'CDI' },
+      factors: cdiOneYear,
+      dates: oneYearDates,
     });
-    const comPercentual = benchmarkReturn({
-      definition: {
-        kind: 'blend',
-        parts: [
-          { index: 'CDI', weight: '50' },
-          { index: 'IBOV', weight: '50' },
-        ],
-      },
-      rebalance: 'daily',
-      factors: cdiAndIbov,
-      dates: blendDates,
+    const cento = benchmarkReturn({
+      definition: { kind: 'percent_of_index', index: 'CDI', percent: '100' },
+      factors: cdiOneYear,
+      dates: oneYearDates,
+    });
+    const acima = benchmarkReturn({
+      definition: { kind: 'percent_of_index', index: 'CDI', percent: '110' },
+      factors: cdiOneYear,
+      dates: oneYearDates,
     });
 
-    expect(comPercentual.factor).toBe(comFracao.factor);
+    expect(cento.return_pct).toBe(cdi.return_pct);
+    expect(Number(acima.return_pct)).toBeGreaterThan(Number(cdi.return_pct));
   });
 
-  it('rebalancear na periodicidade declarada muda o resultado', () => {
-    const resultados = (['daily', 'monthly', 'never'] as const).map(
-      (rebalance) =>
-        benchmarkReturn({ definition, rebalance, factors: cdiAndIbov, dates: blendDates })
-          .factor,
-    );
-
-    expect(new Set(resultados).size).toBe(3);
-  });
-
-  it('sem rebalanceamento a parte que sobe passa a pesar mais', () => {
-    const series = benchmarkSeries({
-      definition,
-      rebalance: 'never',
-      factors: cdiAndIbov,
-      dates: blendDates.slice(0, 2),
+  it('50% do CDI rende menos que o CDI', () => {
+    const metade = benchmarkReturn({
+      definition: { kind: 'percent_of_index', index: 'CDI', percent: '50' },
+      factors: cdiOneYear,
+      dates: oneYearDates,
     });
 
-    // Dia 1 o IBOV sobe 2% e o CDI 0,04%: a carteira sobe ~1,02%. Dia 2 o IBOV
-    // cai 2% sobre uma base maior, então o conjunto não volta ao ponto de partida.
-    expect(Number(series[0]?.accumulated)).toBeGreaterThan(1);
-    expect(Number(series[1]?.accumulated)).toBeLessThan(Number(series[0]?.accumulated));
-  });
-
-  it('peso somando zero não divide por zero', () => {
-    const result = benchmarkReturn({
-      definition: {
-        kind: 'blend',
-        parts: [
-          { index: 'CDI', weight: '0' },
-          { index: 'IBOV', weight: '0' },
-        ],
-      },
-      factors: cdiAndIbov,
-      dates: blendDates,
-    });
-
-    expect(result.factor).toBe('0.000000000000');
+    expect(Number(metade.return_pct)).toBeLessThan(10.65);
+    expect(Number(metade.return_pct)).toBeGreaterThan(5);
   });
 
   it('a série devolve uma linha por data, com o fator do dia e o acumulado', () => {
     const series = benchmarkSeries({
-      definition,
-      rebalance: 'daily',
-      factors: cdiAndIbov,
-      dates: blendDates,
+      definition: { kind: 'percent_of_index', index: 'CDI', percent: '110' },
+      factors: cdiWithGap,
+      dates: shortDates,
     });
 
-    expect(series).toHaveLength(blendDates.length);
-    expect(series[0]?.date).toBe(blendDates[0]);
-    // Metade de +2% e metade de +0,04% é +1,02% no dia.
-    expect(series[0]?.daily_factor).toBe('1.010200000000');
+    expect(series).toHaveLength(shortDates.length);
+    expect(series[0]?.date).toBe(shortDates[0]);
   });
 });
 

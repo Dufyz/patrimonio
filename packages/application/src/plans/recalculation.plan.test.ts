@@ -17,18 +17,6 @@ const DAYS = [
   '2024-03-08',
 ];
 
-const deposit = (trade_date: string, amount: string): CloseEntry => ({
-  id: `dep-${trade_date}`,
-  kind: 'deposit',
-  trade_date,
-  quantity: amount,
-  unit_price: '1',
-  fees: '0',
-  net_amount: amount,
-  asset_id: 'caixa',
-  institution_id: INSTITUTION,
-});
-
 const buy = (trade_date: string, quantity: string, unitPrice: string): CloseEntry => ({
   id: `buy-${trade_date}`,
   kind: 'buy',
@@ -55,24 +43,12 @@ const sell = (trade_date: string, quantity: string, unitPrice: string): CloseEnt
 
 const assets = new Map<string, CloseAsset>([
   [
-    'caixa',
-    {
-      id: 'caixa',
-      ticker: 'CAIXA-BANCO',
-      b3_type: 'cash',
-      category_id: null,
-      institution_id: INSTITUTION,
-      fixed_income: null,
-    },
-  ],
-  [
     'itub4',
     {
       id: 'itub4',
       ticker: 'ITUB4',
       b3_type: 'stock',
       category_id: 'cat-acoes',
-      institution_id: null,
       fixed_income: null,
     },
   ],
@@ -92,7 +68,6 @@ const prices = new Map<string, readonly PriceOn[]>([
 ]);
 
 const entries: readonly CloseEntry[] = [
-  deposit('2024-03-01', '10000.00'),
   buy('2024-03-04', '100', '30.00'),
   sell('2024-03-07', '40', '33.00'),
 ];
@@ -136,9 +111,16 @@ describe('reconstruir do livro', () => {
     expect(sexta?.price_source_kind).toBe('stale');
   });
 
-  it('o aporte do primeiro dia é fluxo, e o rendimento dele é zero', () => {
-    expect(plan.portfolio_days[0]?.net_flow).toBe('10000.00');
-    expect(plan.portfolio_days[0]?.income).toBe('0.00');
+  it('a carteira sem posição fecha em zero, e a primeira compra é fluxo sem rendimento', () => {
+    expect(plan.portfolio_days[0]?.total_value).toBe('0.00');
+    expect(plan.portfolio_days[1]?.net_flow).toBe('3000.00');
+    expect(plan.portfolio_days[1]?.income).toBe('0.00');
+  });
+
+  it('a venda é resgate: o fluxo do dia é negativo', () => {
+    const day = plan.portfolio_days.find((row) => row.position_date === '2024-03-07');
+
+    expect(day?.net_flow).toBe('-1320.00');
   });
 
   it('o relatório diz o intervalo reconstruído e quantas linhas mudaram', () => {
@@ -192,10 +174,10 @@ describe('a invariante central: do zero é igual ao incremental', () => {
         business_days: ['2024-03-07', '2024-03-08'],
         previous: {
           position_date: '2024-03-06',
-          total_value: '10100.00',
-          quota_value: '1.010000000000',
-          quota_count: '10000.000000000000',
-          cumulative_contributions: '10000.00',
+          total_value: '3100.00',
+          quota_value: '1.033333333333',
+          quota_count: '3000.000000000000',
+          cumulative_contributions: '3000.00',
         },
       }),
     );
@@ -286,7 +268,6 @@ describe('renda fixa na reconstrução', () => {
           ticker: 'CDB-BANCO-20281010',
           b3_type: null,
           category_id: 'cat-posfixado',
-          institution_id: null,
           fixed_income: {
             indexer: 'cdi_pct' as const,
             rate: '112',
@@ -327,5 +308,149 @@ describe('renda fixa na reconstrução', () => {
 
     expect(plan.positions.every((row) => row.market_value === '10000.00')).toBe(true);
     expect(plan.report.days_with_stale_price).toBeGreaterThan(0);
+  });
+});
+
+describe('caixinha na reconstrução', () => {
+  const calendar = ['2024-01-02', '2024-01-03', '2024-01-04', '2024-01-05'];
+
+  const aplicacao = (id: string, trade_date: string, amount: string): CloseEntry => ({
+    id,
+    kind: 'buy',
+    trade_date,
+    quantity: amount,
+    unit_price: '1',
+    fees: '0',
+    net_amount: `-${amount}`,
+    asset_id: 'caixinha',
+    institution_id: INSTITUTION,
+  });
+
+  const caixinhaContext = (
+    book: readonly CloseEntry[],
+    rule: 'oldest_first' | 'newest_first' = 'oldest_first',
+  ): RecalculationContext => ({
+    portfolio_id: PORTFOLIO,
+    from_date: '2024-01-02',
+    through_date: '2024-01-05',
+    business_days: calendar,
+    calendar,
+    entries: book,
+    assets: new Map([
+      [
+        'caixinha',
+        {
+          id: 'caixinha',
+          ticker: 'CDB-ITAU-CAIXINHA',
+          b3_type: null,
+          category_id: 'cat-posfixado',
+          fixed_income: {
+            indexer: 'cdi_pct' as const,
+            rate: '100',
+            issued_at: '2024-01-02',
+            maturity_date: null,
+            redemption_rule: rule,
+          },
+        },
+      ],
+    ]),
+    prices: new Map(),
+    index_factors: new Map([['CDI', new Map(calendar.map((date) => [date, '1.0004']))]]),
+    previous: null,
+  });
+
+  const valueOn = (plan: ReturnType<typeof planRecalculation>, date: string): string =>
+    plan.positions.find((row) => row.position_date === date)?.market_value ?? '';
+
+  it('cada aplicação rende a partir da própria data, não da abertura da caixinha', () => {
+    const plan = planRecalculation(
+      caixinhaContext([
+        aplicacao('a1', '2024-01-02', '1000'),
+        aplicacao('a2', '2024-01-04', '500'),
+      ]),
+    );
+
+    expect(valueOn(plan, '2024-01-03')).toBe('1000.40');
+    // a2 entra no dia 4 valendo o principal, sem herdar os dois dias do lote antigo.
+    expect(valueOn(plan, '2024-01-04')).toBe('1500.80');
+    expect(valueOn(plan, '2024-01-05')).toBe('1501.40');
+  });
+
+  it('resgatar o lote mais antigo deixa só o lote novo rendendo', () => {
+    const plan = planRecalculation(
+      caixinhaContext([
+        aplicacao('a1', '2024-01-02', '1000'),
+        aplicacao('a2', '2024-01-04', '500'),
+        {
+          id: 'r1',
+          kind: 'sell',
+          trade_date: '2024-01-05',
+          quantity: '1000',
+          unit_price: '1.0012',
+          fees: '0',
+          net_amount: '1001.20',
+          asset_id: 'caixinha',
+          institution_id: INSTITUTION,
+        },
+      ]),
+    );
+
+    const last = plan.positions.find((row) => row.position_date === '2024-01-05');
+
+    expect(last?.market_value).toBe('500.20');
+    expect(last?.cost_basis).toBe('500.00');
+    expect(plan.realized[0]?.result).toBe('1.20');
+  });
+
+  it('com a regra do mais novo primeiro o mesmo resgate preserva o lote antigo', () => {
+    const plan = planRecalculation(
+      caixinhaContext(
+        [
+          aplicacao('a1', '2024-01-02', '1000'),
+          aplicacao('a2', '2024-01-04', '500'),
+          {
+            id: 'r1',
+            kind: 'sell',
+            trade_date: '2024-01-05',
+            quantity: '500',
+            unit_price: '1.0004',
+            fees: '0',
+            net_amount: '500.20',
+            asset_id: 'caixinha',
+            institution_id: INSTITUTION,
+          },
+        ],
+        'newest_first',
+      ),
+    );
+
+    expect(valueOn(plan, '2024-01-05')).toBe('1001.20');
+  });
+
+  it('reconstruir de um dia no meio dá o mesmo valor que reconstruir tudo', () => {
+    const book = [
+      aplicacao('a1', '2024-01-02', '1000'),
+      aplicacao('a2', '2024-01-04', '500'),
+    ];
+    const full = planRecalculation(caixinhaContext(book));
+    const partial = planRecalculation({
+      ...caixinhaContext(book),
+      from_date: '2024-01-05',
+      business_days: ['2024-01-05'],
+      previous: full.portfolio_days[2] ?? null,
+    });
+
+    expect(valueOn(partial, '2024-01-05')).toBe(valueOn(full, '2024-01-05'));
+  });
+
+  it('o lote vencido para de render: o valor congela no vencimento', () => {
+    const plan = planRecalculation(
+      caixinhaContext([
+        { ...aplicacao('a1', '2024-01-02', '1000'), maturity_date: '2024-01-04' },
+      ]),
+    );
+
+    expect(valueOn(plan, '2024-01-04')).toBe('1000.80');
+    expect(valueOn(plan, '2024-01-05')).toBe('1000.80');
   });
 });

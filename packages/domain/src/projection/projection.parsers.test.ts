@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { assetClassFor, indexForIndexer } from './projection.entities.js';
 import {
-  parseAlertInstanceFromDB,
   parseAssetPriceFromDB,
   parseIndexQuoteFromDB,
   parsePortfolioDailyFromDB,
@@ -34,9 +33,8 @@ describe('a classe de apuração de cada papel', () => {
     expect(assetClassFor('bdr')).toBe('etf');
   });
 
-  it('Tesouro, caixa e título sem tipo não entram na apuração de renda variável', () => {
+  it('Tesouro e título sem tipo não entram na apuração de renda variável', () => {
     expect(assetClassFor('treasury')).toBeNull();
-    expect(assetClassFor('cash')).toBeNull();
     expect(assetClassFor(null)).toBeNull();
   });
 });
@@ -115,23 +113,6 @@ describe('a cópia campo a campo', () => {
     expect(row.year).toBe(2024);
     expect(row.month).toBe(3);
     expect(row.asset_class).toBe('fii');
-  });
-
-  it('alert_instance sem payload volta com objeto vazio, não com nulo', () => {
-    const row = parseAlertInstanceFromDB({
-      rule_kind: 'preco_atrasado',
-      subject_id: 'itub4',
-      portfolio_id: null,
-      status: 'snoozed',
-      snooze_until: '2024-04-01',
-      payload: null,
-      first_seen_at: '2024-03-01T00:00:00.000Z',
-      updated_at: '2024-03-08T00:00:00.000Z',
-    });
-
-    expect(row.payload).toEqual({});
-    expect(row.portfolio_id).toBeNull();
-    expect(row.snooze_until).toBe('2024-04-01');
   });
 
   it('asset_price diz de que fonte veio e quando chegou', () => {

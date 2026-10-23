@@ -84,6 +84,8 @@ export type CompositionSlice = {
   readonly label: string;
   readonly colorToken: string;
   readonly share: string | null;
+  /** Cor própria da fatia, quando ela não é uma classe de ativo (a carteira). */
+  readonly color?: string;
 };
 
 /**
@@ -99,7 +101,7 @@ export const CompositionBar = ({
   readonly label: string;
 }): React.ReactElement => (
   <div
-    className="flex h-3 w-full overflow-hidden rounded-xs"
+    className="flex h-3 w-full gap-0.5 overflow-hidden rounded-[3px]"
     role="img"
     aria-label={label}
   >
@@ -107,10 +109,10 @@ export const CompositionBar = ({
       <span
         key={slice.id}
         title={`${slice.label} · ${slice.share ?? '—'}`}
-        className="min-w-0.5 first:rounded-l-xs last:rounded-r-xs"
+        className="min-w-[3px]"
         style={{
           width: widthOf(slice.share),
-          backgroundColor: colorForToken(slice.colorToken),
+          backgroundColor: slice.color ?? colorForToken(slice.colorToken),
         }}
       />
     ))}

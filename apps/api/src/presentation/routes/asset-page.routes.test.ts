@@ -31,13 +31,13 @@ const hoje = (): string => new Date().toISOString().slice(0, 10);
 /** O fechamento é do worker; aqui ele é escrito à mão, que é o que a tela lê. */
 const fecharDia = async (date: string, marketValue = '18420.00'): Promise<void> => {
   await harness.sql`
-    insert into position_daily
+    INSERT INTO position_daily
       (portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
        market_value, price_source_kind)
-    values
+    VALUES
       (${carteira}, ${itub4}, ${date}, '500', '29.10', '14550.00',
        ${marketValue}, 'fresh')
-    on conflict (portfolio_id, asset_id, position_date) do nothing
+    ON CONFLICT (portfolio_id, asset_id, position_date) DO NOTHING
   `;
 };
 
@@ -80,8 +80,12 @@ beforeEach(async () => {
   itub4 = compra.body.transaction.asset_id;
 });
 
-const abrir = (id = itub4, query = '') =>
-  request(harness.app).get(`/api/assets/${id}/page${query === '' ? '' : `?${query}`}`);
+const abrir = (id = itub4, query = '') => {
+  const params = new URLSearchParams(query);
+  if (!params.has('portfolio_id')) params.set('portfolio_id', carteira);
+
+  return request(harness.app).get(`/api/assets/${id}/page?${params.toString()}`);
+};
 
 describe('GET /api/assets/:asset_id/page', () => {
   it('a resposta cabe no contrato que a tela usa para lê-la', async () => {
@@ -112,13 +116,10 @@ describe('GET /api/assets/:asset_id/page', () => {
     expect(body.transactions.recent[0]?.kind).toBe('buy');
   });
 
-  it('sem carteira, o escopo é todas elas', async () => {
-    await fecharDia(hoje());
-    const body = assetPageResourceSchema.parse((await abrir()).body);
+  it('sem carteira a rota recusa com 400', async () => {
+    const response = await request(harness.app).get(`/api/assets/${itub4}/page`);
 
-    expect(body.portfolio_id).toBeNull();
-    expect(body.portfolio_name).toBeNull();
-    expect(body.position?.value).toBe('18420.00');
+    expect(response.status).toBe(400);
   });
 
   it('a janela padrão é de um ano, e não a série inteira', async () => {

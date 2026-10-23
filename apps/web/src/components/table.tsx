@@ -1,13 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { browserStorage } from '../lib/preferences.js';
 import type { ColumnPreference, ColumnVisibility } from '../lib/table/columns.js';
-import {
-  readColumnPreference,
-  visibleColumns,
-  writeColumnPreference,
-} from '../lib/table/columns.js';
-import type { GroupSummary, TableGroup, TableState } from '../lib/table/model.js';
+import { EMPTY_COLUMN_PREFERENCE, visibleColumns } from '../lib/table/columns.js';
+import type { GroupSummary, Sort, TableGroup, TableState } from '../lib/table/model.js';
 import {
   EMPTY_TABLE_STATE,
   buildRowModel,
@@ -17,6 +12,7 @@ import {
 } from '../lib/table/model.js';
 import { colorForToken } from '../lib/tokens.js';
 import { useViewportWidth } from './use_element_width.js';
+import { Icon } from './icon.js';
 
 /**
  * D-04 · A tabela densa.
@@ -44,8 +40,8 @@ export type TableColumn<Row> = ColumnVisibility & {
 };
 
 export type DataTableProps<Row> = {
-  /** Chave de persistência da escolha de colunas. Uma por tela. */
-  readonly screen: string;
+  /** Identifica a tela nos testes e na depuração; a tabela não guarda preferência. */
+  readonly screen?: string;
   readonly caption: string;
   readonly columns: readonly TableColumn<Row>[];
   readonly groups: readonly TableGroup<Row>[];
@@ -54,6 +50,11 @@ export type DataTableProps<Row> = {
   readonly total?: GroupSummary | undefined;
   readonly rowsPerGroup?: number | undefined;
   readonly onOpenRow?: ((row: Row) => void) | undefined;
+  /**
+   * O clique simples na linha também abre (`onOpenRow`), em vez de só o duplo
+   * clique e o Enter. Para a tela em que a linha é um atalho para outra página.
+   */
+  readonly openOnClick?: boolean | undefined;
   readonly onNewTransaction?: ((row: Row) => void) | undefined;
   readonly onEditRow?: ((row: Row) => void) | undefined;
   readonly rowActions?: ((row: Row) => React.ReactNode) | undefined;
@@ -63,8 +64,21 @@ export type DataTableProps<Row> = {
    */
   readonly renderExpansion?: ((row: Row) => React.ReactNode) | undefined;
   readonly emptyState?: React.ReactNode;
+  /**
+   * Linha desabilitada: esmaecida, sem abrir nem menu, e sempre no fim do grupo.
+   * É a posição encerrada, que aparece na tabela mas não se opera.
+   */
+  readonly isRowDisabled?: ((row: Row) => boolean) | undefined;
   /** Largura imposta, para teste e para a comparação visual. */
   readonly width?: number | undefined;
+  /** As colunas que a pessoa escolheu em Exibição; a largura ainda pode escondê-las. */
+  readonly columnPreference?: ColumnPreference | undefined;
+  /**
+   * A ordenação vinda da tela, para o menu Exibição e o cabeçalho falarem da
+   * mesma coisa. Ausente, a tabela guarda a dela.
+   */
+  readonly sort?: Sort | null | undefined;
+  readonly onSortChange?: ((sort: Sort | null) => void) | undefined;
 };
 
 const alignClass = (numeric: boolean): string => (numeric ? 'text-right' : 'text-left');
@@ -72,10 +86,9 @@ const alignClass = (numeric: boolean): string => (numeric ? 'text-right' : 'text
 const SORT_GLYPH = { asc: '↑', desc: '↓' } as const;
 
 const HEADER_TYPOGRAPHY =
-  'text-label font-medium tracking-wide whitespace-nowrap text-ink-3 uppercase';
+  'tabular text-label font-medium tracking-[0.06em] whitespace-nowrap text-ink-3 uppercase';
 
 export const DataTable = <Row,>({
-  screen,
   caption,
   columns,
   groups,
@@ -84,12 +97,17 @@ export const DataTable = <Row,>({
   total,
   rowsPerGroup,
   onOpenRow,
+  openOnClick = false,
   onNewTransaction,
   onEditRow,
   rowActions,
   renderExpansion,
   emptyState,
+  isRowDisabled,
   width: forcedWidth,
+  columnPreference = EMPTY_COLUMN_PREFERENCE,
+  sort: controlledSort,
+  onSortChange,
 }: DataTableProps<Row>): React.ReactElement => {
   const container = useRef<HTMLDivElement>(null);
   // A etapa de largura é da tela, não deste elemento: a prancha 18 as define
@@ -97,11 +115,12 @@ export const DataTable = <Row,>({
   const measured = useViewportWidth(1440);
   const width = forcedWidth ?? measured;
 
-  const storage = useMemo(() => browserStorage(), []);
-  const [preference, setPreference] = useState<ColumnPreference>(() =>
-    readColumnPreference(storage, screen),
-  );
-  const [state, setState] = useState<TableState>(EMPTY_TABLE_STATE);
+  // Duas forças decidem as colunas: a escolha de quem usa (Exibição) e a
+  // largura do momento. A segunda nunca grava nada na primeira.
+  const preference: ColumnPreference = columnPreference;
+  const [ownState, setState] = useState<TableState>(EMPTY_TABLE_STATE);
+  const state: TableState =
+    controlledSort === undefined ? ownState : { ...ownState, sort: controlledSort };
 
   const shown = useMemo(
     () => visibleColumns(columns, width, preference),
@@ -133,6 +152,7 @@ export const DataTable = <Row,>({
         ...(total === undefined ? {} : { total }),
         ...(rowsPerGroup === undefined ? {} : { rowsPerGroup }),
         expandable: renderExpansion !== undefined,
+        ...(isRowDisabled === undefined ? {} : { pinLast: isRowDisabled }),
       }),
     [
       groups,
@@ -143,17 +163,24 @@ export const DataTable = <Row,>({
       total,
       rowsPerGroup,
       renderExpansion,
+      isRowDisabled,
     ],
   );
 
-  const dataRows = useMemo(() => model.filter((entry) => entry.kind === 'row'), [model]);
+  const dataRows = useMemo(
+    () =>
+      model.filter(
+        (entry) => entry.kind === 'row' && isRowDisabled?.(entry.row) !== true,
+      ),
+    [model, isRowDisabled],
+  );
 
-  const onSort = (columnId: string): void =>
+  const onSort = (columnId: string): void => {
+    if (controlledSort !== undefined && onSortChange !== undefined) {
+      onSortChange(nextSort(controlledSort, columnId));
+      return;
+    }
     setState((current) => ({ ...current, sort: nextSort(current.sort, columnId) }));
-
-  const updatePreference = (next: ColumnPreference): void => {
-    setPreference(next);
-    writeColumnPreference(storage, screen, next);
   };
 
   /**
@@ -218,7 +245,7 @@ export const DataTable = <Row,>({
               <th
                 key={column.id}
                 scope="col"
-                className={`px-2.5 pb-2 ${alignClass(column.numeric === true)}`}
+                className={`px-3 py-[9px] ${alignClass(column.numeric === true)}`}
                 aria-sort={
                   state.sort?.columnId === column.id
                     ? state.sort.direction === 'asc'
@@ -245,7 +272,7 @@ export const DataTable = <Row,>({
                 )}
               </th>
             ))}
-            {rowActions === undefined ? null : <th className="w-8" />}
+            {rowActions === undefined ? null : <th className="w-11" />}
           </tr>
         </thead>
 
@@ -261,11 +288,11 @@ export const DataTable = <Row,>({
           {model.map((entry) => {
             if (entry.kind === 'group') {
               return (
-                <tr key={entry.id} className="bg-panel-2">
+                <tr key={entry.id} className="border-b border-line bg-panel-2">
                   {shown.map((column, index) => (
                     <td
                       key={column.id}
-                      className={`h-(--row-height-group) px-2.5 font-semibold ${alignClass(
+                      className={`py-(--row-pad) px-3 font-semibold ${alignClass(
                         column.numeric === true,
                       )}`}
                     >
@@ -285,7 +312,9 @@ export const DataTable = <Row,>({
                           }
                         >
                           <span aria-hidden="true" className="text-ink-3">
-                            {entry.collapsed ? '›' : '⌄'}
+                            <Icon
+                              name={entry.collapsed ? 'chevron-right' : 'chevron-down'}
+                            />
                           </span>
                           <span
                             aria-hidden="true"
@@ -312,7 +341,7 @@ export const DataTable = <Row,>({
                 <tr key={entry.id}>
                   <td
                     colSpan={shown.length + (rowActions === undefined ? 0 : 1)}
-                    className="h-(--row-height-group) px-2.5"
+                    className="py-(--row-pad) px-3"
                   >
                     <button
                       type="button"
@@ -333,11 +362,11 @@ export const DataTable = <Row,>({
 
             if (entry.kind === 'total') {
               return (
-                <tr key={entry.id} className="border-t border-line font-semibold">
+                <tr key={entry.id} className="border-t border-line-2 font-semibold">
                   {shown.map((column, index) => (
                     <td
                       key={column.id}
-                      className={`h-(--row-height) px-2.5 ${alignClass(
+                      className={`py-(--row-pad) px-3 ${alignClass(
                         column.numeric === true,
                       )}`}
                     >
@@ -362,24 +391,36 @@ export const DataTable = <Row,>({
               );
             }
 
-            const selected = state.selectedRowId === entry.id;
+            const disabled = isRowDisabled?.(entry.row) === true;
+            const selected = !disabled && state.selectedRowId === entry.id;
             const expanded = state.expandedRowId === entry.id;
 
             return (
               <tr
                 key={entry.id}
                 data-row-id={entry.id}
-                tabIndex={0}
+                tabIndex={disabled ? -1 : 0}
                 aria-selected={selected}
+                aria-disabled={disabled || undefined}
                 aria-label={rowLabel(entry.row)}
                 {...(renderExpansion === undefined ? {} : { 'aria-expanded': expanded })}
-                className={`group border-b border-line/60 outline-offset-[-2px] ${
-                  selected ? 'bg-accent-soft' : 'hover:bg-panel-2'
+                className={`group border-b border-line outline-offset-[-2px] ${
+                  disabled
+                    ? 'cursor-not-allowed opacity-55'
+                    : selected
+                      ? 'bg-accent-soft'
+                      : 'hover:bg-panel-2'
+                } ${
+                  !disabled && (openOnClick || renderExpansion !== undefined)
+                    ? 'cursor-pointer'
+                    : ''
                 }`}
-                onFocus={() =>
-                  setState((current) => ({ ...current, selectedRowId: entry.id }))
-                }
-                onClick={() =>
+                onFocus={() => {
+                  if (disabled) return;
+                  setState((current) => ({ ...current, selectedRowId: entry.id }));
+                }}
+                onClick={() => {
+                  if (disabled) return;
                   setState((current) => ({
                     ...current,
                     selectedRowId: entry.id,
@@ -387,15 +428,20 @@ export const DataTable = <Row,>({
                       renderExpansion === undefined
                         ? current.expandedRowId
                         : toggleRow(current.expandedRowId, entry.id),
-                  }))
-                }
-                onDoubleClick={() => onOpenRow?.(entry.row)}
-                onKeyDown={(event) => onRowKeyDown(event, entry.row)}
+                  }));
+                  if (openOnClick) onOpenRow?.(entry.row);
+                }}
+                onDoubleClick={() => {
+                  if (!disabled) onOpenRow?.(entry.row);
+                }}
+                onKeyDown={(event) => {
+                  if (!disabled) onRowKeyDown(event, entry.row);
+                }}
               >
                 {shown.map((column) => (
                   <td
                     key={column.id}
-                    className={`h-(--row-height) px-2.5 ${alignClass(
+                    className={`py-(--row-pad) px-3 ${alignClass(
                       column.numeric === true,
                     )} ${
                       column.flexible === true
@@ -406,11 +452,13 @@ export const DataTable = <Row,>({
                     {column.cell(entry.row)}
                   </td>
                 ))}
-                {rowActions === undefined ? null : (
+                {rowActions === undefined ? null : disabled ? (
+                  <td className="px-1.5 py-1" />
+                ) : (
                   // O clique no menu da linha não é clique na linha: sem isto,
                   // abrir o menu abriria também o detalhe embaixo.
                   <td
-                    className="px-1 opacity-0 focus-within:opacity-100 group-hover:opacity-100"
+                    className="px-1.5 py-1"
                     onClick={(event) => event.stopPropagation()}
                   >
                     {rowActions(entry.row)}
@@ -421,65 +469,6 @@ export const DataTable = <Row,>({
           })}
         </tbody>
       </table>
-
-      <ColumnMenu
-        columns={columns}
-        preference={preference}
-        width={width}
-        onChange={updatePreference}
-      />
     </div>
-  );
-};
-
-type ColumnMenuProps<Row> = {
-  readonly columns: readonly TableColumn<Row>[];
-  readonly preference: ColumnPreference;
-  readonly width: number;
-  readonly onChange: (preference: ColumnPreference) => void;
-};
-
-/**
- * A escolha de colunas. Fica fora da tabela, no rodapé, e não no cabeçalho:
- * quem abre a tela quer ver os números, e quem quer trocar coluna faz isso uma
- * vez por mês.
- */
-const ColumnMenu = <Row,>({
-  columns,
-  preference,
-  width,
-  onChange,
-}: ColumnMenuProps<Row>): React.ReactElement => {
-  const optional = columns.filter((column) => column.essential !== true);
-
-  return (
-    <details className="mt-2 text-label text-ink-3">
-      <summary className="cursor-pointer tracking-wide uppercase">Colunas</summary>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-        {optional.map((column) => {
-          const byWidth = column.hideBelow !== undefined && width < column.hideBelow;
-          return (
-            <label key={column.id} className="flex items-center gap-1.5 normal-case">
-              <input
-                type="checkbox"
-                checked={!preference.hidden.includes(column.id)}
-                onChange={() =>
-                  onChange({
-                    order: preference.order,
-                    hidden: preference.hidden.includes(column.id)
-                      ? preference.hidden.filter((id) => id !== column.id)
-                      : [...preference.hidden, column.id],
-                  })
-                }
-              />
-              {column.header}
-              {byWidth ? (
-                <span className="text-ink-3">· sem espaço nesta largura</span>
-              ) : null}
-            </label>
-          );
-        })}
-      </div>
-    </details>
   );
 };

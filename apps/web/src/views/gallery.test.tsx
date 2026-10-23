@@ -37,7 +37,7 @@ describe('galeria do design system', () => {
       screen.getByRole('img', { name: 'Proventos recebidos por mês' }),
     ).toBeVisible();
     expect(screen.getByRole('img', { name: 'Composição por classe' })).toBeVisible();
-    expect(screen.getByRole('radiogroup', { name: 'Período' })).toBeVisible();
+    expect(screen.getByRole('button', { name: /^Período:/ })).toBeVisible();
   });
 
   it('trocar de tema troca o documento sem recarregar nem deslocar nada', async () => {

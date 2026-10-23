@@ -51,6 +51,7 @@ const resource = (overrides: Partial<AssetPageResource> = {}): AssetPageResource
     category_name: 'Ações',
     color_token: 'class.acoes',
     category_automatic: true,
+    issuer_id: null,
     issuer_name: null,
     archived_at: null,
     indexer: null,
@@ -60,6 +61,8 @@ const resource = (overrides: Partial<AssetPageResource> = {}): AssetPageResource
     liquidity: null,
     liquidity_days: null,
     tax_regime: null,
+    redemption_rule: null,
+    lot_term_months: null,
   },
   price: {
     value: '36.84',
@@ -81,11 +84,24 @@ const resource = (overrides: Partial<AssetPageResource> = {}): AssetPageResource
     payouts_12m: '1120.50',
     yield_on_cost_12m: '0.077',
   },
+  lifetime: {
+    invested: '14550.00',
+    proceeds: '0',
+    payouts_received: '2210.00',
+    realized_result: null,
+    first_trade_date: '2025-03-12',
+    last_trade_date: '2026-06-10',
+    buys: 3,
+    sells: 0,
+    twr_ratio: '0.231',
+    xirr_ratio: '0.184',
+  },
   series: {
     period: '1a',
     from: '2025-10-06',
     to: '2026-10-06',
     points,
+    value_points: [],
     marks: [
       { trade_date: '2026-01-06', side: 'buy', quantity: '100', unit_price: '33.80' },
       { trade_date: '2026-06-06', side: 'buy', quantity: '50', unit_price: '35.10' },
@@ -176,6 +192,7 @@ const resource = (overrides: Partial<AssetPageResource> = {}): AssetPageResource
       value: '18420.00',
     },
   ],
+  custody_transfers: [],
   custodians: [
     {
       institution_id: 'bbbb1111-1111-4111-8111-111111111111',
@@ -212,6 +229,7 @@ function transaction(
     quantity: '0',
     unit_price: '0',
     net_amount: '0',
+    fees: '0',
     confirmed_at: '2026-06-12T12:00:00.000Z',
     portfolio_id: '11111111-1111-4111-8111-111111111111',
     portfolio_name: 'Longo prazo',
@@ -302,54 +320,46 @@ describe('o cabeçalho', () => {
 
     expect(screen.getAllByText('Ações').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Bancos').length).toBeGreaterThan(0);
-    expect(screen.getByText('Corretora A')).toBeInTheDocument();
+    expect(screen.getAllByText('Corretora A').length).toBeGreaterThan(0);
   });
 
-  it('a trilha volta para Posições, que é de onde a página foi aberta', async () => {
+  it('a trilha Posições / ativo está no alto da página', async () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Posições' }));
-
-    expect(back).toHaveLength(1);
+    const trilha = screen.getByRole('navigation', { name: 'Trilha' });
+    expect(within(trilha).getByRole('button', { name: 'Posições' })).toBeInTheDocument();
+    expect(within(trilha).getByText('ITUB4')).toBeInTheDocument();
   });
 });
 
 describe('a posição', () => {
-  it('mostra os seis números da prancha', async () => {
+  it('a faixa de números traz as quatro células e a linha de apoio da prancha', async () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    const bloco = screen.getByText(/Sua posição/).closest('div');
-    expect(bloco).not.toBeNull();
-    const dentro = within(bloco as HTMLElement);
+    const faixa = screen.getByRole('region', { name: 'Posição' });
+    const dentro = within(faixa);
 
-    expect(dentro.getByText('500')).toBeInTheDocument();
-    expect(dentro.getByText('R$ 29,10')).toBeInTheDocument();
+    const labels = [
+      'Valor atualizado',
+      'Valor investido',
+      'Resultado',
+      'Peso na carteira',
+      'Rentabilidade (TWR)',
+      'Rentabilidade (TIR)',
+      'Proventos recebidos',
+    ];
+    for (const label of labels) expect(dentro.getByText(label)).toBeInTheDocument();
+    expect(faixa.querySelectorAll('dt')).toHaveLength(labels.length);
+
+    expect(dentro.getByText('R$ 14.550,00')).toBeInTheDocument();
     expect(dentro.getByText('R$ 18.420,00')).toBeInTheDocument();
-    expect(dentro.getAllByText(signed('+R$ 3.870,00')).length).toBeGreaterThan(0);
-    expect(dentro.getByText('R$ 1.120,50')).toBeInTheDocument();
+    expect(dentro.getByText(/preço médio/)).toHaveTextContent('R$ 29,10');
+    expect(dentro.getByText(/ações ×/)).toHaveTextContent('500');
+    expect(dentro.getAllByText(signed('+23,1%')).length).toBeGreaterThan(0);
+    expect(dentro.getAllByText(signed('+18,4%')).length).toBeGreaterThan(0);
     expect(dentro.getByText('5,8%')).toBeInTheDocument();
-  });
-
-  it('nunca vendido não mostra "realizado R$ 0,00": a linha some', async () => {
-    show();
-    await screen.findByRole('heading', { name: 'ITUB4' });
-
-    expect(screen.queryByText('Resultado realizado')).not.toBeInTheDocument();
-  });
-
-  it('com venda, a linha aparece com o resultado somado pela api', async () => {
-    answerWith(
-      resource({
-        position: { ...resource().position!, realized_result: '138.00' },
-      }),
-    );
-    show();
-    await screen.findByRole('heading', { name: 'ITUB4' });
-
-    expect(screen.getByText('Resultado realizado')).toBeInTheDocument();
-    expect(screen.getAllByText(signed('+R$ 138,00')).length).toBeGreaterThan(0);
   });
 
   it('posição zerada diz isso, em vez de mostrar seis zeros', async () => {
@@ -361,12 +371,39 @@ describe('a posição', () => {
     expect(screen.queryByText('Preço médio')).not.toBeInTheDocument();
   });
 
-  it('sem fechamento nenhum, a frase é outra: o problema está em outro lugar', async () => {
+  it('papel vendido ainda mostra o que rendeu na carteira', async () => {
+    answerWith(
+      resource({
+        position: null,
+        lifetime: {
+          ...resource().lifetime,
+          invested: '4000.00',
+          proceeds: '4500.00',
+          sells: 1,
+          realized_result: '500.00',
+          payouts_received: '120.00',
+        },
+      }),
+    );
+    show();
+    await screen.findByRole('heading', { name: 'ITUB4' });
+
+    expect(screen.getByText('Valor investido')).toBeInTheDocument();
+    expect(screen.getByText('R$ 4.000,00')).toBeInTheDocument();
+    expect(screen.getByText('Valor vendido')).toBeInTheDocument();
+    expect(screen.getByText('Resultado realizado')).toBeInTheDocument();
+    expect(screen.getAllByText(signed('+R$ 500,00')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Proventos recebidos')).toBeInTheDocument();
+    expect(screen.getByText('Rentabilidade (TWR)')).toBeInTheDocument();
+    expect(screen.getByText('Rentabilidade (TIR)')).toBeInTheDocument();
+  });
+
+  it('sem consolidação nenhuma, a frase é outra: o problema está em outro lugar', async () => {
     answerWith(resource({ position: null, as_of: null }));
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    expect(screen.getByText(/Ainda não houve fechamento/)).toBeInTheDocument();
+    expect(screen.getByText(/Carteira ainda não consolidada/)).toBeInTheDocument();
   });
 
   it('título na curva mostra o valor na curva, e não quantidade e preço médio', async () => {
@@ -386,10 +423,11 @@ describe('a posição', () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    expect(screen.getByText('Valor na curva')).toBeInTheDocument();
-    expect(screen.getByText('Juros acumulados')).toBeInTheDocument();
-    expect(screen.queryByText('Quantidade')).not.toBeInTheDocument();
-    expect(screen.queryByText('Preço médio')).not.toBeInTheDocument();
+    const faixa = within(screen.getByRole('region', { name: 'Posição' }));
+    expect(faixa.getByText('Valor atualizado')).toBeInTheDocument();
+    expect(faixa.getByText('R$ 16.500,00')).toBeInTheDocument();
+    expect(faixa.queryByText('Quantidade')).not.toBeInTheDocument();
+    expect(faixa.queryByText(/preço médio/)).not.toBeInTheDocument();
   });
 });
 
@@ -411,7 +449,7 @@ describe('o gráfico de preço', () => {
 
     expect(screen.getAllByText(signed('+17,5%')).length).toBeGreaterThan(0);
     expect(screen.getAllByText(signed('+21,4%')).length).toBeGreaterThan(0);
-    expect(screen.getByText('com proventos')).toBeInTheDocument();
+    expect(screen.getByText(/com proventos/)).toBeInTheDocument();
   });
 
   it('as compras aparecem marcadas sobre a linha', async () => {
@@ -465,12 +503,12 @@ describe('o gráfico de preço', () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    expect(screen.getByText('série ajustada por evento')).toBeInTheDocument();
+    expect(screen.getByText(/série ajustada por evento/)).toBeInTheDocument();
   });
 });
 
 describe('os proventos', () => {
-  it('o subtítulo traz o yield sobre custo, e o rodapé o total recebido', async () => {
+  it('o subtítulo traz o yield sobre custo, e o painel o total recebido', async () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
@@ -506,18 +544,33 @@ describe('os proventos', () => {
   });
 });
 
-describe('os lançamentos', () => {
-  it('a lista traz data, tipo, quantidade × preço e valor', async () => {
+describe('o histórico', () => {
+  it('traz data, tipo, quantidade, preço e valor em uma linha por lançamento', async () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
     expect(screen.getByText('10/06/2026')).toBeInTheDocument();
     // A coluna é inteira de reais e por isso não repete o `R$`, como a prancha
     // escreve: o cabeçalho já diz que é valor.
-    expect(screen.getAllByText(signed('1.755,00')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(signed('50 × 35,10')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(signed('+96,12')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(signed('R$ 1.755,00')).length).toBeGreaterThan(0);
+    const compra = screen.getByText('10/06/2026').closest('tr') as HTMLElement;
+    expect(within(compra).getByText('50')).toBeInTheDocument();
+    expect(within(compra).getAllByText(signed('R$ 35,10')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(signed('+R$ 96,12')).length).toBeGreaterThan(0);
     expect(screen.getByText('24 lançamentos')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Histórico' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Lançamentos' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('cada linha tem o menu de ações de Movimentações', async () => {
+    show();
+    await screen.findByRole('heading', { name: 'ITUB4' });
+
+    expect(
+      screen.getAllByRole('button', { name: /^Ações de (Compra|Provento)/ }).length,
+    ).toBe(5);
   });
 
   it('provento não mostra "0 × R$ 0,00": a coluna não se aplica a ele', async () => {
@@ -525,7 +578,7 @@ describe('os lançamentos', () => {
     await screen.findByRole('heading', { name: 'ITUB4' });
 
     const linha = screen.getByText('20/10/2026').closest('tr');
-    expect(within(linha as HTMLElement).getByText('—')).toBeInTheDocument();
+    expect(within(linha as HTMLElement).getAllByText('—').length).toBeGreaterThan(0);
     // "A receber" não ocupa coluna aqui — ele está no bloco de Proventos, onde
     // a prancha o põe —, e a linha inteira o diz na dica.
     expect(linha).toHaveAttribute('title', expect.stringContaining('a receber'));
@@ -535,7 +588,13 @@ describe('os lançamentos', () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    await userEvent.click(screen.getByRole('button', { name: /Compra18/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /Tipo/ }));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: 'Tipo' })).getByRole('checkbox', {
+        name: /Compra\s*18/,
+      }),
+    );
 
     await waitFor(() => expect(calls.at(-1)).toContain('kind=buy'));
   });
@@ -544,108 +603,21 @@ describe('os lançamentos', () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    expect(screen.getByRole('button', { name: /Todos24/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Compra18/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /Tipo/ }));
+    const lista = within(screen.getByRole('group', { name: 'Tipo' }));
+    expect(lista.getByRole('checkbox', { name: /Compra\s*18/ })).toBeInTheDocument();
   });
 });
 
 describe('os dados do ativo', () => {
-  it('traz categoria, tipo, setor, fonte do preço, origem e carteiras', async () => {
+  it('o card "Dados do ativo" não existe mais', async () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
-    const bloco = screen
-      .getByRole('heading', { name: 'Dados do ativo' })
-      .closest('section');
-    const dentro = within(bloco as HTMLElement);
-
-    expect(dentro.getAllByText(/automática/).length).toBeGreaterThan(0);
-    expect(dentro.getByText('Ação')).toBeInTheDocument();
-    expect(dentro.getByText('Bancos')).toBeInTheDocument();
-    expect(dentro.getByText(/fechamento diário/)).toBeInTheDocument();
-    expect(dentro.getByText('Base de mercado')).toBeInTheDocument();
-    expect(dentro.getByText('Longo prazo')).toBeInTheDocument();
-  });
-
-  it('o evento corporativo aplicado aparece com o fator e a data', async () => {
-    answerWith(
-      resource({
-        corporate_events: [
-          {
-            id: 'eeee1111-1111-4111-8111-111111111111',
-            kind: 'split',
-            record_date: '2026-04-15',
-            ratio_from: '1.00000000',
-            ratio_to: '2.00000000',
-            confirmed_at: '2026-04-16T12:00:00.000Z',
-          },
-        ],
-      }),
-    );
-    show();
-    await screen.findByRole('heading', { name: 'ITUB4' });
-
-    expect(screen.getByText('Desdobramento')).toBeInTheDocument();
-    expect(screen.getByText('1:2')).toBeInTheDocument();
-    expect(screen.queryByText('a confirmar')).not.toBeInTheDocument();
-  });
-
-  it('o evento anunciado aparece marcado: ele ainda não mexeu na quantidade', async () => {
-    answerWith(
-      resource({
-        corporate_events: [
-          {
-            id: 'eeee1111-1111-4111-8111-111111111111',
-            kind: 'reverse_split',
-            record_date: '2026-11-15',
-            ratio_from: '10.00000000',
-            ratio_to: '1.00000000',
-            confirmed_at: null,
-          },
-        ],
-      }),
-    );
-    show();
-    await screen.findByRole('heading', { name: 'ITUB4' });
-
-    expect(screen.getByText('Grupamento')).toBeInTheDocument();
-    expect(screen.getByText('a confirmar')).toBeInTheDocument();
-  });
-
-  it('sem evento nenhum o bloco não aparece vazio: ele sai da tela', async () => {
-    show();
-    await screen.findByRole('heading', { name: 'ITUB4' });
-
-    expect(screen.queryByText('Eventos corporativos')).not.toBeInTheDocument();
-  });
-
-  it('a renda fixa traz indexador, taxa, vencimento e carência', async () => {
-    answerWith(
-      resource({
-        asset: {
-          ...resource().asset,
-          ticker: 'CDBC2028',
-          name: 'CDB Prefixado Banco C 2028',
-          origin: 'manual',
-          b3_type: null,
-          sector: null,
-          issuer_name: 'Banco C',
-          indexer: 'prefixed',
-          rate: '14.10',
-          issued_at: '2023-06-14',
-          maturity_date: '2028-06-14',
-          liquidity: 'at_maturity',
-          tax_regime: 'regressive',
-        },
-      }),
-    );
-    show();
-    await screen.findByRole('heading', { name: 'CDB Prefixado Banco C 2028' });
-
-    expect(screen.getByText('Pré 14,10%')).toBeInTheDocument();
-    expect(screen.getByText('14/06/2028')).toBeInTheDocument();
-    expect(screen.getByText('no vencimento')).toBeInTheDocument();
-    expect(screen.getByText('tabela regressiva')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Dados do ativo' }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -664,13 +636,6 @@ describe('o que ainda não existe', () => {
       }),
     );
   });
-
-  it('o preço manual está de pé: ele é L-14, e já existe', async () => {
-    show();
-    await screen.findByRole('heading', { name: 'ITUB4' });
-
-    expect(screen.getByRole('button', { name: 'Preço manual' })).toBeEnabled();
-  });
 });
 
 describe('o endereço velho', () => {
@@ -687,5 +652,81 @@ describe('o endereço velho', () => {
     show();
 
     expect(await screen.findByText('Não deu para abrir o ativo')).toBeInTheDocument();
+  });
+});
+
+describe('título de renda fixa', () => {
+  const base = resource();
+  const cdb = resource({
+    asset: {
+      ...base.asset,
+      ticker: 'CDB-ITAU-20311001',
+      name: 'CDB · ITAÚ UNIBANCO · 10/2031 · 100% CDI',
+      origin: 'manual',
+      b3_type: null,
+      indexer: 'cdi_pct',
+      rate: '100.0000',
+      issued_at: '2024-10-01',
+      maturity_date: '2031-10-01',
+      liquidity: 'at_maturity',
+      tax_regime: 'regressive',
+    },
+    price: { value: null, day_change_ratio: null, price_health: null, price_date: null },
+    series: {
+      ...base.series,
+      points: [],
+      marks: [],
+      value_points: [
+        {
+          date: '2026-09-01',
+          cost_basis: '1000.00',
+          value: '1100.00',
+          result: '100.00',
+          payouts: '0.00',
+          with_payouts: '1100.00',
+          result_with_payouts: '100.00',
+        },
+        {
+          date: '2026-10-01',
+          cost_basis: '1000.00',
+          value: '1112.00',
+          result: '112.00',
+          payouts: '0.00',
+          with_payouts: '1112.00',
+          result_with_payouts: '112.00',
+        },
+      ],
+    },
+  });
+
+  it('o gráfico é o do rendimento acumulado, e não o do preço', async () => {
+    answerWith(cdb);
+    show();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Rendimento acumulado' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Preço' })).not.toBeInTheDocument();
+  });
+
+  it('a evolução da posição separa investido de rendimento', async () => {
+    answerWith(cdb);
+    show();
+
+    expect(await screen.findByText('Evolução da posição')).toBeInTheDocument();
+  });
+
+  it('o nome do título aparece na trilha e no título, e as condições dele na faixa', async () => {
+    answerWith(cdb);
+    show();
+
+    await screen.findByRole('heading', { name: 'Rendimento acumulado' });
+
+    // Na trilha e no título; o subtítulo não o repete.
+    expect(screen.getAllByText('CDB · ITAÚ UNIBANCO · 10/2031 · 100% CDI')).toHaveLength(
+      2,
+    );
+    expect(screen.getByText('Vencimento')).toBeInTheDocument();
+    expect(screen.queryByText('Preço médio')).not.toBeInTheDocument();
   });
 });
