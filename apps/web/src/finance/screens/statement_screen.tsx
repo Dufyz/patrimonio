@@ -9,6 +9,7 @@ import { PeriodControl } from '../components/period_control.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { NatureTag } from '../components/tags.js';
+import { StatementTable } from '../components/statement_table.js';
 import { TransferDialog } from '../components/transfer_dialog.js';
 import { updateAccount } from '../domain/account_ops.js';
 import {
@@ -104,6 +105,14 @@ const Statement = ({ account }: { readonly account: Account }): React.ReactEleme
           <BalanceChart points={balances} today={today} name={account.name} />
         ) : null}
       </section>
+
+      <StatementTable
+        data={data}
+        account={account}
+        statement={stmt}
+        range={range}
+        today={today}
+      />
 
       {dialog === 'edit' ? (
         <AccountDialog

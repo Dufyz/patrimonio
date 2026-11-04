@@ -120,3 +120,97 @@ describe('Extrato: cabeçalho de saldo (FIN-405)', () => {
     ).toBeInTheDocument();
   });
 });
+
+describe('Extrato: tabela com saldo após (FIN-407)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  const table = () =>
+    within(screen.getByRole('table', { name: 'Extrato de Itaú Corrente' }));
+  const rows = () => table().getAllByRole('row').slice(1);
+  const rowOf = (text: string) => {
+    const row = rows().find(
+      (r) => r.querySelector('td:nth-child(2)')?.firstChild?.textContent === text,
+    );
+    if (row === undefined) throw new Error(`sem linha ${text}`);
+    return row;
+  };
+
+  it('título, período e contagem de movimentações', () => {
+    open();
+    expect(screen.getByRole('heading', { name: 'Extrato' })).toBeInTheDocument();
+    expect(screen.getByText('out/2026 · 12 movimentações')).toBeInTheDocument();
+  });
+
+  it('da mais nova para a mais antiga, com o saldo após de cada linha', () => {
+    open();
+    const text = rows().map((r) => r.textContent ?? '');
+    expect(text).toHaveLength(12);
+    expect(text[0]).toContain('21/10');
+    expect(text[0]).toContain('Investimento');
+    expect(text[0]).toContain('R$ 3.112,80');
+    expect(text.at(-1)).toContain('Salário');
+    expect(text.at(-1)).toContain('R$ 16.333,55');
+    expect(rowOf('Aluguel e condomínio').textContent).toContain('R$ 6.129,20');
+  });
+
+  it('mesmo dia: receitas antes, e a transferência por último (saldo 10.831,65)', () => {
+    open();
+    const day5 = rows().filter((r) => (r.textContent ?? '').startsWith('05/10'));
+    expect(
+      day5.map((r) => r.querySelector('td:nth-child(2)')?.firstChild?.textContent),
+    ).toEqual([
+      'Transferência para Nubank Conta',
+      'Plano de vida',
+      'Plano de saúde',
+      'Salário',
+    ]);
+    expect(day5[0]?.textContent).toContain('R$ 10.831,65');
+  });
+
+  it('etiquetas e descrições secundárias', () => {
+    open();
+    expect(rowOf('Salário').textContent).toContain('recorrente');
+    expect(rowOf('Conta de luz').textContent).toContain('2 pagamentos');
+    expect(rowOf('Conta de luz').textContent).toContain(
+      'parte da conta · R$ 150,00 saíram do Flex',
+    );
+    expect(rowOf('Conta de luz').textContent).toContain('−R$ 162,40');
+    expect(rowOf('Transferência para Nubank Conta').textContent).toContain(
+      'saldo livre do mês',
+    );
+    expect(rowOf('Transferência para Nubank Conta').textContent).toContain(
+      'transferência',
+    );
+  });
+
+  it('fatura e transferência não têm categoria; pagamento da fatura é uma linha só', () => {
+    open();
+    const fatura = rowOf('Pagamento da fatura Itaú Visa (set)');
+    expect(fatura.textContent).toContain('fatura');
+    expect(fatura.querySelector('td:nth-child(3)')?.textContent).toBe('—');
+    expect(
+      rowOf('Transferência para Nubank Conta').querySelector('td:nth-child(3)')
+        ?.textContent,
+    ).toBe('—');
+    expect(table().queryByText('Netflix')).not.toBeInTheDocument();
+    expect(table().queryByText('Academia')).not.toBeInTheDocument();
+  });
+
+  it('entradas em verde com +, saídas com −', () => {
+    open();
+    expect(rowOf('Salário').textContent).toContain('+R$ 14.200,00');
+    expect(rowOf('Aluguel e condomínio').textContent).toContain('−R$ 3.200,00');
+  });
+
+  it('o link do rodapé abre Lançamentos filtrado por esta conta', () => {
+    open();
+    expect(
+      screen.getByRole('link', { name: 'Ver em Lançamentos com filtro desta conta' }),
+    ).toHaveAttribute('href', '/financas/lancamentos?conta=itau-corrente');
+  });
+
+  it('período sem movimentação mostra o aviso', () => {
+    open('carteira');
+    expect(screen.getByText('out/2026 · 1 movimentação')).toBeInTheDocument();
+  });
+});
