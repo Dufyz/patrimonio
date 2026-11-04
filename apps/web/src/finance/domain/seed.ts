@@ -2,10 +2,12 @@ import { addMonths, startOfMonth } from '../lib/dates.js';
 import type { IsoDate } from '../lib/dates.js';
 import type { Cents } from '../lib/money.js';
 import type {
+  Account,
   Category,
   Entry,
   EntryKind,
   FinanceData,
+  Movement,
   Payment,
   Recurring,
 } from './types.js';
@@ -19,7 +21,7 @@ import type {
  */
 
 /** Muda quando a semente muda de forma que dados antigos não servem mais. */
-export const SEED_VERSION = 2;
+export const SEED_VERSION = 3;
 
 const category = (
   id: string,
@@ -450,7 +452,118 @@ const history = (today: IsoDate): readonly Entry[] =>
 /** A data de referência das pranchas; o histórico é contado a partir dela. */
 export const SEED_REFERENCE_DATE: IsoDate = '2026-10-24';
 
+/**
+ * Prancha 03: saldos de 24/10/2026. Cada saldo inicial é o de 01/10; as
+ * movimentações abaixo e os lançamentos fecham o saldo da prancha (RN-31).
+ */
+export const SEED_ACCOUNTS: readonly Account[] = [
+  {
+    id: 'itau-corrente',
+    name: 'Itaú Corrente',
+    role: 'Recebe as receitas e paga as despesas',
+    roleTag: 'recebe receitas e paga despesas',
+    institution: 'Itaú Unibanco',
+    type: 'conta',
+    initialCents: 213355,
+  },
+  {
+    id: 'nubank-conta',
+    name: 'Nubank Conta',
+    role: 'Saldo livre para gastar no mês',
+    roleTag: 'recebe o saldo livre e paga a fatura',
+    institution: 'Nubank',
+    type: 'conta',
+    initialCents: 776600,
+  },
+  {
+    id: 'carteira',
+    name: 'Carteira',
+    role: 'Dinheiro em espécie',
+    roleTag: 'dinheiro em espécie',
+    type: 'conta',
+    initialCents: 30000,
+  },
+  {
+    id: 'vale-alimentacao',
+    name: 'Vale Alimentação',
+    role: 'Mercado e restaurantes',
+    roleTag: 'mercado e restaurantes',
+    institution: 'Benefício',
+    type: 'beneficio',
+    initialCents: 61240,
+    creditCents: 110000,
+    creditDay: 5,
+    creditsFrom: '2026-11-01',
+  },
+  {
+    id: 'flex',
+    name: 'Flex',
+    role: 'Conta de luz e o que você definir nas recorrentes',
+    roleTag: 'conta de luz e recorrentes',
+    institution: 'Benefício',
+    type: 'beneficio',
+    initialCents: 34830,
+    creditCents: 40000,
+    creditDay: 5,
+    creditsFrom: '2026-11-01',
+  },
+];
+
+/**
+ * A transferência do saldo livre (4.700,00), os pagamentos das faturas de
+ * setembro e o ajuste da Carteira (−60,00 na prancha, sem lançamento por trás).
+ */
+export const SEED_MOVEMENTS: readonly Movement[] = [
+  {
+    id: 'm-saldo-livre-saida',
+    date: '2026-10-05',
+    accountId: 'itau-corrente',
+    kind: 'transferencia',
+    cents: -470000,
+    description: 'Transferência para Nubank Conta',
+    note: 'saldo livre do mês',
+    transferId: 'm-saldo-livre',
+  },
+  {
+    id: 'm-saldo-livre-entrada',
+    date: '2026-10-05',
+    accountId: 'nubank-conta',
+    kind: 'transferencia',
+    cents: 470000,
+    description: 'Transferência de Itaú Corrente',
+    note: 'saldo livre do mês',
+    transferId: 'm-saldo-livre',
+  },
+  {
+    id: 'm-fatura-nubank-set',
+    date: '2026-10-05',
+    accountId: 'nubank-conta',
+    kind: 'fatura',
+    cents: -404565,
+    description: 'Pagamento da fatura Nubank Mastercard (set)',
+  },
+  {
+    id: 'm-fatura-itau-set',
+    date: '2026-10-08',
+    accountId: 'itau-corrente',
+    kind: 'fatura',
+    cents: -150245,
+    description: 'Pagamento da fatura Itaú Visa (set)',
+  },
+  {
+    id: 'm-carteira-ajuste',
+    date: '2026-10-09',
+    accountId: 'carteira',
+    kind: 'ajuste',
+    cents: -6000,
+    description: 'Ajuste de saldo',
+    note: 'diferença apurada na conferência',
+  },
+];
+
 export const seedData = (): FinanceData => ({
+  accounts: SEED_ACCOUNTS,
+  movements: SEED_MOVEMENTS,
   categories: SEED_CATEGORIES,
   recurrings: SEED_RECURRINGS,
   entries: [...OCTOBER, ...history(SEED_REFERENCE_DATE)],

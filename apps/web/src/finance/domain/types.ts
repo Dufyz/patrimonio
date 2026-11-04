@@ -70,7 +70,53 @@ export type Recurring = {
   readonly active: boolean;
 };
 
+export type AccountType = 'conta' | 'beneficio';
+
+/**
+ * RN-30 a RN-38: onde o dinheiro está. Conta entra no saldo em contas; benefício
+ * fica fora (RN-30). O saldo é o inicial mais as movimentações (RN-31).
+ */
+export type Account = {
+  readonly id: string;
+  readonly name: string;
+  /** Descrição do papel, em frase: "Recebe as receitas e paga as despesas". */
+  readonly role: string;
+  /** O papel curto da etiqueta do Extrato: "recebe receitas e paga despesas". */
+  readonly roleTag?: string;
+  readonly institution?: string;
+  readonly type: AccountType;
+  /** Saldo antes da primeira movimentação acompanhada. */
+  readonly initialCents: Cents;
+  /** Benefício: crédito fixo mensal e o dia dele (RN-36). */
+  readonly creditCents?: Cents;
+  readonly creditDay?: number;
+  /** Primeiro mês (`AAAA-MM-01`) em que o crédito é gerado sozinho. */
+  readonly creditsFrom?: IsoDate;
+  readonly archived?: boolean;
+};
+
+/** O que move uma conta além dos lançamentos (RN-32 a RN-34, RN-36). */
+export type MovementKind = 'transferencia' | 'fatura' | 'credito' | 'ajuste';
+
+/**
+ * Movimentação fora de Lançamentos: nunca é receita nem despesa (RN-33).
+ * `cents` leva o sinal: positivo entra na conta, negativo sai. A transferência
+ * são duas pernas com o mesmo `transferId` (RN-34).
+ */
+export type Movement = {
+  readonly id: string;
+  readonly date: IsoDate;
+  readonly accountId: string;
+  readonly kind: MovementKind;
+  readonly cents: Cents;
+  readonly description: string;
+  readonly note?: string;
+  readonly transferId?: string;
+};
+
 export type FinanceData = {
+  readonly accounts: readonly Account[];
+  readonly movements: readonly Movement[];
   readonly categories: readonly Category[];
   readonly recurrings: readonly Recurring[];
   readonly entries: readonly Entry[];

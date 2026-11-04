@@ -11,6 +11,8 @@ export type PaymentSource = {
   readonly id: string;
   readonly name: string;
   readonly type: SourceType;
+  /** Cartão: a conta que paga a fatura (RN-40). */
+  readonly payerId?: string;
 };
 
 export const SOURCES: readonly PaymentSource[] = [
@@ -18,8 +20,13 @@ export const SOURCES: readonly PaymentSource[] = [
   { id: 'nubank-conta', name: 'Nubank Conta', type: 'conta' },
   { id: 'carteira', name: 'Carteira', type: 'conta' },
   { id: 'flex', name: 'Flex', type: 'beneficio' },
-  { id: 'itau-visa', name: 'Itaú Visa', type: 'cartao' },
-  { id: 'nubank-master', name: 'Nubank Mastercard', type: 'cartao' },
+  { id: 'itau-visa', name: 'Itaú Visa', type: 'cartao', payerId: 'itau-corrente' },
+  {
+    id: 'nubank-master',
+    name: 'Nubank Mastercard',
+    type: 'cartao',
+    payerId: 'nubank-conta',
+  },
 ];
 
 export const sourceName = (id: string): string =>
