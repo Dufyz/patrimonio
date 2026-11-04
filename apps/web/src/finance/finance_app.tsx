@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useShortcuts } from '../components/shortcuts.js';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 
+import { FinanceSearch } from './components/finance_search.js';
 import { FinanceShell } from './components/finance_shell.js';
 import { FinancePeriodProvider, useFinancePeriod } from './components/period_provider.js';
 import { OverviewScreen } from './screens/overview_screen.js';
@@ -49,11 +51,14 @@ const RecurringSync = (): null => {
 
 export const FinanceApp = (): React.ReactElement => {
   useTodayFromUrl();
+  const [searching, setSearching] = useState(false);
+  const shortcuts = useMemo(() => ({ search: () => setSearching(true) }), []);
+  useShortcuts(shortcuts);
   return (
     <FinanceStoreProvider>
       <FinancePeriodProvider>
         <RecurringSync />
-        <FinanceShell onOpenSearch={() => {}}>
+        <FinanceShell onOpenSearch={() => setSearching(true)}>
           <Routes>
             <Route path="/" element={<Navigate to="visao-geral" replace />} />
             <Route path="visao-geral" element={<OverviewScreen />} />
@@ -68,6 +73,7 @@ export const FinanceApp = (): React.ReactElement => {
             <Route path="*" element={<Navigate to="/financas/visao-geral" replace />} />
           </Routes>
         </FinanceShell>
+        <FinanceSearch open={searching} onClose={() => setSearching(false)} />
       </FinancePeriodProvider>
     </FinanceStoreProvider>
   );

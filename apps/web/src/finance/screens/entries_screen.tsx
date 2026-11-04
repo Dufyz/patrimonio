@@ -81,9 +81,10 @@ export const EntriesScreen = (): React.ReactElement => {
   const [grouping, setGrouping] = useState<EntryGrouping>(() =>
     readEntryGrouping(browserStorage()),
   );
-  const [search, setSearch] = useState('');
-  // O link do Extrato ("Ver em Lançamentos com filtro desta conta") chega com `?conta=`.
+  // O link do Extrato ("Ver em Lançamentos com filtro desta conta") chega com `?conta=`,
+  // e a busca global (FIN-703) com `?busca=`.
   const [params] = useSearchParams();
+  const [search, setSearch] = useState(() => params.get('busca') ?? '');
   const [filters, setFilters] = useState<FilterState>(() => {
     const account = params.get('conta');
     return account === null ? EMPTY_FILTERS : { conta: [account] };
