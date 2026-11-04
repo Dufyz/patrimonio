@@ -303,3 +303,26 @@ export const recentMovements = (
   );
   return items.slice(0, limit).map(({ rank: _rank, order: _order, ...rest }) => rest);
 };
+
+/**
+ * FIN-405: saldo inicial + entradas − saídas precisa ser igual ao saldo atual.
+ * O Extrato nunca mostra números que não fecham: se divergir, mostra o erro.
+ */
+export const statementCloses = (stmt: Statement): boolean =>
+  stmt.opening + stmt.entered - stmt.left === stmt.closing;
+
+/** Tipo, instituição e cartão vinculado: "Conta corrente · Itaú Unibanco · cartão Itaú Visa". */
+export const accountSubtitle = (account: Account): string => {
+  const kind =
+    account.type === 'beneficio'
+      ? 'Benefício'
+      : account.institution === undefined
+        ? 'Conta'
+        : 'Conta corrente';
+  const cards = CARDS.filter((card) => card.payerId === account.id).map(
+    (card) => `cartão ${card.name}`,
+  );
+  return [kind, account.institution, ...cards]
+    .filter((part): part is string => part !== undefined && part !== '')
+    .join(' · ');
+};

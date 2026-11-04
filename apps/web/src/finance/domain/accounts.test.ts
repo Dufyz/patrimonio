@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  accountSubtitle,
+  statementCloses,
   accountBalance,
   accountLines,
   accountsOverview,
@@ -170,5 +172,42 @@ describe('últimas movimentações (FIN-402)', () => {
     expect(all.filter((m) => m.tags.includes('transferência'))).toHaveLength(1);
     expect(all.filter((m) => m.tags.includes('fatura'))).toHaveLength(2);
     expect(all.some((m) => m.description === 'Netflix')).toBe(false);
+  });
+});
+
+describe('consistência do extrato (FIN-405)', () => {
+  it('saldo inicial + entradas − saídas fecha com o saldo atual em toda conta e período', () => {
+    for (const account of data.accounts) {
+      for (const range of [
+        OCTOBER,
+        { from: '2026-10-10', to: '2026-10-20' },
+        { from: '2025-11-01', to: '2026-10-31' },
+      ]) {
+        const stmt = statement(data, account.id, range, TODAY);
+        expect(statementCloses(stmt)).toBe(true);
+      }
+    }
+  });
+
+  it('detecta um extrato que não fecha', () => {
+    const stmt = statement(data, 'itau-corrente', OCTOBER, TODAY);
+    expect(statementCloses({ ...stmt, closing: stmt.closing + 1 })).toBe(false);
+  });
+
+  it('o saldo de fechamento é o saldo da conta', () => {
+    for (const account of data.accounts) {
+      expect(statement(data, account.id, OCTOBER, TODAY).closing).toBe(
+        accountBalance(data, account.id, TODAY),
+      );
+    }
+  });
+
+  it('subtítulo: tipo, instituição e cartões', () => {
+    const by = (id: string) => data.accounts.find((a) => a.id === id)!;
+    expect(accountSubtitle(by('itau-corrente'))).toBe(
+      'Conta corrente · Itaú Unibanco · cartão Itaú Visa',
+    );
+    expect(accountSubtitle(by('carteira'))).toBe('Conta');
+    expect(accountSubtitle(by('flex'))).toBe('Benefício');
   });
 });
