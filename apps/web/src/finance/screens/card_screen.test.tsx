@@ -211,3 +211,42 @@ describe('Lista de faturas (FIN-506)', () => {
     ).toBeTruthy();
   });
 });
+
+describe('Lançar crédito (FIN-508, CE-05)', () => {
+  it('cashback de R$ 15,00 reduz o total e o limite usado', async () => {
+    open();
+    await userEvent.click(panel().getByRole('button', { name: 'Lançar crédito' }));
+    const dialog = within(screen.getByRole('dialog'));
+    await userEvent.selectOptions(dialog.getByLabelText('Tipo'), 'cashback');
+    await userEvent.type(dialog.getByLabelText('Descrição'), 'Cashback Nubank');
+    await userEvent.type(dialog.getByLabelText('Valor'), '15');
+    await userEvent.selectOptions(dialog.getByLabelText('Categoria'), 'mercado');
+    await userEvent.click(dialog.getByRole('button', { name: 'Lançar crédito' }));
+    expect(panel().getByLabelText('Total da fatura').textContent).toContain(
+      'R$ 3.467,17',
+    );
+    const row = within(
+      screen.getByRole('table', { name: 'Extrato da fatura' }),
+    ).getByRole('row', {
+      name: 'Cashback Nubank',
+    });
+    expect(row.textContent).toContain('+R$ 15,00');
+    expect(row.textContent).toContain('cashback');
+    expect(screen.getByText(/usado 61,3% · disponível R\$ 2\.192,83/)).toBeTruthy();
+  });
+
+  it('campos obrigatórios aparecem só ao salvar', async () => {
+    open();
+    await userEvent.click(panel().getByRole('button', { name: 'Lançar crédito' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.queryByText('Dê uma descrição.')).toBeNull();
+    await userEvent.click(dialog.getByRole('button', { name: 'Lançar crédito' }));
+    expect(dialog.getByText('Dê uma descrição.')).toBeTruthy();
+    expect(dialog.getByText('Informe um valor maior que zero.')).toBeTruthy();
+  });
+
+  it('fatura paga não tem a ação', () => {
+    open('/financas/cartoes/nubank-master?fatura=2026-10');
+    expect(panel().queryByRole('button', { name: 'Lançar crédito' })).toBeNull();
+  });
+});

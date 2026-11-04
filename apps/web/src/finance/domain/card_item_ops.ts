@@ -1,7 +1,7 @@
 import type { IsoDate } from '../lib/dates.js';
 import { parseMoneyInput } from '../lib/format.js';
 import { invoiceKeyOf, paymentOf } from './cards.js';
-import type { CardItem, FinanceData } from './types.js';
+import type { CardItem, CreditType, FinanceData } from './types.js';
 
 /**
  * Itens que só a fatura tem (RN-46): compras resumidas, créditos e encargos.
@@ -78,4 +78,46 @@ export const deleteCardItem = (data: FinanceData, id: string): FinanceData => {
   const current = data.cardItems.find((item) => item.id === id);
   if (current === undefined || itemLocked(data, current)) return data;
   return { ...data, cardItems: data.cardItems.filter((item) => item.id !== id) };
+};
+
+export type CreditDraft = CardItemDraft & { readonly subtype: CreditType };
+
+export const emptyCreditDraft = (today: IsoDate): CreditDraft => ({
+  subtype: 'devolucao',
+  description: '',
+  date: today,
+  categoryId: '',
+  value: '',
+});
+
+export const CREDIT_TYPES: readonly { readonly id: CreditType; readonly name: string }[] =
+  [
+    { id: 'devolucao', name: 'Devolução' },
+    { id: 'estorno', name: 'Estorno' },
+    { id: 'desconto', name: 'Desconto' },
+    { id: 'cashback', name: 'Cashback' },
+  ];
+
+/** FIN-508 · Crédito na fatura exibida: abate o total, nunca é receita (RN-51). */
+export const addCredit = (
+  data: FinanceData,
+  cardId: string,
+  invoice: string,
+  draft: CreditDraft,
+): FinanceData => {
+  if (paymentOf(data, cardId, invoice) !== undefined) return data;
+  if (Object.keys(validateCardItem(draft, true)).length > 0) return data;
+  const id = `credit-${cardId}-${invoice}-${data.cardItems.length + 1}`;
+  const item: CardItem = {
+    id,
+    cardId,
+    kind: 'credito',
+    date: draft.date,
+    description: draft.description.trim(),
+    categoryId: draft.categoryId,
+    cents: parseMoneyInput(draft.value) ?? 0,
+    subtype: draft.subtype,
+    invoice,
+  };
+  return { ...data, cardItems: [...data.cardItems, item] };
 };

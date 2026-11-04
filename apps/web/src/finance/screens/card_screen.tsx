@@ -6,6 +6,7 @@ import { Amount } from '../components/amount.js';
 import { CardItemDialog } from '../components/card_item_dialog.js';
 import { ConfirmDialog } from '../components/entry_confirms.js';
 import { PayInvoiceDialog } from '../components/pay_invoice_dialog.js';
+import { CreditDialog } from '../components/credit_dialog.js';
 import { InvoiceList } from '../components/invoice_list.js';
 import { InvoiceStatement } from '../components/invoice_statement.js';
 import { CardDialog } from '../components/card_dialog.js';
@@ -25,7 +26,7 @@ import {
   vigenteKey,
 } from '../domain/cards.js';
 import { payBlockedReason, payInvoice } from '../domain/invoice_ops.js';
-import { deleteCardItem, updateCardItem } from '../domain/card_item_ops.js';
+import { addCredit, deleteCardItem, updateCardItem } from '../domain/card_item_ops.js';
 import {
   addEntry,
   deleteEntries,
@@ -62,7 +63,7 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
   const navigate = useNavigate();
   const { today } = useFinancePeriod();
   const [search, setSearch] = useSearchParams();
-  const [dialog, setDialog] = useState<'edit' | 'entry' | 'pay' | null>(null);
+  const [dialog, setDialog] = useState<'edit' | 'entry' | 'pay' | 'credit' | null>(null);
   const [editingLine, setEditingLine] = useState<InvoiceLine | null>(null);
   const [deletingLine, setDeletingLine] = useState<InvoiceLine | null>(null);
 
@@ -128,13 +129,16 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
             <StatusTag status={invoice.status} />
           </div>
           {invoice.status === 'paga' ? null : (
-            <Button
-              variant="primary"
-              disabled={payBlockedReason(data, card.id, key, today) !== null}
-              onClick={() => setDialog('pay')}
-            >
-              Pagar fatura
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setDialog('credit')}>Lançar crédito</Button>
+              <Button
+                variant="primary"
+                disabled={payBlockedReason(data, card.id, key, today) !== null}
+                onClick={() => setDialog('pay')}
+              >
+                Pagar fatura
+              </Button>
+            </div>
           )}
         </header>
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-5">
@@ -214,6 +218,17 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
         </ConfirmDialog>
       )}
 
+      {dialog === 'credit' ? (
+        <CreditDialog
+          data={data}
+          today={today}
+          onClose={() => setDialog(null)}
+          onSave={(draft) => {
+            store.set((current) => addCredit(current, card.id, key, draft));
+            setDialog(null);
+          }}
+        />
+      ) : null}
       {dialog === 'pay' ? (
         <PayInvoiceDialog
           data={data}
