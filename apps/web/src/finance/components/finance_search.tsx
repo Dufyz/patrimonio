@@ -1,6 +1,8 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
+import { Icon } from '../../components/icon.js';
+import { Kbd, Label } from '../../components/primitives.js';
 import {
   Dialog,
   DialogContent,
@@ -63,43 +65,64 @@ export const FinanceSearch = ({
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
-      <DialogContent className="max-w-xl self-start" aria-describedby={undefined}>
+      <DialogContent
+        className="max-w-[40rem] gap-0 self-start overflow-hidden p-0"
+        aria-describedby={undefined}
+      >
         <DialogTitle className="sr-only">Buscar em Finanças</DialogTitle>
         <DialogDescription className="sr-only">
           Lançamentos, contas, cartões, recorrentes e categorias
         </DialogDescription>
-        <input
-          autoFocus
-          role="combobox"
-          aria-expanded={flat.length > 0}
-          aria-controls={listId}
-          aria-activedescendant={
-            flat[active] === undefined ? undefined : `${listId}-${active}`
-          }
-          aria-label="Buscar"
-          placeholder="Buscar lançamento, conta, cartão, recorrente ou categoria"
-          className="w-full border-b border-line bg-transparent px-5 py-4 text-[0.9375rem] outline-none placeholder:text-ink-3"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={onKeyDown}
-        />
+        <div className="flex items-center gap-2.5 border-b border-line px-4 py-3.5">
+          <span aria-hidden="true" className="text-ink">
+            <Icon name="search" />
+          </span>
+          <input
+            autoFocus
+            role="combobox"
+            aria-expanded={flat.length > 0}
+            aria-controls={listId}
+            aria-activedescendant={
+              flat[active] === undefined ? undefined : `${listId}-${active}`
+            }
+            aria-label="Buscar"
+            placeholder="Buscar lançamento, conta, cartão, recorrente ou categoria"
+            autoComplete="off"
+            spellCheck={false}
+            className="min-w-0 flex-1 bg-transparent text-[0.9375rem] caret-accent outline-none placeholder:text-ink-3"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={onKeyDown}
+          />
+          <span className="inline-flex min-h-6 items-center rounded-full border border-line-2 px-3 text-[0.71875rem] font-medium">
+            Finanças
+          </span>
+          <Kbd>esc</Kbd>
+        </div>
         <div
           id={listId}
           role="listbox"
           aria-label="Resultados"
-          className="max-h-96 overflow-y-auto py-1"
+          className="max-h-96 min-h-0 overflow-y-auto"
         >
           {query.trim() === '' ? (
-            <p className="px-5 py-6 text-[0.8125rem] text-ink-3">Digite para buscar.</p>
+            <p className="px-4 py-6 text-center text-[0.8125rem] text-ink-3">
+              Digite para buscar.
+            </p>
           ) : flat.length === 0 ? (
-            <p className="px-5 py-6 text-[0.8125rem] text-ink-3">
+            <p className="px-4 py-6 text-center text-[0.8125rem] text-ink-3">
               Nada encontrado para “{query}”.
             </p>
           ) : (
             groups.map((group) => (
-              <div key={group.id} role="group" aria-label={group.title}>
-                <div className="px-5 pt-3 pb-1 text-label tracking-[0.08em] text-ink-3 uppercase">
-                  {group.title}
+              <div
+                key={group.id}
+                role="group"
+                aria-label={group.title}
+                className="flex flex-col gap-1 px-2 py-1.5"
+              >
+                <div className="px-2.5 pt-1.5 pb-1">
+                  <Label>{group.title}</Label>
                 </div>
                 {group.items.map((item) => {
                   const index = flat.indexOf(item);
@@ -110,12 +133,13 @@ export const FinanceSearch = ({
                       role="option"
                       aria-selected={index === active}
                       onMouseEnter={() => setActive(index)}
+                      onMouseDown={(event) => event.preventDefault()}
                       onClick={() => choose(item)}
-                      className={`flex cursor-pointer items-baseline justify-between gap-4 px-5 py-2 text-[0.8125rem] ${
-                        index === active ? 'bg-accent-soft' : ''
+                      className={`flex min-h-[38px] cursor-pointer items-center justify-between gap-3 rounded-[6px] px-2.5 py-2 text-[0.84375rem] ${
+                        index === active ? 'bg-accent-soft' : 'bg-panel-2 hover:bg-line'
                       }`}
                     >
-                      <span className="truncate font-medium">{item.label}</span>
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
                       <span className="tabular shrink-0 text-xs text-ink-3">
                         {item.hint}
                       </span>
@@ -126,6 +150,12 @@ export const FinanceSearch = ({
             ))
           )}
         </div>
+        <footer className="flex items-center gap-1.5 border-t border-line bg-panel-2 px-4 py-2 text-[0.75rem] text-ink-3">
+          <Kbd>↑</Kbd>
+          <Kbd>↓</Kbd>
+          navegar ·<Kbd>↵</Kbd>
+          abrir
+        </footer>
       </DialogContent>
     </Dialog>
   );
