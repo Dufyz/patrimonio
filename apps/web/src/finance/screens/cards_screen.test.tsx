@@ -225,3 +225,29 @@ describe('Responsividade (FIN-702)', () => {
     }
   });
 });
+
+describe('Teclado e acessibilidade (FIN-705)', () => {
+  it('o modal fecha com Esc e devolve o foco ao botão que o abriu', async () => {
+    open();
+    const trigger = screen.getByRole('button', { name: /^Cartão/ });
+    trigger.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('o botão principal mostra o selo N e N abre o modal fora de um campo', async () => {
+    open();
+    expect(screen.getByRole('button', { name: /^Cartão/ }).textContent).toContain('N');
+    await userEvent.keyboard('n');
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('a situação da fatura tem texto, não só cor', () => {
+    open();
+    expect(rowOf('Itaú Visa').textContent).toContain('fechada');
+    expect(rowOf('Nubank Mastercard').textContent).toContain('aberta');
+  });
+});

@@ -91,6 +91,9 @@ export const Td = ({
 
 export const Row = ({
   onClick,
+  onToggle,
+  onActivate,
+  onEscape,
   selected = false,
   muted = false,
   label,
@@ -98,6 +101,12 @@ export const Row = ({
   children,
 }: {
   readonly onClick?: (() => void) | undefined;
+  /** FIN-705 · `Espaço` seleciona a linha. */
+  readonly onToggle?: (() => void) | undefined;
+  /** FIN-705 · `Enter` abre ou edita, nas linhas sem clique. */
+  readonly onActivate?: (() => void) | undefined;
+  /** FIN-705 · `Esc` limpa a seleção. */
+  readonly onEscape?: (() => void) | undefined;
   readonly selected?: boolean;
   /** Linha inativa, esmaecida. */
   readonly muted?: boolean;
@@ -106,17 +115,35 @@ export const Row = ({
   readonly children: React.ReactNode;
 }): React.ReactElement => (
   <tr
-    {...(onClick === undefined
+    {...(onClick === undefined && onToggle === undefined && onActivate === undefined
       ? {}
       : {
-          onClick,
+          ...(onClick === undefined ? {} : { onClick }),
           tabIndex: 0,
-          'data-clickable': true,
-          onKeyDown: (event: React.KeyboardEvent) => {
+          'data-navigable': true,
+          ...(onClick === undefined ? {} : { 'data-clickable': true }),
+          onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => {
             if (event.target !== event.currentTarget) return;
-            if (event.key === 'Enter') {
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
               event.preventDefault();
-              onClick();
+              const rows = Array.from(
+                event.currentTarget
+                  .closest('table')
+                  ?.querySelectorAll<HTMLTableRowElement>('tr[data-navigable]') ?? [],
+              );
+              const at = rows.indexOf(event.currentTarget);
+              rows[at + (event.key === 'ArrowDown' ? 1 : -1)]?.focus();
+            } else if (event.key === 'Enter') {
+              const act = onClick ?? onActivate;
+              if (act !== undefined) {
+                event.preventDefault();
+                act();
+              }
+            } else if (event.key === ' ' && onToggle !== undefined) {
+              event.preventDefault();
+              onToggle();
+            } else if (event.key === 'Escape' && onEscape !== undefined) {
+              onEscape();
             }
           },
         })}
@@ -125,6 +152,7 @@ export const Row = ({
     className={cn(
       'border-b border-line last:border-b-0',
       onClick !== undefined && 'cursor-pointer hover:bg-panel-2',
+      'focus-visible:bg-panel-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
       selected && 'bg-accent-soft hover:bg-accent-soft',
       muted && 'opacity-55',
       className,

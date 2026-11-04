@@ -295,6 +295,7 @@ export const EntriesScreen = (): React.ReactElement => {
                 }),
               onToggleAll: (checked) =>
                 setSelected(new Set(checked ? selectableIds : [])),
+              onClear: () => setSelected(new Set()),
             }}
             actions={{
               onEdit: setEditing,

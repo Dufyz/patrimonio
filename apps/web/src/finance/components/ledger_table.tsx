@@ -63,6 +63,8 @@ export type Selection = {
   readonly ids: ReadonlySet<string>;
   readonly onToggle: (entry: Entry) => void;
   readonly onToggleAll: (checked: boolean) => void;
+  /** FIN-705 · `Esc` numa linha limpa a seleção. */
+  readonly onClear?: (() => void) | undefined;
 };
 
 export const LedgerTable = ({
@@ -237,7 +239,18 @@ const EntryRow = ({
   const split = entry.payments.length > 1;
   return (
     <>
-      <Row selected={selection?.ids.has(entry.id) === true}>
+      <Row
+        selected={selection?.ids.has(entry.id) === true}
+        {...(selection === undefined || pending
+          ? {}
+          : { onToggle: () => selection.onToggle(entry) })}
+        {...(selection?.onClear === undefined ? {} : { onEscape: selection.onClear })}
+        {...(actions === undefined || pending
+          ? pending && onLaunch !== undefined
+            ? { onActivate: () => onLaunch(entry) }
+            : {}
+          : { onActivate: () => actions.onEdit(entry) })}
+      >
         {selection === undefined ? null : (
           <Td className="w-10">
             {pending ? null : (
