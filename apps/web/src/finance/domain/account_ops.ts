@@ -2,6 +2,8 @@ import { addMonths, parseIso, startOfMonth } from '../lib/dates.js';
 import type { IsoDate } from '../lib/dates.js';
 import { parseMoneyInput } from '../lib/format.js';
 import { normalizeText } from '../lib/text.js';
+import { accountBalance } from './accounts.js';
+import { CARDS } from './sources.js';
 import type { Account, AccountType, FinanceData } from './types.js';
 
 /**
@@ -155,5 +157,57 @@ export const updateAccount = (
   return {
     ...data,
     accounts: data.accounts.map((account) => (account.id === id ? updated : account)),
+  };
+};
+
+/**
+ * FIN-409 · Arquivar conta (RN-38).
+ *
+ * A conta arquivada sai de Contas, do total em contas e das opções de origem e
+ * destino, mas continua nos lançamentos e extratos antigos. Conta que paga um
+ * cartão não pode ser arquivada. Saldo diferente de zero exige confirmação.
+ */
+export const archiveBlockedReason = (data: FinanceData, id: string): string | null => {
+  const account = data.accounts.find((a) => a.id === id);
+  if (account === undefined) return 'Conta não encontrada.';
+  const cards = CARDS.filter((card) => card.payerId === id).map((card) => card.name);
+  if (cards.length === 0) return null;
+  return `${account.name} paga ${cards.length === 1 ? 'o cartão' : 'os cartões'} ${cards.join(' e ')}. Passe a fatura para outra conta antes de arquivar.`;
+};
+
+export const archiveAccount = (
+  data: FinanceData,
+  id: string,
+  today: IsoDate,
+  confirmedBalance = false,
+): FinanceData => {
+  const account = data.accounts.find((a) => a.id === id);
+  if (account === undefined || account.archived === true) return data;
+  if (archiveBlockedReason(data, id) !== null) return data;
+  if (!confirmedBalance && accountBalance(data, id, today) !== 0) return data;
+  return {
+    ...data,
+    accounts: data.accounts.map((a) => (a.id === id ? { ...a, archived: true } : a)),
+  };
+};
+
+export const restoreAccount = (data: FinanceData, id: string): FinanceData => {
+  const account = data.accounts.find((a) => a.id === id);
+  if (account === undefined || account.archived !== true) return data;
+  const restored: Account = {
+    id: account.id,
+    name: account.name,
+    role: account.role,
+    ...(account.roleTag === undefined ? {} : { roleTag: account.roleTag }),
+    ...(account.institution === undefined ? {} : { institution: account.institution }),
+    type: account.type,
+    initialCents: account.initialCents,
+    ...(account.creditCents === undefined ? {} : { creditCents: account.creditCents }),
+    ...(account.creditDay === undefined ? {} : { creditDay: account.creditDay }),
+    ...(account.creditsFrom === undefined ? {} : { creditsFrom: account.creditsFrom }),
+  };
+  return {
+    ...data,
+    accounts: data.accounts.map((a) => (a.id === id ? restored : a)),
   };
 };

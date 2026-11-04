@@ -55,6 +55,11 @@ describe('saldos de 24/10/2026 (prancha 03)', () => {
     };
     expect(accountsOverview(archived, OCTOBER, TODAY).accounts).toHaveLength(2);
     expect(accountsOverview(archived, OCTOBER, TODAY, true).accounts).toHaveLength(3);
+    // arquivada exibida continua fora do total (RN-38)
+    expect(accountsOverview(archived, OCTOBER, TODAY, true).totalBalance).toBe(
+      1177315 - 24000,
+    );
+    expect(accountsOverview(archived, OCTOBER, TODAY).totalBalance).toBe(1177315 - 24000);
   });
 });
 

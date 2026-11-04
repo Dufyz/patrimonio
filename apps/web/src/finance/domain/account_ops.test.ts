@@ -2,13 +2,21 @@ import { describe, expect, it } from 'vitest';
 
 import {
   addAccount,
+  archiveAccount,
+  archiveBlockedReason,
   draftOfAccount,
   emptyAccountDraft,
+  restoreAccount,
   updateAccount,
   validateAccount,
 } from './account_ops.js';
 import { accountBalance, accountsOverview } from './accounts.js';
 import { activeSources } from './sources.js';
+import {
+  transferAccounts,
+  validateTransfer,
+  emptyTransferDraft,
+} from './transfer_ops.js';
 import { SEED_REFERENCE_DATE, seedData } from './seed.js';
 
 const TODAY = SEED_REFERENCE_DATE;
@@ -152,5 +160,64 @@ describe('addAccount e updateAccount', () => {
     expect(edited?.creditCents).toBe(45000);
     expect(edited?.creditDay).toBe(8);
     expect(edited?.creditsFrom).toBe('2026-11-01');
+  });
+});
+
+describe('arquivar conta (FIN-409, RN-38)', () => {
+  it('conta com cartão ativo não pode ser arquivada', () => {
+    expect(archiveBlockedReason(data, 'itau-corrente')).toMatch(
+      /paga o cartão Itaú Visa/,
+    );
+    expect(archiveAccount(data, 'itau-corrente', TODAY, true)).toBe(data);
+  });
+
+  it('com saldo, só arquiva com confirmação explícita', () => {
+    expect(archiveAccount(data, 'carteira', TODAY)).toBe(data);
+    const archived = archiveAccount(data, 'carteira', TODAY, true);
+    expect(archived.accounts.find((a) => a.id === 'carteira')?.archived).toBe(true);
+  });
+
+  it('com saldo zero arquiva direto', () => {
+    const withZero = addAccount(
+      data,
+      { ...draft, name: 'Zerada', initial: '0,00' },
+      TODAY,
+    );
+    const archived = archiveAccount(withZero, 'zerada', TODAY);
+    expect(archived).not.toBe(withZero);
+  });
+
+  it('sai do total, das opções de origem e destino, mas o histórico continua', () => {
+    const next = archiveAccount(data, 'carteira', TODAY, true);
+    expect(accountsOverview(next, OCTOBER, TODAY).totalBalance).toBe(1177315 - 24000);
+    expect(activeSources(next).some((s) => s.id === 'carteira')).toBe(false);
+    expect(transferAccounts(next).some((a) => a.id === 'carteira')).toBe(false);
+    expect(
+      validateTransfer(
+        next,
+        {
+          ...emptyTransferDraft(TODAY, 'itau-corrente'),
+          toId: 'carteira',
+          value: '1,00',
+        },
+        TODAY,
+      )['toId'],
+    ).toBeDefined();
+    // o extrato e os lançamentos antigos seguem lendo a conta
+    expect(accountBalance(next, 'carteira', TODAY)).toBe(24000);
+    expect(next.entries).toBe(data.entries);
+  });
+
+  it('reativar devolve a conta à lista', () => {
+    const archived = archiveAccount(data, 'carteira', TODAY, true);
+    const back = restoreAccount(archived, 'carteira');
+    expect(back.accounts.find((a) => a.id === 'carteira')?.archived).toBeUndefined();
+    expect(restoreAccount(back, 'carteira')).toBe(back);
+    expect(accountsOverview(back, OCTOBER, TODAY).totalBalance).toBe(1177315);
+  });
+
+  it('benefício arquivado deixa de receber crédito', () => {
+    const archived = archiveAccount(data, 'flex', TODAY, true);
+    expect(archived.accounts.find((a) => a.id === 'flex')?.archived).toBe(true);
   });
 });

@@ -232,11 +232,13 @@ export const accountsOverview = (
       };
     });
   const accounts = rows.filter((row) => row.account.type === 'conta');
+  const counted = accounts.filter((row) => row.account.archived !== true);
   return {
     accounts,
     benefits: rows.filter((row) => row.account.type === 'beneficio'),
-    totalBalance: sum(accounts.map((row) => row.balance)),
-    totalVariation: sum(accounts.map((row) => row.variation)),
+    // RN-38: conta arquivada, mesmo exibida, não entra no total em contas.
+    totalBalance: sum(counted.map((row) => row.balance)),
+    totalVariation: sum(counted.map((row) => row.variation)),
   };
 };
 

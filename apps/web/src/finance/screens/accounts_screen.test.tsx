@@ -273,3 +273,82 @@ describe('Nova conta e editar conta (FIN-404)', () => {
     expect(rowOf('Carteira de bolso').textContent).toContain('R$ 240,00');
   });
 });
+
+describe('Arquivar conta (FIN-409)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  const archive = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+    await user.click(screen.getByRole('button', { name: `Ações de ${name}` }));
+    await user.click(screen.getByRole('menuitem', { name: 'Arquivar' }));
+    return within(screen.getByRole('dialog', { name: `Arquivar ${name}` }));
+  };
+
+  it('informa o saldo e só habilita depois de confirmar quando há saldo', async () => {
+    const user = userEvent.setup();
+    open();
+    const dialog = await archive(user, 'Carteira');
+    expect(dialog.getByText('R$ 240,00')).toBeInTheDocument();
+    const confirm = dialog.getByRole('button', { name: 'Arquivar' });
+    expect(confirm).toBeDisabled();
+    await user.click(dialog.getByRole('checkbox', { name: 'Arquivar mesmo com saldo' }));
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(mainTable().queryByText('Carteira')).not.toBeInTheDocument();
+    expect(rowOf('Total em contas').textContent).toContain('R$ 11.533,15');
+  });
+
+  it('conta com cartão ativo não pode ser arquivada', async () => {
+    const user = userEvent.setup();
+    open();
+    const dialog = await archive(user, 'Itaú Corrente');
+    expect(dialog.getByRole('alert').textContent).toContain('paga o cartão Itaú Visa');
+    expect(dialog.getByRole('button', { name: 'Arquivar' })).toBeDisabled();
+  });
+
+  it('"Mostrar arquivadas" exibe a conta esmaecida, fora do total, e permite reativar', async () => {
+    const user = userEvent.setup();
+    open();
+    expect(
+      screen.queryByRole('checkbox', { name: 'Mostrar arquivadas' }),
+    ).not.toBeInTheDocument();
+    const dialog = await archive(user, 'Carteira');
+    await user.click(dialog.getByRole('checkbox'));
+    await user.click(dialog.getByRole('button', { name: 'Arquivar' }));
+
+    await user.click(screen.getByRole('checkbox', { name: 'Mostrar arquivadas' }));
+    const row = rowOf('Carteira');
+    expect(row.textContent).toContain('arquivada');
+    expect(rowOf('Total em contas').textContent).toContain('R$ 11.533,15');
+
+    await user.click(screen.getByRole('button', { name: 'Ações de Carteira' }));
+    expect(screen.getByRole('menuitem', { name: 'Transferir' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await user.click(screen.getByRole('menuitem', { name: 'Reativar' }));
+    expect(rowOf('Total em contas').textContent).toContain('R$ 11.773,15');
+    expect(rowOf('Carteira').textContent).not.toContain('arquivada');
+  });
+
+  it('o Extrato de uma conta arquivada continua abrindo', async () => {
+    const user = userEvent.setup();
+    open();
+    const dialog = await archive(user, 'Carteira');
+    await user.click(dialog.getByRole('checkbox'));
+    await user.click(dialog.getByRole('button', { name: 'Arquivar' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Mostrar arquivadas' }));
+    await user.click(mainTable().getByText('Carteira'));
+    expect(screen.getByText('Extrato aberto')).toBeInTheDocument();
+  });
+
+  it('Transferir saldo leva ao modal com a origem preenchida', async () => {
+    const user = userEvent.setup();
+    open();
+    const dialog = await archive(user, 'Carteira');
+    await user.click(dialog.getByRole('button', { name: 'Transferir saldo' }));
+    expect(within(screen.getByRole('dialog')).getByLabelText('De')).toHaveValue(
+      'carteira',
+    );
+  });
+});

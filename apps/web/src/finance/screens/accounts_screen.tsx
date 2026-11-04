@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Button, IconButton } from '../../components/primitives.js';
+import { Checkbox } from '../../components/ui/checkbox.js';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,13 +19,19 @@ import {
   Th,
   THead,
 } from '../components/fin_table.js';
+import { ArchiveAccountDialog } from '../components/archive_dialog.js';
 import { AccountDialog } from '../components/account_dialog.js';
 import { TransferDialog } from '../components/transfer_dialog.js';
 import { RecentMovements } from '../components/recent_movements.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { NatureTag } from '../components/tags.js';
-import { addAccount, updateAccount } from '../domain/account_ops.js';
+import {
+  addAccount,
+  archiveAccount,
+  restoreAccount,
+  updateAccount,
+} from '../domain/account_ops.js';
 import { accountsOverview } from '../domain/accounts.js';
 import type { AccountRow } from '../domain/accounts.js';
 import type { Account } from '../domain/types.js';
@@ -51,8 +58,11 @@ export const AccountsScreen = (): React.ReactElement => {
   const data = useFinanceData();
   const { today } = useFinancePeriod();
   const store = useFinanceStore();
-  const overview = accountsOverview(data, currentMonth(today), today);
+  const [showArchived, setShowArchived] = useState(false);
+  const overview = accountsOverview(data, currentMonth(today), today, showArchived);
+  const hasArchived = data.accounts.some((account) => account.archived === true);
   const [transfer, setTransfer] = useState<{ readonly fromId: string } | null>(null);
+  const [archiving, setArchiving] = useState<Account | null>(null);
   const [editing, setEditing] = useState<
     { readonly type: 'new' } | { readonly type: 'edit'; readonly account: Account } | null
   >(null);
@@ -76,6 +86,17 @@ export const AccountsScreen = (): React.ReactElement => {
       />
 
       <section className="rounded-panel border border-line bg-panel">
+        {hasArchived ? (
+          <div className="flex justify-end border-b border-line px-4 py-2">
+            <label className="flex cursor-pointer items-center gap-2 text-[0.8125rem] text-ink-2">
+              <Checkbox
+                checked={showArchived}
+                onCheckedChange={(value) => setShowArchived(value === true)}
+              />
+              Mostrar arquivadas
+            </label>
+          </div>
+        ) : null}
         <FinTable caption="Contas e benefícios">
           <THead>
             <Th>Conta</Th>
@@ -94,6 +115,10 @@ export const AccountsScreen = (): React.ReactElement => {
                 row={row}
                 onTransfer={() => setTransfer({ fromId: row.account.id })}
                 onEdit={() => setEditing({ type: 'edit', account: row.account })}
+                onArchive={() => setArchiving(row.account)}
+                onRestore={() =>
+                  store.set((current) => restoreAccount(current, row.account.id))
+                }
               />
             ))}
             <SummaryRow kind="total">
@@ -118,6 +143,10 @@ export const AccountsScreen = (): React.ReactElement => {
                 row={row}
                 onTransfer={() => setTransfer({ fromId: row.account.id })}
                 onEdit={() => setEditing({ type: 'edit', account: row.account })}
+                onArchive={() => setArchiving(row.account)}
+                onRestore={() =>
+                  store.set((current) => restoreAccount(current, row.account.id))
+                }
               />
             ))}
           </tbody>
@@ -138,6 +167,25 @@ export const AccountsScreen = (): React.ReactElement => {
                 : addAccount(current, draft, today),
             );
             setEditing(null);
+          }}
+        />
+      )}
+
+      {archiving === null ? null : (
+        <ArchiveAccountDialog
+          data={data}
+          account={archiving}
+          today={today}
+          onClose={() => setArchiving(null)}
+          onTransfer={() => {
+            setTransfer({ fromId: archiving.id });
+            setArchiving(null);
+          }}
+          onConfirm={(confirmedBalance) => {
+            store.set((current) =>
+              archiveAccount(current, archiving.id, today, confirmedBalance),
+            );
+            setArchiving(null);
           }}
         />
       )}
@@ -165,10 +213,14 @@ const AccountTableRow = ({
   row,
   onTransfer,
   onEdit,
+  onArchive,
+  onRestore,
 }: {
   readonly row: AccountRow;
   readonly onTransfer: () => void;
   readonly onEdit: () => void;
+  readonly onArchive: () => void;
+  readonly onRestore: () => void;
 }): React.ReactElement => {
   const navigate = useNavigate();
   const { account } = row;
@@ -176,11 +228,19 @@ const AccountTableRow = ({
 
   return (
     <Row
+      muted={account.archived === true}
       label={account.name}
       onClick={() => void navigate(financeRoutes.account(account.id))}
     >
       <Td>
-        <div className="font-medium">{account.name}</div>
+        <div className="font-medium">
+          {account.name}
+          {account.archived === true ? (
+            <span className="ml-2 align-middle">
+              <NatureTag kind="arquivada" />
+            </span>
+          ) : null}
+        </div>
         <div className="text-xs text-ink-3">{account.role}</div>
       </Td>
       <Td>
@@ -215,9 +275,12 @@ const AccountTableRow = ({
         >
           <RowMenu
             name={account.name}
-            canTransfer={!isBenefit}
+            canTransfer={!isBenefit && account.archived !== true}
+            archived={account.archived === true}
             onTransfer={onTransfer}
             onEdit={onEdit}
+            onArchive={onArchive}
+            onRestore={onRestore}
           />
         </span>
       </Td>
@@ -225,15 +288,21 @@ const AccountTableRow = ({
   );
 };
 
-/** O `⋯` da linha. Arquivar entra com FIN-409. */
+/** O `⋯` da linha. Arquivada, a conta oferece Reativar (FIN-409). */
 const RowMenu = ({
   name,
   canTransfer,
+  archived,
   onTransfer,
   onEdit,
+  onArchive,
+  onRestore,
 }: {
   readonly name: string;
   readonly canTransfer: boolean;
+  readonly archived: boolean;
+  readonly onArchive: () => void;
+  readonly onRestore: () => void;
   readonly onTransfer: () => void;
   readonly onEdit: () => void;
 }): React.ReactElement => (
@@ -246,7 +315,11 @@ const RowMenu = ({
       <DropdownMenuItem disabled={!canTransfer} onSelect={onTransfer}>
         Transferir
       </DropdownMenuItem>
-      <DropdownMenuItem disabled>Arquivar</DropdownMenuItem>
+      {archived ? (
+        <DropdownMenuItem onSelect={onRestore}>Reativar</DropdownMenuItem>
+      ) : (
+        <DropdownMenuItem onSelect={onArchive}>Arquivar</DropdownMenuItem>
+      )}
     </DropdownMenuContent>
   </DropdownMenu>
 );
