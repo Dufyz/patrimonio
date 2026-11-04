@@ -36,6 +36,7 @@ import { accountsOverview } from '../domain/accounts.js';
 import type { AccountRow } from '../domain/accounts.js';
 import type { Account } from '../domain/types.js';
 import { addTransfer } from '../domain/transfer_ops.js';
+import { hideBelow } from '../lib/responsive.js';
 import { PRIMARY_LABELS } from '../lib/header.js';
 import { currentMonth } from '../lib/period.js';
 import { financeRoutes } from '../lib/routes.js';
@@ -100,9 +101,11 @@ export const AccountsScreen = (): React.ReactElement => {
         <FinTable caption="Contas e benefícios">
           <THead>
             <Th>Conta</Th>
-            <Th>Cartão</Th>
+            <Th className={hideBelow(1)}>Cartão</Th>
             <Th align="right">Saldo</Th>
-            <Th align="right">Variação no mês</Th>
+            <Th align="right" className={hideBelow(2)}>
+              Variação no mês
+            </Th>
             <Th>
               <span className="sr-only">Ações</span>
             </Th>
@@ -123,11 +126,11 @@ export const AccountsScreen = (): React.ReactElement => {
             ))}
             <SummaryRow kind="total">
               <Td>Total em contas</Td>
-              <Td />
+              <Td className={hideBelow(1)} />
               <Td numeric>
                 <Amount cents={overview.totalBalance} />
               </Td>
-              <Td numeric>
+              <Td numeric className={hideBelow(2)}>
                 <Amount cents={overview.totalVariation} variant="delta" />
               </Td>
               <Td />
@@ -243,7 +246,7 @@ const AccountTableRow = ({
         </div>
         <div className="text-xs text-ink-3">{account.role}</div>
       </Td>
-      <Td>
+      <Td className={hideBelow(1)}>
         {row.cards.length === 0 ? (
           '—'
         ) : (
@@ -257,7 +260,7 @@ const AccountTableRow = ({
       <Td numeric className="font-medium">
         <Amount cents={row.balance} />
       </Td>
-      <Td numeric>
+      <Td numeric className={hideBelow(2)}>
         {isBenefit ? (
           <>
             <Amount cents={account.creditCents ?? 0} />{' '}

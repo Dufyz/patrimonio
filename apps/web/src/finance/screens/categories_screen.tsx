@@ -11,6 +11,7 @@ import { CategoryDialog, DeleteCategoryDialog } from '../components/category_dia
 import { Amount } from '../components/amount.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { EmptyPanel } from '../components/states.js';
+import { hideBelow } from '../lib/responsive.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import {
   CategoryMarker,
@@ -179,10 +180,16 @@ export const CategoriesScreen = (): React.ReactElement => {
             <Th>Categoria</Th>
             {visible('tipo') ? <Th>Tipo</Th> : null}
             {visible('lancamentos') ? (
-              <Th align="right">Lançamentos em {monthLabel}</Th>
+              <Th align="right" className={hideBelow(2)}>
+                Lançamentos em {monthLabel}
+              </Th>
             ) : null}
             <Th align="right">Total em {monthLabel}</Th>
-            {visible('media') ? <Th align="right">Média de 12 meses</Th> : null}
+            {visible('media') ? (
+              <Th align="right" className={hideBelow(1)}>
+                Média de 12 meses
+              </Th>
+            ) : null}
             <Th>
               <span className="sr-only">Ações</span>
             </Th>
@@ -215,12 +222,16 @@ export const CategoriesScreen = (): React.ReactElement => {
                       {visible('tipo') ? (
                         <Td className="text-xs text-ink-3">{category.kind}</Td>
                       ) : null}
-                      {visible('lancamentos') ? <Td numeric>{usage.count}</Td> : null}
+                      {visible('lancamentos') ? (
+                        <Td numeric className={hideBelow(2)}>
+                          {usage.count}
+                        </Td>
+                      ) : null}
                       <Td numeric className="font-semibold">
                         {usage.count === 0 ? NO_VALUE : <Amount cents={usage.total} />}
                       </Td>
                       {visible('media') ? (
-                        <Td numeric className="text-ink-2">
+                        <Td numeric className={`text-ink-2 ${hideBelow(1)}`}>
                           {usage.average12 === 0 ? (
                             NO_VALUE
                           ) : (

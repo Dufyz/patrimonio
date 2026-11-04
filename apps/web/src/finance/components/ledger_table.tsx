@@ -16,6 +16,7 @@ import { accountNames } from '../domain/ledger.js';
 import { sourceName } from '../domain/sources.js';
 import type { GroupSummary, LedgerGroup } from '../domain/ledger_groups.js';
 import type { Category, Entry } from '../domain/types.js';
+import { hideBelow } from '../lib/responsive.js';
 import { categoryColor } from '../lib/category_colors.js';
 import { formatBRL, formatDayHeader } from '../lib/format.js';
 import { pluralize } from '../lib/header.js';
@@ -117,9 +118,9 @@ export const LedgerTable = ({
           )}
           {visible('data') ? <Th>Data</Th> : null}
           <Th>Descrição</Th>
-          {visible('categoria') ? <Th>Categoria</Th> : null}
-          {visible('conta') ? <Th>Conta</Th> : null}
-          {visible('detalhe') ? <Th>Detalhe</Th> : null}
+          {visible('categoria') ? <Th className={hideBelow(3)}>Categoria</Th> : null}
+          {visible('conta') ? <Th className={hideBelow(2)}>Conta</Th> : null}
+          {visible('detalhe') ? <Th className={hideBelow(1)}>Detalhe</Th> : null}
           <Th align="right">Valor</Th>
           <Th>
             <span className="sr-only">Ações</span>
@@ -257,7 +258,7 @@ const EntryRow = ({
         ) : null}
         <Td className="font-medium">{entry.description}</Td>
         {layout.visible('categoria') ? (
-          <Td>
+          <Td className={hideBelow(3)}>
             {editingCategory && actions !== undefined ? (
               <Select
                 invalid={false}
@@ -299,10 +300,10 @@ const EntryRow = ({
           </Td>
         ) : null}
         {layout.visible('conta') ? (
-          <Td>{accountNames(data, entry).join(' + ')}</Td>
+          <Td className={hideBelow(2)}>{accountNames(data, entry).join(' + ')}</Td>
         ) : null}
         {layout.visible('detalhe') ? (
-          <Td>
+          <Td className={hideBelow(1)}>
             {pending ? (
               <>
                 <NatureTag kind="previsto" />

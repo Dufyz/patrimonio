@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 
 import type { Statement } from '../domain/accounts.js';
 import type { Account, FinanceData } from '../domain/types.js';
+import { hideBelow } from '../lib/responsive.js';
 import { categoryColor } from '../lib/category_colors.js';
 import { formatDay, formatMonth } from '../lib/format.js';
 import { pluralize } from '../lib/header.js';
@@ -53,12 +54,14 @@ export const StatementTable = ({
         <THead>
           <Th>Data</Th>
           <Th>Descrição</Th>
-          <Th>Categoria</Th>
+          <Th className={hideBelow(1)}>Categoria</Th>
           <Th>
             <span className="sr-only">Natureza</span>
           </Th>
           <Th align="right">Valor</Th>
-          <Th align="right">Saldo após</Th>
+          <Th align="right" className={hideBelow(2)}>
+            Saldo após
+          </Th>
         </THead>
         <tbody>
           {lines.length === 0 ? (
@@ -84,7 +87,7 @@ export const StatementTable = ({
                       <div className="text-xs text-ink-3">{line.note}</div>
                     )}
                   </Td>
-                  <Td>
+                  <Td className={hideBelow(1)}>
                     {category === undefined ? (
                       '—'
                     ) : (
@@ -104,7 +107,7 @@ export const StatementTable = ({
                   <Td numeric>
                     <Amount cents={line.cents} variant="flow" />
                   </Td>
-                  <Td numeric className="text-ink-2">
+                  <Td numeric className={`text-ink-2 ${hideBelow(2)}`}>
                     <Amount cents={line.balanceAfter} />
                   </Td>
                 </Row>

@@ -30,6 +30,7 @@ import { payInvoice } from '../domain/invoice_ops.js';
 import { addCard, updateCard } from '../domain/card_ops.js';
 import { cardSummary, openInvoicesTotal } from '../domain/cards.js';
 import type { CardSummary } from '../domain/cards.js';
+import { hideBelow } from '../lib/responsive.js';
 import { PRIMARY_LABELS } from '../lib/header.js';
 import { formatBRL, formatDay } from '../lib/format.js';
 import { financeRoutes } from '../lib/routes.js';
@@ -130,8 +131,8 @@ export const CardsScreen = (): React.ReactElement => {
                 <Th>Cartão</Th>
                 <Th align="right">Fatura</Th>
                 <Th>Situação</Th>
-                <Th>Vence</Th>
-                <Th>Limite usado</Th>
+                <Th className={hideBelow(2)}>Vence</Th>
+                <Th className={hideBelow(1)}>Limite usado</Th>
                 <Th>
                   <span className="sr-only">Ações</span>
                 </Th>
@@ -161,8 +162,8 @@ export const CardsScreen = (): React.ReactElement => {
                     <Amount cents={total} />
                   </Td>
                   <Td />
-                  <Td />
-                  <Td />
+                  <Td className={hideBelow(2)} />
+                  <Td className={hideBelow(1)} />
                   <Td />
                 </SummaryRow>
               </tbody>
@@ -264,11 +265,11 @@ const CardRow = ({
       <Td>
         <InvoiceStatus invoice={invoice} today={today} closesAs="fecha" />
       </Td>
-      <Td>
+      <Td className={hideBelow(2)}>
         <div>{formatDay(invoice.due, today)}</div>
         <div className="text-xs text-ink-3">{dueLabel(item.daysToDue)}</div>
       </Td>
-      <Td>
+      <Td className={hideBelow(1)}>
         <LimitBar percent={item.usedPercent} />
       </Td>
       <Td align="right" className="w-44">

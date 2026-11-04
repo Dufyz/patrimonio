@@ -13,6 +13,9 @@ import { Amount } from './amount.js';
  */
 
 const HEIGHT = 220;
+const COMPACT_HEIGHT = 150;
+/** Abaixo disto o gráfico encolhe e mostra um rótulo de mês a cada dois (FIN-702). */
+const COMPACT_BELOW = 520;
 const MARGIN = { top: 12, right: 8, bottom: 26, left: 64 } as const;
 
 const compact = (cents: number): string => {
@@ -39,9 +42,11 @@ export const FlowChart = ({
   const selected = points.find((point) => point.selected);
   if (selected === undefined) return null;
 
+  const compactChart = width < COMPACT_BELOW;
+  const height = compactChart ? COMPACT_HEIGHT : HEIGHT;
   const svgWidth = Math.max(1, width - 40);
   const plotWidth = Math.max(1, svgWidth - MARGIN.left - MARGIN.right);
-  const plotHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
+  const plotHeight = height - MARGIN.top - MARGIN.bottom;
   const max = Math.max(1, ...points.flatMap((point) => [point.receitas, point.despesas]));
   const top = Math.ceil(max / 500_00) * 500_00;
   const slot = plotWidth / points.length;
@@ -71,9 +76,9 @@ export const FlowChart = ({
       <svg
         role="img"
         aria-label={`Receitas e despesas dos últimos 12 meses; ${formatMonthShort(selected.start)}: receitas ${formatBRL(selected.receitas)}, despesas ${formatBRL(selected.despesas)}`}
-        viewBox={`0 0 ${svgWidth} ${HEIGHT}`}
+        viewBox={`0 0 ${svgWidth} ${height}`}
         className="block w-full overflow-visible"
-        style={{ height: HEIGHT }}
+        style={{ height }}
       >
         <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
           {ticks.map((tick) => (
@@ -142,7 +147,9 @@ export const FlowChart = ({
                       : 'tabular fill-ink-3 text-label'
                   }
                 >
-                  {formatMonthShort(point.start)}
+                  {compactChart && index % 2 === 0 && !point.selected
+                    ? ''
+                    : formatMonthShort(point.start)}
                 </text>
               </g>
             );

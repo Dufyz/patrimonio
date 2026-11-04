@@ -25,6 +25,7 @@ import {
   THead,
 } from '../components/fin_table.js';
 import { EmptyPanel } from '../components/states.js';
+import { hideBelow } from '../lib/responsive.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { TableToolbar } from '../components/table_toolbar.js';
 import {
@@ -223,9 +224,13 @@ export const RecurringsScreen = (): React.ReactElement => {
           <THead>
             <Th>Item</Th>
             {visible('categoria') ? <Th>Categoria</Th> : null}
-            {visible('pagamento') ? <Th>Pagamento</Th> : null}
-            {visible('dia') ? <Th align="right">Dia</Th> : null}
-            {visible('lancamento') ? <Th>Lançamento</Th> : null}
+            {visible('pagamento') ? <Th className={hideBelow(2)}>Pagamento</Th> : null}
+            {visible('dia') ? (
+              <Th align="right" className={hideBelow(3)}>
+                Dia
+              </Th>
+            ) : null}
+            {visible('lancamento') ? <Th className={hideBelow(1)}>Lançamento</Th> : null}
             <Th align="right">Valor</Th>
             <Th align="center">Ativo</Th>
             <Th>
@@ -351,14 +356,20 @@ const RecurringRow = ({
         </Td>
       ) : null}
       {visible('pagamento') ? (
-        <Td>
+        <Td className={hideBelow(2)}>
           {paymentLabel(data, recurring)}
           {note === null ? null : <span className="ml-2 text-xs text-ink-3">{note}</span>}
         </Td>
       ) : null}
-      {visible('dia') ? <Td numeric>{String(recurring.day).padStart(2, '0')}</Td> : null}
+      {visible('dia') ? (
+        <Td numeric className={hideBelow(3)}>
+          {String(recurring.day).padStart(2, '0')}
+        </Td>
+      ) : null}
       {visible('lancamento') ? (
-        <Td className="text-xs text-ink-3">{MODE_LABEL[recurring.mode]}</Td>
+        <Td className={`text-xs text-ink-3 ${hideBelow(1)}`}>
+          {MODE_LABEL[recurring.mode]}
+        </Td>
       ) : null}
       <Td numeric>
         {recurring.mode === 'manual' ? (

@@ -208,3 +208,20 @@ describe('Estados (FIN-701)', () => {
     expect(screen.getByRole('dialog')).toBeTruthy();
   });
 });
+
+describe('Responsividade (FIN-702)', () => {
+  it('Limite usado some primeiro e Vence depois; cartão, fatura e ação ficam', () => {
+    open();
+    const table = within(screen.getByRole('table', { name: 'Cartões por conta' }));
+    expect(table.getByRole('columnheader', { name: 'Limite usado' }).className).toContain(
+      'max-xl:hidden',
+    );
+    expect(table.getByRole('columnheader', { name: 'Vence' }).className).toContain(
+      'max-lg:hidden',
+    );
+    for (const name of ['Cartão', 'Fatura']) {
+      const header = table.getByRole('columnheader', { name });
+      expect(header.className).not.toMatch(/max-(xl|lg|md|sm):hidden/);
+    }
+  });
+});
