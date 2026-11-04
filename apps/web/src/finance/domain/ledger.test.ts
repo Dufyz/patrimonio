@@ -83,3 +83,21 @@ describe('origem principal (RN-23)', () => {
     ).toBe('a');
   });
 });
+
+describe('despesa paga em partes (RN-21)', () => {
+  it('a soma das partes é sempre o valor do lançamento', () => {
+    for (const entry of data.entries.filter((e) => e.historical !== true)) {
+      const parts = entry.payments.reduce((total, payment) => total + payment.cents, 0);
+      expect(parts, entry.id).toBe(entry.cents);
+    }
+  });
+
+  it('os totais do período contam o valor total uma vez', () => {
+    const luz = data.entries.find((e) => e.id === 'l-luz');
+    expect(luz?.cents).toBe(31240);
+    expect(indicators(queryEntries(data, 'luz', {}), october).despesas).toEqual({
+      cents: 31240,
+      count: 1,
+    });
+  });
+});

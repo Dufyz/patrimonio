@@ -3,6 +3,7 @@ import { Amount } from './amount.js';
 import { CategoryMarker, FinTable, Row, SectionRow, Td, Th, THead } from './fin_table.js';
 import { NatureTag } from './tags.js';
 import { accountNames } from '../domain/ledger.js';
+import { sourceName } from '../domain/sources.js';
 import type { GroupSummary, LedgerGroup } from '../domain/ledger_groups.js';
 import type { Category, Entry } from '../domain/types.js';
 import { categoryColor } from '../lib/category_colors.js';
@@ -118,45 +119,85 @@ const EntryRow = ({
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
 }): React.ReactElement => {
   const pending = entry.status === 'prevista';
+  const split = entry.payments.length > 1;
   return (
-    <Row>
-      <Td className="tabular text-ink-2">{formatDate(entry.date, today)}</Td>
-      <Td className="font-medium">{entry.description}</Td>
-      <Td>
-        {category === undefined ? (
-          '—'
-        ) : (
-          <CategoryMarker color={categoryColor(category.color)} name={category.name} />
-        )}
-      </Td>
-      <Td>{accountNames(entry).join(' + ')}</Td>
-      <Td>
-        {pending ? (
-          <NatureTag kind="previsto" />
-        ) : entry.recurringId === undefined ? null : (
-          <NatureTag kind="recorrente" />
-        )}
-      </Td>
-      <Td numeric className="font-semibold">
-        <Amount
-          cents={entry.kind === 'receita' ? entry.cents : -entry.cents}
-          variant="flow"
-        />
-      </Td>
-      <Td align="right" className="w-24">
-        {pending ? (
-          <Button
-            disabled={onLaunch === undefined}
-            onClick={() => onLaunch?.(entry)}
-            aria-label={`Lançar ${entry.description}`}
-          >
-            Lançar
-          </Button>
-        ) : null}
-      </Td>
-    </Row>
+    <>
+      <Row>
+        <Td className="tabular text-ink-2">{formatDate(entry.date, today)}</Td>
+        <Td className="font-medium">{entry.description}</Td>
+        <Td>
+          {category === undefined ? (
+            '—'
+          ) : (
+            <CategoryMarker color={categoryColor(category.color)} name={category.name} />
+          )}
+        </Td>
+        <Td>{accountNames(entry).join(' + ')}</Td>
+        <Td>
+          {pending ? (
+            <NatureTag kind="previsto" />
+          ) : entry.recurringId === undefined ? null : (
+            <NatureTag kind="recorrente" />
+          )}
+          {split ? (
+            <span className={pending || entry.recurringId !== undefined ? 'ml-1.5' : ''}>
+              <NatureTag kind="2 pagamentos" />
+            </span>
+          ) : null}
+        </Td>
+        <Td numeric className="font-semibold">
+          <Amount
+            cents={entry.kind === 'receita' ? entry.cents : -entry.cents}
+            variant="flow"
+          />
+        </Td>
+        <Td align="right" className="w-24">
+          {pending ? (
+            <Button
+              disabled={onLaunch === undefined}
+              onClick={() => onLaunch?.(entry)}
+              aria-label={`Lançar ${entry.description}`}
+            >
+              Lançar
+            </Button>
+          ) : null}
+        </Td>
+      </Row>
+      {split
+        ? entry.payments.map((payment) => (
+            <PartRow
+              key={payment.sourceId}
+              sourceId={payment.sourceId}
+              cents={payment.cents}
+            />
+          ))
+        : null}
+    </>
   );
 };
+
+/**
+ * FIN-303 · Um subitem de despesa paga em partes: recuado, em tipografia
+ * secundária, com a parte de cada origem. A soma é sempre o valor da linha (RN-21).
+ */
+const PartRow = ({
+  sourceId,
+  cents,
+}: {
+  readonly sourceId: string;
+  readonly cents: number;
+}): React.ReactElement => (
+  <tr data-part={sourceId} className="border-b border-line text-ink-3 last:border-b-0">
+    <td aria-hidden="true" />
+    <td colSpan={4} className="border-l border-line-2 py-1.5 pl-4 text-[0.8125rem]">
+      Pago com {sourceName(sourceId)}
+    </td>
+    <td className="tabular px-3 py-1.5 text-right text-[0.8125rem]">
+      {formatBRL(cents)}
+    </td>
+    <td aria-hidden="true" />
+  </tr>
+);
 
 const Legend = (): React.ReactElement => (
   <footer className="flex flex-col gap-2 border-t border-line px-4 py-3 text-xs text-ink-3">

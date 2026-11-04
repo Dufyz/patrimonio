@@ -140,3 +140,30 @@ describe('tabela por dia (FIN-302)', () => {
     expect(screen.getByText('Flex + Itaú Corrente')).toBeInTheDocument();
   });
 });
+
+describe('despesa paga por duas origens (FIN-303)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  it('a linha mostra o total, as duas contas e a etiqueta "2 pagamentos"', () => {
+    open();
+    const row = screen.getByText('Conta de luz').closest('tr');
+    expect(row?.textContent).toContain('Flex + Itaú Corrente');
+    expect(row?.textContent).toContain('2 pagamentos');
+    expect(row?.textContent).toMatch(/−\s?R\$\s?312,40/);
+  });
+
+  it('os subitens vêm logo abaixo, com a parte de cada origem', () => {
+    open();
+    const rows = screen.getAllByRole('row');
+    const index = rows.findIndex((row) => row.textContent?.includes('Conta de luz'));
+    expect(rows[index + 1]?.textContent).toContain('Pago com Flex');
+    expect(rows[index + 1]?.textContent).toContain('R$ 150,00');
+    expect(rows[index + 2]?.textContent).toContain('Pago com Itaú Corrente');
+    expect(rows[index + 2]?.textContent).toContain('R$ 162,40');
+  });
+
+  it('despesa de uma origem não tem subitens', () => {
+    open();
+    expect(screen.getAllByText(/^Pago com/)).toHaveLength(2);
+  });
+});
