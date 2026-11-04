@@ -205,6 +205,7 @@ export const RecurringsScreen = (): React.ReactElement => {
       <section className="rounded-panel border border-line bg-panel">
         <TableToolbar
           counter={summaryLabel(rows)}
+          counterIcon="repeat"
           searchPlaceholder="Buscar recorrente"
           search={search}
           onSearch={setSearch}
@@ -357,8 +358,12 @@ const RecurringRow = ({
       ) : null}
       {visible('pagamento') ? (
         <Td className={hideBelow(2)}>
-          {paymentLabel(data, recurring)}
-          {note === null ? null : <span className="ml-2 text-xs text-ink-3">{note}</span>}
+          <span className={note === null ? undefined : 'font-semibold'}>
+            {paymentLabel(data, recurring)}
+          </span>
+          {note === null ? null : (
+            <span className="block text-xs text-ink-3">{note}</span>
+          )}
         </Td>
       ) : null}
       {visible('dia') ? (
@@ -372,13 +377,14 @@ const RecurringRow = ({
         </Td>
       ) : null}
       <Td numeric>
-        {recurring.mode === 'manual' ? (
-          <span className="mr-2 text-xs font-normal text-ink-3">estimativa</span>
-        ) : null}
         <Amount
-          cents={recurring.cents}
-          variant={recurring.kind === 'receita' ? 'flow' : 'plain'}
+          cents={recurring.kind === 'receita' ? recurring.cents : -recurring.cents}
+          variant="flow"
+          className="font-semibold"
         />
+        {recurring.mode === 'manual' ? (
+          <span className="block text-xs font-normal text-ink-3">estimativa</span>
+        ) : null}
       </Td>
       <Td align="center">
         <Switch

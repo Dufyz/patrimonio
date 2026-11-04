@@ -6,6 +6,7 @@ import {
   ToolbarIconButton,
   ToolbarSearch,
 } from '../../components/filter_bar.js';
+import { Icon } from '../../components/icon.js';
 import type { IconName } from '../../components/icon.js';
 import { useShortcuts } from '../../components/shortcuts.js';
 import { toggleColumn } from '../lib/columns.js';
@@ -34,6 +35,7 @@ export const TableToolbar = ({
   search,
   onSearch,
   counter,
+  counterIcon,
   group,
   filterFields,
   filters,
@@ -48,6 +50,8 @@ export const TableToolbar = ({
   readonly onSearch: (value: string) => void;
   /** "15 categorias": só onde a prancha mostra o resumo na barra. */
   readonly counter?: React.ReactNode;
+  /** Ícone antes do resumo, onde a prancha traz um (Recorrentes). */
+  readonly counterIcon?: IconName;
   /** O seletor "Agrupar: Dia", só em Lançamentos: fica na barra, antes de Filtrar. */
   readonly group?: React.ReactNode;
   readonly filterFields: readonly FilterField[];
@@ -88,15 +92,20 @@ export const TableToolbar = ({
             label={searchPlaceholder}
             placeholder={searchPlaceholder}
           />
-          {counter === undefined ? null : (
-            <span className="tabular text-xs whitespace-nowrap text-ink-3">
-              {counter}
-            </span>
-          )}
         </div>
       }
       fields={fields}
-      beforeFilter={group}
+      beforeFilter={
+        <>
+          {counter === undefined ? null : (
+            <span className="mr-1 inline-flex items-center gap-1.5 text-[0.8125rem] whitespace-nowrap text-ink-2">
+              {counterIcon === undefined ? null : <Icon name={counterIcon} size={14} />}
+              {counter}
+            </span>
+          )}
+          {group}
+        </>
+      }
       open={filterOpen}
       onOpenChange={setFilterOpen}
       display={{

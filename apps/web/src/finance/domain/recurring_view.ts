@@ -17,8 +17,11 @@ export const paymentNote = (data: FinanceData, recurring: Recurring): string | n
 export const MODE_LABEL = { automatico: 'automático', manual: 'manual' } as const;
 
 /** Dentro de cada seção, pela data do mês; empate pelo nome. */
+/** Ativos primeiro, pelo dia do mês; os pausados ficam no fim da seção (prancha 05). */
 export const byDay = (a: Recurring, b: Recurring): number =>
-  a.day - b.day || a.name.localeCompare(b.name, 'pt-BR');
+  Number(b.active) - Number(a.active) ||
+  a.day - b.day ||
+  a.name.localeCompare(b.name, 'pt-BR');
 
 export const categoryOf = (
   categories: readonly Category[],
