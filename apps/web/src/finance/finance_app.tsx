@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router';
 
 import { FinanceShell } from './components/finance_shell.js';
 import { FinancePeriodProvider } from './components/period_provider.js';
+import { SettingsScreen } from './screens/settings_screen.js';
 import { setTodayOverride, todayFromSearch } from './lib/clock.js';
 
 /**
@@ -71,10 +72,7 @@ export const FinanceApp = (): React.ReactElement => {
             path="categorias"
             element={<Pending title="Categorias" story="FIN-101" />}
           />
-          <Route
-            path="configuracoes"
-            element={<Pending title="Configurações" story="uma história futura" />}
-          />
+          <Route path="configuracoes" element={<SettingsScreen />} />
           <Route path="*" element={<Navigate to="/financas/visao-geral" replace />} />
         </Routes>
       </FinanceShell>

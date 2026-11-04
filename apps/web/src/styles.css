@@ -119,6 +119,24 @@
   --color-scale-positive: #1e9e66;
   --color-scale-negative: #d94f5c;
 
+  /*
+   * Categorias de Finanças (FIN-006). A cor vem do cadastro da categoria e é a
+   * mesma em tabelas, barras e gráficos. Cada uma precisa de 3:1 contra o painel
+   * nos dois temas — o marcador é elemento gráfico, não texto.
+   */
+  --color-cat-violet: #7a52c7;
+  --color-cat-slate: #5a6b84;
+  --color-cat-rose: #b8456a;
+  --color-cat-blue: #3f78b4;
+  --color-cat-brown: #94603a;
+  --color-cat-teal: #138a8f;
+  --color-cat-gray: #7b8496;
+  --color-cat-olive: #77871a;
+  --color-cat-green: #2f8a4f;
+  --color-cat-orange: #c0620f;
+  --color-cat-cyan: #167fa6;
+  --color-cat-indigo: #4a58c9;
+
   --color-focus: #2453c7;
   --color-overlay: rgb(18 23 34 / 0.38);
 
@@ -213,6 +231,19 @@
 
   --color-scale-positive: #4cb782;
   --color-scale-negative: #e5646f;
+
+  --color-cat-violet: #a68ae6;
+  --color-cat-slate: #8b9bb4;
+  --color-cat-rose: #e07b9b;
+  --color-cat-blue: #6ea3dc;
+  --color-cat-brown: #c79468;
+  --color-cat-teal: #4cc0c4;
+  --color-cat-gray: #959cab;
+  --color-cat-olive: #aebb4c;
+  --color-cat-green: #62c383;
+  --color-cat-orange: #e69a52;
+  --color-cat-cyan: #52b6dc;
+  --color-cat-indigo: #8a96ee;
 
   --color-focus: #8790ea;
   --color-overlay: rgb(0 0 0 / 0.62);
@@ -332,7 +363,9 @@ body {
 
   /* Separado da lista acima: um pseudo-elemento que o navegador não conhece
      invalida a regra inteira, e o ícone do seletor de data só existe no WebKit. */
-  input:is([type='date'], [type='month']):not(:disabled)::-webkit-calendar-picker-indicator {
+  input:is([type='date'], [type='month']):not(
+      :disabled
+    )::-webkit-calendar-picker-indicator {
     cursor: pointer;
   }
 
