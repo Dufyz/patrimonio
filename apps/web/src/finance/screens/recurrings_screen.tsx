@@ -9,6 +9,11 @@ import {
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu.js';
 import { browserStorage } from '../../lib/preferences.js';
+import {
+  DeleteRecurringDialog,
+  RecurringDialog,
+} from '../components/recurring_dialogs.js';
+import { useFinancePeriod } from '../components/period_provider.js';
 import { Amount } from '../components/amount.js';
 import {
   CategoryMarker,
@@ -43,7 +48,13 @@ import type { FilterField, FilterState } from '../lib/filters.js';
 import { PRIMARY_LABELS } from '../lib/header.js';
 import { centsToDecimal } from '../lib/money.js';
 import { matchesSearch } from '../lib/text.js';
-import { useFinanceData } from '../store/finance_store.js';
+import {
+  addRecurring,
+  deleteRecurring,
+  setRecurringActive,
+  updateRecurring,
+} from '../domain/recurring.js';
+import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
 
 /**
  * FIN-201 · Recorrentes.
@@ -71,7 +82,16 @@ const SECTIONS = [
 ] as const;
 
 export const RecurringsScreen = (): React.ReactElement => {
-  const { categories, recurrings } = useFinanceData();
+  const data = useFinanceData();
+  const { categories, recurrings } = data;
+  const store = useFinanceStore();
+  const { today } = useFinancePeriod();
+  const [dialog, setDialog] = useState<
+    | { readonly type: 'new' }
+    | { readonly type: 'edit'; readonly recurring: Recurring }
+    | { readonly type: 'delete'; readonly recurring: Recurring }
+    | null
+  >(null);
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
@@ -163,7 +183,10 @@ export const RecurringsScreen = (): React.ReactElement => {
       <ScreenHeader
         title="Recorrentes"
         subtitle="Receitas e despesas que se repetem e geram os previstos de Lançamentos todo dia 1"
-        primary={{ label: PRIMARY_LABELS.recurrings, onClick: () => {} }}
+        primary={{
+          label: PRIMARY_LABELS.recurrings,
+          onClick: () => setDialog({ type: 'new' }),
+        }}
       />
 
       <section className="rounded-panel border border-line bg-panel">
@@ -210,6 +233,13 @@ export const RecurringsScreen = (): React.ReactElement => {
                       key={recurring.id}
                       recurring={recurring}
                       visible={visible}
+                      onToggle={(active) =>
+                        store.set((current) =>
+                          setRecurringActive(current, recurring.id, active, today),
+                        )
+                      }
+                      onEdit={() => setDialog({ type: 'edit', recurring })}
+                      onDelete={() => setDialog({ type: 'delete', recurring })}
                     />
                   ))}
                 </SectionGroup>
@@ -218,6 +248,32 @@ export const RecurringsScreen = (): React.ReactElement => {
           </tbody>
         </FinTable>
       </section>
+
+      {dialog?.type === 'new' || dialog?.type === 'edit' ? (
+        <RecurringDialog
+          data={data}
+          recurring={dialog.type === 'edit' ? dialog.recurring : undefined}
+          onClose={() => setDialog(null)}
+          onSave={(draft) => {
+            store.set((current) =>
+              dialog.type === 'edit'
+                ? updateRecurring(current, dialog.recurring.id, draft, today)
+                : addRecurring(current, draft, today),
+            );
+            setDialog(null);
+          }}
+        />
+      ) : null}
+      {dialog?.type === 'delete' ? (
+        <DeleteRecurringDialog
+          recurring={dialog.recurring}
+          onClose={() => setDialog(null)}
+          onConfirm={() => {
+            store.set((current) => deleteRecurring(current, dialog.recurring.id));
+            setDialog(null);
+          }}
+        />
+      ) : null}
     </>
   );
 };
@@ -240,9 +296,15 @@ const SectionGroup = ({
 const RecurringRow = ({
   recurring,
   visible,
+  onToggle,
+  onEdit,
+  onDelete,
 }: {
   readonly recurring: Recurring;
   readonly visible: (id: string) => boolean;
+  readonly onToggle: (active: boolean) => void;
+  readonly onEdit: () => void;
+  readonly onDelete: () => void;
 }): React.ReactElement => {
   const { categories } = useFinanceData();
   const category = categoryOf(categories, recurring);
@@ -282,30 +344,34 @@ const RecurringRow = ({
       <Td align="center">
         <Switch
           checked={recurring.active}
-          disabled
+          onCheckedChange={onToggle}
           aria-label={`Ativo: ${recurring.name}`}
         />
       </Td>
       <Td align="right" className="w-12">
-        <RowMenu recurring={recurring} />
+        <RowMenu recurring={recurring} onEdit={onEdit} onDelete={onDelete} />
       </Td>
     </Row>
   );
 };
 
-/** O `⋯` da linha. Editar e excluir chegam com a FIN-202. */
+/** O `⋯` da linha: editar e excluir. */
 const RowMenu = ({
   recurring,
+  onEdit,
+  onDelete,
 }: {
   readonly recurring: Recurring;
+  readonly onEdit: () => void;
+  readonly onDelete: () => void;
 }): React.ReactElement => (
   <DropdownMenu modal={false}>
     <DropdownMenuTrigger asChild>
       <IconButton row label={`Ações de ${recurring.name}`} icon="dots" />
     </DropdownMenuTrigger>
     <DropdownMenuContent className="min-w-40">
-      <DropdownMenuItem disabled>Editar</DropdownMenuItem>
-      <DropdownMenuItem disabled destructive>
+      <DropdownMenuItem onSelect={onEdit}>Editar</DropdownMenuItem>
+      <DropdownMenuItem destructive onSelect={onDelete}>
         Excluir
       </DropdownMenuItem>
     </DropdownMenuContent>

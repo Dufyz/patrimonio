@@ -109,4 +109,90 @@ describe('Recorrentes (FIN-201)', () => {
     expect(screen.getAllByText('Gasto livre').length).toBeGreaterThan(0);
     expect(screen.queryByText('Netflix')).not.toBeInTheDocument();
   });
+
+  it('o interruptor liga e desliga na hora e atualiza o resumo', async () => {
+    open();
+    await userEvent.click(within(rowOf('Spotify')).getByRole('switch'));
+    expect(screen.getByText('14 ativas · 2 pausadas')).toBeInTheDocument();
+    expect(within(rowOf('Spotify')).getByRole('switch')).not.toBeChecked();
+    await userEvent.click(within(rowOf('Spotify')).getByRole('switch'));
+    expect(screen.getByText('15 ativas · 1 pausada')).toBeInTheDocument();
+  });
+});
+
+describe('Novo recorrente, edição e exclusão (FIN-202)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  it('cria um recorrente pelo modal', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /Recorrente/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Novo recorrente' });
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: 'Item' }),
+      'Pilates',
+    );
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: 'Categoria' }),
+      'Saúde',
+    );
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: 'Pagamento' }),
+      'Itaú Visa',
+    );
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: 'Dia do mês' }),
+      '8',
+    );
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Valor' }), '24000');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    expect(screen.getByText('Pilates')).toBeInTheDocument();
+    expect(screen.getByText('16 ativas · 1 pausada')).toBeInTheDocument();
+  });
+
+  it('mostra os erros só depois de tentar salvar', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /Recorrente/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Novo recorrente' });
+    expect(within(dialog).queryByText(/Dê um nome/)).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    expect(within(dialog).getByText(/Dê um nome/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/dia de 1 a 31/)).toBeInTheDocument();
+  });
+
+  it('o valor manual vira "estimado" e as duas origens pedem o limite', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /Recorrente/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Novo recorrente' });
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: 'Lançamento' }),
+      'Manual',
+    );
+    expect(within(dialog).getByText('Valor estimado')).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: /Dividir/ }));
+    expect(within(dialog).getByText('Primeira origem cobre até')).toBeInTheDocument();
+    expect(within(dialog).getByText('Segunda origem')).toBeInTheDocument();
+  });
+
+  it('edita pelo menu da linha', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Ações de Internet' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Editar' }));
+    const dialog = screen.getByRole('dialog', { name: 'Editar recorrente' });
+    const day = within(dialog).getByRole('textbox', { name: 'Dia do mês' });
+    expect(day).toHaveValue('15');
+    await userEvent.clear(day);
+    await userEvent.type(day, '3');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    expect(within(rowOf('Internet')).getByText('03')).toBeInTheDocument();
+  });
+
+  it('exclui com confirmação', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Ações de Netflix' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Excluir' }));
+    const dialog = screen.getByRole('dialog', { name: 'Excluir recorrente' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Excluir' }));
+    expect(screen.queryByText('Netflix')).not.toBeInTheDocument();
+    expect(screen.getByText('14 ativas · 1 pausada')).toBeInTheDocument();
+  });
 });
