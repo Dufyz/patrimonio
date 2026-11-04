@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   accountSubtitle,
+  dailyBalances,
   statementCloses,
   accountBalance,
   accountLines,
@@ -209,5 +210,45 @@ describe('consistência do extrato (FIN-405)', () => {
     );
     expect(accountSubtitle(by('carteira'))).toBe('Conta');
     expect(accountSubtitle(by('flex'))).toBe('Benefício');
+  });
+});
+
+describe('saldo dia a dia (FIN-406)', () => {
+  const days = dailyBalances(data, 'itau-corrente', OCTOBER, TODAY);
+
+  it('um ponto por dia, do dia 1 até hoje', () => {
+    expect(days).toHaveLength(24);
+    expect(days[0]).toEqual({ date: '2026-10-01', cents: 213355 });
+    expect(days.at(-1)).toEqual({ date: '2026-10-24', cents: 311280 });
+  });
+
+  it('o saldo do dia é o saldo após a última movimentação do dia', () => {
+    const at = (day: string) => days.find((d) => d.date === `2026-10-${day}`)?.cents;
+    expect(at('05')).toBe(1083165);
+    expect(at('06')).toBe(1083165);
+    expect(at('15')).toBe(777520);
+    expect(at('21')).toBe(311280);
+  });
+
+  it('o período que vai além de hoje termina em hoje', () => {
+    const wide = dailyBalances(
+      data,
+      'itau-corrente',
+      { from: '2026-10-20', to: '2026-12-31' },
+      TODAY,
+    );
+    expect(wide.at(-1)?.date).toBe('2026-10-24');
+    expect(wide[0]?.cents).toBe(761280);
+  });
+
+  it('período futuro não tem pontos', () => {
+    expect(
+      dailyBalances(
+        data,
+        'itau-corrente',
+        { from: '2026-11-01', to: '2026-11-30' },
+        TODAY,
+      ),
+    ).toEqual([]);
   });
 });

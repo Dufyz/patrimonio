@@ -112,4 +112,11 @@ describe('Extrato: cabeçalho de saldo (FIN-405)', () => {
     open('nao-existe');
     expect(screen.getByText('Lista de contas')).toBeInTheDocument();
   });
+
+  it('mostra o gráfico de saldo dia a dia dentro do painel', () => {
+    open();
+    expect(
+      header().getByRole('img', { name: /^Saldo dia a dia de Itaú Corrente/ }),
+    ).toBeInTheDocument();
+  });
 });

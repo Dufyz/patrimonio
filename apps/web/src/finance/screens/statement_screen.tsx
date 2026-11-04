@@ -4,6 +4,7 @@ import { Navigate, useParams } from 'react-router';
 import { Button } from '../../components/primitives.js';
 import { AccountDialog } from '../components/account_dialog.js';
 import { Amount } from '../components/amount.js';
+import { BalanceChart } from '../components/balance_chart.js';
 import { PeriodControl } from '../components/period_control.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
@@ -12,6 +13,7 @@ import { TransferDialog } from '../components/transfer_dialog.js';
 import { updateAccount } from '../domain/account_ops.js';
 import {
   accountSubtitle,
+  dailyBalances,
   findAccount,
   statement,
   statementCloses,
@@ -45,6 +47,7 @@ const Statement = ({ account }: { readonly account: Account }): React.ReactEleme
 
   const stmt = statement(data, account.id, range, today);
   const closes = statementCloses(stmt);
+  const balances = dailyBalances(data, account.id, range, today);
   const reachesToday = range.to >= today;
   const roleTag = account.roleTag ?? account.role.toLowerCase();
 
@@ -96,6 +99,10 @@ const Statement = ({ account }: { readonly account: Account }): React.ReactEleme
             fecha com o saldo atual. Os números desta conta não são exibidos.
           </p>
         )}
+
+        {closes ? (
+          <BalanceChart points={balances} today={today} name={account.name} />
+        ) : null}
       </section>
 
       {dialog === 'edit' ? (

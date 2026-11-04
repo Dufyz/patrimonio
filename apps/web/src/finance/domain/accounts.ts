@@ -1,4 +1,4 @@
-import { compareDates } from '../lib/dates.js';
+import { addDays, compareDates } from '../lib/dates.js';
 import type { IsoDate } from '../lib/dates.js';
 import { formatBRL } from '../lib/format.js';
 import { sum } from '../lib/money.js';
@@ -325,4 +325,34 @@ export const accountSubtitle = (account: Account): string => {
   return [kind, account.institution, ...cards]
     .filter((part): part is string => part !== undefined && part !== '')
     .join(' · ');
+};
+
+export type DailyBalance = { readonly date: IsoDate; readonly cents: Cents };
+
+/**
+ * FIN-406: um ponto por dia, do início do período até o fim dele ou hoje, o que
+ * vier antes. O saldo do dia é o saldo após a última movimentação do dia; sem
+ * movimentação, repete o do dia anterior (e o de abertura no primeiro dia).
+ */
+export const dailyBalances = (
+  data: FinanceData,
+  accountId: string,
+  range: DateRange,
+  today: IsoDate,
+): readonly DailyBalance[] => {
+  const stmt = statement(data, accountId, range, today);
+  const lastOfDay = new Map<IsoDate, Cents>();
+  for (const line of stmt.lines) lastOfDay.set(line.date, line.balanceAfter);
+
+  const points: DailyBalance[] = [];
+  let balance = stmt.opening;
+  for (
+    let date = range.from;
+    compareDates(date, stmt.through) <= 0;
+    date = addDays(date, 1)
+  ) {
+    balance = lastOfDay.get(date) ?? balance;
+    points.push({ date, cents: balance });
+  }
+  return points;
 };
