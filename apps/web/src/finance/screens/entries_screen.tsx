@@ -22,7 +22,7 @@ import {
   updateEntry,
 } from '../domain/entry_ops.js';
 import { csvAmount, exportTable } from '../lib/export.js';
-import { accountNames } from '../domain/ledger.js';
+import { accountNames, isOverdue } from '../domain/ledger.js';
 import { formatBRL } from '../lib/format.js';
 import { financeRoutes } from '../lib/routes.js';
 import type { Entry } from '../domain/types.js';
@@ -267,6 +267,7 @@ export const EntriesScreen = (): React.ReactElement => {
             groups={groups}
             categories={data.categories}
             today={today}
+            overdue={(entry) => isOverdue(data, entry, today)}
             hiddenColumns={hidden}
             onLaunch={setLaunching}
             selection={{

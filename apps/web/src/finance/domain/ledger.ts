@@ -1,4 +1,5 @@
 import { compareDates, isDateInRange } from '../lib/dates.js';
+import type { IsoDate } from '../lib/dates.js';
 import { passesFilters } from '../lib/filters.js';
 import type { FilterState } from '../lib/filters.js';
 import { sum } from '../lib/money.js';
@@ -89,4 +90,14 @@ export const indicators = (entries: readonly Entry[], range: DateRange): Indicat
     saldo: receitas.cents - despesas.cents,
     aLancar: tally(pending),
   };
+};
+
+/**
+ * FIN-311 · Previsto vencido: manual, ainda previsto e com a data antes de hoje
+ * (RN-13). Automático nunca fica vencido, porque vira lançado na data (RN-11).
+ */
+export const isOverdue = (data: FinanceData, entry: Entry, today: IsoDate): boolean => {
+  if (entry.status !== 'prevista' || compareDates(entry.date, today) >= 0) return false;
+  const recurring = data.recurrings.find((r) => r.id === entry.recurringId);
+  return recurring?.mode !== 'automatico';
 };

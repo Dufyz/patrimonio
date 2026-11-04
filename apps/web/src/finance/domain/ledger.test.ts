@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { indicators, primarySourceId, queryEntries } from './ledger.js';
+import { indicators, isOverdue, primarySourceId, queryEntries } from './ledger.js';
 import { SEED_REFERENCE_DATE, seedData } from './seed.js';
 import { currentMonth } from '../lib/period.js';
 
@@ -99,5 +99,30 @@ describe('despesa paga em partes (RN-21)', () => {
       cents: 31240,
       count: 1,
     });
+  });
+});
+
+describe('previsto vencido (RN-13)', () => {
+  const entry = (id: string) => data.entries.find((e) => e.id === id)!;
+
+  it('manual com data passada fica vencido', () => {
+    expect(isOverdue(data, entry('l-gasto-livre'), '2026-11-02')).toBe(true);
+    expect(isOverdue(data, entry('l-gasto-livre'), '2026-10-31')).toBe(false);
+  });
+
+  it('automático nunca fica vencido', () => {
+    expect(isOverdue(data, entry('l-spotify'), '2026-11-02')).toBe(false);
+  });
+
+  it('lançado não é vencido', () => {
+    expect(isOverdue(data, entry('l-netflix'), '2026-11-02')).toBe(false);
+  });
+
+  it('vencido continua somando em Ainda a lançar e fora de Receitas, Despesas e Saldo', () => {
+    const november = { from: '2026-11-01', to: '2026-11-30' };
+    const result = indicators(queryEntries(data, '', {}), november);
+    expect(result.aLancar.count).toBe(4);
+    expect(result.despesas.count).toBe(0);
+    expect(result.saldo).toBe(0);
   });
 });

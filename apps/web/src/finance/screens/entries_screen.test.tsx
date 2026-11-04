@@ -12,8 +12,8 @@ import { setTodayOverride } from '../lib/clock.js';
 import { createFinanceStore, FinanceStoreProvider } from '../store/finance_store.js';
 import { EntriesScreen } from './entries_screen.js';
 
-const open = (path = '/') => {
-  setTodayOverride('2026-10-24');
+const open = (path = '/', today = '2026-10-24') => {
+  setTodayOverride(today);
   return render(
     <MemoryRouter initialEntries={[path]}>
       <PreferencesProvider>
@@ -716,5 +716,96 @@ describe('exportar (FIN-310)', () => {
       ['Data', 'Descrição', 'Categoria', 'Conta', 'Valor'],
       ['2026-10-20', 'Netflix', 'Assinaturas', 'Itaú Visa', '-55.90'],
     ]);
+  });
+});
+
+describe('previsto com data passada (FIN-311)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  it('continua na seção de previstos, com a data em destaque e "venceu em"', () => {
+    open('/', '2026-11-02');
+    const row = screen.getAllByText('Gasto livre')[0]!.closest('tr')!;
+    expect(within(row).getByText('venceu em 31/10')).toBeInTheDocument();
+    expect(within(row).getByText('31/10')).toHaveClass('text-attention');
+    expect(within(row).getByText('previsto')).toBeInTheDocument();
+  });
+
+  it('o contador da seção distingue previstos e vencidos', () => {
+    open('/', '2026-11-02');
+    expect(
+      screen.getByText('4 previstos · 2 vencidos · não entram nos totais do mês'),
+    ).toBeInTheDocument();
+  });
+
+  it('automático não aparece como vencido', () => {
+    open('/', '2026-11-02');
+    const row = screen.getByText('Spotify').closest('tr')!;
+    expect(within(row).queryByText(/venceu em/)).not.toBeInTheDocument();
+  });
+
+  it('sem vencidos, o contador segue o padrão', () => {
+    open();
+    expect(
+      screen.getByText('4 lançamentos · não entram nos totais do mês'),
+    ).toBeInTheDocument();
+  });
+
+  it('filtrar por previsto lista os vencidos primeiro', async () => {
+    open('/', '2026-11-02');
+    await userEvent.click(screen.getByRole('button', { name: /Filtrar/ }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Previsto' }));
+    const rows = screen.getAllByRole('row').map((r) => r.textContent ?? '');
+    const order = ['Spotify', 'Gasto livre', 'Investimento', 'Aluguel'].map((name) =>
+      rows.findIndex((line) => line.includes(name)),
+    );
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(rows.findIndex((line) => line.includes('venceu em'))).toBeLessThan(
+      rows.findIndex((line) => line.includes('Aluguel')),
+    );
+  });
+});
+
+describe('Exibição esconde colunas e células (correção)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  it('ocultar Conta e Detalhe tira cabeçalho e células', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Exibição' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Conta' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Detalhe' }));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('columnheader', { name: 'Conta' })).not.toBeInTheDocument();
+    const row = screen.getByText('Netflix').closest('tr')!;
+    expect(row.querySelectorAll('td')).toHaveLength(1 + 1 + 2 + 1 + 1); // seleção, data, descrição+categoria, valor, ação
+    expect(within(row).queryByText('Itaú Visa')).not.toBeInTheDocument();
+    expect(within(row).queryByText('recorrente')).not.toBeInTheDocument();
+  });
+
+  it('compra parcelada mostra a etiqueta parcela n/N', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /^Lançamento/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Novo lançamento' });
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: 'Descrição' }),
+      'Fone',
+    );
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: 'Categoria' }),
+      'Eletrônicos',
+    );
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: 'Valor' }),
+      '300,00',
+    );
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: 'Origem do pagamento' }),
+      'Itaú Visa',
+    );
+    const parcelas = within(dialog).getByRole('textbox', { name: 'Parcelas' });
+    await userEvent.clear(parcelas);
+    await userEvent.type(parcelas, '3');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    expect(screen.getByText('parcela 1/3')).toBeInTheDocument();
+    expect(screen.getByText('parcela 2/3')).toBeInTheDocument();
   });
 });

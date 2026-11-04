@@ -67,6 +67,7 @@ export const LedgerTable = ({
   groups,
   categories,
   today,
+  overdue = () => false,
   hiddenColumns = [],
   onLaunch,
   actions,
@@ -75,6 +76,8 @@ export const LedgerTable = ({
   readonly groups: readonly LedgerGroup[];
   readonly categories: readonly Category[];
   readonly today: string;
+  /** FIN-311: o previsto manual com data passada. */
+  readonly overdue?: (entry: Entry) => boolean;
   /** Colunas ocultas pelo botão Exibição. */
   readonly hiddenColumns?: readonly string[];
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
@@ -128,6 +131,7 @@ export const LedgerTable = ({
               group={group}
               categories={categories}
               today={today}
+              overdue={overdue}
               layout={layout}
               onLaunch={onLaunch}
               actions={actions}
@@ -151,6 +155,7 @@ const GroupRows = ({
   group,
   categories,
   today,
+  overdue,
   layout,
   onLaunch,
   actions,
@@ -159,6 +164,7 @@ const GroupRows = ({
   readonly group: LedgerGroup;
   readonly categories: readonly Category[];
   readonly today: string;
+  readonly overdue: (entry: Entry) => boolean;
   readonly layout: Layout;
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
   readonly actions?: RowActions | undefined;
@@ -171,9 +177,14 @@ const GroupRows = ({
       : group.kind === 'dia'
         ? formatDayHeader(group.date ?? today, today)
         : `${group.title ?? ''} · ${count}`;
+  const late = group.entries.filter(overdue).length;
   const summary =
     group.kind === 'previstos'
-      ? `${count} · não entram nos totais do mês`
+      ? `${
+          late === 0
+            ? count
+            : `${pluralize(group.entries.length, 'previsto', 'previstos')} · ${pluralize(late, 'vencido', 'vencidos')}`
+        } · não entram nos totais do mês`
       : summaryText(group.summary);
 
   return (
@@ -185,6 +196,7 @@ const GroupRows = ({
           entry={entry}
           category={categories.find((c) => c.id === entry.categoryId)}
           today={today}
+          late={overdue(entry)}
           layout={layout}
           categories={categories}
           onLaunch={onLaunch}
@@ -200,6 +212,7 @@ const EntryRow = ({
   entry,
   category,
   today,
+  late,
   layout,
   categories,
   onLaunch,
@@ -209,6 +222,7 @@ const EntryRow = ({
   readonly entry: Entry;
   readonly category: Category | undefined;
   readonly today: string;
+  readonly late: boolean;
   readonly layout: Layout;
   readonly categories: readonly Category[];
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
@@ -232,58 +246,85 @@ const EntryRow = ({
             )}
           </Td>
         )}
-        <Td className="tabular text-ink-2">{formatDate(entry.date, today)}</Td>
+        {layout.visible('data') ? (
+          <Td
+            className={late ? 'tabular font-medium text-attention' : 'tabular text-ink-2'}
+          >
+            {formatDate(entry.date, today)}
+          </Td>
+        ) : null}
         <Td className="font-medium">{entry.description}</Td>
-        <Td>
-          {editingCategory && actions !== undefined ? (
-            <Select
-              invalid={false}
-              aria-label={`Categoria de ${entry.description}`}
-              autoFocus
-              options={categories
-                .filter((c) => c.kind === entry.kind)
-                .map((c) => ({ id: c.id, name: c.name }))}
-              value={entry.categoryId}
-              onBlur={() => setEditingCategory(false)}
-              onChange={(event) => {
-                actions.onCategory(entry, event.target.value);
-                setEditingCategory(false);
-              }}
-            />
-          ) : category === undefined ? (
-            '—'
-          ) : pending || actions === undefined ? (
-            <CategoryMarker color={categoryColor(category.color)} name={category.name} />
-          ) : (
-            <button
-              type="button"
-              aria-label={`Alterar categoria de ${entry.description}`}
-              className="cursor-pointer rounded-control px-1 py-0.5 hover:bg-panel-2"
-              onClick={(event) => {
-                event.stopPropagation();
-                setEditingCategory(true);
-              }}
-            >
+        {layout.visible('categoria') ? (
+          <Td>
+            {editingCategory && actions !== undefined ? (
+              <Select
+                invalid={false}
+                aria-label={`Categoria de ${entry.description}`}
+                autoFocus
+                options={categories
+                  .filter((c) => c.kind === entry.kind)
+                  .map((c) => ({ id: c.id, name: c.name }))}
+                value={entry.categoryId}
+                onBlur={() => setEditingCategory(false)}
+                onChange={(event) => {
+                  actions.onCategory(entry, event.target.value);
+                  setEditingCategory(false);
+                }}
+              />
+            ) : category === undefined ? (
+              '—'
+            ) : pending || actions === undefined ? (
               <CategoryMarker
                 color={categoryColor(category.color)}
                 name={category.name}
               />
-            </button>
-          )}
-        </Td>
-        <Td>{accountNames(entry).join(' + ')}</Td>
-        <Td>
-          {pending ? (
-            <NatureTag kind="previsto" />
-          ) : entry.recurringId === undefined ? null : (
-            <NatureTag kind="recorrente" />
-          )}
-          {split ? (
-            <span className={pending || entry.recurringId !== undefined ? 'ml-1.5' : ''}>
-              <NatureTag kind="2 pagamentos" />
-            </span>
-          ) : null}
-        </Td>
+            ) : (
+              <button
+                type="button"
+                aria-label={`Alterar categoria de ${entry.description}`}
+                className="cursor-pointer rounded-control px-1 py-0.5 hover:bg-panel-2"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setEditingCategory(true);
+                }}
+              >
+                <CategoryMarker
+                  color={categoryColor(category.color)}
+                  name={category.name}
+                />
+              </button>
+            )}
+          </Td>
+        ) : null}
+        {layout.visible('conta') ? <Td>{accountNames(entry).join(' + ')}</Td> : null}
+        {layout.visible('detalhe') ? (
+          <Td>
+            {pending ? (
+              <>
+                <NatureTag kind="previsto" />
+                {late ? (
+                  <span className="ml-1.5 text-xs text-attention">
+                    venceu em {formatDate(entry.date, today)}
+                  </span>
+                ) : null}
+              </>
+            ) : entry.recurringId === undefined ? null : (
+              <NatureTag kind="recorrente" />
+            )}
+            {entry.installment === undefined ? null : (
+              <span className="ml-1.5">
+                <NatureTag kind="parcela">
+                  parcela {entry.installment.n}/{entry.installment.of}
+                </NatureTag>
+              </span>
+            )}
+            {split ? (
+              <span className="ml-1.5">
+                <NatureTag kind="2 pagamentos" />
+              </span>
+            ) : null}
+          </Td>
+        ) : null}
         <Td numeric className="font-semibold">
           <Amount
             cents={entry.kind === 'receita' ? entry.cents : -entry.cents}
