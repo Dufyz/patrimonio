@@ -1,16 +1,9 @@
 import { useState } from 'react';
 
 import { Button } from '../../components/primitives.js';
+import { Modal } from '../../components/overlay.js';
+import { FormShell } from '../../views/entry/form_shell.js';
 import { Checkbox } from '../../components/ui/checkbox.js';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../components/ui/dialog.js';
 import { Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
 import { draftOf, validateRecurring } from '../domain/recurring.js';
 import type { RecurringDraft } from '../domain/recurring.js';
@@ -68,189 +61,176 @@ export const RecurringDialog = ({
     .map((category) => ({ id: category.id, name: category.name }));
   const sourceOptions = activeSources(data).map((s) => ({ id: s.id, name: s.name }));
 
-  const submit = (event: React.FormEvent): void => {
-    event.preventDefault();
+  const save = (): void => {
     setAttempted(true);
     if (Object.keys(errors).length > 0) return;
     onSave(draft);
   };
 
   return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogContent className="max-w-lg" aria-describedby={undefined}>
-        <form onSubmit={submit} noValidate className="flex min-h-0 flex-col">
-          <DialogHeader>
-            <DialogTitle>
-              {recurring === undefined ? 'Novo recorrente' : 'Editar recorrente'}
-            </DialogTitle>
-          </DialogHeader>
-          <DialogBody>
-            <Field label="Item" error={shown('name')}>
+    <Modal
+      open
+      guard
+      narrow
+      title={recurring === undefined ? 'Novo recorrente' : 'Editar recorrente'}
+      subtitle="Gera um previsto todo mês"
+      onClose={onClose}
+    >
+      <FormShell pending={false} onSave={save} onCancel={onClose} saveLabel="Salvar">
+        <Field label="Item" error={shown('name')}>
+          {(props) => (
+            <Input
+              {...props}
+              autoFocus
+              invalid={shown('name') !== undefined}
+              value={draft.name}
+              onChange={(event) => set({ name: event.target.value })}
+            />
+          )}
+        </Field>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Tipo">
+            {(props) => (
+              <Select
+                {...props}
+                invalid={false}
+                options={KINDS}
+                value={draft.kind}
+                onChange={(event) => {
+                  const kind = event.target.value as EntryKind;
+                  const keep = data.categories.some(
+                    (c) => c.id === draft.categoryId && c.kind === kind,
+                  );
+                  set({ kind, categoryId: keep ? draft.categoryId : '' });
+                }}
+              />
+            )}
+          </Field>
+          <Field label="Categoria" error={shown('categoryId')}>
+            {(props) => (
+              <Select
+                {...props}
+                invalid={shown('categoryId') !== undefined}
+                placeholder="Escolha"
+                options={categories}
+                value={draft.categoryId}
+                onChange={(event) => set({ categoryId: event.target.value })}
+              />
+            )}
+          </Field>
+        </div>
+
+        <Field
+          label={draft.split ? 'Pagamento · primeira origem' : 'Pagamento'}
+          error={shown('sourceId')}
+        >
+          {(props) => (
+            <Select
+              {...props}
+              invalid={shown('sourceId') !== undefined}
+              placeholder="Conta, benefício ou cartão"
+              options={sourceOptions}
+              value={draft.sourceId}
+              onChange={(event) => set({ sourceId: event.target.value })}
+            />
+          )}
+        </Field>
+
+        <label className="flex items-center gap-2 text-[0.8125rem]">
+          <Checkbox
+            checked={draft.split}
+            onCheckedChange={(checked) => set({ split: checked === true })}
+          />
+          Dividir entre duas origens
+        </label>
+
+        {draft.split ? (
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Primeira origem cobre até" error={shown('coversUpTo')}>
               {(props) => (
-                <Input
+                <MoneyInput
                   {...props}
-                  autoFocus
-                  invalid={shown('name') !== undefined}
-                  value={draft.name}
-                  onChange={(event) => set({ name: event.target.value })}
+                  invalid={shown('coversUpTo') !== undefined}
+                  value={draft.coversUpTo}
+                  onChange={(event) => set({ coversUpTo: event.target.value })}
                 />
               )}
             </Field>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Tipo">
-                {(props) => (
-                  <Select
-                    {...props}
-                    invalid={false}
-                    options={KINDS}
-                    value={draft.kind}
-                    onChange={(event) => {
-                      const kind = event.target.value as EntryKind;
-                      const keep = data.categories.some(
-                        (c) => c.id === draft.categoryId && c.kind === kind,
-                      );
-                      set({ kind, categoryId: keep ? draft.categoryId : '' });
-                    }}
-                  />
-                )}
-              </Field>
-              <Field label="Categoria" error={shown('categoryId')}>
-                {(props) => (
-                  <Select
-                    {...props}
-                    invalid={shown('categoryId') !== undefined}
-                    placeholder="Escolha"
-                    options={categories}
-                    value={draft.categoryId}
-                    onChange={(event) => set({ categoryId: event.target.value })}
-                  />
-                )}
-              </Field>
-            </div>
-
-            <Field
-              label={draft.split ? 'Pagamento · primeira origem' : 'Pagamento'}
-              error={shown('sourceId')}
-            >
+            <Field label="Segunda origem" error={shown('secondSourceId')}>
               {(props) => (
                 <Select
                   {...props}
-                  invalid={shown('sourceId') !== undefined}
-                  placeholder="Conta, benefício ou cartão"
+                  invalid={shown('secondSourceId') !== undefined}
+                  placeholder="Escolha"
                   options={sourceOptions}
-                  value={draft.sourceId}
-                  onChange={(event) => set({ sourceId: event.target.value })}
+                  value={draft.secondSourceId}
+                  onChange={(event) => set({ secondSourceId: event.target.value })}
                 />
               )}
             </Field>
+          </div>
+        ) : null}
 
-            <label className="flex items-center gap-2 text-[0.8125rem]">
-              <Checkbox
-                checked={draft.split}
-                onCheckedChange={(checked) => set({ split: checked === true })}
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Dia do mês" error={shown('day')}>
+            {(props) => (
+              <Input
+                {...props}
+                numeric
+                inputMode="numeric"
+                invalid={shown('day') !== undefined}
+                value={draft.day}
+                onChange={(event) => set({ day: event.target.value.replace(/\D/g, '') })}
               />
-              Dividir entre duas origens
-            </label>
+            )}
+          </Field>
+          <Field label="Lançamento">
+            {(props) => (
+              <Select
+                {...props}
+                invalid={false}
+                options={MODES}
+                value={draft.mode}
+                onChange={(event) => set({ mode: event.target.value as RecurringMode })}
+              />
+            )}
+          </Field>
+        </div>
 
-            {draft.split ? (
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Primeira origem cobre até" error={shown('coversUpTo')}>
-                  {(props) => (
-                    <MoneyInput
-                      {...props}
-                      invalid={shown('coversUpTo') !== undefined}
-                      value={draft.coversUpTo}
-                      onChange={(event) => set({ coversUpTo: event.target.value })}
-                    />
-                  )}
-                </Field>
-                <Field label="Segunda origem" error={shown('secondSourceId')}>
-                  {(props) => (
-                    <Select
-                      {...props}
-                      invalid={shown('secondSourceId') !== undefined}
-                      placeholder="Escolha"
-                      options={sourceOptions}
-                      value={draft.secondSourceId}
-                      onChange={(event) => set({ secondSourceId: event.target.value })}
-                    />
-                  )}
-                </Field>
-              </div>
-            ) : null}
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Dia do mês" error={shown('day')}>
-                {(props) => (
-                  <Input
-                    {...props}
-                    numeric
-                    inputMode="numeric"
-                    invalid={shown('day') !== undefined}
-                    value={draft.day}
-                    onChange={(event) =>
-                      set({ day: event.target.value.replace(/\D/g, '') })
-                    }
-                  />
-                )}
-              </Field>
-              <Field label="Lançamento">
-                {(props) => (
-                  <Select
-                    {...props}
-                    invalid={false}
-                    options={MODES}
-                    value={draft.mode}
-                    onChange={(event) =>
-                      set({ mode: event.target.value as RecurringMode })
-                    }
-                  />
-                )}
-              </Field>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field
-                label={draft.mode === 'manual' ? 'Valor estimado' : 'Valor'}
-                error={shown('value')}
-                hint={
-                  draft.mode === 'manual'
-                    ? 'Estimativa: o valor real é informado ao lançar.'
-                    : 'Valor fixo, lançado sozinho na data.'
-                }
-              >
-                {(props) => (
-                  <MoneyInput
-                    {...props}
-                    invalid={shown('value') !== undefined}
-                    value={draft.value}
-                    onChange={(event) => set({ value: event.target.value })}
-                  />
-                )}
-              </Field>
-              <Field label="Situação">
-                {(props) => (
-                  <Select
-                    {...props}
-                    invalid={false}
-                    options={STATES}
-                    value={draft.active ? 'ativo' : 'pausado'}
-                    onChange={(event) => set({ active: event.target.value === 'ativo' })}
-                  />
-                )}
-              </Field>
-            </div>
-          </DialogBody>
-          <DialogFooter className="justify-end">
-            <Button onClick={onClose}>Cancelar</Button>
-            <Button variant="primary" type="submit">
-              Salvar
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <div className="grid grid-cols-2 gap-4">
+          <Field
+            label={draft.mode === 'manual' ? 'Valor estimado' : 'Valor'}
+            error={shown('value')}
+            hint={
+              draft.mode === 'manual'
+                ? 'Estimativa: o valor real é informado ao lançar.'
+                : 'Valor fixo, lançado sozinho na data.'
+            }
+          >
+            {(props) => (
+              <MoneyInput
+                {...props}
+                invalid={shown('value') !== undefined}
+                value={draft.value}
+                onChange={(event) => set({ value: event.target.value })}
+              />
+            )}
+          </Field>
+          <Field label="Situação">
+            {(props) => (
+              <Select
+                {...props}
+                invalid={false}
+                options={STATES}
+                value={draft.active ? 'ativo' : 'pausado'}
+                onChange={(event) => set({ active: event.target.value === 'ativo' })}
+              />
+            )}
+          </Field>
+        </div>
+      </FormShell>
+    </Modal>
   );
 };
 
@@ -263,23 +243,24 @@ export const DeleteRecurringDialog = ({
   readonly onConfirm: () => void;
   readonly onClose: () => void;
 }): React.ReactElement => (
-  <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-    <DialogContent className="max-w-md">
-      <DialogHeader>
-        <DialogTitle>Excluir recorrente</DialogTitle>
-      </DialogHeader>
-      <DialogBody>
-        <DialogDescription className="text-[0.8125rem] text-ink-2">
-          Excluir “{recurring.name}”? Os previstos pendentes saem de Lançamentos; o que já
-          foi lançado fica.
-        </DialogDescription>
-      </DialogBody>
-      <DialogFooter className="justify-end">
+  <Modal
+    open
+    narrow
+    title="Excluir recorrente"
+    tone="danger"
+    onClose={onClose}
+    footer={
+      <>
         <Button onClick={onClose}>Cancelar</Button>
         <Button variant="danger" onClick={onConfirm}>
           Excluir
         </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
+      </>
+    }
+  >
+    <p className="text-[0.8125rem] text-ink-2">
+      Excluir “{recurring.name}”? Os previstos pendentes saem de Lançamentos; o que já foi
+      lançado fica.
+    </p>
+  </Modal>
 );

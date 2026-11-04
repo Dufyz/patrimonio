@@ -1,15 +1,7 @@
 import { useState } from 'react';
 
+import { Modal } from '../../components/overlay.js';
 import { Button } from '../../components/primitives.js';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../components/ui/dialog.js';
 import { Field, Select } from '../../views/entry/fields.js';
 import { allowedSources } from '../domain/entry_ops.js';
 import type { Entry } from '../domain/types.js';
@@ -32,26 +24,22 @@ export const ConfirmDialog = ({
   readonly onConfirm: () => void;
   readonly onClose: () => void;
 }): React.ReactElement => (
-  <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-    <DialogContent className="max-w-md">
-      <DialogHeader>
-        <DialogTitle>{title}</DialogTitle>
-      </DialogHeader>
-      <DialogBody>
-        <DialogDescription asChild>
-          <div className="flex flex-col gap-2 text-[0.8125rem] text-ink-2">
-            {children}
-          </div>
-        </DialogDescription>
-      </DialogBody>
-      <DialogFooter className="justify-end">
+  <Modal
+    open
+    narrow
+    title={title}
+    onClose={onClose}
+    footer={
+      <>
         <Button onClick={onClose}>Cancelar</Button>
         <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>
           {confirmLabel}
         </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
+      </>
+    }
+  >
+    <div className="flex flex-col gap-2 text-[0.8125rem] text-ink-2">{children}</div>
+  </Modal>
 );
 
 /** Mover de conta: a origem nova é uma conta (receita) ou conta, benefício (despesa). */
@@ -72,31 +60,13 @@ export const MoveAccountDialog = ({
     .map((source) => ({ id: source.id, name: source.name }));
 
   return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Mover de conta</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <DialogDescription className="text-[0.8125rem] text-ink-2">
-            {entries.length === 1
-              ? `Escolha a conta que passa a pagar “${entries[0]?.description ?? ''}”.`
-              : `Escolha a conta que passa a pagar os ${entries.length} lançamentos.`}
-          </DialogDescription>
-          <Field label="Mover para">
-            {(props) => (
-              <Select
-                {...props}
-                invalid={false}
-                placeholder="Escolha uma conta"
-                options={options}
-                value={sourceId}
-                onChange={(event) => setSourceId(event.target.value)}
-              />
-            )}
-          </Field>
-        </DialogBody>
-        <DialogFooter className="justify-end">
+    <Modal
+      open
+      narrow
+      title="Mover de conta"
+      onClose={onClose}
+      footer={
+        <>
           <Button onClick={onClose}>Cancelar</Button>
           <Button
             variant="primary"
@@ -105,9 +75,27 @@ export const MoveAccountDialog = ({
           >
             Mover
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <p className="text-[0.8125rem] text-ink-2">
+        {entries.length === 1
+          ? `Escolha a conta que passa a pagar “${entries[0]?.description ?? ''}”.`
+          : `Escolha a conta que passa a pagar os ${entries.length} lançamentos.`}
+      </p>
+      <Field label="Mover para">
+        {(props) => (
+          <Select
+            {...props}
+            invalid={false}
+            placeholder="Escolha uma conta"
+            options={options}
+            value={sourceId}
+            onChange={(event) => setSourceId(event.target.value)}
+          />
+        )}
+      </Field>
+    </Modal>
   );
 };
 
@@ -135,33 +123,13 @@ export const RecategorizeDialog = ({
     .map((category) => ({ id: category.id, name: category.name }));
 
   return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Recategorizar</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <DialogDescription className="text-[0.8125rem] text-ink-2">
-            {mixed
-              ? 'Receitas e despesas têm categorias diferentes. Selecione só um tipo para recategorizar.'
-              : `Escolha a categoria dos ${entries.length} lançamentos.`}
-          </DialogDescription>
-          {mixed ? null : (
-            <Field label="Categoria">
-              {(props) => (
-                <Select
-                  {...props}
-                  invalid={false}
-                  placeholder="Escolha uma categoria"
-                  options={options}
-                  value={categoryId}
-                  onChange={(event) => setCategoryId(event.target.value)}
-                />
-              )}
-            </Field>
-          )}
-        </DialogBody>
-        <DialogFooter className="justify-end">
+    <Modal
+      open
+      narrow
+      title="Recategorizar"
+      onClose={onClose}
+      footer={
+        <>
           <Button onClick={onClose}>Cancelar</Button>
           <Button
             variant="primary"
@@ -170,8 +138,28 @@ export const RecategorizeDialog = ({
           >
             Recategorizar
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <p className="text-[0.8125rem] text-ink-2">
+        {mixed
+          ? 'Receitas e despesas têm categorias diferentes. Selecione só um tipo para recategorizar.'
+          : `Escolha a categoria dos ${entries.length} lançamentos.`}
+      </p>
+      {mixed ? null : (
+        <Field label="Categoria">
+          {(props) => (
+            <Select
+              {...props}
+              invalid={false}
+              placeholder="Escolha uma categoria"
+              options={options}
+              value={categoryId}
+              onChange={(event) => setCategoryId(event.target.value)}
+            />
+          )}
+        </Field>
+      )}
+    </Modal>
   );
 };

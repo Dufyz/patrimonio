@@ -144,7 +144,7 @@ describe('Novo recorrente, edição e exclusão (FIN-202)', () => {
       '8',
     );
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Valor' }), '24000');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     expect(screen.getByText('Pilates')).toBeInTheDocument();
     expect(screen.getByText('16 ativas · 1 pausada')).toBeInTheDocument();
   });
@@ -154,7 +154,7 @@ describe('Novo recorrente, edição e exclusão (FIN-202)', () => {
     await userEvent.click(screen.getByRole('button', { name: /Recorrente/ }));
     const dialog = screen.getByRole('dialog', { name: 'Novo recorrente' });
     expect(within(dialog).queryByText(/Dê um nome/)).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     expect(within(dialog).getByText(/Dê um nome/)).toBeInTheDocument();
     expect(within(dialog).getByText(/dia de 1 a 31/)).toBeInTheDocument();
   });
@@ -182,7 +182,7 @@ describe('Novo recorrente, edição e exclusão (FIN-202)', () => {
     expect(day).toHaveValue('15');
     await userEvent.clear(day);
     await userEvent.type(day, '3');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     expect(within(rowOf('Internet')).getByText('03')).toBeInTheDocument();
   });
 

@@ -1,14 +1,7 @@
 import { useState } from 'react';
 
-import { Button } from '../../components/primitives.js';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../components/ui/dialog.js';
+import { Modal } from '../../components/overlay.js';
+import { FormShell } from '../../views/entry/form_shell.js';
 import { Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
 import {
   emptyTransferDraft,
@@ -46,93 +39,84 @@ export const TransferDialog = ({
   const set = (patch: Partial<TransferDraft>): void => setDraft({ ...draft, ...patch });
   const options = transferAccounts(data).map((a) => ({ id: a.id, name: a.name }));
 
-  const submit = (event: React.FormEvent): void => {
-    event.preventDefault();
+  const save = (): void => {
     setAttempted(true);
     if (Object.keys(errors).length > 0) return;
     onSave(draft);
   };
 
   return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogContent className="max-w-lg" aria-describedby={undefined}>
-        <form onSubmit={submit} noValidate className="flex min-h-0 flex-col">
-          <DialogHeader>
-            <DialogTitle>Transferir entre contas</DialogTitle>
-          </DialogHeader>
-          <DialogBody>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="De" error={shown('fromId')}>
-                {(props) => (
-                  <Select
-                    {...props}
-                    invalid={shown('fromId') !== undefined}
-                    placeholder="Conta de origem"
-                    options={options}
-                    value={draft.fromId}
-                    onChange={(event) => set({ fromId: event.target.value })}
-                  />
-                )}
-              </Field>
-              <Field label="Para" error={shown('toId')}>
-                {(props) => (
-                  <Select
-                    {...props}
-                    invalid={shown('toId') !== undefined}
-                    placeholder="Conta de destino"
-                    options={options}
-                    value={draft.toId}
-                    onChange={(event) => set({ toId: event.target.value })}
-                  />
-                )}
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Valor" error={shown('value')}>
-                {(props) => (
-                  <MoneyInput
-                    {...props}
-                    autoFocus={draft.fromId !== ''}
-                    invalid={shown('value') !== undefined}
-                    value={draft.value}
-                    onChange={(event) => set({ value: event.target.value })}
-                  />
-                )}
-              </Field>
-              <Field label="Data" error={shown('date')}>
-                {(props) => (
-                  <Input
-                    {...props}
-                    type="date"
-                    max={today}
-                    invalid={shown('date') !== undefined}
-                    value={draft.date}
-                    onChange={(event) => set({ date: event.target.value })}
-                  />
-                )}
-              </Field>
-            </div>
-            <Field label="Descrição (opcional)">
-              {(props) => (
-                <Input
-                  {...props}
-                  invalid={false}
-                  value={draft.description}
-                  onChange={(event) => set({ description: event.target.value })}
-                />
-              )}
-            </Field>
-          </DialogBody>
-          <DialogFooter className="justify-end">
-            <Button type="button" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" variant="primary">
-              Transferir
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <Modal
+      open
+      guard
+      narrow
+      title="Transferir entre contas"
+      subtitle="Entre duas contas suas"
+      onClose={onClose}
+    >
+      <FormShell pending={false} onSave={save} onCancel={onClose} saveLabel="Transferir">
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="De" error={shown('fromId')}>
+            {(props) => (
+              <Select
+                {...props}
+                invalid={shown('fromId') !== undefined}
+                placeholder="Conta de origem"
+                options={options}
+                value={draft.fromId}
+                onChange={(event) => set({ fromId: event.target.value })}
+              />
+            )}
+          </Field>
+          <Field label="Para" error={shown('toId')}>
+            {(props) => (
+              <Select
+                {...props}
+                invalid={shown('toId') !== undefined}
+                placeholder="Conta de destino"
+                options={options}
+                value={draft.toId}
+                onChange={(event) => set({ toId: event.target.value })}
+              />
+            )}
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Valor" error={shown('value')}>
+            {(props) => (
+              <MoneyInput
+                {...props}
+                autoFocus={draft.fromId !== ''}
+                invalid={shown('value') !== undefined}
+                value={draft.value}
+                onChange={(event) => set({ value: event.target.value })}
+              />
+            )}
+          </Field>
+          <Field label="Data" error={shown('date')}>
+            {(props) => (
+              <Input
+                {...props}
+                type="date"
+                max={today}
+                invalid={shown('date') !== undefined}
+                value={draft.date}
+                onChange={(event) => set({ date: event.target.value })}
+              />
+            )}
+          </Field>
+        </div>
+        <Field label="Descrição (opcional)">
+          {(props) => (
+            <Input
+              {...props}
+              invalid={false}
+              value={draft.description}
+              onChange={(event) => set({ description: event.target.value })}
+            />
+          )}
+        </Field>
+      </FormShell>
+    </Modal>
   );
 };

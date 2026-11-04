@@ -58,7 +58,7 @@ describe('Extrato: cabeçalho de saldo (FIN-405)', () => {
     expect(panel.getByRole('heading', { name: 'Itaú Corrente' })).toBeInTheDocument();
     expect(panel.getByText('recebe receitas e paga despesas')).toBeInTheDocument();
     expect(panel.getByRole('button', { name: 'Editar' })).toBeInTheDocument();
-    expect(panel.getByRole('button', { name: 'Transferir' })).toBeInTheDocument();
+    expect(panel.getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ })).toBeInTheDocument();
   });
 
   it('saldo atual em destaque e a legenda de como se formou', () => {
@@ -82,12 +82,12 @@ describe('Extrato: cabeçalho de saldo (FIN-405)', () => {
   it('Transferir abre o modal com a origem preenchida e atualiza o saldo', async () => {
     const user = userEvent.setup();
     open();
-    await user.click(header().getByRole('button', { name: 'Transferir' }));
+    await user.click(header().getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ }));
     const dialog = within(screen.getByRole('dialog'));
     expect(dialog.getByLabelText('De')).toHaveValue('itau-corrente');
     await user.selectOptions(dialog.getByLabelText('Para'), 'nubank-conta');
     await user.type(dialog.getByLabelText('Valor'), '500,00');
-    await user.click(dialog.getByRole('button', { name: 'Transferir' }));
+    await user.click(dialog.getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ }));
     expect(header().getByLabelText('Saldo atual').textContent).toBe('R$ 2.612,80');
   });
 
@@ -98,7 +98,7 @@ describe('Extrato: cabeçalho de saldo (FIN-405)', () => {
     const dialog = within(screen.getByRole('dialog', { name: 'Editar conta' }));
     await user.clear(dialog.getByLabelText('Nome'));
     await user.type(dialog.getByLabelText('Nome'), 'Dinheiro');
-    await user.click(dialog.getByRole('button', { name: 'Salvar' }));
+    await user.click(dialog.getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     expect(
       screen.getByRole('heading', { level: 1, name: 'Dinheiro' }),
     ).toBeInTheDocument();
@@ -106,7 +106,7 @@ describe('Extrato: cabeçalho de saldo (FIN-405)', () => {
 
   it('benefício não oferece Transferir', () => {
     open('flex');
-    expect(screen.queryByRole('button', { name: 'Transferir' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ })).not.toBeInTheDocument();
     expect(screen.getByText('Benefício')).toBeInTheDocument();
   });
 

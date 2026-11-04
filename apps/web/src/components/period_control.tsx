@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { DateRange } from 'react-day-picker';
 
 import { WEEKDAY_INITIALS } from '../lib/calendar.js';
-import type { Period } from '../lib/period.js';
+import type { Period, PeriodPreset } from '../lib/period.js';
 import {
   PERIOD_FULL_LABELS,
   PERIOD_SHORTCUTS,
@@ -162,15 +162,40 @@ export const PeriodRangeBody = (
   </div>
 );
 
-const RangeBody = ({
-  value,
+export type RangeShortcut = {
+  readonly id: string;
+  readonly label: string;
+  readonly range: { readonly from: string; readonly to: string };
+};
+
+/**
+ * O corpo do seletor de intervalo, sem saber de presets: atalhos à esquerda e
+ * calendário de dois meses à direita. Investimentos o alimenta com os presets de
+ * período; Finanças, com mês atual, mês anterior e 12 meses — e libera datas
+ * futuras (`allowFuture`), porque lá existem lançamentos previstos.
+ */
+export const RangePickerBody = ({
+  shortcuts,
+  activeId,
+  custom,
   today,
-  onChange,
+  allowFuture = false,
+  onShortcut,
+  onApply,
   onClose,
-}: PeriodControlProps & { readonly onClose: () => void }): React.ReactElement => {
-  const initial = value.kind === 'custom' ? { from: value.from, to: value.to } : null;
+}: {
+  readonly shortcuts: readonly RangeShortcut[];
+  readonly activeId: string | null;
+  /** O intervalo livre em vigor: o calendário abre nele. */
+  readonly custom: { readonly from: string; readonly to: string } | null;
+  readonly today: string;
+  readonly allowFuture?: boolean;
+  readonly onShortcut: (shortcut: RangeShortcut) => void;
+  readonly onApply: (range: { from: string; to: string }) => void;
+  readonly onClose: () => void;
+}): React.ReactElement => {
   const [range, setRange] = useState<DateRange | undefined>(
-    initial === null ? undefined : { from: toDate(initial.from), to: toDate(initial.to) },
+    custom === null ? undefined : { from: toDate(custom.from), to: toDate(custom.to) },
   );
 
   const todayDate = toDate(today);
@@ -183,22 +208,16 @@ const RangeBody = ({
   return (
     <>
       <div className="w-44 border-r border-line py-2 max-sm:w-full max-sm:border-r-0 max-sm:border-b">
-        {PERIOD_SHORTCUTS.map((shortcut) => (
+        {shortcuts.map((shortcut) => (
           <button
-            key={shortcut.preset}
+            key={shortcut.id}
             type="button"
-            aria-current={
-              value.kind === 'preset' && value.preset === shortcut.preset
-                ? 'true'
-                : undefined
-            }
+            aria-current={activeId === shortcut.id ? 'true' : undefined}
             className={`mx-2 block w-[calc(100%-1rem)] cursor-pointer rounded-control px-2 py-2 text-left text-[0.84375rem] ${
-              value.kind === 'preset' && value.preset === shortcut.preset
-                ? 'bg-accent-soft font-semibold'
-                : 'hover:bg-panel-2'
+              activeId === shortcut.id ? 'bg-accent-soft font-semibold' : 'hover:bg-panel-2'
             }`}
             onClick={() => {
-              onChange({ kind: 'preset', preset: shortcut.preset });
+              onShortcut(shortcut);
               onClose();
             }}
           >
@@ -207,7 +226,7 @@ const RangeBody = ({
         ))}
         <span
           className={`mx-2 mt-1 block rounded-control px-2 py-2 text-left text-[0.84375rem] ${
-            value.kind === 'custom' ? 'bg-accent-soft font-semibold' : 'text-ink-2'
+            activeId === null ? 'bg-accent-soft font-semibold' : 'text-ink-2'
           }`}
         >
           Personalizado
@@ -223,8 +242,7 @@ const RangeBody = ({
           }
           selected={range}
           onSelect={setRange}
-          disabled={{ after: todayDate }}
-          endMonth={todayDate}
+          {...(allowFuture ? {} : { disabled: { after: todayDate }, endMonth: todayDate })}
           formatters={{
             formatWeekdayName: (day) => WEEKDAY_INITIALS[day.getDay()] ?? '',
           }}
@@ -253,7 +271,7 @@ const RangeBody = ({
               disabled={!complete}
               onClick={() => {
                 if (from !== null && to !== null) {
-                  onChange({ kind: 'custom', from, to });
+                  onApply({ from, to });
                   onClose();
                 }
               }}
@@ -266,3 +284,27 @@ const RangeBody = ({
     </>
   );
 };
+
+const RangeBody = ({
+  value,
+  today,
+  inception,
+  onChange,
+  onClose,
+}: PeriodControlProps & { readonly onClose: () => void }): React.ReactElement => (
+  <RangePickerBody
+    shortcuts={PERIOD_SHORTCUTS.map((shortcut) => ({
+      id: shortcut.preset,
+      label: shortcut.label,
+      range: resolvePeriod({ kind: 'preset', preset: shortcut.preset }, today, inception),
+    }))}
+    activeId={value.kind === 'preset' ? value.preset : null}
+    custom={value.kind === 'custom' ? { from: value.from, to: value.to } : null}
+    today={today}
+    onShortcut={(shortcut) =>
+      onChange({ kind: 'preset', preset: shortcut.id as PeriodPreset })
+    }
+    onApply={(range) => onChange({ kind: 'custom', from: range.from, to: range.to })}
+    onClose={onClose}
+  />
+);

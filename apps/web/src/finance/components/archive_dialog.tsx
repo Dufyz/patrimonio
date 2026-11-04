@@ -1,16 +1,8 @@
 import { useState } from 'react';
 
+import { Modal } from '../../components/overlay.js';
 import { Button } from '../../components/primitives.js';
 import { Checkbox } from '../../components/ui/checkbox.js';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../components/ui/dialog.js';
 import { Callout } from '../../views/entry/fields.js';
 import { accountBalance } from '../domain/accounts.js';
 import { archiveBlockedReason } from '../domain/account_ops.js';
@@ -44,40 +36,13 @@ export const ArchiveAccountDialog = ({
   const hasBalance = balance !== 0;
 
   return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Arquivar {account.name}</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <DialogDescription asChild>
-            <div className="flex flex-col gap-3 text-[0.8125rem] text-ink-2">
-              <p>
-                Saldo atual:{' '}
-                <strong className="tabular text-ink">{formatBRL(balance)}</strong>. A
-                conta sai de Contas, do total em contas e das opções de origem e destino,
-                e continua nos lançamentos e extratos antigos.
-              </p>
-              {blocked === null ? null : <Callout tone="error">{blocked}</Callout>}
-              {blocked === null && hasBalance ? (
-                <>
-                  <Callout tone="warning">
-                    Esta conta ainda tem saldo. Transfira antes ou confirme que ele fica
-                    fora do total em contas.
-                  </Callout>
-                  <label className="flex items-center gap-2">
-                    <Checkbox
-                      checked={confirmed}
-                      onCheckedChange={(value) => setConfirmed(value === true)}
-                    />
-                    Arquivar mesmo com saldo
-                  </label>
-                </>
-              ) : null}
-            </div>
-          </DialogDescription>
-        </DialogBody>
-        <DialogFooter className="justify-end">
+    <Modal
+      open
+      narrow
+      title={`Arquivar ${account.name}`}
+      onClose={onClose}
+      footer={
+        <>
           <Button onClick={onClose}>Cancelar</Button>
           {blocked === null && hasBalance && account.type === 'conta' ? (
             <Button onClick={onTransfer}>Transferir saldo</Button>
@@ -89,8 +54,32 @@ export const ArchiveAccountDialog = ({
           >
             Arquivar
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3 text-[0.8125rem] text-ink-2">
+        <p>
+          Saldo atual: <strong className="tabular text-ink">{formatBRL(balance)}</strong>.
+          A conta sai de Contas, do total em contas e das opções de origem e destino, e
+          continua nos lançamentos e extratos antigos.
+        </p>
+        {blocked === null ? null : <Callout tone="error">{blocked}</Callout>}
+        {blocked === null && hasBalance ? (
+          <>
+            <Callout tone="warning">
+              Esta conta ainda tem saldo. Transfira antes ou confirme que ele fica fora do
+              total em contas.
+            </Callout>
+            <label className="flex items-center gap-2">
+              <Checkbox
+                checked={confirmed}
+                onCheckedChange={(value) => setConfirmed(value === true)}
+              />
+              Arquivar mesmo com saldo
+            </label>
+          </>
+        ) : null}
+      </div>
+    </Modal>
   );
 };

@@ -301,7 +301,7 @@ describe('lançar previsto (FIN-306)', () => {
     const value = within(dialog).getByRole('textbox', { name: 'Valor' });
     await userEvent.clear(value);
     await userEvent.type(value, '4500,00');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Lançar' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Lançar(?:\s*⌘↵)?$/ }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Lançar Gasto livre' }),
@@ -365,7 +365,7 @@ describe('novo lançamento (FIN-307)', () => {
   it('valida inline só depois de tentar salvar', async () => {
     const dialog = await openNew();
     expect(within(dialog).queryByText('Dê uma descrição.')).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     expect(within(dialog).getByText('Dê uma descrição.')).toBeInTheDocument();
     expect(within(dialog).getByText('Escolha uma categoria.')).toBeInTheDocument();
   });
@@ -385,7 +385,7 @@ describe('novo lançamento (FIN-307)', () => {
       within(dialog).getByRole('combobox', { name: 'Origem do pagamento' }),
       'Itaú Corrente',
     );
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByText('Padaria')).toBeInTheDocument();
     expect(screen.getByText('Sábado, 24/10')).toBeInTheDocument();
@@ -404,13 +404,13 @@ describe('novo lançamento (FIN-307)', () => {
       '60,00',
     );
     expect(within(dialog).getByRole('status')).toHaveTextContent('Faltam R$ 40,00');
-    expect(within(dialog).getByRole('button', { name: 'Salvar' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ })).toBeDisabled();
     await userEvent.type(
       within(dialog).getAllByRole('textbox', { name: 'Parte desta origem' })[1]!,
       '40,00',
     );
     expect(within(dialog).getByRole('status')).toHaveTextContent('As partes fecham');
-    expect(within(dialog).getByRole('button', { name: 'Salvar' })).toBeEnabled();
+    expect(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ })).toBeEnabled();
   });
 
   it('cartão oferece parcelas e mostra "n parcelas de R$ x"', async () => {
@@ -480,7 +480,7 @@ describe('menu da linha e categoria inline (FIN-308)', () => {
     expect(value).toHaveValue('50,00');
     await userEvent.clear(value);
     await userEvent.type(value, '55,00');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     expect(
       within(screen.getByText('Internet').closest('tr')!).getByText(/55,00/),
     ).toBeInTheDocument();
@@ -804,7 +804,7 @@ describe('Exibição esconde colunas e células (correção)', () => {
     const parcelas = within(dialog).getByRole('textbox', { name: 'Parcelas' });
     await userEvent.clear(parcelas);
     await userEvent.type(parcelas, '3');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     expect(screen.getByText('parcela 1/3')).toBeInTheDocument();
     expect(screen.getByText('parcela 2/3')).toBeInTheDocument();
   });
@@ -829,7 +829,7 @@ describe('aviso de saldo do benefício (FIN-408)', () => {
     expect(dialog.getByRole('note').textContent).toContain(
       'Flex tem R$ 198,30 de saldo e esta parte é de R$ 250,00.',
     );
-    expect(dialog.getByRole('button', { name: 'Salvar' })).toBeEnabled();
+    expect(dialog.getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ })).toBeEnabled();
   });
 
   it('dentro do saldo não há aviso', async () => {

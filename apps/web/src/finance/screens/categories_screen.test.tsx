@@ -109,7 +109,7 @@ describe('Categorias (FIN-101)', () => {
     const dialog = screen.getByRole('dialog', { name: 'Nova categoria' });
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Nome' }), 'Pets');
     await userEvent.click(within(dialog).getByRole('radio', { name: 'Verde' }));
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     expect(screen.getByText('Pets')).toBeInTheDocument();
     expect(screen.getByText('16 categorias')).toBeInTheDocument();
   });
@@ -123,7 +123,7 @@ describe('Categorias (FIN-101)', () => {
       'Moradia',
     );
     expect(within(dialog).queryByText(/Já existe/)).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     expect(within(dialog).getByText(/Já existe/)).toBeInTheDocument();
   });
 
@@ -136,7 +136,7 @@ describe('Categorias (FIN-101)', () => {
     const name = within(dialog).getByRole('textbox', { name: 'Nome' });
     await userEvent.clear(name);
     await userEvent.type(name, 'Casa');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     expect(screen.getByText('Casa')).toBeInTheDocument();
     expect(screen.queryByText('Moradia')).not.toBeInTheDocument();
   });
@@ -162,7 +162,7 @@ describe('Categorias (FIN-101)', () => {
     await userEvent.click(screen.getByRole('button', { name: /Categoria/ }));
     const form = screen.getByRole('dialog', { name: 'Nova categoria' });
     await userEvent.type(within(form).getByRole('textbox', { name: 'Nome' }), 'Pets');
-    await userEvent.click(within(form).getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(within(form).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Ações de Pets' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Excluir' }));
     const dialog = screen.getByRole('dialog', { name: 'Excluir categoria' });

@@ -215,13 +215,13 @@ describe('Lista de faturas (FIN-506)', () => {
 describe('Lançar crédito (FIN-508, CE-05)', () => {
   it('cashback de R$ 15,00 reduz o total e o limite usado', async () => {
     open();
-    await userEvent.click(panel().getByRole('button', { name: 'Lançar crédito' }));
+    await userEvent.click(panel().getByRole('button', { name: /^Lançar crédito(?:\s*⌘↵)?$/ }));
     const dialog = within(screen.getByRole('dialog'));
     await userEvent.selectOptions(dialog.getByLabelText('Tipo'), 'cashback');
     await userEvent.type(dialog.getByLabelText('Descrição'), 'Cashback Nubank');
     await userEvent.type(dialog.getByLabelText('Valor'), '15');
     await userEvent.selectOptions(dialog.getByLabelText('Categoria'), 'mercado');
-    await userEvent.click(dialog.getByRole('button', { name: 'Lançar crédito' }));
+    await userEvent.click(dialog.getByRole('button', { name: /^Lançar crédito(?:\s*⌘↵)?$/ }));
     expect(panel().getByLabelText('Total da fatura').textContent).toContain(
       'R$ 3.467,17',
     );
@@ -237,17 +237,17 @@ describe('Lançar crédito (FIN-508, CE-05)', () => {
 
   it('campos obrigatórios aparecem só ao salvar', async () => {
     open();
-    await userEvent.click(panel().getByRole('button', { name: 'Lançar crédito' }));
+    await userEvent.click(panel().getByRole('button', { name: /^Lançar crédito(?:\s*⌘↵)?$/ }));
     const dialog = within(screen.getByRole('dialog'));
     expect(dialog.queryByText('Dê uma descrição.')).toBeNull();
-    await userEvent.click(dialog.getByRole('button', { name: 'Lançar crédito' }));
+    await userEvent.click(dialog.getByRole('button', { name: /^Lançar crédito(?:\s*⌘↵)?$/ }));
     expect(dialog.getByText('Dê uma descrição.')).toBeTruthy();
     expect(dialog.getByText('Informe um valor maior que zero.')).toBeTruthy();
   });
 
   it('fatura paga não tem a ação', () => {
     open('/financas/cartoes/nubank-master?fatura=2026-10');
-    expect(panel().queryByRole('button', { name: 'Lançar crédito' })).toBeNull();
+    expect(panel().queryByRole('button', { name: /^Lançar crédito(?:\s*⌘↵)?$/ })).toBeNull();
   });
 });
 
@@ -338,10 +338,10 @@ describe('Encargos (FIN-512)', () => {
 
   it('juros soma ao total da fatura e aparece no bloco com a etiqueta', async () => {
     open();
-    await userEvent.click(statement().getByRole('button', { name: 'Lançar encargo' }));
+    await userEvent.click(statement().getByRole('button', { name: /^Lançar encargo(?:\s*⌘↵)?$/ }));
     const dialog = within(screen.getByRole('dialog'));
     await userEvent.type(dialog.getByLabelText('Valor'), '12,34');
-    await userEvent.click(dialog.getByRole('button', { name: 'Lançar encargo' }));
+    await userEvent.click(dialog.getByRole('button', { name: /^Lançar encargo(?:\s*⌘↵)?$/ }));
     expect(panel().getByLabelText('Total da fatura').textContent).toContain(
       'R$ 3.494,51',
     );
@@ -352,16 +352,16 @@ describe('Encargos (FIN-512)', () => {
 
   it('valor obrigatório só aparece ao salvar', async () => {
     open();
-    await userEvent.click(statement().getByRole('button', { name: 'Lançar encargo' }));
+    await userEvent.click(statement().getByRole('button', { name: /^Lançar encargo(?:\s*⌘↵)?$/ }));
     const dialog = within(screen.getByRole('dialog'));
     expect(dialog.queryByText('Informe um valor maior que zero.')).toBeNull();
-    await userEvent.click(dialog.getByRole('button', { name: 'Lançar encargo' }));
+    await userEvent.click(dialog.getByRole('button', { name: /^Lançar encargo(?:\s*⌘↵)?$/ }));
     expect(dialog.getByText('Informe um valor maior que zero.')).toBeTruthy();
   });
 
   it('fatura paga não oferece a ação', () => {
     open('/financas/cartoes/nubank-master?fatura=2026-10');
-    expect(statement().queryByRole('button', { name: 'Lançar encargo' })).toBeNull();
+    expect(statement().queryByRole('button', { name: /^Lançar encargo(?:\s*⌘↵)?$/ })).toBeNull();
     expect(statement().getByText('nenhum nesta fatura')).toBeTruthy();
   });
 });

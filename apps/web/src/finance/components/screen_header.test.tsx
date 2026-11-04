@@ -78,6 +78,6 @@ describe('cabeçalho padrão de tela', () => {
       />,
     );
     expect(screen.getByText('01/10 – 31/10')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Transferir' })).toBeVisible();
+    expect(screen.getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ })).toBeVisible();
   });
 });

@@ -104,7 +104,7 @@ describe('Contas (FIN-401)', () => {
     open();
     await userEvent.click(screen.getByRole('button', { name: 'Ações de Carteira' }));
     expect(screen.getByRole('menuitem', { name: 'Editar' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Transferir' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /^Transferir(?:\s*⌘↵)?$/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Arquivar' })).toBeInTheDocument();
     expect(screen.queryByText('Extrato aberto')).not.toBeInTheDocument();
   });
@@ -155,14 +155,14 @@ describe('Transferir (FIN-403)', () => {
   it('o botão do cabeçalho abre o modal e a transferência atualiza os saldos', async () => {
     const user = userEvent.setup();
     open();
-    await user.click(screen.getByRole('button', { name: 'Transferir' }));
+    await user.click(screen.getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ }));
     const dialog = within(
       screen.getByRole('dialog', { name: 'Transferir entre contas' }),
     );
     await user.selectOptions(dialog.getByLabelText('De'), 'itau-corrente');
     await user.selectOptions(dialog.getByLabelText('Para'), 'nubank-conta');
     await user.type(dialog.getByLabelText('Valor'), '500,00');
-    await user.click(dialog.getByRole('button', { name: 'Transferir' }));
+    await user.click(dialog.getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ }));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(rowOf('Itaú Corrente').textContent).toContain('R$ 2.612,80');
@@ -174,7 +174,7 @@ describe('Transferir (FIN-403)', () => {
     const user = userEvent.setup();
     open();
     await user.click(screen.getByRole('button', { name: 'Ações de Nubank Conta' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Transferir' }));
+    await user.click(screen.getByRole('menuitem', { name: /^Transferir(?:\s*⌘↵)?$/ }));
     const dialog = within(screen.getByRole('dialog'));
     expect(dialog.getByLabelText('De')).toHaveValue('nubank-conta');
   });
@@ -182,10 +182,10 @@ describe('Transferir (FIN-403)', () => {
   it('mostra os erros só ao tentar salvar', async () => {
     const user = userEvent.setup();
     open();
-    await user.click(screen.getByRole('button', { name: 'Transferir' }));
+    await user.click(screen.getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ }));
     const dialog = within(screen.getByRole('dialog'));
     expect(dialog.queryByText('Escolha a conta de origem.')).not.toBeInTheDocument();
-    await user.click(dialog.getByRole('button', { name: 'Transferir' }));
+    await user.click(dialog.getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ }));
     expect(dialog.getByText('Escolha a conta de origem.')).toBeInTheDocument();
     expect(dialog.getByText('Informe um valor maior que zero.')).toBeInTheDocument();
   });
@@ -193,12 +193,12 @@ describe('Transferir (FIN-403)', () => {
   it('origem e destino iguais ficam sem salvar', async () => {
     const user = userEvent.setup();
     open();
-    await user.click(screen.getByRole('button', { name: 'Transferir' }));
+    await user.click(screen.getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ }));
     const dialog = within(screen.getByRole('dialog'));
     await user.selectOptions(dialog.getByLabelText('De'), 'carteira');
     await user.selectOptions(dialog.getByLabelText('Para'), 'carteira');
     await user.type(dialog.getByLabelText('Valor'), '10,00');
-    await user.click(dialog.getByRole('button', { name: 'Transferir' }));
+    await user.click(dialog.getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ }));
     expect(
       dialog.getByText('Origem e destino precisam ser contas diferentes.'),
     ).toBeInTheDocument();
@@ -208,7 +208,7 @@ describe('Transferir (FIN-403)', () => {
     const user = userEvent.setup();
     open();
     await user.click(screen.getByRole('button', { name: 'Ações de Flex' }));
-    expect(screen.getByRole('menuitem', { name: 'Transferir' })).toHaveAttribute(
+    expect(screen.getByRole('menuitem', { name: /^Transferir(?:\s*⌘↵)?$/ })).toHaveAttribute(
       'aria-disabled',
       'true',
     );
@@ -225,7 +225,7 @@ describe('Nova conta e editar conta (FIN-404)', () => {
     const dialog = within(screen.getByRole('dialog', { name: 'Nova conta' }));
     await user.type(dialog.getByLabelText('Nome'), 'Inter Conta');
     await user.type(dialog.getByLabelText('Saldo inicial'), '1000,00');
-    await user.click(dialog.getByRole('button', { name: 'Criar conta' }));
+    await user.click(dialog.getByRole('button', { name: /^Criar conta(?:\s*⌘↵)?$/ }));
     expect(rowOf('Inter Conta').textContent).toContain('R$ 1.000,00');
     expect(rowOf('Total em contas').textContent).toContain('R$ 12.773,15');
   });
@@ -241,7 +241,7 @@ describe('Nova conta e editar conta (FIN-404)', () => {
     await user.type(dialog.getByLabelText('Saldo inicial'), '0,00');
     await user.type(dialog.getByLabelText('Crédito mensal'), '800,00');
     await user.type(dialog.getByLabelText('Dia do crédito'), '10');
-    await user.click(dialog.getByRole('button', { name: 'Criar conta' }));
+    await user.click(dialog.getByRole('button', { name: /^Criar conta(?:\s*⌘↵)?$/ }));
     expect(rowOf('Vale Refeição').textContent).toContain('todo dia 10');
     expect(rowOf('Total em contas').textContent).toContain('R$ 11.773,15');
   });
@@ -253,7 +253,7 @@ describe('Nova conta e editar conta (FIN-404)', () => {
     const dialog = within(screen.getByRole('dialog'));
     await user.type(dialog.getByLabelText('Nome'), 'Flex');
     await user.type(dialog.getByLabelText('Saldo inicial'), '0,00');
-    await user.click(dialog.getByRole('button', { name: 'Criar conta' }));
+    await user.click(dialog.getByRole('button', { name: /^Criar conta(?:\s*⌘↵)?$/ }));
     expect(
       dialog.getByText('Já existe uma conta ou benefício com esse nome.'),
     ).toBeInTheDocument();
@@ -269,7 +269,7 @@ describe('Nova conta e editar conta (FIN-404)', () => {
     expect(dialog.getByLabelText('Tipo')).toBeDisabled();
     await user.clear(dialog.getByLabelText('Nome'));
     await user.type(dialog.getByLabelText('Nome'), 'Carteira de bolso');
-    await user.click(dialog.getByRole('button', { name: 'Salvar' }));
+    await user.click(dialog.getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
     expect(rowOf('Carteira de bolso').textContent).toContain('R$ 240,00');
   });
 });
@@ -322,7 +322,7 @@ describe('Arquivar conta (FIN-409)', () => {
     expect(rowOf('Total em contas').textContent).toContain('R$ 11.533,15');
 
     await user.click(screen.getByRole('button', { name: 'Ações de Carteira' }));
-    expect(screen.getByRole('menuitem', { name: 'Transferir' })).toHaveAttribute(
+    expect(screen.getByRole('menuitem', { name: /^Transferir(?:\s*⌘↵)?$/ })).toHaveAttribute(
       'aria-disabled',
       'true',
     );

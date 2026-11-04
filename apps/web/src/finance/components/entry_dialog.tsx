@@ -1,14 +1,7 @@
 import { useState } from 'react';
 
-import { Button } from '../../components/primitives.js';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../components/ui/dialog.js';
+import { Modal } from '../../components/overlay.js';
+import { FormShell } from '../../views/entry/form_shell.js';
 import { Checkbox } from '../../components/ui/checkbox.js';
 import { Callout, Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
 import {
@@ -89,8 +82,7 @@ export const EntryDialog = ({
     name: s.name,
   }));
 
-  const submit = (event: React.FormEvent): void => {
-    event.preventDefault();
+  const save = (): void => {
     setAttempted(true);
     if (Object.keys(errors).length > 0) return;
     onSave(draft);
@@ -106,226 +98,219 @@ export const EntryDialog = ({
   };
 
   return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogContent className="max-w-lg" aria-describedby={undefined}>
-        <form onSubmit={submit} noValidate className="flex min-h-0 flex-col">
-          <DialogHeader>
-            <DialogTitle>{TITLES[mode]}</DialogTitle>
-          </DialogHeader>
-          <DialogBody>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Tipo">
-                {(props) => (
-                  <Select
-                    {...props}
-                    invalid={false}
-                    disabled={locked}
-                    options={KINDS}
-                    value={draft.kind}
-                    onChange={(event) => {
-                      const kind = event.target.value as EntryKind;
-                      const keepCategory = data.categories.some(
-                        (c) => c.id === draft.categoryId && c.kind === kind,
-                      );
-                      const keepSource = allowedSources(data, kind).some(
-                        (s) => s.id === draft.sourceId,
-                      );
-                      set({
-                        kind,
-                        categoryId: keepCategory ? draft.categoryId : '',
-                        sourceId: keepSource ? draft.sourceId : '',
-                        ...(kind === 'receita' ? { split: false } : {}),
-                      });
-                    }}
-                  />
-                )}
-              </Field>
-              <Field label="Data" error={shown('date')}>
-                {(props) => (
-                  <Input
-                    {...props}
-                    type="date"
-                    max={today}
-                    invalid={shown('date') !== undefined}
-                    value={draft.date}
-                    onChange={(event) => set({ date: event.target.value })}
-                  />
-                )}
-              </Field>
-            </div>
+    <Modal open guard narrow title={TITLES[mode]} subtitle="Finanças" onClose={onClose}>
+      <FormShell
+        pending={false}
+        onSave={save}
+        onCancel={onClose}
+        saveLabel={mode === 'launch' ? 'Lançar' : 'Salvar'}
+        canSave={!blocked}
+      >
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Tipo">
+            {(props) => (
+              <Select
+                {...props}
+                invalid={false}
+                disabled={locked}
+                options={KINDS}
+                value={draft.kind}
+                onChange={(event) => {
+                  const kind = event.target.value as EntryKind;
+                  const keepCategory = data.categories.some(
+                    (c) => c.id === draft.categoryId && c.kind === kind,
+                  );
+                  const keepSource = allowedSources(data, kind).some(
+                    (s) => s.id === draft.sourceId,
+                  );
+                  set({
+                    kind,
+                    categoryId: keepCategory ? draft.categoryId : '',
+                    sourceId: keepSource ? draft.sourceId : '',
+                    ...(kind === 'receita' ? { split: false } : {}),
+                  });
+                }}
+              />
+            )}
+          </Field>
+          <Field label="Data" error={shown('date')}>
+            {(props) => (
+              <Input
+                {...props}
+                type="date"
+                max={today}
+                invalid={shown('date') !== undefined}
+                value={draft.date}
+                onChange={(event) => set({ date: event.target.value })}
+              />
+            )}
+          </Field>
+        </div>
 
-            <Field label="Descrição" error={shown('description')}>
+        <Field label="Descrição" error={shown('description')}>
+          {(props) => (
+            <Input
+              {...props}
+              autoFocus={!locked}
+              disabled={locked}
+              invalid={shown('description') !== undefined}
+              value={draft.description}
+              onChange={(event) => set({ description: event.target.value })}
+            />
+          )}
+        </Field>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Categoria" error={shown('categoryId')}>
+            {(props) => (
+              <Select
+                {...props}
+                disabled={locked}
+                invalid={shown('categoryId') !== undefined}
+                placeholder="Escolha"
+                options={categories}
+                value={draft.categoryId}
+                onChange={(event) => set({ categoryId: event.target.value })}
+              />
+            )}
+          </Field>
+          <Field label="Valor" error={shown('value')}>
+            {(props) => (
+              <MoneyInput
+                {...props}
+                autoFocus={locked}
+                invalid={shown('value') !== undefined}
+                value={draft.value}
+                onChange={(event) => onValue(event.target.value)}
+              />
+            )}
+          </Field>
+        </div>
+
+        <div className={draft.split ? 'grid grid-cols-2 gap-4' : ''}>
+          <Field
+            label={draft.split ? 'Origem' : 'Origem do pagamento'}
+            error={shown('sourceId')}
+          >
+            {(props) => (
+              <Select
+                {...props}
+                disabled={locked}
+                invalid={shown('sourceId') !== undefined}
+                placeholder="Conta, benefício ou cartão"
+                options={sources}
+                value={draft.sourceId}
+                onChange={(event) => set({ sourceId: event.target.value })}
+              />
+            )}
+          </Field>
+          {draft.split ? (
+            <Field label="Parte desta origem" error={shown('firstValue')}>
               {(props) => (
-                <Input
+                <MoneyInput
                   {...props}
-                  autoFocus={!locked}
-                  disabled={locked}
-                  invalid={shown('description') !== undefined}
-                  value={draft.description}
-                  onChange={(event) => set({ description: event.target.value })}
+                  invalid={shown('firstValue') !== undefined}
+                  value={draft.firstValue}
+                  onChange={(event) => set({ firstValue: event.target.value })}
                 />
               )}
             </Field>
+          ) : null}
+        </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Categoria" error={shown('categoryId')}>
-                {(props) => (
-                  <Select
-                    {...props}
-                    disabled={locked}
-                    invalid={shown('categoryId') !== undefined}
-                    placeholder="Escolha"
-                    options={categories}
-                    value={draft.categoryId}
-                    onChange={(event) => set({ categoryId: event.target.value })}
-                  />
-                )}
-              </Field>
-              <Field label="Valor" error={shown('value')}>
-                {(props) => (
-                  <MoneyInput
-                    {...props}
-                    autoFocus={locked}
-                    invalid={shown('value') !== undefined}
-                    value={draft.value}
-                    onChange={(event) => onValue(event.target.value)}
-                  />
-                )}
-              </Field>
-            </div>
+        {draft.date > today && onCreateRecurring !== undefined ? (
+          <p className="text-xs text-ink-3">
+            {FUTURE_DATE}{' '}
+            <button
+              type="button"
+              className="cursor-pointer font-medium text-accent underline"
+              onClick={onCreateRecurring}
+            >
+              Criar recorrente
+            </button>
+          </p>
+        ) : null}
 
-            <div className={draft.split ? 'grid grid-cols-2 gap-4' : ''}>
-              <Field
-                label={draft.split ? 'Origem' : 'Origem do pagamento'}
-                error={shown('sourceId')}
-              >
-                {(props) => (
-                  <Select
-                    {...props}
-                    disabled={locked}
-                    invalid={shown('sourceId') !== undefined}
-                    placeholder="Conta, benefício ou cartão"
-                    options={sources}
-                    value={draft.sourceId}
-                    onChange={(event) => set({ sourceId: event.target.value })}
-                  />
-                )}
-              </Field>
-              {draft.split ? (
-                <Field label="Parte desta origem" error={shown('firstValue')}>
-                  {(props) => (
-                    <MoneyInput
-                      {...props}
-                      invalid={shown('firstValue') !== undefined}
-                      value={draft.firstValue}
-                      onChange={(event) => set({ firstValue: event.target.value })}
-                    />
-                  )}
-                </Field>
-              ) : null}
-            </div>
+        {canInstall(data, draft) && mode !== 'launch' ? (
+          <Field
+            label="Parcelas"
+            error={shown('installments')}
+            hint={installmentSummary(data, draft) ?? 'À vista'}
+          >
+            {(props) => (
+              <Input
+                {...props}
+                numeric
+                inputMode="numeric"
+                invalid={shown('installments') !== undefined}
+                value={draft.installments}
+                onChange={(event) =>
+                  set({ installments: event.target.value.replace(/\D/g, '') })
+                }
+              />
+            )}
+          </Field>
+        ) : null}
 
-            {draft.date > today && onCreateRecurring !== undefined ? (
-              <p className="text-xs text-ink-3">
-                {FUTURE_DATE}{' '}
-                <button
-                  type="button"
-                  className="cursor-pointer font-medium text-accent underline"
-                  onClick={onCreateRecurring}
-                >
-                  Criar recorrente
-                </button>
-              </p>
-            ) : null}
+        {draft.kind === 'despesa' && !locked ? (
+          <label className="flex items-center gap-2 text-[0.8125rem]">
+            <Checkbox
+              checked={draft.split}
+              onCheckedChange={(checked) => set({ split: checked === true })}
+            />
+            Dividir em duas origens
+          </label>
+        ) : null}
 
-            {canInstall(data, draft) && mode !== 'launch' ? (
-              <Field
-                label="Parcelas"
-                error={shown('installments')}
-                hint={installmentSummary(data, draft) ?? 'À vista'}
-              >
-                {(props) => (
-                  <Input
-                    {...props}
-                    numeric
-                    inputMode="numeric"
-                    invalid={shown('installments') !== undefined}
-                    value={draft.installments}
-                    onChange={(event) =>
-                      set({ installments: event.target.value.replace(/\D/g, '') })
-                    }
-                  />
-                )}
-              </Field>
-            ) : null}
-
-            {draft.kind === 'despesa' && !locked ? (
-              <label className="flex items-center gap-2 text-[0.8125rem]">
-                <Checkbox
-                  checked={draft.split}
-                  onCheckedChange={(checked) => set({ split: checked === true })}
+        {draft.split ? (
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Segunda origem" error={shown('secondSourceId')}>
+              {(props) => (
+                <Select
+                  {...props}
+                  disabled={locked}
+                  invalid={shown('secondSourceId') !== undefined}
+                  placeholder="Escolha"
+                  options={sources}
+                  value={draft.secondSourceId}
+                  onChange={(event) => set({ secondSourceId: event.target.value })}
                 />
-                Dividir em duas origens
-              </label>
-            ) : null}
+              )}
+            </Field>
+            <Field label="Parte desta origem" error={shown('secondValue')}>
+              {(props) => (
+                <MoneyInput
+                  {...props}
+                  invalid={shown('secondValue') !== undefined}
+                  value={draft.secondValue}
+                  onChange={(event) => set({ secondValue: event.target.value })}
+                />
+              )}
+            </Field>
+          </div>
+        ) : null}
 
-            {draft.split ? (
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Segunda origem" error={shown('secondSourceId')}>
-                  {(props) => (
-                    <Select
-                      {...props}
-                      disabled={locked}
-                      invalid={shown('secondSourceId') !== undefined}
-                      placeholder="Escolha"
-                      options={sources}
-                      value={draft.secondSourceId}
-                      onChange={(event) => set({ secondSourceId: event.target.value })}
-                    />
-                  )}
-                </Field>
-                <Field label="Parte desta origem" error={shown('secondValue')}>
-                  {(props) => (
-                    <MoneyInput
-                      {...props}
-                      invalid={shown('secondValue') !== undefined}
-                      value={draft.secondValue}
-                      onChange={(event) => set({ secondValue: event.target.value })}
-                    />
-                  )}
-                </Field>
-              </div>
-            ) : null}
+        {diff === null ? null : (
+          <p
+            role="status"
+            className={`tabular text-xs ${diff === 0 ? 'text-positive' : 'text-negative'}`}
+          >
+            {diff === 0
+              ? 'As partes fecham com o valor.'
+              : diff > 0
+                ? `Faltam ${formatBRL(diff)} para fechar o valor.`
+                : `As partes passam ${formatBRL(-diff)} do valor.`}
+          </p>
+        )}
 
-            {diff === null ? null : (
-              <p
-                role="status"
-                className={`tabular text-xs ${diff === 0 ? 'text-positive' : 'text-negative'}`}
-              >
-                {diff === 0
-                  ? 'As partes fecham com o valor.'
-                  : diff > 0
-                    ? `Faltam ${formatBRL(diff)} para fechar o valor.`
-                    : `As partes passam ${formatBRL(-diff)} do valor.`}
-              </p>
-            )}
-
-            {warnings.length === 0 ? null : (
-              <Callout tone="warning">
-                {warnings.map((warning) => (
-                  <p key={warning}>{warning} O lançamento continua permitido.</p>
-                ))}
-              </Callout>
-            )}
-          </DialogBody>
-          <DialogFooter className="justify-end">
-            <Button onClick={onClose}>Cancelar</Button>
-            <Button variant="primary" type="submit" disabled={blocked}>
-              {mode === 'launch' ? 'Lançar' : 'Salvar'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        {warnings.length === 0 ? null : (
+          <Callout tone="warning">
+            {warnings.map((warning) => (
+              <p key={warning}>{warning} O lançamento continua permitido.</p>
+            ))}
+          </Callout>
+        )}
+      </FormShell>
+    </Modal>
   );
 };

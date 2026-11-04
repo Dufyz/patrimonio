@@ -1,13 +1,5 @@
 import { Button } from '../../components/primitives.js';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../components/ui/dialog.js';
+import { Modal } from '../../components/overlay.js';
 import type { InstallmentScope } from '../domain/installment_ops.js';
 
 /** FIN-510 · "Todas as parcelas ou só as futuras?" ao editar ou excluir uma compra parcelada. */
@@ -22,20 +14,13 @@ export const InstallmentScopeDialog = ({
   readonly onChoose: (scope: InstallmentScope) => void;
   readonly onClose: () => void;
 }): React.ReactElement => (
-  <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-    <DialogContent className="max-w-md">
-      <DialogHeader>
-        <DialogTitle>
-          {action === 'editar' ? 'Editar compra parcelada' : 'Excluir compra parcelada'}
-        </DialogTitle>
-      </DialogHeader>
-      <DialogBody>
-        <DialogDescription className="text-[0.8125rem] text-ink-2">
-          {description} é uma compra parcelada. A mudança vale para todas as parcelas ou
-          só para esta e as futuras?
-        </DialogDescription>
-      </DialogBody>
-      <DialogFooter className="justify-end">
+  <Modal
+    open
+    narrow
+    title={action === 'editar' ? 'Editar compra parcelada' : 'Excluir compra parcelada'}
+    onClose={onClose}
+    footer={
+      <>
         <Button onClick={onClose}>Cancelar</Button>
         <Button onClick={() => onChoose('futuras')}>Só as futuras</Button>
         <Button
@@ -44,7 +29,12 @@ export const InstallmentScopeDialog = ({
         >
           Todas as parcelas
         </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
+      </>
+    }
+  >
+    <p className="text-[0.8125rem] text-ink-2">
+      {description} é uma compra parcelada. A mudança vale para todas as parcelas ou só
+      para esta e as futuras?
+    </p>
+  </Modal>
 );
