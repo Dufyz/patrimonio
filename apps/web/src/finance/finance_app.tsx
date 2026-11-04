@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router';
 
 import { FinanceShell } from './components/finance_shell.js';
 import { FinancePeriodProvider, useFinancePeriod } from './components/period_provider.js';
+import { EntriesScreen } from './screens/entries_screen.js';
 import { RecurringsScreen } from './screens/recurrings_screen.js';
 import { CategoriesScreen } from './screens/categories_screen.js';
 import { SettingsScreen } from './screens/settings_screen.js';
@@ -70,10 +71,7 @@ export const FinanceApp = (): React.ReactElement => {
               path="visao-geral"
               element={<Pending title="Visão geral" story="FIN-601" />}
             />
-            <Route
-              path="lancamentos"
-              element={<Pending title="Lançamentos" story="FIN-302" />}
-            />
+            <Route path="lancamentos" element={<EntriesScreen />} />
             <Route path="contas" element={<Pending title="Contas" story="FIN-401" />} />
             <Route
               path="contas/:id"

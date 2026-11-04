@@ -9,9 +9,10 @@ import type { Cents } from '../lib/money.js';
  * - `plain`: saldo e total, sem sinal quando positivo.
  * - `flow`: lançamento com sinal — despesa com `−`, receita com `+` e verde.
  * - `delta`: variação, verde quando sobe e vermelha quando desce.
+ * - `signed`: sempre com sinal, mas sem cor (saldo do período).
  */
 
-export type AmountVariant = 'plain' | 'flow' | 'delta';
+export type AmountVariant = 'plain' | 'flow' | 'delta' | 'signed';
 
 export const Amount = ({
   cents,
@@ -26,6 +27,8 @@ export const Amount = ({
   const props = className === undefined ? {} : { className };
 
   if (variant === 'plain') return <Money value={value} {...props} />;
+  if (variant === 'signed')
+    return <MoneyChange value={value} tone="neutral" {...props} />;
   if (variant === 'delta') return <MoneyChange value={value} tone="signed" {...props} />;
   return <MoneyChange value={value} tone={cents > 0 ? 'signed' : 'neutral'} {...props} />;
 };
