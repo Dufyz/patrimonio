@@ -142,3 +142,39 @@ describe('Despesas por categoria (FIN-603)', () => {
     expect(screen.getByText('Lançamentos aberto')).toBeTruthy();
   });
 });
+
+describe('Card Lançamentos (FIN-604)', () => {
+  const card = () => screen.getByRole('region', { name: 'Lançamentos' });
+
+  it('duas seções, cinco lançados no máximo e previstos até três', () => {
+    open();
+    const items = within(card()).getAllByRole('listitem');
+    const text = items.map((item) => item.textContent ?? '');
+    expect(text[0]).toContain('Lançados');
+    const plannedAt = text.findIndex((t) => t.startsWith('Previstos'));
+    expect(plannedAt).toBeGreaterThan(0);
+    expect(plannedAt - 1).toBeLessThanOrEqual(5);
+    expect(text.length - plannedAt - 1).toBeLessThanOrEqual(3);
+    expect(
+      within(card()).getAllByText(/^$/, { selector: '[data-status="lancada"]' }).length,
+    ).toBe(plannedAt - 1);
+  });
+
+  it('cada linha traz data, origem e categoria na segunda linha, e o valor com sinal', () => {
+    open();
+    const first = within(card()).getAllByRole('listitem')[1]?.textContent ?? '';
+    expect(first).toMatch(/\d{2}\/\d{2} · .+ · .+/);
+    expect(first).toMatch(/[+−]R\$/);
+  });
+
+  it('o botão Lançamento abre o novo lançamento e o link abre Lançamentos', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /^Lançamento/ }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(
+      within(card()).getByRole('link', { name: 'Ver todos os lançamentos' }),
+    );
+    expect(screen.getByText('Lançamentos aberto')).toBeTruthy();
+  });
+});
