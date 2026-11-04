@@ -170,3 +170,44 @@ describe('Extrato completo da fatura (FIN-505)', () => {
     ).toBe('true');
   });
 });
+
+describe('Lista de faturas (FIN-506)', () => {
+  const list = () => within(screen.getByRole('table', { name: 'Faturas do cartão' }));
+
+  it('vai da mais distante à mais antiga, com intervalo e vencimento', () => {
+    open();
+    const rows = list().getAllByRole('row').slice(1);
+    expect(rows[0]?.textContent).toContain('fev/2027');
+    expect(rows[0]?.textContent).toContain('prevista');
+    expect(rows[rows.length - 1]?.textContent).toContain('ago/2026');
+    const nov = list().getByRole('row', { name: 'Fatura nov/2026' }).textContent ?? '';
+    expect(nov).toContain('29/09 a 28/10');
+    expect(nov).toContain('05/11');
+    expect(nov).toContain('R$ 3.482,17');
+    expect(nov).toContain('aberta');
+  });
+
+  it('a fatura paga diz quando e por qual conta', () => {
+    open();
+    expect(list().getByRole('row', { name: 'Fatura out/2026' }).textContent).toContain(
+      'paga em 05/10 · Nubank Conta',
+    );
+  });
+
+  it('a fatura aberta fica destacada e clicar em outra troca o extrato e o navegador', async () => {
+    open();
+    expect(
+      list().getByRole('row', { name: 'Fatura nov/2026' }).getAttribute('aria-selected'),
+    ).toBe('true');
+    await userEvent.click(list().getByRole('row', { name: 'Fatura dez/2026' }));
+    expect(panel().getByText('dez/2026')).toBeTruthy();
+    expect(
+      list().getByRole('row', { name: 'Fatura dez/2026' }).getAttribute('aria-selected'),
+    ).toBe('true');
+    expect(
+      within(screen.getByRole('table', { name: 'Extrato da fatura' })).getByText(
+        'Notebook Dell Inspiron',
+      ),
+    ).toBeTruthy();
+  });
+});

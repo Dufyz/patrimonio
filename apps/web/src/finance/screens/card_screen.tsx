@@ -5,6 +5,7 @@ import { Button, IconButton } from '../../components/primitives.js';
 import { Amount } from '../components/amount.js';
 import { CardItemDialog } from '../components/card_item_dialog.js';
 import { ConfirmDialog } from '../components/entry_confirms.js';
+import { InvoiceList } from '../components/invoice_list.js';
 import { InvoiceStatement } from '../components/invoice_statement.js';
 import { CardDialog } from '../components/card_dialog.js';
 import { EntryDialog } from '../components/entry_dialog.js';
@@ -152,6 +153,8 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
         onEdit={setEditingLine}
         onDelete={setDeletingLine}
       />
+
+      <InvoiceList data={data} card={card} today={today} selected={key} onSelect={go} />
 
       {editingLine?.origin === 'entry' ? (
         <EntryDialog
