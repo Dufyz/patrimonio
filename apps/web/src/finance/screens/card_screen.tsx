@@ -4,6 +4,7 @@ import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Button, IconButton } from '../../components/primitives.js';
 import { Amount } from '../components/amount.js';
 import { CardItemDialog } from '../components/card_item_dialog.js';
+import { InstallmentScopeDialog } from '../components/installment_scope_dialog.js';
 import { ConfirmDialog } from '../components/entry_confirms.js';
 import { PayInvoiceDialog } from '../components/pay_invoice_dialog.js';
 import { CreditDialog } from '../components/credit_dialog.js';
@@ -25,6 +26,12 @@ import {
   paymentOf,
   vigenteKey,
 } from '../domain/cards.js';
+import {
+  deleteInstallments,
+  updateInstallmentEntries,
+  updateInstallmentItems,
+} from '../domain/installment_ops.js';
+import type { InstallmentScope } from '../domain/installment_ops.js';
 import { payBlockedReason, payInvoice } from '../domain/invoice_ops.js';
 import { addCredit, deleteCardItem, updateCardItem } from '../domain/card_item_ops.js';
 import {
@@ -66,6 +73,19 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
   const [dialog, setDialog] = useState<'edit' | 'entry' | 'pay' | 'credit' | null>(null);
   const [editingLine, setEditingLine] = useState<InvoiceLine | null>(null);
   const [deletingLine, setDeletingLine] = useState<InvoiceLine | null>(null);
+  const [ask, setAsk] = useState<{
+    readonly line: InvoiceLine;
+    readonly action: 'editar' | 'excluir';
+  } | null>(null);
+  const [scope, setScope] = useState<InstallmentScope>('todas');
+  const startEdit = (line: InvoiceLine): void =>
+    line.installment === undefined
+      ? setEditingLine(line)
+      : setAsk({ line, action: 'editar' });
+  const startDelete = (line: InvoiceLine): void =>
+    line.installment === undefined
+      ? setDeletingLine(line)
+      : setAsk({ line, action: 'excluir' });
 
   const keys = cardInvoiceKeys(data, card, today);
   const requested = search.get('fatura');
@@ -165,12 +185,30 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
         period={period}
         today={today}
         locked={payment !== undefined}
-        onEdit={setEditingLine}
-        onDelete={setDeletingLine}
+        onEdit={startEdit}
+        onDelete={startDelete}
       />
 
       <InvoiceList data={data} card={card} today={today} selected={key} onSelect={go} />
 
+      {ask === null ? null : (
+        <InstallmentScopeDialog
+          action={ask.action}
+          description={ask.line.description}
+          onClose={() => setAsk(null)}
+          onChoose={(chosen) => {
+            setScope(chosen);
+            if (ask.action === 'excluir') {
+              store.set((current) =>
+                deleteInstallments(current, ask.line.origin, ask.line.id, chosen),
+              );
+            } else {
+              setEditingLine(ask.line);
+            }
+            setAsk(null);
+          }}
+        />
+      )}
       {editingLine?.origin === 'entry' ? (
         <EntryDialog
           mode="edit"
@@ -183,7 +221,11 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
           ignoreEntryId={editingLine.id}
           onClose={() => setEditingLine(null)}
           onSave={(draft) => {
-            store.set((current) => updateEntry(current, editingLine.id, draft, today));
+            store.set((current) =>
+              editingLine.installment === undefined
+                ? updateEntry(current, editingLine.id, draft, today)
+                : updateInstallmentEntries(current, editingLine.id, draft, scope),
+            );
             setEditingLine(null);
           }}
         />
@@ -194,7 +236,11 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
           item={data.cardItems.find((i) => i.id === editingLine.id)!}
           onClose={() => setEditingLine(null)}
           onSave={(draft) => {
-            store.set((current) => updateCardItem(current, editingLine.id, draft));
+            store.set((current) =>
+              editingLine.installment === undefined
+                ? updateCardItem(current, editingLine.id, draft)
+                : updateInstallmentItems(current, editingLine.id, draft, scope),
+            );
             setEditingLine(null);
           }}
         />

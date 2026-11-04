@@ -100,7 +100,8 @@ export type InvoiceLine = {
 const entryLine = (entry: Entry, cents: Cents): InvoiceLine => ({
   id: entry.id,
   origin: 'entry',
-  block: entry.installment === undefined ? 'compras' : 'parcelas',
+  block:
+    entry.installment === undefined || entry.installment.n === 1 ? 'compras' : 'parcelas',
   date: entry.installment?.origin ?? entry.date,
   description: entry.description,
   categoryId: entry.categoryId,
@@ -121,7 +122,7 @@ const itemLine = (item: CardItem): InvoiceLine => ({
       ? 'creditos'
       : item.kind === 'encargo'
         ? 'encargos'
-        : item.installment === undefined
+        : item.installment === undefined || item.installment.n === 1
           ? 'compras'
           : 'parcelas',
   date: item.installment?.origin ?? item.date,

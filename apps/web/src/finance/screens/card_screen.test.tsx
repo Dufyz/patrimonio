@@ -269,3 +269,53 @@ describe('Detalhe de qualquer cartão (FIN-509)', () => {
     expect(panel().getByLabelText('Total da fatura').textContent).toContain('R$ 540,00');
   });
 });
+
+describe('Compra parcelada (FIN-510, CE-07)', () => {
+  const statement = () =>
+    within(screen.getByRole('table', { name: 'Extrato da fatura' }));
+
+  it('compra de R$ 3.000,00 em 6x em 20/10 cai em nov com a parcela 1 em Compras', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /^Lançamento/ }));
+    const dialog = within(screen.getByRole('dialog'));
+    await userEvent.type(dialog.getByLabelText('Descrição'), 'Sofá');
+    await userEvent.type(dialog.getByLabelText('Valor'), '3000');
+    await userEvent.selectOptions(dialog.getByLabelText('Categoria'), 'moradia');
+    await userEvent.clear(dialog.getByLabelText('Data'));
+    await userEvent.type(dialog.getByLabelText('Data'), '2026-10-20');
+    await userEvent.type(dialog.getByLabelText('Parcelas'), '{Control>}a{/Control}6');
+    expect(dialog.getByText('6 parcelas de R$ 500,00')).toBeTruthy();
+    await userEvent.click(dialog.getByRole('button', { name: /^Salvar|Lançar|Criar/ }));
+    expect(panel().getByLabelText('Total da fatura').textContent).toContain(
+      'R$ 3.982,17',
+    );
+    expect(screen.getByText(/usado 70,4% · disponível R\$ 1\.677,83/)).toBeTruthy();
+    expect(statement().getByRole('row', { name: 'Sofá' }).textContent).toContain(
+      'parcela 1/6',
+    );
+    await userEvent.click(panel().getByRole('button', { name: 'Próxima fatura' }));
+    expect(panel().getByLabelText('Total da fatura').textContent).toContain(
+      'R$ 1.799,00',
+    );
+  });
+
+  it('excluir pergunta todas ou só as futuras', async () => {
+    open('/financas/cartoes/nubank-master?fatura=2026-12');
+    await userEvent.click(
+      statement().getByRole('button', { name: 'Ações de Notebook Dell Inspiron' }),
+    );
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Excluir' }));
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Só as futuras' }),
+    );
+    // as faturas de dez a fev deixaram de existir: volta para a vigente, e a parcela 3 fica
+    expect(panel().getByText('nov/2026')).toBeTruthy();
+    expect(
+      (panel().getByRole('button', { name: 'Próxima fatura' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      statement().getByRole('row', { name: 'Notebook Dell Inspiron' }).textContent,
+    ).toContain('parcela 3/6');
+  });
+});
