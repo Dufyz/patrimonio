@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
 import { unwrapSuccess } from '@patrimonio/shared/testing';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -131,13 +134,16 @@ describe('o instantâneo da tela de objetivos', () => {
     expect(counter.calls()).toBe(1);
   });
 
-  it('sem objetivo nenhum a lista é vazia, e não um erro', async () => {
+  it('sem objetivo nenhum o resultado é nulo, e não um erro', async () => {
     const snapshot = unwrapSuccess(
       await createGoalRepository(tx).snapshot({ portfolio_id: LONGO, on_date: HOJE }),
     );
 
-    expect(snapshot.goals).toEqual([]);
-    expect(snapshot.scope_portfolio).toEqual({ portfolio_id: LONGO, name: 'Longo prazo' });
+    expect(snapshot.goal).toBeNull();
+    expect(snapshot.scope_portfolio).toEqual({
+      portfolio_id: LONGO,
+      name: 'Longo prazo',
+    });
   });
 
   it('o objetivo mede a carteira dele, no último fechamento', async () => {
@@ -146,9 +152,9 @@ describe('o instantâneo da tela de objetivos', () => {
     await close(LONGO, '2026-10-08', '318904.12');
     await close(RESERVA, '2026-10-08', '62400.00');
 
-    const [row] = unwrapSuccess(
+    const row = unwrapSuccess(
       await createGoalRepository(tx).snapshot({ portfolio_id: LONGO, on_date: HOJE }),
-    ).goals;
+    ).goal;
 
     expect(row?.current_value).toBe('318904.12');
     expect(row?.as_of).toBe('2026-10-08');
@@ -159,9 +165,9 @@ describe('o instantâneo da tela de objetivos', () => {
     await close(LONGO, '2026-10-08', '300000.00');
     await close(LONGO, '2026-10-20', '999999.00');
 
-    const [row] = unwrapSuccess(
+    const row = unwrapSuccess(
       await createGoalRepository(tx).snapshot({ portfolio_id: LONGO, on_date: HOJE }),
-    ).goals;
+    ).goal;
 
     expect(row?.current_value).toBe('300000.00');
   });
@@ -169,9 +175,9 @@ describe('o instantâneo da tela de objetivos', () => {
   it('objetivo sem história não tem começo nem valor, mas existe', async () => {
     await goal(VIAGEM, 'Carro novo', RESERVA, { target: '80000.00' });
 
-    const [row] = unwrapSuccess(
+    const row = unwrapSuccess(
       await createGoalRepository(tx).snapshot({ portfolio_id: RESERVA, on_date: HOJE }),
-    ).goals;
+    ).goal;
 
     expect(row).toMatchObject({
       current_value: '0',
@@ -183,27 +189,23 @@ describe('o instantâneo da tela de objetivos', () => {
     });
   });
 
-  it('objetivo encerrado não aparece', async () => {
+  it('objetivo encerrado não aparece, e libera a vaga para o próximo', async () => {
     await goal(ENCERRADO, 'Reserva de emergência', LONGO, { closed: true });
     await goal(INDEPENDENCIA, 'Independência financeira', LONGO);
 
-    const { goals } = unwrapSuccess(
+    const { goal: aberto } = unwrapSuccess(
       await createGoalRepository(tx).snapshot({ portfolio_id: LONGO, on_date: HOJE }),
     );
 
-    expect(goals.map((row) => row.goal_id)).toEqual([INDEPENDENCIA]);
+    expect(aberto?.goal_id).toBe(INDEPENDENCIA);
   });
 
-  it('vem do prazo mais próximo ao mais distante, e por nome no empate', async () => {
-    await goal(INDEPENDENCIA, 'Independência', LONGO, { date: '2040-01-01' });
-    await goal(VIAGEM, 'Viagem', LONGO, { date: '2027-06-01' });
-    await goal(CASA, 'Casa', LONGO, { date: '2027-06-01' });
+  it('a carteira não aceita um segundo objetivo aberto', async () => {
+    await goal(INDEPENDENCIA, 'Independência financeira', LONGO);
 
-    const { goals } = unwrapSuccess(
-      await createGoalRepository(tx).snapshot({ portfolio_id: LONGO, on_date: HOJE }),
+    await expect(goal(VIAGEM, 'Viagem', LONGO)).rejects.toThrow(
+      /goal_portfolio_open_idx/,
     );
-
-    expect(goals.map((row) => row.name)).toEqual(['Casa', 'Viagem', 'Independência']);
   });
 });
 
@@ -216,13 +218,13 @@ describe('a carteira escolhida', () => {
     await close(RESERVA, '2026-10-08', '60000.00');
   });
 
-  it('traz só os objetivos dela, medidos por ela', async () => {
+  it('traz só o objetivo dela, medido por ela', async () => {
     const snapshot = unwrapSuccess(
       await createGoalRepository(tx).snapshot({ portfolio_id: RESERVA, on_date: HOJE }),
     );
 
-    expect(snapshot.goals.map((row) => row.name)).toEqual(['Viagem']);
-    expect(snapshot.goals[0]?.current_value).toBe('60000.00');
+    expect(snapshot.goal?.name).toBe('Viagem');
+    expect(snapshot.goal?.current_value).toBe('60000.00');
     expect(snapshot.scope_portfolio).toEqual({
       portfolio_id: RESERVA,
       name: 'Reserva',
@@ -238,7 +240,7 @@ describe('a carteira escolhida', () => {
     );
 
     expect(snapshot.scope_portfolio).toBeNull();
-    expect(snapshot.goals).toEqual([]);
+    expect(snapshot.goal).toBeNull();
   });
 
   it('carteira arquivada também não é escopo', async () => {
@@ -259,9 +261,9 @@ describe('de onde o objetivo parte', () => {
     await close(LONGO, '2026-03-12', '210000.00');
     await close(LONGO, '2026-10-08', '318904.12');
 
-    const [row] = unwrapSuccess(
+    const row = unwrapSuccess(
       await createGoalRepository(tx).snapshot({ portfolio_id: LONGO, on_date: HOJE }),
-    ).goals;
+    ).goal;
 
     expect(row).toMatchObject({
       created_on: '2026-03-10',
@@ -279,9 +281,9 @@ describe('de onde o objetivo parte', () => {
     await close(LONGO, '2026-03-02', '150000.00');
     await close(LONGO, '2026-10-08', '318904.12');
 
-    const [row] = unwrapSuccess(
+    const row = unwrapSuccess(
       await createGoalRepository(tx).snapshot({ portfolio_id: LONGO, on_date: HOJE }),
-    ).goals;
+    ).goal;
 
     expect(row).toMatchObject({
       history_start: '2026-03-02',
@@ -300,9 +302,9 @@ describe('o fluxo mensal', () => {
     await close(LONGO, '2026-08-14', '101500.00');
     await close(LONGO, '2026-09-10', '103500.00', '2000.00');
 
-    const [row] = unwrapSuccess(
+    const row = unwrapSuccess(
       await createGoalRepository(tx).snapshot({ portfolio_id: LONGO, on_date: HOJE }),
-    ).goals;
+    ).goal;
 
     expect(row?.flows).toEqual([
       { month: '2026-07', net_flow: '1500.00' },
@@ -315,9 +317,9 @@ describe('o fluxo mensal', () => {
     await close(LONGO, '2026-07-01', '100000.00', '1000.00');
     await close(LONGO, '2026-07-20', '99000.00', '-400.00');
 
-    const [row] = unwrapSuccess(
+    const row = unwrapSuccess(
       await createGoalRepository(tx).snapshot({ portfolio_id: LONGO, on_date: HOJE }),
-    ).goals;
+    ).goal;
 
     expect(row?.flows).toEqual([{ month: '2026-07', net_flow: '600.00' }]);
   });
@@ -328,9 +330,9 @@ describe('o fluxo mensal', () => {
     await close(LONGO, '2025-10-15', '100000.00', '100.00');
     await close(LONGO, '2026-10-05', '110000.00', '200.00');
 
-    const [row] = unwrapSuccess(
+    const row = unwrapSuccess(
       await createGoalRepository(tx).snapshot({ portfolio_id: LONGO, on_date: HOJE }),
-    ).goals;
+    ).goal;
 
     expect(row?.flows).toEqual([
       { month: '2025-10', net_flow: '100.00' },
@@ -343,9 +345,9 @@ describe('o fluxo mensal', () => {
     await close(LONGO, '2026-07-01', '100000.00', '1000.00');
     await close(RESERVA, '2026-07-01', '20000.00', '9999.00');
 
-    const [row] = unwrapSuccess(
+    const row = unwrapSuccess(
       await createGoalRepository(tx).snapshot({ portfolio_id: LONGO, on_date: HOJE }),
-    ).goals;
+    ).goal;
 
     expect(row?.flows).toEqual([{ month: '2026-07', net_flow: '1000.00' }]);
   });
@@ -402,5 +404,223 @@ describe('a inflação dos últimos doze meses', () => {
     );
 
     expect(inflation.factor).toBeNull();
+  });
+});
+
+describe('gravar o objetivo', () => {
+  const ESCRITA = {
+    name: 'Independência financeira',
+    target_amount: '1500000.00',
+    target_date: '2040-01-01',
+    return_assumption: 'IPCA+6',
+    amount_in_today_brl: true,
+  } as const;
+
+  const abertos = async (portfolio: string): Promise<number> => {
+    const [row] = await tx<{ count: string }[]>`
+      SELECT COUNT(*) AS count FROM goal WHERE portfolio_id = ${portfolio} AND closed_at IS NULL
+    `;
+    return Number(row?.count);
+  };
+
+  it('cria na primeira vez e edita na segunda, mantendo o mesmo objetivo', async () => {
+    const repository = createGoalRepository(tx);
+
+    const criado = unwrapSuccess(await repository.save(LONGO, ESCRITA));
+    const editado = unwrapSuccess(
+      await repository.save(LONGO, {
+        ...ESCRITA,
+        name: 'Liberdade',
+        target_amount: '2000000.00',
+      }),
+    );
+
+    expect(criado.created).toBe(true);
+    expect(editado.created).toBe(false);
+    expect(editado.id).toBe(criado.id);
+    expect(await abertos(LONGO)).toBe(1);
+
+    const { goal: lido } = unwrapSuccess(
+      await repository.snapshot({ portfolio_id: LONGO, on_date: HOJE }),
+    );
+    expect(lido).toMatchObject({ name: 'Liberdade', target_amount: '2000000.00' });
+  });
+
+  it('com o objetivo anterior encerrado, grava um novo', async () => {
+    await goal(ENCERRADO, 'Antigo', LONGO, { closed: true });
+
+    const criado = unwrapSuccess(await createGoalRepository(tx).save(LONGO, ESCRITA));
+
+    expect(criado.created).toBe(true);
+    expect(await abertos(LONGO)).toBe(1);
+  });
+
+  it('exclui o objetivo aberto da carteira, e só o dela', async () => {
+    const repository = createGoalRepository(tx);
+    await goal(INDEPENDENCIA, 'Independência financeira', LONGO);
+    await goal(VIAGEM, 'Viagem', RESERVA);
+
+    expect(unwrapSuccess(await repository.remove(LONGO))).toBe(true);
+    expect(unwrapSuccess(await repository.remove(LONGO))).toBe(false);
+    expect(await abertos(RESERVA)).toBe(1);
+  });
+
+  it('a prévia mede o objetivo do formulário sobre o fechamento da carteira, sem gravar', async () => {
+    await close(LONGO, '2026-10-08', '300000.00');
+
+    const { goal: previa } = unwrapSuccess(
+      await createGoalRepository(tx).snapshot({
+        portfolio_id: LONGO,
+        on_date: HOJE,
+        draft: ESCRITA,
+      }),
+    );
+
+    expect(previa).toMatchObject({
+      name: 'Independência financeira',
+      target_amount: '1500000.00',
+      return_assumption: 'IPCA+6',
+      current_value: '300000.00',
+      // Sem objetivo gravado, o começo é o dia da prévia.
+      created_on: HOJE,
+    });
+    expect(await abertos(LONGO)).toBe(0);
+  });
+
+  it('a prévia de um objetivo que já existe parte de quando ele foi criado', async () => {
+    await goal(INDEPENDENCIA, 'Independência financeira', LONGO, {
+      createdAt: '2026-03-10T12:00:00Z',
+    });
+    await close(LONGO, '2026-10-08', '300000.00');
+
+    const { goal: previa } = unwrapSuccess(
+      await createGoalRepository(tx).snapshot({
+        portfolio_id: LONGO,
+        on_date: HOJE,
+        draft: { ...ESCRITA, target_amount: '900000.00' },
+      }),
+    );
+
+    expect(previa).toMatchObject({
+      goal_id: INDEPENDENCIA,
+      target_amount: '900000.00',
+      created_on: '2026-03-10',
+    });
+  });
+
+  it('carteira arquivada não tem prévia', async () => {
+    const { goal: previa, scope_portfolio: escopo } = unwrapSuccess(
+      await createGoalRepository(tx).snapshot({
+        portfolio_id: ANTIGA,
+        on_date: HOJE,
+        draft: ESCRITA,
+      }),
+    );
+
+    expect(escopo).toBeNull();
+    expect(previa).toBeNull();
+  });
+});
+
+describe('a migration 034', () => {
+  it('numa base que já tinha dois objetivos abertos, fica com o mais recente e encerra o outro', async () => {
+    const up = await readFile(
+      join(
+        import.meta.dirname,
+        '..',
+        'migrations',
+        'up',
+        '034_goal_one_open_per_portfolio.sql',
+      ),
+      'utf8',
+    );
+
+    // O estado de antes da migration: sem o índice único por carteira.
+    await tx`DROP INDEX goal_portfolio_open_idx`;
+    await goal(VIAGEM, 'Antigo', LONGO, { createdAt: '2025-01-01T12:00:00Z' });
+    await goal(INDEPENDENCIA, 'Recente', LONGO, { createdAt: '2026-01-01T12:00:00Z' });
+    await goal(CASA, 'Da reserva', RESERVA);
+
+    await tx.unsafe(up);
+
+    const rows = await tx<{ id: string; closed: boolean }[]>`
+      SELECT id::TEXT AS id, closed_at IS NOT NULL AS closed FROM goal ORDER BY name
+    `;
+
+    expect(rows).toEqual([
+      { id: VIAGEM, closed: true },
+      { id: CASA, closed: false },
+      { id: INDEPENDENCIA, closed: false },
+    ]);
+    await expect(goal(ENCERRADO, 'Outro', LONGO)).rejects.toThrow(
+      /goal_portfolio_open_idx/,
+    );
+  });
+});
+
+describe('os objetivos de todas as carteiras', () => {
+  it('lê tudo numa consulta só, seja qual for o número de carteiras', async () => {
+    const counter = counting(tx);
+    const repository = createGoalRepository(counter.connection);
+
+    await goal(INDEPENDENCIA, 'Independência financeira', LONGO);
+    await close(LONGO, '2026-10-08', '300000.00');
+
+    unwrapSuccess(await repository.overview({ on_date: HOJE }));
+
+    expect(counter.calls()).toBe(1);
+  });
+
+  it('lista as carteiras ativas na ordem do usuário, com ou sem objetivo, e deixa a arquivada de fora', async () => {
+    await goal(INDEPENDENCIA, 'Independência financeira', LONGO);
+    await goal(VIAGEM, 'Antiga', ANTIGA);
+
+    const { portfolios } = unwrapSuccess(
+      await createGoalRepository(tx).overview({ on_date: HOJE }),
+    );
+
+    expect(portfolios.map((row) => [row.portfolio_name, row.goal?.name ?? null])).toEqual(
+      [
+        ['Longo prazo', 'Independência financeira'],
+        ['Reserva', null],
+      ],
+    );
+  });
+
+  it('cada objetivo mede a própria carteira, igual à leitura de uma carteira só', async () => {
+    await goal(INDEPENDENCIA, 'Independência financeira', LONGO);
+    await goal(CASA, 'Reserva de emergência', RESERVA, {
+      target: '180000.00',
+      date: '2027-12-31',
+    });
+    await close(LONGO, '2026-09-30', '290000.00', '2000.00');
+    await close(LONGO, '2026-10-08', '300000.00', '1500.00');
+    await close(RESERVA, '2026-10-08', '140279.00', '500.00');
+
+    const repository = createGoalRepository(tx);
+    const { portfolios, inflation } = unwrapSuccess(
+      await repository.overview({ on_date: HOJE }),
+    );
+
+    for (const portfolio of [LONGO, RESERVA]) {
+      const single = unwrapSuccess(
+        await repository.snapshot({ portfolio_id: portfolio, on_date: HOJE }),
+      );
+
+      expect(portfolios.find((row) => row.portfolio_id === portfolio)?.goal).toEqual(
+        single.goal,
+      );
+      expect(inflation).toEqual(single.inflation);
+    }
+  });
+
+  it('sem nenhuma carteira ativa, a lista é vazia e não um erro', async () => {
+    await tx`UPDATE portfolio SET archived_at = NOW()`;
+
+    const { portfolios } = unwrapSuccess(
+      await createGoalRepository(tx).overview({ on_date: HOJE }),
+    );
+
+    expect(portfolios).toEqual([]);
   });
 });

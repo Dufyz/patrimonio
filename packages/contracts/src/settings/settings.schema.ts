@@ -32,8 +32,8 @@ export const settingsPortfolioSchema = z.object({
   benchmark: z.object({ value: z.string(), name: z.string() }).nullable(),
   /** Quantas categorias a estratégia da carteira usa. */
   strategy_categories: z.number().int(),
-  /** Os objetivos abertos que a medem, por nome. */
-  goals: z.array(z.string()),
+  /** O nome do objetivo aberto que a mede. Nulo quando ela não tem. */
+  goal: z.string().nullable(),
   /** O que impede a exclusão: lançamentos e os ativos distintos deles. */
   blocking: z.object({
     transactions: z.number().int(),

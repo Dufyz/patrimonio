@@ -23,21 +23,22 @@ import {
   arrivalText,
   barState,
   chartSeries,
-  decodeRates,
-  encodeRates,
+  decodeRate,
   assumptionLabel,
   latenessOf,
   monthYearLabel,
   normalizeRateInput,
   paceLabel,
   rowTone,
-  withRate,
 } from '../lib/goals.js';
 import { formatCompact } from '../lib/format.js';
 import { monthTicks, percentAsRatio } from '../lib/overview.js';
 import type { Resource } from '../lib/use_resource.js';
 import { useResource } from '../lib/use_resource.js';
 import { Icon } from '../components/icon.js';
+import { deleteGoal } from '../api/goals.js';
+import { GoalDialog } from './registers/goal_dialog.js';
+import { DeleteDialog } from './registers/delete_dialog.js';
 
 /**
  * T-07 · Objetivos — a prancha `10 · Objetivos`.
@@ -52,9 +53,10 @@ import { Icon } from '../components/icon.js';
 
 export type GoalsViewProps = {
   readonly resource: Resource<GoalsResource>;
+  readonly portfolioId: string;
   readonly scopeLabel: string;
-  readonly rates: Readonly<Record<string, string>>;
-  readonly onRateChange: (goalId: string, rate: string | null) => void;
+  readonly rate: string | null;
+  readonly onRateChange: (rate: string | null) => void;
 };
 
 export type GoalsScreenProps = {
@@ -67,19 +69,15 @@ export const GoalsScreen = ({
   scopeLabel,
 }: GoalsScreenProps): React.ReactElement => {
   const [params, setParams] = useSearchParams();
-  const rates = decodeRates(params.get('taxa'));
-  const key = encodeRates(rates) ?? '';
+  const rate = decodeRate(params.get('taxa'));
 
   const onRateChange = useCallback(
-    (goalId: string, rate: string | null) =>
+    (next: string | null) =>
       setParams(
         (current) => {
           const search = new URLSearchParams(current);
-          const encoded = encodeRates(
-            withRate(decodeRates(current.get('taxa')), goalId, rate),
-          );
-          if (encoded === null) search.delete('taxa');
-          else search.set('taxa', encoded);
+          if (next === null) search.delete('taxa');
+          else search.set('taxa', next);
           return search;
         },
         { replace: true },
@@ -88,15 +86,16 @@ export const GoalsScreen = ({
   );
 
   const resource = useResource(
-    (signal) => fetchGoals({ portfolioId, rates }, signal),
-    [portfolioId, key],
+    (signal) => fetchGoals({ portfolioId, rate }, signal),
+    [portfolioId, rate],
   );
 
   return (
     <GoalsView
       resource={resource}
+      portfolioId={portfolioId}
       scopeLabel={scopeLabel}
-      rates={rates}
+      rate={rate}
       onRateChange={onRateChange}
     />
   );
@@ -238,7 +237,7 @@ const ContributionTable = ({
   </ul>
 );
 
-const Fact = ({
+export const Fact = ({
   label,
   children,
 }: {
@@ -251,7 +250,7 @@ const Fact = ({
   </span>
 );
 
-const Stat = ({
+export const Stat = ({
   label,
   value,
   sub,
@@ -342,9 +341,11 @@ const GoalPanel = ({
   scopeLabel,
   override,
   onRateChange,
+  onEdit,
 }: {
   readonly goal: GoalResource;
   readonly scopeLabel: string;
+  readonly onEdit: () => void;
   readonly override: string | undefined;
   readonly onRateChange: (rate: string | null) => void;
 }): React.ReactElement => {
@@ -381,7 +382,7 @@ const GoalPanel = ({
               {STATUS_LABEL[goal.status]}
             </span>
           </div>
-          <Button icon="pencil" disabled title="Editar objetivo chega com T-10">
+          <Button icon="pencil" onClick={onEdit}>
             Editar
           </Button>
         </header>
@@ -584,8 +585,8 @@ const Empty = ({ scope }: { readonly scope: string }): React.ReactElement => (
   <section className="rounded-panel border border-line bg-panel p-8 text-center">
     <h2 className="text-panel-title font-semibold">Nenhum objetivo ainda</h2>
     <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
-      {scope} não tem metas de valor e prazo. Um objetivo diz quanto você quer ter e
-      quando, e esta tela responde se o ritmo atual chega lá.
+      {scope} não tem objetivo de valor e prazo. Cada carteira tem um só: ele diz quanto
+      você quer ter e quando, e esta tela responde se o ritmo atual chega lá.
     </p>
   </section>
 );
@@ -619,18 +620,20 @@ const Failed = ({
 
 export const GoalsView = ({
   resource,
+  portfolioId,
   scopeLabel,
-  rates,
+  rate,
   onRateChange,
 }: GoalsViewProps): React.ReactElement => {
   const { state, pending, reload } = resource;
   const { hidden, toggleHidden } = usePreferences();
+  const [dialog, setDialog] = useState<'edit' | 'delete' | null>(null);
 
   if (state.kind === 'loading') {
     return (
       <SkeletonRegion label="Carregando os objetivos" className="flex flex-col gap-4">
         <SkeletonHeader />
-        <SkeletonPanel title="Objetivos">
+        <SkeletonPanel title="Objetivo">
           <SkeletonTable rows={3} columns={4} />
         </SkeletonPanel>
         <SkeletonPanel>
@@ -649,7 +652,7 @@ export const GoalsView = ({
         <div className="min-w-0">
           <h1 className="text-screen-title leading-7 font-semibold">Objetivos</h1>
           <p className="truncate text-xs text-ink-3">
-            {scopeLabel} · metas de valor e prazo desta carteira
+            {scopeLabel} · o objetivo de valor e prazo desta carteira
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -660,32 +663,57 @@ export const GoalsView = ({
           >
             <Icon name={hidden ? 'eye-off' : 'eye'} />
           </IconButton>
-          <Button
-            variant="primary"
-            icon="plus"
-            disabled
-            title="Criar objetivo chega com T-10"
-          >
-            Novo objetivo
-          </Button>
+          {data.goal === null ? (
+            <Button variant="primary" icon="plus" onClick={() => setDialog('edit')}>
+              Novo objetivo
+            </Button>
+          ) : null}
         </div>
       </header>
 
-      {data.goals.length === 0 ? (
+      {data.goal === null ? (
         <Empty scope={data.scope.name} />
       ) : (
         <KeepPrevious pending={pending} className="flex flex-col gap-4">
-          {data.goals.map((goal) => (
-            <GoalPanel
-              key={goal.id}
-              goal={goal}
-              scopeLabel={scopeLabel}
-              override={rates[goal.id]}
-              onRateChange={(rate) => onRateChange(goal.id, rate)}
-            />
-          ))}
+          <GoalPanel
+            goal={data.goal}
+            scopeLabel={scopeLabel}
+            override={rate ?? undefined}
+            onRateChange={onRateChange}
+            onEdit={() => setDialog('edit')}
+          />
         </KeepPrevious>
       )}
+
+      {dialog === 'edit' ? (
+        <GoalDialog
+          portfolioId={portfolioId}
+          scopeLabel={data.scope.name}
+          goal={data.goal}
+          onClose={() => setDialog(null)}
+          onSaved={() => {
+            setDialog(null);
+            reload();
+          }}
+          onDelete={() => setDialog('delete')}
+        />
+      ) : null}
+
+      {dialog === 'delete' && data.goal !== null ? (
+        <DeleteDialog
+          title={`Excluir ${data.goal.name}?`}
+          subtitle="Esta ação não pode ser desfeita"
+          subject={`o objetivo ${data.goal.name}`}
+          consequence="Posições, lançamentos e patrimônio não mudam: o objetivo só media a carteira."
+          confirmLabel="Excluir objetivo"
+          onConfirm={() => deleteGoal(portfolioId)}
+          onClose={() => setDialog(null)}
+          onDone={() => {
+            setDialog(null);
+            reload();
+          }}
+        />
+      ) : null}
     </div>
   );
 };

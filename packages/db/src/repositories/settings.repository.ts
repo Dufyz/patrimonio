@@ -31,17 +31,12 @@ import type { Connection } from '../postgresql.js';
 const asRows = (value: unknown): readonly Row[] =>
   Array.isArray(value) ? (value as Row[]) : [];
 
-const asStrings = (value: unknown): readonly string[] =>
-  Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === 'string')
-    : [];
-
 const parsePortfolio = (row: Row): SettingsPortfolioRow => ({
   id: asString(row, 'id'),
   name: asString(row, 'name'),
   benchmark: asStringOrNull(row, 'benchmark'),
   strategy_categories: asInteger(row, 'strategy_categories'),
-  goals: asStrings(row['goals']),
+  goal: asStringOrNull(row, 'goal'),
   transactions: asInteger(row, 'transactions'),
   assets: asInteger(row, 'assets'),
 });
@@ -85,11 +80,11 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
                      'strategy_categories', (
                        SELECT COUNT(*) FROM strategy_target s WHERE s.portfolio_id = p.id
                      ),
-                     'goals', COALESCE((
-                       SELECT JSONB_AGG(g.name ORDER BY g.target_date, g.name)
+                     'goal', (
+                       SELECT g.name
                          FROM goal g
                         WHERE g.portfolio_id = p.id AND g.closed_at IS NULL
-                     ), '[]'::JSONB),
+                     ),
                      'transactions', COALESCE(c.transactions, 0),
                      'assets', COALESCE(c.assets, 0)
                    ) ORDER BY p.sort_order, LOWER(p.name)

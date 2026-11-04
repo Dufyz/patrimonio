@@ -36,6 +36,7 @@ import { AssetScreen } from './views/asset.js';
 import { Gallery } from './views/gallery.js';
 import { OverviewScreen } from './views/overview.js';
 import { GoalsScreen } from './views/goals.js';
+import { GoalsOverviewScreen } from './views/goals_overview.js';
 import { PositionsScreen } from './views/positions.js';
 import { SettingsScreen } from './views/settings/index.js';
 import { StatementScreen } from './views/statement.js';
@@ -100,7 +101,7 @@ const SCREENS: readonly (ScreenItem & {
       glyph: 'flag',
       path: 'objetivos',
       story: 'T-07',
-      consolidated: false,
+      consolidated: true,
     },
   ] as const
 ).map((item) => ({ ...item, icon: <Icon name={item.glyph} /> }));
@@ -408,7 +409,14 @@ const Workbench = (): React.ReactElement => {
             <StrategyScreen portfolioId={portfolioId} />
           )
         ) : current?.id === 'objetivos' ? (
-          portfolioId === null ? null : (
+          portfolioId === null ? (
+            <GoalsOverviewScreen
+              onOpenPortfolio={(id) => {
+                const target = scopeForPortfolioId(id, slugs);
+                if (target !== null) navigate(`/${target}/objetivos`);
+              }}
+            />
+          ) : (
             <GoalsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
           )
         ) : (

@@ -38,7 +38,7 @@ const settings: Settings = {
       name: 'Longo prazo',
       benchmark: { value: 'CDI', name: 'CDI' },
       strategy_categories: 5,
-      goals: ['Independência financeira'],
+      goal: 'Independência financeira',
       blocking: { transactions: 41, assets: 9 },
     },
     {
@@ -46,7 +46,7 @@ const settings: Settings = {
       name: 'Entrada do imóvel',
       benchmark: null,
       strategy_categories: 0,
-      goals: [],
+      goal: null,
       blocking: { transactions: 0, assets: 0 },
     },
   ],

@@ -32,7 +32,7 @@ export const getSettings = (deps: GetSettingsDeps) =>
         name: portfolio.name,
         benchmark: describeBenchmark(portfolio.benchmark),
         strategy_categories: portfolio.strategy_categories,
-        goals: [...portfolio.goals],
+        goal: portfolio.goal,
         blocking: { transactions: portfolio.transactions, assets: portfolio.assets },
       })),
       archived_portfolios: [...snapshot.archived_portfolios],

@@ -153,17 +153,19 @@ describe('o instantâneo da tela de configurações', () => {
     ]);
   });
 
-  it('a carteira traz o benchmark, a estratégia, os objetivos e o que impede excluí-la', async () => {
+  it('a carteira traz o benchmark, a estratégia, o objetivo e o que impede excluí-la', async () => {
     await tx`
       INSERT INTO strategy_target (portfolio_id, category_id, target_pct)
       VALUES (${LONGO}, ${POS_FIXADA}, 60), (${LONGO}, ${ACOES}, 40)
     `;
     await tx`
-      INSERT INTO goal (id, portfolio_id, name, target_amount, target_date, return_assumption)
-      VALUES (${OBJETIVO}, ${LONGO}, 'Independência financeira', '1500000.00', '2040-01-01', 'IPCA+6'),
-             (${ENCERRADO}, ${LONGO}, 'Já encerrado', '1000.00', '2027-01-01', NULL)
+      INSERT INTO goal (id, portfolio_id, name, target_amount, target_date, return_assumption, closed_at)
+      VALUES (${ENCERRADO}, ${LONGO}, 'Já encerrado', '1000.00', '2027-01-01', NULL, NOW())
     `;
-    await tx`UPDATE goal SET closed_at = NOW() WHERE id = ${ENCERRADO}`;
+    await tx`
+      INSERT INTO goal (id, portfolio_id, name, target_amount, target_date, return_assumption)
+      VALUES (${OBJETIVO}, ${LONGO}, 'Independência financeira', '1500000.00', '2040-01-01', 'IPCA+6')
+    `;
     await transaction('0191e5a0-0000-7000-8000-00000000e601', {
       kind: 'buy',
       portfolio: LONGO,
@@ -195,14 +197,14 @@ describe('o instantâneo da tela de configurações', () => {
       name: 'Longo prazo',
       benchmark: 'CDI',
       strategy_categories: 2,
-      goals: ['Independência financeira'],
+      goal: 'Independência financeira',
       transactions: 3,
       assets: 2,
     });
     expect(imovel).toMatchObject({
       benchmark: null,
       strategy_categories: 0,
-      goals: [],
+      goal: null,
       transactions: 0,
       assets: 0,
     });

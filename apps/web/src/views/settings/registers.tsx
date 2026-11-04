@@ -55,7 +55,7 @@ export const PortfoliosSection = ({
       <SettingsSection
         id="carteiras"
         title="Carteiras"
-        description="Uma carteira separa o dinheiro por propósito. Cada uma tem estratégia e objetivos próprios, e cada posição pertence a uma carteira só."
+        description="Uma carteira separa o dinheiro por propósito. Cada uma tem estratégia e objetivo próprios, e cada posição pertence a uma carteira só."
       >
         <SettingsPanel
           title="Suas carteiras"

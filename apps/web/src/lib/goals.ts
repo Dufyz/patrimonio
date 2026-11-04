@@ -105,7 +105,7 @@ export const paceLabel = (months: number): string => `média ${months}M`;
 /* A taxa na URL                                                               */
 
 /**
- * `taxa=id:6,id:5.5`. A taxa trocada é da sessão, não do objetivo: ela vive na
+ * `taxa=6`. A taxa trocada é da sessão, não do objetivo: ela vive na
  * URL para poder ser compartilhada e recarregada, e nunca é gravada.
  */
 export const RATE_PATTERN = /^\d{1,3}(\.\d{1,4})?$/;
@@ -116,32 +116,9 @@ export const normalizeRateInput = (text: string): string | null => {
   return RATE_PATTERN.test(value) && Number(value) <= 100 ? value : null;
 };
 
-export const decodeRates = (raw: string | null): Readonly<Record<string, string>> => {
-  if (raw === null || raw === '') return {};
-  const out: Record<string, string> = {};
-  for (const part of raw.split(',')) {
-    const [id, rate, ...rest] = part.split(':');
-    if (id === undefined || id === '' || rate === undefined || rest.length > 0) continue;
-    if (RATE_PATTERN.test(rate) && Number(rate) <= 100) out[id] = rate;
-  }
-  return out;
-};
-
-export const encodeRates = (rates: Readonly<Record<string, string>>): string | null => {
-  const entries = Object.entries(rates).toSorted(([a], [b]) => a.localeCompare(b));
-  return entries.length === 0
-    ? null
-    : entries.map(([id, rate]) => `${id}:${rate}`).join(',');
-};
-
-export const withRate = (
-  rates: Readonly<Record<string, string>>,
-  id: string,
-  rate: string | null,
-): Readonly<Record<string, string>> => {
-  const rest = Object.fromEntries(Object.entries(rates).filter(([key]) => key !== id));
-  return rate === null ? rest : { ...rest, [id]: rate };
-};
+/** `taxa=6` → `'6'`. Ausente ou inválida volta nulo, e a premissa guardada vale. */
+export const decodeRate = (raw: string | null): string | null =>
+  raw !== null && RATE_PATTERN.test(raw) && Number(raw) <= 100 ? raw : null;
 
 /* -------------------------------------------------------------------------- */
 /* O gráfico                                                                   */
@@ -205,4 +182,170 @@ export const assumptionLabel = (assumption: string | null): string | null => {
   if (assumption === null) return null;
   const text = assumption.replace(/\s*\+\s*/g, ' + ');
   return /[%]/.test(text) ? text : /\d$/.test(text) ? `${text}%` : text;
+};
+
+/* -------------------------------------------------------------------------- */
+/* O formulário                                                                */
+
+export const OTHER_ASSUMPTION = 'other';
+
+/** As premissas que se escolhem de uma lista; o resto é "Outra", digitada. */
+export const ASSUMPTION_PRESETS: readonly {
+  readonly id: string;
+  readonly name: string;
+}[] = [
+  { id: 'IPCA+4', name: 'IPCA + 4%' },
+  { id: 'IPCA+5', name: 'IPCA + 5%' },
+  { id: 'IPCA+6', name: 'IPCA + 6%' },
+  { id: 'IPCA+7', name: 'IPCA + 7%' },
+  { id: 'IPCA+8', name: 'IPCA + 8%' },
+  { id: '8', name: 'Taxa fixa 8% a.a.' },
+  { id: '10', name: 'Taxa fixa 10% a.a.' },
+  { id: '12', name: 'Taxa fixa 12% a.a.' },
+  { id: OTHER_ASSUMPTION, name: 'Outra…' },
+];
+
+export type GoalForm = {
+  readonly name: string;
+  /** Mascarado, como o campo mostra: `400.000,00`. */
+  readonly amount: string;
+  /** `jun/2030` ou `06/2030`. */
+  readonly date: string;
+  /** O id de uma premissa da lista, ou `OTHER_ASSUMPTION`. */
+  readonly assumption: string;
+  readonly otherAssumption: string;
+  readonly valuesIn: 'today' | 'target';
+};
+
+export type GoalFormErrors = Partial<
+  Record<'name' | 'amount' | 'date' | 'assumption', string>
+>;
+
+const squash = (text: string): string =>
+  text.replace(/\s+/g, '').replace('%', '').toLowerCase();
+
+const presetOf = (assumption: string | null): string | null => {
+  if (assumption === null) return null;
+  const wanted = squash(assumption);
+  return ASSUMPTION_PRESETS.find((preset) => squash(preset.id) === wanted)?.id ?? null;
+};
+
+export const DEFAULT_ASSUMPTION = 'IPCA+6';
+
+export const emptyGoalForm = (): GoalForm => ({
+  name: '',
+  amount: '',
+  date: '',
+  assumption: DEFAULT_ASSUMPTION,
+  otherAssumption: '',
+  valuesIn: 'today',
+});
+
+/** `400000.00` → `400.000,00`: o que o campo de dinheiro mostra ao abrir. */
+const maskedAmount = (value: string): string => {
+  const [integer = '0', fraction = '00'] = value.split('.');
+  return `${integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.')},${fraction.padEnd(2, '0').slice(0, 2)}`;
+};
+
+export const formFromGoal = (goal: GoalResource | null): GoalForm => {
+  if (goal === null) return emptyGoalForm();
+
+  const preset = presetOf(goal.return_assumption);
+
+  return {
+    name: goal.name,
+    amount: maskedAmount(goal.target_amount),
+    date: monthYearInput(goal.target_date),
+    assumption:
+      goal.return_assumption === null ? DEFAULT_ASSUMPTION : (preset ?? OTHER_ASSUMPTION),
+    otherAssumption: preset === null ? (goal.return_assumption ?? '') : '',
+    valuesIn: goal.amount_in_today_brl ? 'today' : 'target',
+  };
+};
+
+/** `2030-06-30` → `jun/2030`; vazio quando não há data. */
+export const monthYearInput = (date: string | null): string =>
+  date === null ? '' : monthYearLabel(date);
+
+/**
+ * O que se digita numa data de objetivo: `jun/2030`, `06/2030` ou `6/2030`. O
+ * objetivo tem prazo de mês, então a data guardada é o último dia dele.
+ */
+export const parseMonthYear = (typed: string): string | null => {
+  const match = /^\s*(\d{1,2}|[a-zç]{3})\s*\/\s*(\d{4})\s*$/i.exec(typed);
+  if (match === null) return null;
+
+  const [, rawMonth = '', rawYear = ''] = match;
+  const month = /^\d+$/.test(rawMonth)
+    ? Number(rawMonth)
+    : MONTHS.indexOf(rawMonth.toLowerCase() as (typeof MONTHS)[number]) + 1;
+  const year = Number(rawYear);
+
+  if (month < 1 || month > 12 || year < 1900 || year > 2200) return null;
+
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${rawYear}-${String(month).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+};
+
+/** `1.234,50` → `1234.50`, ou nulo quando não é um valor maior que zero. */
+const positiveAmount = (typed: string): string | null => {
+  const text = typed.trim();
+  if (text === '') return null;
+  const normalized = text.includes(',')
+    ? text.replaceAll('.', '').replace(',', '.')
+    : text.replaceAll('.', '');
+
+  return /^\d+(\.\d+)?$/.test(normalized) && Number(normalized) > 0 ? normalized : null;
+};
+
+/**
+ * O formulário contra o contrato: ou o corpo do `PUT`, ou o erro de cada campo.
+ * A premissa digitada em "Outra" é conferida pela `api`, que é quem sabe lê-la.
+ * Sem mudança na data digitada, a data guardada fica como está.
+ */
+export const goalFormResult = (
+  form: GoalForm,
+  original: GoalResource | null,
+):
+  | { readonly body: GoalBodyShape; readonly errors: Record<string, never> }
+  | { readonly body: null; readonly errors: GoalFormErrors } => {
+  const errors: { -readonly [K in keyof GoalFormErrors]: string } = {};
+
+  const name = form.name.trim();
+  if (name === '') errors.name = 'Dê um nome ao objetivo.';
+
+  const amount = positiveAmount(form.amount);
+  if (amount === null) errors.amount = 'Informe um valor maior que zero.';
+
+  const unchanged =
+    original !== null && form.date.trim() === monthYearInput(original.target_date);
+  const date = unchanged ? original.target_date : parseMonthYear(form.date);
+  if (date === null) errors.date = 'Use mês e ano, como jun/2030.';
+
+  const assumption =
+    form.assumption === OTHER_ASSUMPTION ? form.otherAssumption.trim() : form.assumption;
+  if (assumption === '') errors.assumption = 'Informe a premissa, como IPCA+6.';
+
+  if (Object.keys(errors).length > 0 || amount === null || date === null) {
+    return { body: null, errors };
+  }
+
+  return {
+    body: {
+      name,
+      target_amount: amount,
+      target_date: date,
+      return_assumption: assumption,
+      amount_in_today_brl: form.valuesIn === 'today',
+    },
+    errors: {},
+  };
+};
+
+export type GoalBodyShape = {
+  readonly name: string;
+  readonly target_amount: string;
+  readonly target_date: string;
+  readonly return_assumption: string | null;
+  readonly amount_in_today_brl: boolean;
 };

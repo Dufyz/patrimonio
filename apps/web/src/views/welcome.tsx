@@ -19,7 +19,7 @@ import { PortfolioDialog } from './registers/portfolio_dialogs.js';
 const STEPS = [
   {
     title: 'Crie uma carteira',
-    text: 'Dê um nome: reserva, investimentos, imóvel. Cada carteira tem estratégia e objetivos próprios.',
+    text: 'Dê um nome: reserva, investimentos, imóvel. Cada carteira tem estratégia e objetivo próprios.',
   },
   {
     title: 'Defina a estratégia',

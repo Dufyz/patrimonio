@@ -21,7 +21,7 @@ import { useSubmit } from './use_submit.js';
  *
  * A carteira guarda só o nome. O benchmark não é atributo dela: é uma escolha de
  * quem olha, feita em cada gráfico entre os índices fixos; a alocação alvo mora
- * na Estratégia, e os objetivos — quantos forem — medem a carteira de fora. O
+ * na Estratégia, e o objetivo — um por carteira — mede a carteira de fora. O
  * mesmo formulário cria e edita — criar é editar uma carteira vazia, como o
  * subtítulo da prancha diz.
  */
@@ -147,7 +147,7 @@ export const PortfolioDialog = ({
 /**
  * Excluir a carteira (prancha 15 D). Uma carteira pode ser excluída com o
  * conteúdo que tiver, e excluir significa excluir tudo: lançamentos, posições,
- * estratégia, objetivos e o histórico de patrimônio dela. Como não há volta, o
+ * estratégia, objetivo e o histórico de patrimônio dela. Como não há volta, o
  * botão só destrava depois de dois checks — marcar que entendeu o que some e
  * digitar o nome da carteira.
  */
@@ -161,7 +161,6 @@ export const DeletePortfolioDialog = ({
   readonly onDone: () => void;
 }): React.ReactElement => {
   const { transactions, assets } = portfolio.blocking;
-  const goals = portfolio.goals.length;
 
   const [understood, setUnderstood] = useState(false);
   const [typed, setTyped] = useState('');
@@ -171,7 +170,7 @@ export const DeletePortfolioDialog = ({
   const gone = [
     plural(transactions, 'lançamento', 'lançamentos'),
     plural(assets, 'ativo', 'ativos'),
-    ...(goals === 0 ? [] : [plural(goals, 'objetivo', 'objetivos')]),
+    ...(portfolio.goal === null ? [] : ['o objetivo']),
     ...(portfolio.strategy_categories === 0 ? [] : ['a estratégia de alocação']),
     'todo o histórico de patrimônio e rentabilidade',
   ];

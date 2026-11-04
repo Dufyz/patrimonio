@@ -28,7 +28,11 @@ import {
   getMarketHealth,
   getOverview,
   getAllocation,
+  deleteGoal,
   getGoals,
+  getGoalsOverview,
+  previewGoal,
+  putGoal,
   getSettings,
   requestBackup,
   getPerformance,
@@ -76,8 +80,7 @@ import {
 } from '@patrimonio/db';
 import type { Sql } from '@patrimonio/db';
 import { environment } from '@patrimonio/env';
-import {
-} from '@patrimonio/market';
+import {} from '@patrimonio/market';
 import {
   closeQueues,
   closeRedisConnection,
@@ -230,6 +233,15 @@ export const createApiUseCases = (deps: {
     goals: deps.repositories.goals,
     clock: deps.clock,
   }),
+  // O panorama dos objetivos de todas as carteiras também lê fora da transação.
+  getGoalsOverview: getGoalsOverview({
+    goals: deps.repositories.goals,
+    clock: deps.clock,
+  }),
+  // Escrever o objetivo é transação; a prévia lê, como a tela.
+  putGoal: putGoal({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
+  deleteGoal: deleteGoal({ unitOfWork: deps.unitOfWork }),
+  previewGoal: previewGoal({ goals: deps.repositories.goals, clock: deps.clock }),
   // T-08 lê fora da transação: o cadastro todo é uma consulta de leitura. O que é
   // do ambiente — janela do desfazer, alíquota do JCP, backup ligado — entra
   // aqui, e a tela o mostra como leitura.

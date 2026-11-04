@@ -918,10 +918,10 @@ INSERT INTO corporate_event (id, asset_id, kind, record_date, ratio_from, ratio_
 
 -- --------------------------------------------------------------------- objetivos
 INSERT INTO goal (id, portfolio_id, name, target_amount, target_date, return_assumption, amount_in_today_brl, closed_at, created_at) VALUES
-  ('01960000-0006-7000-8000-000000000001', '01960000-0004-7000-8000-000000000001', 'Independência financeira', 2000000, DATE '2045-12-31', '6% a.a. real', TRUE, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0006-7000-8000-000000000002', '01960000-0004-7000-8000-000000000003', 'Entrada do imóvel', 180000, DATE '2029-06-30', '9% a.a. nominal', FALSE, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0006-7000-8000-000000000003', '01960000-0004-7000-8000-000000000002', 'Reserva de 12 meses', 90000, DATE '2027-06-30', '10% a.a. nominal', FALSE, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
-  ('01960000-0006-7000-8000-000000000004', '01960000-0004-7000-8000-000000000001', 'Primeiros R$ 50 mil investidos', 50000, DATE '2025-06-30', '8% a.a. nominal', FALSE, TIMESTAMPTZ '2025-05-21 10:00:00-03', TIMESTAMPTZ '2024-01-02 09:00:00-03');
+  ('01960000-0006-7000-8000-000000000001', '01960000-0004-7000-8000-000000000001', 'Independência financeira', 2000000, DATE '2045-12-31', 'IPCA+6', TRUE, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0006-7000-8000-000000000002', '01960000-0004-7000-8000-000000000003', 'Entrada do imóvel', 180000, DATE '2029-06-30', '9', FALSE, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0006-7000-8000-000000000003', '01960000-0004-7000-8000-000000000002', 'Reserva de 12 meses', 90000, DATE '2027-06-30', '10', FALSE, NULL, TIMESTAMPTZ '2024-01-02 09:00:00-03'),
+  ('01960000-0006-7000-8000-000000000004', '01960000-0004-7000-8000-000000000001', 'Primeiros R$ 50 mil investidos', 50000, DATE '2025-06-30', '8', FALSE, TIMESTAMPTZ '2025-05-21 10:00:00-03', TIMESTAMPTZ '2024-01-02 09:00:00-03');
 
 -- ------------------------------------------------ histórico de coleta de mercado
 INSERT INTO market_source_run (id, source, kind, reference_date, started_at, finished_at, ok, source_kind,

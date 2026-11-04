@@ -19,7 +19,7 @@ export type SettingsPortfolioRow = {
   readonly name: string;
   readonly benchmark: string | null;
   readonly strategy_categories: number;
-  readonly goals: readonly string[];
+  readonly goal: string | null;
   readonly transactions: number;
   readonly assets: number;
 };

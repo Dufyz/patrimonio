@@ -186,6 +186,20 @@ export type {
 } from './overview/summary.js';
 
 // ─── Objetivos ───────────────────────────────────────────────────────────────
+export { planGoals } from './goals/plan.js';
+export { summarizeGoals } from './goals/summary.js';
+export type {
+  GoalsSummary,
+  RequiredStep,
+  SummaryItem,
+  SummaryShare,
+} from './goals/summary.js';
+export type {
+  PlanAllocation,
+  PlanGoal,
+  PlanGoalResult,
+  PlanResult,
+} from './goals/plan.js';
 export {
   averageMonthlyContribution,
   arrivalMonth,
@@ -201,6 +215,7 @@ export type {
 } from './goals/projection.js';
 export {
   contributionLadder,
+  deflateAmount,
   expectedProgress,
   factorToPct,
   goalStanding,
@@ -208,6 +223,7 @@ export {
   nominalRate,
   normalizeRate,
   parseReturnAssumption,
+  realRate,
 } from './goals/trajectory.js';
 export type {
   ExpectedProgressInput,

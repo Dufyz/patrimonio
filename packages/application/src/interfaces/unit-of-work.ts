@@ -69,7 +69,7 @@ export type TransactionalRepositories = {
   readonly performance: PerformanceRepository;
   /** Só leitura: a tela de Estratégia, numa consulta. */
   readonly allocation: AllocationRepository;
-  /** Só leitura: a tela de Objetivos, numa consulta. */
+  /** A tela de Objetivos lê numa consulta; criar, editar e excluir o objetivo escrevem. */
   readonly goals: GoalRepository;
   /** Só leitura: a tela de Configurações, numa consulta. */
   readonly settings: SettingsRepository;

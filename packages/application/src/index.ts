@@ -132,10 +132,15 @@ export type {
 export type {
   GoalFlowRow,
   GoalInflationRow,
+  GoalOverviewQuery,
+  GoalOverviewRow,
+  GoalOverviewSnapshot,
   GoalRepository,
   GoalRow,
   GoalSnapshot,
+  GoalSaved,
   GoalSnapshotQuery,
+  GoalWrite,
 } from './interfaces/goal.repository.js';
 export type {
   SettingsArchivedPortfolioRow,
@@ -658,6 +663,27 @@ export type {
 } from './usecases/allocation/getAllocation.usecase.js';
 
 export { getGoals } from './usecases/goal/getGoals.usecase.js';
+export { getGoalsOverview } from './usecases/goal/getGoalsOverview.usecase.js';
+export type {
+  GetGoalsOverviewDeps,
+  GetGoalsOverviewInput,
+  GoalsDistribution,
+  GoalsExclusion,
+  GoalsOverviewGoal,
+  GoalsOverviewResult,
+  GoalsOverviewRow,
+  GoalsPlanShare,
+  GoalsScenario,
+} from './usecases/goal/getGoalsOverview.usecase.js';
+export { putGoal } from './usecases/goal/putGoal.usecase.js';
+export type { PutGoalDeps, PutGoalResult } from './usecases/goal/putGoal.usecase.js';
+export { deleteGoal } from './usecases/goal/deleteGoal.usecase.js';
+export type { DeleteGoalDeps } from './usecases/goal/deleteGoal.usecase.js';
+export { previewGoal } from './usecases/goal/previewGoal.usecase.js';
+export type {
+  PreviewGoalDeps,
+  PreviewGoalInput,
+} from './usecases/goal/previewGoal.usecase.js';
 export type {
   GetGoalsDeps,
   GetGoalsInput,

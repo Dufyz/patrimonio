@@ -415,6 +415,41 @@ export {
   goalStatusSchema,
   goalsSchema,
 } from './goal/goal.schema.js';
+export {
+  deleteGoalSchema,
+  goalWritableSchema,
+  previewGoalResponseSchema,
+  previewGoalSchema,
+  putGoalResponseSchema,
+  putGoalSchema,
+} from './goal/putGoal.schema.js';
+export type {
+  GoalWritableBody,
+  PreviewGoalBody,
+  PutGoalBody,
+} from './goal/putGoal.schema.js';
+export {
+  GOALS_DISTRIBUTIONS,
+  GOALS_EXCLUSIONS,
+  getGoalsOverviewSchema,
+  goalsDistributionSchema,
+  goalsExclusionSchema,
+  goalsOverviewChartSchema,
+  goalsOverviewGoalSchema,
+  goalsOverviewRowSchema,
+  goalsOverviewSchema,
+  goalsOverviewTotalsSchema,
+  goalsPlanShareSchema,
+  goalsRequiredStepSchema,
+  goalsScenarioSchema,
+} from './goal/goalsOverview.schema.js';
+export type {
+  GoalsDistribution,
+  GoalsOverviewGoalResource,
+  GoalsOverviewResource,
+  GoalsOverviewRowResource,
+  GoalsScenarioResource,
+} from './goal/goalsOverview.schema.js';
 export type {
   GoalContributionRowResource,
   GoalProjectionResource,
