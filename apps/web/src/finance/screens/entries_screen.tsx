@@ -1,4 +1,7 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
+
+import { Button } from '../../components/primitives.js';
 
 import { browserStorage } from '../../lib/preferences.js';
 import { GROUPING_SUBTITLES, GroupSelector } from '../components/group_selector.js';
@@ -44,7 +47,12 @@ export const EntriesScreen = (): React.ReactElement => {
     readEntryGrouping(browserStorage()),
   );
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  // O link do Extrato ("Ver em Lançamentos com filtro desta conta") chega com `?conta=`.
+  const [params] = useSearchParams();
+  const [filters, setFilters] = useState<FilterState>(() => {
+    const account = params.get('conta');
+    return account === null ? EMPTY_FILTERS : { conta: [account] };
+  });
   const [hidden, setHidden] = useState(() =>
     readHiddenColumns(browserStorage(), SCREEN, COLUMNS),
   );
@@ -128,6 +136,21 @@ export const EntriesScreen = (): React.ReactElement => {
             }}
             onExport={() => {}}
           />
+          {groups.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 border-t border-line px-4 py-12 text-center">
+              <p className="text-[0.8125rem] text-ink-3">
+                Nenhum lançamento com esses filtros.
+              </p>
+              <Button
+                onClick={() => {
+                  setSearch('');
+                  setFilters(EMPTY_FILTERS);
+                }}
+              >
+                Limpar filtros
+              </Button>
+            </div>
+          ) : null}
           <LedgerTable
             groups={groups}
             categories={data.categories}

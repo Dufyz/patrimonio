@@ -10,10 +10,10 @@ import { setTodayOverride } from '../lib/clock.js';
 import { createFinanceStore, FinanceStoreProvider } from '../store/finance_store.js';
 import { EntriesScreen } from './entries_screen.js';
 
-const open = () => {
+const open = (path = '/') => {
   setTodayOverride('2026-10-24');
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <PreferencesProvider>
         <ShortcutProvider>
           <FinanceStoreProvider store={createFinanceStore(null)}>
@@ -221,5 +221,57 @@ describe('agrupar (FIN-304)', () => {
     expect(globalThis.localStorage.getItem('patrimonio.finance.entries-grouping')).toBe(
       'categoria',
     );
+  });
+});
+
+describe('busca e filtros (FIN-305)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  const strip = () => screen.getByRole('region', { name: 'Indicadores do período' });
+
+  it('a busca recalcula tabela, contador e faixa', async () => {
+    open();
+    await userEvent.type(screen.getByRole('searchbox'), 'netflix');
+    expect(
+      within(strip()).getByText('1 lançamento', { selector: 'dd' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Spotify')).not.toBeInTheDocument();
+  });
+
+  it('filtra por situação: só previstos', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /Filtrar/ }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Previsto' }));
+    expect(screen.getByText('4 lançamentos')).toBeInTheDocument();
+    expect(screen.queryByText('Netflix')).not.toBeInTheDocument();
+  });
+
+  it('sem resultado mostra o estado vazio com "Limpar filtros"', async () => {
+    open();
+    await userEvent.type(screen.getByRole('searchbox'), 'zzzz');
+    expect(screen.getByText('Nenhum lançamento com esses filtros.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }));
+    expect(
+      screen.queryByText('Nenhum lançamento com esses filtros.'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Netflix')).toBeInTheDocument();
+  });
+
+  it('os filtros persistem ao trocar o agrupamento', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /Filtrar/ }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Receita' }));
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: /^Agrupar:/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /^Tipo/ }));
+    expect(screen.getByText('Receitas · 3 lançamentos')).toBeInTheDocument();
+    expect(screen.queryByText(/^Despesas ·/)).not.toBeInTheDocument();
+  });
+
+  it('o link do Extrato chega com o filtro de conta aplicado', () => {
+    open('/?conta=flex');
+    expect(screen.getAllByText('1 lançamento').length).toBeGreaterThan(0);
+    expect(screen.getByText('Conta de luz')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Filtrar, 1 ativos' })).toBeInTheDocument();
   });
 });
