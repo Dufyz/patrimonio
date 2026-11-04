@@ -40,10 +40,15 @@ export const validateCategory = (
 };
 
 /** Quantos lançamentos usam a categoria, de qualquer situação e período. */
-export const categoryReferences = (data: FinanceData, id: string): number =>
+export const categoryEntryCount = (data: FinanceData, id: string): number =>
   data.entries.filter((entry) => entry.categoryId === id).length;
 
-/** Mudar o tipo só é permitido para categoria sem lançamentos. */
+/** Lançamentos e recorrentes que usam a categoria (RN-61). */
+export const categoryReferences = (data: FinanceData, id: string): number =>
+  categoryEntryCount(data, id) +
+  data.recurrings.filter((recurring) => recurring.categoryId === id).length;
+
+/** Mudar o tipo só é permitido para categoria sem lançamentos nem recorrentes. */
 export const canChangeKind = (data: FinanceData, id: string): boolean =>
   categoryReferences(data, id) === 0;
 
@@ -121,6 +126,14 @@ export const deleteCategory = (
         ? data.entries
         : data.entries.map((entry) =>
             entry.categoryId === id ? { ...entry, categoryId: replacementId } : entry,
+          ),
+    recurrings:
+      replacementId === null
+        ? data.recurrings
+        : data.recurrings.map((recurring) =>
+            recurring.categoryId === id
+              ? { ...recurring, categoryId: replacementId }
+              : recurring,
           ),
   };
 };

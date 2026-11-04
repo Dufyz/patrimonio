@@ -121,4 +121,23 @@ describe('excluir (RN-61)', () => {
     expect(luz?.categoryId).toBe('saude');
     expect(next.entries).toHaveLength(data.entries.length);
   });
+
+  it('os recorrentes também passam para o destino (CE-09)', () => {
+    const next = deleteCategory(data, 'moradia', 'mercado');
+    expect(next.recurrings.some((r) => r.categoryId === 'moradia')).toBe(false);
+    expect(next.recurrings.find((r) => r.id === 'r-aluguel')?.categoryId).toBe('mercado');
+    expect(next.entries.find((e) => e.id === 'l-luz')?.categoryId).toBe('mercado');
+  });
+
+  it('categoria só com recorrente também exige destino', () => {
+    const fresh = addCategory(data, { name: 'Pets', kind: 'despesa', color: 'olive' });
+    const withRecurring = {
+      ...fresh,
+      recurrings: [
+        ...fresh.recurrings,
+        { ...fresh.recurrings[0]!, categoryId: 'pets', kind: 'despesa' as const },
+      ],
+    };
+    expect(deleteCategory(withRecurring, 'pets', null)).toBe(withRecurring);
+  });
 });
