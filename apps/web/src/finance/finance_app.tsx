@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router';
 
 import { FinanceShell } from './components/finance_shell.js';
 import { FinancePeriodProvider, useFinancePeriod } from './components/period_provider.js';
+import { OverviewScreen } from './screens/overview_screen.js';
 import { CardScreen } from './screens/card_screen.js';
 import { CardsScreen } from './screens/cards_screen.js';
 import { AccountsScreen } from './screens/accounts_screen.js';
@@ -17,25 +18,7 @@ import { syncRecurring } from './domain/recurring.js';
 import { FinanceStoreProvider, useFinanceStore } from './store/finance_store.js';
 import { setTodayOverride, todayFromSearch } from './lib/clock.js';
 
-/**
- * FIN-001 · As rotas de Finanças, sob `/financas`.
- *
- * Cada tela entra na sua fase. Até lá ela abre vazia, e diz qual história a
- * entrega — nunca uma tela em branco.
- */
-
-const Pending = ({
-  title,
-  story,
-}: {
-  readonly title: string;
-  readonly story: string;
-}): React.ReactElement => (
-  <div className="flex flex-col gap-1 rounded-panel border border-line bg-panel p-6">
-    <h1 className="text-screen-title font-semibold">{title}</h1>
-    <p className="text-[0.8125rem] text-ink-3">Esta tela chega com {story}.</p>
-  </div>
-);
+/** FIN-001 · As rotas de Finanças, sob `/financas`. */
 
 /**
  * `?hoje=2026-10-24` fixa o "hoje" da sessão: é como se confere uma tela contra
@@ -73,10 +56,7 @@ export const FinanceApp = (): React.ReactElement => {
         <FinanceShell onOpenSearch={() => {}}>
           <Routes>
             <Route path="/" element={<Navigate to="visao-geral" replace />} />
-            <Route
-              path="visao-geral"
-              element={<Pending title="Visão geral" story="FIN-601" />}
-            />
+            <Route path="visao-geral" element={<OverviewScreen />} />
             <Route path="lancamentos" element={<EntriesScreen />} />
             <Route path="contas" element={<AccountsScreen />} />
             <Route path="contas/:id" element={<StatementScreen />} />
