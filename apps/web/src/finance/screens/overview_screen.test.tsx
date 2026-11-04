@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
@@ -51,5 +52,39 @@ describe('Faixa de totais do mês (FIN-601)', () => {
     expect(cell('Em contas')).toContain('3 contas');
     expect(cell('Faturas abertas')).toContain('R$ 5.422,27');
     expect(cell('Faturas abertas')).toContain('Itaú 30/10 · Nubank 05/11');
+  });
+});
+
+describe('Receitas × despesas (FIN-602)', () => {
+  it('painel com subtítulo, legenda do mês do período e 12 meses no eixo', () => {
+    open();
+    const panel = screen.getByRole('region', { name: 'Receitas × despesas' });
+    expect(within(panel).getByText('últimos 12 meses')).toBeTruthy();
+    expect(within(panel).getByText('Receitas R$ 16.350')).toBeTruthy();
+    expect(within(panel).getByText('Despesas R$ 9.478')).toBeTruthy();
+    const months = panel.querySelectorAll('[data-month]');
+    expect(months).toHaveLength(12);
+    expect(months[0]?.getAttribute('data-month')).toBe('2025-11');
+    expect(months[11]?.getAttribute('data-month')).toBe('2026-10');
+  });
+
+  it('o mês em andamento é o único com o tom cheio', () => {
+    open();
+    const panel = screen.getByRole('region', { name: 'Receitas × despesas' });
+    expect(panel.querySelectorAll('[data-strong="true"]')).toHaveLength(1);
+    expect(
+      panel.querySelector('[data-month="2026-10"]')?.getAttribute('data-strong'),
+    ).toBe('true');
+  });
+
+  it('o tooltip mostra mês, receitas, despesas e saldo', async () => {
+    open();
+    const panel = screen.getByRole('region', { name: 'Receitas × despesas' });
+    await userEvent.hover(panel.querySelector('[data-month="2026-10"]')!);
+    const tip = within(screen.getByRole('tooltip'));
+    expect(tip.getByText('out/2026')).toBeTruthy();
+    expect(screen.getByRole('tooltip').textContent).toContain('R$ 16.350,00');
+    expect(screen.getByRole('tooltip').textContent).toContain('R$ 9.478,10');
+    expect(screen.getByRole('tooltip').textContent).toContain('R$ 6.871,90');
   });
 });
