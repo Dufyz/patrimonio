@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -165,5 +166,60 @@ describe('despesa paga por duas origens (FIN-303)', () => {
   it('despesa de uma origem não tem subitens', () => {
     open();
     expect(screen.getAllByText(/^Pago com/)).toHaveLength(2);
+  });
+});
+
+describe('agrupar (FIN-304)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  const group = async (name: string) => {
+    await userEvent.click(screen.getByRole('button', { name: /^Agrupar:/ }));
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: new RegExp(`^${name}`) }),
+    );
+  };
+
+  it('abre por dia e mostra o seletor "Agrupar: Dia"', () => {
+    open();
+    expect(screen.getByRole('button', { name: 'Agrupar: Dia' })).toBeInTheDocument();
+  });
+
+  it('por tipo: seções com contagem e o subtítulo acompanha', async () => {
+    open();
+    await group('Tipo');
+    expect(
+      screen.getByText('Todas as contas e cartões · receitas e despesas'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Receitas · 3 lançamentos')).toBeInTheDocument();
+    expect(screen.getByText('Despesas · 13 lançamentos')).toBeInTheDocument();
+    expect(
+      screen.getByText('despesas R$ 9.478,10 · previsto R$ 10.071,90'),
+    ).toBeInTheDocument();
+  });
+
+  it('por categoria e por conta', async () => {
+    open();
+    await group('Categoria');
+    expect(
+      screen.getByText('Todas as contas e cartões · por categoria'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Moradia · 4 lançamentos')).toBeInTheDocument();
+    await group('Conta');
+    expect(screen.getByText('Todas as contas e cartões · por conta')).toBeInTheDocument();
+    expect(screen.getByText('Itaú Visa · 3 lançamentos')).toBeInTheDocument();
+  });
+
+  it('a faixa não muda ao trocar o agrupamento e a escolha persiste', async () => {
+    open();
+    const before = screen.getByRole('region', {
+      name: 'Indicadores do período',
+    }).textContent;
+    await group('Categoria');
+    expect(
+      screen.getByRole('region', { name: 'Indicadores do período' }).textContent,
+    ).toBe(before);
+    expect(globalThis.localStorage.getItem('patrimonio.finance.entries-grouping')).toBe(
+      'categoria',
+    );
   });
 });

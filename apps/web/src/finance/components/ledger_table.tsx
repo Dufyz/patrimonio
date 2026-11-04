@@ -19,7 +19,14 @@ import { formatDate } from '../lib/period.js';
  * de cima, com o botão "Lançar".
  */
 
-const COLUMN_COUNT = 7;
+const DATA_COLUMNS = [
+  'data',
+  'descricao',
+  'categoria',
+  'conta',
+  'detalhe',
+  'valor',
+] as const;
 
 /** `despesas R$ 4.500,00` ou `receitas … · despesas …`. */
 export const summaryText = (summary: GroupSummary): string =>
@@ -35,71 +42,93 @@ export const LedgerTable = ({
   groups,
   categories,
   today,
+  hiddenColumns = [],
   onLaunch,
 }: {
   readonly groups: readonly LedgerGroup[];
   readonly categories: readonly Category[];
   readonly today: string;
+  /** Colunas ocultas pelo botão Exibição. */
+  readonly hiddenColumns?: readonly string[];
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
-}): React.ReactElement => (
-  <section className="rounded-panel border border-line bg-panel">
-    <FinTable caption="Lançamentos">
-      <THead>
-        <Th>Data</Th>
-        <Th>Descrição</Th>
-        <Th>Categoria</Th>
-        <Th>Conta</Th>
-        <Th>Detalhe</Th>
-        <Th align="right">Valor</Th>
-        <Th>
-          <span className="sr-only">Ações</span>
-        </Th>
-      </THead>
-      <tbody>
-        {groups.map((group) => (
-          <GroupRows
-            key={group.id}
-            group={group}
-            categories={categories}
-            today={today}
-            onLaunch={onLaunch}
-          />
-        ))}
-      </tbody>
-    </FinTable>
-    <Legend />
-  </section>
-);
+}): React.ReactElement => {
+  const visible = (id: string): boolean => !hiddenColumns.includes(id);
+  const layout: Layout = {
+    visible,
+    colSpan: DATA_COLUMNS.filter(visible).length + 1,
+  };
+  return (
+    <section className="border-t border-line">
+      <FinTable caption="Lançamentos">
+        <THead>
+          {visible('data') ? <Th>Data</Th> : null}
+          <Th>Descrição</Th>
+          {visible('categoria') ? <Th>Categoria</Th> : null}
+          {visible('conta') ? <Th>Conta</Th> : null}
+          {visible('detalhe') ? <Th>Detalhe</Th> : null}
+          <Th align="right">Valor</Th>
+          <Th>
+            <span className="sr-only">Ações</span>
+          </Th>
+        </THead>
+        <tbody>
+          {groups.map((group) => (
+            <GroupRows
+              key={group.id}
+              group={group}
+              categories={categories}
+              today={today}
+              layout={layout}
+              onLaunch={onLaunch}
+            />
+          ))}
+        </tbody>
+      </FinTable>
+      <Legend />
+    </section>
+  );
+};
+
+type Layout = {
+  readonly visible: (id: string) => boolean;
+  readonly colSpan: number;
+};
 
 const GroupRows = ({
   group,
   categories,
   today,
+  layout,
   onLaunch,
 }: {
   readonly group: LedgerGroup;
   readonly categories: readonly Category[];
   readonly today: string;
+  readonly layout: Layout;
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
 }): React.ReactElement => {
+  const count = pluralize(group.entries.length, 'lançamento', 'lançamentos');
   const label =
     group.kind === 'previstos'
       ? 'Próximos dias · previstos'
-      : formatDayHeader(group.date ?? today, today);
+      : group.kind === 'dia'
+        ? formatDayHeader(group.date ?? today, today)
+        : `${group.title ?? ''} · ${count}`;
   const summary =
     group.kind === 'previstos'
-      ? `${pluralize(group.entries.length, 'lançamento', 'lançamentos')} · não entram nos totais do mês`
+      ? `${count} · não entram nos totais do mês`
       : summaryText(group.summary);
 
   return (
     <>
-      <SectionRow colSpan={COLUMN_COUNT} label={label} summary={summary} />
+      <SectionRow colSpan={layout.colSpan} label={label} summary={summary} />
       {group.entries.map((entry) => (
         <EntryRow
           key={entry.id}
           entry={entry}
           category={categories.find((c) => c.id === entry.categoryId)}
           today={today}
+          layout={layout}
           onLaunch={onLaunch}
         />
       ))}
@@ -111,11 +140,13 @@ const EntryRow = ({
   entry,
   category,
   today,
+  layout,
   onLaunch,
 }: {
   readonly entry: Entry;
   readonly category: Category | undefined;
   readonly today: string;
+  readonly layout: Layout;
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
 }): React.ReactElement => {
   const pending = entry.status === 'prevista';
@@ -169,6 +200,7 @@ const EntryRow = ({
               key={payment.sourceId}
               sourceId={payment.sourceId}
               cents={payment.cents}
+              layout={layout}
             />
           ))
         : null}
@@ -183,13 +215,20 @@ const EntryRow = ({
 const PartRow = ({
   sourceId,
   cents,
+  layout,
 }: {
   readonly sourceId: string;
   readonly cents: number;
+  readonly layout: Layout;
 }): React.ReactElement => (
   <tr data-part={sourceId} className="border-b border-line text-ink-3 last:border-b-0">
-    <td aria-hidden="true" />
-    <td colSpan={4} className="border-l border-line-2 py-1.5 pl-4 text-[0.8125rem]">
+    {layout.visible('data') ? <td aria-hidden="true" /> : null}
+    <td
+      colSpan={
+        ['descricao', 'categoria', 'conta', 'detalhe'].filter(layout.visible).length
+      }
+      className="border-l border-line-2 py-1.5 pl-4 text-[0.8125rem]"
+    >
       Pago com {sourceName(sourceId)}
     </td>
     <td className="tabular px-3 py-1.5 text-right text-[0.8125rem]">
