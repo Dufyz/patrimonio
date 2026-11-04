@@ -214,3 +214,20 @@ describe('Extrato: tabela com saldo após (FIN-407)', () => {
     expect(screen.getByText('out/2026 · 1 movimentação')).toBeInTheDocument();
   });
 });
+
+describe('Extrato de benefício (FIN-408)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  it('mostra o saldo e as partes pagas pelo Flex', () => {
+    open('flex');
+    const panel = within(screen.getByRole('region', { name: 'Saldo de Flex' }));
+    expect(panel.getByLabelText('Saldo atual').textContent).toBe('R$ 198,30');
+    const table = within(screen.getByRole('table', { name: 'Extrato de Flex' }));
+    const row = table.getByText('Conta de luz').closest('tr');
+    expect(row?.textContent).toContain('−R$ 150,00');
+    expect(row?.textContent).toContain('2 pagamentos');
+    expect(row?.textContent).toContain(
+      'parte da conta · R$ 162,40 saíram do Itaú Corrente',
+    );
+  });
+});

@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog.js';
 import { Checkbox } from '../../components/ui/checkbox.js';
-import { Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
+import { Callout, Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
 import {
   FUTURE_DATE,
   allowedSources,
@@ -20,6 +20,7 @@ import {
   validateEntry,
 } from '../domain/entry_ops.js';
 import type { EntryDraft } from '../domain/entry_ops.js';
+import { benefitWarnings } from '../domain/benefits.js';
 import type { EntryKind, FinanceData } from '../domain/types.js';
 import { formatBRL } from '../lib/format.js';
 import { parseMoneyInput } from '../lib/format.js';
@@ -54,6 +55,7 @@ export const EntryDialog = ({
   onSave,
   onClose,
   onCreateRecurring,
+  ignoreEntryId,
 }: {
   readonly mode: EntryDialogMode;
   readonly data: FinanceData;
@@ -63,6 +65,8 @@ export const EntryDialog = ({
   readonly onClose: () => void;
   /** Para algo futuro, o modal oferece criar um recorrente. */
   readonly onCreateRecurring?: (() => void) | undefined;
+  /** Ao editar um lançado: a parte antiga já está descontada do saldo do benefício. */
+  readonly ignoreEntryId?: string | undefined;
 }): React.ReactElement => {
   const [draft, setDraft] = useState<EntryDraft>(initial);
   const [attempted, setAttempted] = useState(false);
@@ -74,6 +78,7 @@ export const EntryDialog = ({
 
   const locked = mode === 'launch';
   const diff = splitDifference(draft);
+  const warnings = benefitWarnings(data, draft, today, ignoreEntryId);
   const blocked = diff !== null && diff !== 0;
 
   const categories = data.categories
@@ -303,6 +308,14 @@ export const EntryDialog = ({
                     ? `Faltam ${formatBRL(diff)} para fechar o valor.`
                     : `As partes passam ${formatBRL(-diff)} do valor.`}
               </p>
+            )}
+
+            {warnings.length === 0 ? null : (
+              <Callout tone="warning">
+                {warnings.map((warning) => (
+                  <p key={warning}>{warning} O lançamento continua permitido.</p>
+                ))}
+              </Callout>
             )}
           </DialogBody>
           <DialogFooter className="justify-end">

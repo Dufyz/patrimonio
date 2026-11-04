@@ -10,6 +10,7 @@ import { RecurringsScreen } from './screens/recurrings_screen.js';
 import { CategoriesScreen } from './screens/categories_screen.js';
 import { SettingsScreen } from './screens/settings_screen.js';
 
+import { syncBenefitCredits } from './domain/benefits.js';
 import { syncRecurring } from './domain/recurring.js';
 import { FinanceStoreProvider, useFinanceStore } from './store/finance_store.js';
 import { setTodayOverride, todayFromSearch } from './lib/clock.js';
@@ -49,13 +50,14 @@ const useTodayFromUrl = (): void => {
 
 /**
  * RN-10 e RN-11: ao abrir, gera o previsto do mês de cada recorrente ativo e
- * lança os automáticos que já venceram. Idempotente — repetir não muda nada.
+ * lança os automáticos que já venceram, e credita os benefícios no dia (RN-36).
+ * Idempotente — repetir não muda nada.
  */
 const RecurringSync = (): null => {
   const store = useFinanceStore();
   const { today } = useFinancePeriod();
   useEffect(() => {
-    store.set((data) => syncRecurring(data, today));
+    store.set((data) => syncBenefitCredits(syncRecurring(data, today), today));
   }, [store, today]);
   return null;
 };

@@ -809,3 +809,36 @@ describe('Exibição esconde colunas e células (correção)', () => {
     expect(screen.getByText('parcela 2/3')).toBeInTheDocument();
   });
 });
+
+describe('aviso de saldo do benefício (FIN-408)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  const openNew = async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /^Lançamento/ }));
+    return within(screen.getByRole('dialog', { name: 'Novo lançamento' }));
+  };
+
+  it('parte maior que o saldo do Flex avisa, sem bloquear o salvar', async () => {
+    const dialog = await openNew();
+    await userEvent.selectOptions(
+      dialog.getByRole('combobox', { name: /Origem/ }),
+      'flex',
+    );
+    await userEvent.type(dialog.getByRole('textbox', { name: 'Valor' }), '250,00');
+    expect(dialog.getByRole('note').textContent).toContain(
+      'Flex tem R$ 198,30 de saldo e esta parte é de R$ 250,00.',
+    );
+    expect(dialog.getByRole('button', { name: 'Salvar' })).toBeEnabled();
+  });
+
+  it('dentro do saldo não há aviso', async () => {
+    const dialog = await openNew();
+    await userEvent.selectOptions(
+      dialog.getByRole('combobox', { name: /Origem/ }),
+      'flex',
+    );
+    await userEvent.type(dialog.getByRole('textbox', { name: 'Valor' }), '100,00');
+    expect(dialog.queryByRole('note')).not.toBeInTheDocument();
+  });
+});

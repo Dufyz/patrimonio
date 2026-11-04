@@ -377,6 +377,7 @@ export const EntriesScreen = (): React.ReactElement => {
           data={data}
           today={today}
           initial={draftOfEntry(editing, today)}
+          ignoreEntryId={editing.id}
           onClose={() => setEditing(null)}
           onSave={(draft) => {
             store.set((current) => updateEntry(current, editing.id, draft, today));
