@@ -3,6 +3,9 @@ import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 
 import { Button, IconButton } from '../../components/primitives.js';
 import { Amount } from '../components/amount.js';
+import { CardItemDialog } from '../components/card_item_dialog.js';
+import { ConfirmDialog } from '../components/entry_confirms.js';
+import { InvoiceStatement } from '../components/invoice_statement.js';
 import { CardDialog } from '../components/card_dialog.js';
 import { EntryDialog } from '../components/entry_dialog.js';
 import { useFinancePeriod } from '../components/period_provider.js';
@@ -13,13 +16,22 @@ import {
   cardInvoiceKeys,
   cardSummary,
   findCard,
+  invoiceLines,
   invoicePeriod,
   invoiceSummary,
   paymentOf,
   vigenteKey,
 } from '../domain/cards.js';
-import { addEntry, emptyEntryDraft } from '../domain/entry_ops.js';
+import { deleteCardItem, updateCardItem } from '../domain/card_item_ops.js';
+import {
+  addEntry,
+  deleteEntries,
+  draftOfEntry,
+  emptyEntryDraft,
+  updateEntry,
+} from '../domain/entry_ops.js';
 import { accountLabel } from '../domain/accounts.js';
+import type { InvoiceLine } from '../domain/cards.js';
 import type { Card } from '../domain/types.js';
 import { formatBRL, formatDay, formatMonth } from '../lib/format.js';
 import { formatPercentValue } from '../components/limit_bar.js';
@@ -48,6 +60,8 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
   const { today } = useFinancePeriod();
   const [search, setSearch] = useSearchParams();
   const [dialog, setDialog] = useState<'edit' | 'entry' | null>(null);
+  const [editingLine, setEditingLine] = useState<InvoiceLine | null>(null);
+  const [deletingLine, setDeletingLine] = useState<InvoiceLine | null>(null);
 
   const keys = cardInvoiceKeys(data, card, today);
   const requested = search.get('fatura');
@@ -60,6 +74,7 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
   const invoice = invoiceSummary(data, card, key, today);
   const period = invoicePeriod(card, key);
   const payment = paymentOf(data, card.id, key);
+  const lines = invoiceLines(data, card, key);
 
   const go = (target: string | undefined): void => {
     if (target !== undefined) setSearch({ fatura: target }, { replace: true });
@@ -127,6 +142,63 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
           </p>
         </div>
       </section>
+
+      <InvoiceStatement
+        lines={lines}
+        categories={data.categories}
+        period={period}
+        today={today}
+        locked={payment !== undefined}
+        onEdit={setEditingLine}
+        onDelete={setDeletingLine}
+      />
+
+      {editingLine?.origin === 'entry' ? (
+        <EntryDialog
+          mode="edit"
+          data={data}
+          today={today}
+          initial={draftOfEntry(
+            data.entries.find((e) => e.id === editingLine.id) ?? data.entries[0]!,
+            today,
+          )}
+          ignoreEntryId={editingLine.id}
+          onClose={() => setEditingLine(null)}
+          onSave={(draft) => {
+            store.set((current) => updateEntry(current, editingLine.id, draft, today));
+            setEditingLine(null);
+          }}
+        />
+      ) : null}
+      {editingLine?.origin === 'item' ? (
+        <CardItemDialog
+          data={data}
+          item={data.cardItems.find((i) => i.id === editingLine.id)!}
+          onClose={() => setEditingLine(null)}
+          onSave={(draft) => {
+            store.set((current) => updateCardItem(current, editingLine.id, draft));
+            setEditingLine(null);
+          }}
+        />
+      ) : null}
+      {deletingLine === null ? null : (
+        <ConfirmDialog
+          title="Excluir da fatura"
+          confirmLabel="Excluir"
+          danger
+          onClose={() => setDeletingLine(null)}
+          onConfirm={() => {
+            store.set((current) =>
+              deletingLine.origin === 'entry'
+                ? deleteEntries(current, [deletingLine.id])
+                : deleteCardItem(current, deletingLine.id),
+            );
+            setDeletingLine(null);
+          }}
+        >
+          <p>{deletingLine.description} sai da fatura e o total é recalculado.</p>
+        </ConfirmDialog>
+      )}
 
       {dialog === 'edit' ? (
         <CardDialog

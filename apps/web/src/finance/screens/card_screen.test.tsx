@@ -101,3 +101,72 @@ describe('Fatura: cabeçalho e navegador de mês (FIN-504)', () => {
     expect(screen.getByText('Lista de cartões')).toBeTruthy();
   });
 });
+
+describe('Extrato completo da fatura (FIN-505)', () => {
+  const statement = () =>
+    within(screen.getByRole('table', { name: 'Extrato da fatura' }));
+  const sectionOf = (title: string) =>
+    statement()
+      .getAllByRole('row')
+      .find((row) => row.textContent?.startsWith(title))?.textContent ?? '';
+
+  it('tem os quatro blocos na ordem, com subtotal', () => {
+    open();
+    const text = statement()
+      .getAllByRole('row')
+      .map((row) => row.textContent ?? '')
+      .join('|');
+    const at = [
+      'Compras do período',
+      'Parcelas de compras anteriores',
+      'Créditos e ajustes',
+      'Encargos',
+    ].map((title) => text.indexOf(title));
+    expect(at.every((position) => position >= 0)).toBe(true);
+    expect([...at].sort((x, y) => x - y)).toEqual(at);
+    expect(sectionOf('Compras do período')).toContain('29/09 a 28/10 · 9 lançamentos');
+    expect(sectionOf('Compras do período')).toContain('R$ 2.392,17');
+    expect(sectionOf('Parcelas de compras anteriores')).toContain('R$ 1.299,00');
+    expect(sectionOf('Créditos e ajustes')).toContain('R$ 209,00');
+  });
+
+  it('total = compras + parcelas − créditos + encargos', () => {
+    open();
+    expect(sectionOf('Total da fatura')).toContain('R$ 3.482,17');
+  });
+
+  it('encargos vazio continua visível', () => {
+    open();
+    expect(statement().getByText('nenhum nesta fatura')).toBeTruthy();
+  });
+
+  it('parcela mostra a data da compra original e a etiqueta; crédito, o tipo', () => {
+    open();
+    const parcela = statement().getByRole('row', { name: 'Notebook Dell Inspiron' });
+    expect(parcela.textContent).toContain('22/08');
+    expect(parcela.textContent).toContain('parcela 3/6');
+    const credito = statement().getByRole('row', { name: /Devolução · Amazon/ });
+    expect(credito.textContent).toContain('devolução');
+    expect(credito.textContent).toContain('+R$ 189,00');
+  });
+
+  it('excluir pede confirmação e recalcula o total', async () => {
+    open();
+    await userEvent.click(statement().getByRole('button', { name: 'Ações de Uber' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Excluir' }));
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }),
+    );
+    expect(sectionOf('Total da fatura')).toContain('R$ 3.443,27');
+  });
+
+  it('fatura paga é somente leitura', async () => {
+    open('/financas/cartoes/nubank-master?fatura=2026-10');
+    await userEvent.click(statement().getAllByRole('button', { name: /Ações de/ })[0]!);
+    expect(
+      (await screen.findByRole('menuitem', { name: 'Excluir' })).getAttribute(
+        'aria-disabled',
+      ),
+    ).toBe('true');
+  });
+});
