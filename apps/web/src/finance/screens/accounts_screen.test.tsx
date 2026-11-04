@@ -302,7 +302,7 @@ describe('Arquivar conta (FIN-409)', () => {
     const user = userEvent.setup();
     open();
     const dialog = await archive(user, 'Itaú Corrente');
-    expect(dialog.getByRole('alert').textContent).toContain('paga o cartão Itaú Visa');
+    expect(dialog.getByRole('alert').textContent).toContain('paga os cartões Itaú Visa');
     expect(dialog.getByRole('button', { name: 'Arquivar' })).toBeDisabled();
   });
 

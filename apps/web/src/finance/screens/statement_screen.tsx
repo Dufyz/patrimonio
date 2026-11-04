@@ -56,7 +56,7 @@ const Statement = ({ account }: { readonly account: Account }): React.ReactEleme
     <>
       <ScreenHeader
         title={account.name}
-        subtitle={accountSubtitle(account)}
+        subtitle={accountSubtitle(data, account)}
         crumbs={[
           { label: 'Contas', to: financeRoutes.accounts() },
           { label: account.name },

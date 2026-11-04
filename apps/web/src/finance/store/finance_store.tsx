@@ -26,6 +26,9 @@ const isStored = (value: unknown): value is Stored => {
     record['version'] === SEED_VERSION &&
     typeof data === 'object' &&
     data !== null &&
+    Array.isArray(data['cards']) &&
+    Array.isArray(data['cardItems']) &&
+    Array.isArray(data['payments']) &&
     Array.isArray(data['accounts']) &&
     Array.isArray(data['movements']) &&
     Array.isArray(data['categories']) &&

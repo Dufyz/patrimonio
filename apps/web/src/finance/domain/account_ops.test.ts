@@ -166,7 +166,7 @@ describe('addAccount e updateAccount', () => {
 describe('arquivar conta (FIN-409, RN-38)', () => {
   it('conta com cartão ativo não pode ser arquivada', () => {
     expect(archiveBlockedReason(data, 'itau-corrente')).toMatch(
-      /paga o cartão Itaú Visa/,
+      /paga os cartões Itaú Visa/,
     );
     expect(archiveAccount(data, 'itau-corrente', TODAY, true)).toBe(data);
   });

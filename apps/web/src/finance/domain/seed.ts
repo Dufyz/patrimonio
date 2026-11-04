@@ -3,10 +3,13 @@ import type { IsoDate } from '../lib/dates.js';
 import type { Cents } from '../lib/money.js';
 import type {
   Account,
+  Card,
+  CardItem,
   Category,
   Entry,
   EntryKind,
   FinanceData,
+  InvoicePayment,
   Movement,
   Payment,
   Recurring,
@@ -21,7 +24,7 @@ import type {
  */
 
 /** Muda quando a semente muda de forma que dados antigos não servem mais. */
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;
 
 const category = (
   id: string,
@@ -508,8 +511,8 @@ export const SEED_ACCOUNTS: readonly Account[] = [
 ];
 
 /**
- * A transferência do saldo livre (4.700,00), os pagamentos das faturas de
- * setembro e o ajuste da Carteira (−60,00 na prancha, sem lançamento por trás).
+ * A transferência do saldo livre (4.700,00) e os ajustes que as pranchas
+ * deixam sem lançamento por trás: Carteira (−60,00) e Nubank Conta (−1.862,48).
  */
 export const SEED_MOVEMENTS: readonly Movement[] = [
   {
@@ -533,20 +536,13 @@ export const SEED_MOVEMENTS: readonly Movement[] = [
     transferId: 'm-saldo-livre',
   },
   {
-    id: 'm-fatura-nubank-set',
-    date: '2026-10-05',
+    id: 'm-nubank-ajuste',
+    date: '2026-10-20',
     accountId: 'nubank-conta',
-    kind: 'fatura',
-    cents: -404565,
-    description: 'Pagamento da fatura Nubank Mastercard (set)',
-  },
-  {
-    id: 'm-fatura-itau-set',
-    date: '2026-10-08',
-    accountId: 'itau-corrente',
-    kind: 'fatura',
-    cents: -150245,
-    description: 'Pagamento da fatura Itaú Visa (set)',
+    kind: 'ajuste',
+    cents: -186248,
+    description: 'Ajuste de saldo',
+    note: 'diferença entre as pranchas de Contas e de Cartões',
   },
   {
     id: 'm-carteira-ajuste',
@@ -559,7 +555,312 @@ export const SEED_MOVEMENTS: readonly Movement[] = [
   },
 ];
 
+/** Prancha 04: limite, fechamento e vencimento de cada cartão. */
+export const SEED_CARDS: readonly Card[] = [
+  {
+    id: 'nubank-master',
+    name: 'Nubank Mastercard',
+    last4: '9082',
+    payerId: 'nubank-conta',
+    limitCents: 566000,
+    closingDay: 28,
+    dueDay: 5,
+  },
+  {
+    id: 'itau-visa',
+    name: 'Itaú Visa',
+    last4: '4471',
+    payerId: 'itau-corrente',
+    limitCents: 200000,
+    closingDay: 23,
+    dueDay: 30,
+  },
+  {
+    id: 'itau-mastercard',
+    name: 'Itaú Mastercard',
+    last4: '6630',
+    payerId: 'itau-corrente',
+    limitCents: 400000,
+    closingDay: 23,
+    dueDay: 30,
+  },
+];
+
+const purchase = (
+  id: string,
+  cardId: string,
+  date: string,
+  description: string,
+  categoryId: string | undefined,
+  cents: Cents,
+): CardItem => ({
+  id,
+  cardId,
+  kind: 'compra',
+  date,
+  description,
+  ...(categoryId === undefined ? {} : { categoryId }),
+  cents,
+});
+
+const credit = (
+  id: string,
+  date: string,
+  description: string,
+  categoryId: string,
+  subtype: 'devolucao' | 'desconto',
+  cents: Cents,
+): CardItem => ({
+  id,
+  cardId: 'nubank-master',
+  kind: 'credito',
+  date,
+  description,
+  categoryId,
+  subtype,
+  cents,
+  invoice: '2026-11',
+});
+
+/** Parcelas de uma compra antiga, da `from` até a última: cada uma cai na sua fatura. */
+const installments = (
+  idBase: string,
+  cardId: string,
+  origin: string,
+  description: string,
+  categoryId: string,
+  total: number,
+  cents: Cents,
+  from: number,
+): readonly CardItem[] =>
+  Array.from({ length: total - from + 1 }, (_, index) => {
+    const n = from + index;
+    return {
+      id: `${idBase}-${n}`,
+      cardId,
+      kind: 'compra' as const,
+      date: addMonths(origin, n - 1),
+      description,
+      categoryId,
+      cents,
+      installment: { n, of: total, origin },
+    };
+  });
+
+/**
+ * Prancha 04B: o que compõe as faturas fora de Lançamentos (RN-46). As faturas
+ * de ago, set e out do Nubank e a de set do Itaú Visa vêm resumidas, só para ter
+ * o total que as pranchas mostram.
+ */
+export const SEED_CARD_ITEMS: readonly CardItem[] = [
+  purchase(
+    'i-nu-ago',
+    'nubank-master',
+    '2026-07-15',
+    'Compras do período',
+    undefined,
+    274000,
+  ),
+  purchase(
+    'i-nu-set',
+    'nubank-master',
+    '2026-08-12',
+    'Compras do período',
+    undefined,
+    171240,
+  ),
+  purchase(
+    'i-nu-out',
+    'nubank-master',
+    '2026-09-10',
+    'Compras do período',
+    undefined,
+    88417,
+  ),
+  ...installments(
+    'i-notebook',
+    'nubank-master',
+    '2026-08-22',
+    'Notebook Dell Inspiron',
+    'eletronicos',
+    6,
+    129900,
+    1,
+  ),
+  purchase('i-nu-uber', 'nubank-master', '2026-10-27', 'Uber', 'transporte', 3890),
+  purchase(
+    'i-nu-pao',
+    'nubank-master',
+    '2026-10-24',
+    'Mercado · Pão de Açúcar',
+    'mercado',
+    61240,
+  ),
+  purchase(
+    'i-nu-fasano',
+    'nubank-master',
+    '2026-10-22',
+    'Restaurante · Fasano',
+    'restaurantes',
+    89000,
+  ),
+  purchase('i-nu-ifood', 'nubank-master', '2026-10-19', 'iFood', 'restaurantes', 8480),
+  purchase(
+    'i-nu-carrefour',
+    'nubank-master',
+    '2026-10-15',
+    'Mercado · Carrefour',
+    'mercado',
+    19087,
+  ),
+  purchase(
+    'i-nu-google',
+    'nubank-master',
+    '2026-10-14',
+    'Google One',
+    'assinaturas',
+    2190,
+  ),
+  purchase('i-nu-farmacia', 'nubank-master', '2026-10-12', 'Farmácia', 'saude', 18990),
+  purchase(
+    'i-nu-amazon',
+    'nubank-master',
+    '2026-10-10',
+    'Amazon · Fone de ouvido',
+    'eletronicos',
+    18900,
+  ),
+  purchase(
+    'i-nu-shell',
+    'nubank-master',
+    '2026-10-05',
+    'Posto Shell',
+    'transporte',
+    17440,
+  ),
+  credit(
+    'i-nu-devolucao',
+    '2026-10-26',
+    'Devolução · Amazon · Fone de ouvido',
+    'eletronicos',
+    'devolucao',
+    18900,
+  ),
+  credit('i-nu-cupom', '2026-10-19', 'Cupom iFood', 'restaurantes', 'desconto', 2000),
+  purchase(
+    'i-visa-set',
+    'itau-visa',
+    '2026-09-10',
+    'Compras do período',
+    undefined,
+    150245,
+  ),
+  ...installments(
+    'i-geladeira',
+    'itau-visa',
+    '2026-08-15',
+    'Geladeira Brastemp',
+    'moradia',
+    6,
+    60611,
+    3,
+  ),
+  purchase(
+    'i-visa-posto',
+    'itau-visa',
+    '2026-10-12',
+    'Posto Ipiranga',
+    'transporte',
+    42000,
+  ),
+  purchase(
+    'i-visa-farmacia',
+    'itau-visa',
+    '2026-10-18',
+    'Farmácia Pague Menos',
+    'saude',
+    21419,
+  ),
+  purchase(
+    'i-visa-livraria',
+    'itau-visa',
+    '2026-10-24',
+    'Livraria Cultura',
+    'educacao',
+    19370,
+  ),
+  purchase(
+    'i-master-out',
+    'itau-mastercard',
+    '2026-10-05',
+    'Compras do período',
+    undefined,
+    54000,
+  ),
+];
+
+const payment = (
+  id: string,
+  cardId: string,
+  invoice: string,
+  date: string,
+  accountId: string,
+  cents: Cents,
+  posted: boolean,
+): InvoicePayment => ({
+  id,
+  cardId,
+  invoice,
+  date,
+  accountId,
+  cents,
+  ...(posted ? {} : { posted: false as const }),
+});
+
+/** Faturas pagas: as de antes de 01/10 já estão no saldo inicial das contas. */
+export const SEED_PAYMENTS: readonly InvoicePayment[] = [
+  payment(
+    'p-nu-ago',
+    'nubank-master',
+    '2026-08',
+    '2026-08-05',
+    'nubank-conta',
+    274000,
+    false,
+  ),
+  payment(
+    'p-nu-set',
+    'nubank-master',
+    '2026-09',
+    '2026-09-05',
+    'nubank-conta',
+    301140,
+    false,
+  ),
+  payment(
+    'p-nu-out',
+    'nubank-master',
+    '2026-10',
+    '2026-10-05',
+    'nubank-conta',
+    218317,
+    true,
+  ),
+  payment(
+    'p-visa-set',
+    'itau-visa',
+    '2026-09',
+    '2026-10-08',
+    'itau-corrente',
+    150245,
+    true,
+  ),
+];
+
 export const seedData = (): FinanceData => ({
+  cards: SEED_CARDS,
+  cardItems: SEED_CARD_ITEMS,
+  payments: SEED_PAYMENTS,
   accounts: SEED_ACCOUNTS,
   movements: SEED_MOVEMENTS,
   categories: SEED_CATEGORIES,

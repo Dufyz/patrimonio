@@ -37,7 +37,12 @@ export type Entry = {
   readonly status: EntryStatus;
   readonly recurringId?: string;
   /** Parcela n de N de uma compra no cartão (RN-45). */
-  readonly installment?: { readonly n: number; readonly of: number };
+  readonly installment?: {
+    readonly n: number;
+    readonly of: number;
+    /** A data da compra original, que a fatura exibe em todas as parcelas. */
+    readonly origin?: IsoDate;
+  };
   readonly payments: readonly Payment[];
   /**
    * Anterior ao período acompanhado: conta nas médias por categoria, mas não
@@ -96,7 +101,7 @@ export type Account = {
 };
 
 /** O que move uma conta além dos lançamentos (RN-32 a RN-34, RN-36). */
-export type MovementKind = 'transferencia' | 'fatura' | 'credito' | 'ajuste';
+export type MovementKind = 'transferencia' | 'credito' | 'ajuste';
 
 /**
  * Movimentação fora de Lançamentos: nunca é receita nem despesa (RN-33).
@@ -114,7 +119,70 @@ export type Movement = {
   readonly transferId?: string;
 };
 
+/**
+ * RN-40: cada cartão pertence a uma conta, que paga a fatura, e tem limite, dia
+ * de fechamento e dia de vencimento.
+ */
+export type Card = {
+  readonly id: string;
+  readonly name: string;
+  /** Os quatro últimos dígitos. */
+  readonly last4: string;
+  readonly payerId: string;
+  readonly limitCents: Cents;
+  readonly closingDay: number;
+  readonly dueDay: number;
+};
+
+export type CreditType = 'devolucao' | 'estorno' | 'desconto' | 'cashback';
+export type ChargeType = 'juros' | 'multa' | 'iof';
+
+/**
+ * Um item de fatura que não é lançamento (RN-46): compra que o Gasto livre
+ * resume, parcela de compra antiga, crédito ou encargo. Fica só na fatura e não
+ * entra em Lançamentos nem nos totais de despesa. O valor é sempre positivo; o
+ * tipo diz se soma ou abate. Compra e parcela caem na fatura pela data (RN-42);
+ * crédito e encargo são lançados direto numa fatura (`invoice`).
+ */
+export type CardItem = {
+  readonly id: string;
+  readonly cardId: string;
+  readonly kind: 'compra' | 'credito' | 'encargo';
+  /** Compra: a data que decide a fatura. Parcela: a da própria parcela. */
+  readonly date: IsoDate;
+  readonly description: string;
+  readonly categoryId?: string;
+  readonly cents: Cents;
+  readonly subtype?: CreditType | ChargeType;
+  readonly installment?: {
+    readonly n: number;
+    readonly of: number;
+    readonly origin: IsoDate;
+  };
+  /** Crédito e encargo: o mês de vencimento da fatura (`AAAA-MM`). */
+  readonly invoice?: string;
+};
+
+/**
+ * Pagamento de uma fatura (RN-50): debita a conta do cartão e marca a fatura
+ * como paga. `posted: false` é um pagamento anterior ao período acompanhado,
+ * já contido no saldo inicial da conta.
+ */
+export type InvoicePayment = {
+  readonly id: string;
+  readonly cardId: string;
+  /** O mês de vencimento da fatura (`AAAA-MM`). */
+  readonly invoice: string;
+  readonly date: IsoDate;
+  readonly accountId: string;
+  readonly cents: Cents;
+  readonly posted?: boolean;
+};
+
 export type FinanceData = {
+  readonly cards: readonly Card[];
+  readonly cardItems: readonly CardItem[];
+  readonly payments: readonly InvoicePayment[];
   readonly accounts: readonly Account[];
   readonly movements: readonly Movement[];
   readonly categories: readonly Category[];

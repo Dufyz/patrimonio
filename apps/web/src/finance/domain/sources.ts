@@ -4,8 +4,8 @@ import type { FinanceData } from './types.js';
  * As origens de pagamento: conta, benefício ou cartão.
  *
  * Contas e benefícios vêm do cadastro (`data.accounts`, FIN-404), de modo que
- * uma conta nova já é uma origem possível. Os cartões vêm deste catálogo mínimo
- * até a fase 6 trazer o cadastro de cartões.
+ * uma conta nova já é uma origem possível. Os cartões vêm do cadastro de
+ * cartões (`data.cards`, FIN-503).
  */
 
 export type SourceType = 'conta' | 'beneficio' | 'cartao';
@@ -18,16 +18,6 @@ export type PaymentSource = {
   readonly payerId?: string;
 };
 
-export const CARDS: readonly PaymentSource[] = [
-  { id: 'itau-visa', name: 'Itaú Visa', type: 'cartao', payerId: 'itau-corrente' },
-  {
-    id: 'nubank-master',
-    name: 'Nubank Mastercard',
-    type: 'cartao',
-    payerId: 'nubank-conta',
-  },
-];
-
 /** Todas as origens conhecidas, inclusive de conta arquivada: o histórico as cita. */
 export const allSources = (data: FinanceData): readonly PaymentSource[] => [
   ...data.accounts.map((account) => ({
@@ -35,7 +25,12 @@ export const allSources = (data: FinanceData): readonly PaymentSource[] => [
     name: account.name,
     type: account.type,
   })),
-  ...CARDS,
+  ...data.cards.map((card) => ({
+    id: card.id,
+    name: card.name,
+    type: 'cartao' as const,
+    payerId: card.payerId,
+  })),
 ];
 
 /** As origens que se pode escolher hoje: conta arquivada sai das opções (RN-38). */

@@ -43,7 +43,11 @@ describe('saldos de 24/10/2026 (prancha 03)', () => {
   it('variação por conta e cartões vinculados', () => {
     const rows = accountsOverview(data, OCTOBER, TODAY).accounts;
     expect(rows.map((r) => r.variation)).toEqual([97925, 65435, -6000]);
-    expect(rows.map((r) => r.cards)).toEqual([['Itaú Visa'], ['Nubank Mastercard'], []]);
+    expect(rows.map((r) => r.cards)).toEqual([
+      ['Itaú Visa', 'Itaú Mastercard'],
+      ['Nubank Mastercard'],
+      [],
+    ]);
   });
 
   it('arquivada some da tabela, a menos que se peça', () => {
@@ -143,8 +147,8 @@ describe('extrato do Itaú Corrente (prancha 03B)', () => {
 describe('Nubank Conta e Flex', () => {
   it('recebe a transferência e paga a fatura', () => {
     const lines = accountLines(data, 'nubank-conta', TODAY);
-    expect(lines.map((l) => l.tags[0])).toEqual(['transferência', 'fatura']);
-    expect(lines.map((l) => l.balanceAfter)).toEqual([1246600, 842035]);
+    expect(lines.map((l) => l.tags[0])).toEqual(['transferência', 'fatura', 'ajuste']);
+    expect(lines.map((l) => l.balanceAfter)).toEqual([1246600, 1028283, 842035]);
   });
 
   it('o Flex mostra a parte que pagou', () => {
@@ -210,11 +214,11 @@ describe('consistência do extrato (FIN-405)', () => {
 
   it('subtítulo: tipo, instituição e cartões', () => {
     const by = (id: string) => data.accounts.find((a) => a.id === id)!;
-    expect(accountSubtitle(by('itau-corrente'))).toBe(
-      'Conta corrente · Itaú Unibanco · cartão Itaú Visa',
+    expect(accountSubtitle(data, by('itau-corrente'))).toBe(
+      'Conta corrente · Itaú Unibanco · cartões Itaú Visa e Itaú Mastercard',
     );
-    expect(accountSubtitle(by('carteira'))).toBe('Conta');
-    expect(accountSubtitle(by('flex'))).toBe('Benefício');
+    expect(accountSubtitle(data, by('carteira'))).toBe('Conta');
+    expect(accountSubtitle(data, by('flex'))).toBe('Benefício');
   });
 });
 

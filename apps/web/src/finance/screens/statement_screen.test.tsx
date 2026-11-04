@@ -42,7 +42,9 @@ describe('Extrato: cabeçalho de saldo (FIN-405)', () => {
       screen.getByRole('heading', { level: 1, name: 'Itaú Corrente' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Conta corrente · Itaú Unibanco · cartão Itaú Visa'),
+      screen.getByText(
+        'Conta corrente · Itaú Unibanco · cartões Itaú Visa e Itaú Mastercard',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Contas' })).toHaveAttribute(
       'href',

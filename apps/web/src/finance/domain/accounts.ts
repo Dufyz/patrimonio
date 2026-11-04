@@ -1,10 +1,10 @@
-import { addDays, compareDates } from '../lib/dates.js';
+import { addDays, compareDates, MONTH_ABBREVIATIONS, parseIso } from '../lib/dates.js';
 import type { IsoDate } from '../lib/dates.js';
 import { formatBRL } from '../lib/format.js';
 import { sum } from '../lib/money.js';
 import type { Cents } from '../lib/money.js';
 import type { DateRange } from '../lib/period.js';
-import { CARDS, sourceName } from './sources.js';
+import { sourceName } from './sources.js';
 import type { Account, Entry, FinanceData, MovementKind } from './types.js';
 
 /**
@@ -16,7 +16,7 @@ import type { Account, Entry, FinanceData, MovementKind } from './types.js';
  * `FinanceData`; nenhuma tela guarda saldo.
  */
 
-export type LineOrigin = 'lancamento' | MovementKind;
+export type LineOrigin = 'lancamento' | 'fatura' | MovementKind;
 
 /** Uma linha do extrato: o que uma conta viu entrar ou sair. */
 export type StatementLine = {
@@ -38,7 +38,6 @@ export type PostedLine = StatementLine & { readonly balanceAfter: Cents };
 
 const ORIGIN_TAG: Readonly<Record<MovementKind, string>> = {
   transferencia: 'transferência',
-  fatura: 'fatura',
   credito: 'crédito',
   ajuste: 'ajuste',
 };
@@ -49,7 +48,19 @@ export const findAccount = (data: FinanceData, id: string): Account | undefined 
 export const accountLabel = (data: FinanceData, id: string): string =>
   findAccount(data, id)?.name ?? sourceName(data, id);
 
-const isCard = (sourceId: string): boolean => CARDS.some((card) => card.id === sourceId);
+const isCard = (data: FinanceData, sourceId: string): boolean =>
+  data.cards.some((card) => card.id === sourceId);
+
+/** "Pagamento da fatura Itaú Visa (set)": o mês é o do vencimento. */
+export const paymentDescription = (
+  data: FinanceData,
+  cardId: string,
+  invoice: string,
+): string => {
+  const card = data.cards.find((c) => c.id === cardId);
+  const month = MONTH_ABBREVIATIONS[parseIso(`${invoice}-01`).month - 1] ?? '';
+  return `Pagamento da fatura ${card?.name ?? cardId} (${month})`;
+};
 
 const entryNote = (
   data: FinanceData,
@@ -125,6 +136,20 @@ export const accountLines = (
       ...(movement.note === undefined ? {} : { note: movement.note }),
       cents: movement.cents,
       tags: [ORIGIN_TAG[movement.kind]],
+    };
+    ranked.push({ line, rank: 2, order: order++ });
+  }
+
+  for (const payment of data.payments) {
+    if (payment.accountId !== accountId || payment.posted === false) continue;
+    if (compareDates(payment.date, today) > 0) continue;
+    const line: StatementLine = {
+      id: payment.id,
+      date: payment.date,
+      origin: 'fatura',
+      description: paymentDescription(data, payment.cardId, payment.invoice),
+      cents: -payment.cents,
+      tags: ['fatura'],
     };
     ranked.push({ line, rank: 2, order: order++ });
   }
@@ -226,9 +251,9 @@ export const accountsOverview = (
         account,
         balance: accountBalance(data, account.id, today),
         variation: stmt.closing - stmt.opening,
-        cards: CARDS.filter((card) => card.payerId === account.id).map(
-          (card) => card.name,
-        ),
+        cards: data.cards
+          .filter((card) => card.payerId === account.id)
+          .map((card) => card.name),
       };
     });
   const accounts = rows.filter((row) => row.account.type === 'conta');
@@ -270,7 +295,7 @@ export const recentMovements = (
   for (const entry of data.entries) {
     if (entry.historical === true || entry.status !== 'lancada') continue;
     if (compareDates(entry.date, today) > 0) continue;
-    const accountParts = entry.payments.filter((p) => !isCard(p.sourceId));
+    const accountParts = entry.payments.filter((p) => !isCard(data, p.sourceId));
     if (accountParts.length === 0) continue;
     items.push({
       id: entry.id,
@@ -300,6 +325,20 @@ export const recentMovements = (
     });
   }
 
+  for (const payment of data.payments) {
+    if (payment.posted === false || compareDates(payment.date, today) > 0) continue;
+    items.push({
+      id: payment.id,
+      date: payment.date,
+      description: paymentDescription(data, payment.cardId, payment.invoice),
+      accountLabel: accountLabel(data, payment.accountId),
+      tags: ['fatura'],
+      cents: -payment.cents,
+      rank: 2,
+      order: order++,
+    });
+  }
+
   items.sort(
     (a, b) => compareDates(b.date, a.date) || b.rank - a.rank || b.order - a.order,
   );
@@ -314,17 +353,23 @@ export const statementCloses = (stmt: Statement): boolean =>
   stmt.opening + stmt.entered - stmt.left === stmt.closing;
 
 /** Tipo, instituição e cartão vinculado: "Conta corrente · Itaú Unibanco · cartão Itaú Visa". */
-export const accountSubtitle = (account: Account): string => {
+export const accountSubtitle = (data: FinanceData, account: Account): string => {
   const kind =
     account.type === 'beneficio'
       ? 'Benefício'
       : account.institution === undefined
         ? 'Conta'
         : 'Conta corrente';
-  const cards = CARDS.filter((card) => card.payerId === account.id).map(
-    (card) => `cartão ${card.name}`,
-  );
-  return [kind, account.institution, ...cards]
+  const cards = data.cards
+    .filter((card) => card.payerId === account.id)
+    .map((c) => c.name);
+  const cardPart =
+    cards.length === 0
+      ? undefined
+      : cards.length === 1
+        ? `cartão ${cards[0]}`
+        : `cartões ${cards.slice(0, -1).join(', ')} e ${cards[cards.length - 1]}`;
+  return [kind, account.institution, cardPart]
     .filter((part): part is string => part !== undefined && part !== '')
     .join(' · ');
 };

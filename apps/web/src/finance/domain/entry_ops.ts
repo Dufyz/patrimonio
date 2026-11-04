@@ -263,7 +263,7 @@ export const addEntry = (
     date: addMonths(draft.date, index),
     cents,
     status: index === 0 ? 'lancada' : 'prevista',
-    installment: { n: index + 1, of: count },
+    installment: { n: index + 1, of: count, origin: draft.date },
     payments: [{ sourceId: draft.sourceId, cents }],
   }));
   return { ...data, entries: [...data.entries, ...created] };

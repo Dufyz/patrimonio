@@ -3,7 +3,6 @@ import type { IsoDate } from '../lib/dates.js';
 import { parseMoneyInput } from '../lib/format.js';
 import { normalizeText } from '../lib/text.js';
 import { accountBalance } from './accounts.js';
-import { CARDS } from './sources.js';
 import type { Account, AccountType, FinanceData } from './types.js';
 
 /**
@@ -170,7 +169,7 @@ export const updateAccount = (
 export const archiveBlockedReason = (data: FinanceData, id: string): string | null => {
   const account = data.accounts.find((a) => a.id === id);
   if (account === undefined) return 'Conta não encontrada.';
-  const cards = CARDS.filter((card) => card.payerId === id).map((card) => card.name);
+  const cards = data.cards.filter((card) => card.payerId === id).map((card) => card.name);
   if (cards.length === 0) return null;
   return `${account.name} paga ${cards.length === 1 ? 'o cartão' : 'os cartões'} ${cards.join(' e ')}. Passe a fatura para outra conta antes de arquivar.`;
 };
