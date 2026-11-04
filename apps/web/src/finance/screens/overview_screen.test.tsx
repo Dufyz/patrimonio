@@ -88,3 +88,57 @@ describe('Receitas × despesas (FIN-602)', () => {
     expect(screen.getByRole('tooltip').textContent).toContain('R$ 6.871,90');
   });
 });
+
+describe('Despesas por categoria (FIN-603)', () => {
+  const panel = () => screen.getByRole('region', { name: 'Despesas por categoria' });
+  const table = () =>
+    within(screen.getByRole('table', { name: 'Despesas por categoria' }));
+
+  it('subtítulo com o mês e "até agora", e a coluna de comparação com o mês anterior', () => {
+    open();
+    expect(within(panel()).getByText('out/2026 · até agora')).toBeTruthy();
+    expect(table().getByRole('columnheader', { name: 'SET/2026' })).toBeTruthy();
+  });
+
+  it('ordena da maior para a menor e mostra marcador, valor, variação e percentual', () => {
+    open();
+    const rows = table().getAllByRole('row').slice(1);
+    expect(rows[0]?.textContent).toContain('Investimento');
+    expect(rows[0]?.textContent).toContain('R$ 4.500,00');
+    expect(rows[0]?.textContent).toContain('R$ 6.200,00');
+    expect(rows[0]?.textContent).toContain('−27%');
+    expect(rows[0]?.textContent).toContain('47,5%');
+    expect(rows[1]?.textContent).toContain('Moradia');
+    expect(rows[1]?.textContent).toContain('+4%');
+  });
+
+  it('variação menor é verde e maior é vermelha; os percentuais somam 100%', () => {
+    open();
+    const rows = table().getAllByRole('row').slice(1);
+    const cellTone = (row: HTMLElement | undefined) =>
+      row?.querySelector('td:nth-child(4)')?.className ?? '';
+    expect(cellTone(rows[0])).toContain('text-positive');
+    expect(cellTone(rows[1])).toContain('text-negative');
+    const total = rows
+      .map((row) =>
+        Number(
+          (row.querySelector('td:nth-child(5)')?.textContent ?? '0')
+            .replace(',', '.')
+            .replace('%', ''),
+        ),
+      )
+      .reduce((a, b) => a + b, 0);
+    expect(Math.round(total * 10) / 10).toBe(100);
+  });
+
+  it('a barra empilhada tem um trecho por categoria e o link leva a Lançamentos', async () => {
+    open();
+    expect(panel().querySelectorAll('[data-category]').length).toBe(
+      table().getAllByRole('row').length - 1,
+    );
+    await userEvent.click(
+      within(panel()).getByRole('link', { name: 'Ver os lançamentos' }),
+    );
+    expect(screen.getByText('Lançamentos aberto')).toBeTruthy();
+  });
+});

@@ -1,9 +1,10 @@
+import { CategoryBreakdown } from '../components/category_breakdown.js';
 import { FlowChart } from '../components/flow_chart.js';
 import { PeriodControl } from '../components/period_control.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { OverviewStrip } from '../components/overview_strip.js';
 import { ScreenHeader } from '../components/screen_header.js';
-import { monthResult, monthSeries } from '../domain/overview.js';
+import { categoryBreakdown, monthResult, monthSeries } from '../domain/overview.js';
 import { useFinanceData } from '../store/finance_store.js';
 
 /**
@@ -15,6 +16,7 @@ export const OverviewScreen = (): React.ReactElement => {
   const { range, setRange, today } = useFinancePeriod();
   const result = monthResult(data, range, today);
   const series = monthSeries(data, range, today);
+  const breakdown = categoryBreakdown(data, range);
 
   return (
     <>
@@ -37,6 +39,12 @@ export const OverviewScreen = (): React.ReactElement => {
           </header>
           <FlowChart points={series} />
         </section>
+        <CategoryBreakdown
+          breakdown={breakdown}
+          categories={data.categories}
+          range={range}
+          today={today}
+        />
       </div>
     </>
   );
