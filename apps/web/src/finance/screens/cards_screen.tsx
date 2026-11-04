@@ -180,7 +180,9 @@ export const CardsScreen = (): React.ReactElement => {
         </PanelBoundary>
 
         <PanelBoundary title="as próximas faturas">
-          <UpcomingInvoices data={data} today={today} />
+          {data.cards.length === 0 ? null : (
+            <UpcomingInvoices data={data} today={today} />
+          )}
         </PanelBoundary>
       </div>
 

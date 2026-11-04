@@ -5,6 +5,7 @@ import { Panel } from '../../components/primitives.js';
 import { CategoryBreakdown } from '../components/category_breakdown.js';
 import { FlowChart } from '../components/flow_chart.js';
 import { PanelBoundary } from '../components/states.js';
+import { FinanceWelcome } from '../components/finance_welcome.js';
 import { EntryDialog } from '../components/entry_dialog.js';
 import { OverviewLedger } from '../components/overview_ledger.js';
 import { PeriodControl } from '../components/period_control.js';
@@ -38,6 +39,20 @@ export const OverviewScreen = (): React.ReactElement => {
   const series = monthSeries(data, range, today);
   const breakdown = categoryBreakdown(data, range);
   const ledger = ledgerCard(data, range);
+
+  const firstUse =
+    data.accounts.length === 0 && data.cards.length === 0 && data.entries.length === 0;
+
+  if (firstUse) {
+    return (
+      <>
+        <ScreenHeader title="Visão geral" subtitle="Finanças · receitas e despesas" />
+        <div className="flex flex-col gap-4">
+          <FinanceWelcome data={data} today={today} />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

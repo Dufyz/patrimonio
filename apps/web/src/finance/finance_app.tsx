@@ -1,26 +1,64 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useShortcuts } from '../components/shortcuts.js';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 
 import { FinanceSearch } from './components/finance_search.js';
 import { FinanceShell } from './components/finance_shell.js';
 import { FinancePeriodProvider, useFinancePeriod } from './components/period_provider.js';
-import { OverviewScreen } from './screens/overview_screen.js';
-import { CardScreen } from './screens/card_screen.js';
-import { CardsScreen } from './screens/cards_screen.js';
-import { AccountsScreen } from './screens/accounts_screen.js';
-import { StatementScreen } from './screens/statement_screen.js';
-import { EntriesScreen } from './screens/entries_screen.js';
-import { RecurringsScreen } from './screens/recurrings_screen.js';
-import { CategoriesScreen } from './screens/categories_screen.js';
-import { SettingsScreen } from './screens/settings_screen.js';
 
+import {
+  DetailSkeleton,
+  OverviewSkeleton,
+  SettingsSkeleton,
+  TableScreenSkeleton,
+} from './components/screen_skeletons.js';
 import { syncBenefitCredits } from './domain/benefits.js';
 import { syncRecurring } from './domain/recurring.js';
 import { FinanceStoreProvider, useFinanceStore } from './store/finance_store.js';
 import { setTodayOverride, todayFromSearch } from './lib/clock.js';
 
-/** FIN-001 · As rotas de Finanças, sob `/financas`. */
+/** FIN-001 · As rotas de Finanças, sob `/financas`. Cada tela chega por conta própria, com o esqueleto dela. */
+const OverviewScreen = lazy(() =>
+  import('./screens/overview_screen.js').then((module) => ({
+    default: module.OverviewScreen,
+  })),
+);
+const CardScreen = lazy(() =>
+  import('./screens/card_screen.js').then((module) => ({ default: module.CardScreen })),
+);
+const CardsScreen = lazy(() =>
+  import('./screens/cards_screen.js').then((module) => ({ default: module.CardsScreen })),
+);
+const AccountsScreen = lazy(() =>
+  import('./screens/accounts_screen.js').then((module) => ({
+    default: module.AccountsScreen,
+  })),
+);
+const StatementScreen = lazy(() =>
+  import('./screens/statement_screen.js').then((module) => ({
+    default: module.StatementScreen,
+  })),
+);
+const EntriesScreen = lazy(() =>
+  import('./screens/entries_screen.js').then((module) => ({
+    default: module.EntriesScreen,
+  })),
+);
+const RecurringsScreen = lazy(() =>
+  import('./screens/recurrings_screen.js').then((module) => ({
+    default: module.RecurringsScreen,
+  })),
+);
+const CategoriesScreen = lazy(() =>
+  import('./screens/categories_screen.js').then((module) => ({
+    default: module.CategoriesScreen,
+  })),
+);
+const SettingsScreen = lazy(() =>
+  import('./screens/settings_screen.js').then((module) => ({
+    default: module.SettingsScreen,
+  })),
+);
 
 /**
  * `?hoje=2026-10-24` fixa o "hoje" da sessão: é como se confere uma tela contra
@@ -61,15 +99,96 @@ export const FinanceApp = (): React.ReactElement => {
         <FinanceShell onOpenSearch={() => setSearching(true)}>
           <Routes>
             <Route path="/" element={<Navigate to="visao-geral" replace />} />
-            <Route path="visao-geral" element={<OverviewScreen />} />
-            <Route path="lancamentos" element={<EntriesScreen />} />
-            <Route path="contas" element={<AccountsScreen />} />
-            <Route path="contas/:id" element={<StatementScreen />} />
-            <Route path="cartoes" element={<CardsScreen />} />
-            <Route path="cartoes/:id" element={<CardScreen />} />
-            <Route path="recorrentes" element={<RecurringsScreen />} />
-            <Route path="categorias" element={<CategoriesScreen />} />
-            <Route path="configuracoes" element={<SettingsScreen />} />
+            <Route
+              path="visao-geral"
+              element={
+                <Suspense fallback={<OverviewSkeleton />}>
+                  <OverviewScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="lancamentos"
+              element={
+                <Suspense
+                  fallback={
+                    <TableScreenSkeleton label="Carregando Lançamentos" stats={4} />
+                  }
+                >
+                  <EntriesScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="contas"
+              element={
+                <Suspense
+                  fallback={
+                    <TableScreenSkeleton label="Carregando Contas" stats={3} rows={5} />
+                  }
+                >
+                  <AccountsScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="contas/:id"
+              element={
+                <Suspense fallback={<DetailSkeleton label="Carregando extrato" />}>
+                  <StatementScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="cartoes"
+              element={
+                <Suspense
+                  fallback={
+                    <TableScreenSkeleton label="Carregando Cartões" stats={3} rows={5} />
+                  }
+                >
+                  <CardsScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="cartoes/:id"
+              element={
+                <Suspense fallback={<DetailSkeleton label="Carregando fatura" />}>
+                  <CardScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="recorrentes"
+              element={
+                <Suspense
+                  fallback={
+                    <TableScreenSkeleton label="Carregando Recorrentes" stats={3} />
+                  }
+                >
+                  <RecurringsScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="categorias"
+              element={
+                <Suspense
+                  fallback={<TableScreenSkeleton label="Carregando Categorias" />}
+                >
+                  <CategoriesScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="configuracoes"
+              element={
+                <Suspense fallback={<SettingsSkeleton />}>
+                  <SettingsScreen />
+                </Suspense>
+              }
+            />
             <Route path="*" element={<Navigate to="/financas/visao-geral" replace />} />
           </Routes>
         </FinanceShell>

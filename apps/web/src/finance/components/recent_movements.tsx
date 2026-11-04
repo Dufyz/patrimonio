@@ -1,3 +1,4 @@
+import { EmptyPanel } from './states.js';
 import { Link } from 'react-router';
 
 import { recentMovements } from '../domain/accounts.js';
@@ -37,52 +38,56 @@ export const RecentMovements = (): React.ReactElement => {
           Ver em Lançamentos
         </Link>
       </header>
-      <FinTable caption="Últimas movimentações">
-        <THead>
-          <Th>Data</Th>
-          <Th>Descrição</Th>
-          <Th>Categoria</Th>
-          <Th>Conta</Th>
-          <Th>
-            <span className="sr-only">Natureza</span>
-          </Th>
-          <Th align="right">Valor</Th>
-        </THead>
-        <tbody>
-          {items.map((item) => {
-            const category = data.categories.find((c) => c.id === item.categoryId);
-            return (
-              <Row key={item.id}>
-                <Td numeric className="!text-left">
-                  {formatDay(item.date, today)}
-                </Td>
-                <Td className="font-medium">{item.description}</Td>
-                <Td>
-                  {category === undefined ? (
-                    '—'
-                  ) : (
-                    <CategoryMarker
-                      color={categoryColor(category.color)}
-                      name={category.name}
-                    />
-                  )}
-                </Td>
-                <Td>{item.accountLabel}</Td>
-                <Td>
-                  <span className="flex flex-wrap gap-1">
-                    {item.tags.map((tag) => (
-                      <NatureTag key={tag} kind={tag} />
-                    ))}
-                  </span>
-                </Td>
-                <Td numeric>
-                  <Amount cents={item.cents} variant="flow" />
-                </Td>
-              </Row>
-            );
-          })}
-        </tbody>
-      </FinTable>
+      {items.length === 0 ? (
+        <EmptyPanel message="Nenhuma movimentação ainda. Os lançamentos das contas aparecem aqui." />
+      ) : (
+        <FinTable caption="Últimas movimentações">
+          <THead>
+            <Th>Data</Th>
+            <Th>Descrição</Th>
+            <Th>Categoria</Th>
+            <Th>Conta</Th>
+            <Th>
+              <span className="sr-only">Natureza</span>
+            </Th>
+            <Th align="right">Valor</Th>
+          </THead>
+          <tbody>
+            {items.map((item) => {
+              const category = data.categories.find((c) => c.id === item.categoryId);
+              return (
+                <Row key={item.id}>
+                  <Td numeric className="!text-left">
+                    {formatDay(item.date, today)}
+                  </Td>
+                  <Td className="font-medium">{item.description}</Td>
+                  <Td>
+                    {category === undefined ? (
+                      '—'
+                    ) : (
+                      <CategoryMarker
+                        color={categoryColor(category.color)}
+                        name={category.name}
+                      />
+                    )}
+                  </Td>
+                  <Td>{item.accountLabel}</Td>
+                  <Td>
+                    <span className="flex flex-wrap gap-1">
+                      {item.tags.map((tag) => (
+                        <NatureTag key={tag} kind={tag} />
+                      ))}
+                    </span>
+                  </Td>
+                  <Td numeric>
+                    <Amount cents={item.cents} variant="flow" />
+                  </Td>
+                </Row>
+              );
+            })}
+          </tbody>
+        </FinTable>
+      )}
     </section>
   );
 };

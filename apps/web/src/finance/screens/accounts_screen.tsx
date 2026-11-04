@@ -1,3 +1,4 @@
+import { EmptyPanel } from '../components/states.js';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -90,75 +91,89 @@ export const AccountsScreen = (): React.ReactElement => {
         }
       />
 
-      <section className="rounded-panel border border-line bg-panel">
-        {hasArchived ? (
-          <div className="flex justify-end border-b border-line px-4 py-2">
-            <label className="flex cursor-pointer items-center gap-2 text-[0.8125rem] text-ink-2">
-              <Checkbox
-                checked={showArchived}
-                onCheckedChange={(value) => setShowArchived(value === true)}
+      {data.accounts.length === 0 ? (
+        <section className="rounded-panel border border-line bg-panel">
+          <EmptyPanel
+            message="Nenhuma conta cadastrada. Crie a primeira para registrar saldos e lançamentos."
+            actionLabel="Nova conta"
+            onAction={() => setEditing({ type: 'new' })}
+          />
+        </section>
+      ) : (
+        <section className="rounded-panel border border-line bg-panel">
+          {hasArchived ? (
+            <div className="flex justify-end border-b border-line px-4 py-2">
+              <label className="flex cursor-pointer items-center gap-2 text-[0.8125rem] text-ink-2">
+                <Checkbox
+                  checked={showArchived}
+                  onCheckedChange={(value) => setShowArchived(value === true)}
+                />
+                Mostrar arquivadas
+              </label>
+            </div>
+          ) : null}
+          <FinTable caption="Contas e benefícios">
+            <THead>
+              <Th>Conta</Th>
+              <Th className={hideBelow(1)}>Cartão</Th>
+              <Th align="right">Saldo</Th>
+              <Th align="right" className={hideBelow(2)}>
+                Variação no mês
+              </Th>
+              <Th>
+                <span className="sr-only">Ações</span>
+              </Th>
+            </THead>
+            <tbody>
+              <SectionRow
+                colSpan={5}
+                label="Contas"
+                summary="entram no saldo em contas"
               />
-              Mostrar arquivadas
-            </label>
-          </div>
-        ) : null}
-        <FinTable caption="Contas e benefícios">
-          <THead>
-            <Th>Conta</Th>
-            <Th className={hideBelow(1)}>Cartão</Th>
-            <Th align="right">Saldo</Th>
-            <Th align="right" className={hideBelow(2)}>
-              Variação no mês
-            </Th>
-            <Th>
-              <span className="sr-only">Ações</span>
-            </Th>
-          </THead>
-          <tbody>
-            <SectionRow colSpan={5} label="Contas" summary="entram no saldo em contas" />
-            {overview.accounts.map((row) => (
-              <AccountTableRow
-                key={row.account.id}
-                row={row}
-                onTransfer={() => setTransfer({ fromId: row.account.id })}
-                onEdit={() => setEditing({ type: 'edit', account: row.account })}
-                onArchive={() => setArchiving(row.account)}
-                onRestore={() =>
-                  store.set((current) => restoreAccount(current, row.account.id))
-                }
+              {overview.accounts.map((row) => (
+                <AccountTableRow
+                  key={row.account.id}
+                  row={row}
+                  onTransfer={() => setTransfer({ fromId: row.account.id })}
+                  onEdit={() => setEditing({ type: 'edit', account: row.account })}
+                  onArchive={() => setArchiving(row.account)}
+                  onRestore={() =>
+                    store.set((current) => restoreAccount(current, row.account.id))
+                  }
+                />
+              ))}
+              <SummaryRow kind="total">
+                <Td>Total em contas</Td>
+                <Td className={hideBelow(1)} />
+                <Td numeric>
+                  <Amount cents={overview.totalBalance} />
+                </Td>
+                <Td numeric className={hideBelow(2)}>
+                  <Amount cents={overview.totalVariation} variant="delta" />
+                </Td>
+                <Td />
+              </SummaryRow>
+              <SectionRow
+                colSpan={5}
+                label="Benefícios"
+                summary="ficam fora do saldo em contas"
               />
-            ))}
-            <SummaryRow kind="total">
-              <Td>Total em contas</Td>
-              <Td className={hideBelow(1)} />
-              <Td numeric>
-                <Amount cents={overview.totalBalance} />
-              </Td>
-              <Td numeric className={hideBelow(2)}>
-                <Amount cents={overview.totalVariation} variant="delta" />
-              </Td>
-              <Td />
-            </SummaryRow>
-            <SectionRow
-              colSpan={5}
-              label="Benefícios"
-              summary="ficam fora do saldo em contas"
-            />
-            {overview.benefits.map((row) => (
-              <AccountTableRow
-                key={row.account.id}
-                row={row}
-                onTransfer={() => setTransfer({ fromId: row.account.id })}
-                onEdit={() => setEditing({ type: 'edit', account: row.account })}
-                onArchive={() => setArchiving(row.account)}
-                onRestore={() =>
-                  store.set((current) => restoreAccount(current, row.account.id))
-                }
-              />
-            ))}
-          </tbody>
-        </FinTable>
-      </section>
+              {overview.benefits.map((row) => (
+                <AccountTableRow
+                  key={row.account.id}
+                  row={row}
+                  onTransfer={() => setTransfer({ fromId: row.account.id })}
+                  onEdit={() => setEditing({ type: 'edit', account: row.account })}
+                  onArchive={() => setArchiving(row.account)}
+                  onRestore={() =>
+                    store.set((current) => restoreAccount(current, row.account.id))
+                  }
+                />
+              ))}
+            </tbody>
+          </FinTable>
+        </section>
+      )}
 
       <RecentMovements />
 

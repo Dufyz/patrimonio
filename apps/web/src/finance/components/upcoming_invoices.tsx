@@ -1,3 +1,4 @@
+import { EmptyPanel } from './states.js';
 import { Link } from 'react-router';
 
 import { Amount } from './amount.js';
@@ -23,43 +24,47 @@ export const UpcomingInvoices = ({
         <h2 className="text-sm font-semibold">Próximas faturas</h2>
         <span className="text-xs text-ink-3">parcelas e recorrentes já previstos</span>
       </header>
-      <FinTable caption="Próximas faturas">
-        <THead>
-          <Th>Fatura de</Th>
-          {data.cards.map((card) => (
-            <Th key={card.id} align="right">
-              <Link className="hover:underline" to={financeRoutes.card(card.id)}>
-                {card.name}
-              </Link>
-            </Th>
-          ))}
-          <Th align="right">Total</Th>
-        </THead>
-        <tbody>
-          {rows.map((row) => (
-            <Row key={row.key} label={`Fatura de ${row.key}`}>
-              <Td>
-                <span className="inline-flex items-center gap-3">
-                  <span className="font-medium">{formatMonth(`${row.key}-01`)}</span>
-                  <StatusTag status={row.status} />
-                </span>
-              </Td>
-              {row.cells.map((cell) => (
-                <Td key={cell.cardId} numeric>
-                  {cell.cents === null ? (
-                    <span className="text-ink-3">—</span>
-                  ) : (
-                    <Amount cents={cell.cents} />
-                  )}
+      {rows.length === 0 ? (
+        <EmptyPanel message="Nenhuma fatura prevista para os próximos meses." />
+      ) : (
+        <FinTable caption="Próximas faturas">
+          <THead>
+            <Th>Fatura de</Th>
+            {data.cards.map((card) => (
+              <Th key={card.id} align="right">
+                <Link className="hover:underline" to={financeRoutes.card(card.id)}>
+                  {card.name}
+                </Link>
+              </Th>
+            ))}
+            <Th align="right">Total</Th>
+          </THead>
+          <tbody>
+            {rows.map((row) => (
+              <Row key={row.key} label={`Fatura de ${row.key}`}>
+                <Td>
+                  <span className="inline-flex items-center gap-3">
+                    <span className="font-medium">{formatMonth(`${row.key}-01`)}</span>
+                    <StatusTag status={row.status} />
+                  </span>
                 </Td>
-              ))}
-              <Td numeric className="font-semibold">
-                <Amount cents={row.total} />
-              </Td>
-            </Row>
-          ))}
-        </tbody>
-      </FinTable>
+                {row.cells.map((cell) => (
+                  <Td key={cell.cardId} numeric>
+                    {cell.cents === null ? (
+                      <span className="text-ink-3">—</span>
+                    ) : (
+                      <Amount cents={cell.cents} />
+                    )}
+                  </Td>
+                ))}
+                <Td numeric className="font-semibold">
+                  <Amount cents={row.total} />
+                </Td>
+              </Row>
+            ))}
+          </tbody>
+        </FinTable>
+      )}
     </section>
   );
 };
