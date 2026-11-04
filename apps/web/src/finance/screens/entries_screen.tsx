@@ -21,6 +21,8 @@ import {
   recategorize,
   updateEntry,
 } from '../domain/entry_ops.js';
+import { csvAmount, exportTable } from '../lib/export.js';
+import { accountNames } from '../domain/ledger.js';
 import { formatBRL } from '../lib/format.js';
 import { financeRoutes } from '../lib/routes.js';
 import type { Entry } from '../domain/types.js';
@@ -155,6 +157,46 @@ export const EntriesScreen = (): React.ReactElement => {
     return () => window.removeEventListener('keydown', onKey);
   }, [selected.size]);
 
+  const categoryName = (entry: Entry): string =>
+    data.categories.find((c) => c.id === entry.categoryId)?.name ?? '';
+  const exportEntries = (): void =>
+    exportTable(
+      'lancamentos',
+      range,
+      [
+        { id: 'data', header: 'Data', value: (e: Entry) => e.date },
+        { id: 'descricao', header: 'Descrição', value: (e: Entry) => e.description },
+        { id: 'categoria', header: 'Categoria', value: categoryName },
+        {
+          id: 'conta',
+          header: 'Conta',
+          value: (e: Entry) => accountNames(e).join(' + '),
+        },
+        {
+          id: 'detalhe',
+          header: 'Detalhe',
+          value: (e: Entry) =>
+            [
+              e.status === 'prevista' ? 'previsto' : null,
+              e.recurringId === undefined ? null : 'recorrente',
+              e.installment === undefined
+                ? null
+                : `parcela ${e.installment.n}/${e.installment.of}`,
+              e.payments.length > 1 ? '2 pagamentos' : null,
+            ]
+              .filter((tag): tag is string => tag !== null)
+              .join(' · '),
+        },
+        {
+          id: 'valor',
+          header: 'Valor',
+          value: (e: Entry) => csvAmount(e.kind === 'receita' ? e.cents : -e.cents),
+        },
+      ],
+      hidden,
+      groups.flatMap((group) => group.entries),
+    );
+
   const shown = groups.reduce((total, group) => total + group.entries.length, 0);
 
   return (
@@ -191,7 +233,7 @@ export const EntriesScreen = (): React.ReactElement => {
               setHidden(next);
               writeHiddenColumns(browserStorage(), SCREEN, next);
             }}
-            onExport={() => {}}
+            onExport={exportEntries}
           />
           {groups.length === 0 ? (
             <div className="flex flex-col items-center gap-3 border-t border-line px-4 py-12 text-center">

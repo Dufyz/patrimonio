@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import * as csv from '../lib/csv.js';
 
 import { PreferencesProvider } from '../../components/preferences.js';
 import { ShortcutProvider } from '../../components/shortcuts.js';
@@ -655,5 +657,64 @@ describe('seleção em lote (FIN-309)', () => {
     expect(
       screen.queryByRole('toolbar', { name: 'Seleção em lote' }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('exportar (FIN-310)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  const exportNow = async () => {
+    const spy = vi.spyOn(csv, 'downloadCsv').mockImplementation(() => {});
+    await userEvent.click(screen.getByRole('button', { name: 'Exportar' }));
+    const call = spy.mock.calls[0];
+    spy.mockRestore();
+    if (call === undefined) throw new Error('não exportou');
+    return { filename: call[0], rows: call[1] };
+  };
+
+  it('exporta as linhas na ordem da tela, com datas ISO e valores com ponto decimal', async () => {
+    open();
+    const { filename, rows } = await exportNow();
+    expect(filename).toBe('lancamentos_2026-10-01_2026-10-31.csv');
+    expect(rows[0]).toEqual([
+      'Data',
+      'Descrição',
+      'Categoria',
+      'Conta',
+      'Detalhe',
+      'Valor',
+    ]);
+    expect(rows[1]).toEqual([
+      '2026-10-30',
+      'Spotify',
+      'Assinaturas',
+      'Itaú Visa',
+      'previsto · recorrente',
+      '-21.90',
+    ]);
+    const luz = rows.find((row) => row[1] === 'Conta de luz');
+    expect(luz).toEqual([
+      '2026-10-17',
+      'Conta de luz',
+      'Moradia',
+      'Flex + Itaú Corrente',
+      'recorrente · 2 pagamentos',
+      '-312.40',
+    ]);
+    expect(rows.find((row) => row[1] === 'Salário')?.[5]).toBe('14200.00');
+    expect(rows).toHaveLength(1 + 4 + 12);
+  });
+
+  it('exporta só o que está filtrado e as colunas visíveis', async () => {
+    open();
+    await userEvent.type(screen.getByRole('searchbox'), 'netflix');
+    await userEvent.click(screen.getByRole('button', { name: 'Exibição' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Detalhe' }));
+    await userEvent.keyboard('{Escape}');
+    const { rows } = await exportNow();
+    expect(rows).toEqual([
+      ['Data', 'Descrição', 'Categoria', 'Conta', 'Valor'],
+      ['2026-10-20', 'Netflix', 'Assinaturas', 'Itaú Visa', '-55.90'],
+    ]);
   });
 });

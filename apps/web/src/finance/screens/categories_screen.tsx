@@ -31,14 +31,14 @@ import {
   writeHiddenColumns,
 } from '../lib/columns.js';
 import type { ColumnSpec } from '../lib/columns.js';
-import { downloadCsv } from '../lib/csv.js';
+import { csvAmount, exportTable } from '../lib/export.js';
+import { currentMonth } from '../lib/period.js';
 import { MONTH_ABBREVIATIONS, parseIso } from '../lib/dates.js';
 import { EMPTY_FILTERS, passesFilters } from '../lib/filters.js';
 import type { FilterField, FilterState } from '../lib/filters.js';
 import { PRIMARY_LABELS, pluralize } from '../lib/header.js';
 import { matchesSearch } from '../lib/text.js';
 import { browserStorage } from '../../lib/preferences.js';
-import { centsToDecimal } from '../lib/money.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
 
 /**
@@ -117,24 +117,32 @@ export const CategoriesScreen = (): React.ReactElement => {
   const visible = (id: string): boolean => isColumnVisible(hidden, id);
   const colSpan = columns.filter((column) => visible(column.id)).length + 1;
 
-  const exportCsv = (): void => {
-    downloadCsv('categorias.csv', [
+  const exportCsv = (): void =>
+    exportTable(
+      'categorias',
+      currentMonth(today),
       [
-        'Categoria',
-        'Tipo',
-        `Lançamentos em ${monthLabel}`,
-        `Total em ${monthLabel}`,
-        'Média de 12 meses',
+        { id: 'categoria', header: 'Categoria', value: (r) => r.category.name },
+        { id: 'tipo', header: 'Tipo', value: (r) => r.category.kind },
+        {
+          id: 'lancamentos',
+          header: `Lançamentos em ${monthLabel}`,
+          value: (r) => String(r.usage.count),
+        },
+        {
+          id: 'total',
+          header: `Total em ${monthLabel}`,
+          value: (r) => csvAmount(r.usage.total),
+        },
+        {
+          id: 'media',
+          header: 'Média de 12 meses',
+          value: (r) => csvAmount(r.usage.average12),
+        },
       ],
-      ...rows.map(({ category, usage }) => [
-        category.name,
-        category.kind,
-        String(usage.count),
-        centsToDecimal(usage.total).replace('.', ','),
-        centsToDecimal(usage.average12).replace('.', ','),
-      ]),
-    ]);
-  };
+      hidden,
+      rows,
+    );
 
   return (
     <>

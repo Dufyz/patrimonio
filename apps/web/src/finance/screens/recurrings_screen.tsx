@@ -42,11 +42,11 @@ import {
   writeHiddenColumns,
 } from '../lib/columns.js';
 import type { ColumnSpec } from '../lib/columns.js';
-import { downloadCsv } from '../lib/csv.js';
+import { csvAmount, exportTable } from '../lib/export.js';
+import { currentMonth } from '../lib/period.js';
 import { EMPTY_FILTERS, passesFilters } from '../lib/filters.js';
 import type { FilterField, FilterState } from '../lib/filters.js';
 import { PRIMARY_LABELS } from '../lib/header.js';
-import { centsToDecimal } from '../lib/money.js';
 import { matchesSearch } from '../lib/text.js';
 import {
   addRecurring,
@@ -162,21 +162,32 @@ export const RecurringsScreen = (): React.ReactElement => {
   const visible = (id: string): boolean => isColumnVisible(hidden, id);
   const colSpan = COLUMNS.filter((column) => visible(column.id)).length + 1;
 
-  const exportCsv = (): void => {
-    downloadCsv('recorrentes.csv', [
-      ['Item', 'Tipo', 'Categoria', 'Pagamento', 'Dia', 'Lançamento', 'Valor', 'Ativo'],
-      ...rows.map((r) => [
-        r.name,
-        r.kind,
-        categoryOf(categories, r)?.name ?? '',
-        paymentLabel(r),
-        String(r.day),
-        MODE_LABEL[r.mode],
-        centsToDecimal(r.cents).replace('.', ','),
-        r.active ? 'sim' : 'não',
-      ]),
-    ]);
-  };
+  const exportCsv = (): void =>
+    exportTable(
+      'recorrentes',
+      currentMonth(today),
+      [
+        { id: 'item', header: 'Item', value: (r) => r.name },
+        {
+          id: 'categoria',
+          header: 'Categoria',
+          value: (r) => categoryOf(categories, r)?.name ?? '',
+        },
+        { id: 'pagamento', header: 'Pagamento', value: (r) => paymentLabel(r) },
+        { id: 'dia', header: 'Dia', value: (r) => String(r.day) },
+        { id: 'lancamento', header: 'Lançamento', value: (r) => MODE_LABEL[r.mode] },
+        {
+          id: 'valor',
+          header: 'Valor',
+          value: (r) => csvAmount(r.kind === 'receita' ? r.cents : -r.cents),
+        },
+        { id: 'ativo', header: 'Ativo', value: (r) => (r.active ? 'sim' : 'não') },
+      ],
+      hidden,
+      SECTIONS.flatMap((section) =>
+        rows.filter((r) => r.kind === section.kind).toSorted(byDay),
+      ),
+    );
 
   return (
     <>
