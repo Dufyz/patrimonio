@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { Button } from '../../components/primitives.js';
+import { EntryDialog } from '../components/entry_dialog.js';
+import { draftOfEntry, launchEntry } from '../domain/entry_ops.js';
+import type { Entry } from '../domain/types.js';
 
 import { browserStorage } from '../../lib/preferences.js';
 import { GROUPING_SUBTITLES, GroupSelector } from '../components/group_selector.js';
@@ -21,7 +24,7 @@ import type { FilterField, FilterState } from '../lib/filters.js';
 import { PRIMARY_LABELS, pluralize } from '../lib/header.js';
 import { readEntryGrouping, writeEntryGrouping } from '../lib/preferences.js';
 import type { EntryGrouping } from '../lib/preferences.js';
-import { useFinanceData } from '../store/finance_store.js';
+import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
 
 /**
  * Lançamentos: o que entrou, o que saiu e o que ainda falta lançar no período.
@@ -41,6 +44,8 @@ const COLUMNS: readonly ColumnSpec[] = [
 
 export const EntriesScreen = (): React.ReactElement => {
   const data = useFinanceData();
+  const store = useFinanceStore();
+  const [launching, setLaunching] = useState<Entry | null>(null);
   const { range, setRange, today } = useFinancePeriod();
 
   const [grouping, setGrouping] = useState<EntryGrouping>(() =>
@@ -156,9 +161,24 @@ export const EntriesScreen = (): React.ReactElement => {
             categories={data.categories}
             today={today}
             hiddenColumns={hidden}
+            onLaunch={setLaunching}
           />
         </div>
       </div>
+
+      {launching === null ? null : (
+        <EntryDialog
+          mode="launch"
+          data={data}
+          today={today}
+          initial={draftOfEntry(launching, today)}
+          onClose={() => setLaunching(null)}
+          onSave={(draft) => {
+            store.set((current) => launchEntry(current, launching.id, draft, today));
+            setLaunching(null);
+          }}
+        />
+      )}
     </>
   );
 };

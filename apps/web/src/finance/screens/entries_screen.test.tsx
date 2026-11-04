@@ -275,3 +275,54 @@ describe('busca e filtros (FIN-305)', () => {
     expect(screen.getByRole('button', { name: 'Filtrar, 1 ativos' })).toBeInTheDocument();
   });
 });
+
+describe('lançar previsto (FIN-306)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  it('abre o modal com os dados do previsto e o valor estimado', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Lançar Gasto livre' }));
+    const dialog = screen.getByRole('dialog', { name: 'Lançar previsto' });
+    expect(within(dialog).getByRole('textbox', { name: 'Descrição' })).toHaveValue(
+      'Gasto livre',
+    );
+    expect(within(dialog).getByRole('textbox', { name: 'Valor' })).toHaveValue(
+      '4.700,00',
+    );
+    expect(within(dialog).getByLabelText('Data')).toHaveValue('2026-10-24');
+  });
+
+  it('ao confirmar, sai dos previstos e entra nos totais', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Lançar Gasto livre' }));
+    const dialog = screen.getByRole('dialog', { name: 'Lançar previsto' });
+    const value = within(dialog).getByRole('textbox', { name: 'Valor' });
+    await userEvent.clear(value);
+    await userEvent.type(value, '4500,00');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Lançar' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Lançar Gasto livre' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Sábado, 24/10')).toBeInTheDocument();
+    expect(within(strip()).getByText(/13\.978,10/)).toBeInTheDocument();
+  });
+
+  it('cancelar não altera nada', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Lançar Gasto livre' }));
+    await userEvent.click(
+      within(screen.getByRole('dialog', { name: 'Lançar previsto' })).getByRole(
+        'button',
+        {
+          name: 'Cancelar',
+        },
+      ),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Lançar Gasto livre' }),
+    ).toBeInTheDocument();
+  });
+});
+
+const strip = () => screen.getByRole('region', { name: 'Indicadores do período' });
