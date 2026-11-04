@@ -148,3 +148,69 @@ describe('Contas (FIN-401)', () => {
     });
   });
 });
+
+describe('Transferir (FIN-403)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  it('o botão do cabeçalho abre o modal e a transferência atualiza os saldos', async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole('button', { name: 'Transferir' }));
+    const dialog = within(
+      screen.getByRole('dialog', { name: 'Transferir entre contas' }),
+    );
+    await user.selectOptions(dialog.getByLabelText('De'), 'itau-corrente');
+    await user.selectOptions(dialog.getByLabelText('Para'), 'nubank-conta');
+    await user.type(dialog.getByLabelText('Valor'), '500,00');
+    await user.click(dialog.getByRole('button', { name: 'Transferir' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(rowOf('Itaú Corrente').textContent).toContain('R$ 2.612,80');
+    expect(rowOf('Nubank Conta').textContent).toContain('R$ 8.920,35');
+    expect(rowOf('Total em contas').textContent).toContain('R$ 11.773,15');
+  });
+
+  it('pelo menu ⋯ a origem já vem preenchida', async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole('button', { name: 'Ações de Nubank Conta' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Transferir' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByLabelText('De')).toHaveValue('nubank-conta');
+  });
+
+  it('mostra os erros só ao tentar salvar', async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole('button', { name: 'Transferir' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.queryByText('Escolha a conta de origem.')).not.toBeInTheDocument();
+    await user.click(dialog.getByRole('button', { name: 'Transferir' }));
+    expect(dialog.getByText('Escolha a conta de origem.')).toBeInTheDocument();
+    expect(dialog.getByText('Informe um valor maior que zero.')).toBeInTheDocument();
+  });
+
+  it('origem e destino iguais ficam sem salvar', async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole('button', { name: 'Transferir' }));
+    const dialog = within(screen.getByRole('dialog'));
+    await user.selectOptions(dialog.getByLabelText('De'), 'carteira');
+    await user.selectOptions(dialog.getByLabelText('Para'), 'carteira');
+    await user.type(dialog.getByLabelText('Valor'), '10,00');
+    await user.click(dialog.getByRole('button', { name: 'Transferir' }));
+    expect(
+      dialog.getByText('Origem e destino precisam ser contas diferentes.'),
+    ).toBeInTheDocument();
+  });
+
+  it('benefício não oferece Transferir no menu', async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole('button', { name: 'Ações de Flex' }));
+    expect(screen.getByRole('menuitem', { name: 'Transferir' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  });
+});

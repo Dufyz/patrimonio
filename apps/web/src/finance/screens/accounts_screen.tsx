@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { IconButton } from '../../components/primitives.js';
+import { Button, IconButton } from '../../components/primitives.js';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,15 +18,17 @@ import {
   Th,
   THead,
 } from '../components/fin_table.js';
+import { TransferDialog } from '../components/transfer_dialog.js';
 import { RecentMovements } from '../components/recent_movements.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { NatureTag } from '../components/tags.js';
 import { accountsOverview } from '../domain/accounts.js';
 import type { AccountRow } from '../domain/accounts.js';
+import { addTransfer } from '../domain/transfer_ops.js';
 import { currentMonth } from '../lib/period.js';
 import { financeRoutes } from '../lib/routes.js';
-import { useFinanceData } from '../store/finance_store.js';
+import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
 
 /**
  * FIN-401 · Contas.
@@ -43,12 +46,15 @@ const formatFullDate = (iso: string): string => {
 export const AccountsScreen = (): React.ReactElement => {
   const data = useFinanceData();
   const { today } = useFinancePeriod();
+  const store = useFinanceStore();
   const overview = accountsOverview(data, currentMonth(today), today);
+  const [transfer, setTransfer] = useState<{ readonly fromId: string } | null>(null);
 
   return (
     <>
       <ScreenHeader
         title="Contas"
+        extra={<Button onClick={() => setTransfer({ fromId: '' })}>Transferir</Button>}
         subtitle={
           <>
             Em contas <Amount cents={overview.totalBalance} /> ·{' '}
@@ -72,7 +78,11 @@ export const AccountsScreen = (): React.ReactElement => {
           <tbody>
             <SectionRow colSpan={5} label="Contas" summary="entram no saldo em contas" />
             {overview.accounts.map((row) => (
-              <AccountTableRow key={row.account.id} row={row} />
+              <AccountTableRow
+                key={row.account.id}
+                row={row}
+                onTransfer={() => setTransfer({ fromId: row.account.id })}
+              />
             ))}
             <SummaryRow kind="total">
               <Td>Total em contas</Td>
@@ -91,13 +101,30 @@ export const AccountsScreen = (): React.ReactElement => {
               summary="ficam fora do saldo em contas"
             />
             {overview.benefits.map((row) => (
-              <AccountTableRow key={row.account.id} row={row} />
+              <AccountTableRow
+                key={row.account.id}
+                row={row}
+                onTransfer={() => setTransfer({ fromId: row.account.id })}
+              />
             ))}
           </tbody>
         </FinTable>
       </section>
 
       <RecentMovements />
+
+      {transfer === null ? null : (
+        <TransferDialog
+          data={data}
+          today={today}
+          fromId={transfer.fromId}
+          onClose={() => setTransfer(null)}
+          onSave={(draft) => {
+            store.set((current) => addTransfer(current, draft, today));
+            setTransfer(null);
+          }}
+        />
+      )}
     </>
   );
 };
@@ -105,7 +132,13 @@ export const AccountsScreen = (): React.ReactElement => {
 const creditLabel = (day: number | undefined): string =>
   day === undefined ? '' : `todo dia ${String(day).padStart(2, '0')}`;
 
-const AccountTableRow = ({ row }: { readonly row: AccountRow }): React.ReactElement => {
+const AccountTableRow = ({
+  row,
+  onTransfer,
+}: {
+  readonly row: AccountRow;
+  readonly onTransfer: () => void;
+}): React.ReactElement => {
   const navigate = useNavigate();
   const { account } = row;
   const isBenefit = account.type === 'beneficio';
@@ -149,22 +182,32 @@ const AccountTableRow = ({ row }: { readonly row: AccountRow }): React.ReactElem
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          <RowMenu name={account.name} />
+          <RowMenu name={account.name} canTransfer={!isBenefit} onTransfer={onTransfer} />
         </span>
       </Td>
     </Row>
   );
 };
 
-/** O `⋯` da linha. As ações entram com FIN-403 (Transferir), 404 (Editar) e 409 (Arquivar). */
-const RowMenu = ({ name }: { readonly name: string }): React.ReactElement => (
+/** O `⋯` da linha. Editar entra com FIN-404 e Arquivar com FIN-409. */
+const RowMenu = ({
+  name,
+  canTransfer,
+  onTransfer,
+}: {
+  readonly name: string;
+  readonly canTransfer: boolean;
+  readonly onTransfer: () => void;
+}): React.ReactElement => (
   <DropdownMenu modal={false}>
     <DropdownMenuTrigger asChild>
       <IconButton row label={`Ações de ${name}`} icon="dots" />
     </DropdownMenuTrigger>
     <DropdownMenuContent className="min-w-40">
       <DropdownMenuItem disabled>Editar</DropdownMenuItem>
-      <DropdownMenuItem disabled>Transferir</DropdownMenuItem>
+      <DropdownMenuItem disabled={!canTransfer} onSelect={onTransfer}>
+        Transferir
+      </DropdownMenuItem>
       <DropdownMenuItem disabled>Arquivar</DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
