@@ -88,3 +88,40 @@ describe('pagar fatura (RN-50, CE-04)', () => {
     expect(payInvoice(data, 'nubank-master', '2026-12', TODAY, TODAY)).toBe(data);
   });
 });
+
+import { isOverdue, invoiceStatus, invoiceSummary } from './cards.js';
+
+describe('ciclo de vida da fatura (FIN-511, RN-43)', () => {
+  const nubank = card('nubank-master');
+
+  it('no dia seguinte ao fechamento a aberta fecha e a próxima abre', () => {
+    expect(invoiceStatus(data, nubank, '2026-11', '2026-10-28')).toBe('aberta');
+    expect(invoiceStatus(data, nubank, '2026-11', '2026-10-29')).toBe('fechada');
+    expect(invoiceStatus(data, nubank, '2026-12', '2026-10-29')).toBe('aberta');
+    expect(invoiceStatus(data, nubank, '2027-01', '2026-10-29')).toBe('prevista');
+    expect(vigenteKey(data, nubank, '2026-10-29')).toBe('2026-11');
+  });
+
+  it('no máximo uma aberta e uma fechada a pagar por cartão', () => {
+    for (const day of ['2026-10-10', '2026-10-24', '2026-11-03', '2026-11-30']) {
+      for (const c of data.cards) {
+        const statuses = ['2026-09', '2026-10', '2026-11', '2026-12', '2027-01'].map(
+          (key) => invoiceStatus(data, c, key, day),
+        );
+        expect(statuses.filter((s) => s === 'aberta').length).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('fechada que passou do vencimento sem pagamento "venceu"', () => {
+    const visa = card('itau-visa');
+    const oct = invoiceSummary(data, visa, '2026-10', '2026-10-30');
+    expect(isOverdue(oct, '2026-10-30')).toBe(false);
+    expect(isOverdue(oct, '2026-10-31')).toBe(true);
+  });
+
+  it('fatura paga nunca volta a fechada', () => {
+    const nu = card('nubank-master');
+    expect(invoiceStatus(data, nu, '2026-10', '2027-05-01')).toBe('paga');
+  });
+});

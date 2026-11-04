@@ -1,6 +1,6 @@
 import { Amount } from './amount.js';
 import { FinTable, Row, Td, Th, THead } from './fin_table.js';
-import { StatusTag } from './tags.js';
+import { InvoiceStatus } from './invoice_status.js';
 import {
   cardInvoiceKeys,
   invoicePeriod,
@@ -64,7 +64,7 @@ export const InvoiceList = ({
                 </Td>
                 <Td>
                   <span className="inline-flex flex-wrap items-center gap-x-3">
-                    <StatusTag status={invoice.status} />
+                    <InvoiceStatus invoice={invoice} today={today} />
                     {payment === undefined ? null : (
                       <span className="text-xs text-ink-3">
                         paga em {formatDay(payment.date, today)} ·{' '}

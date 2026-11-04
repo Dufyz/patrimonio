@@ -24,7 +24,7 @@ import { UpcomingInvoices } from '../components/upcoming_invoices.js';
 import { LimitBar } from '../components/limit_bar.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
-import { StatusTag } from '../components/tags.js';
+import { InvoiceStatus } from '../components/invoice_status.js';
 import { payInvoice } from '../domain/invoice_ops.js';
 import { addCard, updateCard } from '../domain/card_ops.js';
 import { cardSummary, openInvoicesTotal } from '../domain/cards.js';
@@ -235,7 +235,6 @@ const CardRow = ({
 }): React.ReactElement => {
   const navigate = useNavigate();
   const { card, invoice } = item;
-  const closed = invoice.status === 'fechada';
   return (
     <Row label={card.name} onClick={() => void navigate(financeRoutes.card(card.id))}>
       <Td>
@@ -246,12 +245,7 @@ const CardRow = ({
         <Amount cents={invoice.total} />
       </Td>
       <Td>
-        <StatusTag
-          status={invoice.status === 'paga' ? 'paga' : closed ? 'fechada' : 'aberta'}
-          label={
-            closed ? 'fechada' : `aberta · fecha ${formatDay(invoice.closing, today)}`
-          }
-        />
+        <InvoiceStatus invoice={invoice} today={today} closesAs="fecha" />
       </Td>
       <Td>
         <div>{formatDay(invoice.due, today)}</div>

@@ -10,8 +10,8 @@ import { setTodayOverride } from '../lib/clock.js';
 import { createFinanceStore, FinanceStoreProvider } from '../store/finance_store.js';
 import { CardScreen } from './card_screen.js';
 
-const open = (path = '/financas/cartoes/nubank-master') => {
-  setTodayOverride('2026-10-24');
+const open = (path = '/financas/cartoes/nubank-master', today = '2026-10-24') => {
+  setTodayOverride(today);
   return render(
     <MemoryRouter initialEntries={[path]}>
       <PreferencesProvider>
@@ -49,7 +49,7 @@ describe('Fatura: cabeçalho e navegador de mês (FIN-504)', () => {
   it('abre na fatura vigente, com situação e resumo', () => {
     open();
     expect(panel().getByText('nov/2026')).toBeTruthy();
-    expect(panel().getByText('aberta')).toBeTruthy();
+    expect(panel().getByText('aberta · fecha em 28/10')).toBeTruthy();
     expect(
       panel().getByText(
         'compras de 29/09 a 28/10 · fecha em 28/10 · vence em 05/11 · paga com Nubank Conta',
@@ -317,5 +317,17 @@ describe('Compra parcelada (FIN-510, CE-07)', () => {
     expect(
       statement().getByRole('row', { name: 'Notebook Dell Inspiron' }).textContent,
     ).toContain('parcela 3/6');
+  });
+});
+
+describe('Ciclo de vida (FIN-511)', () => {
+  it('a aberta mostra "fecha em" no cabeçalho', () => {
+    open();
+    expect(panel().getByText('aberta · fecha em 28/10')).toBeTruthy();
+  });
+
+  it('a fechada vencida e sem pagamento mostra "venceu"', () => {
+    open('/financas/cartoes/itau-visa', '2026-10-31');
+    expect(panel().getByText('venceu')).toBeTruthy();
   });
 });

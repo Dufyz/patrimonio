@@ -8,13 +8,13 @@ import { InstallmentScopeDialog } from '../components/installment_scope_dialog.j
 import { ConfirmDialog } from '../components/entry_confirms.js';
 import { PayInvoiceDialog } from '../components/pay_invoice_dialog.js';
 import { CreditDialog } from '../components/credit_dialog.js';
+import { InvoiceStatus } from '../components/invoice_status.js';
 import { InvoiceList } from '../components/invoice_list.js';
 import { InvoiceStatement } from '../components/invoice_statement.js';
 import { CardDialog } from '../components/card_dialog.js';
 import { EntryDialog } from '../components/entry_dialog.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
-import { StatusTag } from '../components/tags.js';
 import { updateCard } from '../domain/card_ops.js';
 import {
   cardInvoiceKeys,
@@ -146,7 +146,7 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
                 onClick={() => go(keys[index + 1])}
               />
             </div>
-            <StatusTag status={invoice.status} />
+            <InvoiceStatus invoice={invoice} today={today} />
           </div>
           {invoice.status === 'paga' ? null : (
             <div className="flex items-center gap-2">

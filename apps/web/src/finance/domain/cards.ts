@@ -79,6 +79,10 @@ export const invoiceStatus = (
   return compareDates(today, from) >= 0 ? 'aberta' : 'prevista';
 };
 
+/** FIN-511 · Fechada que passou do vencimento sem pagamento. */
+export const isOverdue = (invoice: InvoiceSummary, today: IsoDate): boolean =>
+  invoice.status === 'fechada' && compareDates(today, invoice.due) > 0;
+
 export type InvoiceBlock = 'compras' | 'parcelas' | 'creditos' | 'encargos';
 
 export type InvoiceLine = {
