@@ -22,6 +22,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@patrimonio/domain": "workspace:*",
     "@patrimonio/shared": "workspace:*",
     "decimal.js": "^10.6.0"
   },

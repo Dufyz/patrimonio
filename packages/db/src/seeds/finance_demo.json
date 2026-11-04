@@ -1,0 +1,5150 @@
+{
+  "reference_date": "2026-10-24",
+  "snapshot": {
+    "categories": [
+      {
+        "id": "moradia",
+        "name": "Moradia",
+        "kind": "despesa",
+        "color": "slate",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "saude",
+        "name": "Saúde",
+        "kind": "despesa",
+        "color": "rose",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "transporte",
+        "name": "Transporte",
+        "kind": "despesa",
+        "color": "blue",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "assinaturas",
+        "name": "Assinaturas",
+        "kind": "despesa",
+        "color": "brown",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "investimento",
+        "name": "Investimento",
+        "kind": "despesa",
+        "color": "violet",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "gasto-livre",
+        "name": "Gasto livre",
+        "kind": "despesa",
+        "color": "teal",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "mercado",
+        "name": "Mercado",
+        "kind": "despesa",
+        "color": "orange",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "restaurantes",
+        "name": "Restaurantes",
+        "kind": "despesa",
+        "color": "orange",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "eletronicos",
+        "name": "Eletrônicos",
+        "kind": "despesa",
+        "color": "green",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "lazer",
+        "name": "Lazer",
+        "kind": "despesa",
+        "color": "indigo",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "educacao",
+        "name": "Educação",
+        "kind": "despesa",
+        "color": "olive",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "viagem",
+        "name": "Viagem",
+        "kind": "despesa",
+        "color": "cyan",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "salario",
+        "name": "Salário",
+        "kind": "receita",
+        "color": "olive",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "freelas",
+        "name": "Freelas",
+        "kind": "receita",
+        "color": "cyan",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "reembolso",
+        "name": "Reembolso",
+        "kind": "receita",
+        "color": "gray",
+        "archived": false,
+        "version": 1
+      }
+    ],
+    "accounts": [
+      {
+        "id": "itau-corrente",
+        "name": "Itaú Corrente",
+        "type": "corrente",
+        "institution": "Itaú Unibanco",
+        "role": "Recebe as receitas e paga as despesas",
+        "role_tag": "recebe receitas e paga despesas",
+        "opening_amount": "2133.55",
+        "opening_date": "2026-10-01",
+        "credit_amount": null,
+        "credit_day": null,
+        "credits_from": null,
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "nubank-conta",
+        "name": "Nubank Conta",
+        "type": "corrente",
+        "institution": "Nubank",
+        "role": "Saldo livre para gastar no mês",
+        "role_tag": "recebe o saldo livre e paga a fatura",
+        "opening_amount": "7766.00",
+        "opening_date": "2026-10-01",
+        "credit_amount": null,
+        "credit_day": null,
+        "credits_from": null,
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "carteira",
+        "name": "Carteira",
+        "type": "carteira",
+        "institution": null,
+        "role": "Dinheiro em espécie",
+        "role_tag": "dinheiro em espécie",
+        "opening_amount": "300.00",
+        "opening_date": "2026-10-01",
+        "credit_amount": null,
+        "credit_day": null,
+        "credits_from": null,
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "vale-alimentacao",
+        "name": "Vale Alimentação",
+        "type": "beneficio",
+        "institution": null,
+        "role": "Mercado e restaurantes",
+        "role_tag": "mercado e restaurantes",
+        "opening_amount": "612.40",
+        "opening_date": "2026-10-01",
+        "credit_amount": "1100.00",
+        "credit_day": 5,
+        "credits_from": "2026-11-01",
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "flex",
+        "name": "Flex",
+        "type": "beneficio",
+        "institution": null,
+        "role": "Conta de luz e o que você definir nas recorrentes",
+        "role_tag": "conta de luz e recorrentes",
+        "opening_amount": "348.30",
+        "opening_date": "2026-10-01",
+        "credit_amount": "400.00",
+        "credit_day": 5,
+        "credits_from": "2026-11-01",
+        "archived": false,
+        "version": 1
+      }
+    ],
+    "cards": [
+      {
+        "id": "nubank-master",
+        "name": "Nubank Mastercard",
+        "last4": "9082",
+        "pay_account_id": "nubank-conta",
+        "limit_amount": "5660.00",
+        "closing_day": 28,
+        "due_day": 5,
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "itau-visa",
+        "name": "Itaú Visa",
+        "last4": "4471",
+        "pay_account_id": "itau-corrente",
+        "limit_amount": "2000.00",
+        "closing_day": 23,
+        "due_day": 30,
+        "archived": false,
+        "version": 1
+      },
+      {
+        "id": "itau-mastercard",
+        "name": "Itaú Mastercard",
+        "last4": "6630",
+        "pay_account_id": "itau-corrente",
+        "limit_amount": "4000.00",
+        "closing_day": 23,
+        "due_day": 30,
+        "archived": false,
+        "version": 1
+      }
+    ],
+    "recurrings": [
+      {
+        "id": "r-salario",
+        "name": "Salário",
+        "kind": "receita",
+        "category_id": "salario",
+        "source": {
+          "type": "conta",
+          "id": "itau-corrente"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 5,
+        "mode": "automatico",
+        "amount": "14200.00",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-freela",
+        "name": "Freela · Projeto Lume",
+        "kind": "receita",
+        "category_id": "freelas",
+        "source": {
+          "type": "conta",
+          "id": "itau-corrente"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 12,
+        "mode": "manual",
+        "amount": "1800.00",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-reembolso",
+        "name": "Reembolso da empresa",
+        "kind": "receita",
+        "category_id": "reembolso",
+        "source": {
+          "type": "conta",
+          "id": "itau-corrente"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 15,
+        "mode": "manual",
+        "amount": "350.00",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-plano-saude",
+        "name": "Plano de saúde",
+        "kind": "despesa",
+        "category_id": "saude",
+        "source": {
+          "type": "conta",
+          "id": "itau-corrente"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 5,
+        "mode": "automatico",
+        "amount": "612.00",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-plano-vida",
+        "name": "Plano de vida",
+        "kind": "despesa",
+        "category_id": "saude",
+        "source": {
+          "type": "conta",
+          "id": "itau-corrente"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 5,
+        "mode": "automatico",
+        "amount": "189.90",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-aluguel",
+        "name": "Aluguel e condomínio",
+        "kind": "despesa",
+        "category_id": "moradia",
+        "source": {
+          "type": "conta",
+          "id": "itau-corrente"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 10,
+        "mode": "automatico",
+        "amount": "3200.00",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-academia",
+        "name": "Academia",
+        "kind": "despesa",
+        "category_id": "saude",
+        "source": {
+          "type": "cartao",
+          "id": "itau-visa"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 10,
+        "mode": "automatico",
+        "amount": "103.90",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-seguro-carro",
+        "name": "Seguro do carro",
+        "kind": "despesa",
+        "category_id": "transporte",
+        "source": {
+          "type": "conta",
+          "id": "itau-corrente"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 15,
+        "mode": "automatico",
+        "amount": "454.00",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-internet",
+        "name": "Internet",
+        "kind": "despesa",
+        "category_id": "moradia",
+        "source": {
+          "type": "conta",
+          "id": "itau-corrente"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 15,
+        "mode": "automatico",
+        "amount": "50.00",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-luz",
+        "name": "Conta de luz",
+        "kind": "despesa",
+        "category_id": "moradia",
+        "source": {
+          "type": "conta",
+          "id": "flex"
+        },
+        "second_source": {
+          "type": "conta",
+          "id": "itau-corrente"
+        },
+        "covers_up_to": "150.00",
+        "day": 17,
+        "mode": "manual",
+        "amount": "312.40",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-netflix",
+        "name": "Netflix",
+        "kind": "despesa",
+        "category_id": "assinaturas",
+        "source": {
+          "type": "cartao",
+          "id": "itau-visa"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 20,
+        "mode": "automatico",
+        "amount": "55.90",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-investimento",
+        "name": "Investimento",
+        "kind": "despesa",
+        "category_id": "investimento",
+        "source": {
+          "type": "conta",
+          "id": "itau-corrente"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 21,
+        "mode": "manual",
+        "amount": "4500.00",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-spotify",
+        "name": "Spotify",
+        "kind": "despesa",
+        "category_id": "assinaturas",
+        "source": {
+          "type": "cartao",
+          "id": "itau-visa"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 30,
+        "mode": "automatico",
+        "amount": "21.90",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-gasto-livre",
+        "name": "Gasto livre",
+        "kind": "despesa",
+        "category_id": "gasto-livre",
+        "source": {
+          "type": "conta",
+          "id": "nubank-conta"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 31,
+        "mode": "manual",
+        "amount": "4700.00",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-investimento-fim",
+        "name": "Investimento",
+        "kind": "despesa",
+        "category_id": "investimento",
+        "source": {
+          "type": "conta",
+          "id": "itau-corrente"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 31,
+        "mode": "manual",
+        "amount": "2150.00",
+        "active": true,
+        "version": 1
+      },
+      {
+        "id": "r-seguro-res",
+        "name": "Seguro residencial",
+        "kind": "despesa",
+        "category_id": "moradia",
+        "source": {
+          "type": "cartao",
+          "id": "itau-visa"
+        },
+        "second_source": null,
+        "covers_up_to": null,
+        "day": 12,
+        "mode": "manual",
+        "amount": "1180.00",
+        "active": false,
+        "version": 1
+      }
+    ],
+    "skips": [],
+    "entries": [
+      {
+        "id": "l-aluguel-nov",
+        "kind": "despesa",
+        "description": "Aluguel e condomínio",
+        "date": "2026-11-10",
+        "category_id": "moradia",
+        "amount": "3200.00",
+        "status": "prevista",
+        "recurring_id": "r-aluguel",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-spotify",
+        "kind": "despesa",
+        "description": "Spotify",
+        "date": "2026-10-30",
+        "category_id": "assinaturas",
+        "amount": "21.90",
+        "status": "prevista",
+        "recurring_id": "r-spotify",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "itau-visa",
+            "amount": "21.90",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-gasto-livre",
+        "kind": "despesa",
+        "description": "Gasto livre",
+        "date": "2026-10-31",
+        "category_id": "gasto-livre",
+        "amount": "4700.00",
+        "status": "prevista",
+        "recurring_id": "r-gasto-livre",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "nubank-conta",
+            "amount": "4700.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-investimento-fim",
+        "kind": "despesa",
+        "description": "Investimento",
+        "date": "2026-10-31",
+        "category_id": "investimento",
+        "amount": "2150.00",
+        "status": "prevista",
+        "recurring_id": "r-investimento-fim",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "2150.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-investimento",
+        "kind": "despesa",
+        "description": "Investimento",
+        "date": "2026-10-21",
+        "category_id": "investimento",
+        "amount": "4500.00",
+        "status": "lancada",
+        "recurring_id": "r-investimento",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4500.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-netflix",
+        "kind": "despesa",
+        "description": "Netflix",
+        "date": "2026-10-20",
+        "category_id": "assinaturas",
+        "amount": "55.90",
+        "status": "lancada",
+        "recurring_id": "r-netflix",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "itau-visa",
+            "amount": "55.90",
+            "invoice_month": "2026-10"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-luz",
+        "kind": "despesa",
+        "description": "Conta de luz",
+        "date": "2026-10-17",
+        "category_id": "moradia",
+        "amount": "312.40",
+        "status": "lancada",
+        "recurring_id": "r-luz",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "flex",
+            "amount": "150.00",
+            "invoice_month": null
+          },
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "162.40",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-reembolso",
+        "kind": "receita",
+        "description": "Reembolso da empresa",
+        "date": "2026-10-15",
+        "category_id": "reembolso",
+        "amount": "350.00",
+        "status": "lancada",
+        "recurring_id": "r-reembolso",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "350.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-seguro-carro",
+        "kind": "despesa",
+        "description": "Seguro do carro",
+        "date": "2026-10-15",
+        "category_id": "transporte",
+        "amount": "454.00",
+        "status": "lancada",
+        "recurring_id": "r-seguro-carro",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "454.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-internet",
+        "kind": "despesa",
+        "description": "Internet",
+        "date": "2026-10-15",
+        "category_id": "moradia",
+        "amount": "50.00",
+        "status": "lancada",
+        "recurring_id": "r-internet",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "50.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-freela",
+        "kind": "receita",
+        "description": "Freela · Projeto Lume",
+        "date": "2026-10-12",
+        "category_id": "freelas",
+        "amount": "1800.00",
+        "status": "lancada",
+        "recurring_id": "r-freela",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1800.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-aluguel",
+        "kind": "despesa",
+        "description": "Aluguel e condomínio",
+        "date": "2026-10-10",
+        "category_id": "moradia",
+        "amount": "3200.00",
+        "status": "lancada",
+        "recurring_id": "r-aluguel",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-academia",
+        "kind": "despesa",
+        "description": "Academia",
+        "date": "2026-10-10",
+        "category_id": "saude",
+        "amount": "103.90",
+        "status": "lancada",
+        "recurring_id": "r-academia",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "itau-visa",
+            "amount": "103.90",
+            "invoice_month": "2026-10"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-salario",
+        "kind": "receita",
+        "description": "Salário",
+        "date": "2026-10-05",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": "r-salario",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-plano-saude",
+        "kind": "despesa",
+        "description": "Plano de saúde",
+        "date": "2026-10-05",
+        "category_id": "saude",
+        "amount": "612.00",
+        "status": "lancada",
+        "recurring_id": "r-plano-saude",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "612.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "l-plano-vida",
+        "kind": "despesa",
+        "description": "Plano de vida",
+        "date": "2026-10-05",
+        "category_id": "saude",
+        "amount": "189.90",
+        "status": "lancada",
+        "recurring_id": "r-plano-vida",
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "189.90",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-moradia-2026-09",
+        "kind": "despesa",
+        "description": "Moradia · histórico",
+        "date": "2026-09-01",
+        "category_id": "moradia",
+        "amount": "3410.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3410.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-moradia-2026-08",
+        "kind": "despesa",
+        "description": "Moradia · histórico",
+        "date": "2026-08-01",
+        "category_id": "moradia",
+        "amount": "3410.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3410.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-moradia-2026-07",
+        "kind": "despesa",
+        "description": "Moradia · histórico",
+        "date": "2026-07-01",
+        "category_id": "moradia",
+        "amount": "3410.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3410.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-moradia-2026-06",
+        "kind": "despesa",
+        "description": "Moradia · histórico",
+        "date": "2026-06-01",
+        "category_id": "moradia",
+        "amount": "3410.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3410.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-moradia-2026-05",
+        "kind": "despesa",
+        "description": "Moradia · histórico",
+        "date": "2026-05-01",
+        "category_id": "moradia",
+        "amount": "3410.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3410.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-moradia-2026-04",
+        "kind": "despesa",
+        "description": "Moradia · histórico",
+        "date": "2026-04-01",
+        "category_id": "moradia",
+        "amount": "3410.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3410.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-moradia-2026-03",
+        "kind": "despesa",
+        "description": "Moradia · histórico",
+        "date": "2026-03-01",
+        "category_id": "moradia",
+        "amount": "3410.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3410.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-moradia-2026-02",
+        "kind": "despesa",
+        "description": "Moradia · histórico",
+        "date": "2026-02-01",
+        "category_id": "moradia",
+        "amount": "3410.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3410.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-moradia-2026-01",
+        "kind": "despesa",
+        "description": "Moradia · histórico",
+        "date": "2026-01-01",
+        "category_id": "moradia",
+        "amount": "3410.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3410.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-moradia-2025-12",
+        "kind": "despesa",
+        "description": "Moradia · histórico",
+        "date": "2025-12-01",
+        "category_id": "moradia",
+        "amount": "3410.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3410.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-moradia-2025-11",
+        "kind": "despesa",
+        "description": "Moradia · histórico",
+        "date": "2025-11-01",
+        "category_id": "moradia",
+        "amount": "3410.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3410.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-moradia-2025-10",
+        "kind": "despesa",
+        "description": "Moradia · histórico",
+        "date": "2025-10-01",
+        "category_id": "moradia",
+        "amount": "3410.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "3410.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-saude-2026-09",
+        "kind": "despesa",
+        "description": "Saúde · histórico",
+        "date": "2026-09-01",
+        "category_id": "saude",
+        "amount": "880.15",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "880.15",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-saude-2026-08",
+        "kind": "despesa",
+        "description": "Saúde · histórico",
+        "date": "2026-08-01",
+        "category_id": "saude",
+        "amount": "880.15",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "880.15",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-saude-2026-07",
+        "kind": "despesa",
+        "description": "Saúde · histórico",
+        "date": "2026-07-01",
+        "category_id": "saude",
+        "amount": "880.15",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "880.15",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-saude-2026-06",
+        "kind": "despesa",
+        "description": "Saúde · histórico",
+        "date": "2026-06-01",
+        "category_id": "saude",
+        "amount": "880.15",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "880.15",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-saude-2026-05",
+        "kind": "despesa",
+        "description": "Saúde · histórico",
+        "date": "2026-05-01",
+        "category_id": "saude",
+        "amount": "880.15",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "880.15",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-saude-2026-04",
+        "kind": "despesa",
+        "description": "Saúde · histórico",
+        "date": "2026-04-01",
+        "category_id": "saude",
+        "amount": "880.15",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "880.15",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-saude-2026-03",
+        "kind": "despesa",
+        "description": "Saúde · histórico",
+        "date": "2026-03-01",
+        "category_id": "saude",
+        "amount": "880.15",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "880.15",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-saude-2026-02",
+        "kind": "despesa",
+        "description": "Saúde · histórico",
+        "date": "2026-02-01",
+        "category_id": "saude",
+        "amount": "880.15",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "880.15",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-saude-2026-01",
+        "kind": "despesa",
+        "description": "Saúde · histórico",
+        "date": "2026-01-01",
+        "category_id": "saude",
+        "amount": "880.15",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "880.15",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-saude-2025-12",
+        "kind": "despesa",
+        "description": "Saúde · histórico",
+        "date": "2025-12-01",
+        "category_id": "saude",
+        "amount": "880.15",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "880.15",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-saude-2025-11",
+        "kind": "despesa",
+        "description": "Saúde · histórico",
+        "date": "2025-11-01",
+        "category_id": "saude",
+        "amount": "880.15",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "880.15",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-saude-2025-10",
+        "kind": "despesa",
+        "description": "Saúde · histórico",
+        "date": "2025-10-01",
+        "category_id": "saude",
+        "amount": "880.15",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "880.15",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-transporte-2026-09",
+        "kind": "despesa",
+        "description": "Transporte · histórico",
+        "date": "2026-09-01",
+        "category_id": "transporte",
+        "amount": "512.30",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "512.30",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-transporte-2026-08",
+        "kind": "despesa",
+        "description": "Transporte · histórico",
+        "date": "2026-08-01",
+        "category_id": "transporte",
+        "amount": "512.30",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "512.30",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-transporte-2026-07",
+        "kind": "despesa",
+        "description": "Transporte · histórico",
+        "date": "2026-07-01",
+        "category_id": "transporte",
+        "amount": "512.30",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "512.30",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-transporte-2026-06",
+        "kind": "despesa",
+        "description": "Transporte · histórico",
+        "date": "2026-06-01",
+        "category_id": "transporte",
+        "amount": "512.30",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "512.30",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-transporte-2026-05",
+        "kind": "despesa",
+        "description": "Transporte · histórico",
+        "date": "2026-05-01",
+        "category_id": "transporte",
+        "amount": "512.30",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "512.30",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-transporte-2026-04",
+        "kind": "despesa",
+        "description": "Transporte · histórico",
+        "date": "2026-04-01",
+        "category_id": "transporte",
+        "amount": "512.30",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "512.30",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-transporte-2026-03",
+        "kind": "despesa",
+        "description": "Transporte · histórico",
+        "date": "2026-03-01",
+        "category_id": "transporte",
+        "amount": "512.30",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "512.30",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-transporte-2026-02",
+        "kind": "despesa",
+        "description": "Transporte · histórico",
+        "date": "2026-02-01",
+        "category_id": "transporte",
+        "amount": "512.30",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "512.30",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-transporte-2026-01",
+        "kind": "despesa",
+        "description": "Transporte · histórico",
+        "date": "2026-01-01",
+        "category_id": "transporte",
+        "amount": "512.30",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "512.30",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-transporte-2025-12",
+        "kind": "despesa",
+        "description": "Transporte · histórico",
+        "date": "2025-12-01",
+        "category_id": "transporte",
+        "amount": "512.30",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "512.30",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-transporte-2025-11",
+        "kind": "despesa",
+        "description": "Transporte · histórico",
+        "date": "2025-11-01",
+        "category_id": "transporte",
+        "amount": "512.30",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "512.30",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-transporte-2025-10",
+        "kind": "despesa",
+        "description": "Transporte · histórico",
+        "date": "2025-10-01",
+        "category_id": "transporte",
+        "amount": "512.30",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "512.30",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-assinaturas-2026-09",
+        "kind": "despesa",
+        "description": "Assinaturas · histórico",
+        "date": "2026-09-01",
+        "category_id": "assinaturas",
+        "amount": "77.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "77.80",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-assinaturas-2026-08",
+        "kind": "despesa",
+        "description": "Assinaturas · histórico",
+        "date": "2026-08-01",
+        "category_id": "assinaturas",
+        "amount": "77.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "77.80",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-assinaturas-2026-07",
+        "kind": "despesa",
+        "description": "Assinaturas · histórico",
+        "date": "2026-07-01",
+        "category_id": "assinaturas",
+        "amount": "77.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "77.80",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-assinaturas-2026-06",
+        "kind": "despesa",
+        "description": "Assinaturas · histórico",
+        "date": "2026-06-01",
+        "category_id": "assinaturas",
+        "amount": "77.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "77.80",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-assinaturas-2026-05",
+        "kind": "despesa",
+        "description": "Assinaturas · histórico",
+        "date": "2026-05-01",
+        "category_id": "assinaturas",
+        "amount": "77.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "77.80",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-assinaturas-2026-04",
+        "kind": "despesa",
+        "description": "Assinaturas · histórico",
+        "date": "2026-04-01",
+        "category_id": "assinaturas",
+        "amount": "77.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "77.80",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-assinaturas-2026-03",
+        "kind": "despesa",
+        "description": "Assinaturas · histórico",
+        "date": "2026-03-01",
+        "category_id": "assinaturas",
+        "amount": "77.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "77.80",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-assinaturas-2026-02",
+        "kind": "despesa",
+        "description": "Assinaturas · histórico",
+        "date": "2026-02-01",
+        "category_id": "assinaturas",
+        "amount": "77.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "77.80",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-assinaturas-2026-01",
+        "kind": "despesa",
+        "description": "Assinaturas · histórico",
+        "date": "2026-01-01",
+        "category_id": "assinaturas",
+        "amount": "77.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "77.80",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-assinaturas-2025-12",
+        "kind": "despesa",
+        "description": "Assinaturas · histórico",
+        "date": "2025-12-01",
+        "category_id": "assinaturas",
+        "amount": "77.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "77.80",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-assinaturas-2025-11",
+        "kind": "despesa",
+        "description": "Assinaturas · histórico",
+        "date": "2025-11-01",
+        "category_id": "assinaturas",
+        "amount": "77.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "77.80",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-assinaturas-2025-10",
+        "kind": "despesa",
+        "description": "Assinaturas · histórico",
+        "date": "2025-10-01",
+        "category_id": "assinaturas",
+        "amount": "77.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "77.80",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-investimento-2026-09",
+        "kind": "despesa",
+        "description": "Investimento · histórico",
+        "date": "2026-09-01",
+        "category_id": "investimento",
+        "amount": "6200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "6200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-investimento-2026-08",
+        "kind": "despesa",
+        "description": "Investimento · histórico",
+        "date": "2026-08-01",
+        "category_id": "investimento",
+        "amount": "6200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "6200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-investimento-2026-07",
+        "kind": "despesa",
+        "description": "Investimento · histórico",
+        "date": "2026-07-01",
+        "category_id": "investimento",
+        "amount": "6200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "6200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-investimento-2026-06",
+        "kind": "despesa",
+        "description": "Investimento · histórico",
+        "date": "2026-06-01",
+        "category_id": "investimento",
+        "amount": "6200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "6200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-investimento-2026-05",
+        "kind": "despesa",
+        "description": "Investimento · histórico",
+        "date": "2026-05-01",
+        "category_id": "investimento",
+        "amount": "6200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "6200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-investimento-2026-04",
+        "kind": "despesa",
+        "description": "Investimento · histórico",
+        "date": "2026-04-01",
+        "category_id": "investimento",
+        "amount": "6200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "6200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-investimento-2026-03",
+        "kind": "despesa",
+        "description": "Investimento · histórico",
+        "date": "2026-03-01",
+        "category_id": "investimento",
+        "amount": "6200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "6200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-investimento-2026-02",
+        "kind": "despesa",
+        "description": "Investimento · histórico",
+        "date": "2026-02-01",
+        "category_id": "investimento",
+        "amount": "6200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "6200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-investimento-2026-01",
+        "kind": "despesa",
+        "description": "Investimento · histórico",
+        "date": "2026-01-01",
+        "category_id": "investimento",
+        "amount": "6200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "6200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-investimento-2025-12",
+        "kind": "despesa",
+        "description": "Investimento · histórico",
+        "date": "2025-12-01",
+        "category_id": "investimento",
+        "amount": "6200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "6200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-investimento-2025-11",
+        "kind": "despesa",
+        "description": "Investimento · histórico",
+        "date": "2025-11-01",
+        "category_id": "investimento",
+        "amount": "6200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "6200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-investimento-2025-10",
+        "kind": "despesa",
+        "description": "Investimento · histórico",
+        "date": "2025-10-01",
+        "category_id": "investimento",
+        "amount": "6200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "6200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-gasto-livre-2026-09",
+        "kind": "despesa",
+        "description": "Gasto livre · histórico",
+        "date": "2026-09-01",
+        "category_id": "gasto-livre",
+        "amount": "4650.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4650.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-gasto-livre-2026-08",
+        "kind": "despesa",
+        "description": "Gasto livre · histórico",
+        "date": "2026-08-01",
+        "category_id": "gasto-livre",
+        "amount": "4650.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4650.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-gasto-livre-2026-07",
+        "kind": "despesa",
+        "description": "Gasto livre · histórico",
+        "date": "2026-07-01",
+        "category_id": "gasto-livre",
+        "amount": "4650.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4650.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-gasto-livre-2026-06",
+        "kind": "despesa",
+        "description": "Gasto livre · histórico",
+        "date": "2026-06-01",
+        "category_id": "gasto-livre",
+        "amount": "4650.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4650.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-gasto-livre-2026-05",
+        "kind": "despesa",
+        "description": "Gasto livre · histórico",
+        "date": "2026-05-01",
+        "category_id": "gasto-livre",
+        "amount": "4650.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4650.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-gasto-livre-2026-04",
+        "kind": "despesa",
+        "description": "Gasto livre · histórico",
+        "date": "2026-04-01",
+        "category_id": "gasto-livre",
+        "amount": "4650.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4650.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-gasto-livre-2026-03",
+        "kind": "despesa",
+        "description": "Gasto livre · histórico",
+        "date": "2026-03-01",
+        "category_id": "gasto-livre",
+        "amount": "4650.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4650.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-gasto-livre-2026-02",
+        "kind": "despesa",
+        "description": "Gasto livre · histórico",
+        "date": "2026-02-01",
+        "category_id": "gasto-livre",
+        "amount": "4650.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4650.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-gasto-livre-2026-01",
+        "kind": "despesa",
+        "description": "Gasto livre · histórico",
+        "date": "2026-01-01",
+        "category_id": "gasto-livre",
+        "amount": "4650.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4650.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-gasto-livre-2025-12",
+        "kind": "despesa",
+        "description": "Gasto livre · histórico",
+        "date": "2025-12-01",
+        "category_id": "gasto-livre",
+        "amount": "4650.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4650.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-gasto-livre-2025-11",
+        "kind": "despesa",
+        "description": "Gasto livre · histórico",
+        "date": "2025-11-01",
+        "category_id": "gasto-livre",
+        "amount": "4650.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4650.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-gasto-livre-2025-10",
+        "kind": "despesa",
+        "description": "Gasto livre · histórico",
+        "date": "2025-10-01",
+        "category_id": "gasto-livre",
+        "amount": "4650.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "4650.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-mercado-2026-09",
+        "kind": "despesa",
+        "description": "Mercado · histórico",
+        "date": "2026-09-01",
+        "category_id": "mercado",
+        "amount": "1482.35",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1482.35",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-mercado-2026-08",
+        "kind": "despesa",
+        "description": "Mercado · histórico",
+        "date": "2026-08-01",
+        "category_id": "mercado",
+        "amount": "1482.35",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1482.35",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-mercado-2026-07",
+        "kind": "despesa",
+        "description": "Mercado · histórico",
+        "date": "2026-07-01",
+        "category_id": "mercado",
+        "amount": "1482.35",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1482.35",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-mercado-2026-06",
+        "kind": "despesa",
+        "description": "Mercado · histórico",
+        "date": "2026-06-01",
+        "category_id": "mercado",
+        "amount": "1482.35",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1482.35",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-mercado-2026-05",
+        "kind": "despesa",
+        "description": "Mercado · histórico",
+        "date": "2026-05-01",
+        "category_id": "mercado",
+        "amount": "1482.35",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1482.35",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-mercado-2026-04",
+        "kind": "despesa",
+        "description": "Mercado · histórico",
+        "date": "2026-04-01",
+        "category_id": "mercado",
+        "amount": "1482.35",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1482.35",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-mercado-2026-03",
+        "kind": "despesa",
+        "description": "Mercado · histórico",
+        "date": "2026-03-01",
+        "category_id": "mercado",
+        "amount": "1482.35",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1482.35",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-mercado-2026-02",
+        "kind": "despesa",
+        "description": "Mercado · histórico",
+        "date": "2026-02-01",
+        "category_id": "mercado",
+        "amount": "1482.35",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1482.35",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-mercado-2026-01",
+        "kind": "despesa",
+        "description": "Mercado · histórico",
+        "date": "2026-01-01",
+        "category_id": "mercado",
+        "amount": "1482.35",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1482.35",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-mercado-2025-12",
+        "kind": "despesa",
+        "description": "Mercado · histórico",
+        "date": "2025-12-01",
+        "category_id": "mercado",
+        "amount": "1482.35",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1482.35",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-mercado-2025-11",
+        "kind": "despesa",
+        "description": "Mercado · histórico",
+        "date": "2025-11-01",
+        "category_id": "mercado",
+        "amount": "1482.35",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1482.35",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-mercado-2025-10",
+        "kind": "despesa",
+        "description": "Mercado · histórico",
+        "date": "2025-10-01",
+        "category_id": "mercado",
+        "amount": "1482.35",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1482.35",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-restaurantes-2026-09",
+        "kind": "despesa",
+        "description": "Restaurantes · histórico",
+        "date": "2026-09-01",
+        "category_id": "restaurantes",
+        "amount": "640.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "640.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-restaurantes-2026-08",
+        "kind": "despesa",
+        "description": "Restaurantes · histórico",
+        "date": "2026-08-01",
+        "category_id": "restaurantes",
+        "amount": "640.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "640.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-restaurantes-2026-07",
+        "kind": "despesa",
+        "description": "Restaurantes · histórico",
+        "date": "2026-07-01",
+        "category_id": "restaurantes",
+        "amount": "640.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "640.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-restaurantes-2026-06",
+        "kind": "despesa",
+        "description": "Restaurantes · histórico",
+        "date": "2026-06-01",
+        "category_id": "restaurantes",
+        "amount": "640.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "640.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-restaurantes-2026-05",
+        "kind": "despesa",
+        "description": "Restaurantes · histórico",
+        "date": "2026-05-01",
+        "category_id": "restaurantes",
+        "amount": "640.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "640.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-restaurantes-2026-04",
+        "kind": "despesa",
+        "description": "Restaurantes · histórico",
+        "date": "2026-04-01",
+        "category_id": "restaurantes",
+        "amount": "640.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "640.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-restaurantes-2026-03",
+        "kind": "despesa",
+        "description": "Restaurantes · histórico",
+        "date": "2026-03-01",
+        "category_id": "restaurantes",
+        "amount": "640.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "640.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-restaurantes-2026-02",
+        "kind": "despesa",
+        "description": "Restaurantes · histórico",
+        "date": "2026-02-01",
+        "category_id": "restaurantes",
+        "amount": "640.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "640.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-restaurantes-2026-01",
+        "kind": "despesa",
+        "description": "Restaurantes · histórico",
+        "date": "2026-01-01",
+        "category_id": "restaurantes",
+        "amount": "640.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "640.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-restaurantes-2025-12",
+        "kind": "despesa",
+        "description": "Restaurantes · histórico",
+        "date": "2025-12-01",
+        "category_id": "restaurantes",
+        "amount": "640.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "640.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-restaurantes-2025-11",
+        "kind": "despesa",
+        "description": "Restaurantes · histórico",
+        "date": "2025-11-01",
+        "category_id": "restaurantes",
+        "amount": "640.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "640.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-restaurantes-2025-10",
+        "kind": "despesa",
+        "description": "Restaurantes · histórico",
+        "date": "2025-10-01",
+        "category_id": "restaurantes",
+        "amount": "640.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "640.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-eletronicos-2026-09",
+        "kind": "despesa",
+        "description": "Eletrônicos · histórico",
+        "date": "2026-09-01",
+        "category_id": "eletronicos",
+        "amount": "310.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "310.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-eletronicos-2026-08",
+        "kind": "despesa",
+        "description": "Eletrônicos · histórico",
+        "date": "2026-08-01",
+        "category_id": "eletronicos",
+        "amount": "310.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "310.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-eletronicos-2026-07",
+        "kind": "despesa",
+        "description": "Eletrônicos · histórico",
+        "date": "2026-07-01",
+        "category_id": "eletronicos",
+        "amount": "310.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "310.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-eletronicos-2026-06",
+        "kind": "despesa",
+        "description": "Eletrônicos · histórico",
+        "date": "2026-06-01",
+        "category_id": "eletronicos",
+        "amount": "310.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "310.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-eletronicos-2026-05",
+        "kind": "despesa",
+        "description": "Eletrônicos · histórico",
+        "date": "2026-05-01",
+        "category_id": "eletronicos",
+        "amount": "310.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "310.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-eletronicos-2026-04",
+        "kind": "despesa",
+        "description": "Eletrônicos · histórico",
+        "date": "2026-04-01",
+        "category_id": "eletronicos",
+        "amount": "310.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "310.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-eletronicos-2026-03",
+        "kind": "despesa",
+        "description": "Eletrônicos · histórico",
+        "date": "2026-03-01",
+        "category_id": "eletronicos",
+        "amount": "310.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "310.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-eletronicos-2026-02",
+        "kind": "despesa",
+        "description": "Eletrônicos · histórico",
+        "date": "2026-02-01",
+        "category_id": "eletronicos",
+        "amount": "310.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "310.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-eletronicos-2026-01",
+        "kind": "despesa",
+        "description": "Eletrônicos · histórico",
+        "date": "2026-01-01",
+        "category_id": "eletronicos",
+        "amount": "310.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "310.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-eletronicos-2025-12",
+        "kind": "despesa",
+        "description": "Eletrônicos · histórico",
+        "date": "2025-12-01",
+        "category_id": "eletronicos",
+        "amount": "310.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "310.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-eletronicos-2025-11",
+        "kind": "despesa",
+        "description": "Eletrônicos · histórico",
+        "date": "2025-11-01",
+        "category_id": "eletronicos",
+        "amount": "310.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "310.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-eletronicos-2025-10",
+        "kind": "despesa",
+        "description": "Eletrônicos · histórico",
+        "date": "2025-10-01",
+        "category_id": "eletronicos",
+        "amount": "310.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "310.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-lazer-2026-09",
+        "kind": "despesa",
+        "description": "Lazer · histórico",
+        "date": "2026-09-01",
+        "category_id": "lazer",
+        "amount": "280.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "280.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-lazer-2026-08",
+        "kind": "despesa",
+        "description": "Lazer · histórico",
+        "date": "2026-08-01",
+        "category_id": "lazer",
+        "amount": "280.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "280.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-lazer-2026-07",
+        "kind": "despesa",
+        "description": "Lazer · histórico",
+        "date": "2026-07-01",
+        "category_id": "lazer",
+        "amount": "280.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "280.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-lazer-2026-06",
+        "kind": "despesa",
+        "description": "Lazer · histórico",
+        "date": "2026-06-01",
+        "category_id": "lazer",
+        "amount": "280.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "280.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-lazer-2026-05",
+        "kind": "despesa",
+        "description": "Lazer · histórico",
+        "date": "2026-05-01",
+        "category_id": "lazer",
+        "amount": "280.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "280.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-lazer-2026-04",
+        "kind": "despesa",
+        "description": "Lazer · histórico",
+        "date": "2026-04-01",
+        "category_id": "lazer",
+        "amount": "280.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "280.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-lazer-2026-03",
+        "kind": "despesa",
+        "description": "Lazer · histórico",
+        "date": "2026-03-01",
+        "category_id": "lazer",
+        "amount": "280.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "280.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-lazer-2026-02",
+        "kind": "despesa",
+        "description": "Lazer · histórico",
+        "date": "2026-02-01",
+        "category_id": "lazer",
+        "amount": "280.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "280.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-lazer-2026-01",
+        "kind": "despesa",
+        "description": "Lazer · histórico",
+        "date": "2026-01-01",
+        "category_id": "lazer",
+        "amount": "280.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "280.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-lazer-2025-12",
+        "kind": "despesa",
+        "description": "Lazer · histórico",
+        "date": "2025-12-01",
+        "category_id": "lazer",
+        "amount": "280.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "280.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-lazer-2025-11",
+        "kind": "despesa",
+        "description": "Lazer · histórico",
+        "date": "2025-11-01",
+        "category_id": "lazer",
+        "amount": "280.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "280.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-lazer-2025-10",
+        "kind": "despesa",
+        "description": "Lazer · histórico",
+        "date": "2025-10-01",
+        "category_id": "lazer",
+        "amount": "280.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "280.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-educacao-2026-09",
+        "kind": "despesa",
+        "description": "Educação · histórico",
+        "date": "2026-09-01",
+        "category_id": "educacao",
+        "amount": "190.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "190.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-educacao-2026-08",
+        "kind": "despesa",
+        "description": "Educação · histórico",
+        "date": "2026-08-01",
+        "category_id": "educacao",
+        "amount": "190.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "190.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-educacao-2026-07",
+        "kind": "despesa",
+        "description": "Educação · histórico",
+        "date": "2026-07-01",
+        "category_id": "educacao",
+        "amount": "190.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "190.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-educacao-2026-06",
+        "kind": "despesa",
+        "description": "Educação · histórico",
+        "date": "2026-06-01",
+        "category_id": "educacao",
+        "amount": "190.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "190.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-educacao-2026-05",
+        "kind": "despesa",
+        "description": "Educação · histórico",
+        "date": "2026-05-01",
+        "category_id": "educacao",
+        "amount": "190.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "190.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-educacao-2026-04",
+        "kind": "despesa",
+        "description": "Educação · histórico",
+        "date": "2026-04-01",
+        "category_id": "educacao",
+        "amount": "190.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "190.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-educacao-2026-03",
+        "kind": "despesa",
+        "description": "Educação · histórico",
+        "date": "2026-03-01",
+        "category_id": "educacao",
+        "amount": "190.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "190.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-educacao-2026-02",
+        "kind": "despesa",
+        "description": "Educação · histórico",
+        "date": "2026-02-01",
+        "category_id": "educacao",
+        "amount": "190.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "190.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-educacao-2026-01",
+        "kind": "despesa",
+        "description": "Educação · histórico",
+        "date": "2026-01-01",
+        "category_id": "educacao",
+        "amount": "190.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "190.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-educacao-2025-12",
+        "kind": "despesa",
+        "description": "Educação · histórico",
+        "date": "2025-12-01",
+        "category_id": "educacao",
+        "amount": "190.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "190.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-educacao-2025-11",
+        "kind": "despesa",
+        "description": "Educação · histórico",
+        "date": "2025-11-01",
+        "category_id": "educacao",
+        "amount": "190.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "190.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-educacao-2025-10",
+        "kind": "despesa",
+        "description": "Educação · histórico",
+        "date": "2025-10-01",
+        "category_id": "educacao",
+        "amount": "190.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "190.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-viagem-2026-09",
+        "kind": "despesa",
+        "description": "Viagem · histórico",
+        "date": "2026-09-01",
+        "category_id": "viagem",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "420.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-viagem-2026-08",
+        "kind": "despesa",
+        "description": "Viagem · histórico",
+        "date": "2026-08-01",
+        "category_id": "viagem",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "420.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-viagem-2026-07",
+        "kind": "despesa",
+        "description": "Viagem · histórico",
+        "date": "2026-07-01",
+        "category_id": "viagem",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "420.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-viagem-2026-06",
+        "kind": "despesa",
+        "description": "Viagem · histórico",
+        "date": "2026-06-01",
+        "category_id": "viagem",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "420.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-viagem-2026-05",
+        "kind": "despesa",
+        "description": "Viagem · histórico",
+        "date": "2026-05-01",
+        "category_id": "viagem",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "420.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-viagem-2026-04",
+        "kind": "despesa",
+        "description": "Viagem · histórico",
+        "date": "2026-04-01",
+        "category_id": "viagem",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "420.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-viagem-2026-03",
+        "kind": "despesa",
+        "description": "Viagem · histórico",
+        "date": "2026-03-01",
+        "category_id": "viagem",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "420.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-viagem-2026-02",
+        "kind": "despesa",
+        "description": "Viagem · histórico",
+        "date": "2026-02-01",
+        "category_id": "viagem",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "420.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-viagem-2026-01",
+        "kind": "despesa",
+        "description": "Viagem · histórico",
+        "date": "2026-01-01",
+        "category_id": "viagem",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "420.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-viagem-2025-12",
+        "kind": "despesa",
+        "description": "Viagem · histórico",
+        "date": "2025-12-01",
+        "category_id": "viagem",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "420.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-viagem-2025-11",
+        "kind": "despesa",
+        "description": "Viagem · histórico",
+        "date": "2025-11-01",
+        "category_id": "viagem",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "420.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-viagem-2025-10",
+        "kind": "despesa",
+        "description": "Viagem · histórico",
+        "date": "2025-10-01",
+        "category_id": "viagem",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "420.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-salario-2026-09",
+        "kind": "receita",
+        "description": "Salário · histórico",
+        "date": "2026-09-01",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-salario-2026-08",
+        "kind": "receita",
+        "description": "Salário · histórico",
+        "date": "2026-08-01",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-salario-2026-07",
+        "kind": "receita",
+        "description": "Salário · histórico",
+        "date": "2026-07-01",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-salario-2026-06",
+        "kind": "receita",
+        "description": "Salário · histórico",
+        "date": "2026-06-01",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-salario-2026-05",
+        "kind": "receita",
+        "description": "Salário · histórico",
+        "date": "2026-05-01",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-salario-2026-04",
+        "kind": "receita",
+        "description": "Salário · histórico",
+        "date": "2026-04-01",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-salario-2026-03",
+        "kind": "receita",
+        "description": "Salário · histórico",
+        "date": "2026-03-01",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-salario-2026-02",
+        "kind": "receita",
+        "description": "Salário · histórico",
+        "date": "2026-02-01",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-salario-2026-01",
+        "kind": "receita",
+        "description": "Salário · histórico",
+        "date": "2026-01-01",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-salario-2025-12",
+        "kind": "receita",
+        "description": "Salário · histórico",
+        "date": "2025-12-01",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-salario-2025-11",
+        "kind": "receita",
+        "description": "Salário · histórico",
+        "date": "2025-11-01",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-salario-2025-10",
+        "kind": "receita",
+        "description": "Salário · histórico",
+        "date": "2025-10-01",
+        "category_id": "salario",
+        "amount": "14200.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "14200.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-freelas-2026-09",
+        "kind": "receita",
+        "description": "Freelas · histórico",
+        "date": "2026-09-01",
+        "category_id": "freelas",
+        "amount": "1450.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1450.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-freelas-2026-08",
+        "kind": "receita",
+        "description": "Freelas · histórico",
+        "date": "2026-08-01",
+        "category_id": "freelas",
+        "amount": "1450.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1450.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-freelas-2026-07",
+        "kind": "receita",
+        "description": "Freelas · histórico",
+        "date": "2026-07-01",
+        "category_id": "freelas",
+        "amount": "1450.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1450.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-freelas-2026-06",
+        "kind": "receita",
+        "description": "Freelas · histórico",
+        "date": "2026-06-01",
+        "category_id": "freelas",
+        "amount": "1450.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1450.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-freelas-2026-05",
+        "kind": "receita",
+        "description": "Freelas · histórico",
+        "date": "2026-05-01",
+        "category_id": "freelas",
+        "amount": "1450.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1450.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-freelas-2026-04",
+        "kind": "receita",
+        "description": "Freelas · histórico",
+        "date": "2026-04-01",
+        "category_id": "freelas",
+        "amount": "1450.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1450.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-freelas-2026-03",
+        "kind": "receita",
+        "description": "Freelas · histórico",
+        "date": "2026-03-01",
+        "category_id": "freelas",
+        "amount": "1450.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1450.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-freelas-2026-02",
+        "kind": "receita",
+        "description": "Freelas · histórico",
+        "date": "2026-02-01",
+        "category_id": "freelas",
+        "amount": "1450.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1450.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-freelas-2026-01",
+        "kind": "receita",
+        "description": "Freelas · histórico",
+        "date": "2026-01-01",
+        "category_id": "freelas",
+        "amount": "1450.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1450.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-freelas-2025-12",
+        "kind": "receita",
+        "description": "Freelas · histórico",
+        "date": "2025-12-01",
+        "category_id": "freelas",
+        "amount": "1450.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1450.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-freelas-2025-11",
+        "kind": "receita",
+        "description": "Freelas · histórico",
+        "date": "2025-11-01",
+        "category_id": "freelas",
+        "amount": "1450.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1450.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-freelas-2025-10",
+        "kind": "receita",
+        "description": "Freelas · histórico",
+        "date": "2025-10-01",
+        "category_id": "freelas",
+        "amount": "1450.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "1450.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-reembolso-2026-09",
+        "kind": "receita",
+        "description": "Reembolso · histórico",
+        "date": "2026-09-01",
+        "category_id": "reembolso",
+        "amount": "120.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "120.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-reembolso-2026-08",
+        "kind": "receita",
+        "description": "Reembolso · histórico",
+        "date": "2026-08-01",
+        "category_id": "reembolso",
+        "amount": "120.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "120.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-reembolso-2026-07",
+        "kind": "receita",
+        "description": "Reembolso · histórico",
+        "date": "2026-07-01",
+        "category_id": "reembolso",
+        "amount": "120.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "120.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-reembolso-2026-06",
+        "kind": "receita",
+        "description": "Reembolso · histórico",
+        "date": "2026-06-01",
+        "category_id": "reembolso",
+        "amount": "120.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "120.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-reembolso-2026-05",
+        "kind": "receita",
+        "description": "Reembolso · histórico",
+        "date": "2026-05-01",
+        "category_id": "reembolso",
+        "amount": "120.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "120.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-reembolso-2026-04",
+        "kind": "receita",
+        "description": "Reembolso · histórico",
+        "date": "2026-04-01",
+        "category_id": "reembolso",
+        "amount": "120.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "120.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-reembolso-2026-03",
+        "kind": "receita",
+        "description": "Reembolso · histórico",
+        "date": "2026-03-01",
+        "category_id": "reembolso",
+        "amount": "120.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "120.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-reembolso-2026-02",
+        "kind": "receita",
+        "description": "Reembolso · histórico",
+        "date": "2026-02-01",
+        "category_id": "reembolso",
+        "amount": "120.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "120.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-reembolso-2026-01",
+        "kind": "receita",
+        "description": "Reembolso · histórico",
+        "date": "2026-01-01",
+        "category_id": "reembolso",
+        "amount": "120.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "120.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-reembolso-2025-12",
+        "kind": "receita",
+        "description": "Reembolso · histórico",
+        "date": "2025-12-01",
+        "category_id": "reembolso",
+        "amount": "120.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "120.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-reembolso-2025-11",
+        "kind": "receita",
+        "description": "Reembolso · histórico",
+        "date": "2025-11-01",
+        "category_id": "reembolso",
+        "amount": "120.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "120.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "h-reembolso-2025-10",
+        "kind": "receita",
+        "description": "Reembolso · histórico",
+        "date": "2025-10-01",
+        "category_id": "reembolso",
+        "amount": "120.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "conta",
+            "source_id": "itau-corrente",
+            "amount": "120.00",
+            "invoice_month": null
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "movements": [
+      {
+        "id": "m-saldo-livre-saida",
+        "date": "2026-10-05",
+        "account_id": "itau-corrente",
+        "kind": "transferencia_saida",
+        "amount": "-4700.00",
+        "description": "Transferência para Nubank Conta",
+        "note": "saldo livre do mês",
+        "transfer_id": "m-saldo-livre"
+      },
+      {
+        "id": "m-saldo-livre-entrada",
+        "date": "2026-10-05",
+        "account_id": "nubank-conta",
+        "kind": "transferencia_entrada",
+        "amount": "4700.00",
+        "description": "Transferência de Itaú Corrente",
+        "note": "saldo livre do mês",
+        "transfer_id": "m-saldo-livre"
+      },
+      {
+        "id": "m-nubank-ajuste",
+        "date": "2026-10-20",
+        "account_id": "nubank-conta",
+        "kind": "ajuste",
+        "amount": "-1862.48",
+        "description": "Ajuste de saldo",
+        "note": "diferença entre as pranchas de Contas e de Cartões",
+        "transfer_id": null
+      },
+      {
+        "id": "m-carteira-ajuste",
+        "date": "2026-10-09",
+        "account_id": "carteira",
+        "kind": "ajuste",
+        "amount": "-60.00",
+        "description": "Ajuste de saldo",
+        "note": "diferença apurada na conferência",
+        "transfer_id": null
+      }
+    ],
+    "card_items": [
+      {
+        "id": "i-nu-ago",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-07-15",
+        "invoice_month": "2026-08",
+        "description": "Compras do período",
+        "category_id": null,
+        "amount": "2740.00",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-nu-set",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-08-12",
+        "invoice_month": "2026-09",
+        "description": "Compras do período",
+        "category_id": null,
+        "amount": "1712.40",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-nu-out",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-09-10",
+        "invoice_month": "2026-10",
+        "description": "Compras do período",
+        "category_id": null,
+        "amount": "884.17",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-notebook-1",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-08-22",
+        "invoice_month": "2026-09",
+        "description": "Notebook Dell Inspiron",
+        "category_id": "eletronicos",
+        "amount": "1299.00",
+        "installment": {
+          "group_id": "g-1",
+          "no": 1,
+          "total": 6,
+          "origin": "2026-08-22"
+        },
+        "version": 1
+      },
+      {
+        "id": "i-notebook-2",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-09-22",
+        "invoice_month": "2026-10",
+        "description": "Notebook Dell Inspiron",
+        "category_id": "eletronicos",
+        "amount": "1299.00",
+        "installment": {
+          "group_id": "g-1",
+          "no": 2,
+          "total": 6,
+          "origin": "2026-08-22"
+        },
+        "version": 1
+      },
+      {
+        "id": "i-notebook-3",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-22",
+        "invoice_month": "2026-11",
+        "description": "Notebook Dell Inspiron",
+        "category_id": "eletronicos",
+        "amount": "1299.00",
+        "installment": {
+          "group_id": "g-1",
+          "no": 3,
+          "total": 6,
+          "origin": "2026-08-22"
+        },
+        "version": 1
+      },
+      {
+        "id": "i-notebook-4",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-11-22",
+        "invoice_month": "2026-12",
+        "description": "Notebook Dell Inspiron",
+        "category_id": "eletronicos",
+        "amount": "1299.00",
+        "installment": {
+          "group_id": "g-1",
+          "no": 4,
+          "total": 6,
+          "origin": "2026-08-22"
+        },
+        "version": 1
+      },
+      {
+        "id": "i-notebook-5",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-12-22",
+        "invoice_month": "2027-01",
+        "description": "Notebook Dell Inspiron",
+        "category_id": "eletronicos",
+        "amount": "1299.00",
+        "installment": {
+          "group_id": "g-1",
+          "no": 5,
+          "total": 6,
+          "origin": "2026-08-22"
+        },
+        "version": 1
+      },
+      {
+        "id": "i-notebook-6",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2027-01-22",
+        "invoice_month": "2027-02",
+        "description": "Notebook Dell Inspiron",
+        "category_id": "eletronicos",
+        "amount": "1299.00",
+        "installment": {
+          "group_id": "g-1",
+          "no": 6,
+          "total": 6,
+          "origin": "2026-08-22"
+        },
+        "version": 1
+      },
+      {
+        "id": "i-nu-uber",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-27",
+        "invoice_month": "2026-11",
+        "description": "Uber",
+        "category_id": "transporte",
+        "amount": "38.90",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-nu-pao",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-24",
+        "invoice_month": "2026-11",
+        "description": "Mercado · Pão de Açúcar",
+        "category_id": "mercado",
+        "amount": "612.40",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-nu-fasano",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-22",
+        "invoice_month": "2026-11",
+        "description": "Restaurante · Fasano",
+        "category_id": "restaurantes",
+        "amount": "890.00",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-nu-ifood",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-19",
+        "invoice_month": "2026-11",
+        "description": "iFood",
+        "category_id": "restaurantes",
+        "amount": "84.80",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-nu-carrefour",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-15",
+        "invoice_month": "2026-11",
+        "description": "Mercado · Carrefour",
+        "category_id": "mercado",
+        "amount": "190.87",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-nu-google",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-14",
+        "invoice_month": "2026-11",
+        "description": "Google One",
+        "category_id": "assinaturas",
+        "amount": "21.90",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-nu-farmacia",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-12",
+        "invoice_month": "2026-11",
+        "description": "Farmácia",
+        "category_id": "saude",
+        "amount": "189.90",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-nu-amazon",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-10",
+        "invoice_month": "2026-11",
+        "description": "Amazon · Fone de ouvido",
+        "category_id": "eletronicos",
+        "amount": "189.00",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-nu-shell",
+        "card_id": "nubank-master",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-05",
+        "invoice_month": "2026-11",
+        "description": "Posto Shell",
+        "category_id": "transporte",
+        "amount": "174.40",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-nu-devolucao",
+        "card_id": "nubank-master",
+        "kind": "credito",
+        "subtype": "devolucao",
+        "purchase_date": "2026-10-26",
+        "invoice_month": "2026-11",
+        "description": "Devolução · Amazon · Fone de ouvido",
+        "category_id": "eletronicos",
+        "amount": "189.00",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-nu-cupom",
+        "card_id": "nubank-master",
+        "kind": "credito",
+        "subtype": "desconto",
+        "purchase_date": "2026-10-19",
+        "invoice_month": "2026-11",
+        "description": "Cupom iFood",
+        "category_id": "restaurantes",
+        "amount": "20.00",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-visa-set",
+        "card_id": "itau-visa",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-09-10",
+        "invoice_month": "2026-09",
+        "description": "Compras do período",
+        "category_id": null,
+        "amount": "1502.45",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-geladeira-3",
+        "card_id": "itau-visa",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-15",
+        "invoice_month": "2026-10",
+        "description": "Geladeira Brastemp",
+        "category_id": "moradia",
+        "amount": "606.11",
+        "installment": {
+          "group_id": "g-2",
+          "no": 3,
+          "total": 6,
+          "origin": "2026-08-15"
+        },
+        "version": 1
+      },
+      {
+        "id": "i-geladeira-4",
+        "card_id": "itau-visa",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-11-15",
+        "invoice_month": "2026-11",
+        "description": "Geladeira Brastemp",
+        "category_id": "moradia",
+        "amount": "606.11",
+        "installment": {
+          "group_id": "g-2",
+          "no": 4,
+          "total": 6,
+          "origin": "2026-08-15"
+        },
+        "version": 1
+      },
+      {
+        "id": "i-geladeira-5",
+        "card_id": "itau-visa",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-12-15",
+        "invoice_month": "2026-12",
+        "description": "Geladeira Brastemp",
+        "category_id": "moradia",
+        "amount": "606.11",
+        "installment": {
+          "group_id": "g-2",
+          "no": 5,
+          "total": 6,
+          "origin": "2026-08-15"
+        },
+        "version": 1
+      },
+      {
+        "id": "i-geladeira-6",
+        "card_id": "itau-visa",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2027-01-15",
+        "invoice_month": "2027-01",
+        "description": "Geladeira Brastemp",
+        "category_id": "moradia",
+        "amount": "606.11",
+        "installment": {
+          "group_id": "g-2",
+          "no": 6,
+          "total": 6,
+          "origin": "2026-08-15"
+        },
+        "version": 1
+      },
+      {
+        "id": "i-visa-posto",
+        "card_id": "itau-visa",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-12",
+        "invoice_month": "2026-10",
+        "description": "Posto Ipiranga",
+        "category_id": "transporte",
+        "amount": "420.00",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-visa-farmacia",
+        "card_id": "itau-visa",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-18",
+        "invoice_month": "2026-10",
+        "description": "Farmácia Pague Menos",
+        "category_id": "saude",
+        "amount": "214.19",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-visa-livraria",
+        "card_id": "itau-visa",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-24",
+        "invoice_month": "2026-11",
+        "description": "Livraria Cultura",
+        "category_id": "educacao",
+        "amount": "193.70",
+        "installment": null,
+        "version": 1
+      },
+      {
+        "id": "i-master-out",
+        "card_id": "itau-mastercard",
+        "kind": "compra",
+        "subtype": null,
+        "purchase_date": "2026-10-05",
+        "invoice_month": "2026-10",
+        "description": "Compras do período",
+        "category_id": null,
+        "amount": "540.00",
+        "installment": null,
+        "version": 1
+      }
+    ],
+    "invoice_payments": [
+      {
+        "id": "p-nu-ago",
+        "card_id": "nubank-master",
+        "invoice_month": "2026-08",
+        "account_id": "nubank-conta",
+        "date": "2026-08-05",
+        "amount": "2740.00",
+        "posted": false
+      },
+      {
+        "id": "p-nu-set",
+        "card_id": "nubank-master",
+        "invoice_month": "2026-09",
+        "account_id": "nubank-conta",
+        "date": "2026-09-05",
+        "amount": "3011.40",
+        "posted": false
+      },
+      {
+        "id": "p-nu-out",
+        "card_id": "nubank-master",
+        "invoice_month": "2026-10",
+        "account_id": "nubank-conta",
+        "date": "2026-10-05",
+        "amount": "2183.17",
+        "posted": true
+      },
+      {
+        "id": "p-visa-set",
+        "card_id": "itau-visa",
+        "invoice_month": "2026-09",
+        "account_id": "itau-corrente",
+        "date": "2026-10-08",
+        "amount": "1502.45",
+        "posted": true
+      }
+    ]
+  }
+}

@@ -12,6 +12,7 @@ import type { OverviewDeps } from '../controllers/overview.controller.js';
 import type { AllocationDeps } from '../controllers/allocation.controller.js';
 import type { GoalDeps } from '../controllers/goal.controller.js';
 import type { SettingsDeps } from '../controllers/settings.controller.js';
+import type { FinanceRouteDeps } from '../controllers/finance.controller.js';
 import type { PerformanceDeps } from '../controllers/performance.controller.js';
 import type { PortfolioDeps } from '../controllers/portfolio.controller.js';
 import type { PositionDeps } from '../controllers/position.controller.js';
@@ -30,6 +31,7 @@ import { overviewRoutes } from './overview.routes.js';
 import { allocationRoutes } from './allocation.routes.js';
 import { goalRoutes } from './goal.routes.js';
 import { settingsRoutes } from './settings.routes.js';
+import { financeRoutes } from './finance.routes.js';
 import { performanceRoutes } from './performance.routes.js';
 import { portfolioRoutes } from './portfolio.routes.js';
 import { positionRoutes } from './position.routes.js';
@@ -53,7 +55,8 @@ export type RouteDeps = HealthCheckDeps &
   PerformanceDeps &
   AllocationDeps &
   GoalDeps &
-  SettingsDeps & { readonly version: string };
+  SettingsDeps &
+  FinanceRouteDeps & { readonly version: string };
 
 /** Tudo sob `/api`. */
 export const apiRoutes = (deps: RouteDeps): Router => {
@@ -82,6 +85,7 @@ export const apiRoutes = (deps: RouteDeps): Router => {
   router.use(allocationRoutes(deps));
   router.use(goalRoutes(deps));
   router.use(settingsRoutes(deps));
+  router.use(financeRoutes(deps));
 
   return router;
 };

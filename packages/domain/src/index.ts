@@ -208,3 +208,6 @@ export {
 export type { TreasuryIdentity, TreasuryKind } from './instrument/instrument.treasury.js';
 export { classifyListedInstrument } from './instrument/instrument.classify.js';
 export { parseListedInstrumentFromDB } from './instrument/instrument.parsers.js';
+
+// ─── Finanças ────────────────────────────────────────────────────────────────
+export * from './finance/index.js';

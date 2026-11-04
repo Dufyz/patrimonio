@@ -1,3 +1,4 @@
+import { isFinanceError } from '@patrimonio/application';
 import type { AppError } from '@patrimonio/application';
 import type { Request, Response } from 'express';
 
@@ -11,9 +12,30 @@ export const sendFailure = (
   response: Response,
   error: AppError,
 ): void => {
+  if (isFinanceError(error)) {
+    // Regra de Finanças: o `code` estável e as falhas da tentativa vão junto.
+    response.status(error.statusCode).json({
+      message: error.message,
+      request_id: request.requestId,
+      code: error.code,
+      ...(error.field === undefined ? {} : { field: error.field }),
+      ...(error.details === undefined ? {} : { details: error.details }),
+      errors: error.errors,
+    });
+    return;
+  }
+
   response
     .status(error.statusCode)
     .json({ message: error.message, request_id: request.requestId });
+};
+
+/** `If-Match: "3"` ou `3`: a versão que a tela viu. */
+export const ifMatchVersion = (request: Request): number | undefined => {
+  const header = request.header('If-Match');
+  if (header === undefined) return undefined;
+  const parsed = Number(header.replace(/^W\//, '').replace(/"/g, '').trim());
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 };
 
 /** A query já validada, convertida pelo schema de `contracts`. */

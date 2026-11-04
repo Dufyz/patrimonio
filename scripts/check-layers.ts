@@ -27,7 +27,7 @@ const ALLOWED: Record<string, readonly string[]> = {
   // Tipos, enums, parsers e a máquina de estados do pipeline.
   domain: ['shared'],
   // O motor financeiro: sem banco, sem HTTP, sem relógio.
-  calc: ['shared'],
+  calc: ['domain', 'shared'],
   // O contrato HTTP. Roda no navegador, então só zod e domain.
   contracts: ['domain'],
   // O que o sistema faz, sem saber onde os dados moram.

@@ -49,6 +49,13 @@ const TABLE: Record<Stage, Record<StageOutcome, Transition>> = {
     succeeded: { recalc_status: 'idle', next: null },
     failed: { recalc_status: 'idle', next: null },
   },
+  // Global como o backup: Finanças não move o estado de recálculo de carteira.
+  finance: {
+    requested: { recalc_status: 'idle', next: null },
+    started: { recalc_status: 'idle', next: null },
+    succeeded: { recalc_status: 'idle', next: null },
+    failed: { recalc_status: 'idle', next: null },
+  },
 };
 
 /** Estágios cujo escopo é uma carteira: só eles movem `recalc_status`. */

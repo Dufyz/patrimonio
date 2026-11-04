@@ -15,6 +15,7 @@ import {
   createRedisConnection,
 } from '@patrimonio/queue';
 import type { Queues, RedisConnection } from '@patrimonio/queue';
+import type { Clock } from '@patrimonio/application';
 import type { Express } from 'express';
 
 import { createApp } from '../app.js';
@@ -40,7 +41,9 @@ export type ApiHarness = {
   readonly close: () => Promise<void>;
 };
 
-export const createApiHarness = async (): Promise<ApiHarness> => {
+export const createApiHarness = async (
+  options: { readonly clock?: Clock } = {},
+): Promise<ApiHarness> => {
   await runMigrations(environment.database.connection);
 
   const queryCounter = createQueryCounter();
@@ -66,7 +69,11 @@ export const createApiHarness = async (): Promise<ApiHarness> => {
     sql,
     redis,
     outbox: repositories.outbox,
-    usecases: createApiUseCases({ unitOfWork, repositories, clock: systemClock }),
+    usecases: createApiUseCases({
+      unitOfWork,
+      repositories,
+      clock: options.clock ?? systemClock,
+    }),
     queues,
     startedAt: new Date(),
     version: '0.1.0-test',
@@ -97,7 +104,18 @@ export const createApiHarness = async (): Promise<ApiHarness> => {
  */
 export const resetSourceTables = async (sql: Sql): Promise<void> => {
   await sql.unsafe(`
-    TRUNCATE TABLE position_daily,
+    TRUNCATE TABLE fin_idempotency,
+                   fin_invoice_payment,
+                   fin_card_item,
+                   fin_movement,
+                   fin_entry_payment,
+                   fin_entry,
+                   fin_recurring_skip,
+                   fin_recurring,
+                   fin_card,
+                   fin_account,
+                   fin_category,
+                   position_daily,
                    portfolio_daily,
                    realized_result,
                    tax_month,

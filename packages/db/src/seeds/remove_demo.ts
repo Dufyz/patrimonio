@@ -1,4 +1,5 @@
 import type { Sql } from '../postgresql.js';
+import { removeFinanceDemo } from './finance_demo.js';
 
 export type RemovedDemo = {
   readonly portfolios: number;
@@ -75,6 +76,9 @@ export const removeDemoData = async (sql: Sql): Promise<RemovedDemo> =>
     const institutions = await tx<{ id: string }[]>`
       DELETE FROM institution WHERE is_demo RETURNING id
     `;
+
+    // Finanças: antes dos ativos e instituições, que não têm vínculo com ela.
+    await removeFinanceDemo(tx as unknown as Sql);
 
     await tx`DELETE FROM index_quote WHERE source = 'dev-seed'`;
     await tx`DELETE FROM market_source_run WHERE source = 'dev-seed'`;
