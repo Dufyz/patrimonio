@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 
+import { LedgerTable } from '../components/ledger_table.js';
 import { LedgerStrip } from '../components/ledger_strip.js';
 import { PeriodControl } from '../components/period_control.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
+import { groupByDay } from '../domain/ledger_groups.js';
 import { indicators as computeIndicators, queryEntries } from '../domain/ledger.js';
 import { EMPTY_FILTERS } from '../lib/filters.js';
 import { PRIMARY_LABELS } from '../lib/header.js';
@@ -18,6 +20,7 @@ export const EntriesScreen = (): React.ReactElement => {
   const { range, setRange, today } = useFinancePeriod();
 
   const entries = useMemo(() => queryEntries(data, '', EMPTY_FILTERS), [data]);
+  const groups = useMemo(() => groupByDay(entries, range), [entries, range]);
   const indicators = useMemo(() => computeIndicators(entries, range), [entries, range]);
 
   return (
@@ -30,6 +33,7 @@ export const EntriesScreen = (): React.ReactElement => {
       />
       <div className="flex flex-col gap-4">
         <LedgerStrip indicators={indicators} range={range} today={today} />
+        <LedgerTable groups={groups} categories={data.categories} today={today} />
       </div>
     </>
   );

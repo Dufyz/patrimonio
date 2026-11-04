@@ -66,3 +66,77 @@ describe('faixa de indicadores (FIN-301)', () => {
     expect(screen.getByRole('button', { name: /Lançamento/ })).toBeInTheDocument();
   });
 });
+
+describe('tabela por dia (FIN-302)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  it('tem as colunas do documento', () => {
+    open();
+    for (const name of ['Data', 'Descrição', 'Categoria', 'Conta', 'Detalhe', 'Valor']) {
+      expect(screen.getByRole('columnheader', { name })).toBeInTheDocument();
+    }
+  });
+
+  it('a primeira seção traz os previstos, do mais próximo ao mais distante', () => {
+    open();
+    const rows = screen.getAllByRole('row').map((row) => row.textContent ?? '');
+    expect(rows[1]).toContain('Próximos dias · previstos');
+    expect(rows[1]).toContain('4 lançamentos · não entram nos totais do mês');
+    expect(rows[2]).toContain('Spotify');
+    expect(rows[3]).toContain('Gasto livre');
+    expect(rows[5]).toContain('Aluguel e condomínio');
+    expect(rows[5]).toContain('10/11');
+  });
+
+  it('depois vêm os dias, do mais novo ao mais antigo, com o resumo', () => {
+    open();
+    const text = screen.getAllByRole('row').map((row) => row.textContent ?? '');
+    const at = (value: string) => text.findIndex((line) => line.includes(value));
+    expect(at('Quarta, 21/10')).toBeGreaterThan(at('Aluguel e condomínio'));
+    expect(at('Quarta, 21/10')).toBeLessThan(at('Terça, 20/10'));
+    expect(at('Terça, 20/10')).toBeLessThan(at('Sábado, 17/10'));
+    expect(text[at('Quarta, 21/10')]).toContain('despesas R$ 4.500,00');
+    expect(text[at('Quinta, 15/10')]).toContain(
+      'receitas R$ 350,00 · despesas R$ 504,00',
+    );
+    expect(text[at('Segunda, 12/10')]).toContain('receitas R$ 1.800,00');
+    expect(text[at('Segunda, 12/10')]).not.toContain('despesas');
+  });
+
+  it('previstos têm "previsto" e o botão Lançar; recorrentes têm "recorrente"', () => {
+    open();
+    const row = (name: string) => {
+      const found = screen
+        .getAllByText(name)
+        .map((el) => el.closest('tr'))
+        .find((r) => r !== null);
+      if (found === null || found === undefined) throw new Error(name);
+      return within(found);
+    };
+    expect(row('Spotify').getByText('previsto')).toBeInTheDocument();
+    expect(
+      row('Spotify').getByRole('button', { name: 'Lançar Spotify' }),
+    ).toBeInTheDocument();
+    expect(row('Netflix').getByText('recorrente')).toBeInTheDocument();
+    expect(row('Freela · Projeto Lume').getByText('recorrente')).toBeInTheDocument();
+  });
+
+  it('receita com + e despesa com −', () => {
+    open();
+    const salario = screen.getAllByText('Salário')[0]?.closest('tr');
+    expect(salario?.textContent).toMatch(/\+\s?R\$\s?14\.200,00/);
+    const aluguel = screen.getAllByText('Aluguel e condomínio')[1]?.closest('tr');
+    expect(aluguel?.textContent).toMatch(/−\s?R\$\s?3\.200,00/);
+  });
+
+  it('o rodapé traz a legenda', () => {
+    open();
+    expect(screen.getByText(/repete todo mês/)).toBeInTheDocument();
+    expect(screen.getByText(/também são filtros/)).toBeInTheDocument();
+  });
+
+  it('a conta de luz mostra as duas origens', () => {
+    open();
+    expect(screen.getByText('Flex + Itaú Corrente')).toBeInTheDocument();
+  });
+});
