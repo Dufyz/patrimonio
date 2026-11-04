@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { Button } from '../../components/primitives.js';
 import { Modal } from '../../components/overlay.js';
+import { Callout } from '../../views/entry/fields.js';
 import { FormShell } from '../../views/entry/form_shell.js';
 import { Field, Input, Select } from '../../views/entry/fields.js';
 import {
@@ -122,6 +123,11 @@ export const CategoryDialog = ({
             ))}
           </div>
         </div>
+        <Callout tone="info">
+          Ao apagar uma categoria que já tem lançamentos, o sistema pergunta para qual
+          categoria mover. Investimento e Gasto livre são categorias comuns e podem ser
+          editadas.
+        </Callout>
       </FormShell>
     </Modal>
   );

@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { Modal } from '../../components/overlay.js';
 import { FormShell } from '../../views/entry/form_shell.js';
 import { Checkbox } from '../../components/ui/checkbox.js';
+import { EffectTable } from './effect_table.js';
+import { entryEffect } from '../domain/effects.js';
 import { Callout, Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
 import {
   FUTURE_DATE,
@@ -73,6 +75,7 @@ export const EntryDialog = ({
   const diff = splitDifference(draft);
   const warnings = benefitWarnings(data, draft, today, ignoreEntryId);
   const blocked = diff !== null && diff !== 0;
+  const effect = mode === 'new' ? entryEffect(data, draft, today) : null;
 
   const categories = data.categories
     .filter((category) => category.kind === draft.kind)
@@ -302,6 +305,15 @@ export const EntryDialog = ({
                 : `As partes passam ${formatBRL(-diff)} do valor.`}
           </p>
         )}
+
+        {effect === null ? null : <EffectTable rows={effect} />}
+
+        {mode === 'new' && canInstall(data, draft) && Number(draft.installments) > 1 ? (
+          <Callout tone="info">
+            Compra parcelada vira uma despesa por mês, na fatura de cada parcela, até a
+            última.
+          </Callout>
+        ) : null}
 
         {warnings.length === 0 ? null : (
           <Callout tone="warning">

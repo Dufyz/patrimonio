@@ -181,7 +181,7 @@ describe('Pagar fatura (FIN-507, CE-04)', () => {
     open();
     await userEvent.click(screen.getByRole('button', { name: 'Pagar fatura Itaú Visa' }));
     const dialog = within(screen.getByRole('dialog'));
-    expect(dialog.getByText('Itaú Corrente')).toBeTruthy();
+    expect(dialog.getAllByText('Itaú Corrente').length).toBeGreaterThan(0);
     expect(dialog.getByText('R$ 1.400,10')).toBeTruthy();
     await userEvent.click(
       dialog.getByRole('button', { name: /^Confirmar pagamento(?:\s*⌘↵)?$/ }),

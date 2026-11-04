@@ -2,9 +2,11 @@ import { useState } from 'react';
 
 import { Modal } from '../../components/overlay.js';
 import { FormShell } from '../../views/entry/form_shell.js';
-import { Field, Input } from '../../views/entry/fields.js';
+import { Callout, Field, Input } from '../../views/entry/fields.js';
 import { accountLabel } from '../domain/accounts.js';
 import { findCard, invoiceTotal } from '../domain/cards.js';
+import { EffectTable } from './effect_table.js';
+import { payInvoiceEffect } from '../domain/effects.js';
 import { payInvoiceDateError } from '../domain/invoice_ops.js';
 import type { FinanceData } from '../domain/types.js';
 import { formatBRL, formatMonth } from '../lib/format.js';
@@ -77,6 +79,17 @@ export const PayInvoiceDialog = ({
             />
           )}
         </Field>
+        <EffectTable
+          rows={
+            payInvoiceDateError(date, today) === null
+              ? payInvoiceEffect(data, cardId, invoice, date, today)
+              : []
+          }
+        />
+        <Callout tone="info">
+          Pagar a fatura não cria despesa nova: as despesas foram lançadas quando
+          aconteceram.
+        </Callout>
       </FormShell>
     </Modal>
   );

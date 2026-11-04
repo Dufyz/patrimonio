@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { Modal } from '../../components/overlay.js';
+import { Callout } from '../../views/entry/fields.js';
 import { FormShell } from '../../views/entry/form_shell.js';
 import { Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
 import { draftOfCard, emptyCardDraft, validateCard } from '../domain/card_ops.js';
@@ -120,6 +121,10 @@ export const CardDialog = ({
             )}
           </Field>
         </div>
+        <Callout tone="info">
+          A conta do cartão agrupa os cartões na tela de Contas. A conta que paga a fatura
+          é a sugerida em Pagar fatura.
+        </Callout>
       </FormShell>
     </Modal>
   );
