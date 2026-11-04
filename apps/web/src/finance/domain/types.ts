@@ -36,6 +36,8 @@ export type Entry = {
   readonly cents: Cents;
   readonly status: EntryStatus;
   readonly recurringId?: string;
+  /** Parcela n de N de uma compra no cartão (RN-45). */
+  readonly installment?: { readonly n: number; readonly of: number };
   readonly payments: readonly Payment[];
   /**
    * Anterior ao período acompanhado: conta nas médias por categoria, mas não

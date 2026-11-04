@@ -1,9 +1,15 @@
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import { Button } from '../../components/primitives.js';
 import { EntryDialog } from '../components/entry_dialog.js';
-import { draftOfEntry, launchEntry } from '../domain/entry_ops.js';
+import {
+  addEntry,
+  draftOfEntry,
+  emptyEntryDraft,
+  launchEntry,
+} from '../domain/entry_ops.js';
+import { financeRoutes } from '../lib/routes.js';
 import type { Entry } from '../domain/types.js';
 
 import { browserStorage } from '../../lib/preferences.js';
@@ -45,6 +51,8 @@ const COLUMNS: readonly ColumnSpec[] = [
 export const EntriesScreen = (): React.ReactElement => {
   const data = useFinanceData();
   const store = useFinanceStore();
+  const navigate = useNavigate();
+  const [creating, setCreating] = useState(false);
   const [launching, setLaunching] = useState<Entry | null>(null);
   const { range, setRange, today } = useFinancePeriod();
 
@@ -111,7 +119,7 @@ export const EntriesScreen = (): React.ReactElement => {
         title="Lançamentos"
         subtitle={`Todas as contas e cartões · ${GROUPING_SUBTITLES[grouping]}`}
         period={<PeriodControl value={range} onChange={setRange} today={today} />}
-        primary={{ label: PRIMARY_LABELS.entries, onClick: () => {} }}
+        primary={{ label: PRIMARY_LABELS.entries, onClick: () => setCreating(true) }}
       />
       <div className="flex flex-col gap-4">
         <LedgerStrip indicators={indicators} range={range} today={today} />
@@ -166,6 +174,20 @@ export const EntriesScreen = (): React.ReactElement => {
         </div>
       </div>
 
+      {creating ? (
+        <EntryDialog
+          mode="new"
+          data={data}
+          today={today}
+          initial={emptyEntryDraft(today)}
+          onClose={() => setCreating(false)}
+          onCreateRecurring={() => navigate(financeRoutes.recurrings())}
+          onSave={(draft) => {
+            store.set((current) => addEntry(current, draft, today));
+            setCreating(false);
+          }}
+        />
+      ) : null}
       {launching === null ? null : (
         <EntryDialog
           mode="launch"

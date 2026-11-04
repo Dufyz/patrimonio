@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -326,3 +326,117 @@ describe('lançar previsto (FIN-306)', () => {
 });
 
 const strip = () => screen.getByRole('region', { name: 'Indicadores do período' });
+
+describe('novo lançamento (FIN-307)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  const openNew = async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /^Lançamento/ }));
+    return screen.getByRole('dialog', { name: 'Novo lançamento' });
+  };
+
+  it('abre pelo botão e pelo atalho N', async () => {
+    open();
+    await userEvent.keyboard('n');
+    expect(screen.getByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument();
+  });
+
+  it('oferece só as categorias do tipo', async () => {
+    const dialog = await openNew();
+    const categoria = within(dialog).getByRole('combobox', { name: 'Categoria' });
+    expect(
+      within(categoria).queryByRole('option', { name: 'Salário' }),
+    ).not.toBeInTheDocument();
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: 'Tipo' }),
+      'Receita',
+    );
+    expect(
+      within(categoria).getByRole('option', { name: 'Salário' }),
+    ).toBeInTheDocument();
+    expect(
+      within(categoria).queryByRole('option', { name: 'Mercado' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('valida inline só depois de tentar salvar', async () => {
+    const dialog = await openNew();
+    expect(within(dialog).queryByText('Dê uma descrição.')).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    expect(within(dialog).getByText('Dê uma descrição.')).toBeInTheDocument();
+    expect(within(dialog).getByText('Escolha uma categoria.')).toBeInTheDocument();
+  });
+
+  it('salva e a linha aparece no dia correto, com a faixa recalculada', async () => {
+    const dialog = await openNew();
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: 'Descrição' }),
+      'Padaria',
+    );
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: 'Categoria' }),
+      'Mercado',
+    );
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Valor' }), '32,50');
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: 'Origem do pagamento' }),
+      'Itaú Corrente',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText('Padaria')).toBeInTheDocument();
+    expect(screen.getByText('Sábado, 24/10')).toBeInTheDocument();
+    expect(within(strip()).getByText(/9\.510,60/)).toBeInTheDocument();
+  });
+
+  it('dividir em duas origens mostra a diferença e trava o salvar', async () => {
+    const dialog = await openNew();
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: 'Valor' }),
+      '100,00',
+    );
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: /Dividir/ }));
+    await userEvent.type(
+      within(dialog).getAllByRole('textbox', { name: 'Parte desta origem' })[0]!,
+      '60,00',
+    );
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Faltam R$ 40,00');
+    expect(within(dialog).getByRole('button', { name: 'Salvar' })).toBeDisabled();
+    await userEvent.type(
+      within(dialog).getAllByRole('textbox', { name: 'Parte desta origem' })[1]!,
+      '40,00',
+    );
+    expect(within(dialog).getByRole('status')).toHaveTextContent('As partes fecham');
+    expect(within(dialog).getByRole('button', { name: 'Salvar' })).toBeEnabled();
+  });
+
+  it('cartão oferece parcelas e mostra "n parcelas de R$ x"', async () => {
+    const dialog = await openNew();
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: 'Valor' }),
+      '300,00',
+    );
+    expect(
+      within(dialog).queryByRole('textbox', { name: 'Parcelas' }),
+    ).not.toBeInTheDocument();
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: 'Origem do pagamento' }),
+      'Itaú Visa',
+    );
+    const parcelas = within(dialog).getByRole('textbox', { name: 'Parcelas' });
+    await userEvent.clear(parcelas);
+    await userEvent.type(parcelas, '3');
+    expect(within(dialog).getByText('3 parcelas de R$ 100,00')).toBeInTheDocument();
+  });
+
+  it('para data futura oferece criar um recorrente', async () => {
+    const dialog = await openNew();
+    fireEvent.change(within(dialog).getByLabelText('Data'), {
+      target: { value: '2026-11-15' },
+    });
+    expect(
+      within(dialog).getByRole('button', { name: 'Criar recorrente' }),
+    ).toBeInTheDocument();
+  });
+});

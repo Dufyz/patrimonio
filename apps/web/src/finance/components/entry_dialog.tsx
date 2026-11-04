@@ -11,7 +11,14 @@ import {
 } from '../../components/ui/dialog.js';
 import { Checkbox } from '../../components/ui/checkbox.js';
 import { Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
-import { allowedSources, splitDifference, validateEntry } from '../domain/entry_ops.js';
+import {
+  FUTURE_DATE,
+  allowedSources,
+  canInstall,
+  installmentSummary,
+  splitDifference,
+  validateEntry,
+} from '../domain/entry_ops.js';
 import type { EntryDraft } from '../domain/entry_ops.js';
 import type { EntryKind, FinanceData } from '../domain/types.js';
 import { formatBRL } from '../lib/format.js';
@@ -46,6 +53,7 @@ export const EntryDialog = ({
   today,
   onSave,
   onClose,
+  onCreateRecurring,
 }: {
   readonly mode: EntryDialogMode;
   readonly data: FinanceData;
@@ -53,6 +61,8 @@ export const EntryDialog = ({
   readonly today: string;
   readonly onSave: (draft: EntryDraft) => void;
   readonly onClose: () => void;
+  /** Para algo futuro, o modal oferece criar um recorrente. */
+  readonly onCreateRecurring?: (() => void) | undefined;
 }): React.ReactElement => {
   const [draft, setDraft] = useState<EntryDraft>(initial);
   const [attempted, setAttempted] = useState(false);
@@ -206,6 +216,40 @@ export const EntryDialog = ({
                 </Field>
               ) : null}
             </div>
+
+            {draft.date > today && onCreateRecurring !== undefined ? (
+              <p className="text-xs text-ink-3">
+                {FUTURE_DATE}{' '}
+                <button
+                  type="button"
+                  className="cursor-pointer font-medium text-accent underline"
+                  onClick={onCreateRecurring}
+                >
+                  Criar recorrente
+                </button>
+              </p>
+            ) : null}
+
+            {canInstall(draft) && mode !== 'launch' ? (
+              <Field
+                label="Parcelas"
+                error={shown('installments')}
+                hint={installmentSummary(draft) ?? 'À vista'}
+              >
+                {(props) => (
+                  <Input
+                    {...props}
+                    numeric
+                    inputMode="numeric"
+                    invalid={shown('installments') !== undefined}
+                    value={draft.installments}
+                    onChange={(event) =>
+                      set({ installments: event.target.value.replace(/\D/g, '') })
+                    }
+                  />
+                )}
+              </Field>
+            ) : null}
 
             {draft.kind === 'despesa' && !locked ? (
               <label className="flex items-center gap-2 text-[0.8125rem]">

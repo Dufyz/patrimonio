@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   FUTURE_DATE,
+  addEntry,
+  canInstall,
+  installmentCount,
+  installmentSummary,
   draftOfEntry,
   emptyEntryDraft,
   launchEntry,
@@ -169,5 +173,92 @@ describe('lançar previsto (RN-02, RN-12)', () => {
     expect(
       launchEntry(data, 'l-netflix', draftOfEntry(entry('l-netflix'), TODAY), TODAY),
     ).toBe(data);
+  });
+});
+
+describe('novo lançamento (FIN-307)', () => {
+  const draft = {
+    ...emptyEntryDraft(TODAY),
+    description: 'Padaria',
+    categoryId: 'mercado',
+    value: '32,50',
+    sourceId: 'itau-corrente',
+  };
+
+  it('aparece no dia certo e recalcula a faixa', () => {
+    const next = addEntry(data, { ...draft, date: '2026-10-20' }, TODAY);
+    const created = next.entries.find((e) => e.description === 'Padaria');
+    expect(created).toMatchObject({ date: '2026-10-20', status: 'lancada', cents: 3250 });
+    const october = currentMonth(TODAY);
+    const before = indicators(queryEntries(data, '', {}), october).despesas;
+    const after = indicators(queryEntries(next, '', {}), october).despesas;
+    expect(after.cents - before.cents).toBe(3250);
+    expect(after.count - before.count).toBe(1);
+  });
+
+  it('não cria lançamento inválido nem de data futura', () => {
+    expect(addEntry(data, { ...draft, date: '2026-10-25' }, TODAY)).toBe(data);
+    expect(addEntry(data, { ...draft, description: '' }, TODAY)).toBe(data);
+  });
+
+  it('guarda as duas origens', () => {
+    const next = addEntry(
+      data,
+      {
+        ...draft,
+        value: '100,00',
+        split: true,
+        firstValue: '60,00',
+        secondSourceId: 'flex',
+        secondValue: '40,00',
+      },
+      TODAY,
+    );
+    expect(next.entries.at(-1)?.payments).toEqual([
+      { sourceId: 'itau-corrente', cents: 6000 },
+      { sourceId: 'flex', cents: 4000 },
+    ]);
+  });
+
+  describe('parcelamento no cartão (RN-45)', () => {
+    const card = { ...draft, sourceId: 'itau-visa', value: '100,00', installments: '3' };
+
+    it('só cartão aceita parcelas', () => {
+      expect(canInstall(card)).toBe(true);
+      expect(canInstall({ ...card, sourceId: 'itau-corrente' })).toBe(false);
+      expect(installmentCount({ ...card, sourceId: 'itau-corrente' })).toBe(1);
+    });
+
+    it('o resumo mostra n parcelas de R$ x', () => {
+      expect(installmentSummary({ ...card, value: '300,00' })).toBe(
+        '3 parcelas de R$ 100,00',
+      );
+      expect(installmentSummary(card)).toBe('3 parcelas: 1ª de R$ 33,34 e 2 de R$ 33,33');
+      expect(installmentSummary({ ...card, installments: '1' })).toBeNull();
+    });
+
+    it('gera N parcelas com o resto na primeira: a 1ª lançada, as demais previstas', () => {
+      const next = addEntry(data, { ...card, date: '2026-10-20' }, TODAY);
+      const parts = next.entries.filter((e) => e.installment !== undefined);
+      expect(parts.map((p) => p.cents)).toEqual([3334, 3333, 3333]);
+      expect(parts.map((p) => p.date)).toEqual([
+        '2026-10-20',
+        '2026-11-20',
+        '2026-12-20',
+      ]);
+      expect(parts.map((p) => p.status)).toEqual(['lancada', 'prevista', 'prevista']);
+      expect(parts.map((p) => `${p.installment?.n}/${p.installment?.of}`)).toEqual([
+        '1/3',
+        '2/3',
+        '3/3',
+      ]);
+      expect(parts.reduce((t, p) => t + p.cents, 0)).toBe(10000);
+    });
+
+    it('limita a 24 parcelas', () => {
+      expect(validateEntry(data, { ...card, installments: '25' }, TODAY)).toHaveProperty(
+        'installments',
+      );
+    });
   });
 });

@@ -1,6 +1,7 @@
-import { compareDates } from '../lib/dates.js';
+import { addMonths, compareDates } from '../lib/dates.js';
 import type { IsoDate } from '../lib/dates.js';
-import { parseMoneyInput } from '../lib/format.js';
+import { formatBRL, parseMoneyInput } from '../lib/format.js';
+import { splitInstallments } from '../lib/money.js';
 import type { Cents } from '../lib/money.js';
 import { SOURCES } from './sources.js';
 import type { Entry, EntryKind, FinanceData, Payment } from './types.js';
@@ -25,6 +26,8 @@ export type EntryDraft = {
   readonly firstValue: string;
   readonly secondSourceId: string;
   readonly secondValue: string;
+  /** Parcelas, só em despesa no cartão: `1` é à vista. */
+  readonly installments: string;
 };
 
 export type EntryErrors = Partial<
@@ -37,6 +40,7 @@ export type EntryErrors = Partial<
     | 'secondSourceId'
     | 'firstValue'
     | 'secondValue'
+    | 'installments'
     | 'sum',
     string
   >
@@ -57,6 +61,7 @@ export const emptyEntryDraft = (today: IsoDate): EntryDraft => ({
   firstValue: '',
   secondSourceId: '',
   secondValue: '',
+  installments: '1',
 });
 
 /** O rascunho de um lançamento existente; a data de um previsto futuro vira hoje (FIN-306). */
@@ -73,6 +78,7 @@ export const draftOfEntry = (entry: Entry, today: IsoDate): EntryDraft => {
     firstValue: second === undefined || first === undefined ? '' : toInput(first.cents),
     secondSourceId: second?.sourceId ?? '',
     secondValue: second === undefined ? '' : toInput(second.cents),
+    installments: '1',
   };
 };
 
@@ -87,6 +93,28 @@ export const splitDifference = (draft: EntryDraft): Cents | null => {
   const second = parseMoneyInput(draft.secondValue);
   if (!draft.split || total === null) return null;
   return total - (first ?? 0) - (second ?? 0);
+};
+
+/** Parcelamento só existe em despesa paga no cartão, com uma origem. */
+export const canInstall = (draft: EntryDraft): boolean =>
+  draft.kind === 'despesa' &&
+  !draft.split &&
+  SOURCES.find((source) => source.id === draft.sourceId)?.type === 'cartao';
+
+export const installmentCount = (draft: EntryDraft): number =>
+  canInstall(draft) && /^\d+$/.test(draft.installments) ? Number(draft.installments) : 1;
+
+/** `3 parcelas de R$ 100,00` (a primeira leva o resto de centavos, RN-45). */
+export const installmentSummary = (draft: EntryDraft): string | null => {
+  const total = parseMoneyInput(draft.value);
+  const count = installmentCount(draft);
+  if (total === null || total <= 0 || count < 2) return null;
+  const parts = splitInstallments(total, count);
+  const first = parts[0] ?? 0;
+  const rest = parts[1] ?? first;
+  return first === rest
+    ? `${count} parcelas de ${formatBRL(first)}`
+    : `${count} parcelas: 1ª de ${formatBRL(first)} e ${count - 1} de ${formatBRL(rest)}`;
 };
 
 export const validateEntry = (
@@ -138,6 +166,12 @@ export const validateEntry = (
       errors['sum'] = 'A soma das partes precisa ser igual ao valor.';
     }
   }
+  if (draft.installments !== '1' && canInstall(draft)) {
+    const n = Number(draft.installments);
+    if (!/^\d+$/.test(draft.installments) || n < 1 || n > 24) {
+      errors['installments'] = 'Informe de 1 a 24 parcelas.';
+    }
+  }
   return errors;
 };
 
@@ -177,4 +211,55 @@ export const launchEntry = (
         : entry,
     ),
   };
+};
+
+const nextId = (data: FinanceData, base: string): string => {
+  const ids = new Set(data.entries.map((entry) => entry.id));
+  let n = 1;
+  while (ids.has(`${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
+};
+
+/**
+ * FIN-307 · Novo lançamento. Aparece no dia certo. Compra parcelada no cartão
+ * vira N parcelas de valor igual, com o resto na primeira (RN-45): a primeira é
+ * lançada na data da compra e as demais ficam previstas, uma por mês.
+ */
+export const addEntry = (
+  data: FinanceData,
+  draft: EntryDraft,
+  today: IsoDate,
+): FinanceData => {
+  if (Object.keys(validateEntry(data, draft, today)).length > 0) return data;
+  const total = parseMoneyInput(draft.value) ?? 0;
+  const count = installmentCount(draft);
+  const base = {
+    kind: draft.kind,
+    description: draft.description.trim(),
+    categoryId: draft.categoryId,
+  };
+
+  if (count < 2) {
+    const entry: Entry = {
+      ...base,
+      id: nextId(data, 'l-novo'),
+      date: draft.date,
+      cents: total,
+      status: 'lancada',
+      payments: paymentsOf(draft),
+    };
+    return { ...data, entries: [...data.entries, entry] };
+  }
+
+  const parts = splitInstallments(total, count);
+  const created = parts.map((cents, index): Entry => ({
+    ...base,
+    id: nextId(data, `l-novo-p${index + 1}`),
+    date: addMonths(draft.date, index),
+    cents,
+    status: index === 0 ? 'lancada' : 'prevista',
+    installment: { n: index + 1, of: count },
+    payments: [{ sourceId: draft.sourceId, cents }],
+  }));
+  return { ...data, entries: [...data.entries, ...created] };
 };
