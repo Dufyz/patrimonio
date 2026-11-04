@@ -8,7 +8,7 @@ import type {
   StrategyTargetWrite,
 } from '../../interfaces/portfolio.repository.js';
 import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
-import { validateTargets } from './createPortfolio.usecase.js';
+import { validateGroupTargets, validateTargets } from './createPortfolio.usecase.js';
 
 export type UpdatePortfolioInput = PortfolioWrite & {
   readonly allocation_targets?: readonly StrategyTargetWrite[] | undefined;
@@ -23,12 +23,7 @@ export const updatePortfolio = (deps: UpdatePortfolioDeps) =>
 
     const patch: PortfolioWrite = {
       name: input.name,
-      purpose: input.purpose,
-      benchmark_id: input.benchmark_id,
-      tolerance_pp: input.tolerance_pp,
-      max_asset_weight_pct: input.max_asset_weight_pct,
-      rebalance_mode: input.rebalance_mode,
-      review_every_months: input.review_every_months,
+      benchmark: input.benchmark,
       sort_order: input.sort_order,
     };
 
@@ -55,6 +50,9 @@ export const updatePortfolio = (deps: UpdatePortfolioDeps) =>
       }
 
       if (targets !== undefined) {
+        const grouped = await validateGroupTargets(repositories, targets);
+        if (grouped.isFailure()) return grouped;
+
         const saved = await repositories.portfolios.replaceTargets(id, targets);
         if (saved.isFailure()) return saved;
       }

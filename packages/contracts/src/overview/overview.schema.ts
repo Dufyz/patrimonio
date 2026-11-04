@@ -7,14 +7,11 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
  * **quanto eu tenho hoje** e **o que precisa de mim** — e a forma da resposta
  * é essa ordem.
  *
- * Três coisas que o contrato torna impossíveis de confundir:
+ * Duas coisas que o contrato torna impossíveis de confundir:
  *
  * - **Ausência não é zero.** `value`, `day` e `month` são nulos quando não há
  *   fechamento para comparar, e a tela mostra traço. Zero significa que o
  *   número é zero.
- * - **O retorno declara o método.** Com uma carteira ele sai da cota gravada;
- *   no consolidado, de uma cota construída sobre a janela. São respostas
- *   diferentes para a mesma pergunta, e a tela precisa poder dizer qual é.
  * - **O estado do preço viaja junto da posição.** Um valor marcado com preço
  *   de três dias atrás não pode chegar à tela com a mesma cara de um valor de
  *   hoje.
@@ -29,7 +26,6 @@ export const overviewScopeSchema = z.object({
   /** Nulo é o consolidado: "todas as carteiras" é a ausência de escopo. */
   portfolio_id: uuid.nullable(),
   name: z.string(),
-  purpose: z.string().nullable(),
   tolerance_pp: decimalString,
   recalc_status: z.enum(['idle', 'queued', 'running', 'failed']),
   /** O primeiro fechamento do escopo: é o que o período "Início" significa. */
@@ -40,14 +36,13 @@ export const overviewTotalsSchema = z.object({
   value: decimalString.nullable(),
   day: overviewChangeSchema.nullable(),
   month: overviewChangeSchema.nullable(),
-  /** Quanto o escopo é do patrimônio inteiro. Nulo no consolidado. */
-  weight_pct: decimalString.nullable(),
 });
 
 export const overviewPeriodSchema = z.object({
   from: dateOnly,
   to: dateOnly,
   return_pct: decimalString.nullable(),
+  /** `portfolio_quota` é a cota gravada; `window_quota`, a consolidada da janela. */
   return_method: z.enum(['portfolio_quota', 'window_quota', 'unavailable']),
   contributions: decimalString,
   income: decimalString,
@@ -64,7 +59,12 @@ export const overviewPointSchema = z.object({
   date: dateOnly,
   contributions: decimalString,
   total: decimalString,
+  /** Valorização: patrimônio menos o aportado. */
   result: decimalString,
+  /** Proventos recebidos até o dia: saem do patrimônio, mas são rendimento. */
+  payouts: decimalString,
+  /** Patrimônio mais proventos recebidos, o topo da pilha do gráfico. */
+  with_payouts: decimalString,
 });
 
 const compositionBase = {
@@ -131,28 +131,6 @@ export const overviewTopPositionSchema = z.object({
   price_source_kind: z.enum(['fresh', 'stale', 'manual', 'missing']),
 });
 
-export const overviewAttentionItemSchema = z.object({
-  rule_kind: z.string(),
-  subject_id: z.string(),
-  portfolio_id: uuid.nullable(),
-  /** Os valores que o texto do alerta mostra, como a regra os gravou. */
-  payload: z.record(z.string(), z.unknown()),
-  first_seen_at: z.string(),
-});
-
-export const overviewAttentionSchema = z.object({
-  total: z.number().int(),
-  total_all_portfolios: z.number().int(),
-  /** Grupo sem item não vem: nenhum bloco aparece vazio. */
-  groups: z.array(
-    z.object({
-      group: z.enum(['corrigir', 'decidir', 'acompanhar']),
-      count: z.number().int(),
-      items: z.array(overviewAttentionItemSchema),
-    }),
-  ),
-});
-
 export const overviewSchema = z.object({
   /** O último fechamento em ou antes da data pedida. Nulo antes do primeiro. */
   reference_date: dateOnly.nullable(),
@@ -166,7 +144,6 @@ export const overviewSchema = z.object({
     total_count: z.number().int(),
     rows: z.array(overviewTopPositionSchema),
   }),
-  attention: overviewAttentionSchema,
 });
 
 export const getOverviewSchema = z.object({
@@ -182,7 +159,5 @@ export const getOverviewSchema = z.object({
 export type OverviewResource = z.infer<typeof overviewSchema>;
 export type OverviewPointResource = z.infer<typeof overviewPointSchema>;
 export type OverviewTopPositionResource = z.infer<typeof overviewTopPositionSchema>;
-export type OverviewCompositionResource = z.infer<typeof overviewCompositionSchema>;
-export type OverviewAttentionResource = z.infer<typeof overviewAttentionSchema>;
-export type OverviewAttentionItemResource = z.infer<typeof overviewAttentionItemSchema>;
 export type OverviewPortfolioShareResource = z.infer<typeof overviewPortfolioShareSchema>;
+export type OverviewCompositionResource = z.infer<typeof overviewCompositionSchema>;

@@ -65,6 +65,19 @@ export const scriptedIndices = (script: Script): IndexProvider => ({
 });
 
 export const scriptedTreasury = (script: Script): TreasurySource => ({
+  fetchHistory: async (identity, from, to) =>
+    success({
+      quotes: (script.treasury ?? []).filter(
+        (quote) =>
+          quote.kind === identity.kind &&
+          quote.coupon === identity.coupon &&
+          quote.maturity_date === identity.maturity_date &&
+          quote.quote_date >= from &&
+          quote.quote_date <= to,
+      ),
+      source: 'tesouro-direto',
+      source_kind: 'primary' as const,
+    }),
   fetchQuotes: async (date: DateOnly) =>
     success({
       quotes: (script.treasury ?? []).filter((quote) => quote.quote_date === date),

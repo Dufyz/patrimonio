@@ -16,6 +16,7 @@ export const marketRunKindSchema = z.enum([
   'treasury',
   'backfill',
   'cotahist',
+  'lookup',
   'contract_check',
 ]);
 
@@ -64,8 +65,31 @@ export const missingPriceSchema = z.object({
   last_price_date: dateOnly.nullable(),
 });
 
+export const catalogKeySchema = z.enum([
+  'institutions',
+  'instruments',
+  'treasury',
+  'indices',
+  'price_history',
+]);
+
+export const catalogHealthSchema = z.object({
+  key: catalogKeySchema,
+  total: z.number().int(),
+  last_loaded: z.string().nullable(),
+  /** `pending` é o catálogo vazio: a tela diz o comando que o preenche. */
+  state: z.enum(['loaded', 'pending']),
+});
+
 export const marketHealthSchema = z.object({
   reference_date: dateOnly,
+  catalogs: z.array(catalogHealthSchema),
+  /** Quanto do banco é demonstração; tudo zero numa instalação real. */
+  demo: z.object({
+    portfolios: z.number().int(),
+    assets: z.number().int(),
+    institutions: z.number().int(),
+  }),
   sources: z.array(sourceStatusSchema),
   /** As falhas recentes, com a mensagem do erro. */
   recent_failures: z.array(marketSourceRunSchema),
@@ -86,7 +110,7 @@ export const getMarketHealthSchema = z.object({
 export const refreshMarketSchema = z.object({
   body: z.object({
     on_date: dateOnly.optional(),
-    /** Com ativo, é um backfill daquele papel em vez da coleta do dia. */
+    /** Com ativo, é um backfill daquele papel em vez do reset completo. */
     asset_id: uuid.optional(),
   }),
 });
@@ -117,6 +141,7 @@ export const getAssetPriceSeriesSchema = z.object({
   }),
 });
 
+export type CatalogHealthResource = z.infer<typeof catalogHealthSchema>;
 export type MarketHealth = z.infer<typeof marketHealthSchema>;
 export type SourceStatusResource = z.infer<typeof sourceStatusSchema>;
 export type AssetPriceSeriesResource = z.infer<typeof assetPriceSeriesSchema>;

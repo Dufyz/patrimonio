@@ -57,6 +57,7 @@ export const assetPageIdentitySchema = z.object({
   color_token: z.string().nullable(),
   /** A regra automática classificou, ou alguém escolheu à mão (L-03). */
   category_automatic: z.boolean(),
+  issuer_id: uuid.nullable(),
   issuer_name: z.string().nullable(),
   archived_at: z.string().nullable(),
 
@@ -67,6 +68,9 @@ export const assetPageIdentitySchema = z.object({
   liquidity: liquidityKindSchema.nullable(),
   liquidity_days: z.number().int().nullable(),
   tax_regime: taxRegimeSchema.nullable(),
+  /** Preenchida só na caixinha: o ativo tem lotes e esta é a regra do resgate. */
+  redemption_rule: z.enum(['oldest_first', 'newest_first']).nullable(),
+  lot_term_months: z.number().int().nullable(),
 });
 
 export type AssetPageIdentity = z.infer<typeof assetPageIdentitySchema>;
@@ -96,6 +100,27 @@ export const assetPagePositionSchema = z.object({
 });
 
 export type AssetPagePosition = z.infer<typeof assetPagePositionSchema>;
+
+/**
+ * A vida do papel na carteira, com ou sem posição aberta. É o que a tela mostra
+ * de um ativo já vendido: o que entrou, o que saiu, o que rendeu.
+ */
+export const assetPageLifetimeSchema = z.object({
+  invested: decimalString,
+  proceeds: decimalString,
+  payouts_received: decimalString,
+  realized_result: decimalString.nullable(),
+  first_trade_date: dateOnly.nullable(),
+  last_trade_date: dateOnly.nullable(),
+  buys: z.number().int().nonnegative(),
+  sells: z.number().int().nonnegative(),
+  /** Retorno ponderado pelo tempo, como razão. Nulo sem dia medível. */
+  twr_ratio: decimalString.nullable(),
+  /** Taxa interna de retorno anualizada, como razão. Nula com prazo curto. */
+  xirr_ratio: decimalString.nullable(),
+});
+
+export type AssetPageLifetime = z.infer<typeof assetPageLifetimeSchema>;
 
 /** O preço do dia, com a procedência que autoriza a confiar nele. */
 export const assetPagePriceSchema = z.object({
@@ -132,11 +157,31 @@ export const assetPageTradeMarkSchema = z.object({
   unit_price: decimalString,
 });
 
+/**
+ * Um dia do valor da posição: o que foi investido e quanto vale na curva.
+ * É o gráfico dos títulos de renda fixa, que não têm preço de mercado.
+ */
+export const assetPageValuePointSchema = z.object({
+  date: dateOnly,
+  cost_basis: decimalString,
+  value: decimalString,
+  /** Valor menos investido: o rendimento acumulado, negativo se houver perda. */
+  result: decimalString,
+  /** Proventos recebidos até o dia: saem da posição, mas são rendimento dela. */
+  payouts: decimalString,
+  /** Valor mais proventos recebidos: o topo da pilha de evolução. */
+  with_payouts: decimalString,
+  /** Rendimento acumulado somando os proventos recebidos. */
+  result_with_payouts: decimalString,
+});
+
 export const assetPageSeriesSchema = z.object({
   period: assetPeriodSchema,
   from: dateOnly.nullable(),
   to: dateOnly.nullable(),
   points: z.array(assetPagePointSchema),
+  /** Investido, valor e proventos por dia na janela: a evolução da posição. */
+  value_points: z.array(assetPageValuePointSchema),
   marks: z.array(assetPageTradeMarkSchema),
   /** Verdadeiro quando um evento confirmado afeta a janela: a legenda diz. */
   adjusted: z.boolean(),
@@ -192,6 +237,7 @@ export const assetPageTransactionSchema = z.object({
   quantity: decimalString,
   unit_price: decimalString,
   net_amount: decimalString,
+  fees: decimalString,
   /** Nulo enquanto o provento está "a receber". */
   confirmed_at: z.string().nullable(),
   portfolio_id: uuid,
@@ -240,9 +286,23 @@ export const assetPageCustodianSchema = z.object({
   institution_name: z.string(),
 });
 
+/**
+ * Uma troca de custodiante, com os nomes já resolvidos: a página mostra de onde
+ * para onde o papel foi, e não deveria precisar de uma segunda leitura só para
+ * trocar identificador por nome.
+ */
+export const assetPageCustodyTransferSchema = z.object({
+  id: uuid,
+  transfer_date: dateOnly,
+  from_institution_id: uuid,
+  from_institution_name: z.string(),
+  to_institution_id: uuid,
+  to_institution_name: z.string(),
+  note: z.string().nullable(),
+});
+
 export const assetPageResourceSchema = z.object({
-  /** Nulo é o escopo de todas as carteiras. */
-  portfolio_id: uuid.nullable(),
+  portfolio_id: uuid,
   portfolio_name: z.string().nullable(),
   /** O dia de projeção mostrado — o último fechado em ou antes de hoje. */
   as_of: dateOnly.nullable(),
@@ -255,12 +315,15 @@ export const assetPageResourceSchema = z.object({
    * a tela diz que a posição está zerada em vez de mostrar seis zeros (O-09).
    */
   position: assetPagePositionSchema.nullable(),
+  lifetime: assetPageLifetimeSchema,
   series: assetPageSeriesSchema,
   payouts: assetPagePayoutsSchema,
   transactions: assetPageTransactionsSchema,
   corporate_events: z.array(assetPageCorporateEventSchema),
   portfolios: z.array(assetPagePortfolioSchema),
   custodians: z.array(assetPageCustodianSchema),
+  /** Da mais recente para a mais antiga. Vazio quando o papel nunca trocou de mãos. */
+  custody_transfers: z.array(assetPageCustodyTransferSchema),
 });
 
 export type AssetPageResource = z.infer<typeof assetPageResourceSchema>;
@@ -291,8 +354,7 @@ export const assetRefSchema = z.union([
 export const getAssetPageSchema = z.object({
   params: z.object({ asset_id: assetRefSchema }),
   query: z.object({
-    /** Ausente significa todas as carteiras ativas. */
-    portfolio_id: uuid.optional(),
+    portfolio_id: uuid,
     period: assetPeriodSchema.default('1a'),
     /** Ausente é todos os tipos. */
     kind: z.enum(TRANSACTION_KINDS).optional(),

@@ -1,2 +1,1 @@
-drop table if exists institution;
-drop type if exists institution_role;
+DROP TABLE IF EXISTS institution;

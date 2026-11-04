@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { projectGoal } from './projection.js';
 import {
   contributionLadder,
+  deflateAmount,
   expectedProgress,
   factorToPct,
   goalStanding,
@@ -10,6 +11,7 @@ import {
   nominalRate,
   normalizeRate,
   parseReturnAssumption,
+  realRate,
 } from './trajectory.js';
 
 /**
@@ -235,5 +237,22 @@ describe('taxas e fatores', () => {
   it('o fator acumulado vira percentual', () => {
     expect(factorToPct('1.0451')).toBe('4.51');
     expect(factorToPct('1')).toBe('0.00');
+  });
+});
+
+describe('de reais da data alvo para reais de hoje', () => {
+  it('traz a meta ao valor de hoje pela inflação composta', () => {
+    // 100.000 daqui a dois anos, a 5% ao ano: 100.000 / 1,05² = 90.702,95
+    expect(deflateAmount('100000.00', 24, '5')).toBe('90702.95');
+  });
+
+  it('prazo zero ou passado não muda o valor', () => {
+    expect(deflateAmount('100000.00', 0, '5')).toBe('100000.00');
+    expect(deflateAmount('100000.00', -3, '5')).toBe('100000.00');
+  });
+
+  it('a taxa real é a inversa da nominal composta', () => {
+    expect(realRate('10.77', '4.5')).toBe('6.0000');
+    expect(realRate(nominalRate('6', '4.5'), '4.5')).toBe('6.0000');
   });
 });

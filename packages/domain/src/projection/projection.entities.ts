@@ -77,54 +77,6 @@ export type TaxMonth = {
   readonly computed_at: string;
 };
 
-export const ALERT_STATUSES = ['open', 'snoozed', 'ignored'] as const;
-
-export type AlertStatus = (typeof ALERT_STATUSES)[number];
-
-/**
- * A única projeção com estado que o usuário mexe: adiar e ignorar. Esse estado
- * precisa sobreviver ao recálculo, então o motor reconcilia por
- * `(rule_kind, subject_id)` em vez de apagar e regravar.
- */
-export type AlertInstance = {
-  readonly rule_kind: string;
-  readonly subject_id: string;
-  readonly portfolio_id: string | null;
-  readonly status: AlertStatus;
-  readonly snooze_until: DateOnly | null;
-  readonly payload: Record<string, unknown>;
-  readonly first_seen_at: string;
-  readonly updated_at: string;
-};
-
-/**
- * Os três grupos de "Requer atenção", na ordem em que o painel os mostra. O
- * agrupamento é pelo que o usuário precisa **fazer** com o alerta, e não pela
- * gravidade: corrigir é dado errado ou faltando, decidir é escolha que espera
- * por ele, acompanhar é o que só precisa ser visto.
- *
- * Ordenar por gravidade parece mais natural e é pior: "grave" e "urgente" não
- * são a mesma coisa, e um painel ordenado por gravidade mistura o que tem ação
- * com o que não tem, que é como se aprende a rolar a lista sem ler.
- */
-export const ALERT_GROUPS = ['corrigir', 'decidir', 'acompanhar'] as const;
-
-export type AlertGroup = (typeof ALERT_GROUPS)[number];
-
-/**
- * A regra em que grupo cai. As treze regras de E7 entram neste mapa quando
- * forem escritas; o que não está aqui cai em `acompanhar`, que é o grupo que
- * não promete ação — um alerta novo nunca aparece pedindo correção por engano.
- */
-const GROUP_BY_RULE: Readonly<Record<string, AlertGroup>> = {
-  price_missing: 'corrigir',
-  price_stale: 'corrigir',
-  corporate_event_pending: 'corrigir',
-};
-
-export const alertGroupFor = (ruleKind: string): AlertGroup =>
-  GROUP_BY_RULE[ruleKind] ?? 'acompanhar';
-
 /**
  * De onde o preço gravado veio. `primary` é a fonte principal da cadeia,
  * `fallback` é a que assumiu quando ela falhou, e `manual` é o preço digitado.
@@ -185,11 +137,11 @@ export const indexForIndexer = (
 };
 
 /**
- * A classe de apuração de um papel. Renda fixa, Tesouro e caixa devolvem nulo:
+ * A classe de apuração de um papel. Renda fixa e Tesouro devolvem nulo:
  * eles não entram na apuração de renda variável, e o IR deles é retido na fonte.
  */
 export const assetClassFor = (
-  b3Type: 'stock' | 'fii' | 'etf' | 'bdr' | 'treasury' | 'cash' | null,
+  b3Type: 'stock' | 'fii' | 'etf' | 'bdr' | 'treasury' | null,
 ): AssetClass | null => {
   switch (b3Type) {
     case 'stock':
@@ -215,6 +167,7 @@ export const assetClassFor = (
  * Por carteira só faz sentido no escopo de todas elas.
  */
 export const POSITION_GROUP_BY = [
+  'class',
   'category',
   'institution',
   'portfolio',

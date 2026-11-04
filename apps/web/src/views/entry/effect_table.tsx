@@ -33,7 +33,7 @@ const Value = ({
     case 'quantity':
       return <Quantity value={value} />;
     case 'money':
-      return <Money value={value} bare />;
+      return <Money value={value} />;
     case 'signed_money':
       return <MoneyChange value={value} />;
     case 'percent':

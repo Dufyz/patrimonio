@@ -1,11 +1,13 @@
+import { multiplyMoney } from '@patrimonio/calc';
 import type {
   B3Type,
   DateOnly,
   PayoutKind,
+  RedemptionRule,
   Transaction,
   TransactionKind,
 } from '@patrimonio/domain';
-import { settlementBusinessDays } from '@patrimonio/domain';
+import { parseTreasuryTicker, settlementBusinessDays } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
 
@@ -54,7 +56,8 @@ export type CreateTransactionInput = {
   readonly tax_withheld?: string | undefined;
   readonly payout_kind?: PayoutKind | undefined;
   readonly record_date?: DateOnly | undefined;
-  readonly note?: string | undefined;
+  /** Aporte de caixinha: o vencimento do lote. Sem ele, vale o prazo padrão da caixinha. */
+  readonly maturity_date?: DateOnly | undefined;
   readonly idempotency_key?: string | undefined;
   readonly origin_request_id?: string | undefined;
 };
@@ -84,6 +87,10 @@ export type ResolvedAsset = {
   readonly origin: 'market' | 'manual';
   readonly category_id: string | null;
   readonly is_new: boolean;
+  /** Preenchida na caixinha, cujo lançamento segue regras próprias. */
+  readonly redemption_rule?: RedemptionRule | null | undefined;
+  readonly maturity_date?: DateOnly | null | undefined;
+  readonly lot_term_months?: number | null | undefined;
 };
 
 /**
@@ -120,6 +127,9 @@ export const resolveAsset = async (
       origin: found.value.origin,
       category_id: found.value.category_id,
       is_new: false,
+      redemption_rule: found.value.redemption_rule,
+      maturity_date: found.value.maturity_date,
+      lot_term_months: found.value.lot_term_months,
     });
   }
 
@@ -136,6 +146,9 @@ export const resolveAsset = async (
       origin: existing.value.origin,
       category_id: existing.value.category_id,
       is_new: false,
+      redemption_rule: existing.value.redemption_rule,
+      maturity_date: existing.value.maturity_date,
+      lot_term_months: existing.value.lot_term_months,
     });
   }
 
@@ -155,6 +168,10 @@ export const resolveAsset = async (
         classifyWithRules(
           {
             b3_type: input.asset.b3_type,
+            indexer:
+              input.asset.b3_type === 'treasury'
+                ? (parseTreasuryTicker(input.asset.ticker)?.kind ?? null)
+                : null,
             origin: 'market',
             sector: input.asset.sector,
           },
@@ -164,6 +181,11 @@ export const resolveAsset = async (
     });
   }
 
+  // O Tesouro precisa de indexador e vencimento para ter preço: o código do
+  // título os traz, e o ativo não depende de ninguém ter preenchido a mão.
+  const treasury =
+    input.asset.b3_type === 'treasury' ? parseTreasuryTicker(input.asset.ticker) : null;
+
   const created = await createAssetIn(repositories, {
     ticker: input.asset.ticker.toUpperCase(),
     name: input.asset.name,
@@ -171,6 +193,9 @@ export const resolveAsset = async (
     b3_type: input.asset.b3_type ?? null,
     sector: input.asset.sector ?? null,
     category_id: input.asset.category_id,
+    ...(treasury === null
+      ? {}
+      : { indexer: treasury.kind, maturity_date: treasury.maturity_date }),
   });
   if (created.isFailure()) return created;
 
@@ -206,7 +231,7 @@ export const resolveSettlement = async (
   return repositories.businessDays.shiftBusinessDays(input.trade_date, days);
 };
 
-/** Taxas sugeridas pela regra da instituição, e sobrescritíveis pelo corpo. */
+/** As taxas vêm do corpo; sem elas, a instituição precisa existir e a taxa é zero. */
 export const resolveFees = async (
   repositories: TransactionalRepositories,
   input: {
@@ -224,7 +249,7 @@ export const resolveFees = async (
     return failure(new BadRequestError('A instituição informada não existe'));
   }
 
-  return success(institution.value.brokerage_per_order);
+  return success('0');
 };
 
 export const createTransaction = (deps: CreateTransactionDeps) =>
@@ -283,6 +308,8 @@ export type PrepareOptions = {
   readonly replacing?: Transaction | undefined;
   /** No preview nada é criado: o ativo novo é hipotético. */
   readonly create?: boolean | undefined;
+  /** O resgate da caixinha é a única venda que ela aceita, e ele mesmo a monta. */
+  readonly caixinhaRedemption?: boolean | undefined;
 };
 
 /**
@@ -311,9 +338,58 @@ export const prepareTransaction = async (
   });
   if (asset.isFailure()) return asset;
 
-  if (asset.value === null && input.kind !== 'deposit' && input.kind !== 'withdrawal') {
+  if (asset.value === null) {
     return failure(new BadRequestError('Este tipo de lançamento precisa de um ativo'));
   }
+
+  // Na caixinha a quantidade é o principal (R$ 1,00 por unidade): é assim que o
+  // motor de preço médio mantém o custo certo sem saber de lote. Quem lança não
+  // precisa saber disso — o aporte vale quantidade × preço, e é gravado em valor.
+  const isCaixinha =
+    asset.value.redemption_rule !== null && asset.value.redemption_rule !== undefined;
+
+  if (isCaixinha && input.kind === 'sell' && options.caixinhaRedemption !== true) {
+    return failure(
+      new BadRequestError(
+        'Na caixinha a retirada é um resgate: use o resgate, que escolhe os lotes',
+      ),
+    );
+  }
+
+  const quantity =
+    isCaixinha && input.kind === 'buy'
+      ? multiplyMoney(input.quantity, input.unit_price)
+      : input.quantity;
+  const unitPrice = isCaixinha && input.kind === 'buy' ? '1' : input.unit_price;
+
+  // Vencimento do lote. A caixinha que vence como um todo faz o lote herdar a
+  // data dela (nada é gravado no aporte); a que não vence tem o vencimento no
+  // aporte quando foi informado; sem ele, o lote segue o prazo padrão da caixinha,
+  // calculado na leitura, e por isso acompanha uma mudança do prazo.
+  const lotMaturity = ((): Either<AppError, DateOnly | null> => {
+    if (!isCaixinha || input.kind !== 'buy') return success(null);
+
+    const own = asset.value.maturity_date ?? null;
+
+    if (own !== null) {
+      return input.trade_date > own
+        ? failure(
+            new BadRequestError(
+              `A caixinha venceu em ${own}: não dá para aportar depois do vencimento`,
+            ),
+          )
+        : success(null);
+    }
+
+    const derived = input.maturity_date ?? null;
+
+    return derived !== null && derived < input.trade_date
+      ? failure(
+          new BadRequestError('O vencimento do lote não pode ser anterior ao aporte'),
+        )
+      : success(derived);
+  })();
+  if (lotMaturity.isFailure()) return lotMaturity;
 
   const settlement = await resolveSettlement(repositories, {
     trade_date: input.trade_date,
@@ -357,13 +433,12 @@ export const prepareTransaction = async (
     kind: input.kind,
     trade_date: input.trade_date,
     settlement_date: settlement.value,
-    quantity: input.quantity,
-    unit_price: input.unit_price,
+    quantity,
+    unit_price: unitPrice,
     fees: fees.value,
     ...(input.tax_withheld === undefined ? {} : { tax_withheld: input.tax_withheld }),
     ...(input.payout_kind === undefined ? {} : { payout_kind: input.payout_kind }),
     ...(input.record_date === undefined ? {} : { record_date: input.record_date }),
-    ...(input.note === undefined ? {} : { note: input.note }),
   };
 
   const plan = planTransaction(context.value, draft);
@@ -388,15 +463,15 @@ export const prepareTransaction = async (
     asset_id:
       asset.value === null || asset.value.id === DRAFT_ASSET_ID ? null : asset.value.id,
     institution_id: input.institution_id,
-    quantity: input.quantity,
-    unit_price: input.unit_price,
+    quantity,
+    unit_price: unitPrice,
     fees: fees.value,
     gross_amount: plan.amounts.gross_amount,
     net_amount: plan.amounts.net_amount,
     ...(input.tax_withheld === undefined ? {} : { tax_withheld: input.tax_withheld }),
     ...(input.payout_kind === undefined ? {} : { payout_kind: input.payout_kind }),
     ...(input.record_date === undefined ? {} : { record_date: input.record_date }),
-    ...(input.note === undefined ? {} : { note: input.note }),
+    ...(lotMaturity.value === null ? {} : { maturity_date: lotMaturity.value }),
     ...(input.idempotency_key === undefined
       ? {}
       : { idempotency_key: input.idempotency_key }),

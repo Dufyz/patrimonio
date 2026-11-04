@@ -295,3 +295,40 @@ export const normalizeRate = (rate: string): string => {
 /** `1.0451` → `4.51`: o fator acumulado de um período, em %. */
 export const factorToPct = (factor: string): string =>
   new Big(factor).minus(one).times(hundred).toFixed(MONEY_DP);
+
+/* -------------------------------------------------------------------------- */
+/* De reais da data alvo para reais de hoje                                    */
+
+/**
+ * Traz um valor em reais de `months` meses à frente para reais de hoje, com a
+ * inflação ao ano suposta constante: `valor / (1 + i)^(months / 12)`.
+ *
+ * É a conversão que deixa metas de moedas diferentes na mesma régua para
+ * serem somadas. A suposição — a inflação dos últimos doze meses vale daqui
+ * para frente — é a da própria tela, que a declara.
+ */
+export const deflateAmount = (
+  amount: string,
+  months: number,
+  inflationPct: string,
+): string =>
+  new Big(amount)
+    .dividedBy(
+      one
+        .plus(new Big(inflationPct).dividedBy(hundred))
+        .pow(new Big(Math.max(months, 0)).dividedBy(12)),
+    )
+    .toFixed(MONEY_DP);
+
+/**
+ * A taxa real de uma nominal: `(1 + n) / (1 + i) − 1`, em %. É a inversa de
+ * `nominalRate`, e o que a premissa fixa (`9`) vira quando a meta passa a ser
+ * em reais de hoje.
+ */
+export const realRate = (nominalPct: string, inflationPct: string): string =>
+  one
+    .plus(new Big(nominalPct).dividedBy(hundred))
+    .dividedBy(one.plus(new Big(inflationPct).dividedBy(hundred)))
+    .minus(one)
+    .times(hundred)
+    .toFixed(4);

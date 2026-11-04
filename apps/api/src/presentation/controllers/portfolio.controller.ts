@@ -121,7 +121,7 @@ export const createPortfolioController = (deps: PortfolioDeps): PortfolioControl
       return;
     }
 
-    response.status(200).json({ portfolios: result.value });
+    response.status(200).json(result.value);
   },
 
   detail: async (request, response) => {

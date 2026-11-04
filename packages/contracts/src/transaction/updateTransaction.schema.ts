@@ -1,11 +1,6 @@
 import { z } from 'zod';
 
-import {
-  dateOnly,
-  nonNegativeDecimal,
-  optionalText,
-  uuid,
-} from '../support/primitives.schema.js';
+import { dateOnly, nonNegativeDecimal, uuid } from '../support/primitives.schema.js';
 
 /**
  * Edição parcial: o que não vem no corpo não é tocado. O tipo do lançamento não
@@ -24,7 +19,6 @@ export const updateTransactionSchema = z.object({
     unit_price: nonNegativeDecimal.optional(),
     fees: nonNegativeDecimal.optional(),
     tax_withheld: nonNegativeDecimal.optional(),
-    note: optionalText.optional(),
   }),
 });
 

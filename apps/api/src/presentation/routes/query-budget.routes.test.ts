@@ -49,11 +49,14 @@ const relatorio: Linha[] = [];
 const urlDe = (path: string): string => {
   const base = `/api${path.replace(':asset_id', ativo)}`;
   const query: Record<string, string> = {
-    '/overview': `on_date=${DATA_DE_REFERENCIA}`,
-    '/performance': `on_date=${DATA_DE_REFERENCIA}`,
+    '/overview': `portfolio_id=${carteira}&on_date=${DATA_DE_REFERENCIA}`,
+    '/positions': `portfolio_id=${carteira}`,
+    '/assets/:asset_id/page': `portfolio_id=${carteira}`,
+    '/statement': `portfolio_id=${carteira}`,
+    '/performance': `portfolio_id=${carteira}&on_date=${DATA_DE_REFERENCIA}`,
     '/allocation': `portfolio_id=${carteira}&on_date=${DATA_DE_REFERENCIA}`,
-    '/goals': `on_date=${DATA_DE_REFERENCIA}`,
-    '/search': 'q=WEGE3',
+    '/goals': `portfolio_id=${carteira}&on_date=${DATA_DE_REFERENCIA}`,
+    '/search': `q=WEGE3&portfolio_id=${carteira}`,
   };
 
   const extra = query[path];
@@ -70,7 +73,7 @@ const medir = async (path: string): Promise<{ status: number; count: QueryCount 
 
 /** O driver aprende os tipos de array uma vez por conexão: o pool sobe antes de medir. */
 const aquecerPool = async (): Promise<void> => {
-  await Promise.all(Array.from({ length: 4 }, () => harness.sql`select pg_sleep(0.05)`));
+  await Promise.all(Array.from({ length: 4 }, () => harness.sql`SELECT PG_SLEEP(0.05)`));
 };
 
 beforeAll(async () => {
@@ -105,11 +108,11 @@ beforeAll(async () => {
     ['2026-10-09', '4025.00'],
   ] as const) {
     await harness.sql`
-      insert into portfolio_daily (
+      INSERT INTO portfolio_daily (
         portfolio_id, position_date, total_value, net_flow, income, payouts,
         quota_value, quota_count, cumulative_contributions
       )
-      values (
+      VALUES (
         ${carteira}, ${dia}, ${total}, '0.00', '0.00', '0.00',
         '1.000000000000', '1000.000000000000', '4000.00'
       )

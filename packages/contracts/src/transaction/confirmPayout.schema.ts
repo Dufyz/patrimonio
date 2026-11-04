@@ -1,11 +1,6 @@
 import { z } from 'zod';
 
-import {
-  decimalString,
-  optionalText,
-  positiveDecimal,
-  uuid,
-} from '../support/primitives.schema.js';
+import { decimalString, positiveDecimal, uuid } from '../support/primitives.schema.js';
 
 /**
  * O provento previsto vira recebido. O valor pode chegar diferente do previsto,
@@ -16,7 +11,6 @@ export const confirmPayoutSchema = z.object({
   params: z.object({ transaction_id: uuid }),
   body: z.object({
     net_amount: positiveDecimal.optional(),
-    note: optionalText.optional(),
   }),
 });
 

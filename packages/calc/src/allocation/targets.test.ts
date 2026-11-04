@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { duplicatedCategories, sumTargets } from './targets.js';
+import { duplicatedCategories, overlappingGroups, sumTargets } from './targets.js';
 
 describe('alvo de alocação', () => {
   it('alvo somando 100 fecha', () => {
@@ -49,5 +49,49 @@ describe('alvo de alocação', () => {
         { category_id: 'acoes', target_pct: '50' },
       ]),
     ).toEqual(['acoes']);
+  });
+});
+
+describe('grupo e categoria no mesmo alvo', () => {
+  const categories = [
+    { id: 'acoes', parent_id: 'rv' },
+    { id: 'etf-acoes', parent_id: 'rv' },
+    { id: 'rv', parent_id: null },
+    { id: 'caixa', parent_id: null },
+  ];
+
+  it('o grupo com alvo e uma categoria dele com alvo se sobrepõem', () => {
+    expect(
+      overlappingGroups(
+        [
+          { category_id: 'rv', target_pct: '60' },
+          { category_id: 'acoes', target_pct: '20' },
+          { category_id: 'caixa', target_pct: '20' },
+        ],
+        categories,
+      ),
+    ).toEqual(['rv']);
+  });
+
+  it('o grupo sozinho, ou só as categorias, não se sobrepõem', () => {
+    expect(
+      overlappingGroups(
+        [
+          { category_id: 'rv', target_pct: '80' },
+          { category_id: 'caixa', target_pct: '20' },
+        ],
+        categories,
+      ),
+    ).toEqual([]);
+    expect(
+      overlappingGroups(
+        [
+          { category_id: 'acoes', target_pct: '40' },
+          { category_id: 'etf-acoes', target_pct: '40' },
+          { category_id: 'caixa', target_pct: '20' },
+        ],
+        categories,
+      ),
+    ).toEqual([]);
   });
 });

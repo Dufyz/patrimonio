@@ -47,17 +47,12 @@ const allocation = (overrides: Partial<AllocationResource> = {}): AllocationReso
   portfolio: {
     id: '0191e5a0-0000-7000-8000-00000000c001',
     name: 'Longo prazo',
-    purpose: 'Longo prazo',
     recalc_status: 'idle',
   },
   rules: {
     tolerance_pp: '3.00',
-    max_asset_weight_pct: '15.00',
-    rebalance_mode: 'contributions_only',
-    review_every_months: 6,
     reviewed_on: '2026-07-09',
-    next_review_on: '2027-01-09',
-    benchmark: { id: '019b0000-0000-7000-8000-000000000009', name: 'IPCA + 6%' },
+    benchmark: { value: 'IPCA+6', name: 'IPCA + 6%' },
   },
   strategy_defined: true,
   composition: {
@@ -66,8 +61,8 @@ const allocation = (overrides: Partial<AllocationResource> = {}): AllocationReso
       line('rv', 'Renda variável', '60.00', '60.00', {
         level: 'group',
         children: [
-          line(ACOES, 'Ações', '35.30', '35.00') as never,
-          line(FIIS, 'FIIs', '24.70', '25.00') as never,
+          line(ACOES, 'Ações', '35.30', null) as never,
+          line(FIIS, 'FIIs', '24.70', null) as never,
         ],
       }),
       line(CAIXA, 'Caixa', '2.30', '40.00'),
@@ -79,6 +74,30 @@ const allocation = (overrides: Partial<AllocationResource> = {}): AllocationReso
   ...overrides,
 });
 
+/** Estratégia salva por categoria, de antes de o alvo ser da classe. */
+const legacy = (): AllocationResource => {
+  const base = allocation();
+  const group = base.composition.nodes[0];
+  if (group === undefined) throw new Error('fixture');
+
+  return {
+    ...base,
+    composition: {
+      ...base.composition,
+      nodes: [
+        {
+          ...group,
+          children: [
+            line(ACOES, 'Ações', '35.30', '35.00') as never,
+            line(FIIS, 'FIIs', '24.70', '25.00') as never,
+          ],
+        },
+        ...base.composition.nodes.slice(1),
+      ],
+    },
+  };
+};
+
 const ready = (value: AllocationResource): Resource<AllocationResource> => ({
   state: { kind: 'ready', value },
   pending: false,
@@ -88,23 +107,21 @@ const ready = (value: AllocationResource): Resource<AllocationResource> => ({
 const show = (
   value: AllocationResource,
   props: Partial<StrategyViewProps> = {},
-): { onSave: ReturnType<typeof vi.fn>; onSaveRules: ReturnType<typeof vi.fn> } => {
+): { onSave: ReturnType<typeof vi.fn> } => {
   const onSave = vi.fn().mockResolvedValue(undefined);
-  const onSaveRules = vi.fn().mockResolvedValue(undefined);
 
   render(
     <PreferencesProvider storage={null}>
       <StrategyView
         resource={ready(value)}
         onSave={onSave}
-        onSaveRules={onSaveRules}
         onPlan={vi.fn().mockResolvedValue(null)}
         {...props}
       />
     </PreferencesProvider>,
   );
 
-  return { onSave, onSaveRules };
+  return { onSave };
 };
 
 const field = (name: string): HTMLInputElement =>
@@ -117,83 +134,54 @@ const retype = async (name: string, text: string): Promise<void> => {
 };
 
 describe('as regras', () => {
-  it('mostra as cinco, com o valor de cada uma', () => {
+  it('mostra a tolerância e o benchmark', () => {
     show(allocation());
 
     expect(screen.getByText('± 3 pp')).toBeInTheDocument();
-    expect(screen.getByText('15%')).toBeInTheDocument();
-    expect(screen.getByText('Só com aportes')).toBeInTheDocument();
-    expect(screen.getByText('A cada 6 meses')).toBeInTheDocument();
-    expect(screen.getByText(/Próxima revisão em jan\/2027/)).toBeInTheDocument();
     expect(screen.getByText('IPCA + 6%')).toBeInTheDocument();
-  });
-
-  it('salva só a regra que foi editada', async () => {
-    const { onSaveRules } = show(allocation());
-
-    await userEvent.click(screen.getByRole('button', { name: 'Editar tolerância' }));
-    const dialog = screen.getByRole('dialog', { name: 'Tolerância' });
-    const input = within(dialog).getByRole('textbox', { name: 'Tolerância' });
-    await userEvent.clear(input);
-    await userEvent.type(input, '2,5');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
-
-    await waitFor(() =>
-      expect(onSaveRules).toHaveBeenCalledWith({ tolerance_pp: '2.50' }),
-    );
-  });
-
-  it('tolerância zero não salva, e peso máximo vazio é sem limite', async () => {
-    const { onSaveRules } = show(allocation());
-
-    await userEvent.click(screen.getByRole('button', { name: 'Editar tolerância' }));
-    const first = screen.getByRole('dialog', { name: 'Tolerância' });
-    await userEvent.clear(within(first).getByRole('textbox', { name: 'Tolerância' }));
-    await userEvent.type(within(first).getByRole('textbox', { name: 'Tolerância' }), '0');
-    expect(within(first).getByRole('button', { name: 'Salvar' })).toBeDisabled();
-    await userEvent.click(within(first).getByRole('button', { name: 'Cancelar' }));
-
-    await userEvent.click(screen.getByRole('button', { name: 'Editar peso máximo' }));
-    const second = screen.getByRole('dialog', { name: 'Peso máximo por ativo' });
-    await userEvent.clear(
-      within(second).getByRole('textbox', { name: 'Peso máximo por ativo' }),
-    );
-    await userEvent.click(within(second).getByRole('button', { name: 'Salvar' }));
-
-    await waitFor(() =>
-      expect(onSaveRules).toHaveBeenCalledWith({ max_asset_weight_pct: null }),
-    );
-  });
-
-  it('o benchmark ainda não se edita aqui, e a dica diz onde', () => {
-    show(allocation());
-
-    expect(
-      screen.getByRole('button', { name: /chega com Configurações/ }),
-    ).toBeDisabled();
   });
 });
 
 describe('a tabela', () => {
-  it('o grupo é a soma das categorias, e o total fecha 100%', () => {
+  it('o alvo é da classe, e o total fecha 100%', () => {
     show(allocation());
 
-    const grupo = screen.getByRole('row', { name: /Renda variável/ });
-    expect(within(grupo).getByText('60%')).toBeInTheDocument();
+    expect(field('Renda variável')).toHaveValue('60');
+    expect(field('Caixa')).toHaveValue('40');
     expect(screen.getByText('✓ 100%')).toBeInTheDocument();
   });
 
-  it('recolher o grupo esconde as categorias dele e só elas', async () => {
+  it('expandir a classe mostra as categorias dela, sem campo de alvo', async () => {
     show(allocation());
+
+    expect(screen.queryByRole('row', { name: /^Ações/ })).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Expandir Renda variável' }),
+    );
+
+    expect(screen.getByRole('row', { name: /Ações/ })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('textbox', { name: 'Alvo de Ações' }),
+    ).not.toBeInTheDocument();
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Recolher Renda variável' }),
     );
 
-    expect(
-      screen.queryByRole('textbox', { name: 'Alvo de Ações' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('row', { name: /^Ações/ })).not.toBeInTheDocument();
     expect(field('Caixa')).toBeInTheDocument();
+  });
+
+  it('alvo salvo por categoria aparece como soma na classe, e digitar nela passa o alvo para a classe', async () => {
+    show(legacy());
+
+    expect(field('Renda variável')).toHaveValue('60');
+
+    await retype('Renda variável', '50');
+
+    const bar = screen.getByRole('region', { name: 'Alterações não salvas' });
+    expect(within(bar).getByText(/Soma 90% · faltam 10 pp/)).toBeInTheDocument();
   });
 
   it('sem estratégia o desvio e os valores são traço, e não zero', () => {
@@ -235,39 +223,38 @@ describe('editar e salvar', () => {
   it('soma que não fecha trava o salvar e diz quanto falta', async () => {
     show(allocation());
 
-    await retype('Ações', '30');
+    await retype('Renda variável', '50');
 
     const bar = screen.getByRole('region', { name: 'Alterações não salvas' });
     expect(
-      within(bar).getByText(/Soma 95% · faltam 5 pp para salvar/),
+      within(bar).getByText(/Soma 90% · faltam 10 pp para salvar/),
     ).toBeInTheDocument();
-    expect(within(bar).getByRole('button', { name: /Salvar estratégia/ })).toBeDisabled();
+    expect(within(bar).getByRole('button', { name: /^Salvar/ })).toBeDisabled();
   });
 
-  it('trocar 35/25 por 30/30 fecha a soma e libera o salvar', async () => {
+  it('trocar 60/40 por 50/50 fecha a soma e libera o salvar', async () => {
     show(allocation());
 
-    await retype('Ações', '30');
-    await retype('FIIs', '30');
+    await retype('Renda variável', '50');
+    await retype('Caixa', '50');
 
     const bar = screen.getByRole('region', { name: 'Alterações não salvas' });
     expect(within(bar).getByText('2 alterações não salvas')).toBeInTheDocument();
-    expect(within(bar).getByRole('button', { name: /Salvar estratégia/ })).toBeEnabled();
+    expect(within(bar).getByRole('button', { name: /^Salvar/ })).toBeEnabled();
   });
 
   it('envia só o que tem alvo, com ponto e duas casas', async () => {
     const { onSave } = show(allocation());
 
-    await retype('Ações', '30,5');
-    await retype('FIIs', '29,5');
-    await userEvent.click(screen.getByRole('button', { name: /Salvar estratégia/ }));
+    await retype('Renda variável', '30,5');
+    await retype('Caixa', '69,5');
+    await userEvent.click(screen.getByRole('button', { name: /^Salvar/ }));
 
     await waitFor(() =>
       expect(onSave).toHaveBeenCalledWith({
         targets: [
-          { category_id: ACOES, target_pct: '30.50' },
-          { category_id: FIIS, target_pct: '29.50' },
-          { category_id: CAIXA, target_pct: '40.00' },
+          { category_id: 'rv', target_pct: '30.50' },
+          { category_id: CAIXA, target_pct: '69.50' },
         ],
       }),
     );
@@ -276,28 +263,28 @@ describe('editar e salvar', () => {
   it('campo inválido se marca e trava, sem adivinhar o número', async () => {
     show(allocation());
 
-    await retype('Ações', 'abc');
+    await retype('Renda variável', 'abc');
 
-    expect(field('Ações')).toHaveAttribute('aria-invalid', 'true');
+    expect(field('Renda variável')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('Corrija 1 campo para salvar')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Salvar estratégia/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Salvar/ })).toBeDisabled();
   });
 
   it('descartar volta ao salvo e some com a barra', async () => {
     show(allocation());
 
-    await retype('Ações', '10');
+    await retype('Renda variável', '10');
     await userEvent.click(screen.getByRole('button', { name: 'Descartar' }));
 
-    expect(field('Ações')).toHaveValue('35');
+    expect(field('Renda variável')).toHaveValue('60');
     expect(screen.queryByRole('region', { name: 'Alterações não salvas' })).toBeNull();
   });
 
   it('digitar de volta o valor salvo desfaz a alteração', async () => {
     show(allocation());
 
-    await retype('Ações', '10');
-    await retype('Ações', '35');
+    await retype('Renda variável', '10');
+    await retype('Renda variável', '60');
 
     expect(screen.queryByRole('region', { name: 'Alterações não salvas' })).toBeNull();
   });
@@ -305,8 +292,8 @@ describe('editar e salvar', () => {
   it('⌘S salva sem sair do campo', async () => {
     const { onSave } = show(allocation());
 
-    await retype('Ações', '30');
-    await retype('FIIs', '30');
+    await retype('Renda variável', '50');
+    await retype('Caixa', '50');
     await userEvent.keyboard('{Control>}s{/Control}');
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
@@ -316,12 +303,12 @@ describe('editar e salvar', () => {
     const onSave = vi.fn().mockRejectedValue(new Error('A soma dos alvos é 99,99'));
     show(allocation(), { onSave });
 
-    await retype('Ações', '30');
-    await retype('FIIs', '30');
-    await userEvent.click(screen.getByRole('button', { name: /Salvar estratégia/ }));
+    await retype('Renda variável', '50');
+    await retype('Caixa', '50');
+    await userEvent.click(screen.getByRole('button', { name: /^Salvar/ }));
 
     expect(await screen.findByText('A soma dos alvos é 99,99')).toBeInTheDocument();
-    expect(field('Ações')).toHaveValue('30');
+    expect(field('Renda variável')).toHaveValue('50');
   });
 });
 
@@ -351,13 +338,13 @@ describe('planejar aporte', () => {
     const dialog = screen.getByRole('dialog', { name: 'Planejar aporte' });
     await userEvent.type(
       within(dialog).getByRole('textbox', { name: 'Valor do aporte' }),
-      '4.000,00',
+      '4000,00',
     );
     await userEvent.click(within(dialog).getByRole('button', { name: 'Calcular' }));
 
     await waitFor(() => expect(onPlan).toHaveBeenCalledWith('4000.00'));
     const table = await within(dialog).findByRole('table', {
-      name: 'Plano de aporte por categoria',
+      name: 'Plano de aporte por classe',
     });
     expect(within(table).getByText('FIIs')).toBeInTheDocument();
     expect(within(dialog).queryByText('Fica em conta')).not.toBeInTheDocument();
@@ -379,7 +366,7 @@ describe('planejar aporte', () => {
   it('com alteração não salva, avisa que o plano usa o salvo', async () => {
     show(allocation());
 
-    await retype('Ações', '30');
+    await retype('Renda variável', '50');
     await userEvent.click(screen.getByRole('button', { name: 'Planejar aporte' }));
 
     const dialog = screen.getByRole('dialog', { name: 'Planejar aporte' });
@@ -396,7 +383,6 @@ describe('estados', () => {
   it('carregando e erro têm tela própria', () => {
     const base = {
       onSave: vi.fn(),
-      onSaveRules: vi.fn(),
       onPlan: vi.fn(),
     };
 
@@ -426,24 +412,14 @@ describe('estados', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('A api caiu');
   });
 
-  it('carteira sem fechamento diz que a estratégia aparece no primeiro', () => {
+  it('carteira sem consolidação diz que a estratégia aparece no primeiro', () => {
     show(allocation({ reference_date: null }));
 
-    expect(screen.getByText('Nenhum fechamento ainda')).toBeInTheDocument();
+    expect(screen.getByText('Carteira ainda não consolidada')).toBeInTheDocument();
   });
 });
 
 describe('a tela como a rota a monta', () => {
-  it('sem carteira escolhida explica que a estratégia é de uma carteira', () => {
-    render(
-      <PreferencesProvider storage={null}>
-        <StrategyScreen portfolioId={null} />
-      </PreferencesProvider>,
-    );
-
-    expect(screen.getByText('A estratégia é de uma carteira')).toBeInTheDocument();
-  });
-
   it('a carteira que chega depois do primeiro desenho é lida, e não vira resposta vazia', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -452,16 +428,16 @@ describe('a tela como a rota a monta', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     try {
-      const view = (id: string | null) => (
+      const view = (id: string) => (
         <PreferencesProvider storage={null}>
           <StrategyScreen portfolioId={id} />
         </PreferencesProvider>
       );
-      const { rerender } = render(view(null));
+      const { rerender } = render(view('0191e5a0-0000-7000-8000-00000000c000'));
       rerender(view('0191e5a0-0000-7000-8000-00000000c001'));
 
-      expect(await screen.findByText('Distribuição por categoria')).toBeInTheDocument();
-      expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      expect(await screen.findByText('Distribuição por classe')).toBeInTheDocument();
+      expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain(
         'portfolio_id=0191e5a0-0000-7000-8000-00000000c001',
       );
     } finally {

@@ -36,7 +36,6 @@ const BTLG11 = '0191e5a0-0000-7000-8000-0000000d0034';
 const KNRI11 = '0191e5a0-0000-7000-8000-0000000d0035';
 const PETR4 = '0191e5a0-0000-7000-8000-0000000d0036';
 const IPCA45 = '0191e5a0-0000-7000-8000-0000000d0037';
-const CAIXA = '0191e5a0-0000-7000-8000-0000000d0038';
 
 const id = (n: number): string =>
   `0191e5a0-0000-7000-8000-0000000e${String(n).padStart(4, '0')}`;
@@ -48,8 +47,8 @@ type Filter = Parameters<ReturnType<typeof createStatementRepository>['page']>[0
 
 const filter = (overrides: Partial<Filter> = {}): Filter => ({
   portfolioId: CARTEIRA,
-  institutionId: null,
-  group: null,
+  institutionIds: [] as readonly string[],
+  groups: [] as readonly ('buy' | 'sell' | 'payout' | 'event' | 'custody')[],
   search: null,
   from: '2026-09-01',
   to: '2026-10-31',
@@ -78,65 +77,60 @@ beforeEach(async () => {
   tx = await beginTestTransaction(sql);
 
   await tx`
-    insert into portfolio (id, name, archived_at) values
-      (${CARTEIRA}, 'Longo prazo', null),
-      (${RESERVA}, 'Reserva', null),
-      (${ARQUIVADA}, 'Antiga', now())
+    INSERT INTO portfolio (id, name, archived_at) VALUES
+      (${CARTEIRA}, 'Longo prazo', NULL),
+      (${RESERVA}, 'Reserva', NULL),
+      (${ARQUIVADA}, 'Antiga', NOW())
   `;
   await tx`
-    insert into institution (id, name, role) values
-      (${CORRETORA}, 'Corretora A', 'custodian'),
-      (${TESOURO}, 'Tesouro Direto', 'custodian')
+    INSERT INTO institution (id, name) VALUES
+      (${CORRETORA}, 'Corretora A'),
+      (${TESOURO}, 'Tesouro Direto')
   `;
   await tx`
-    insert into asset (id, ticker, name, origin, b3_type) values
+    INSERT INTO asset (id, ticker, name, origin, b3_type) VALUES
       (${WEGE3}, 'WEGE3', 'WEG ON', 'market', 'stock'),
       (${HGLG11}, 'HGLG11', 'CSHG Logística', 'market', 'fii'),
       (${VALE3}, 'VALE3', 'Vale ON', 'market', 'stock'),
       (${BTLG11}, 'BTLG11', 'BTG Logístico', 'market', 'fii'),
       (${KNRI11}, 'KNRI11', 'Kinea Renda', 'market', 'fii'),
       (${PETR4}, 'PETR4', 'Petrobras PN', 'market', 'stock'),
-      (${IPCA45}, 'TESOURO-IPCA-2045', 'Tesouro IPCA+ 2045', 'market', 'treasury'),
-      (${CAIXA}, 'CAIXA-CORRETORAA', 'Caixa · Corretora A', 'market', 'cash')
+      (${IPCA45}, 'TESOURO-IPCA-2045', 'Tesouro IPCA+ 2045', 'market', 'treasury')
   `;
 
   // Setembro e outubro de 2026, como a prancha 07. As compras e os aportes
-  // levam o sinal do caixa: o que sai é negativo.
+  // levam o sinal do patrimônio: o que entra é negativo no líquido.
   await tx`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
        institution_id, quantity, unit_price, fees, gross_amount, net_amount,
        payout_kind, confirmed_at)
-    values
+    VALUES
       (${id(1)}, 'payout', '2026-10-02', '2026-10-02', ${CARTEIRA}, ${BTLG11},
-       ${CORRETORA}, '140', '0.91', '0', '127.40', '127.40', 'income', now()),
-      (${id(2)}, 'deposit', '2026-10-01', '2026-10-01', ${CARTEIRA}, ${CAIXA},
-       ${CORRETORA}, '0', '0', '0', '4000.00', '4000.00', null, null),
+       ${CORRETORA}, '140', '0.91', '0', '127.40', '127.40', 'income', NOW()),
       (${id(3)}, 'buy', '2026-09-30', '2026-10-02', ${CARTEIRA}, ${WEGE3},
-       ${CORRETORA}, '100', '31.20', '0', '3120.00', '-3120.00', null, null),
+       ${CORRETORA}, '100', '31.20', '0', '3120.00', '-3120.00', NULL, NULL),
       (${id(4)}, 'buy', '2026-09-25', '2026-09-29', ${CARTEIRA}, ${HGLG11},
-       ${CORRETORA}, '10', '160.10', '0', '1601.00', '-1601.00', null, null),
+       ${CORRETORA}, '10', '160.10', '0', '1601.00', '-1601.00', NULL, NULL),
       (${id(5)}, 'sell', '2026-09-22', '2026-09-24', ${CARTEIRA}, ${VALE3},
-       ${CORRETORA}, '50', '57.90', '0', '2895.00', '2895.00', null, null),
+       ${CORRETORA}, '50', '57.90', '0', '2895.00', '2895.00', NULL, NULL),
       (${id(6)}, 'payout', '2026-09-15', '2026-09-15', ${CARTEIRA}, ${HGLG11},
-       ${CORRETORA}, '100', '1.82', '0', '182.40', '182.40', 'income', now()),
+       ${CORRETORA}, '100', '1.82', '0', '182.40', '182.40', 'income', NOW()),
       (${id(7)}, 'payout', '2026-09-15', '2026-09-15', ${CARTEIRA}, ${KNRI11},
-       ${CORRETORA}, '105', '1.35', '0', '141.75', '141.75', 'income', now()),
+       ${CORRETORA}, '105', '1.35', '0', '141.75', '141.75', 'income', NOW()),
       (${id(8)}, 'buy', '2026-09-12', '2026-09-12', ${CARTEIRA}, ${IPCA45},
-       ${TESOURO}, '0.74', '1351.35', '0', '1000.00', '-1000.00', null, null),
-      (${id(9)}, 'deposit', '2026-09-05', '2026-09-05', ${CARTEIRA}, ${CAIXA},
-       ${CORRETORA}, '0', '0', '0', '7400.00', '7400.00', null, null),
+       ${TESOURO}, '0.74', '1351.35', '0', '1000.00', '-1000.00', NULL, NULL),
       (${id(10)}, 'payout', '2026-09-01', '2026-09-01', ${CARTEIRA}, ${PETR4},
-       ${CORRETORA}, '340', '0.30', '0', '102.00', '102.00', 'dividend', now())
+       ${CORRETORA}, '340', '0.30', '0', '102.00', '102.00', 'dividend', NOW())
   `;
 
   // Antes do período: duas em agosto, uma em março. É o que o "Ampliar o
   // período" aponta, e o que o escopo conta como 312 desde mar/2021.
   await tx`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
        institution_id, quantity, unit_price, fees, gross_amount, net_amount)
-    values
+    VALUES
       (${id(11)}, 'buy', '2026-08-20', '2026-08-22', ${CARTEIRA}, ${WEGE3},
        ${CORRETORA}, '100', '45.20', '0', '4520.00', '-4520.00'),
       (${id(12)}, 'buy', '2026-08-04', '2026-08-06', ${CARTEIRA}, ${VALE3},
@@ -146,12 +140,12 @@ beforeEach(async () => {
   `;
 
   // Outra carteira, e uma arquivada: nenhuma das duas entra no extrato da
-  // Longo prazo, e a arquivada não entra nem no consolidado.
+  // Longo prazo.
   await tx`
-    insert into transaction
+    INSERT INTO transaction
       (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
        institution_id, quantity, unit_price, fees, gross_amount, net_amount)
-    values
+    VALUES
       (${id(20)}, 'buy', '2026-09-10', '2026-09-12', ${RESERVA}, ${VALE3},
        ${TESOURO}, '10', '60.00', '0', '600.00', '-600.00'),
       (${id(21)}, 'buy', '2026-09-11', '2026-09-13', ${ARQUIVADA}, ${VALE3},
@@ -159,11 +153,11 @@ beforeEach(async () => {
   `;
 
   await tx`
-    insert into realized_result
+    INSERT INTO realized_result
       (transaction_id, portfolio_id, asset_id, trade_date, proceeds,
        cost_consumed, result, exempt)
-    values
-      (${id(5)}, ${CARTEIRA}, ${VALE3}, '2026-09-22', '2895.00', '3205.00', '-310.00', true)
+    VALUES
+      (${id(5)}, ${CARTEIRA}, ${VALE3}, '2026-09-22', '2895.00', '3205.00', '-310.00', TRUE)
   `;
 });
 
@@ -172,14 +166,12 @@ describe('resumo, pastilhas e subtotais', () => {
     const view = await page();
 
     expect(view.summary).toEqual({
-      count: 10,
-      deposits: '11400.00',
-      withdrawals: '0.00',
+      count: 8,
       buys: '5721.00',
       sells: '2895.00',
       payouts: '553.55',
     });
-    expect(view.total).toBe(10);
+    expect(view.total).toBe(8);
   });
 
   it('conta cada pastilha, e o "Todos" é a soma delas', async () => {
@@ -190,15 +182,14 @@ describe('resumo, pastilhas e subtotais', () => {
       buy: 3,
       sell: 1,
       payout: 4,
-      cash: 2,
-      transfer: 0,
       event: 0,
+      custody: 0,
     });
-    expect(view.facets_total).toBe(10);
+    expect(view.facets_total).toBe(8);
   });
 
   it('escolher um tipo muda o resumo e a tabela, mas não as pastilhas', async () => {
-    const view = await page({ group: 'payout' });
+    const view = await page({ groups: ['payout'] });
     const counts = Object.fromEntries(view.facets.map((f) => [f.group, f.count]));
 
     expect(view.total).toBe(4);
@@ -207,7 +198,7 @@ describe('resumo, pastilhas e subtotais', () => {
     expect(view.summary.buys).toBe('0.00');
     // Contar sob o tipo escolhido zeraria as outras pastilhas no primeiro clique.
     expect(counts['buy']).toBe(3);
-    expect(view.facets_total).toBe(10);
+    expect(view.facets_total).toBe(8);
   });
 
   it('entrega o subtotal de cada mês, do mais novo para o mais antigo', async () => {
@@ -215,14 +206,12 @@ describe('resumo, pastilhas e subtotais', () => {
 
     expect(view.months.map((month) => month.month)).toEqual(['2026-10', '2026-09']);
     expect(view.months[0]).toMatchObject({
-      count: 2,
-      deposits: '4000.00',
+      count: 1,
       payouts: '127.40',
       buys: '0.00',
     });
     expect(view.months[1]).toMatchObject({
-      count: 8,
-      deposits: '7400.00',
+      count: 7,
       buys: '5721.00',
       sells: '2895.00',
       payouts: '426.15',
@@ -233,47 +222,30 @@ describe('resumo, pastilhas e subtotais', () => {
     const view = await page({ limit: 3, page: 2 });
 
     expect(view.rows).toHaveLength(3);
-    expect(view.total).toBe(10);
-    expect(view.months[1]?.count).toBe(8);
+    expect(view.total).toBe(8);
+    expect(view.months[1]?.count).toBe(7);
     expect(view.months[1]?.buys).toBe('5721.00');
   });
 
   it('provento a receber aparece na tabela e não entra no recebido', async () => {
     await tx`
-      insert into transaction
+      INSERT INTO transaction
         (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
          institution_id, quantity, unit_price, gross_amount, net_amount,
          payout_kind, confirmed_at, expected_net_amount)
-      values
+      VALUES
         (${id(30)}, 'payout', '2026-10-05', '2026-10-20', ${CARTEIRA}, ${KNRI11},
-         ${CORRETORA}, '105', '1.40', '147.00', '147.00', 'income', null, '147.00')
+         ${CORRETORA}, '105', '1.40', '147.00', '147.00', 'income', NULL, '147.00')
     `;
 
     const view = await page();
 
-    expect(view.total).toBe(11);
+    expect(view.total).toBe(9);
     expect(view.summary.payouts).toBe('553.55');
     expect(view.rows.find((row) => row.id === id(30))?.confirmed_at).toBeNull();
     expect(view.rows.find((row) => row.id === id(30))?.expected_net_amount).toBe(
       '147.00',
     );
-  });
-
-  it('resgate entra em módulo, e transferência e evento ficam fora dos valores', async () => {
-    await tx`
-      insert into transaction
-        (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
-         institution_id, quantity, unit_price, gross_amount, net_amount)
-      values
-        (${id(31)}, 'withdrawal', '2026-10-03', '2026-10-03', ${CARTEIRA}, ${CAIXA},
-         ${CORRETORA}, '0', '0', '500.00', '-500.00')
-    `;
-
-    const view = await page({ group: 'cash' });
-
-    expect(view.summary.withdrawals).toBe('500.00');
-    expect(view.summary.deposits).toBe('11400.00');
-    expect(view.summary.buys).toBe('0.00');
   });
 });
 
@@ -283,19 +255,17 @@ describe('filtros combináveis', () => {
 
     expect(view.rows.map((row) => row.trade_date)).toEqual([
       '2026-10-02',
-      '2026-10-01',
       '2026-09-30',
       '2026-09-25',
       '2026-09-22',
       '2026-09-15',
       '2026-09-15',
       '2026-09-12',
-      '2026-09-05',
       '2026-09-01',
     ]);
     // As duas de 15/09: id decrescente.
-    expect(view.rows[5]?.id).toBe(id(7));
-    expect(view.rows[6]?.id).toBe(id(6));
+    expect(view.rows[4]?.id).toBe(id(7));
+    expect(view.rows[5]?.id).toBe(id(6));
   });
 
   it('busca pelo código e pelo nome, sem distinguir maiúscula', async () => {
@@ -314,7 +284,7 @@ describe('filtros combináveis', () => {
   });
 
   it('filtra por instituição sem encolher a lista de instituições', async () => {
-    const view = await page({ institutionId: TESOURO });
+    const view = await page({ institutionIds: [TESOURO] });
 
     expect(view.rows.map((row) => row.ticker)).toEqual(['TESOURO-IPCA-2045']);
     expect(view.institutions.map((item) => item.name)).toEqual([
@@ -323,38 +293,49 @@ describe('filtros combináveis', () => {
     ]);
   });
 
+  it('vários tipos e várias instituições valem como "qualquer um"', async () => {
+    const tipos = await page({ groups: ['buy', 'payout'] });
+    expect(tipos.rows.every((row) => ['buy', 'payout'].includes(row.kind))).toBe(true);
+
+    const todas = await page({ institutionIds: [CORRETORA, TESOURO] });
+    expect(todas.rows.length).toBe((await page({})).rows.length);
+  });
+
   it('combina tipo, instituição e busca', async () => {
-    const view = await page({ group: 'buy', institutionId: CORRETORA, search: 'wege' });
+    const view = await page({
+      groups: ['buy'],
+      institutionIds: [CORRETORA],
+      search: 'wege',
+    });
 
     expect(view.rows.map((row) => row.id)).toEqual([id(3)]);
     expect(view.summary.buys).toBe('3120.00');
   });
 
-  it('o escopo é a carteira, e carteira arquivada não entra no consolidado', async () => {
+  it('o escopo é a carteira, e o extrato de outra não entra', async () => {
     const reserva = await page({ portfolioId: RESERVA });
     expect(reserva.rows.map((row) => row.id)).toEqual([id(20)]);
     expect(reserva.scope.portfolio_name).toBe('Reserva');
 
-    const todas = await page({ portfolioId: null });
-    expect(todas.total).toBe(11);
-    expect(todas.rows.map((row) => row.id)).not.toContain(id(21));
-    expect(todas.scope.portfolio_id).toBeNull();
-    expect(todas.scope.portfolio_name).toBeNull();
+    const longo = await page();
+    expect(longo.rows.map((row) => row.id)).not.toContain(id(20));
+    expect(longo.rows.map((row) => row.id)).not.toContain(id(21));
+    expect(longo.scope.portfolio_id).toBe(CARTEIRA);
   });
 
   it('sem período devolve o livro inteiro', async () => {
     const view = await page({ from: null, to: null });
 
-    expect(view.total).toBe(13);
+    expect(view.total).toBe(11);
     expect(view.earlier).toBeNull();
   });
 });
 
 describe('escopo e "ampliar o período"', () => {
   it('diz quantos lançamentos o escopo tem e quando começou, sem filtro', async () => {
-    const view = await page({ group: 'sell', search: 'xyz' });
+    const view = await page({ groups: ['sell'], search: 'xyz' });
 
-    expect(view.scope.entries_total).toBe(13);
+    expect(view.scope.entries_total).toBe(11);
     expect(view.scope.first_trade_date).toBe('2026-03-02');
   });
 
@@ -365,7 +346,7 @@ describe('escopo e "ampliar o período"', () => {
   });
 
   it('respeita os outros filtros ao procurar o que há antes', async () => {
-    const view = await page({ group: 'sell' });
+    const view = await page({ groups: ['sell'] });
 
     // Não existe venda antes de setembro: o link não pode oferecer agosto.
     expect(view.earlier).toBeNull();
@@ -386,35 +367,13 @@ describe('o que o recálculo grava', () => {
     expect(view.rows.find((row) => row.id === id(3))?.realized_exempt).toBeNull();
   });
 
-  it('nomeia a carteira do outro lado de uma transferência', async () => {
-    const grupo = '0191e5a0-0000-7000-8000-0000000f0001';
-
-    await tx`
-      insert into transaction
-        (id, kind, trade_date, settlement_date, portfolio_id, asset_id,
-         institution_id, quantity, unit_price, gross_amount, net_amount,
-         transfer_group_id)
-      values
-        (${id(40)}, 'transfer', '2026-10-04', '2026-10-04', ${CARTEIRA}, ${VALE3},
-         ${CORRETORA}, '10', '60.00', '600.00', '-600.00', ${grupo}),
-        (${id(41)}, 'transfer', '2026-10-04', '2026-10-04', ${RESERVA}, ${VALE3},
-         ${CORRETORA}, '10', '60.00', '600.00', '600.00', ${grupo})
-    `;
-
-    const view = await page();
-    const saida = view.rows.find((row) => row.id === id(40));
-
-    expect(saida?.transfer_counterpart).toBe('Reserva');
-    expect(view.rows.find((row) => row.id === id(3))?.transfer_counterpart).toBeNull();
-  });
-
-  it('conta as carteiras em recálculo e as que falharam', async () => {
-    await tx`update portfolio set recalc_status = 'running' where id = ${CARTEIRA}`;
-    await tx`update portfolio set recalc_status = 'failed' where id = ${RESERVA}`;
+  it('conta a carteira em recálculo e a que falhou', async () => {
+    await tx`UPDATE portfolio SET recalc_status = 'running' WHERE id = ${CARTEIRA}`;
+    await tx`UPDATE portfolio SET recalc_status = 'failed' WHERE id = ${RESERVA}`;
 
     expect((await page()).recalculation).toEqual({ pending: 1, failed: 0 });
-    expect((await page({ portfolioId: null })).recalculation).toEqual({
-      pending: 1,
+    expect((await page({ portfolioId: RESERVA })).recalculation).toEqual({
+      pending: 0,
       failed: 1,
     });
   });

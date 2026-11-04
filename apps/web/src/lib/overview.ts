@@ -1,8 +1,8 @@
-import type { OverviewAttentionItemResource, OverviewPointResource } from '@patrimonio/contracts';
+import type { OverviewPointResource } from '@patrimonio/contracts';
 import type { DateOnly } from '@patrimonio/domain';
 
-import type { Band } from './chart/series.js';
-import { parseDecimal, shiftPoint } from './decimal.js';
+import type { Band, Point } from './chart/series.js';
+import { compareDecimal, parseDecimal, shiftPoint } from './decimal.js';
 import { SEMANTIC_COLORS } from './tokens.js';
 
 /**
@@ -11,7 +11,7 @@ import { SEMANTIC_COLORS } from './tokens.js';
  * Regra que decide alguma coisa não mora em componente, porque componente não
  * tem teste de lógica. O que está aqui é o que a tela precisa resolver antes
  * de desenhar: como a série vira faixa empilhada, como um percentual da `api`
- * vira razão para o formatador, e que texto cada regra de alerta produz.
+ * vira razão para o formatador, e como as datas viram rótulo de eixo.
  */
 
 /**
@@ -47,23 +47,48 @@ export type GrowthBands = {
   readonly dates: readonly DateOnly[];
   readonly contributions: readonly Band[];
   readonly result: readonly Band[];
+  /**
+   * Proventos recebidos até o dia. Eles saem do patrimônio, mas são rendimento:
+   * a faixa sobe do patrimônio até o patrimônio mais proventos.
+   */
+  readonly payouts: readonly Band[];
+  readonly hasPayouts: boolean;
+  /** O patrimônio do dia, que é a soma das duas faixas e o topo do empilhado. */
+  readonly total: readonly Point[];
   readonly underwater: boolean;
 };
 
-export const growthBands = (
-  points: readonly OverviewPointResource[],
-): GrowthBands => ({
+/** Quem não paga provento — a página de um título — não manda os dois campos. */
+export type GrowthPoint = Pick<
+  OverviewPointResource,
+  'date' | 'contributions' | 'total' | 'result'
+> &
+  Partial<Pick<OverviewPointResource, 'payouts' | 'with_payouts'>>;
+
+export const growthBands = (points: readonly GrowthPoint[]): GrowthBands => ({
   dates: points.map((point) => point.date as DateOnly),
   contributions: points.map((point) => ({
     date: point.date as DateOnly,
     from: '0',
     to: point.contributions,
+    amount: point.contributions,
   })),
   result: points.map((point) => ({
     date: point.date as DateOnly,
     from: point.contributions,
     to: point.total,
+    amount: point.result,
   })),
+  payouts: points.map((point) => ({
+    date: point.date as DateOnly,
+    from: point.total,
+    to: point.with_payouts ?? point.total,
+    amount: point.payouts ?? '0.00',
+  })),
+  hasPayouts: points.some(
+    (point) => point.payouts !== undefined && compareDecimal(point.payouts, '0') !== 0,
+  ),
+  total: points.map((point) => ({ date: point.date as DateOnly, value: point.total })),
   underwater: points.some((point) => point.result.startsWith('-')),
 });
 
@@ -119,9 +144,7 @@ const MONTH_ABBREVIATIONS = [
  * O ano aparece onde ele muda — `out/25`, `dez`, `fev/26` —, que é a regra da
  * prancha e também o mínimo para a leitura não ficar ambígua.
  */
-export const monthTicks = (
-  dates: readonly DateOnly[],
-): ReadonlyMap<DateOnly, string> => {
+export const monthTicks = (dates: readonly DateOnly[]): ReadonlyMap<DateOnly, string> => {
   const labels = new Map<DateOnly, string>();
   let lastYear: string | null = null;
 
@@ -145,80 +168,4 @@ export const trimDecimals = (value: string): string => {
 
   const trimmed = value.replace(/0+$/, '').replace(/\.$/, '');
   return trimmed === '' || trimmed === '-' ? '0' : trimmed;
-};
-
-export const GROUP_LABELS = {
-  corrigir: 'Corrigir dados',
-  decidir: 'Decidir',
-  acompanhar: 'Acompanhar',
-} as const;
-
-const text = (payload: Record<string, unknown>, key: string): string | null => {
-  const value = payload[key];
-  return typeof value === 'string' && value !== '' ? value : null;
-};
-
-export type AttentionText = {
-  readonly title: string;
-  /** O que o alerta diz, montado com o que a regra gravou. */
-  readonly detail: string;
-  /** O verbo do atalho à direita. Nulo enquanto a tela de destino não existe. */
-  readonly action: string | null;
-};
-
-/**
- * O texto de cada regra. A tela nunca mostra `rule_kind` cru, e o que uma regra
- * ainda sem tradução produz é o rótulo genérico com o que ela gravou — pior
- * que um texto próprio, melhor que `price_stale` aparecendo na tela.
- *
- * As dez regras que faltam chegam em E7 e entram neste mapa.
- */
-export const attentionText = (item: OverviewAttentionItemResource): AttentionText => {
-  const ticker = text(item.payload, 'ticker') ?? text(item.payload, 'asset_id');
-
-  switch (item.rule_kind) {
-    case 'price_stale': {
-      const since = text(item.payload, 'last_price_date');
-      return {
-        title: 'Preço atrasado',
-        detail:
-          since === null
-            ? `${ticker ?? 'Um papel'} está sem cotação da fonte principal.`
-            : `${ticker ?? 'Um papel'} sem cotação da fonte principal desde ${formatDate(
-                since as DateOnly,
-              )}; a posição usa o último preço conhecido.`,
-        action: 'Definir preço manual',
-      };
-    }
-
-    case 'price_missing':
-      return {
-        title: 'Preço ausente',
-        detail: `${ticker ?? 'Um papel'} nunca teve cotação: a posição vale o custo, e a linha fica marcada.`,
-        action: 'Definir preço manual',
-      };
-
-    case 'corporate_event_pending': {
-      const kind = text(item.payload, 'kind');
-      const recordDate = text(item.payload, 'record_date');
-      const from = text(item.payload, 'ratio_from');
-      const to = text(item.payload, 'ratio_to');
-      const terms = from !== null && to !== null ? ` ${from}:${to}` : '';
-
-      return {
-        title: 'Evento corporativo',
-        detail: `${ticker ?? 'Um papel'} tem ${kind ?? 'evento'}${terms} com data-com em ${formatDate(
-          (recordDate ?? null) as DateOnly | null,
-        )}; a quantidade muda só depois da confirmação.`,
-        action: 'Revisar evento',
-      };
-    }
-
-    default:
-      return {
-        title: item.rule_kind.replace(/_/g, ' '),
-        detail: `Pendência aberta em ${formatDate(item.first_seen_at.slice(0, 10) as DateOnly)}.`,
-        action: null,
-      };
-  }
 };

@@ -1,23 +1,22 @@
 import {
   confirmPayoutSchema,
-  createCashMovementSchema,
+  corporateEventPreviewBodySchema,
   createPayoutSchema,
   createTransactionSchema,
-  transferPositionSchema,
   updateTransactionSchema,
 } from '@patrimonio/contracts';
 import type {
   ConfirmPayoutBody,
+  CorporateEventPreviewBody,
+  CorporateEventPreviewResource,
   Settings,
-  CreateCashMovementBody,
   CreatePayoutBody,
   CreateTransactionBody,
   TransactionPreviewResource,
   TransactionResource,
-  TransferPositionBody,
   UpdateTransactionBody,
 } from '@patrimonio/contracts';
-import type { PayoutKind } from '@patrimonio/domain';
+import type { B3Type, PayoutKind } from '@patrimonio/domain';
 
 import { compareDecimal, parseDecimal } from './decimal.js';
 import { parseAmountInput } from './positions.js';
@@ -47,17 +46,15 @@ export type EntryField =
   | 'fees'
   | 'portfolio'
   | 'institution'
-  | 'note'
   | 'recordDate'
   | 'paymentDate'
   | 'perShare'
   | 'gross'
   | 'tax'
   | 'amount'
-  | 'fromPortfolio'
-  | 'toPortfolio'
   | 'payoutKind'
-  | 'netAmount';
+  | 'netAmount'
+  | 'factor';
 
 export type FieldErrors = Readonly<Partial<Record<EntryField, string>>>;
 
@@ -77,16 +74,15 @@ const FIELD_OF_KEY: Readonly<Record<string, EntryField>> = {
   tax_withheld: 'tax',
   portfolio_id: 'portfolio',
   institution_id: 'institution',
-  note: 'note',
   record_date: 'recordDate',
   payment_date: 'paymentDate',
   amount_per_share: 'perShare',
   gross_amount: 'gross',
   amount: 'amount',
-  from_portfolio_id: 'fromPortfolio',
-  to_portfolio_id: 'toPortfolio',
   payout_kind: 'payoutKind',
   net_amount: 'netAmount',
+  ratio_from: 'factor',
+  ratio_to: 'factor',
 };
 
 type Issue = { readonly path: readonly PropertyKey[]; readonly message: string };
@@ -206,8 +202,17 @@ const requireId = (
 
 export type TradeKind = 'buy' | 'sell';
 
+/** O papel do catálogo que ainda não é ativo: nasce junto com o lançamento. */
+export type NewAssetDraft = {
+  readonly ticker: string;
+  readonly name: string;
+  readonly b3_type: B3Type;
+};
+
 export type TradeForm = {
   readonly assetId: string | null;
+  /** Escolhido do catálogo: no lugar de `assetId`, nunca junto. */
+  readonly newAsset: NewAssetDraft | null;
   readonly date: string;
   /** Vazio deixa a `api` sugerir pelo tipo do ativo, em dia útil. */
   readonly settlement: string;
@@ -217,7 +222,6 @@ export type TradeForm = {
   readonly fees: string;
   readonly portfolioId: string | null;
   readonly institutionId: string | null;
-  readonly note: string;
 };
 
 export const buildTradeBody = (
@@ -226,7 +230,10 @@ export const buildTradeBody = (
 ): Built<CreateTransactionBody> => {
   const errors: Partial<Record<EntryField, string>> = {};
 
-  const assetId = requireId(errors, 'asset', form.assetId, 'Escolha o ativo.');
+  const assetId =
+    form.newAsset === null
+      ? requireId(errors, 'asset', form.assetId, 'Escolha o ativo.')
+      : null;
   const portfolioId = requireId(
     errors,
     'portfolio',
@@ -267,7 +274,7 @@ export const buildTradeBody = (
   );
 
   if (
-    assetId === null ||
+    (assetId === null && form.newAsset === null) ||
     portfolioId === null ||
     institutionId === null ||
     date === null ||
@@ -282,13 +289,20 @@ export const buildTradeBody = (
     kind,
     portfolio_id: portfolioId,
     institution_id: institutionId,
-    asset_id: assetId,
+    ...(form.newAsset === null
+      ? { asset_id: assetId }
+      : {
+          asset: {
+            ticker: form.newAsset.ticker,
+            name: form.newAsset.name,
+            b3_type: form.newAsset.b3_type,
+          },
+        }),
     trade_date: date,
     quantity,
     unit_price: price,
     ...(form.settlement === '' ? {} : { settlement_date: form.settlement }),
     ...(fees === null ? {} : { fees }),
-    ...(form.note.trim() === '' ? {} : { note: form.note.trim() }),
   };
 
   return validated(createTransactionSchema.safeParse({ body }), 1);
@@ -306,134 +320,6 @@ const validated = <T extends { readonly body: unknown }>(
   parsed.success
     ? { ok: true, body: parsed.data.body }
     : { ok: false, errors: issuesToErrors(parsed.error.issues, offset) };
-
-/* -------------------------------------------------------------------------- */
-/* Aporte e resgate                                                           */
-
-export type CashKind = 'deposit' | 'withdrawal';
-
-export type CashForm = {
-  readonly portfolioId: string | null;
-  readonly institutionId: string | null;
-  readonly date: string;
-  readonly amount: string;
-  /** De fora do app é aporte; de outra carteira é transferência. */
-  readonly source: 'external' | 'other_portfolio';
-  readonly fromPortfolioId: string | null;
-  readonly note: string;
-};
-
-type CashRead = {
-  readonly errors: Partial<Record<EntryField, string>>;
-  readonly portfolioId: string | null;
-  readonly institutionId: string | null;
-  readonly date: string | null;
-  readonly amount: string | null;
-};
-
-const readCash = (form: CashForm): CashRead => {
-  const errors: Partial<Record<EntryField, string>> = {};
-
-  return {
-    portfolioId: requireId(errors, 'portfolio', form.portfolioId, 'Escolha a carteira.'),
-    institutionId: requireId(
-      errors,
-      'institution',
-      form.institutionId,
-      'Escolha a instituição.',
-    ),
-    date: requireDate(errors, 'date', form.date),
-    amount: collect(
-      errors,
-      'amount',
-      read(form.amount, {
-        required: true,
-        missing: 'Informe o valor.',
-        invalid: NOT_A_NUMBER,
-      }),
-    ),
-    errors,
-  };
-};
-
-export const buildCashBody = (
-  kind: CashKind,
-  form: CashForm,
-): Built<CreateCashMovementBody> => {
-  const parts = readCash(form);
-  const errors = parts.errors;
-
-  const fromPortfolioId =
-    form.source === 'other_portfolio'
-      ? requireId(
-          errors,
-          'fromPortfolio',
-          form.fromPortfolioId,
-          'Escolha a carteira de origem.',
-        )
-      : null;
-
-  if (
-    parts.portfolioId === null ||
-    parts.institutionId === null ||
-    parts.date === null ||
-    parts.amount === null ||
-    Object.keys(errors).length > 0
-  ) {
-    return { ok: false, errors };
-  }
-
-  const body = {
-    kind,
-    portfolio_id: parts.portfolioId,
-    institution_id: parts.institutionId,
-    trade_date: parts.date,
-    amount: parts.amount,
-    source: form.source,
-    ...(fromPortfolioId === null ? {} : { from_portfolio_id: fromPortfolioId }),
-    ...(form.note.trim() === '' ? {} : { note: form.note.trim() }),
-  };
-
-  return validated(createCashMovementSchema.safeParse({ body }), 1);
-};
-
-/**
- * O preview do aporte é o do lançamento de caixa: o caixa vale um real por real,
- * então a quantidade é o próprio valor. De outra carteira não há preview aqui —
- * é uma transferência de duas pernas, e o patrimônio total não muda.
- */
-export const buildCashPreviewBody = (
-  kind: CashKind,
-  form: CashForm,
-): Built<CreateTransactionBody> | null => {
-  if (form.source === 'other_portfolio') return null;
-
-  const parts = readCash(form);
-
-  if (
-    parts.portfolioId === null ||
-    parts.institutionId === null ||
-    parts.date === null ||
-    parts.amount === null ||
-    Object.keys(parts.errors).length > 0
-  ) {
-    return { ok: false, errors: parts.errors };
-  }
-
-  return validated(
-    createTransactionSchema.safeParse({
-      body: {
-        kind,
-        portfolio_id: parts.portfolioId,
-        institution_id: parts.institutionId,
-        trade_date: parts.date,
-        quantity: parts.amount,
-        unit_price: '1',
-      },
-    }),
-    1,
-  );
-};
 
 /* -------------------------------------------------------------------------- */
 /* Provento                                                                   */
@@ -454,7 +340,6 @@ export type PayoutForm = {
   readonly institutionId: string | null;
   /** Marcado, o provento entra como dinheiro recebido; senão, "a receber". */
   readonly received: boolean;
-  readonly note: string;
 };
 
 export const buildPayoutBody = (form: PayoutForm): Built<CreatePayoutBody> => {
@@ -516,82 +401,9 @@ export const buildPayoutBody = (form: PayoutForm): Built<CreatePayoutBody> => {
       : { gross_amount: amount }),
     ...(tax === null ? {} : { tax_withheld: tax }),
     confirmed: form.received,
-    ...(form.note.trim() === '' ? {} : { note: form.note.trim() }),
   };
 
   return validated(createPayoutSchema.safeParse({ body }), 1);
-};
-
-/* -------------------------------------------------------------------------- */
-/* Mover posição entre carteiras                                              */
-
-export type TransferForm = {
-  readonly assetId: string | null;
-  readonly fromPortfolioId: string | null;
-  readonly toPortfolioId: string | null;
-  readonly institutionId: string | null;
-  readonly date: string;
-  readonly quantity: string;
-  /** "Tudo": move o que houver na data, sem digitar a quantidade. */
-  readonly all: boolean;
-  readonly note: string;
-};
-
-export const buildTransferBody = (form: TransferForm): Built<TransferPositionBody> => {
-  const errors: Partial<Record<EntryField, string>> = {};
-
-  const assetId = requireId(errors, 'asset', form.assetId, 'Escolha o ativo.');
-  const from = requireId(
-    errors,
-    'fromPortfolio',
-    form.fromPortfolioId,
-    'Escolha a origem.',
-  );
-  const to = requireId(errors, 'toPortfolio', form.toPortfolioId, 'Escolha o destino.');
-  const institutionId = requireId(
-    errors,
-    'institution',
-    form.institutionId,
-    'Escolha a instituição.',
-  );
-  const date = requireDate(errors, 'date', form.date);
-
-  const quantity = form.all
-    ? null
-    : collect(
-        errors,
-        'quantity',
-        read(form.quantity, {
-          required: true,
-          missing: 'Informe a quantidade ou use "Tudo".',
-          invalid: 'Informe uma quantidade como 100.',
-          parse: parseQuantityInput,
-        }),
-      );
-
-  if (
-    assetId === null ||
-    from === null ||
-    to === null ||
-    institutionId === null ||
-    date === null ||
-    (!form.all && quantity === null) ||
-    Object.keys(errors).length > 0
-  ) {
-    return { ok: false, errors };
-  }
-
-  const body = {
-    from_portfolio_id: from,
-    to_portfolio_id: to,
-    asset_id: assetId,
-    institution_id: institutionId,
-    trade_date: date,
-    ...(form.all || quantity === null ? { all: true } : { quantity }),
-    ...(form.note.trim() === '' ? {} : { note: form.note.trim() }),
-  };
-
-  return validated(transferPositionSchema.safeParse({ body }), 1);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -606,7 +418,6 @@ export type EditForm = {
   readonly tax: string;
   readonly portfolioId: string;
   readonly institutionId: string;
-  readonly note: string;
 };
 
 /**
@@ -635,7 +446,6 @@ export const editFormOf = (transaction: TransactionResource): EditForm => ({
   tax: inputValue(transaction.tax_withheld),
   portfolioId: transaction.portfolio_id,
   institutionId: transaction.institution_id,
-  note: transaction.note ?? '',
 });
 
 export type BuiltEdit =
@@ -737,7 +547,6 @@ export const buildUpdateBody = (
 
   text('portfolio', 'portfolio_id', form.portfolioId, original.portfolio_id);
   text('institution', 'institution_id', form.institutionId, original.institution_id);
-  text('note', 'note', form.note.trim(), (original.note ?? '').trim());
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
@@ -751,14 +560,14 @@ export const buildUpdateBody = (
     : { ok: false, errors: issuesToErrors(parsed.error.issues, 1) };
 };
 
-/** Transferência tem duas pernas ligadas: editar uma sozinha quebraria o total. */
+/** Evento corporativo não se edita aqui. */
 export const isEditable = (transaction: TransactionResource): boolean =>
-  transaction.transfer_group_id === null && transaction.kind !== 'corporate_event';
+  transaction.kind !== 'corporate_event';
 
 /* -------------------------------------------------------------------------- */
 /* Confirmar recebimento                                                      */
 
-export type ConfirmForm = { readonly netAmount: string; readonly note: string };
+export type ConfirmForm = { readonly netAmount: string };
 
 export const buildConfirmBody = (form: ConfirmForm): Built<ConfirmPayoutBody> => {
   const errors: Partial<Record<EntryField, string>> = {};
@@ -780,7 +589,6 @@ export const buildConfirmBody = (form: ConfirmForm): Built<ConfirmPayoutBody> =>
       params: { transaction_id: '00000000-0000-4000-8000-000000000000' },
       body: {
         net_amount: netAmount,
-        ...(form.note.trim() === '' ? {} : { note: form.note.trim() }),
       },
     }),
     1,
@@ -829,12 +637,12 @@ const pair = (
   unchanged: values.before !== null && compareDecimal(values.before, values.after) === 0,
 });
 
-export type EffectKind = 'buy' | 'sell' | 'deposit' | 'withdrawal' | 'payout';
+export type EffectKind = 'buy' | 'sell' | 'payout';
 
 /**
  * As linhas do "efeito na posição", na ordem da prancha 13. Compra e venda
- * mostram a posição inteira; aporte e resgate mostram só o caixa e o custo da
- * carteira, porque o caixa é o ativo e não há preço médio a comentar.
+ * mostram a posição inteira; provento mostra só o custo, que só muda na
+ * amortização — o dinheiro do provento sai do patrimônio.
  */
 export const effectRows = (
   kind: EffectKind,
@@ -843,15 +651,16 @@ export const effectRows = (
 ): readonly EffectRow[] => {
   const asset = options.assetLabel === undefined ? '' : ` ${options.assetLabel}`;
 
-  if (kind === 'deposit' || kind === 'withdrawal') {
+  if (kind === 'payout') {
     return [
-      pair('cash', 'Caixa na instituição', 'money', preview.cash),
+      pair(
+        'cost_basis',
+        `Custo da posição${asset}`,
+        'money',
+        preview.position.cost_basis,
+      ),
       pair('portfolio_cost', 'Custo da carteira', 'money', preview.portfolio_cost_basis),
     ];
-  }
-
-  if (kind === 'payout') {
-    return [pair('cash', 'Caixa na instituição', 'money', preview.cash)];
   }
 
   const rows: EffectRow[] = [
@@ -891,35 +700,8 @@ export const effectRows = (
 };
 
 /**
- * O efeito de mover uma posição, como a prancha 15C o desenha: o valor de cada
- * carteira e o total, que a transferência nunca altera e por isso diz "sem
- * mudança". O preço médio mantido é dito no aviso do formulário.
- */
-export const transferRows = (
-  preview: {
-    readonly origin: TransferSideRows;
-    readonly destination: TransferSideRows;
-    readonly total: { readonly before: string; readonly after: string };
-  },
-  names: { readonly origin: string; readonly destination: string },
-): readonly EffectRow[] => [
-  pair('origin', names.origin, 'money', preview.origin.portfolio_cost_basis),
-  pair(
-    'destination',
-    names.destination,
-    'money',
-    preview.destination.portfolio_cost_basis,
-  ),
-  pair('total', 'Patrimônio total', 'money', preview.total),
-];
-
-type TransferSideRows = {
-  readonly portfolio_cost_basis: { readonly before: string; readonly after: string };
-};
-
-/**
  * O total da operação como a prancha o escreve: valor absoluto, sem o sinal de
- * saída de caixa. Tirar o `-` é formatação, não aritmética — o número é o que a
+ * saída de dinheiro. Tirar o `-` é formatação, não aritmética — o número é o que a
  * `api` calculou.
  */
 export const operationTotal = (preview: TransactionPreviewResource): string =>
@@ -928,41 +710,29 @@ export const operationTotal = (preview: TransactionPreviewResource): string =>
 export const TOTAL_LABEL: Readonly<Record<EffectKind, string>> = {
   buy: 'Total da operação',
   sell: 'Total recebido',
-  deposit: 'Valor do aporte',
-  withdrawal: 'Valor do resgate',
   payout: 'Líquido do provento',
 };
 
 /* -------------------------------------------------------------------------- */
 /* Tipos de lançamento da janela                                              */
 
-export type EntryTab =
-  'buy' | 'sell' | 'payout' | 'deposit' | 'withdrawal' | 'transfer' | 'event';
+export type EntryTab = 'buy' | 'sell' | 'payout' | 'event';
 
 export const ENTRY_TABS: readonly {
   readonly id: EntryTab;
   readonly label: string;
-  /** O motivo, quando a aba aparece mas ainda não pode ser usada. */
-  readonly unavailable?: string;
 }[] = [
   { id: 'buy', label: 'Compra' },
   { id: 'sell', label: 'Venda' },
   { id: 'payout', label: 'Provento' },
-  { id: 'deposit', label: 'Aporte' },
-  { id: 'withdrawal', label: 'Resgate' },
-  { id: 'transfer', label: 'Transferência' },
-  {
-    id: 'event',
-    label: 'Evento',
-    unavailable: 'Evento corporativo ainda não tem preview na api',
-  },
+  { id: 'event', label: 'Evento' },
 ];
 
 /**
  * "Duplicar": abre um lançamento novo já com o ativo, a carteira e os números
  * do que se duplica — a data volta a ser hoje. Só compra e venda carregam os
  * números; as demais abas abrem no tipo certo, no mesmo ativo e carteira. Evento
- * e transferência não se duplicam: sem aba que os lance, a ação não existe.
+ * não se duplica: sem aba que o lance, a ação não existe.
  */
 export type DuplicableRow = {
   readonly kind: string;
@@ -973,8 +743,6 @@ export type DuplicableRow = {
   readonly quantity: string;
   readonly unit_price: string;
   readonly fees: string;
-  readonly note: string | null;
-  readonly transfer_group_id: string | null;
 };
 
 export type DuplicateRequest = {
@@ -990,14 +758,13 @@ export type DuplicateRequest = {
     readonly quantity: string;
     readonly price: string;
     readonly fees: string;
-    readonly note: string;
   };
 };
 
-const DUPLICABLE: readonly string[] = ['buy', 'sell', 'payout', 'deposit', 'withdrawal'];
+const DUPLICABLE: readonly string[] = ['buy', 'sell', 'payout'];
 
 export const duplicateRequest = (row: DuplicableRow): DuplicateRequest | null => {
-  if (!DUPLICABLE.includes(row.kind) || row.transfer_group_id !== null) return null;
+  if (!DUPLICABLE.includes(row.kind)) return null;
 
   const asset =
     row.asset_id === null
@@ -1019,7 +786,6 @@ export const duplicateRequest = (row: DuplicableRow): DuplicateRequest | null =>
             quantity: inputValue(row.quantity),
             price: inputValue(row.unit_price),
             fees: inputValue(row.fees),
-            note: row.note ?? '',
           },
         }
       : {}),
@@ -1038,15 +804,15 @@ export const newAttemptKey = (): string => globalThis.crypto.randomUUID();
 
 export type EntryReference = {
   readonly portfolios: readonly { readonly id: string; readonly name: string }[];
-  /** Só quem guarda posição: emissor puro não custodia, e não recebe lançamento. */
   readonly institutions: readonly { readonly id: string; readonly name: string }[];
 };
 
-export const referenceOf = (settings: Settings): EntryReference => ({
+export const referenceOf = (
+  settings: Settings,
+  institutions: readonly { readonly id: string; readonly name: string }[],
+): EntryReference => ({
   portfolios: settings.portfolios.map(({ id, name }) => ({ id, name })),
-  institutions: settings.institutions
-    .filter((institution) => institution.role !== 'issuer')
-    .map(({ id, name }) => ({ id, name })),
+  institutions: institutions.map(({ id, name }) => ({ id, name })),
 });
 
 /** A data de hoje no relógio de quem digita — não em UTC, que às 22h já é amanhã. */
@@ -1070,7 +836,7 @@ export const pickInstitution = (
   reference.institutions[0]?.id ??
   null;
 
-/** A carteira do escopo atual, ou a primeira — "Todas" não é uma carteira. */
+/** A carteira do escopo atual, ou a primeira se ela não estiver na lista. */
 export const pickPortfolio = (
   reference: EntryReference,
   scopePortfolioId: string | null,
@@ -1078,3 +844,125 @@ export const pickPortfolio = (
   reference.portfolios.find((portfolio) => portfolio.id === scopePortfolioId)?.id ??
   reference.portfolios[0]?.id ??
   null;
+
+/* -------------------------------------------------------------------------- */
+/* Evento corporativo                                                         */
+
+export type EventKind = 'split' | 'reverse_split' | 'bonus';
+
+export const EVENT_KINDS: readonly {
+  readonly value: EventKind;
+  readonly label: string;
+  readonly factorLabel: string;
+  readonly hint: string;
+}[] = [
+  {
+    value: 'split',
+    label: 'Desdobramento',
+    factorLabel: 'Cada 1 papel vira',
+    hint: 'Informe em quantos papéis cada um se divide: 2 para um desdobramento de 1 para 2.',
+  },
+  {
+    value: 'reverse_split',
+    label: 'Grupamento',
+    factorLabel: 'Cada … papéis viram 1',
+    hint: 'Informe quantos papéis se juntam em um: 10 para um grupamento de 10 para 1. A sobra fica como fração, sem perda de custo.',
+  },
+  {
+    value: 'bonus',
+    label: 'Bonificação',
+    factorLabel: 'Bonificação em %',
+    hint: 'Informe o percentual de papéis recebidos: 10 para uma bonificação de 10%.',
+  },
+];
+
+export type EventForm = {
+  readonly assetId: string | null;
+  readonly kind: EventKind;
+  readonly factor: string;
+  readonly recordDate: string;
+};
+
+/** A razão do contrato: cada `from` papéis viram `to`. */
+const ratioOf = (
+  kind: EventKind,
+  factor: string,
+): { readonly from: string; readonly to: string } => {
+  if (kind === 'split') return { from: '1', to: factor };
+  if (kind === 'reverse_split') return { from: factor, to: '1' };
+
+  return { from: '100', to: String(Number((100 + Number(factor)).toFixed(8))) };
+};
+
+export const buildEventBody = (form: EventForm): Built<CorporateEventPreviewBody> => {
+  const errors: Partial<Record<EntryField, string>> = {};
+
+  const assetId = requireId(errors, 'asset', form.assetId, 'Escolha o ativo.');
+  const recordDate = requireDate(errors, 'recordDate', form.recordDate);
+  const factor = collect(
+    errors,
+    'factor',
+    read(form.factor, {
+      required: true,
+      missing: 'Informe o fator.',
+      invalid: NOT_A_NUMBER,
+    }),
+  );
+
+  if (factor !== null && Number(factor) <= 0) {
+    errors['factor'] = 'O fator precisa ser maior que zero.';
+  } else if (factor !== null && form.kind !== 'bonus' && Number(factor) <= 1) {
+    errors['factor'] = 'O fator precisa ser maior que 1.';
+  }
+
+  if (assetId === null || recordDate === null || factor === null) {
+    return { ok: false, errors };
+  }
+  if (Object.keys(errors).length > 0) return { ok: false, errors };
+
+  const ratio = ratioOf(form.kind, factor);
+
+  const parsed = corporateEventPreviewBodySchema.safeParse({
+    kind: 'corporate_event',
+    event_kind: form.kind,
+    asset_id: assetId,
+    record_date: recordDate,
+    ratio_from: ratio.from,
+    ratio_to: ratio.to,
+  });
+
+  return parsed.success
+    ? { ok: true, body: parsed.data }
+    : { ok: false, errors: issuesToErrors(parsed.error.issues, 0) };
+};
+
+/**
+ * O efeito por carteira: três linhas para cada uma que tinha posição na
+ * data-com. O custo total aparece "sem mudança" — é a conferência de que o
+ * evento só reparte o que já existia.
+ */
+export const eventRows = (
+  preview: CorporateEventPreviewResource,
+): readonly EffectRow[] => {
+  const several = preview.portfolios.length > 1;
+
+  return preview.portfolios.flatMap((row) => {
+    const suffix = several ? ` · ${row.portfolio_name}` : '';
+
+    return [
+      pair(
+        `${row.portfolio_id}:quantity`,
+        `Quantidade${suffix}`,
+        'quantity',
+        row.quantity,
+      ),
+      pair(
+        `${row.portfolio_id}:avg_price`,
+        `Preço médio${suffix}`,
+        'money',
+        row.avg_price,
+      ),
+      pair(`${row.portfolio_id}:cost`, `Custo total${suffix}`, 'money', row.cost_basis),
+    ];
+  });
+};

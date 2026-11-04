@@ -1,28 +1,29 @@
+import { MarketDataUnavailableError } from '@patrimonio/application';
 import type { AppError, TreasuryProvider, TreasuryQuote } from '@patrimonio/application';
-import type { DateOnly } from '@patrimonio/domain';
-import { success } from '@patrimonio/shared';
+import { addDays } from '@patrimonio/domain';
+import type { DateOnly, TreasuryIdentity } from '@patrimonio/domain';
+import { failure, success } from '@patrimonio/shared';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { Either } from '@patrimonio/shared';
 
 import type { HttpClient } from '../http/client.js';
 import {
-  asArray,
-  asJson,
-  asObject,
-  at,
   dateField,
   decimalField,
   formatChanged,
   parsing,
-  stringField,
 } from '../support/format.js';
 
 /**
  * O Tesouro Direto é quem emite o preço do próprio título, então ele é a fonte
  * primária: nenhum intermediário cobre mais nem melhor.
  *
- * Duas fontes, a mesma forma de saída. O JSON do site tem o dia corrente; o CSV
- * do Tesouro Transparente tem o histórico completo desde 2002, e é dele que sai
- * a carga inicial. A cadeia põe o JSON na frente e o CSV atrás.
+ * A fonte é o CSV do Tesouro Transparente, que tem o histórico completo desde
+ * 2002 e é atualizado todo dia útil. O arquivo é grande e o servidor limita
+ * requisições por rede, então ele é baixado no máximo uma vez por janela: o
+ * conteúdo fica em memória e em disco, e uma recusa deixa uma marca que impede
+ * novas tentativas por alguns minutos, inclusive depois de reiniciar o worker.
  *
  * ## Identificação por tipo e vencimento
  *
@@ -39,11 +40,7 @@ import {
  * escolher entre "quanto valeria se eu vendesse hoje" e "quanto custaria
  * comprar mais", e as duas perguntas aparecem na tela.
  */
-export const TESOURO_JSON_SOURCE = 'tesouro-direto';
 export const TESOURO_CSV_SOURCE = 'tesouro-transparente';
-
-export const TESOURO_JSON_URL =
-  'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondsinfo.json';
 
 export const TESOURO_CSV_URL =
   'https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/PrecoTaxaTesouroDireto.csv';
@@ -71,61 +68,10 @@ export const kindFromName = (name: string): Kind | null => {
   return null;
 };
 
+export const hasSemiannualCoupon = (name: string): boolean =>
+  /juros semestrais/iu.test(name);
+
 export type TesouroOptions = { readonly http: HttpClient };
-
-/**
- * O JSON do site. O envelope é profundo e já mudou de nome de campo, então cada
- * degrau é conferido: um `undefined` silencioso aqui gravaria o preço de outro
- * título.
- */
-export const createTesouroJsonProvider = (options: TesouroOptions): TreasuryProvider => ({
-  id: TESOURO_JSON_SOURCE,
-
-  fetchQuotes: async (
-    date: DateOnly,
-  ): Promise<Either<AppError, readonly TreasuryQuote[]>> => {
-    const response = await options.http({ url: TESOURO_JSON_URL });
-    if (response.isFailure()) return response;
-
-    const read = parsing(TESOURO_JSON_SOURCE, () => {
-      const body = asObject(asJson(response.value.body, 'body'), 'body');
-      const list = asArray(
-        at(body, ['response', 'TrsrBdTradgList']),
-        'response.TrsrBdTradgList',
-      );
-
-      const quotes: TreasuryQuote[] = [];
-
-      for (const [index, item] of list.entries()) {
-        const where = `response.TrsrBdTradgList[${index}].TrsrBd`;
-        const bond = asObject(at(asObject(item, `${where}`), ['TrsrBd']), where);
-
-        const kind = kindFromName(stringField(bond, 'nm', `${where}.nm`));
-        if (kind === null) continue;
-
-        const maturity = dateField(bond, 'mtrtyDt', `${where}.mtrtyDt`);
-
-        // Título vencido para de ser coletado, e isso não é erro: ele saiu da
-        // prateleira e o preço dele não existe mais.
-        if (maturity < date) continue;
-
-        quotes.push({
-          kind,
-          maturity_date: maturity,
-          quote_date: date,
-          buy_price: decimalField(bond, 'untrInvstmtVal', `${where}.untrInvstmtVal`),
-          sell_price: decimalField(bond, 'untrRedVal', `${where}.untrRedVal`),
-          buy_rate: decimalField(bond, 'anulInvstmtRate', `${where}.anulInvstmtRate`),
-          sell_rate: decimalField(bond, 'anulRedRate', `${where}.anulRedRate`),
-        });
-      }
-
-      return quotes;
-    });
-
-    return read.isFailure() ? read : success(read.value);
-  },
-});
 
 /**
  * As colunas do CSV do Tesouro Transparente. Separador `;`, decimal com vírgula
@@ -144,111 +90,269 @@ const CSV_COLUMNS = {
 export type CsvOptions = TesouroOptions & {
   /** O arquivo inteiro, quando ele já está em disco em vez de vir por HTTP. */
   readonly body?: string | undefined;
+  /** Onde o arquivo baixado e a marca de recusa ficam entre execuções do worker. */
+  readonly cacheDir?: string | undefined;
+  /** O relógio, em milissegundos; injetado pelos testes. */
+  readonly now?: (() => number) | undefined;
 };
+
+/** Quanto tempo o arquivo baixado vale. O Tesouro publica uma vez por dia. */
+export const CSV_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+/** Depois de uma recusa ou falha, quanto tempo sem tentar de novo. */
+export const CSV_BLOCK_MS = 30 * 60 * 1000;
+
+const USER_AGENT = 'patrimonio/0.1 (uso pessoal; leitura diaria do CSV)';
 
 const splitCsv = (line: string): readonly string[] =>
   line.split(';').map((cell) => cell.trim());
 
+type CsvRow = {
+  readonly kind: Kind;
+  readonly coupon: boolean;
+  readonly maturity: DateOnly;
+  readonly base: DateOnly;
+};
+
+/**
+ * Lê o arquivo uma vez e devolve as linhas que `wanted` aceita. A cabeça do
+ * arquivo é conferida antes de qualquer linha: coluna que saiu é mudança de
+ * formato.
+ */
+const readCsvQuotes = (
+  content: string,
+  wanted: (row: CsvRow) => boolean,
+): readonly TreasuryQuote[] => {
+  const lines = content.split(/\r?\n/u).filter((line) => line.trim() !== '');
+  const header = lines[0];
+
+  if (header === undefined) formatChanged('csv', 'veio vazio', content);
+
+  const columns = splitCsv(header ?? '');
+  const indexOf = (name: string): number => {
+    const index = columns.indexOf(name);
+
+    // Coluna que saiu do arquivo é mudança de formato: ler a posição errada
+    // gravaria taxa no lugar de preço, e ninguém notaria.
+    if (index < 0) formatChanged(`csv.${name}`, 'não está no cabeçalho', header);
+
+    return index;
+  };
+
+  const at_ = {
+    kind: indexOf(CSV_COLUMNS.kind),
+    maturity: indexOf(CSV_COLUMNS.maturity),
+    base: indexOf(CSV_COLUMNS.base),
+    buyRate: indexOf(CSV_COLUMNS.buyRate),
+    sellRate: indexOf(CSV_COLUMNS.sellRate),
+    buyPrice: indexOf(CSV_COLUMNS.buyPrice),
+    sellPrice: indexOf(CSV_COLUMNS.sellPrice),
+  };
+
+  const quotes: TreasuryQuote[] = [];
+
+  for (const [offset, line] of lines.slice(1).entries()) {
+    const cells = splitCsv(line);
+    const where = `csv[${offset + 2}]`;
+
+    const base = dateField({ v: cells[at_.base] }, 'v', `${where}.${CSV_COLUMNS.base}`);
+
+    const kindName = cells[at_.kind] ?? '';
+    const kind = kindFromName(kindName);
+    if (kind === null) continue;
+
+    const maturity = dateField(
+      { v: cells[at_.maturity] },
+      'v',
+      `${where}.${CSV_COLUMNS.maturity}`,
+    );
+
+    const coupon = hasSemiannualCoupon(kindName);
+    if (!wanted({ kind, coupon, maturity, base })) continue;
+
+    quotes.push({
+      kind,
+      coupon,
+      maturity_date: maturity,
+      quote_date: base,
+      buy_price: decimalField(
+        { v: cells[at_.buyPrice] },
+        'v',
+        `${where}.${CSV_COLUMNS.buyPrice}`,
+      ),
+      sell_price: decimalField(
+        { v: cells[at_.sellPrice] },
+        'v',
+        `${where}.${CSV_COLUMNS.sellPrice}`,
+      ),
+      buy_rate: decimalField(
+        { v: cells[at_.buyRate] },
+        'v',
+        `${where}.${CSV_COLUMNS.buyRate}`,
+      ),
+      sell_rate: decimalField(
+        { v: cells[at_.sellRate] },
+        'v',
+        `${where}.${CSV_COLUMNS.sellRate}`,
+      ),
+    });
+  }
+
+  return quotes;
+};
+
+/**
+ * Fim de semana e feriado não têm tabela: o pedido vale o último dia com preço
+ * dentro desta janela, e cada título sai com a data em que de fato foi cotado.
+ */
+const CSV_LOOKBACK_DAYS = 10;
+
 /**
  * O CSV cobre o histórico completo desde 2002, e é a alternativa quando o JSON
- * não responde — e a fonte da carga inicial.
+ * não responde — e a fonte da carga inicial e do histórico de cada título.
  */
-export const createTesouroCsvProvider = (options: CsvOptions): TreasuryProvider => ({
-  id: TESOURO_CSV_SOURCE,
+export const createTesouroCsvProvider = (options: CsvOptions): TreasuryProvider => {
+  const now = options.now ?? Date.now;
+  const file = options.cacheDir === undefined ? null : join(options.cacheDir, 'tesouro.csv');
+  const marker =
+    options.cacheDir === undefined ? null : join(options.cacheDir, 'tesouro.blocked');
 
-  fetchQuotes: async (
-    date: DateOnly,
-  ): Promise<Either<AppError, readonly TreasuryQuote[]>> => {
-    let body = options.body;
+  let memory: { readonly body: string; readonly at: number } | null = null;
+  let blocked: { readonly error: AppError; readonly until: number } | null = null;
+  let inflight: Promise<Either<AppError, string>> | null = null;
 
-    if (body === undefined) {
-      const response = await options.http({ url: TESOURO_CSV_URL });
-      if (response.isFailure()) return response;
-      body = response.value.body;
+  const blockedError = (until: number): AppError =>
+    new MarketDataUnavailableError(
+      `${TESOURO_CSV_SOURCE} recusou há pouco; nova tentativa depois de ${new Date(until).toISOString()}`,
+    );
+
+  const block = async (error: AppError): Promise<void> => {
+    const until = now() + CSV_BLOCK_MS;
+    blocked = { error, until };
+
+    if (marker !== null) {
+      try {
+        await mkdir(options.cacheDir as string, { recursive: true });
+        await writeFile(marker, String(until), 'utf8');
+      } catch {
+        // Sem disco, a marca fica só na memória.
+      }
     }
+  };
 
-    const content = body;
-
-    const read = parsing(TESOURO_CSV_SOURCE, () => {
-      const lines = content.split(/\r?\n/u).filter((line) => line.trim() !== '');
-      const header = lines[0];
-
-      if (header === undefined) formatChanged('csv', 'veio vazio', content);
-
-      const columns = splitCsv(header ?? '');
-      const indexOf = (name: string): number => {
-        const index = columns.indexOf(name);
-
-        // Coluna que saiu do arquivo é mudança de formato: ler a posição errada
-        // gravaria taxa no lugar de preço, e ninguém notaria.
-        if (index < 0) formatChanged(`csv.${name}`, 'não está no cabeçalho', header);
-
-        return index;
-      };
-
-      const at_ = {
-        kind: indexOf(CSV_COLUMNS.kind),
-        maturity: indexOf(CSV_COLUMNS.maturity),
-        base: indexOf(CSV_COLUMNS.base),
-        buyRate: indexOf(CSV_COLUMNS.buyRate),
-        sellRate: indexOf(CSV_COLUMNS.sellRate),
-        buyPrice: indexOf(CSV_COLUMNS.buyPrice),
-        sellPrice: indexOf(CSV_COLUMNS.sellPrice),
-      };
-
-      const quotes: TreasuryQuote[] = [];
-
-      for (const [offset, line] of lines.slice(1).entries()) {
-        const cells = splitCsv(line);
-        const where = `csv[${offset + 2}]`;
-
-        const base = dateField(
-          { v: cells[at_.base] },
-          'v',
-          `${where}.${CSV_COLUMNS.base}`,
-        );
-        if (base !== date) continue;
-
-        const kind = kindFromName(cells[at_.kind] ?? '');
-        if (kind === null) continue;
-
-        const maturity = dateField(
-          { v: cells[at_.maturity] },
-          'v',
-          `${where}.${CSV_COLUMNS.maturity}`,
-        );
-        if (maturity < date) continue;
-
-        quotes.push({
-          kind,
-          maturity_date: maturity,
-          quote_date: base,
-          buy_price: decimalField(
-            { v: cells[at_.buyPrice] },
-            'v',
-            `${where}.${CSV_COLUMNS.buyPrice}`,
-          ),
-          sell_price: decimalField(
-            { v: cells[at_.sellPrice] },
-            'v',
-            `${where}.${CSV_COLUMNS.sellPrice}`,
-          ),
-          buy_rate: decimalField(
-            { v: cells[at_.buyRate] },
-            'v',
-            `${where}.${CSV_COLUMNS.buyRate}`,
-          ),
-          sell_rate: decimalField(
-            { v: cells[at_.sellRate] },
-            'v',
-            `${where}.${CSV_COLUMNS.sellRate}`,
-          ),
-        });
+  const download = async (): Promise<Either<AppError, string>> => {
+    if (file !== null && marker !== null) {
+      try {
+        const info = await stat(file);
+        if (now() - info.mtimeMs < CSV_CACHE_TTL_MS) {
+          return success(await readFile(file, 'utf8'));
+        }
+      } catch {
+        // Sem arquivo guardado: baixa.
       }
 
-      return quotes;
+      try {
+        const until = Number(await readFile(marker, 'utf8'));
+        if (Number.isFinite(until) && now() < until) {
+          return failure(blockedError(until));
+        }
+      } catch {
+        // Sem marca: segue.
+      }
+    }
+
+    const response = await options.http({
+      url: TESOURO_CSV_URL,
+      headers: { 'User-Agent': USER_AGENT },
     });
 
-    return read.isFailure() ? read : success(read.value);
-  },
-});
+    if (response.isFailure()) {
+      await block(response.value);
+      return response;
+    }
+
+    if (file !== null) {
+      try {
+        await mkdir(options.cacheDir as string, { recursive: true });
+        await writeFile(file, response.value.body, 'utf8');
+      } catch {
+        // Sem disco, o conteúdo fica só na memória.
+      }
+    }
+
+    return success(response.value.body);
+  };
+
+  const load = async (): Promise<Either<AppError, string>> => {
+    if (options.body !== undefined) return success(options.body);
+
+    if (memory !== null && now() - memory.at < CSV_CACHE_TTL_MS) {
+      return success(memory.body);
+    }
+
+    if (blocked !== null && now() < blocked.until) return failure(blocked.error);
+
+    // Duas chamadas ao mesmo tempo esperam o mesmo download.
+    inflight ??= download().finally(() => {
+      inflight = null;
+    });
+
+    const loaded = await inflight;
+    if (loaded.isSuccess()) memory = { body: loaded.value, at: now() };
+
+    return loaded;
+  };
+
+  return {
+    id: TESOURO_CSV_SOURCE,
+
+    fetchQuotes: async (
+      date: DateOnly,
+    ): Promise<Either<AppError, readonly TreasuryQuote[]>> => {
+      const content = await load();
+      if (content.isFailure()) return content;
+
+      const earliest = addDays(date, -CSV_LOOKBACK_DAYS);
+
+      const read = parsing(TESOURO_CSV_SOURCE, () => {
+        const recent = readCsvQuotes(
+          content.value,
+          (row) => row.base <= date && row.base >= earliest && row.maturity >= date,
+        );
+
+        const latest = recent.reduce<DateOnly | null>(
+          (best, quote) =>
+            best === null || quote.quote_date > best ? quote.quote_date : best,
+          null,
+        );
+
+        return recent.filter((quote) => quote.quote_date === latest);
+      });
+
+      return read.isFailure() ? read : success(read.value);
+    },
+
+    fetchHistory: async (
+      identity: TreasuryIdentity,
+      from: DateOnly,
+      to: DateOnly,
+    ): Promise<Either<AppError, readonly TreasuryQuote[]>> => {
+      const content = await load();
+      if (content.isFailure()) return content;
+
+      const read = parsing(TESOURO_CSV_SOURCE, () =>
+        readCsvQuotes(
+          content.value,
+          (row) =>
+            row.kind === identity.kind &&
+            row.coupon === identity.coupon &&
+            row.maturity === identity.maturity_date &&
+            row.base >= from &&
+            row.base <= to,
+        ),
+      );
+
+      return read.isFailure() ? read : success(read.value);
+    },
+  };
+};

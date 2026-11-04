@@ -1,0 +1,30 @@
+{
+  "results": [
+    {
+      "symbol": "BOVA11",
+      "name": "ISHARES IBOVESPA FUNDO DE INDICE",
+      "assetType": "fund",
+      "sector": null
+    },
+    {
+      "symbol": "BOVV11",
+      "name": "IT NOW IBOVESPA FUNDO DE INDICE",
+      "assetType": "fund",
+      "sector": null
+    },
+    {
+      "symbol": "BOVB11",
+      "name": "FUNDO DE INVESTIMENTO EM ACOES BOVESPA",
+      "assetType": "fund",
+      "sector": null
+    },
+    {
+      "symbol": "BOVH11",
+      "name": "FUNDO DE INVESTIMENTO IMOBILIARIO BOVH",
+      "assetType": "fund",
+      "sector": null
+    },
+    { "symbol": "BOVA3", "name": "BOVA S.A.", "assetType": "stock", "sector": "Finance" }
+  ],
+  "pagination": { "page": 1, "totalPages": 1 }
+}

@@ -1,16 +1,13 @@
-import { FormatChangedError, MarketDataUnavailableError } from '@patrimonio/application';
+import { FormatChangedError } from '@patrimonio/application';
 import type { DateOnly } from '@patrimonio/domain';
-import { failure, success } from '@patrimonio/shared';
 import { describe, expect, it } from 'vitest';
 
-import { createQuoteChain } from '../chain.js';
 import { counting, fixture, replying } from '../testing/recorded.js';
 import {
   BRAPI_FREE_MONTHLY_CEILING,
   createBrapiProvider,
   quoteUrl,
 } from './brapi.provider.js';
-import { BOLSAI_SHAPE, createJsonQuoteProvider } from './json_quote.provider.js';
 
 const UM = fixture('brapi/quote-itub4.json');
 const LOTE = fixture('brapi/quote-lote.json');
@@ -255,78 +252,5 @@ describe('série histórica', () => {
     expect(result?.isSuccess()).toBe(true);
     if (result === undefined || !result.isSuccess()) return;
     expect(result.value.missing).toEqual(['ITUB4']);
-  });
-});
-
-describe('o provedor alternativo declarado por configuração', () => {
-  const alternativo = (body: string) =>
-    createJsonQuoteProvider({
-      id: 'usebolsai',
-      http: replying(body),
-      shape: BOLSAI_SHAPE,
-      url: (tickers) => `https://exemplo/quotes?tickers=${tickers.join(',')}`,
-    });
-
-  it('lê a lista no caminho declarado', async () => {
-    const result = await alternativo(
-      '{"data":[{"ticker":"ITUB4","close":"31.90","date":"2026-10-06"}]}',
-    ).fetchClosing(['ITUB4'], DATE);
-
-    expect(result.isSuccess()).toBe(true);
-    if (!result.isSuccess()) return;
-    expect(result.value.quotes).toEqual([
-      { ticker: 'ITUB4', price_date: '2026-10-06', close: '31.90' },
-    ]);
-  });
-
-  it('caminho que mudou falha nomeando-o, que é o que a verificação noturna pega', async () => {
-    const result = await alternativo('{"resultados":[]}').fetchClosing(['ITUB4'], DATE);
-
-    expect(result.isFailure()).toBe(true);
-    if (!result.isFailure()) return;
-    expect((result.value as FormatChangedError).field).toBe('data');
-  });
-
-  it('assume quando o principal falha, e o preço nasce como fallback', async () => {
-    const principal = createBrapiProvider({
-      http: async () => failure(new MarketDataUnavailableError('brapi respondeu 500')),
-    });
-
-    const chain = createQuoteChain([
-      principal,
-      alternativo('{"data":[{"ticker":"ITUB4","close":"31.90","date":"2026-10-06"}]}'),
-    ]);
-
-    const result = await chain.fetchClosing(['ITUB4'], DATE);
-
-    expect(result.isSuccess()).toBe(true);
-    if (!result.isSuccess()) return;
-    expect(result.value.source).toBe('usebolsai');
-    expect(result.value.source_kind).toBe('fallback');
-    expect(result.value.quotes[0]?.close).toBe('31.90');
-  });
-
-  it('o principal volta a ser tentado no ciclo seguinte, sem intervenção', async () => {
-    let tentativas = 0;
-
-    const principal = createBrapiProvider({
-      http: async () => {
-        tentativas += 1;
-        return tentativas === 1
-          ? failure(new MarketDataUnavailableError('fora do ar'))
-          : success({ status: 200, body: UM });
-      },
-    });
-
-    const chain = createQuoteChain([
-      principal,
-      alternativo('{"data":[{"ticker":"ITUB4","close":"31.90","date":"2026-10-06"}]}'),
-    ]);
-
-    const primeiro = await chain.fetchClosing(['ITUB4'], DATE);
-    const segundo = await chain.fetchClosing(['ITUB4'], DATE);
-
-    expect(primeiro.isSuccess() && primeiro.value.source).toBe('usebolsai');
-    expect(segundo.isSuccess() && segundo.value.source).toBe('brapi');
   });
 });

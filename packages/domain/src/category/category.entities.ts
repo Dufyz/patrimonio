@@ -20,7 +20,7 @@ export type Category = {
   readonly updated_at: string;
 };
 
-/** `class.stock`, `class.fii`, `class.cash` — nunca `#2563eb`. */
+/** `class.stock`, `class.fii`, `class.acoes` — nunca `#2563eb`. */
 const COLOR_TOKEN = /^[a-z][a-z0-9]*(\.[a-z0-9-]+)+$/;
 
 export const isColorToken = (value: unknown): value is string =>

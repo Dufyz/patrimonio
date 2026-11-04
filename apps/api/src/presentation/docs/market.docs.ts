@@ -40,6 +40,7 @@ export const MARKET_ROUTE_DOCS: readonly RouteDoc[] = [
           'Enfileirado, com retorno imediato: a coleta leva segundos e a tela não espera. ' +
           'Dois pedidos seguidos viram uma coleta, pela coalescência da outbox.',
         schema: z.object({
+          requested_at: z.string(),
           reference_date: z.string(),
           job_id: z.string(),
           dedupe_key: z.string(),

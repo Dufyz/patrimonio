@@ -4,7 +4,7 @@ import { Label } from './primitives.js';
 /**
  * D-05 · O cabeçalho de visão geral.
  *
- * O mesmo bloco abre Visão geral, Posições, Desempenho e a tela de carteira, e
+ * O mesmo bloco abre Visão geral, Posições e a tela de carteira, e
  * a ordem dentro dele é a resposta da tela: o número principal primeiro, a
  * variação dele no período logo abaixo, as métricas de apoio depois e o gráfico
  * ocupando o resto da largura.
@@ -22,7 +22,7 @@ export type SupportMetric = {
 };
 
 export type OverviewHeaderProps = {
-  /** `PATRIMÔNIO · TODAS AS CARTEIRAS`. */
+  /** `PATRIMÔNIO · LONGO PRAZO`. */
   readonly label: string;
   readonly principal: string | null;
   readonly change?:
@@ -57,12 +57,14 @@ export const OverviewHeader = ({
 
         {change === undefined ? null : (
           <p className="flex flex-wrap items-baseline gap-2 text-[0.8125rem]">
-            <MoneyChange value={change.amount} />
-            <span aria-hidden="true" className="text-ink-3">
-              ·
+            <span className="flex items-baseline gap-2 font-semibold">
+              <MoneyChange value={change.amount} />
+              <span aria-hidden="true" className="font-normal text-ink-3">
+                ·
+              </span>
+              <PercentChange value={change.ratio} />
             </span>
-            <PercentChange value={change.ratio} />
-            <span className="text-ink-2">{change.periodLabel}</span>
+            <span className="text-xs text-ink-3">{change.periodLabel}</span>
           </p>
         )}
 

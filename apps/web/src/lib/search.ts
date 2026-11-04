@@ -1,5 +1,6 @@
 import type {
   SearchAsset,
+  SearchInstrument,
   SearchResource,
   SearchTransaction,
 } from '@patrimonio/contracts';
@@ -41,13 +42,20 @@ export const ACTION_PENDING_REASON = 'chega com T-10';
 /* Tipos                                                                      */
 
 export type SearchGroupId =
-  'recent' | 'assets' | 'asset_actions' | 'transactions' | 'screens' | 'actions';
+  | 'recent'
+  | 'assets'
+  | 'asset_actions'
+  | 'instruments'
+  | 'transactions'
+  | 'screens'
+  | 'actions';
 
 /** A ordem de desempate quando dois grupos são igualmente prováveis. */
 const CANONICAL_ORDER: readonly SearchGroupId[] = [
   'recent',
   'assets',
   'asset_actions',
+  'instruments',
   'transactions',
   'screens',
   'actions',
@@ -58,29 +66,35 @@ export const GROUP_TITLES: Readonly<Record<SearchGroupId, string>> = {
   assets: 'Ativos',
   // O título real leva o código do ativo; ver `assetActionItems`.
   asset_actions: 'Ações com o ativo',
+  instruments: 'Papéis do mercado',
   transactions: 'Lançamentos',
   screens: 'Ir para',
   actions: 'Ações',
 };
 
-export type SearchActionId =
-  'new_transaction' | 'buy_asset' | 'payout_asset' | 'move_asset';
+export type SearchActionId = 'new_transaction' | 'buy_asset' | 'payout_asset';
 
 /**
- * Os glifos são os da barra lateral e do resto da aplicação: um ícone que muda
+ * Os glifos são nomes de ícone, os mesmos da barra lateral e do resto da aplicação: um ícone que muda
  * de forma entre a barra e a paleta faz a mesma tela parecer duas.
  */
 export const GLYPHS = {
-  portfolio: '▢',
-  asset: '◈',
-  transaction: '⇄',
-  action: '+',
+  portfolio: 'briefcase',
+  asset: 'tag',
+  transaction: 'swap',
+  action: 'plus',
 } as const;
 
 export type SearchTarget =
   | { readonly kind: 'screen'; readonly screen: string }
   | { readonly kind: 'portfolio'; readonly portfolioId: string }
   | { readonly kind: 'asset'; readonly assetId: string; readonly slug: string }
+  | {
+      readonly kind: 'instrument';
+      readonly ticker: string;
+      readonly name: string;
+      readonly b3_type: SearchInstrument['b3_type'];
+    }
   | {
       readonly kind: 'transaction';
       readonly transactionId: string;
@@ -169,14 +183,25 @@ export const scoreItem = (item: SearchItem, query: string): number =>
 /* Itens locais: telas, carteiras e ações                                     */
 
 /**
- * Sinônimos de tela. Ninguém lembra que a decomposição do retorno mora em
- * Desempenho; mas quase todo mundo digita "rentabilidade".
+ * Sinônimos de tela. Ninguém lembra em que tela mora a comparação com
+ * benchmarks; mas quase todo mundo digita "rentabilidade".
  */
 const SCREEN_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
-  visao: ['patrimonio', 'resumo', 'inicio', 'painel'],
+  visao: [
+    'patrimonio',
+    'resumo',
+    'inicio',
+    'painel',
+    'rentabilidade',
+    'retorno',
+    'desempenho',
+    'benchmark',
+    'cdi',
+    'ibov',
+    'ipca',
+  ],
   posicoes: ['carteira', 'ativos', 'papeis', 'investimentos'],
   movimentacoes: ['extrato', 'lancamentos', 'transacoes', 'historico', 'operacoes'],
-  desempenho: ['rentabilidade', 'retorno', 'benchmark', 'cdi', 'ibov', 'ipca'],
   estrategia: ['alocacao', 'alvo', 'rebalanceamento', 'distribuicao'],
   objetivos: ['metas', 'aposentadoria', 'sonhos'],
   configuracoes: [
@@ -282,11 +307,53 @@ export const assetItems = (assets: readonly SearchAsset[]): readonly SearchItem[
     };
   });
 
+/** Os tipos do catálogo como a tela os escreve. */
+export const INSTRUMENT_TYPE_LABELS: Readonly<
+  Record<SearchInstrument['b3_type'], string>
+> = {
+  stock: 'Ação',
+  fii: 'FII',
+  etf: 'ETF',
+  bdr: 'BDR',
+  treasury: 'Tesouro Direto',
+};
+
+/**
+ * Os papéis do mercado que a pessoa ainda não tem como ativo. O detalhe diz o
+ * tipo e, quando o papel veio da fonte ao vivo e não do catálogo, de onde veio:
+ * quem vê "brapi" sabe que o catálogo local não o conhece.
+ */
+export const instrumentItems = (
+  instruments: readonly SearchInstrument[],
+): readonly SearchItem[] =>
+  instruments.map((instrument): SearchItem => ({
+    id: `instrument:${instrument.ticker}`,
+    group: 'instruments',
+    glyph: GLYPHS.asset,
+    label: instrument.ticker,
+    detail: [
+      instrument.name,
+      INSTRUMENT_TYPE_LABELS[instrument.b3_type],
+      instrument.source === 'brapi' ? 'brapi' : null,
+    ]
+      .filter((part): part is string => part !== null)
+      .join(' · '),
+    amount: null,
+    shortcut: null,
+    keywords: [instrument.ticker, instrument.name],
+    target: {
+      kind: 'instrument',
+      ticker: instrument.ticker,
+      name: instrument.name,
+      b3_type: instrument.b3_type,
+    },
+    disabled: null,
+  }));
+
 /**
  * As ações sobre o ativo que está em primeiro. Só o primeiro: o resto são
  * variações do mesmo texto, e uma lista de nove ações para três ativos é a
- * paleta virando menu. Provento e transferência exigem posição — não se
- * recebe nem se move o que não se tem.
+ * paleta virando menu. Provento exige posição — não se recebe o que não se tem.
  */
 export const assetActionItems = (
   asset: SearchAsset,
@@ -315,12 +382,7 @@ export const assetActionItems = (
     title: `Ações com ${title}`,
     items: [
       make('buy_asset', `Lançar compra de ${title}`, 'L'),
-      ...(held
-        ? [
-            make('payout_asset', `Lançar provento de ${title}`, null),
-            make('move_asset', `Mover ${title} para outra carteira`, null),
-          ]
-        : []),
+      ...(held ? [make('payout_asset', `Lançar provento de ${title}`, null)] : []),
     ],
   };
 };
@@ -470,7 +532,9 @@ export const nextFilter = (current: SearchFilter, backwards = false): SearchFilt
 /** O filtro deixa de fora tudo que não é do tipo escolhido. */
 const passesFilter = (group: SearchGroupId, filter: SearchFilter): boolean => {
   if (filter === null) return true;
-  if (filter === 'assets') return group === 'assets' || group === 'asset_actions';
+  if (filter === 'assets') {
+    return group === 'assets' || group === 'asset_actions' || group === 'instruments';
+  }
   return group === filter;
 };
 
@@ -487,7 +551,12 @@ export type SearchModel = {
   readonly shown: number;
   /** Quantos existem — maior que `shown` quando a `api` cortou um grupo. */
   readonly total: number;
+  /** Um aviso sobre a busca, quando há: a fonte ao vivo que não respondeu. */
+  readonly notice: string | null;
 };
+
+export const LOOKUP_UNAVAILABLE_NOTICE =
+  'A busca ao vivo não respondeu: mostrando só os papéis que já estão no catálogo.';
 
 /**
  * Sem texto, a paleta é um atalho: o que se abriu por último, as telas e as
@@ -514,6 +583,7 @@ export const buildModel = (input: {
   const titles = new Map<SearchGroupId, string>();
   const scores = new Map<SearchGroupId, number>();
   let omitted = 0;
+  let notice: string | null = null;
 
   if (query === '') {
     push('recent', input.recents);
@@ -542,7 +612,7 @@ export const buildModel = (input: {
     }
 
     if (input.server.kind === 'ready') {
-      const { assets, transactions } = input.server.resource;
+      const { assets, instruments, transactions } = input.server.resource;
 
       // A ordem que a `api` deu é a ordem: ela sabe o que a pessoa tem.
       const assetRows = assetItems(assets.items);
@@ -559,6 +629,17 @@ export const buildModel = (input: {
         push('asset_actions', actions.items);
       }
       omitted += Math.max(0, assets.total - assets.items.length);
+
+      push('instruments', instrumentItems(instruments.items));
+      if (instruments.items[0] !== undefined) {
+        const first = instruments.items[0];
+        scores.set(
+          'instruments',
+          Math.max(scoreText(first.ticker, query), scoreText(first.name, query), 15),
+        );
+      }
+      omitted += Math.max(0, instruments.total - instruments.items.length);
+      if (instruments.fallback === 'unavailable') notice = LOOKUP_UNAVAILABLE_NOTICE;
 
       push('transactions', transactionItems(transactions.items));
       if (transactions.items[0] !== undefined) {
@@ -590,14 +671,14 @@ export const buildModel = (input: {
   }));
 
   const shown = sections.reduce((sum, section) => sum + section.items.length, 0);
-  return { sections, shown, total: shown + omitted };
+  return { sections, shown, total: shown + omitted, notice };
 };
 
 /* -------------------------------------------------------------------------- */
 /* Destinos                                                                   */
 
 export type TargetContext = {
-  /** O escopo da URL de agora: o apelido da carteira, ou `todas`. */
+  /** O escopo da URL de agora: o apelido da carteira. */
   readonly scope: string;
   /** O caminho da tela de agora, para trocar de carteira sem trocar de tela. */
   readonly currentScreenPath: string;
@@ -636,6 +717,7 @@ export const targetPath = (
             busca: target.search,
             periodo: 'inicio',
           }).toString()}`;
+    case 'instrument':
     case 'action':
       return null;
   }

@@ -1,6 +1,6 @@
-drop table if exists asset;
-drop type if exists tax_regime;
-drop type if exists liquidity_kind;
-drop type if exists indexer;
-drop type if exists price_source;
-drop type if exists asset_origin;
+DROP TABLE IF EXISTS asset;
+DROP TYPE IF EXISTS tax_regime;
+DROP TYPE IF EXISTS liquidity_kind;
+DROP TYPE IF EXISTS indexer;
+DROP TYPE IF EXISTS price_source;
+DROP TYPE IF EXISTS asset_origin;

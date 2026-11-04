@@ -39,7 +39,6 @@ const contexto = (overrides: Partial<PlanContext> = {}): PlanContext => {
     asset: { id: ITUB4, ticker: 'ITUB4', category_id: ACOES, is_new: false },
     institution_id: CORRETORA,
     asset_entries: entries.filter((entry) => entry.asset_id === ITUB4),
-    institution_entries: entries,
     portfolio_entries: entries,
     category_by_asset: new Map([
       [ITUB4, ACOES],
@@ -89,14 +88,6 @@ describe('preview da compra', () => {
     expect(preview.allocation?.target_pct).toBe('35.00');
     expect(preview.allocation?.deviation_pp?.before).toBe('12.63');
     expect(Number(preview.allocation?.deviation_pp?.after)).toBeGreaterThan(12.63);
-  });
-
-  it('o caixa da instituição cai pelo valor da compra', () => {
-    const { preview } = planTransaction(contexto(), compraDeHoje);
-
-    // −14.550 − 16.000 = −30.550 antes; menos 3.684 depois.
-    expect(preview.cash.before).toBe('-30550.00');
-    expect(preview.cash.after).toBe('-34234.00');
   });
 
   it('categoria sem alvo mostra composição real e desvio vazio', () => {
@@ -193,6 +184,17 @@ describe('eventos do plano', () => {
     expect(events).toHaveLength(2);
     expect(events[1]?.dedupe_key).toBe('backfill:novo');
     expect(events[1]?.stage).toBe('market');
+  });
+
+  it('o backfill não leva data: a janela vai até o dia em que roda', () => {
+    const novo = contexto({
+      asset: { id: 'novo', ticker: 'TAEE11', category_id: ACOES, is_new: true },
+      asset_entries: [],
+    });
+
+    const { events } = planTransaction(novo, compraDeHoje);
+
+    expect(events[1]?.payload).toEqual({ asset_id: 'novo' });
   });
 });
 

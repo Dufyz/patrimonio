@@ -6,13 +6,13 @@ import { logger } from '../infra/logger.js';
 import { startRelay } from '../infra/relay.js';
 import type { StageDeps } from '../infra/define-stage.js';
 import {
-  alertsStage,
   backupStage,
   closeStage,
   importStage,
   marketStage,
   recalcStage,
 } from '../processors/index.js';
+import { incrementalSyncEvent } from '../processors/market.stage.js';
 
 const container = createContainer();
 
@@ -25,18 +25,34 @@ const deps: StageDeps = {
   usecases: container.usecases,
 };
 
-// Os seis estágios. Nenhum processor instancia dependência: recebe o container.
+// Os cinco estágios. Nenhum processor instancia dependência: recebe o container.
 const workers = [
   recalcStage(deps),
   marketStage(deps),
   closeStage(deps),
-  alertsStage(deps),
   importStage(deps),
   backupStage(deps),
 ];
 
 const scheduled = await registerSchedules(container.queues);
 logger.info({ scheduled }, 'jobs repetíveis registrados');
+
+// Retomada: uma máquina desligada às 09:00 não pode deixar buraco. Ao subir, o
+// worker pede a sincronização incremental do D-1, que preenche os dias úteis que
+// faltam. O pedido vai pela outbox, como o do agendamento; falha só vira aviso.
+try {
+  const enqueued = await container.repositories.outbox.enqueue([
+    await incrementalSyncEvent(deps),
+  ]);
+
+  if (enqueued.isFailure()) {
+    logger.warn({ err: enqueued.value.message }, 'retomada não foi enfileirada');
+  } else {
+    logger.info('sincronização incremental pedida na subida');
+  }
+} catch (error) {
+  logger.warn({ err: String(error) }, 'retomada não foi pedida');
+}
 
 const relay = startRelay({
   unitOfWork: container.unitOfWork,

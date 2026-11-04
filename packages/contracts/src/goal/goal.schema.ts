@@ -6,13 +6,13 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
  * T-07 · Onde o usuário diz quanto quer ter e quando, e a aplicação responde se
  * o ritmo atual chega lá.
  *
- * A resposta é uma por objetivo e traz tudo pronto — progresso, onde deveria
+ * A resposta é a do objetivo da carteira e traz tudo pronto — progresso, onde deveria
  * estar hoje, projeção, as duas trajetórias e a tabela de aportes —, porque a
  * tela não faz conta: dois cálculos da mesma projeção divergem, e a barra que
  * diz "no caminho" ao lado de uma tabela que diz "chega em 2043" é a que
  * ninguém mais abre.
  *
- * Cinco decisões que o contrato torna impossíveis de desfazer sem quebrar o
+ * Quatro decisões que o contrato torna impossíveis de desfazer sem quebrar o
  * typecheck dos dois lados:
  *
  * - **A taxa viaja com a projeção.** `rate` diz qual taxa foi usada, se é real
@@ -27,10 +27,6 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
  * - **Valor em reais de hoje é a moeda da tela.** Com a meta em reais de hoje a
  *   taxa é a real, a meta é uma linha reta e o aporte é em reais de hoje. A
  *   tela escreve isso, e `rate.basis` é o que o permite.
- * - **Sem carteira ligada é o patrimônio todo.** `portfolios.all` é verdadeiro
- *   quando o objetivo não aponta carteira nenhuma. É a única leitura que
- *   continua certa quando uma carteira nova é criada — ligar "todas" uma a uma
- *   deixaria a nova de fora sem ninguém ter decidido isso.
  */
 export const GOAL_STATUSES = [
   'on_track',
@@ -51,13 +47,6 @@ export const GOAL_BLOCKS = [
 ] as const;
 
 export const goalBlockSchema = z.enum(GOAL_BLOCKS);
-
-export const goalPortfolioSchema = z.object({
-  id: uuid,
-  name: z.string(),
-  /** O último fechamento até a data. Nulo quando a carteira ainda não fechou. */
-  value: decimalString.nullable(),
-});
 
 export const goalRateSchema = z.object({
   /** O texto guardado no objetivo, como o usuário o escreveu. */
@@ -128,15 +117,12 @@ export const goalSchema = z.object({
   target_amount: decimalString,
   target_date: dateOnly,
   amount_in_today_brl: z.boolean(),
+  /** O texto da premissa como foi guardado; nulo quando não há. O formulário o relê daqui. */
+  return_assumption: z.string().nullable(),
   created_on: dateOnly,
-  portfolios: z.object({
-    /** Verdadeiro quando o objetivo é medido pelo patrimônio todo. */
-    all: z.boolean(),
-    items: z.array(goalPortfolioSchema),
-  }),
-  /** O valor das carteiras do objetivo no último fechamento de cada uma. */
+  /** O valor da carteira no último fechamento até a data. */
   current_value: decimalString,
-  /** O fechamento mais recente entre elas. Nulo quando nenhuma fechou. */
+  /** A data desse fechamento. Nulo quando a carteira ainda não fechou. */
   as_of: dateOnly.nullable(),
   /** Nunca passa de 100: o excedente sai em `surplus_brl`. */
   progress_pct: decimalString,
@@ -158,45 +144,32 @@ export const goalsSchema = z.object({
   /** A data de onde a projeção parte: "hoje", ou a data pedida. */
   reference_date: dateOnly,
   scope: z.object({
-    /** Nulo é o consolidado: "todas as carteiras" é a ausência de escopo. */
-    portfolio_id: uuid.nullable(),
+    portfolio_id: uuid,
     name: z.string(),
   }),
-  /** Os objetivos abertos, do prazo mais próximo ao mais distante. */
-  goals: z.array(goalSchema),
+  /** O objetivo aberto da carteira: ela tem no máximo um. Nulo quando ainda não há. */
+  goal: goalSchema.nullable(),
 });
 
 const RATE_OVERRIDE = /^\d{1,3}(\.\d{1,4})?$/;
 
 /**
- * `id:6,id:5.5` → taxa alterada por objetivo. O formato é o da lista que a URL
- * da tela já guarda, e cada parte é validada aqui: um `NaN` chegando à conta é
- * uma projeção sem aviso.
+ * A taxa ao ano, em %, no lugar da premissa guardada: `6` ou `5.5`. É validada
+ * aqui: um `NaN` chegando à conta é uma projeção sem aviso.
  */
-const rateOverrides = z.string().refine(
-  (value) =>
-    value === '' ||
-    value.split(',').every((part) => {
-      const [id, rate, ...rest] = part.split(':');
-
-      return (
-        rest.length === 0 &&
-        uuid.safeParse(id).success &&
-        rate !== undefined &&
-        RATE_OVERRIDE.test(rate) &&
-        Number(rate) <= 100
-      );
-    }),
-  'informe pares id:taxa separados por vírgula, com a taxa entre 0 e 100',
-);
+const rateOverride = z
+  .string()
+  .refine(
+    (value) => RATE_OVERRIDE.test(value) && Number(value) <= 100,
+    'informe a taxa entre 0 e 100',
+  );
 
 export const getGoalsSchema = z.object({
   query: z.object({
-    /** Ausente é o consolidado. A carteira é filtro, não rota. */
-    portfolio_id: uuid.optional(),
+    portfolio_id: uuid,
     on_date: dateOnly.optional(),
-    /** A taxa ao ano de cada objetivo, no lugar da premissa guardada. */
-    rates: rateOverrides.optional(),
+    /** A taxa ao ano do objetivo, no lugar da premissa guardada. */
+    rate: rateOverride.optional(),
   }),
 });
 

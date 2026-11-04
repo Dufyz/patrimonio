@@ -2,7 +2,7 @@ import { Decimal } from 'decimal.js';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
-import { applyLedger, proportionalCost, sortEntries } from './average_price/ledger.js';
+import { applyLedger, sortEntries } from './average_price/ledger.js';
 import type { LedgerEntry } from './average_price/ledger.js';
 import { costBasisByAsset, sumValues } from './allocation/weights.js';
 import type { AssetLedgerEntry } from './allocation/weights.js';
@@ -189,52 +189,6 @@ describe('livro de lançamentos', () => {
         ]);
 
         expect(parts).toBe(total);
-      }),
-      { numRuns: RUNS },
-    );
-  });
-
-  it('transferência não altera patrimônio total nem resultado realizado', () => {
-    fc.assert(
-      fc.property(ledger, fc.integer({ min: 1, max: 100 }), (entries, percent) => {
-        const before = applyLedger(entries);
-        const available = new Decimal(before.position.quantity);
-
-        if (available.isZero()) return;
-
-        const moving = available
-          .times(percent)
-          .dividedBy(100)
-          .toDecimalPlaces(8, Decimal.ROUND_DOWN);
-
-        if (moving.isZero()) return;
-
-        // O custo que viaja é a parcela proporcional, igual à que o plano calcula.
-        const amount = proportionalCost(
-          before.position.cost_basis,
-          moving.toFixed(8),
-          before.position.quantity,
-        );
-
-        const leg = {
-          kind: 'transfer' as const,
-          trade_date: dateFrom(500),
-          quantity: moving.toFixed(8),
-          unit_price: before.position.avg_price,
-          fees: '0',
-        };
-
-        const origin = applyLedger([...entries, { ...leg, net_amount: `-${amount}` }]);
-        const destination = applyLedger([{ ...leg, net_amount: amount }]);
-
-        // O patrimônio total não muda: só a leitura por propósito.
-        expect(
-          sumValues([origin.position.cost_basis, destination.position.cost_basis]),
-        ).toBe(before.position.cost_basis);
-
-        // E transferir não é vender: nenhum resultado realizado novo aparece.
-        expect(origin.realized_total).toBe(before.realized_total);
-        expect(destination.realized).toHaveLength(0);
       }),
       { numRuns: RUNS },
     );

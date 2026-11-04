@@ -1,3 +1,4 @@
+import { sumValues } from '@patrimonio/calc';
 import { either, failure } from '@patrimonio/shared';
 
 import { NotFoundError } from '../../errors/app-error.js';
@@ -7,7 +8,16 @@ export type ListPortfoliosDeps = { readonly portfolios: PortfolioRepository };
 
 export const listPortfolios = (deps: ListPortfoliosDeps) =>
   either(async function* (options: { readonly includeArchived: boolean }) {
-    return yield* await deps.portfolios.list(options);
+    const portfolios = yield* await deps.portfolios.list(options);
+    const values = yield* await deps.portfolios.latestValues();
+
+    return {
+      portfolios,
+      values: Object.fromEntries(values),
+      // O patrimônio inteiro, somado onde todos os números são somados: a
+      // barra lateral mostra o de "Todas as carteiras" sem fazer conta.
+      total: values.size === 0 ? null : sumValues([...values.values()]),
+    };
   });
 
 export const getPortfolio = (deps: ListPortfoliosDeps) =>

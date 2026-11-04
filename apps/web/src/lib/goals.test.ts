@@ -3,11 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
   arrivalText,
   barState,
-  decodeRates,
-  encodeRates,
+  OTHER_ASSUMPTION,
+  decodeRate,
+  emptyGoalForm,
+  formFromGoal,
+  goalFormResult,
+  parseMonthYear,
   monthYearLabel,
   normalizeRateInput,
-  withRate,
 } from './goals.js';
 
 describe('lib/goals', () => {
@@ -41,17 +44,98 @@ describe('lib/goals', () => {
     }
   });
 
-  it('a taxa na URL volta como saiu e descarta par inválido', () => {
-    const rates = { b: '5.5', a: '6' };
-    expect(encodeRates(rates)).toBe('a:6,b:5.5');
-    expect(decodeRates('a:6,b:5.5')).toEqual({ a: '6', b: '5.5' });
-    expect(decodeRates('a:x,:3,b:5:1,c:7')).toEqual({ c: '7' });
-    expect(decodeRates(null)).toEqual({});
-    expect(encodeRates({})).toBeNull();
+  it('a taxa na URL volta como saiu e descarta a inválida', () => {
+    expect(decodeRate('6')).toBe('6');
+    expect(decodeRate('5.5')).toBe('5.5');
+    for (const bad of ['', 'x', '-1', '101', '6.12345', 'a:6']) {
+      expect(decodeRate(bad)).toBeNull();
+    }
+    expect(decodeRate(null)).toBeNull();
   });
 
-  it('trocar e remover a taxa de um objetivo não toca nos outros', () => {
-    expect(withRate({ a: '6' }, 'b', '4')).toEqual({ a: '6', b: '4' });
-    expect(withRate({ a: '6', b: '4' }, 'a', null)).toEqual({ b: '4' });
+  it('a data do objetivo é mês e ano, e vale o último dia do mês', () => {
+    expect(parseMonthYear('jun/2030')).toBe('2030-06-30');
+    expect(parseMonthYear('06/2030')).toBe('2030-06-30');
+    expect(parseMonthYear(' 2 / 2028 ')).toBe('2028-02-29');
+    for (const bad of ['', 'jun', '13/2030', 'xxx/2030', '06/30', '06-2030']) {
+      expect(parseMonthYear(bad)).toBeNull();
+    }
+  });
+
+  it('o formulário de um objetivo guardado volta como foi guardado', () => {
+    const form = formFromGoal({
+      name: 'Casa',
+      target_amount: '180000.00',
+      target_date: '2029-06-30',
+      return_assumption: 'IPCA + 6%',
+      amount_in_today_brl: false,
+    } as never);
+
+    expect(form).toMatchObject({
+      name: 'Casa',
+      amount: '180.000,00',
+      date: 'jun/2029',
+      assumption: 'IPCA+6',
+      valuesIn: 'target',
+    });
+  });
+
+  it('premissa fora da lista vai para "Outra", com o texto guardado', () => {
+    const form = formFromGoal({
+      name: 'Casa',
+      target_amount: '1.00',
+      target_date: '2029-06-30',
+      return_assumption: 'IPCA+6.5',
+      amount_in_today_brl: true,
+    } as never);
+
+    expect(form.assumption).toBe(OTHER_ASSUMPTION);
+    expect(form.otherAssumption).toBe('IPCA+6.5');
+  });
+
+  it('o formulário vira o corpo do contrato, ou diz o erro de cada campo', () => {
+    expect(goalFormResult(emptyGoalForm(), null)).toMatchObject({
+      body: null,
+      errors: {
+        name: expect.any(String),
+        amount: expect.any(String),
+        date: expect.any(String),
+      },
+    });
+
+    const ok = goalFormResult(
+      {
+        ...emptyGoalForm(),
+        name: ' Casa ',
+        amount: '1.234,50',
+        date: 'dez/2031',
+        valuesIn: 'target',
+      },
+      null,
+    );
+
+    expect(ok.body).toEqual({
+      name: 'Casa',
+      target_amount: '1234.50',
+      target_date: '2031-12-31',
+      return_assumption: 'IPCA+6',
+      amount_in_today_brl: false,
+    });
+  });
+
+  it('"Outra" sem texto é erro, e com texto segue o que foi digitado', () => {
+    const base = {
+      ...emptyGoalForm(),
+      name: 'Casa',
+      amount: '10,00',
+      date: 'dez/2031',
+      assumption: OTHER_ASSUMPTION,
+    };
+
+    expect(goalFormResult(base, null).errors).toHaveProperty('assumption');
+    expect(
+      goalFormResult({ ...base, otherAssumption: 'ipca+6,5' }, null).body
+        ?.return_assumption,
+    ).toBe('ipca+6,5');
   });
 });

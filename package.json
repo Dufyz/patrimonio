@@ -22,7 +22,7 @@
     "infra:reset": "docker compose down -v && docker compose up -d --wait",
     "migrate": "pnpm --filter @patrimonio/db migrate",
     "migrate:test": "pnpm --filter @patrimonio/db migrate:test",
-    "seed:business-days": "pnpm --filter @patrimonio/db seed:business-days",
+    "demo:remove": "pnpm --filter @patrimonio/db demo:remove",
     "verify": "pnpm lint && pnpm typecheck && pnpm test",
     "holidays:report": "pnpm --filter @patrimonio/db holidays:report",
     "holidays:generate": "pnpm --filter @patrimonio/db holidays:generate",

@@ -3,9 +3,12 @@ import {
   closeDay,
   collectMarketData,
   createDebouncePolicy,
-  marketAlertRunners,
+  loadIndexHistory,
+  loadPriceHistory,
   recalculatePortfolio,
-  reconcileAlerts,
+  refreshInstrumentCatalog,
+  syncMarket,
+  syncPriceHistory,
 } from '@patrimonio/application';
 import type {
   Clock,
@@ -30,6 +33,7 @@ import {
 import type { Queues, RedisConnection } from '@patrimonio/queue';
 
 import { logger } from './infra/logger.js';
+import { createInstitutionsRefresher } from './infra/institutions.js';
 import { createMarketSources } from './infra/market.js';
 
 /**
@@ -41,9 +45,10 @@ import { createMarketSources } from './infra/market.js';
 export type WorkerUseCases = {
   readonly recalculatePortfolio: ReturnType<typeof recalculatePortfolio>;
   readonly closeDay: ReturnType<typeof closeDay>;
-  readonly reconcileAlerts: ReturnType<typeof reconcileAlerts>;
-  readonly collectMarketData: ReturnType<typeof collectMarketData>;
   readonly backfillAsset: ReturnType<typeof backfillAsset>;
+  readonly syncPriceHistory: ReturnType<typeof syncPriceHistory>;
+  /** A sincronização até o D-1: incremental no agendamento, reset no botão. */
+  readonly syncMarket: ReturnType<typeof syncMarket>;
 };
 
 export type WorkerContainer = {
@@ -89,7 +94,21 @@ export const createContainer = (): WorkerContainer => {
 
   // As fontes externas, montadas num lugar só. Nenhum caso de uso conhece o
   // nome de um provedor: ele recebe a cadeia pronta.
-  const market = createMarketSources();
+  const market = createMarketSources({
+    year: () => Number(systemClock.today().slice(0, 4)),
+  });
+
+  const backfillAssetUseCase = backfillAsset({
+    unitOfWork,
+    clock: systemClock,
+    quotes: market.quotes,
+    treasury: market.treasury,
+  });
+  const syncPriceHistoryUseCase = syncPriceHistory({
+    unitOfWork,
+    clock: systemClock,
+    history: market.history,
+  });
 
   return {
     sql,
@@ -101,27 +120,40 @@ export const createContainer = (): WorkerContainer => {
     usecases: {
       recalculatePortfolio: recalculatePortfolio({ unitOfWork, clock: systemClock }),
       closeDay: closeDay({ unitOfWork, clock: systemClock }),
-      // As treze regras do painel entram em E7. As que a ingestão de mercado
-      // liga já estão aqui, e regra sem executor declarado não é reconciliada —
-      // é o que permite ligar as outras uma a uma sem que as ainda não escritas
-      // apaguem o que já existe.
-      reconcileAlerts: reconcileAlerts({
+      backfillAsset: backfillAssetUseCase,
+      syncPriceHistory: syncPriceHistoryUseCase,
+      syncMarket: syncMarket({
         unitOfWork,
         clock: systemClock,
-        runners: marketAlertRunners,
-      }),
-      collectMarketData: collectMarketData({
-        unitOfWork,
-        clock: systemClock,
-        quotes: market.quotes,
-        indices: market.indices,
-        treasury: market.treasury,
-        staleAfterDays: environment.market.priceStaleAfterDays,
-      }),
-      backfillAsset: backfillAsset({
-        unitOfWork,
-        clock: systemClock,
-        quotes: market.quotes,
+        collectDay: collectMarketData({
+          unitOfWork,
+          clock: systemClock,
+          quotes: market.quotes,
+          indices: market.indices,
+          treasury: market.treasury,
+        }),
+        loadPriceHistory: loadPriceHistory({
+          unitOfWork,
+          clock: systemClock,
+          history: market.history,
+        }),
+        loadIndexHistory: loadIndexHistory({
+          unitOfWork,
+          clock: systemClock,
+          indices: market.indices,
+        }),
+        syncPriceHistory: syncPriceHistoryUseCase,
+        backfillAsset: backfillAssetUseCase,
+        refreshInstrumentCatalog: refreshInstrumentCatalog({
+          unitOfWork,
+          clock: systemClock,
+          instruments: market.instruments,
+        }),
+        refreshInstitutions: createInstitutionsRefresher({
+          unitOfWork,
+          clock: systemClock,
+          sql,
+        }),
       }),
     },
     shutdown: async () => {

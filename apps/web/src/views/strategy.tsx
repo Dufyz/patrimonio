@@ -2,21 +2,24 @@ import type {
   AllocationContributionResource,
   AllocationResource,
   PutStrategyBody,
-  UpdatePortfolioBody,
 } from '@patrimonio/contracts';
 import { useEffect, useMemo, useState } from 'react';
 
-import { fetchAllocation, patchRules, putStrategy } from '../api/allocation.js';
+import { fetchAllocation, putStrategy } from '../api/allocation.js';
 import { Money, MoneyChange, Percent, Points } from '../components/number.js';
 import { Modal } from '../components/overlay.js';
 import { KeepPrevious } from '../components/pending.js';
 import { usePreferences } from '../components/preferences.js';
+import {
+  SkeletonHeader,
+  SkeletonPanel,
+  SkeletonRegion,
+  SkeletonTable,
+} from '../components/skeleton.js';
 import { Button, IconButton, Kbd, Label, Panel } from '../components/primitives.js';
 import { formatDate, percentAsRatio } from '../lib/overview.js';
 import {
   EMPTY_DRAFT,
-  REBALANCE_HINT,
-  REBALANCE_LABEL,
   WHOLE,
   barPosition,
   barScale,
@@ -27,21 +30,20 @@ import {
   groupTotal,
   isZeroDecimal,
   inputText,
-  monthYear,
   parseAmount,
-  reviewEvery,
   saveState,
   targetLabel,
-  toHundredths,
-  toPercentString,
-  toleranceBand,
   valueText,
   withEdit,
 } from '../lib/strategy.js';
 import type { Draft, EditableRow } from '../lib/strategy.js';
+import { plural } from '../lib/settings.js';
 import { colorForToken } from '../lib/tokens.js';
 import type { Resource } from '../lib/use_resource.js';
 import { useResource } from '../lib/use_resource.js';
+import { Icon } from '../components/icon.js';
+import { MoneyInput } from './entry/fields.js';
+import { ClassesDialog } from './strategy_classes.js';
 
 /**
  * T-06 · Estratégia — a prancha `09 · Estratégia`.
@@ -50,8 +52,7 @@ import { useResource } from '../lib/use_resource.js';
  * queria?** O alvo se edita na própria tabela, ao lado do que a carteira tem
  * hoje, porque é ali que se vê o que cada ponto de alvo custa em reais.
  *
- * A estratégia é de uma carteira. No escopo "todas as carteiras" não há alvo para
- * mostrar, e a tela diz isso em vez de inventar um consolidado.
+ * A estratégia é de uma carteira.
  *
  * Nenhum valor em reais é calculado aqui. Desvio, valor no alvo e valor a mover
  * chegam prontos; a única conta do navegador é a soma dos alvos digitados, em
@@ -64,27 +65,20 @@ type Line = Node | Node['children'][number];
 export type StrategyViewProps = {
   readonly resource: Resource<AllocationResource>;
   readonly onSave: (body: PutStrategyBody) => Promise<void>;
-  readonly onSaveRules: (body: UpdatePortfolioBody) => Promise<void>;
   /** O plano de um aporte: a mesma leitura, com o valor. Nulo se a `api` não devolve plano. */
   readonly onPlan: (amount: string) => Promise<AllocationContributionResource | null>;
 };
 
 export type StrategyScreenProps = {
-  /** Nulo é o escopo de todas as carteiras, que não tem estratégia. */
-  readonly portfolioId: string | null;
+  readonly portfolioId: string;
 };
 
 export const StrategyScreen = ({
   portfolioId,
-}: StrategyScreenProps): React.ReactElement =>
-  // O pedido só existe com carteira escolhida: com `null` guardado como
-  // "pronto", a carteira que chega depois seria lida como resposta vazia.
-  portfolioId === null ? (
-    <NoScope />
-  ) : (
-    // Trocar de carteira recomeça a tela: rascunho de uma não é rascunho da outra.
-    <LoadedStrategy key={portfolioId} portfolioId={portfolioId} />
-  );
+}: StrategyScreenProps): React.ReactElement => (
+  // Trocar de carteira recomeça a tela: rascunho de uma não é rascunho da outra.
+  <LoadedStrategy key={portfolioId} portfolioId={portfolioId} />
+);
 
 const LoadedStrategy = ({
   portfolioId,
@@ -103,10 +97,6 @@ const LoadedStrategy = ({
         await putStrategy(portfolioId, body);
         resource.reload();
       }}
-      onSaveRules={async (body) => {
-        await patchRules(portfolioId, body);
-        resource.reload();
-      }}
       onPlan={async (amount) =>
         (await fetchAllocation({ portfolioId, contribution: amount })).contribution
       }
@@ -114,285 +104,37 @@ const LoadedStrategy = ({
   );
 };
 
-const NoScope = (): React.ReactElement => (
-  <div className="flex flex-col gap-4">
-    <header>
-      <h1 className="text-screen-title font-semibold tracking-tight">Estratégia</h1>
-      <p className="text-[0.8125rem] text-ink-2">
-        Longo prazo · como o dinheiro de cada carteira deve ser dividido
-      </p>
-    </header>
-    <section className="rounded-panel border border-line bg-panel p-8 text-center">
-      <h2 className="text-panel-title font-semibold">A estratégia é de uma carteira</h2>
-      <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
-        Cada carteira tem o seu alvo, e somá-los em um só criaria um alvo que ninguém
-        declarou. Escolha uma carteira na barra lateral.
-      </p>
-    </section>
-  </div>
-);
-
 /* -------------------------------------------------------------------------- */
 /* Regras                                                                      */
 
-type RuleKey = 'tolerance' | 'weight' | 'rebalance' | 'review';
-
-const RULE_HINT_SUFFIX = 'Requer atenção.';
-
-const RuleCard = ({
-  label,
-  value,
-  hint,
-  editLabel,
-  onEdit,
-  disabledHint,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly hint: string;
-  readonly editLabel: string;
-  readonly onEdit?: () => void;
-  readonly disabledHint?: string;
-}): React.ReactElement => (
-  <div className="flex flex-col gap-1 border-line p-4 not-first:border-l">
-    <Label>{label}</Label>
-    <div className="flex items-center justify-between gap-2">
-      <span className="tabular text-base font-semibold">{value}</span>
-      <IconButton
-        label={disabledHint ?? editLabel}
-        disabled={onEdit === undefined}
-        onClick={onEdit}
-        className="size-7 border-transparent"
-      >
-        <span aria-hidden="true">✎</span>
-      </IconButton>
-    </div>
-    <p className="text-[0.8125rem] text-ink-2">{hint}</p>
-  </div>
-);
-
 const Rules = ({
   rules,
-  onEdit,
 }: {
   readonly rules: AllocationResource['rules'];
-  readonly onEdit: (key: RuleKey) => void;
 }): React.ReactElement => {
   const tolerance = inputText(fromPercent(rules.tolerance_pp));
-  const next = monthYear(rules.next_review_on);
 
   return (
     <Panel title="Regras da estratégia">
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5">
-        <RuleCard
-          label="Tolerância"
-          value={`± ${tolerance} pp`}
-          hint={`Acima disso a categoria entra em ${RULE_HINT_SUFFIX}`}
-          editLabel="Editar tolerância"
-          onEdit={() => onEdit('tolerance')}
-        />
-        <RuleCard
-          label="Peso máximo por ativo"
-          value={
-            rules.max_asset_weight_pct === null
-              ? 'Sem limite'
-              : targetLabel(fromPercent(rules.max_asset_weight_pct))
-          }
-          hint={`Acima disso o ativo entra em ${RULE_HINT_SUFFIX}`}
-          editLabel="Editar peso máximo"
-          onEdit={() => onEdit('weight')}
-        />
-        <RuleCard
-          label="Rebalanceamento"
-          value={REBALANCE_LABEL[rules.rebalance_mode]}
-          hint={REBALANCE_HINT[rules.rebalance_mode]}
-          editLabel="Editar rebalanceamento"
-          onEdit={() => onEdit('rebalance')}
-        />
-        <RuleCard
-          label="Revisão"
-          value={reviewEvery(rules.review_every_months)}
-          hint={
-            next === null
-              ? 'Sem data de revisão: salvar a estratégia marca o dia.'
-              : `Próxima revisão em ${next}; vira alerta na data.`
-          }
-          editLabel="Editar revisão"
-          onEdit={() => onEdit('review')}
-        />
-        <RuleCard
-          label="Benchmark"
-          value={rules.benchmark?.name ?? 'Sem benchmark'}
-          hint="Usado em Desempenho quando esta carteira está selecionada."
-          editLabel="Editar benchmark"
-          disabledHint="Escolher o benchmark chega com Configurações"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2">
+        <div className="flex flex-col gap-1 border-line p-4">
+          <Label>Tolerância</Label>
+          <span className="tabular text-base font-semibold">{`± ${tolerance} pp`}</span>
+          <p className="text-[0.8125rem] text-ink-2">
+            Acima disso a classe entra em Requer atenção.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1 border-line p-4 md:border-l">
+          <Label>Benchmark</Label>
+          <span className="tabular text-base font-semibold">
+            {rules.benchmark?.name ?? 'Sem benchmark'}
+          </span>
+          <p className="text-[0.8125rem] text-ink-2">
+            Usado na Visão geral quando esta carteira está selecionada.
+          </p>
+        </div>
       </div>
     </Panel>
-  );
-};
-
-const REVIEW_OPTIONS: readonly (number | null)[] = [null, 1, 3, 6, 12];
-
-const RuleDialog = ({
-  rule,
-  rules,
-  onClose,
-  onSave,
-}: {
-  readonly rule: RuleKey;
-  readonly rules: AllocationResource['rules'];
-  readonly onClose: () => void;
-  readonly onSave: (body: UpdatePortfolioBody) => Promise<void>;
-}): React.ReactElement => {
-  const [text, setText] = useState(() =>
-    rule === 'tolerance'
-      ? inputText(fromPercent(rules.tolerance_pp))
-      : rule === 'weight'
-        ? rules.max_asset_weight_pct === null
-          ? ''
-          : inputText(fromPercent(rules.max_asset_weight_pct))
-        : '',
-  );
-  const [mode, setMode] = useState(rules.rebalance_mode);
-  const [months, setMonths] = useState(rules.review_every_months);
-  const [failure, setFailure] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  const typed = toHundredths(text);
-  const invalid =
-    (rule === 'tolerance' && (typed === null || typed === 0)) ||
-    (rule === 'weight' && (typed === null || (text.trim() !== '' && typed === 0)));
-
-  const body = (): UpdatePortfolioBody => {
-    if (rule === 'tolerance') return { tolerance_pp: toPercentString(typed ?? 0) };
-    if (rule === 'weight') {
-      return {
-        max_asset_weight_pct:
-          text.trim() === '' || typed === null ? null : toPercentString(typed),
-      };
-    }
-    if (rule === 'rebalance') return { rebalance_mode: mode };
-    return { review_every_months: months };
-  };
-
-  const submit = async (): Promise<void> => {
-    setSaving(true);
-    setFailure(null);
-    try {
-      await onSave(body());
-      onClose();
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : 'Não foi possível salvar');
-      setSaving(false);
-    }
-  };
-
-  const title = {
-    tolerance: 'Tolerância',
-    weight: 'Peso máximo por ativo',
-    rebalance: 'Rebalanceamento',
-    review: 'Revisão',
-  }[rule];
-
-  return (
-    <Modal
-      open
-      title={title}
-      onClose={onClose}
-      footer={
-        <>
-          <span role="alert" className="text-[0.8125rem] text-negative">
-            {failure}
-          </span>
-          <span className="flex gap-2">
-            <Button onClick={onClose}>Cancelar</Button>
-            <Button
-              variant="primary"
-              disabled={invalid || saving}
-              onClick={() => void submit()}
-            >
-              Salvar
-            </Button>
-          </span>
-        </>
-      }
-    >
-      {rule === 'tolerance' || rule === 'weight' ? (
-        <label className="flex flex-col gap-2 text-[0.8125rem]">
-          <span className="text-ink-2">
-            {rule === 'tolerance'
-              ? 'Quantos pontos percentuais de desvio a categoria aguenta antes de pedir atenção.'
-              : 'Quanto da carteira um ativo sozinho pode pesar. Vazio é sem limite.'}
-          </span>
-          <input
-            data-autofocus
-            inputMode="decimal"
-            aria-label={title}
-            aria-invalid={invalid}
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            className="tabular h-control w-32 rounded-control border border-line bg-panel px-3 text-right"
-          />
-          {invalid ? (
-            <span className="text-negative">
-              {rule === 'tolerance'
-                ? 'Use um número acima de 0 e até 100, com até duas casas'
-                : 'Use um número acima de 0 e até 100, ou deixe vazio'}
-            </span>
-          ) : null}
-        </label>
-      ) : null}
-
-      {rule === 'rebalance' ? (
-        <div
-          role="radiogroup"
-          aria-label="Rebalanceamento"
-          className="flex flex-col gap-2"
-        >
-          {(Object.keys(REBALANCE_LABEL) as (keyof typeof REBALANCE_LABEL)[]).map(
-            (option) => (
-              <button
-                key={option}
-                type="button"
-                role="radio"
-                aria-checked={mode === option}
-                onClick={() => setMode(option)}
-                className={`cursor-pointer rounded-control border p-3 text-left text-[0.8125rem] ${
-                  mode === option
-                    ? 'border-accent bg-accent-soft'
-                    : 'border-line hover:bg-panel-2'
-                }`}
-              >
-                <span className="font-semibold">{REBALANCE_LABEL[option]}</span>
-                <span className="block text-ink-2">{REBALANCE_HINT[option]}</span>
-              </button>
-            ),
-          )}
-        </div>
-      ) : null}
-
-      {rule === 'review' ? (
-        <div role="radiogroup" aria-label="Revisão" className="flex flex-wrap gap-2">
-          {REVIEW_OPTIONS.map((option) => (
-            <button
-              key={String(option)}
-              type="button"
-              role="radio"
-              aria-checked={months === option}
-              onClick={() => setMonths(option)}
-              className={`h-control cursor-pointer rounded-control border px-3 text-[0.8125rem] ${
-                months === option
-                  ? 'border-accent bg-accent-soft font-medium'
-                  : 'border-line hover:bg-panel-2'
-              }`}
-            >
-              {reviewEvery(option)}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </Modal>
   );
 };
 
@@ -403,19 +145,26 @@ const TargetField = ({
   row,
   draft,
   onChange,
+  shown,
 }: {
   readonly row: EditableRow;
   readonly draft: Draft;
   readonly onChange: (id: string, text: string) => void;
+  /** O que o campo mostra enquanto a pessoa não digitou nada nele. */
+  readonly shown?: string | undefined;
 }): React.ReactElement => {
-  const text = valueText(row, draft);
+  const text = row.id in draft || shown === undefined ? valueText(row, draft) : shown;
   const error = fieldError(text);
 
   return (
     <span
-      className={`inline-flex h-8 w-24 items-center rounded-control border bg-panel pr-2 ${
-        error === null ? 'border-line-strong' : 'border-negative'
-      } ${row.id in draft ? 'ring-1 ring-accent' : ''}`}
+      className={`inline-flex h-[30px] w-[84px] items-center rounded-control border pr-2.5 ${
+        error !== null
+          ? 'border-negative bg-panel'
+          : row.id in draft
+            ? 'border-attention bg-attention-soft'
+            : 'border-line-strong bg-panel'
+      }`}
       title={error ?? undefined}
     >
       <input
@@ -437,13 +186,10 @@ const TargetField = ({
 const DeviationBar = ({
   line,
   scale,
-  tolerance,
 }: {
   readonly line: Line;
   readonly scale: number;
-  readonly tolerance: string;
 }): React.ReactElement => {
-  const band = toleranceBand(line.target_pct, tolerance, scale);
   const label =
     line.target_pct === null
       ? `${line.name}: atual ${line.current_pct}%, sem alvo`
@@ -453,23 +199,14 @@ const DeviationBar = ({
     <span
       role="img"
       aria-label={label}
-      className="relative block h-2 w-56 rounded-full bg-panel-2"
+      className="relative block h-2 w-55 rounded-[4px] bg-panel-2 shadow-[inset_0_0_0_1px_var(--color-line)]"
     >
-      {band === null ? null : (
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-0 bg-ink/5"
-          style={{ left: `${band.left}%`, width: `${band.width}%` }}
-        />
-      )}
       <span
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 rounded-full"
-        style={{
-          width: `${barPosition(line.current_pct, scale)}%`,
-          minWidth: 3,
-          backgroundColor: colorForToken(line.color_token),
-        }}
+        className={`absolute inset-y-0 left-0 rounded-[4px] ${
+          line.over_tolerance ? 'bg-attention' : 'bg-accent'
+        }`}
+        style={{ width: `${barPosition(line.current_pct, scale)}%` }}
       />
       {line.target_pct === null ? null : (
         <span
@@ -486,7 +223,6 @@ const Cells = ({
   line,
   defined,
   scale,
-  tolerance,
   bar = true,
 }: {
   /** O grupo é a soma das categorias: a barra é de quem tem alvo próprio. */
@@ -494,7 +230,6 @@ const Cells = ({
   readonly line: Line;
   readonly defined: boolean;
   readonly scale: number;
-  readonly tolerance: string;
 }): React.ReactElement => (
   <>
     <td className="px-4 text-right">
@@ -510,22 +245,36 @@ const Cells = ({
         <Points value={defined ? line.deviation_pp : null} tone="neutral" />
       )}
     </td>
-    <td className="px-4">
-      {bar ? <DeviationBar line={line} scale={scale} tolerance={tolerance} /> : null}
+    <td className="px-4">{bar ? <DeviationBar line={line} scale={scale} /> : null}</td>
+    <td className="px-4 text-right">
+      <Money value={line.value} />
     </td>
     <td className="px-4 text-right">
-      <Money value={line.value} bare />
-    </td>
-    <td className="px-4 text-right">
-      <Money value={defined ? line.target_value : null} bare />
+      <Money value={defined ? line.target_value : null} />
     </td>
     <td className="px-4 text-right">
       {isZeroDecimal(line.amount_to_move) ? (
-        <Money value={line.amount_to_move} bare />
+        <Money value={line.amount_to_move} />
       ) : (
-        <MoneyChange value={defined ? line.amount_to_move : null} bare />
+        <MoneyChange value={defined ? line.amount_to_move : null} tone="neutral" />
       )}
     </td>
+  </>
+);
+
+/** A categoria dentro de uma classe sem alvo próprio: só composição. */
+const MemberCells = ({ line }: { readonly line: Line }): React.ReactElement => (
+  <>
+    <td className="px-4 text-right">
+      <Percent value={percentAsRatio(line.current_pct)} decimals={1} />
+    </td>
+    <td />
+    <td />
+    <td className="px-4 text-right">
+      <Money value={line.value} />
+    </td>
+    <td />
+    <td />
   </>
 );
 
@@ -535,15 +284,20 @@ const Distribution = ({
   draft,
   onChange,
   onRestore,
+  onManageClasses,
+  bar,
 }: {
   readonly data: AllocationResource;
   readonly rows: readonly EditableRow[];
   readonly draft: Draft;
   readonly onChange: (id: string, text: string) => void;
   readonly onRestore: () => void;
+  readonly onManageClasses: () => void;
+  /** A barra de salvar fica dentro do painel, entre a tabela e a nota. */
+  readonly bar?: React.ReactNode;
 }): React.ReactElement => {
   const { composition, strategy_defined: defined, rules } = data;
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const scale = useMemo(() => barScale(composition.nodes), [composition.nodes]);
   const state = saveState(rows, draft);
   const editing = Object.keys(draft).length > 0;
@@ -551,53 +305,81 @@ const Distribution = ({
   const tolerance = rules.tolerance_pp;
 
   const toggle = (id: string): void =>
-    setCollapsed((current) => {
+    setOpen((current) => {
       const next = new Set(current);
       if (!next.delete(id)) next.add(id);
       return next;
     });
 
-  const rowFor = (id: string): EditableRow | undefined =>
-    rows.find((row) => row.id === id);
-
-  const categoryRow = (line: Line, indent: boolean): React.ReactElement => {
-    const editable = rowFor(line.id);
+  /** A linha da classe: o alvo é dela, e a barra e o desvio também. */
+  const classRow = (node: Node): React.ReactElement => {
+    const own = rows.find((row) => row.id === node.id);
+    // Estratégia salva por categoria, de antes de o alvo ser da classe: a classe
+    // mostra a soma delas, e digitar nela passa o alvo para a classe.
+    const sum = node.level === 'group' ? groupTotal(rows, draft, node.id) : null;
+    const shown = sum === null ? undefined : inputText(sum);
+    const members = node.children.filter((child) => child.id !== node.id);
+    const expandable = node.level === 'group' && members.length > 0;
+    const expanded = open.has(node.id);
 
     return (
-      <tr key={line.id} className="h-(--row-height) border-b border-line">
-        <th scope="row" className={`px-4 text-left font-normal ${indent ? 'pl-10' : ''}`}>
+      <tr key={node.id} className="h-12 border-b border-line bg-panel-2">
+        <th scope="row" className="px-4 text-left font-semibold whitespace-nowrap">
           <span className="flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="size-2 shrink-0 rounded-xs"
-              style={{ backgroundColor: colorForToken(line.color_token) }}
-            />
-            <span className={indent ? '' : 'font-semibold'}>{line.name}</span>
+            {expandable ? (
+              <button
+                type="button"
+                aria-expanded={expanded}
+                aria-label={`${expanded ? 'Recolher' : 'Expandir'} ${node.name}`}
+                className="flex cursor-pointer items-center gap-2 text-left whitespace-nowrap"
+                onClick={() => toggle(node.id)}
+              >
+                <span aria-hidden="true" className="w-3 text-ink-3">
+                  <Icon name={expanded ? 'chevron-down' : 'chevron-right'} />
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="size-2 shrink-0 rounded-xs"
+                  style={{ backgroundColor: colorForToken(node.color_token) }}
+                />
+                {node.name}
+              </button>
+            ) : (
+              <span className="flex items-center gap-2 pl-5 whitespace-nowrap">
+                <span
+                  aria-hidden="true"
+                  className="size-2 shrink-0 rounded-xs"
+                  style={{ backgroundColor: colorForToken(node.color_token) }}
+                />
+                {node.name}
+              </span>
+            )}
+            {expandable ? (
+              <span className="text-[0.75rem] font-normal whitespace-nowrap text-ink-3">
+                {plural(members.length, 'categoria', 'categorias')}
+              </span>
+            ) : null}
           </span>
         </th>
         <td className="px-4 text-right">
-          {editable === undefined ? (
-            <span className="text-ink-3" title="Sem categoria não recebe alvo">
-              —
-            </span>
+          {own === undefined ? (
+            <span className="text-ink-3">—</span>
           ) : (
-            <TargetField row={editable} draft={draft} onChange={onChange} />
+            <TargetField row={own} draft={draft} onChange={onChange} shown={shown} />
           )}
         </td>
-        <Cells line={line} defined={defined} scale={scale} tolerance={tolerance} />
+        <Cells line={node} defined={defined} scale={scale} />
       </tr>
     );
   };
 
   return (
     <Panel
-      title="Distribuição por categoria"
-      hint={`Alvo em dois níveis: grupo e categoria. O grupo é a soma das categorias. Tolerância ± ${inputText(fromPercent(tolerance))} pp.`}
+      title="Distribuição por classe"
+      hint={`Dê um alvo a cada classe. As categorias dentro dela contam para o alvo. Tolerância ± ${inputText(fromPercent(tolerance))} pp.`}
       action={
         <span className="flex items-center gap-2">
-          <Button disabled title="Criar e reorganizar categorias chega com Configurações">
-            Categorias
-          </Button>
+          <Button onClick={onManageClasses}>Classes</Button>
           <Button disabled={!editing} onClick={onRestore}>
             Restaurar
           </Button>
@@ -606,11 +388,11 @@ const Distribution = ({
     >
       <div className="overflow-x-auto">
         <table className="w-full min-w-250 border-collapse text-[0.8125rem]">
-          <caption className="sr-only">Distribuição por categoria contra o alvo</caption>
+          <caption className="sr-only">Distribuição por classe contra o alvo</caption>
           <thead>
-            <tr className="border-b border-line bg-panel-2 text-label tracking-wide text-ink-3 uppercase">
+            <tr className="border-b border-line bg-panel-2 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
               <th scope="col" className="px-4 py-2 text-left font-medium">
-                Categoria
+                Classe
               </th>
               <th scope="col" className="px-4 py-2 text-right font-medium">
                 Alvo
@@ -636,45 +418,34 @@ const Distribution = ({
             </tr>
           </thead>
           <tbody>
-            {composition.nodes.flatMap((node) => {
-              if (node.level !== 'group') return [categoryRow(node, false)];
-
-              const sum = groupTotal(rows, draft, node.id);
-              const open = !collapsed.has(node.id);
-
-              return [
-                <tr
-                  key={node.id}
-                  className="h-(--row-height) border-b border-line bg-panel-2"
-                >
-                  <th scope="row" className="px-4 text-left font-semibold">
-                    <button
-                      type="button"
-                      aria-expanded={open}
-                      aria-label={`${open ? 'Recolher' : 'Expandir'} ${node.name}`}
-                      className="flex cursor-pointer items-center gap-2"
-                      onClick={() => toggle(node.id)}
-                    >
-                      <span aria-hidden="true" className="w-3 text-ink-3">
-                        {open ? '⌄' : '›'}
-                      </span>
-                      {node.name}
-                    </button>
-                  </th>
-                  <td className="tabular px-4 text-right font-semibold">
-                    {defined || editing ? (sum === null ? '—' : targetLabel(sum)) : '—'}
-                  </td>
-                  <Cells
-                    line={node}
-                    defined={defined}
-                    scale={scale}
-                    tolerance={tolerance}
-                    bar={false}
-                  />
-                </tr>,
-                ...(open ? node.children.map((child) => categoryRow(child, true)) : []),
-              ];
-            })}
+            {composition.nodes.flatMap((node) => [
+              classRow(node),
+              ...(node.level === 'group' && open.has(node.id)
+                ? node.children
+                    .filter((child) => child.id !== node.id)
+                    .map((child) => (
+                      <tr
+                        key={child.id}
+                        className="h-(--row-height) border-b border-line"
+                      >
+                        <th scope="row" className="px-4 pl-12 text-left font-normal whitespace-nowrap">
+                          <span className="flex items-center gap-2">
+                            <span
+                              aria-hidden="true"
+                              className="size-2 shrink-0 rounded-xs"
+                              style={{
+                                backgroundColor: colorForToken(child.color_token),
+                              }}
+                            />
+                            {child.name}
+                          </span>
+                        </th>
+                        <td />
+                        <MemberCells line={child} />
+                      </tr>
+                    ))
+                : []),
+            ])}
           </tbody>
           <tfoot>
             <tr className="h-(--row-height) font-semibold">
@@ -692,18 +463,19 @@ const Distribution = ({
               <td />
               <td />
               <td className="px-4 text-right">
-                <Money value={composition.total} bare />
+                <Money value={composition.total} />
               </td>
               <td className="px-4 text-right">
-                <Money value={defined ? composition.total : null} bare />
+                <Money value={defined ? composition.total : null} />
               </td>
               <td className="px-4 text-right">
-                <Money value={defined ? '0' : null} bare />
+                <Money value={defined ? '0' : null} />
               </td>
             </tr>
           </tfoot>
         </table>
       </div>
+      {bar}
       <p className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3 text-[0.75rem] text-ink-3">
         <span>
           Os alvos são editados direto na tabela. Ao alterar, aparece uma barra para
@@ -745,15 +517,26 @@ const SaveBar = ({
     <div
       role="region"
       aria-label="Alterações não salvas"
-      className={`sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-panel border px-4 py-3 shadow-lg ${
-        state.blocked ? 'border-negative bg-negative-soft' : 'border-line bg-panel'
+      className={`flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 ${
+        state.blocked ? 'bg-negative-soft' : 'bg-attention-soft'
       }`}
     >
-      <span
-        role={state.blocked || failure !== null ? 'alert' : 'status'}
-        className={`text-[0.8125rem] ${state.blocked || failure !== null ? 'text-negative' : ''}`}
-      >
-        {failure ?? state.message}
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem]">
+        <span
+          aria-hidden="true"
+          className={state.blocked ? 'text-negative' : 'text-attention'}
+        >
+          <Icon name="warning" />
+        </span>
+        <span
+          role={state.blocked || failure !== null ? 'alert' : 'status'}
+          className={`font-semibold ${state.blocked || failure !== null ? 'text-negative' : ''}`}
+        >
+          {failure ?? state.message}
+        </span>
+        {state.blocked || failure !== null || state.total === null ? null : (
+          <span className="text-ink-2">soma dos alvos {targetLabel(state.total)}</span>
+        )}
       </span>
       <span className="flex gap-2">
         <Button disabled={saving} onClick={onDiscard}>
@@ -765,7 +548,7 @@ const SaveBar = ({
           disabled={!state.canSave || saving}
           onClick={onSave}
         >
-          Salvar estratégia
+          Salvar
         </Button>
       </span>
     </div>
@@ -833,21 +616,22 @@ const PlanDialog = ({
     >
       <label className="flex flex-col gap-2 text-[0.8125rem]">
         <span className="text-ink-2">Valor do aporte, em reais</span>
-        <input
-          data-autofocus
-          inputMode="decimal"
-          aria-label="Valor do aporte"
-          placeholder="4.000,00"
-          value={text}
-          onChange={(event) => {
-            setText(event.target.value);
-            setPlan(null);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') void run();
-          }}
-          className="tabular h-control w-48 rounded-control border border-line bg-panel px-3 text-right"
-        />
+        <span className="block w-48">
+          <MoneyInput
+            data-autofocus
+            invalid={false}
+            aria-label="Valor do aporte"
+            placeholder="4.000,00"
+            value={text}
+            onChange={(event) => {
+              setText(event.target.value);
+              setPlan(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void run();
+            }}
+          />
+        </span>
         {text.trim() !== '' && amount === null ? (
           <span className="text-negative">Use um valor acima de zero, como 4.000,00</span>
         ) : null}
@@ -861,11 +645,11 @@ const PlanDialog = ({
       {plan === null ? null : (
         <div className="mt-4 flex flex-col gap-3">
           <table className="w-full border-collapse text-[0.8125rem]">
-            <caption className="sr-only">Plano de aporte por categoria</caption>
+            <caption className="sr-only">Plano de aporte por classe</caption>
             <thead>
-              <tr className="border-y border-line bg-panel-2 text-label tracking-wide text-ink-3 uppercase">
+              <tr className="border-y border-line bg-panel-2 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
                 <th scope="col" className="px-3 py-2 text-left font-medium">
-                  Categoria
+                  Classe
                 </th>
                 <th scope="col" className="px-3 py-2 text-right font-medium">
                   Aportar
@@ -892,7 +676,7 @@ const PlanDialog = ({
                     </span>
                   </th>
                   <td className="px-3 text-right">
-                    <Money value={share.amount} bare />
+                    <Money value={share.amount} />
                   </td>
                   <td className="px-3 text-right">
                     <Points value={share.deviation_after_pp} tone="neutral" />
@@ -959,7 +743,6 @@ const Failed = ({
 export const StrategyView = ({
   resource,
   onSave,
-  onSaveRules,
   onPlan,
 }: StrategyViewProps): React.ReactElement => {
   const { state, pending, reload } = resource;
@@ -968,8 +751,8 @@ export const StrategyView = ({
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const [rule, setRule] = useState<RuleKey | null>(null);
   const [planning, setPlanning] = useState(false);
+  const [managing, setManaging] = useState(false);
 
   const data = state.kind === 'ready' ? state.value : null;
   const rows = useMemo(
@@ -1005,9 +788,12 @@ export const StrategyView = ({
 
   if (state.kind === 'loading') {
     return (
-      <p aria-busy="true" className="p-8 text-center text-[0.8125rem] text-ink-3">
-        Carregando a estratégia…
-      </p>
+      <SkeletonRegion label="Carregando a estratégia" className="flex flex-col gap-4">
+        <SkeletonHeader />
+        <SkeletonPanel>
+          <SkeletonTable rows={7} columns={5} />
+        </SkeletonPanel>
+      </SkeletonRegion>
     );
   }
   if (state.kind === 'error') return <Failed error={state.error} onRetry={reload} />;
@@ -1015,10 +801,10 @@ export const StrategyView = ({
   const value = state.value;
   const subtitle = [
     value.portfolio.name,
-    value.portfolio.purpose ?? 'como o dinheiro desta carteira deve ser dividido',
+    'como o dinheiro desta carteira deve ser dividido',
     value.reference_date === null
       ? null
-      : `fechamento de ${formatDate(value.reference_date as never)}`,
+      : `consolidação de ${formatDate(value.reference_date as never)}`,
   ]
     .filter((part): part is string => part !== null)
     .join(' · ');
@@ -1027,8 +813,8 @@ export const StrategyView = ({
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-screen-title font-semibold tracking-tight">Estratégia</h1>
-          <p className="truncate text-[0.8125rem] text-ink-2">{subtitle}</p>
+          <h1 className="text-screen-title leading-7 font-semibold">Estratégia</h1>
+          <p className="truncate text-xs text-ink-3">{subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <IconButton
@@ -1036,7 +822,7 @@ export const StrategyView = ({
             aria-pressed={hidden}
             onClick={toggleHidden}
           >
-            <span aria-hidden="true">{hidden ? '◌' : '◉'}</span>
+            <Icon name={hidden ? 'eye-off' : 'eye'} />
           </IconButton>
           <Button
             variant="primary"
@@ -1053,14 +839,16 @@ export const StrategyView = ({
         </div>
       </header>
 
-      <Rules rules={value.rules} onEdit={setRule} />
+      <Rules rules={value.rules} />
 
       {value.reference_date === null ? (
         <section className="rounded-panel border border-line bg-panel p-8 text-center">
-          <h2 className="text-panel-title font-semibold">Nenhum fechamento ainda</h2>
+          <h2 className="text-panel-title font-semibold">
+            Carteira ainda não consolidada
+          </h2>
           <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
             {value.portfolio.name} não tem posição para comparar com o alvo. A estratégia
-            aparece no primeiro fechamento.
+            aparece na primeira consolidação.
           </p>
         </section>
       ) : (
@@ -1077,30 +865,34 @@ export const StrategyView = ({
               setFailure(null);
               setDraft(EMPTY_DRAFT);
             }}
+            onManageClasses={() => setManaging(true)}
+            bar={
+              <SaveBar
+                rows={rows}
+                draft={draft}
+                saving={saving}
+                failure={failure}
+                onSave={() => void save()}
+                onDiscard={() => {
+                  setFailure(null);
+                  setDraft(EMPTY_DRAFT);
+                }}
+              />
+            }
           />
         </KeepPrevious>
       )}
 
-      <SaveBar
-        rows={rows}
-        draft={draft}
-        saving={saving}
-        failure={failure}
-        onSave={() => void save()}
-        onDiscard={() => {
-          setFailure(null);
-          setDraft(EMPTY_DRAFT);
-        }}
-      />
-
-      {rule === null ? null : (
-        <RuleDialog
-          rule={rule}
-          rules={value.rules}
-          onClose={() => setRule(null)}
-          onSave={onSaveRules}
+      {managing ? (
+        <ClassesDialog
+          onClose={() => setManaging(false)}
+          onChanged={() => {
+            setDraft(EMPTY_DRAFT);
+            reload();
+          }}
         />
-      )}
+      ) : null}
+
       {planning ? (
         <PlanDialog
           onClose={() => setPlanning(false)}

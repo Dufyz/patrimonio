@@ -1,4 +1,3 @@
-import { REBALANCE_MODES } from '@patrimonio/domain';
 import { z } from 'zod';
 
 import { overviewCompositionSchema } from '../overview/overview.schema.js';
@@ -20,30 +19,20 @@ import {
  * divergem, e a tela que mostra +1,3 pp numa linha e 1,2 numa barra é a que
  * ninguém mais abre.
  *
- * A estratégia é **de uma carteira**. "Todas as carteiras" não tem alvo — como
- * combinar o alvo de cada uma é a decisão que F2-06 ainda vai tomar — e por
- * isso o parâmetro é obrigatório, em vez de devolver um consolidado que
- * pareceria ter um alvo que ninguém declarou.
+ * A estratégia é **de uma carteira**, e por isso o parâmetro é obrigatório.
  */
 
 export const allocationRulesSchema = z.object({
   /** Acima disso em pontos percentuais, a linha fica em destaque. */
   tolerance_pp: decimalString,
-  /** Acima disso o ativo entra em Requer atenção. Nulo é sem limite. */
-  max_asset_weight_pct: decimalString.nullable(),
-  rebalance_mode: z.enum(REBALANCE_MODES),
-  review_every_months: z.number().int().nullable(),
   /** O dia em que a estratégia foi salva pela última vez. Nulo sem estratégia. */
   reviewed_on: dateOnly.nullable(),
-  /** `reviewed_on` mais `review_every_months`. Nulo se um dos dois falta. */
-  next_review_on: dateOnly.nullable(),
-  benchmark: z.object({ id: uuid, name: z.string() }).nullable(),
+  benchmark: z.object({ value: z.string(), name: z.string() }).nullable(),
 });
 
 export const allocationPortfolioSchema = z.object({
   id: uuid,
   name: z.string(),
-  purpose: z.string().nullable(),
   recalc_status: recalcStatusSchema,
 });
 

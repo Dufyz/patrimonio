@@ -1,4 +1,4 @@
-import { dedupeKey, isDateOnly } from '@patrimonio/domain';
+import { isDateOnly } from '@patrimonio/domain';
 import type { Worker } from 'bullmq';
 
 import { defineStage } from '../infra/define-stage.js';
@@ -24,11 +24,6 @@ export const closeStage = (deps: StageDeps): Worker<StageJobData> =>
           isDateOnly(reference) ? { reference_date: reference } : {},
         );
       },
-      scheduledEvent: (stageDeps) => ({
-        stage: 'close',
-        dedupe_key: dedupeKey.close(stageDeps.clock.today()),
-        payload: { reference_date: stageDeps.clock.today() },
-      }),
     },
     deps,
   );

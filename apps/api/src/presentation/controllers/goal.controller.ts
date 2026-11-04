@@ -1,4 +1,11 @@
-import type { getGoals } from '@patrimonio/application';
+import type {
+  deleteGoal,
+  getGoals,
+  getGoalsOverview,
+  previewGoal,
+  putGoal,
+} from '@patrimonio/application';
+import type { PreviewGoalBody, PutGoalBody } from '@patrimonio/contracts';
 import type { RequestHandler } from 'express';
 
 import { sendFailure, validatedQuery } from '../middleware/respond.js';
@@ -6,50 +13,49 @@ import { sendFailure, validatedQuery } from '../middleware/respond.js';
 /**
  * A tela de Objetivos, numa rota só. Ela é uma pergunta — o ritmo atual chega
  * lá? — e o progresso, as trajetórias e a tabela de aportes respondem a ela
- * sobre o mesmo fechamento e a mesma premissa. A escrita do objetivo (criar,
- * editar, encerrar) é outra operação, com outro corpo, e chega com T-10.
+ * sobre o mesmo fechamento e a mesma premissa. A escrita do objetivo é outra
+ * operação, com outro corpo: `PUT` cria ou edita (a carteira tem no máximo um),
+ * `DELETE` exclui, e a prévia projeta o que o formulário descreve sem gravar.
  */
 export type GoalDeps = {
   readonly usecases: {
     readonly getGoals: ReturnType<typeof getGoals>;
+    readonly getGoalsOverview: ReturnType<typeof getGoalsOverview>;
+    readonly putGoal: ReturnType<typeof putGoal>;
+    readonly deleteGoal: ReturnType<typeof deleteGoal>;
+    readonly previewGoal: ReturnType<typeof previewGoal>;
   };
 };
 
 export type GoalController = {
   readonly goals: RequestHandler;
+  readonly overview: RequestHandler;
+  readonly put: RequestHandler;
+  readonly remove: RequestHandler;
+  readonly preview: RequestHandler;
 };
 
 type GoalQuery = {
-  readonly portfolio_id?: string;
+  readonly portfolio_id: string;
   readonly on_date?: string;
-  readonly rates?: string;
+  readonly rate?: string;
 };
 
-/**
- * `id:6,id:5.5` → `{ id: '6', id: '5.5' }`. O schema já garantiu o formato:
- * aqui só se desfaz a lista, sem reinterpretar o número.
- */
-const parseRates = (value: string | undefined): Record<string, string> | undefined => {
-  if (value === undefined || value === '') return undefined;
-
-  return Object.fromEntries(
-    value.split(',').map((part) => {
-      const [id = '', rate = ''] = part.split(':');
-      return [id, rate] as const;
-    }),
-  );
+type OverviewQuery = {
+  readonly on_date?: string;
+  readonly budget?: string;
+  readonly distribution?: 'proportional' | 'priority';
+  readonly cascade?: boolean;
+  readonly priority?: readonly string[];
 };
 
 export const createGoalController = (deps: GoalDeps): GoalController => ({
   goals: async (request, response) => {
     const query = validatedQuery<GoalQuery>(request);
-    const rates = parseRates(query?.rates);
-
     const result = await deps.usecases.getGoals({
-      // A carteira é filtro, não rota: a ausência do parâmetro é o consolidado.
-      portfolio_id: query?.portfolio_id ?? null,
+      portfolio_id: String(query?.portfolio_id),
       ...(query?.on_date === undefined ? {} : { on_date: query.on_date }),
-      ...(rates === undefined ? {} : { rates }),
+      ...(query?.rate === undefined ? {} : { rate: query.rate }),
     });
 
     if (result.isFailure()) {
@@ -58,5 +64,68 @@ export const createGoalController = (deps: GoalDeps): GoalController => ({
     }
 
     response.json(result.value);
+  },
+
+  overview: async (request, response) => {
+    const query = validatedQuery<OverviewQuery>(request);
+    const result = await deps.usecases.getGoalsOverview({
+      ...(query?.on_date === undefined ? {} : { on_date: query.on_date }),
+      ...(query?.budget === undefined ? {} : { budget: query.budget }),
+      ...(query?.distribution === undefined ? {} : { distribution: query.distribution }),
+      ...(query?.cascade === undefined ? {} : { cascade: query.cascade }),
+      ...(query?.priority === undefined ? {} : { priority: query.priority }),
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.json(result.value);
+  },
+
+  put: async (request, response) => {
+    const body = request.body as PutGoalBody;
+    const result = await deps.usecases.putGoal(
+      String(request.params['portfolio_id']),
+      body,
+    );
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    const { created, ...goal } = result.value;
+
+    response
+      .status(created ? 201 : 200)
+      .json({ goal, message: created ? 'Objetivo criado' : 'Objetivo atualizado' });
+  },
+
+  remove: async (request, response) => {
+    const result = await deps.usecases.deleteGoal(String(request.params['portfolio_id']));
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({ message: 'Objetivo excluído' });
+  },
+
+  preview: async (request, response) => {
+    const body = request.body as PreviewGoalBody;
+    const result = await deps.usecases.previewGoal({
+      ...body,
+      portfolio_id: String(request.params['portfolio_id']),
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({ goal: result.value });
   },
 });

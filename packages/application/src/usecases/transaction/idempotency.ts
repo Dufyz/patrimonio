@@ -33,13 +33,3 @@ export const findReplay = async (
 
   return repositories.transactions.findByIdempotencyKey(key);
 };
-
-/** As duas pernas de uma transferência voltam juntas no replay. */
-export const replayGroup = async (
-  repositories: TransactionalRepositories,
-  replayed: Transaction,
-): Promise<Either<AppError, Transaction[]>> => {
-  if (replayed.transfer_group_id === null) return success([replayed]);
-
-  return repositories.transactions.findByTransferGroup(replayed.transfer_group_id);
-};

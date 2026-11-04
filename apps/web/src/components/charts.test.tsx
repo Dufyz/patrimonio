@@ -125,7 +125,7 @@ describe('gráfico de série', () => {
     const user = userEvent.setup();
     const { container } = seriesChart();
 
-    await user.click(screen.getByRole('button', { name: 'CDI' }));
+    await user.click(screen.getByRole('button', { name: /^CDI/ }));
 
     expect(container.querySelectorAll('path[data-series="carteira"]')).toHaveLength(0);
     expect(container.querySelectorAll('path[data-series="cdi"]').length).toBeGreaterThan(
@@ -137,8 +137,8 @@ describe('gráfico de série', () => {
     const user = userEvent.setup();
     const { container } = seriesChart();
 
-    await user.click(screen.getByRole('button', { name: 'CDI' }));
-    await user.click(screen.getByRole('button', { name: 'CDI' }));
+    await user.click(screen.getByRole('button', { name: /^CDI/ }));
+    await user.click(screen.getByRole('button', { name: /^CDI/ }));
 
     expect(
       container.querySelectorAll('path[data-series="carteira"]').length,
@@ -150,7 +150,7 @@ describe('gráfico de série', () => {
     const onVisibleChange = vi.fn();
     seriesChart({ onVisibleChange });
 
-    await user.click(screen.getByRole('button', { name: 'CDI' }));
+    await user.click(screen.getByRole('button', { name: /^CDI/ }));
 
     expect(onVisibleChange).toHaveBeenLastCalledWith(['cdi']);
   });
@@ -336,14 +336,14 @@ describe('barras de proporção', () => {
         label="Composição por classe"
         slices={[
           { id: 'a', label: 'Ações', colorToken: 'class.acoes', share: '0.997' },
-          { id: 'b', label: 'Caixa', colorToken: 'class.caixa', share: '0.003' },
+          { id: 'b', label: 'Outros', colorToken: 'class.outros', share: '0.003' },
         ]}
       />,
     );
 
     const slices = container.querySelectorAll('span[style*="width"]');
     expect(slices).toHaveLength(2);
-    expect((slices[1] as HTMLElement).className).toContain('min-w-0.5');
+    expect((slices[1] as HTMLElement).className).toContain('min-w-[3px]');
   });
 });
 

@@ -1,16 +1,21 @@
+import { overlappingGroups } from '@patrimonio/calc';
 import type { Category } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
 
-import { BadRequestError, ConflictError, NotFoundError } from '../../errors/app-error.js';
+import {
+  ConflictError,
+  InvalidParameterError,
+  NotFoundError,
+} from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
 import type {
-  CategoryDraft,
   CategoryRepository,
   CategoryWrite,
 } from '../../interfaces/category.repository.js';
 import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
 
 export type CategoryDeps = { readonly categories: CategoryRepository };
+
 export type CategoryWriteDeps = { readonly unitOfWork: UnitOfWork };
 
 export const listCategories = (deps: CategoryDeps) =>
@@ -18,70 +23,122 @@ export const listCategories = (deps: CategoryDeps) =>
     return yield* await deps.categories.list();
   });
 
-/**
- * O pai precisa ser grupo. O trigger do banco recusa o terceiro nível de todo
- * jeito; a conferência aqui existe para a mensagem dizer o que está errado em
- * vez de devolver uma violação de restrição.
- */
-export const createCategory = (deps: CategoryWriteDeps) =>
-  either(async function* (draft: CategoryDraft) {
-    return yield* await deps.unitOfWork.run<AppError, Category>(async (repositories) => {
-      if (draft.parent_id !== undefined && draft.parent_id !== null) {
-        const parent = await repositories.categories.findById(draft.parent_id);
-        if (parent.isFailure()) return parent;
-        if (parent.value === null) {
-          return failure(new BadRequestError('A categoria pai não existe'));
-        }
-        if (parent.value.parent_id !== null) {
-          return failure(
-            new BadRequestError(
-              `A categoria aceita dois níveis: ${parent.value.name} já está dentro de um grupo`,
-            ),
-          );
-        }
-      }
+const plural = (count: number, one: string, many: string): string =>
+  `${count} ${count === 1 ? one : many}`;
 
-      return repositories.categories.create(draft);
+const TWO_LEVELS =
+  'A categoria aceita dois níveis: classe e categoria dentro dela. ' +
+  'Uma categoria não pode ter outra dentro de si.';
+
+/**
+ * A classe nova nasce na raiz, e a categoria dentro de uma classe tem como pai
+ * uma raiz: o terceiro nível é recusado com a razão dita, antes de o banco
+ * responder com uma violação de restrição.
+ */
+const checkParent = async (
+  categories: CategoryRepository,
+  id: string | null,
+  parentId: string | null | undefined,
+) => {
+  if (parentId === null || parentId === undefined) return success(undefined);
+
+  if (parentId === id) {
+    return failure(
+      new InvalidParameterError('Uma classe não pode estar dentro dela mesma'),
+    );
+  }
+
+  const parent = await categories.findById(parentId);
+  if (parent.isFailure()) return parent;
+  if (parent.value === null) {
+    return failure(new NotFoundError(`Classe ${parentId} não encontrada`));
+  }
+  if (parent.value.parent_id !== null)
+    return failure(new InvalidParameterError(TWO_LEVELS));
+
+  return success(undefined);
+};
+
+export const createCategory = (deps: CategoryWriteDeps) =>
+  either(async function* (input: CategoryWrite & { name: string; color_token: string }) {
+    return yield* await deps.unitOfWork.run<AppError, Category>(async (repositories) => {
+      const parent = await checkParent(repositories.categories, null, input.parent_id);
+      if (parent.isFailure()) return parent;
+
+      return repositories.categories.create(input);
     });
   });
 
+/**
+ * Mover uma categoria de classe é mudar o `parent_id`, e o id fica: ativo e alvo
+ * seguem apontando para ela. Uma coisa precisa ser conferida antes — se a classe
+ * de destino tem alvo próprio em alguma carteira, uma categoria que tem alvo
+ * próprio ali contaria o mesmo patrimônio duas vezes.
+ */
 export const updateCategory = (deps: CategoryWriteDeps) =>
   either(async function* (id: string, patch: CategoryWrite) {
     return yield* await deps.unitOfWork.run<AppError, Category>(async (repositories) => {
-      if (patch.parent_id !== undefined && patch.parent_id !== null) {
-        if (patch.parent_id === id) {
-          return failure(
-            new BadRequestError('Uma categoria não pode ser pai de si mesma'),
-          );
-        }
+      const { categories } = repositories;
 
-        const parent = await repositories.categories.findById(patch.parent_id);
+      const current = await categories.findById(id);
+      if (current.isFailure()) return current;
+      if (current.value === null) {
+        return failure(new NotFoundError(`Categoria ${id} não encontrada`));
+      }
+
+      const moving =
+        patch.parent_id !== undefined && patch.parent_id !== current.value.parent_id;
+
+      if (moving) {
+        const parent = await checkParent(categories, id, patch.parent_id);
         if (parent.isFailure()) return parent;
-        if (parent.value === null) {
-          return failure(new BadRequestError('A categoria pai não existe'));
-        }
-        if (parent.value.parent_id !== null) {
-          return failure(
-            new BadRequestError(
-              `A categoria aceita dois níveis: ${parent.value.name} já está dentro de um grupo`,
-            ),
-          );
+
+        // Quem tem categoria dentro é classe: tornar uma classe categoria faria
+        // três níveis.
+        if (patch.parent_id !== null) {
+          const usage = await categories.usage(id);
+          if (usage.isFailure()) return usage;
+          if (usage.value.children > 0) {
+            return failure(
+              new InvalidParameterError(
+                `${current.value.name} tem ${plural(usage.value.children, 'categoria', 'categorias')} dentro: ` +
+                  'esvazie a classe antes de colocá-la dentro de outra',
+              ),
+            );
+          }
         }
 
-        // Virar categoria filha quando se tem filhas criaria o terceiro nível
-        // por tabela, sem nenhuma linha quebrar sozinha.
-        const usage = await repositories.categories.usage(id);
-        if (usage.isFailure()) return usage;
-        if (usage.value.children > 0) {
+        const all = await categories.list();
+        if (all.isFailure()) return all;
+        const targets = await categories.listTargets();
+        if (targets.isFailure()) return targets;
+
+        const after = all.value.map((category) =>
+          category.id === id
+            ? { ...category, parent_id: patch.parent_id ?? null }
+            : category,
+        );
+
+        for (const portfolioId of new Set(targets.value.map((row) => row.portfolio_id))) {
+          const own = targets.value.filter((row) => row.portfolio_id === portfolioId);
+          const overlapped = overlappingGroups(
+            own.map((row) => ({ category_id: row.category_id, target_pct: '1' })),
+            after,
+          );
+          if (overlapped.length === 0) continue;
+
+          const group = after.find((category) => category.id === overlapped[0])?.name;
           return failure(
-            new BadRequestError(
-              'Este grupo tem categorias dentro dele e não pode virar categoria',
+            new ConflictError(
+              `A estratégia de ${own[0]?.portfolio_name ?? 'uma carteira'} dá alvo a ` +
+                `${group ?? 'a classe'} e a ${current.value.name}: ` +
+                'tire o alvo de um dos dois antes de mover',
             ),
           );
         }
       }
 
-      const updated = await repositories.categories.update(id, patch);
+      const updated = await categories.update(id, patch);
       if (updated.isFailure()) return updated;
       if (updated.value === null) {
         return failure(new NotFoundError(`Categoria ${id} não encontrada`));
@@ -91,39 +148,40 @@ export const updateCategory = (deps: CategoryWriteDeps) =>
     });
   });
 
-/**
- * Categoria renomeada mantém os lançamentos ligados — o vínculo é por id. O que
- * não acontece é sumir com uma categoria que ainda classifica ativo ou alvo:
- * isso deixaria a alocação sem referência, e o número na tela sem explicação.
- */
 export const deleteCategory = (deps: CategoryWriteDeps) =>
   either(async function* (id: string) {
     return yield* await deps.unitOfWork.run<AppError, { readonly id: string }>(
       async (repositories) => {
-        const found = await repositories.categories.findById(id);
-        if (found.isFailure()) return found;
-        if (found.value === null) {
+        const { categories } = repositories;
+
+        const current = await categories.findById(id);
+        if (current.isFailure()) return current;
+        if (current.value === null) {
           return failure(new NotFoundError(`Categoria ${id} não encontrada`));
         }
 
-        const usage = await repositories.categories.usage(id);
+        const usage = await categories.usage(id);
         if (usage.isFailure()) return usage;
 
-        if (
-          usage.value.assets > 0 ||
-          usage.value.targets > 0 ||
+        const reasons = [
           usage.value.children > 0
-        ) {
+            ? `${plural(usage.value.children, 'categoria', 'categorias')} dentro`
+            : null,
+          usage.value.assets > 0 ? plural(usage.value.assets, 'ativo', 'ativos') : null,
+          usage.value.targets > 0
+            ? `alvo em ${plural(usage.value.targets, 'carteira', 'carteiras')}`
+            : null,
+        ].filter((reason): reason is string => reason !== null);
+
+        if (reasons.length > 0) {
           return failure(
             new ConflictError(
-              `A categoria classifica ${usage.value.assets} ativo(s), aparece em ` +
-                `${usage.value.targets} alvo(s) e tem ${usage.value.children} ` +
-                'categoria(s) dentro dela, e por isso não pode ser excluída',
+              `${current.value.name} não pode ser excluída: tem ${reasons.join(', ')}`,
             ),
           );
         }
 
-        const removed = await repositories.categories.remove(id);
+        const removed = await categories.delete(id);
         if (removed.isFailure()) return removed;
 
         return success({ id });

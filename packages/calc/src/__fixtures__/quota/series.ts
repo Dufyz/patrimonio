@@ -3,7 +3,7 @@ import type { DailyTotals } from '../../quota/series.js';
 /**
  * Séries de fechamento conferidas à mão. Em todas elas `total_value` é a soma das
  * posições do dia e `net_flow` é só o dinheiro que cruzou a fronteira do
- * patrimônio — transferência entre carteiras nunca aparece aqui.
+ * patrimônio.
  */
 const day = (
   position_date: string,

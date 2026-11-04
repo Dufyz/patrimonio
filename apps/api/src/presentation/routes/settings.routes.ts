@@ -1,4 +1,9 @@
-import { getSettingsSchema, runBackupSchema } from '@patrimonio/contracts';
+import {
+  deleteAllDataSchema,
+  exportDataSchema,
+  getSettingsSchema,
+  runBackupSchema,
+} from '@patrimonio/contracts';
 import { Router } from 'express';
 
 import type { SettingsDeps } from '../controllers/settings.controller.js';
@@ -11,6 +16,8 @@ export const settingsRoutes = (deps: SettingsDeps): Router => {
 
   router.get('/settings', validate(getSettingsSchema), controller.settings);
   router.post('/backup', validate(runBackupSchema), controller.backup);
+  router.get('/data/export', validate(exportDataSchema), controller.exportAll);
+  router.delete('/data', validate(deleteAllDataSchema), controller.deleteAll);
 
   return router;
 };

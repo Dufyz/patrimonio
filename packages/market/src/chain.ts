@@ -20,9 +20,12 @@ import type { Either } from '@patrimonio/shared';
  * 1. **Só falha de infraestrutura passa adiante.** Ticker inexistente não é
  *    falha: ele volta em `missing`, e trocar de provedor por causa dele
  *    gastaria a cota da alternativa para receber o mesmo `missing`.
- * 2. **`FormatChangedError` interrompe a cadeia.** Se a resposta da fonte
- *    principal mudou de forma, o problema é nosso parser — tentar a alternativa
- *    esconderia isso por semanas, e o job precisa parar para alguém olhar.
+ * 2. **`FormatChangedError` da fonte principal interrompe a cadeia.** Se a
+ *    resposta da principal mudou de forma, o problema é nosso parser — tentar a
+ *    alternativa esconderia isso por semanas, e o job precisa parar para
+ *    alguém olhar. Nas alternativas é diferente: uma alternativa ilegível só
+ *    está indisponível, e abortar por causa dela esconderia o motivo pelo qual
+ *    a principal foi pulada. O motivo de cada elo pulado vai em `skipped`.
  * 3. **Toda a cadeia fora do ar devolve sucesso com `source_kind: 'none'`.**
  *    Nada é gravado, o dia fica marcado, e a posição continua valendo o último
  *    preço conhecido em vez de zero. Falhar aqui faria o estágio reexecutar e
@@ -31,12 +34,17 @@ import type { Either } from '@patrimonio/shared';
 const kindFor = (index: number): PriceSourceKind =>
   index === 0 ? 'primary' : 'fallback';
 
-const nothing = (tickers: readonly string[], requests: number): SourcedClosing => ({
+const nothing = (
+  tickers: readonly string[],
+  requests: number,
+  skipped: readonly string[] = [],
+): SourcedClosing => ({
   quotes: [],
   missing: [...tickers],
   source: 'none',
   source_kind: 'none',
   requests,
+  ...(skipped.length === 0 ? {} : { skipped: [...skipped] }),
 });
 
 export const createQuoteChain = (providers: readonly QuoteProvider[]): QuoteSource => ({
@@ -45,6 +53,7 @@ export const createQuoteChain = (providers: readonly QuoteProvider[]): QuoteSour
     date: DateOnly,
   ): Promise<Either<AppError, SourcedClosing>> => {
     let requests = 0;
+    const skipped: string[] = [];
 
     for (const [index, provider] of providers.entries()) {
       requests += provider.requestsIn(tickers);
@@ -57,15 +66,18 @@ export const createQuoteChain = (providers: readonly QuoteProvider[]): QuoteSour
           source: provider.id,
           source_kind: kindFor(index),
           requests,
+          ...(skipped.length === 0 ? {} : { skipped: [...skipped] }),
         });
       }
 
-      // Formato mudou: o próximo elo não resolve, e seguir esconderia o
-      // problema atrás de um preço que vem de outra fonte.
-      if (isFormatChangedError(result.value)) return result;
+      // Formato mudou na principal: o próximo elo não resolve, e seguir
+      // esconderia o problema atrás de um preço que vem de outra fonte.
+      if (index === 0 && isFormatChangedError(result.value)) return result;
+
+      skipped.push(`${provider.id}: ${result.value.message}`);
     }
 
-    return success(nothing(tickers, requests));
+    return success(nothing(tickers, requests, skipped));
   },
 
   fetchHistory: async (
@@ -74,6 +86,7 @@ export const createQuoteChain = (providers: readonly QuoteProvider[]): QuoteSour
     to: DateOnly,
   ): Promise<Either<AppError, SourcedClosing>> => {
     let requests = 0;
+    const skipped: string[] = [];
 
     for (const [index, provider] of providers.entries()) {
       if (provider.fetchHistory === undefined) continue;
@@ -88,13 +101,19 @@ export const createQuoteChain = (providers: readonly QuoteProvider[]): QuoteSour
           source: provider.id,
           source_kind: kindFor(index),
           requests,
+          ...(skipped.length === 0 ? {} : { skipped: [...skipped] }),
         });
       }
 
       if (isFormatChangedError(result.value)) return result;
+
+      skipped.push(`${provider.id}: ${result.value.message}`);
     }
 
-    return success(nothing([ticker], requests));
+    return success({
+      ...nothing([ticker], requests),
+      ...(skipped.length === 0 ? {} : { skipped: [...skipped] }),
+    });
   },
 });
 
@@ -106,9 +125,11 @@ export const createQuoteChain = (providers: readonly QuoteProvider[]): QuoteSour
 export const createTreasuryChain = (
   providers: readonly TreasuryProvider[],
 ): TreasurySource => ({
-  fetchQuotes: async (date: DateOnly) => {
+  fetchHistory: async (identity, from, to) => {
     for (const [index, provider] of providers.entries()) {
-      const result = await provider.fetchQuotes(date);
+      if (provider.fetchHistory === undefined) continue;
+
+      const result = await provider.fetchHistory(identity, from, to);
 
       if (result.isSuccess()) {
         return success({
@@ -125,6 +146,33 @@ export const createTreasuryChain = (
       quotes: [] as const,
       source: 'none',
       source_kind: 'none' as const,
+    });
+  },
+
+  fetchQuotes: async (date: DateOnly) => {
+    const skipped: string[] = [];
+    for (const [index, provider] of providers.entries()) {
+      const result = await provider.fetchQuotes(date);
+
+      if (result.isSuccess()) {
+        return success({
+          quotes: result.value,
+          source: provider.id,
+          source_kind: kindFor(index),
+          ...(skipped.length === 0 ? {} : { skipped: [...skipped] }),
+        });
+      }
+
+      if (isFormatChangedError(result.value)) return result;
+
+      skipped.push(`${provider.id}: ${result.value.message}`);
+    }
+
+    return success({
+      quotes: [] as const,
+      source: 'none',
+      source_kind: 'none' as const,
+      ...(skipped.length === 0 ? {} : { skipped: [...skipped] }),
     });
   },
 });

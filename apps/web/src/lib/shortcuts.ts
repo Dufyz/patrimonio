@@ -32,6 +32,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
     scope: 'global',
   },
   { id: 'new_transaction', sequence: ['n'], label: 'Novo lançamento', scope: 'global' },
+  { id: 'filter', sequence: ['f'], label: 'Filtrar a lista', scope: 'global' },
   { id: 'hide_values', sequence: ['h'], label: 'Ocultar valores', scope: 'global' },
   { id: 'help', sequence: ['?'], label: 'Esta ajuda', scope: 'global' },
 
@@ -41,12 +42,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
     id: 'go_transactions',
     sequence: ['g', 'm'],
     label: 'Movimentações',
-    scope: 'navigation',
-  },
-  {
-    id: 'go_performance',
-    sequence: ['g', 'd'],
-    label: 'Desempenho',
     scope: 'navigation',
   },
   { id: 'go_strategy', sequence: ['g', 'e'], label: 'Estratégia', scope: 'navigation' },
@@ -78,7 +73,7 @@ export const SCOPE_TITLES: Readonly<Record<ShortcutScope, string>> = {
 
 /**
  * Campo de texto, área de texto, seletor e qualquer coisa editável. Nenhum
- * atalho de letra dispara aqui — digitar "n" no campo de observação não pode
+ * atalho de letra dispara aqui — digitar "n" no campo de texto não pode
  * abrir um lançamento novo.
  */
 export const isTypingTarget = (target: EventTarget | null): boolean => {

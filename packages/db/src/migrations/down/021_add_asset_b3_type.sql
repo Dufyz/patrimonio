@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS asset_b3_type_idx;
+ALTER TABLE asset DROP CONSTRAINT IF EXISTS asset_b3_type_known;
+ALTER TABLE asset DROP COLUMN IF EXISTS b3_type;

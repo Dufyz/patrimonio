@@ -17,7 +17,7 @@ type Row = Record<string, unknown>;
 export const createAssetRepository = (sql: Connection): AssetRepository => ({
   findById: async (id: string) => {
     try {
-      const rows = await sql<Row[]>`select * from asset where id = ${id}`;
+      const rows = await sql<Row[]>`SELECT * FROM asset WHERE id = ${id}`;
       const row = rows[0];
 
       return success(row === undefined ? null : parseAssetFromDB(row));
@@ -29,7 +29,7 @@ export const createAssetRepository = (sql: Connection): AssetRepository => ({
   findByTicker: async (ticker: string) => {
     try {
       const rows = await sql<Row[]>`
-        select * from asset where upper(ticker) = upper(${ticker}) limit 1
+        SELECT * FROM asset WHERE UPPER(ticker) = UPPER(${ticker}) LIMIT 1
       `;
       const row = rows[0];
 
@@ -40,26 +40,26 @@ export const createAssetRepository = (sql: Connection): AssetRepository => ({
   },
 
   /**
-   * A busca do seletor de lançamento: código ou nome, sem distinguir maiúscula.
-   * Enquanto a base da B3 não é carregada (M-07), ela encontra o que já existe
-   * no cadastro local — e é isso que a tela diz.
+   * A busca por código ou nome, sem distinguir maiúscula, entre os ativos que
+   * já existem no cadastro. Os papéis que a pessoa ainda não negociou vêm do
+   * catálogo de instrumentos listados, pela busca global.
    */
   list: async (filter: AssetFilter) => {
     const search = filter.search === undefined ? null : `%${filter.search}%`;
 
     try {
       const rows = await sql<Row[]>`
-        select *
-          from asset
-         where ${filter.includeArchived === true ? sql`true` : sql`archived_at is null`}
-           and ${filter.origin === undefined ? sql`true` : sql`origin = ${filter.origin}`}
-           and ${
+        SELECT *
+          FROM asset
+         WHERE ${filter.includeArchived === true ? sql`TRUE` : sql`archived_at IS NULL`}
+           AND ${filter.origin === undefined ? sql`TRUE` : sql`origin = ${filter.origin}`}
+           AND ${
              search === null
-               ? sql`true`
-               : sql`(ticker ilike ${search} or name ilike ${search})`
+               ? sql`TRUE`
+               : sql`(ticker ILIKE ${search} OR name ILIKE ${search})`
            }
-         order by ticker
-         limit 100
+         ORDER BY ticker
+         LIMIT 100
       `;
 
       return success(rows.map((row) => parseAssetFromDB(row)));
@@ -76,14 +76,14 @@ export const createAssetRepository = (sql: Connection): AssetRepository => ({
   listForPortfolio: async (portfolioId: string) => {
     try {
       const rows = await sql<Row[]>`
-        select asset.*
-          from asset
-         where exists (
-                 select 1 from transaction
-                  where transaction.asset_id = asset.id
-                    and transaction.portfolio_id = ${portfolioId}
+        SELECT asset.*
+          FROM asset
+         WHERE EXISTS (
+                 SELECT 1 FROM transaction
+                  WHERE transaction.asset_id = asset.id
+                    AND transaction.portfolio_id = ${portfolioId}
                )
-         order by asset.ticker
+         ORDER BY asset.ticker
       `;
 
       return success(rows.map((row) => parseAssetFromDB(row)));
@@ -110,10 +110,12 @@ export const createAssetRepository = (sql: Connection): AssetRepository => ({
       liquidity: draft.liquidity,
       liquidity_days: draft.liquidity_days,
       tax_regime: draft.tax_regime,
+      redemption_rule: draft.redemption_rule,
+      lot_term_months: draft.lot_term_months,
     });
 
     try {
-      const rows = await sql<Row[]>`insert into asset ${sql(row)} returning *`;
+      const rows = await sql<Row[]>`INSERT INTO asset ${sql(row)} RETURNING *`;
       const created = rows[0];
 
       if (created === undefined) {
@@ -131,8 +133,8 @@ export const createAssetRepository = (sql: Connection): AssetRepository => ({
 
     try {
       const rows = hasChanges(changes)
-        ? await sql<Row[]>`update asset set ${sql(changes)} where id = ${id} returning *`
-        : await sql<Row[]>`select * from asset where id = ${id}`;
+        ? await sql<Row[]>`UPDATE asset SET ${sql(changes)} WHERE id = ${id} RETURNING *`
+        : await sql<Row[]>`SELECT * FROM asset WHERE id = ${id}`;
       const row = rows[0];
 
       return success(row === undefined ? null : parseAssetFromDB(row));
@@ -144,10 +146,10 @@ export const createAssetRepository = (sql: Connection): AssetRepository => ({
   setArchived: async (id: string, archived: boolean) => {
     try {
       const rows = await sql<Row[]>`
-        update asset
-           set archived_at = ${archived ? sql`now()` : sql`null`}
-         where id = ${id}
-        returning *
+        UPDATE asset
+           SET archived_at = ${archived ? sql`NOW()` : sql`NULL`}
+         WHERE id = ${id}
+        RETURNING *
       `;
       const row = rows[0];
 
@@ -160,7 +162,7 @@ export const createAssetRepository = (sql: Connection): AssetRepository => ({
   remove: async (id: string) => {
     try {
       const rows = await sql<{ id: string }[]>`
-        delete from asset where id = ${id} returning id
+        DELETE FROM asset WHERE id = ${id} RETURNING id
       `;
 
       return success(rows.length > 0);
@@ -172,10 +174,10 @@ export const createAssetRepository = (sql: Connection): AssetRepository => ({
   usage: async (id: string) => {
     try {
       const rows = await sql<{ transactions: string; portfolios: string }[]>`
-        select count(*)::text as transactions,
-               count(distinct portfolio_id)::text as portfolios
-          from transaction
-         where asset_id = ${id}
+        SELECT COUNT(*)::TEXT AS transactions,
+               COUNT(DISTINCT portfolio_id)::TEXT AS portfolios
+          FROM transaction
+         WHERE asset_id = ${id}
       `;
       const row = rows[0];
 

@@ -28,7 +28,7 @@ const criar = (body: Record<string, unknown>) =>
 
 describe('criar carteira', () => {
   it('a carteira criada volta no formato do contrato', async () => {
-    const response = await criar({ name: 'Longo prazo', purpose: 'Independência' });
+    const response = await criar({ name: 'Longo prazo' });
 
     expect(response.status).toBe(201);
     const portfolio = portfolioResourceSchema.parse(response.body.portfolio);
@@ -118,23 +118,6 @@ describe('listar carteiras', () => {
 });
 
 describe('editar carteira', () => {
-  it('tolerância e modo de rebalanceamento são editáveis', async () => {
-    const criada = await criar({ name: 'Longo prazo' });
-
-    const response = await request(harness.app)
-      .patch(`/api/portfolios/${criada.body.portfolio.id}`)
-      .send({
-        tolerance_pp: '3',
-        rebalance_mode: 'buy_and_sell',
-        review_every_months: 6,
-      });
-
-    expect(response.status).toBe(200);
-    expect(Number(response.body.portfolio.tolerance_pp)).toBe(3);
-    expect(response.body.portfolio.rebalance_mode).toBe('buy_and_sell');
-    expect(response.body.portfolio.review_every_months).toBe(6);
-  });
-
   it('carteira inexistente devolve 404', async () => {
     const response = await request(harness.app)
       .patch('/api/portfolios/0b4cf1d2-9b3a-4f4e-9f1a-000000000000')

@@ -1,4 +1,4 @@
-import { duplicatedCategories, sumTargets } from '@patrimonio/calc';
+import { duplicatedCategories, overlappingGroups, sumTargets } from '@patrimonio/calc';
 import type { Portfolio } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
@@ -10,7 +10,10 @@ import type {
   PortfolioDraft,
   StrategyTargetWrite,
 } from '../../interfaces/portfolio.repository.js';
-import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
+import type {
+  TransactionalRepositories,
+  UnitOfWork,
+} from '../../interfaces/unit-of-work.js';
 
 export type CreatePortfolioInput = PortfolioDraft & {
   readonly allocation_targets?: readonly StrategyTargetWrite[] | undefined;
@@ -51,6 +54,34 @@ export const validateTargets = (
 };
 
 /**
+ * O alvo de um grupo já cobre as categorias dentro dele. Precisa do cadastro, e
+ * por isso roda dentro da transação, junto da escrita.
+ */
+export const validateGroupTargets = async (
+  repositories: TransactionalRepositories,
+  targets: readonly StrategyTargetWrite[],
+): Promise<Either<AppError, void>> => {
+  if (targets.length === 0) return success(undefined);
+
+  const categories = await repositories.categories.list();
+  if (categories.isFailure()) return categories;
+
+  const overlapped = overlappingGroups(targets, categories.value);
+  if (overlapped.length === 0) return success(undefined);
+
+  const names = overlapped.map(
+    (id) => categories.value.find((category) => category.id === id)?.name ?? id,
+  );
+
+  return failure(
+    new InvalidParameterError(
+      `O alvo de ${names.join(', ')} já cobre as categorias dentro dele: ` +
+        'escolha o alvo do grupo ou o de cada categoria, não os dois',
+    ),
+  );
+};
+
+/**
  * Criar a carteira e gravar o alvo é uma decisão só: uma carteira com alvo pela
  * metade mostraria desvio contra um alvo que o usuário não terminou de
  * declarar. As duas escritas vivem na mesma transação.
@@ -62,12 +93,7 @@ export const createPortfolio = (deps: CreatePortfolioDeps) =>
 
     const draft: PortfolioDraft = {
       name: input.name,
-      purpose: input.purpose,
-      benchmark_id: input.benchmark_id,
-      tolerance_pp: input.tolerance_pp,
-      max_asset_weight_pct: input.max_asset_weight_pct,
-      rebalance_mode: input.rebalance_mode,
-      review_every_months: input.review_every_months,
+      benchmark: input.benchmark,
       sort_order: input.sort_order,
     };
 
@@ -83,6 +109,9 @@ export const createPortfolio = (deps: CreatePortfolioDeps) =>
 
       const created = await repositories.portfolios.create(draft);
       if (created.isFailure()) return created;
+
+      const grouped = await validateGroupTargets(repositories, targets);
+      if (grouped.isFailure()) return grouped;
 
       if (targets.length > 0) {
         const saved = await repositories.portfolios.replaceTargets(

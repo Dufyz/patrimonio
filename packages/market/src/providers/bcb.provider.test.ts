@@ -185,6 +185,26 @@ describe('os sete casos de mudança de formato', () => {
     expect(result.value.message).toMatch(/não é uma lista/);
   });
 
+  it('janela sem valor publicado: o objeto de erro do SGS é série vazia', async () => {
+    const provider = createBcbProvider({
+      http: replying('{"error":"Value(s) not found"}'),
+    });
+
+    const result = await provider.fetchSeries(['IPCA'], FROM, TO);
+
+    expect(result.isSuccess()).toBe(true);
+    if (!result.isSuccess()) return;
+    expect(result.value).toEqual([]);
+  });
+
+  it('objeto com outras chaves continua sendo mudança de formato', async () => {
+    const result = await quebrado('{"error":"x","dados":[]}');
+
+    expect(result.isFailure()).toBe(true);
+    if (!result.isFailure()) return;
+    expect(result.value.message).toMatch(/não é uma lista/);
+  });
+
   it('corpo vazio falha, e não devolve série vazia', async () => {
     const result = await quebrado('');
 

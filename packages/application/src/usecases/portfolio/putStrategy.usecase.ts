@@ -5,7 +5,7 @@ import { NotFoundError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
 import type { StrategyTargetWrite } from '../../interfaces/portfolio.repository.js';
 import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
-import { validateTargets } from './createPortfolio.usecase.js';
+import { validateGroupTargets, validateTargets } from './createPortfolio.usecase.js';
 
 export type PutStrategyDeps = { readonly unitOfWork: UnitOfWork };
 
@@ -25,6 +25,9 @@ export const putStrategy = (deps: PutStrategyDeps) =>
         if (portfolio.value === null) {
           return failure(new NotFoundError(`Carteira ${portfolioId} não encontrada`));
         }
+
+        const grouped = await validateGroupTargets(repositories, targets);
+        if (grouped.isFailure()) return grouped;
 
         const saved = await repositories.portfolios.replaceTargets(portfolioId, targets);
         if (saved.isFailure()) return saved;

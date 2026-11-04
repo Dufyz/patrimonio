@@ -31,22 +31,6 @@ const buy = (
   institution_id: INSTITUTION,
 });
 
-const deposit = (
-  trade_date: string,
-  amount: string,
-  id = `dep-${trade_date}`,
-): CloseEntry => ({
-  id,
-  kind: 'deposit',
-  trade_date,
-  quantity: amount,
-  unit_price: '1',
-  fees: '0',
-  net_amount: amount,
-  asset_id: 'caixa',
-  institution_id: INSTITUTION,
-});
-
 const payout = (trade_date: string, assetId: string, amount: string): CloseEntry => ({
   id: `prov-${trade_date}`,
   kind: 'payout',
@@ -65,25 +49,14 @@ const listed = (id: string): CloseAsset => ({
   ticker: id.toUpperCase(),
   b3_type: 'stock',
   category_id: 'cat-acoes',
-  institution_id: null,
   fixed_income: null,
 });
-
-const cash: CloseAsset = {
-  id: 'caixa',
-  ticker: 'CAIXA-BANCO',
-  b3_type: 'cash',
-  category_id: 'cat-caixa',
-  institution_id: INSTITUTION,
-  fixed_income: null,
-};
 
 const cdb: CloseAsset = {
   id: 'cdb',
   ticker: 'CDB-BANCO-20281010',
   b3_type: null,
   category_id: 'cat-posfixado',
-  institution_id: null,
   fixed_income: {
     indexer: 'cdi_pct',
     rate: '112',
@@ -101,14 +74,8 @@ const price = (date: string, close: string, manual = false): PriceOn => ({
 const context = (overrides: Partial<DailyCloseContext> = {}): DailyCloseContext => ({
   portfolio_id: PORTFOLIO,
   reference_date: '2024-03-08',
-  entries: [
-    deposit('2024-03-01', '10000.00'),
-    buy('2024-03-04', 'itub4', '100', '30.00'),
-  ],
-  assets: new Map([
-    ['caixa', cash],
-    ['itub4', listed('itub4')],
-  ]),
+  entries: [buy('2024-03-04', 'itub4', '100', '30.00')],
+  assets: new Map([['itub4', listed('itub4')]]),
   prices: new Map([['itub4', price('2024-03-08', '32.00')]]),
   curves: new Map(),
   previous: null,
@@ -119,7 +86,7 @@ describe('uma linha por ativo com posição aberta', () => {
   it('grava o ativo mesmo em dia sem movimento nenhum', () => {
     const plan = planDailyClose(context());
 
-    expect(plan.positions.map((row) => row.asset_id).sort()).toEqual(['caixa', 'itub4']);
+    expect(plan.positions.map((row) => row.asset_id).sort()).toEqual(['itub4']);
     expect(plan.positions.every((row) => row.position_date === '2024-03-08')).toBe(true);
   });
 
@@ -133,29 +100,16 @@ describe('uma linha por ativo com posição aberta', () => {
     expect(itub4?.price_source_kind).toBe('fresh');
   });
 
-  it('o caixa vale o saldo da carteira na instituição, não a soma dos aportes', () => {
-    const plan = planDailyClose(context());
-    const caixa = plan.positions.find((row) => row.asset_id === 'caixa');
-
-    // Dez mil aportados menos três mil de compra: sete mil. Somar só os aportes
-    // contaria o mesmo real duas vezes, e o patrimônio sairia treze mil.
-    expect(caixa?.quantity).toBe('7000.00000000');
-    expect(caixa?.market_value).toBe('7000.00');
-    expect(caixa?.price_source_kind).toBe('fresh');
-  });
-
   it('o total da carteira é a soma das posições', () => {
     const plan = planDailyClose(context());
 
-    // 7.000 de caixa mais 3.200 de ITUB4.
-    expect(plan.portfolio.total_value).toBe('10200.00');
+    expect(plan.portfolio.total_value).toBe('3200.00');
   });
 
   it('posição zerada não gera linha de hoje e continua no histórico', () => {
     const plan = planDailyClose(
       context({
         entries: [
-          deposit('2024-03-01', '10000.00'),
           buy('2024-03-04', 'itub4', '100', '30.00'),
           {
             id: 'venda',
@@ -172,14 +126,14 @@ describe('uma linha por ativo com posição aberta', () => {
       }),
     );
 
-    expect(plan.positions.map((row) => row.asset_id)).toEqual(['caixa']);
-    expect(plan.portfolio.total_value).toBe('10200.00');
+    expect(plan.positions).toEqual([]);
+    expect(plan.portfolio.total_value).toBe('0.00');
   });
 });
 
 describe('saúde do preço', () => {
   it('preço da própria data é fresh', () => {
-    expect(planDailyClose(context()).health.fresh).toBe(2);
+    expect(planDailyClose(context()).health.fresh).toBe(1);
     expect(totalIsReliable(planDailyClose(context()).health)).toBe(true);
   });
 
@@ -213,7 +167,7 @@ describe('saúde do preço', () => {
     expect(itub4?.price_source_kind).toBe('missing');
     expect(plan.priced_at_cost).toEqual(['itub4']);
     // O total nunca vai a zero por falta de preço.
-    expect(plan.portfolio.total_value).toBe('10000.00');
+    expect(plan.portfolio.total_value).toBe('3000.00');
   });
 
   it('o estado é gravado na linha, não inferido na tela', () => {
@@ -290,20 +244,51 @@ describe('renda fixa marcada na curva', () => {
 });
 
 describe('a linha da carteira', () => {
-  it('o aporte do dia é fluxo, e não rendimento', () => {
+  it('a compra do dia é aporte: fluxo, e não rendimento', () => {
     const plan = planDailyClose(
       context({
-        reference_date: '2024-03-01',
-        entries: [deposit('2024-03-01', '10000.00')],
-        assets: new Map([['caixa', cash]]),
-        prices: new Map(),
+        reference_date: '2024-03-04',
+        prices: new Map([['itub4', price('2024-03-04', '30.00')]]),
       }),
     );
 
-    expect(plan.portfolio.net_flow).toBe('10000.00');
+    expect(plan.portfolio.net_flow).toBe('3000.00');
     expect(plan.portfolio.income).toBe('0.00');
     expect(plan.portfolio.quota_value).toBe('1.000000000000');
-    expect(plan.portfolio.cumulative_contributions).toBe('10000.00');
+    expect(plan.portfolio.cumulative_contributions).toBe('3000.00');
+  });
+
+  it('a venda do dia é resgate: fluxo negativo', () => {
+    const plan = planDailyClose(
+      context({
+        entries: [
+          buy('2024-03-04', 'itub4', '100', '30.00'),
+          {
+            id: 'venda',
+            kind: 'sell',
+            trade_date: '2024-03-08',
+            quantity: '40',
+            unit_price: '32.00',
+            fees: '0',
+            net_amount: '1280.00',
+            asset_id: 'itub4',
+            institution_id: INSTITUTION,
+          },
+        ],
+        previous: {
+          position_date: '2024-03-07',
+          total_value: '3200.00',
+          quota_value: '1.000000000000',
+          quota_count: '3200.000000000000',
+          cumulative_contributions: '3000.00',
+        },
+      }),
+    );
+
+    expect(plan.portfolio.net_flow).toBe('-1280.00');
+    expect(plan.portfolio.total_value).toBe('1920.00');
+    expect(plan.portfolio.income).toBe('0.00');
+    expect(plan.portfolio.cumulative_contributions).toBe('1720.00');
   });
 
   it('o rendimento do dia é a variação menos o fluxo', () => {
@@ -311,80 +296,63 @@ describe('a linha da carteira', () => {
       context({
         previous: {
           position_date: '2024-03-07',
-          total_value: '10000.00',
+          total_value: '3000.00',
           quota_value: '1.000000000000',
-          quota_count: '10000.000000000000',
-          cumulative_contributions: '10000.00',
+          quota_count: '3000.000000000000',
+          cumulative_contributions: '3000.00',
         },
       }),
     );
 
     expect(plan.portfolio.net_flow).toBe('0.00');
     expect(plan.portfolio.income).toBe('200.00');
-    expect(plan.portfolio.quota_count).toBe('10000.000000000000');
+    expect(plan.portfolio.quota_count).toBe('3000.000000000000');
   });
 
-  it('o provento do dia aparece destacado dentro do rendimento', () => {
+  it('o provento do dia é rendimento que sai do patrimônio', () => {
     const plan = planDailyClose(
       context({
         entries: [
-          deposit('2024-03-01', '10000.00'),
           buy('2024-03-04', 'itub4', '100', '30.00'),
           payout('2024-03-08', 'itub4', '120.00'),
         ],
         previous: {
           position_date: '2024-03-07',
-          total_value: '10000.00',
+          total_value: '3200.00',
           quota_value: '1.000000000000',
-          quota_count: '10000.000000000000',
-          cumulative_contributions: '10000.00',
+          quota_count: '3200.000000000000',
+          cumulative_contributions: '3000.00',
         },
       }),
     );
 
     expect(plan.portfolio.payouts).toBe('120.00');
+    // O patrimônio não andou, mas o provento foi ganho: entra no rendimento.
+    expect(plan.portfolio.income).toBe('120.00');
+    expect(plan.portfolio.net_flow).toBe('0.00');
+    // As cotas que pagaram o provento foram resgatadas.
+    expect(Number(plan.portfolio.quota_count)).toBeLessThan(3200);
   });
 
-  it('transferência não entra como aporte: o patrimônio total não muda', () => {
+  it('a amortização devolve principal: sai como fluxo, não como rendimento', () => {
     const plan = planDailyClose(
       context({
         entries: [
-          deposit('2024-03-01', '10000.00'),
           buy('2024-03-04', 'itub4', '100', '30.00'),
-          {
-            id: 'transf',
-            kind: 'transfer',
-            trade_date: '2024-03-08',
-            quantity: '20',
-            unit_price: '30.00',
-            fees: '0',
-            net_amount: '600.00',
-            asset_id: 'itub4',
-            institution_id: INSTITUTION,
-          },
+          { ...payout('2024-03-08', 'itub4', '500.00'), payout_kind: 'amortization' },
         ],
         previous: {
           position_date: '2024-03-07',
-          total_value: '10000.00',
+          total_value: '3200.00',
           quota_value: '1.000000000000',
-          quota_count: '10000.000000000000',
-          cumulative_contributions: '10000.00',
+          quota_count: '3200.000000000000',
+          cumulative_contributions: '3000.00',
         },
       }),
     );
 
-    expect(plan.portfolio.net_flow).toBe('0.00');
-    expect(plan.portfolio.cumulative_contributions).toBe('10000.00');
-
-    // A perna que entra traz o custo da posição, não dinheiro: o caixa fica onde
-    // estava, e o patrimônio sobe pelo ativo recebido.
-    expect(plan.positions.find((row) => row.asset_id === 'caixa')?.market_value).toBe(
-      '7000.00',
-    );
-    expect(plan.positions.find((row) => row.asset_id === 'itub4')?.cost_basis).toBe(
-      '3600.00',
-    );
-    expect(plan.portfolio.total_value).toBe('10840.00');
+    expect(plan.portfolio.net_flow).toBe('-500.00');
+    expect(plan.portfolio.payouts).toBe('0.00');
   });
 
   it('carteira sem posição nenhuma fecha com zero, não com erro', () => {

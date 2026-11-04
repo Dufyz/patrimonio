@@ -24,9 +24,6 @@ const responding =
 const saudavel = responding((url) => {
   if (url.includes('bcdata.sgs'))
     return { status: 200, body: fixture('bcb/sgs-12-cdi.json') };
-  if (url.includes('tesourodireto')) {
-    return { status: 200, body: fixture('tesouro/treasurybondsinfo.json') };
-  }
   if (url.includes('tesourotransparente')) {
     return { status: 200, body: fixture('tesouro/PrecoTaxaTesouroDireto.csv') };
   }
@@ -46,7 +43,6 @@ describe('a bateria de contrato', () => {
     expect(results.map((result) => result.source).sort()).toEqual([
       'bcb',
       'brapi',
-      'tesouro-direto',
       'tesouro-transparente',
     ]);
     expect(results.every((result) => result.outcome === 'ok')).toBe(true);

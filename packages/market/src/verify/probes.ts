@@ -8,7 +8,6 @@ import { createBcbProvider } from '../providers/bcb.provider.js';
 import { createBrapiProvider } from '../providers/brapi.provider.js';
 import {
   createTesouroCsvProvider,
-  createTesouroJsonProvider,
 } from '../providers/tesouro.provider.js';
 
 /**
@@ -102,9 +101,8 @@ export const probeSources = async (
         },
   );
 
-  // ── Tesouro, as duas fontes ────────────────────────────────────────────────
+  // ── Tesouro ────────────────────────────────────────────────────────────────
   for (const provider of [
-    createTesouroJsonProvider({ http: clientFor('tesouro-direto') }),
     createTesouroCsvProvider({ http: clientFor('tesouro-transparente') }),
   ]) {
     const quotes = await provider.fetchQuotes(options.reference_date);

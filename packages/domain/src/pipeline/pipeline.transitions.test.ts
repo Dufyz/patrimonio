@@ -5,13 +5,13 @@ import type { Stage, StageOutcome, Transition } from './pipeline.entities.js';
 import { isPortfolioScoped, transition } from './pipeline.transitions.js';
 
 /**
- * Uma linha por transição possível: seis estágios, quatro desfechos, e a falha
+ * Uma linha por transição possível: cinco estágios, quatro desfechos, e a falha
  * dividida entre transitória e definitiva. Cada linha é um teste.
  */
 const LINES: ReadonlyArray<[Stage, StageOutcome, boolean | undefined, Transition]> = [
   ['recalc', 'requested', undefined, { recalc_status: 'queued', next: null }],
   ['recalc', 'started', undefined, { recalc_status: 'running', next: null }],
-  ['recalc', 'succeeded', undefined, { recalc_status: 'idle', next: 'alerts' }],
+  ['recalc', 'succeeded', undefined, { recalc_status: 'idle', next: null }],
   ['recalc', 'failed', true, { recalc_status: 'queued', next: 'recalc' }],
   ['recalc', 'failed', false, { recalc_status: 'failed', next: null }],
 
@@ -23,15 +23,9 @@ const LINES: ReadonlyArray<[Stage, StageOutcome, boolean | undefined, Transition
 
   ['close', 'requested', undefined, { recalc_status: 'queued', next: null }],
   ['close', 'started', undefined, { recalc_status: 'running', next: null }],
-  ['close', 'succeeded', undefined, { recalc_status: 'idle', next: 'alerts' }],
+  ['close', 'succeeded', undefined, { recalc_status: 'idle', next: null }],
   ['close', 'failed', true, { recalc_status: 'queued', next: 'close' }],
   ['close', 'failed', false, { recalc_status: 'failed', next: null }],
-
-  ['alerts', 'requested', undefined, { recalc_status: 'idle', next: null }],
-  ['alerts', 'started', undefined, { recalc_status: 'idle', next: null }],
-  ['alerts', 'succeeded', undefined, { recalc_status: 'idle', next: null }],
-  ['alerts', 'failed', true, { recalc_status: 'idle', next: 'alerts' }],
-  ['alerts', 'failed', false, { recalc_status: 'idle', next: null }],
 
   ['import', 'requested', undefined, { recalc_status: 'queued', next: null }],
   ['import', 'started', undefined, { recalc_status: 'running', next: null }],
@@ -66,12 +60,12 @@ describe('transition', () => {
       }
     }
 
-    // 6 estágios × 4 desfechos, com a falha contada duas vezes.
+    // 5 estágios × 4 desfechos, com a falha contada duas vezes.
     expect(LINES).toHaveLength(STAGES.length * 5);
   });
 
-  it('o recálculo pede alertas no fim, para o painel refletir o número novo', () => {
-    expect(transition({ stage: 'recalc', outcome: 'succeeded' }).next).toBe('alerts');
+  it('o recálculo não encadeia outro estágio', () => {
+    expect(transition({ stage: 'recalc', outcome: 'succeeded' }).next).toBeNull();
   });
 
   it('o fechamento diário só roda depois do mercado', () => {
@@ -100,6 +94,5 @@ describe('transition', () => {
     expect(isPortfolioScoped('import')).toBe(true);
     expect(isPortfolioScoped('market')).toBe(false);
     expect(isPortfolioScoped('backup')).toBe(false);
-    expect(isPortfolioScoped('alerts')).toBe(false);
   });
 });

@@ -64,6 +64,18 @@ const toBrazilian = (date: DateOnly): string => {
   return `${day}/${month}/${year}`;
 };
 
+/**
+ * A resposta do SGS para uma janela sem observação: um objeto cuja única chave
+ * é a mensagem de erro (`error` ou `erro`).
+ */
+const isNoDataReply = (value: unknown): boolean => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+
+  const keys = Object.keys(value);
+
+  return keys.length === 1 && (keys[0] === 'error' || keys[0] === 'erro');
+};
+
 export const sgsUrl = (series: number, from: DateOnly, to: DateOnly): string =>
   `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${series}/dados` +
   `?formato=json&dataInicial=${toBrazilian(from)}&dataFinal=${toBrazilian(to)}`;
@@ -94,7 +106,16 @@ export const createBcbProvider = (options: BcbOptions): IndexProvider => ({
       const series = `sgs.${SGS_SERIES[code]}`;
 
       const read = parsing(BCB_SOURCE, () => {
-        const rows = asArray(asJson(response.value.body, `${series}.body`), series);
+        const parsed = asJson(response.value.body, `${series}.body`);
+
+        // Janela sem valor publicado não vem como lista vazia: o SGS responde
+        // um objeto só com a mensagem de erro. É o caso normal do IPCA, que sai
+        // uma vez por mês e não tem observação no mês corrente até a divulgação.
+        // Sem dado na janela é ausência, e não mudança de formato — qualquer
+        // outro objeto continua sendo recusado.
+        if (isNoDataReply(parsed)) return [];
+
+        const rows = asArray(parsed, series);
 
         return rows.map((row, index): IndexSample => {
           const record = asObject(row, `${series}[${index}]`);

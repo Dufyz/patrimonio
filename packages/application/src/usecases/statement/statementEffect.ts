@@ -24,19 +24,17 @@ export type StatementEffectView =
   | { readonly type: 'payout_withheld'; readonly tax: string }
   | { readonly type: 'payout_receivable'; readonly expected: string | null }
   | { readonly type: 'cost_reduction'; readonly amount: string }
-  | { readonly type: 'cash_in' }
-  | { readonly type: 'cash_out' }
-  | {
-      readonly type: 'transfer';
-      readonly direction: 'in' | 'out';
-      readonly counterpart: string | null;
-    }
   | {
       readonly type: 'corporate_event';
       readonly ratio_from: string;
       readonly ratio_to: string;
       readonly quantity_before: string;
       readonly quantity_after: string;
+    }
+  | {
+      readonly type: 'custody_transfer';
+      readonly from_institution: string | null;
+      readonly to_institution: string | null;
     }
   | { readonly type: 'none' };
 
@@ -74,18 +72,11 @@ export const statementEffect = (
     case 'payout':
       return payoutEffect(row);
 
-    case 'deposit':
-      return { type: 'cash_in' };
-
-    case 'withdrawal':
-      return { type: 'cash_out' };
-
-    case 'transfer':
+    case 'custody_transfer':
       return {
-        type: 'transfer',
-        // A perna que sai tem valor líquido negativo — a mesma convenção do motor.
-        direction: row.net_amount.startsWith('-') ? 'out' : 'in',
-        counterpart: row.transfer_counterpart,
+        type: 'custody_transfer',
+        from_institution: row.from_institution_name ?? null,
+        to_institution: row.institution_name,
       };
 
     case 'corporate_event':

@@ -1,4 +1,4 @@
-import { applyLedger, curveSeries } from '@patrimonio/calc';
+import { addMonths, applyLedger, curveSeries } from '@patrimonio/calc';
 import type { CurveValue } from '@patrimonio/calc';
 import { indexForIndexer } from '@patrimonio/domain';
 import type { DateOnly } from '@patrimonio/domain';
@@ -104,6 +104,55 @@ const priceWalker = (
 };
 
 /**
+ * O dia útil seguinte de cada dia do calendário.
+ */
+const nextBusinessDays = (
+  calendar: readonly DateOnly[],
+): ReadonlyMap<DateOnly, DateOnly> => {
+  const next = new Map<DateOnly, DateOnly>();
+  for (let index = 0; index + 1 < calendar.length; index += 1) {
+    const day = calendar[index];
+    const following = calendar[index + 1];
+    if (day !== undefined && following !== undefined) next.set(day, following);
+  }
+  return next;
+};
+
+/**
+ * Renda fixa fecha com o rendimento do próprio dia; ativo de bolsa fecha no D-1.
+ *
+ * O fator da curva em uma data conta os dias úteis anteriores a ela, então o
+ * fechamento do dia D usa o fator do dia útil seguinte: o CDI de D já saiu na
+ * noite de D, e o fechamento só roda depois. Assim o valor do fechamento de D é o
+ * mesmo que a tela do ativo calcula "hoje" no dia seguinte, e a posição bate com
+ * o que o banco mostra.
+ *
+ * Depois do vencimento a curva congela, e o último fator vale para os dias que
+ * já não rendem.
+ */
+const closeOfDay = (
+  raw: ReadonlyMap<DateOnly, CurveValue>,
+  last: CurveValue | undefined,
+  through: DateOnly,
+  context: RecalculationContext,
+  nextOf: ReadonlyMap<DateOnly, DateOnly>,
+): Map<DateOnly, CurveValue> => {
+  const byDate = new Map<DateOnly, CurveValue>();
+
+  for (const day of context.business_days) {
+    const next = nextOf.get(day) ?? day;
+    const value = raw.get(next);
+
+    if (value !== undefined) byDate.set(day, { ...value, reference_date: day });
+    else if (last !== undefined && next > through) {
+      byDate.set(day, { ...last, reference_date: day });
+    }
+  }
+
+  return byDate;
+};
+
+/**
  * O fator da curva de cada título em cada dia, acumulado numa passada por título.
  * O principal é 1: o plano do dia multiplica pelo custo da posição.
  */
@@ -111,6 +160,7 @@ const curveLookup = (
   context: RecalculationContext,
 ): ReadonlyMap<string, ReadonlyMap<DateOnly, CurveValue>> => {
   const byAsset = new Map<string, ReadonlyMap<DateOnly, CurveValue>>();
+  const nextOf = nextBusinessDays(context.calendar);
 
   for (const [assetId, asset] of context.assets) {
     const terms = asset.fixed_income;
@@ -123,11 +173,14 @@ const curveLookup = (
       code === null ? new Map() : (context.index_factors.get(code) ?? new Map());
     const projected = code === null ? undefined : context.projected_factors?.get(code);
 
-    // Título vencido para de render: o acumulado congela no vencimento.
+    // Título vencido para de render: o acumulado congela no vencimento. O
+    // horizonte é o dia útil depois do último fechamento, que traz o rendimento
+    // do próprio último dia.
+    const horizon = nextOf.get(context.through_date) ?? context.through_date;
     const through =
-      terms.maturity_date !== null && terms.maturity_date < context.through_date
+      terms.maturity_date !== null && terms.maturity_date < horizon
         ? terms.maturity_date
-        : context.through_date;
+        : horizon;
 
     const series = curveSeries({
       principal: '1',
@@ -137,29 +190,83 @@ const curveLookup = (
       business_days: context.calendar,
       index_factors: [...factors].map(([date, daily_factor]) => ({ date, daily_factor })),
       ...(projected === undefined ? {} : { projected_daily_factor: projected }),
-      from_date: context.from_date,
+      // Lote que venceu antes do intervalo ainda precisa do fator congelado.
+      from_date: through < context.from_date ? through : context.from_date,
       through_date: through,
     });
 
-    const byDate = new Map<DateOnly, CurveValue>(
-      series.map((value): readonly [DateOnly, CurveValue] => [
-        value.reference_date,
-        value,
-      ]),
+    const byDate = closeOfDay(
+      new Map(series.map((value) => [value.reference_date, value])),
+      series[series.length - 1],
+      through,
+      context,
+      nextOf,
     );
-
-    // Depois do vencimento o valor é o do vencimento, não zero e não crescente.
-    const last = series[series.length - 1];
-    if (last !== undefined) {
-      for (const day of context.business_days) {
-        if (day > through) byDate.set(day, { ...last, reference_date: day });
-      }
-    }
 
     byAsset.set(assetId, byDate);
   }
 
   return byAsset;
+};
+
+/**
+ * O fator da curva de cada lote de caixinha em cada dia. Cada aplicação rende a
+ * partir da própria data, com os termos do ativo, e a chave é o id do lançamento
+ * que abriu o lote.
+ */
+const lotCurveLookup = (
+  context: RecalculationContext,
+): ReadonlyMap<string, ReadonlyMap<DateOnly, CurveValue>> => {
+  const byLot = new Map<string, ReadonlyMap<DateOnly, CurveValue>>();
+  const nextOf = nextBusinessDays(context.calendar);
+
+  for (const entry of context.entries) {
+    if (entry.kind !== 'buy' || entry.asset_id === null || entry.id === undefined)
+      continue;
+
+    const terms = context.assets.get(entry.asset_id)?.fixed_income;
+    if (terms === null || terms === undefined) continue;
+    if ((terms.redemption_rule ?? null) === null) continue;
+
+    const code = indexForIndexer(terms.indexer);
+    const factors: ReadonlyMap<DateOnly, string> =
+      code === null ? new Map() : (context.index_factors.get(code) ?? new Map());
+    const projected = code === null ? undefined : context.projected_factors?.get(code);
+
+    // O lote vence na data do aporte, ou na da caixinha; vencido, a curva congela.
+    const maturity =
+      entry.maturity_date ??
+      terms.maturity_date ??
+      (terms.lot_term_months === null || terms.lot_term_months === undefined
+        ? null
+        : addMonths(entry.trade_date, terms.lot_term_months));
+    const horizon = nextOf.get(context.through_date) ?? context.through_date;
+    const through = maturity !== null && maturity < horizon ? maturity : horizon;
+
+    const series = curveSeries({
+      principal: '1',
+      issued_at: entry.trade_date,
+      indexer: terms.indexer,
+      rate: terms.rate,
+      business_days: context.calendar,
+      index_factors: [...factors].map(([date, daily_factor]) => ({ date, daily_factor })),
+      ...(projected === undefined ? {} : { projected_daily_factor: projected }),
+      from_date: context.from_date,
+      through_date: through,
+    });
+
+    const byDate = closeOfDay(
+      new Map(series.map((value) => [value.reference_date, value])),
+      series[series.length - 1],
+      through,
+      context,
+      nextOf,
+    );
+
+    byLot.set(entry.id, byDate);
+  }
+
+  return byLot;
 };
 
 /**
@@ -210,6 +317,7 @@ const realizedFor = (context: RecalculationContext): readonly RealizedResultWrit
 export const planRecalculation = (context: RecalculationContext): RecalculationPlan => {
   const nextPrices = priceWalker(context.prices);
   const curves = curveLookup(context);
+  const lotCurves = lotCurveLookup(context);
 
   const positions: PositionDailyWrite[] = [];
   const days: PortfolioDailyWrite[] = [];
@@ -227,6 +335,12 @@ export const planRecalculation = (context: RecalculationContext): RecalculationP
       if (value !== undefined) curvesOn.set(assetId, value);
     }
 
+    const lotCurvesOn = new Map<string, CurveValue>();
+    for (const [lotId, byDate] of lotCurves) {
+      const value = byDate.get(date);
+      if (value !== undefined) lotCurvesOn.set(lotId, value);
+    }
+
     const close = planDailyClose({
       portfolio_id: context.portfolio_id,
       reference_date: date,
@@ -234,6 +348,7 @@ export const planRecalculation = (context: RecalculationContext): RecalculationP
       assets: context.assets,
       prices,
       curves: curvesOn,
+      lot_curves: lotCurvesOn,
       previous,
     });
 

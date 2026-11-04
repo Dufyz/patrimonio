@@ -17,10 +17,8 @@
 export {
   LEDGER_KINDS,
   applyLedger,
-  cashBalance,
   ledgerEffects,
   positionAt,
-  proportionalCost,
   sortEntries,
 } from './average_price/ledger.js';
 export type {
@@ -84,6 +82,22 @@ export type {
   RedemptionInput,
 } from './fixed_income/regressive.js';
 
+export {
+  REDEMPTION_RULES,
+  lotsFromLedger,
+  planRedemption,
+  valueLots,
+} from './fixed_income/lots.js';
+export type {
+  FactorsByLot,
+  Lot,
+  LotsValuation,
+  RedemptionPlan,
+  RedemptionRule,
+  RedemptionSlice,
+  ValuedLot,
+} from './fixed_income/lots.js';
+
 // ─── Cota, janelas e benchmark ───────────────────────────────────────────────
 export {
   INITIAL_QUOTA_VALUE,
@@ -105,23 +119,16 @@ export {
 } from './quota/windows.js';
 export type { QuotaPoint, WindowKey, WindowReturn } from './quota/windows.js';
 
-export {
-  REBALANCES,
-  benchmarkReturn,
-  benchmarkSeries,
-  differencePp,
-} from './quota/benchmark.js';
+export { benchmarkReturn, benchmarkSeries, differencePp } from './quota/benchmark.js';
 export type {
   BenchmarkDefinition,
   BenchmarkInput,
-  BenchmarkPart,
   BenchmarkPoint,
   BenchmarkReturn,
   FactorsByIndex,
-  Rebalance,
 } from './quota/benchmark.js';
 
-export { indexCodesOf, parseBenchmarkDefinition } from './quota/definition.js';
+export { indexCodesOf } from './quota/definition.js';
 
 export { decomposeByMonth, yearTotals } from './quota/decomposition.js';
 export type {
@@ -139,7 +146,11 @@ export {
 } from './allocation/weights.js';
 export type { AssetLedgerEntry } from './allocation/weights.js';
 
-export { duplicatedCategories, sumTargets } from './allocation/targets.js';
+export {
+  duplicatedCategories,
+  overlappingGroups,
+  sumTargets,
+} from './allocation/targets.js';
 export type { AllocationTarget, TargetSum } from './allocation/targets.js';
 
 export { composeAllocation, outOfTolerance } from './allocation/composition.js';
@@ -158,9 +169,6 @@ export type {
   ContributionShare,
 } from './allocation/contribution.js';
 
-export { fgcHeadroom, fgcUsedPct } from './allocation/fgc.js';
-export type { FgcHeadroom } from './allocation/fgc.js';
-
 // ─── Visão geral ─────────────────────────────────────────────────────────────
 export {
   growthSeries,
@@ -178,6 +186,20 @@ export type {
 } from './overview/summary.js';
 
 // ─── Objetivos ───────────────────────────────────────────────────────────────
+export { planGoals } from './goals/plan.js';
+export { summarizeGoals } from './goals/summary.js';
+export type {
+  GoalsSummary,
+  RequiredStep,
+  SummaryItem,
+  SummaryShare,
+} from './goals/summary.js';
+export type {
+  PlanAllocation,
+  PlanGoal,
+  PlanGoalResult,
+  PlanResult,
+} from './goals/plan.js';
 export {
   averageMonthlyContribution,
   arrivalMonth,
@@ -193,6 +215,7 @@ export type {
 } from './goals/projection.js';
 export {
   contributionLadder,
+  deflateAmount,
   expectedProgress,
   factorToPct,
   goalStanding,
@@ -200,6 +223,7 @@ export {
   nominalRate,
   normalizeRate,
   parseReturnAssumption,
+  realRate,
 } from './goals/trajectory.js';
 export type {
   ExpectedProgressInput,
@@ -263,3 +287,6 @@ export type { BenchmarkSpec, YearReturn } from './performance/periods.js';
 
 export { modifiedDietz } from './performance/dietz.js';
 export type { DietzFlow, DietzInput } from './performance/dietz.js';
+
+export { timeWeightedReturn, xirr } from './performance/asset_returns.js';
+export type { AssetDay, CashFlow } from './performance/asset_returns.js';

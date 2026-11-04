@@ -1,6 +1,6 @@
 import type { StatementResource, StatementRow } from '@patrimonio/contracts';
 import type { DateOnly } from '@patrimonio/domain';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { fetchStatement } from '../api/statement.js';
@@ -8,32 +8,39 @@ import { deleteTransaction, moveTransaction, undoDeletion } from '../api/transac
 import { Toolbar } from '../components/controls.js';
 import { useEntry } from '../components/entry_provider.js';
 import { Money, MoneyChange, Quantity } from '../components/number.js';
-import { Menu, Modal } from '../components/overlay.js';
+import { ConfirmDialog, Menu, Modal } from '../components/overlay.js';
+import { KindBadge } from '../components/kind_badge.js';
 import { KeepPrevious } from '../components/pending.js';
-import { PeriodControl } from '../components/period_control.js';
+import { SkeletonRegion, SkeletonStats, SkeletonTable } from '../components/skeleton.js';
+import { FilterBar, ToolbarIconButton, ToolbarSearch } from '../components/filter_bar.js';
+import type { FilterField } from '../components/filter_bar.js';
+import { useShortcuts } from '../components/shortcuts.js';
+import { PeriodRangeBody } from '../components/period_control.js';
 import { usePreferences } from '../components/preferences.js';
-import { Button, Chip, IconButton, Label, Panel } from '../components/primitives.js';
+import { Button, IconButton, Label, Panel } from '../components/primitives.js';
 import { useViewportWidth } from '../components/use_element_width.js';
 import { assetSlug } from '../lib/asset_page.js';
-import { formatRange, resolvePeriod } from '../lib/period.js';
+import { DEFAULT_PERIOD, formatRange, resolvePeriod } from '../lib/period.js';
 import type { Period } from '../lib/period.js';
 import { formatShortDate } from '../lib/positions.js';
 import {
   CSV_BOM,
   GROUP_LABELS,
   RECALCULATION_POLL_MS,
-  STATEMENT_PAGE_SIZE,
+  STATEMENT_LIMIT,
   assetLabel,
   csvFilename,
   effectView,
   entriesLabel,
-  groupFromParam,
   groupToParam,
+  groupsFromParam,
+  listFromParam,
+  listToParam,
   hasMarketColumns,
+  isLedgerEntry,
   monthItems,
   monthName,
   monthTitle,
-  pageFromParam,
   periodFromParam,
   periodToParam,
   pruneSelection,
@@ -51,6 +58,8 @@ import {
 } from '../lib/statement.js';
 import { duplicateRequest } from '../lib/entry.js';
 import { useResource } from '../lib/use_resource.js';
+import { Icon } from '../components/icon.js';
+import { Checkbox } from '../components/ui/checkbox.js';
 
 /**
  * T-04 · Movimentações.
@@ -75,8 +84,8 @@ export type StatementScreenProps = {
   readonly portfolioId: string | null;
   readonly scopeLabel: string;
   readonly portfolios: readonly StatementPortfolio[];
-  /** Abre a página do ativo (T-03), pelo apelido dele no endereço. */
-  readonly onOpenAsset: (slug: string) => void;
+  /** Abre a página do ativo (T-03), na carteira do lançamento. */
+  readonly onOpenAsset: (slug: string, portfolioId: string | null) => void;
 };
 
 type Notice =
@@ -91,6 +100,16 @@ type Notice =
   | { readonly kind: 'moved'; readonly count: number; readonly failed: number }
   | { readonly kind: 'error'; readonly message: string };
 
+const STATEMENT_COLUMNS = [
+  { id: 'carteira', label: 'Carteira' },
+  { id: 'qtd', label: 'Qtd' },
+  { id: 'preco', label: 'Preço' },
+  { id: 'taxas', label: 'Taxas' },
+  { id: 'valor', label: 'Valor' },
+  { id: 'instituicao', label: 'Instituição' },
+  { id: 'efeito', label: 'Efeito' },
+] as const;
+
 export const StatementScreen = ({
   portfolioId,
   scopeLabel,
@@ -102,33 +121,37 @@ export const StatementScreen = ({
   const width = useViewportWidth(1440);
 
   const today = todayIso();
-  const group = groupFromParam(params.get('grupo'));
+  const rawGroup = params.get('grupo');
+  const rawInstitution = params.get('instituicao');
+  const groups = useMemo(() => groupsFromParam(rawGroup), [rawGroup]);
+  const institutionIds = useMemo(() => listFromParam(rawInstitution), [rawInstitution]);
   const period = periodFromParam(params.get('periodo'));
   const search = params.get('busca') ?? '';
-  const institutionId = params.get('instituicao');
-  const pageNumber = pageFromParam(params.get('pagina'));
 
   const [draft, setDraft] = useState(search);
+  const [hiddenColumns, setHiddenColumns] = useState<ReadonlySet<string>>(new Set());
+  const [filterOpen, setFilterOpen] = useState(false);
+  const shortcuts = useMemo(() => ({ filter: () => setFilterOpen(true) }), []);
+  useShortcuts(shortcuts);
   const [inception, setInception] = useState<DateOnly | null>(null);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [notice, setNotice] = useState<Notice | null>(null);
   const [moving, setMoving] = useState<readonly StatementRow[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [toDelete, setToDelete] = useState<readonly StatementRow[] | null>(null);
   const entry = useEntry();
 
   const range = resolvePeriod(period, today, inception);
 
-  /** Mudar qualquer filtro volta para a primeira página, e o padrão some da URL. */
+  /** O padrão nunca é escrito na URL. */
   const update = useCallback(
     (changes: Readonly<Record<string, string | null>>, replace = false): void => {
       setParams(
         (current) => {
           const next = new URLSearchParams(current);
-          if (!('pagina' in changes)) next.delete('pagina');
           for (const [key, value] of Object.entries(changes)) {
-            if (value === null || value === '' || (key === 'pagina' && value === '1')) {
-              next.delete(key);
-            } else next.set(key, value);
+            if (value === null || value === '') next.delete(key);
+            else next.set(key, value);
           }
           return next;
         },
@@ -151,26 +174,17 @@ export const StatementScreen = ({
       fetchStatement(
         {
           portfolioId,
-          institutionId,
-          group,
+          institutionIds,
+          groups,
           search,
           from: range.from,
           to: range.to,
-          page: pageNumber,
-          limit: STATEMENT_PAGE_SIZE,
+          page: 1,
+          limit: STATEMENT_LIMIT,
         },
         signal,
       ),
-    [
-      portfolioId,
-      institutionId,
-      group,
-      search,
-      range.from,
-      range.to,
-      pageNumber,
-      entry.version,
-    ],
+    [portfolioId, institutionIds, groups, search, range.from, range.to, entry.version],
   );
 
   const data: StatementResource | null =
@@ -298,14 +312,76 @@ export const StatementScreen = ({
     URL.revokeObjectURL(url);
   };
 
-  const filtered = group !== null || search !== '' || institutionId !== null;
+  const filtered = groups.length > 0 || search !== '' || institutionIds.length > 0;
+
+  const periodLabel = formatRange(resolvePeriod(period, today, inception), today);
+  const filterFields: readonly FilterField[] = [
+    {
+      kind: 'custom',
+      id: 'data',
+      label: 'Data',
+      icon: 'calendar',
+      value: periodLabel,
+      onClear: () => onPeriodChange(DEFAULT_PERIOD),
+      content: (close) => (
+        <PeriodRangeBody
+          value={period}
+          onChange={onPeriodChange}
+          today={today}
+          inception={inception}
+          onClose={close}
+        />
+      ),
+    },
+    {
+      id: 'tipo',
+      label: 'Tipo',
+      icon: 'tag',
+      options:
+        data === null
+          ? []
+          : data.facets
+              .filter(
+                (facet) =>
+                  (facet.group !== 'event' && facet.group !== 'custody') ||
+                  facet.count > 0 ||
+                  groups.includes(facet.group),
+              )
+              .map((facet) => ({
+                id: groupToParam(facet.group),
+                label: GROUP_LABELS[facet.group],
+                count: facet.count,
+              })),
+      selected: groups.map((group) => groupToParam(group)),
+      onChange: (ids) => update({ grupo: listToParam(ids) }),
+    },
+    {
+      id: 'instituicao',
+      label: 'Instituição',
+      icon: 'bank',
+      options:
+        data === null
+          ? []
+          : data.institutions.map((institution) => ({
+              id: institution.id,
+              label: institution.name,
+              count: institution.count,
+            })),
+      selected: institutionIds,
+      onChange: (ids) => update({ instituicao: listToParam(ids) }),
+    },
+  ];
+  const displayColumns = STATEMENT_COLUMNS.map((column) => ({
+    ...column,
+    hidden: hiddenColumns.has(column.id),
+  }));
 
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-0.5">
-          <h1 className="text-[1.375rem] leading-7 font-semibold">Movimentações</h1>
-          <p className="text-[0.8125rem] text-ink-3">
+          <h1 className="text-screen-title leading-7 font-semibold">Movimentações</h1>
+          <p className="text-xs text-ink-3">
             {scopeLabel}
             {data === null || data.scope.first_trade_date === null
               ? ''
@@ -321,15 +397,26 @@ export const StatementScreen = ({
             aria-pressed={valuesHidden}
             onClick={toggleHidden}
           >
-            {valuesHidden ? '⦰' : '◉'}
+            <Icon name={valuesHidden ? 'eye-off' : 'eye'} />
           </IconButton>
-          <Button variant="primary" shortcut="N" onClick={() => entry.openEntry()}>
+          <Button
+            variant="primary"
+            icon="plus"
+            shortcut="N"
+            onClick={() => entry.openEntry()}
+          >
             Lançamento
           </Button>
         </Toolbar>
       </header>
 
-      {data === null ? null : (
+      {data === null ? (
+        resource.state.kind === 'loading' ? (
+          <SkeletonRegion label="Carregando o resumo do período">
+            <SkeletonStats count={4} />
+          </SkeletonRegion>
+        ) : null
+      ) : (
         <dl
           aria-label="Resumo do período"
           className="flex flex-wrap gap-x-6 gap-y-1 text-[0.8125rem] text-ink-2"
@@ -378,110 +465,82 @@ export const StatementScreen = ({
       />
 
       <Panel>
-        <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
-          <PeriodControl
-            value={period}
-            onChange={onPeriodChange}
-            today={today}
-            inception={inception}
-          />
-
-          {data === null ? null : (
-            <div
-              role="group"
-              aria-label="Filtrar por tipo"
-              className="flex flex-wrap gap-2"
-            >
-              <Chip
-                selected={group === null}
-                count={data.facets_total}
-                onClick={() => update({ grupo: null })}
-              >
-                Todos
-              </Chip>
-              {data.facets
-                .filter(
-                  (facet) =>
-                    facet.group !== 'event' || facet.count > 0 || group === 'event',
-                )
-                .map((facet) => (
-                  <Chip
-                    key={facet.group}
-                    selected={group === facet.group}
-                    count={facet.count}
-                    onClick={() =>
-                      update({
-                        grupo: group === facet.group ? null : groupToParam(facet.group),
-                      })
-                    }
-                  >
-                    {GROUP_LABELS[facet.group]}
-                  </Chip>
-                ))}
-            </div>
-          )}
-
-          <input
-            type="search"
-            value={draft}
-            aria-label="Buscar lançamento"
-            placeholder="Ativo"
-            className="h-control w-40 rounded-control border border-line bg-panel px-3 text-sm"
-            onChange={(event) => setDraft(event.target.value)}
-          />
-
-          {data === null || data.institutions.length < 2 ? null : (
-            <select
-              aria-label="Instituição"
-              value={institutionId ?? ''}
-              className="h-control rounded-control border border-line bg-panel px-2 text-sm"
-              onChange={(event) => update({ instituicao: event.target.value })}
-            >
-              <option value="">Todas as instituições</option>
-              {data.institutions.map((institution) => (
-                <option key={institution.id} value={institution.id}>
-                  {institution.name} · {institution.count}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+        <FilterBar
+          open={filterOpen}
+          onOpenChange={setFilterOpen}
+          extraCount={search === '' ? 0 : 1}
+          search={
+            <ToolbarSearch
+              value={draft}
+              label="Buscar lançamento"
+              placeholder="Buscar lançamento"
+              onChange={setDraft}
+            />
+          }
+          fields={filterFields}
+          display={{
+            columns: displayColumns,
+            onToggleColumn: (id) =>
+              setHiddenColumns((current) => {
+                const next = new Set(current);
+                if (!next.delete(id)) next.add(id);
+                return next;
+              }),
+          }}
+          actions={
+            <ToolbarIconButton
+              label="Exportar CSV"
+              icon="export"
+              disabled={data === null || data.rows.length === 0}
+              onClick={() =>
+                data !== null &&
+                exportRows(selectedRows.length > 0 ? selectedRows : data.rows)
+              }
+            />
+          }
+        />
 
         {selectedRows.length === 0 ? null : (
           <div
             role="toolbar"
             aria-label="Ações em lote"
-            className="flex flex-wrap items-center justify-between gap-3 bg-accent-soft px-4 py-2"
+            className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-accent-soft px-4 py-2"
           >
-            <p className="text-sm">
+            <p className="text-[0.8125rem]">
               <strong className="font-semibold">
                 {selectedRows.length}{' '}
                 {selectedRows.length === 1 ? 'selecionado' : 'selecionados'}
               </strong>
-              <span className="text-ink-3"> · {selectionKinds(selectedRows)}</span>
+              <span className="tabular text-xs text-ink-3">
+                {' '}
+                · {selectionKinds(selectedRows)}
+              </span>
             </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button disabled={busy} onClick={() => setMoving(selectedRows)}>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                icon="arrow-right"
+                disabled={busy}
+                onClick={() => setMoving(selectedRows)}
+              >
                 Mover para carteira
               </Button>
               <Button
+                icon="copy"
                 disabled={busy || duplicating === null}
                 title={
                   duplicating === null
-                    ? 'Selecione um único lançamento de compra, venda, provento, aporte ou resgate'
+                    ? 'Selecione um único lançamento de compra, venda ou provento'
                     : undefined
                 }
                 onClick={() => duplicate(selectedRows[0])}
               >
                 Duplicar
               </Button>
-              <Button disabled={busy} onClick={() => exportRows(selectedRows)}>
-                Exportar CSV
-              </Button>
               <Button
-                variant="destructive"
+                icon="trash"
+                className="text-negative hover:text-negative"
                 disabled={busy}
-                onClick={() => void removeRows(selectedRows)}
+                onClick={() => setToDelete(selectedRows)}
               >
                 Excluir
               </Button>
@@ -492,20 +551,25 @@ export const StatementScreen = ({
           </div>
         )}
 
-        <div className="py-1">
+        <div>
           {resource.state.kind === 'error' ? (
             <p role="alert" className="px-4 py-6 text-sm text-negative">
               {resource.state.error.message}
             </p>
           ) : (
             <KeepPrevious pending={resource.pending}>
-              {data === null ? null : (
+              {data === null ? (
+                <SkeletonRegion label="Carregando as movimentações">
+                  <SkeletonTable rows={9} columns={7} />
+                </SkeletonRegion>
+              ) : (
                 <StatementTable
                   data={data}
                   width={width}
                   selected={selected}
                   hidden={valuesHidden}
                   filtered={filtered}
+                  hiddenColumns={hiddenColumns}
                   onToggle={(id) => setSelected((current) => toggleSelected(current, id))}
                   onToggleAll={() =>
                     setSelected((current) => toggleAll(data.rows, current))
@@ -513,7 +577,7 @@ export const StatementScreen = ({
                   onMove={(row) => setMoving([row])}
                   onEdit={(row) => entry.openEdit(row.id, assetLabel(row))}
                   onDuplicate={duplicate}
-                  onDelete={(row) => void removeRows([row])}
+                  onDelete={(row) => setToDelete([row])}
                   onOpenAsset={(row) =>
                     onOpenAsset(
                       assetSlug({
@@ -522,6 +586,7 @@ export const StatementScreen = ({
                         name: row.asset_name ?? '',
                         b3_type: row.b3_type,
                       }),
+                      row.portfolio_id,
                     )
                   }
                   onClear={() => update({ grupo: null, busca: null, instituicao: null })}
@@ -553,21 +618,27 @@ export const StatementScreen = ({
                 </button>
               </div>
             )}
-
-            <Pagination
-              page={data.page.number}
-              limit={data.page.limit}
-              total={data.page.total}
-              onChange={(next) => update({ pagina: String(next) })}
-            />
           </>
         )}
+
+        <footer className="border-t border-line px-4 py-3 text-xs text-ink-3">
+          A coluna Efeito mostra o que o lançamento mudou: preço médio, resultado
+          realizado ou isenção.
+        </footer>
       </Panel>
 
-      <footer className="px-1 text-[0.75rem] text-ink-3">
-        A coluna Efeito mostra o que o lançamento mudou: preço médio, resultado realizado
-        ou isenção.
-      </footer>
+      <ConfirmDialog
+        open={toDelete !== null}
+        title={toDelete?.length === 1 ? 'Excluir lançamento?' : 'Excluir lançamentos?'}
+        subject={toDelete === null ? '' : entriesLabel(toDelete.length)}
+        consequence="O preço médio e o resultado de tudo que veio depois serão recalculados. Você terá alguns minutos para desfazer."
+        onCancel={() => setToDelete(null)}
+        onConfirm={() => {
+          const rows = toDelete;
+          setToDelete(null);
+          if (rows !== null) void removeRows(rows);
+        }}
+      />
 
       <MoveDialog
         rows={moving}
@@ -606,16 +677,6 @@ const TONE_CLASS = {
   attention: 'text-attention',
 } as const;
 
-const KIND_PILL: Readonly<Record<StatementRow['kind'], string>> = {
-  buy: 'bg-accent-soft text-accent',
-  sell: 'bg-attention-soft text-attention',
-  payout: 'bg-positive-soft text-positive',
-  deposit: 'bg-panel-2 text-ink-2',
-  withdrawal: 'bg-panel-2 text-ink-2',
-  transfer: 'bg-panel-2 text-ink-2',
-  corporate_event: 'bg-panel-2 text-ink-2',
-};
-
 const Dash = (): React.ReactElement => <span className="text-ink-3">—</span>;
 
 const StatementTable = ({
@@ -624,6 +685,7 @@ const StatementTable = ({
   selected,
   hidden,
   filtered,
+  hiddenColumns,
   onToggle,
   onToggleAll,
   onMove,
@@ -638,6 +700,7 @@ const StatementTable = ({
   readonly selected: ReadonlySet<string>;
   readonly hidden: boolean;
   readonly filtered: boolean;
+  readonly hiddenColumns: ReadonlySet<string>;
   readonly onToggle: (id: string) => void;
   readonly onToggleAll: () => void;
   readonly onMove: (row: StatementRow) => void;
@@ -647,22 +710,32 @@ const StatementTable = ({
   readonly onOpenAsset: (row: StatementRow) => void;
   readonly onClear: () => void;
 }): React.ReactElement => {
-  const master = useRef<HTMLInputElement>(null);
   const state = selectionState(data.rows, selected);
 
-  useEffect(() => {
-    if (master.current !== null) master.current.indeterminate = state === 'some';
-  }, [state]);
-
   // A prancha 18: coluna secundária some em etapas, a tabela não rola de lado.
-  const showQuantity = width >= 1000;
-  const showPrice = width >= 1100;
-  const showFees = width >= 1100;
-  const showInstitution = width >= 1400;
+  const shown = (id: string): boolean => !hiddenColumns.has(id);
+  const showQuantity = width >= 1000 && shown('qtd');
+  const showPrice = width >= 1100 && shown('preco');
+  const showFees = width >= 1100 && shown('taxas');
+  const showInstitution = width >= 1400 && shown('instituicao');
+  const showValue = shown('valor');
+  const showEffect = shown('efeito');
+  // Todas as carteiras: sem a coluna, duas compras iguais em carteiras
+  // diferentes seriam a mesma linha duas vezes.
+  const showPortfolio = data.scope.portfolio_id === null && shown('carteira');
 
   const monthTotals = new Map(data.months.map((month) => [month.month, month]));
   const columns =
-    6 + [showQuantity, showPrice, showFees, showInstitution].filter(Boolean).length;
+    4 +
+    [
+      showQuantity,
+      showPrice,
+      showFees,
+      showInstitution,
+      showPortfolio,
+      showValue,
+      showEffect,
+    ].filter(Boolean).length;
 
   if (data.rows.length === 0) {
     return (
@@ -680,20 +753,20 @@ const StatementTable = ({
   }
 
   const header =
-    'px-2.5 pb-2 text-label font-medium tracking-wide whitespace-nowrap text-ink-3 uppercase';
+    'px-3 py-[9px] tabular text-label font-medium tracking-[0.06em] whitespace-nowrap text-ink-3 uppercase';
 
   return (
     <table className="w-full table-auto border-collapse text-cell">
       <caption className="sr-only">Lançamentos do período</caption>
       <thead>
         <tr className="border-b border-line">
-          <th scope="col" className="w-9 pb-2 pl-4">
-            <input
-              ref={master}
-              type="checkbox"
+          <th scope="col" className="w-10 py-[9px] pr-0 pl-4">
+            <Checkbox
               aria-label="Selecionar todos os lançamentos da página"
-              checked={state === 'all'}
-              onChange={onToggleAll}
+              checked={
+                state === 'all' ? true : state === 'some' ? 'indeterminate' : false
+              }
+              onCheckedChange={onToggleAll}
             />
           </th>
           <th scope="col" className={`${header} text-left`}>
@@ -705,6 +778,11 @@ const StatementTable = ({
           <th scope="col" className={`${header} text-left`}>
             Ativo
           </th>
+          {showPortfolio ? (
+            <th scope="col" className={`${header} text-left`}>
+              Carteira
+            </th>
+          ) : null}
           {showQuantity ? (
             <th scope="col" className={`${header} text-right`}>
               Qtd
@@ -720,18 +798,22 @@ const StatementTable = ({
               Taxas
             </th>
           ) : null}
-          <th scope="col" className={`${header} text-right`}>
-            Valor
-          </th>
+          {showValue ? (
+            <th scope="col" className={`${header} text-right`}>
+              Valor
+            </th>
+          ) : null}
           {showInstitution ? (
             <th scope="col" className={`${header} text-left`}>
               Instituição
             </th>
           ) : null}
-          <th scope="col" className={`${header} text-left`}>
-            Efeito
-          </th>
-          <th scope="col" className="w-8" />
+          {showEffect ? (
+            <th scope="col" className={`${header} text-left`}>
+              Efeito
+            </th>
+          ) : null}
+          <th scope="col" className="w-11" />
         </tr>
       </thead>
 
@@ -739,24 +821,24 @@ const StatementTable = ({
         const total = monthTotals.get(section.month);
         return (
           <tbody key={section.month}>
-            <tr className="bg-panel-2">
+            <tr className="border-b border-line bg-panel-2">
               <th
                 scope="colgroup"
                 colSpan={4}
-                className="h-(--row-height-group) px-4 text-left font-semibold"
+                className="py-(--row-pad) px-4 text-left font-semibold"
               >
                 {monthTitle(section.month)}
               </th>
               <td
                 colSpan={columns - 3}
-                className="tabular px-2.5 text-right text-[0.75rem] font-normal text-ink-3"
+                className="tabular px-4 text-right text-xs font-normal text-ink-3"
               >
                 {total === undefined
                   ? null
                   : monthItems(total).map((item, index) => (
                       <span key={item.key}>
                         {index === 0 ? '' : ' · '}
-                        {item.label} <Money value={item.value} bare />
+                        {item.label} <Money value={item.value} />
                       </span>
                     ))}
               </td>
@@ -772,6 +854,9 @@ const StatementTable = ({
                 showPrice={showPrice}
                 showFees={showFees}
                 showInstitution={showInstitution}
+                showValue={showValue}
+                showEffect={showEffect}
+                showPortfolio={showPortfolio}
                 onToggle={() => onToggle(row.id)}
                 onMove={() => onMove(row)}
                 onEdit={() => onEdit(row)}
@@ -795,6 +880,9 @@ const StatementLine = ({
   showPrice,
   showFees,
   showInstitution,
+  showValue,
+  showEffect,
+  showPortfolio,
   onToggle,
   onMove,
   onEdit,
@@ -809,6 +897,9 @@ const StatementLine = ({
   readonly showPrice: boolean;
   readonly showFees: boolean;
   readonly showInstitution: boolean;
+  readonly showValue: boolean;
+  readonly showEffect: boolean;
+  readonly showPortfolio: boolean;
   readonly onToggle: () => void;
   readonly onMove: () => void;
   readonly onEdit: () => void;
@@ -820,97 +911,146 @@ const StatementLine = ({
   const value = valueCell(row);
   const effect = effectView(row.effect, hidden);
   const detail = typeDetail(row);
-  const editable = row.transfer_group_id === null && row.kind !== 'corporate_event';
+  const ledger = isLedgerEntry(row);
+  const editable = ledger && row.kind !== 'corporate_event';
+
+  // Os atalhos que o menu anuncia: E edita, D duplica, ⌫ exclui, X marca.
+  const onKeyDown = (event: React.KeyboardEvent<HTMLTableRowElement>): void => {
+    if (event.target !== event.currentTarget || event.metaKey || event.ctrlKey) return;
+    const key = event.key.toLowerCase();
+    if (key === 'e' && editable) onEdit();
+    else if (key === 'd' && ledger && duplicateRequest(row) !== null) onDuplicate();
+    else if (key === 'x' && ledger) onToggle();
+    else if ((key === 'backspace' || key === 'delete') && ledger) onDelete();
+    else return;
+    event.preventDefault();
+  };
 
   return (
     <tr
       data-row-id={row.id}
       aria-label={rowLabel(row)}
       aria-selected={checked}
-      className={`group border-b border-line/60 ${checked ? 'bg-accent-soft' : 'hover:bg-panel-2'}`}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      className={`group border-b border-line outline-offset-[-2px] ${checked ? 'bg-accent-soft' : 'hover:bg-panel-2'}`}
     >
-      <td className="h-(--row-height) pl-4">
-        <input
-          type="checkbox"
-          aria-label={`Selecionar ${rowLabel(row)}`}
-          checked={checked}
-          onChange={onToggle}
-        />
+      <td className="py-(--row-pad) pr-0 pl-4">
+        {ledger ? (
+          <Checkbox
+            aria-label={`Selecionar ${rowLabel(row)}`}
+            checked={checked}
+            onCheckedChange={onToggle}
+          />
+        ) : null}
       </td>
-      <td className="tabular px-2.5 whitespace-nowrap" title={row.trade_date}>
+      <td
+        className="tabular px-3 py-(--row-pad) whitespace-nowrap"
+        title={row.trade_date}
+      >
         {formatShortDate(row.trade_date)}
       </td>
-      <td className="px-2.5 whitespace-nowrap">
-        <span
-          className={`rounded-xs px-1.5 py-0.5 text-[0.75rem] font-medium ${KIND_PILL[row.kind]}`}
-        >
-          {typeLabel(row)}
-        </span>
+      <td className="px-3 py-(--row-pad) whitespace-nowrap">
+        <KindBadge kind={row.kind}>{typeLabel(row)}</KindBadge>
         {detail === null ? null : <span className="ml-2 text-ink-3">{detail}</span>}
       </td>
-      <td className="max-w-0 min-w-32 px-2.5 font-medium">
+      <td className="max-w-0 min-w-32 px-3 py-(--row-pad) font-medium">
         <span className="block truncate" title={row.asset_name ?? undefined}>
           {assetLabel(row)}
         </span>
       </td>
+      {showPortfolio ? (
+        <td className="max-w-0 min-w-24 px-3 py-(--row-pad) text-ink-2">
+          <span className="block truncate" title={row.portfolio_name}>
+            {row.portfolio_name}
+          </span>
+        </td>
+      ) : null}
       {showQuantity ? (
-        <td className="px-2.5 text-right whitespace-nowrap">
+        <td className="px-3 py-(--row-pad) text-right whitespace-nowrap">
           {market ? <Quantity value={row.quantity} /> : <Dash />}
         </td>
       ) : null}
       {showPrice ? (
-        <td className="px-2.5 text-right whitespace-nowrap">
-          {market ? <Money value={row.unit_price} bare /> : <Dash />}
+        <td className="px-3 py-(--row-pad) text-right whitespace-nowrap">
+          {market ? <Money value={row.unit_price} /> : <Dash />}
         </td>
       ) : null}
       {showFees ? (
-        <td className="px-2.5 text-right whitespace-nowrap">
-          {market && row.kind !== 'payout' ? <Money value={row.fees} bare /> : <Dash />}
+        <td className="px-3 py-(--row-pad) text-right whitespace-nowrap">
+          {market && row.kind !== 'payout' ? <Money value={row.fees} /> : <Dash />}
         </td>
       ) : null}
-      <td className="px-2.5 text-right font-medium whitespace-nowrap">
-        {value.signed ? (
-          <MoneyChange value={value.value} bare />
-        ) : (
-          <Money value={value.value} bare />
-        )}
-      </td>
+      {showValue ? (
+        <td className="px-3 py-(--row-pad) text-right font-medium whitespace-nowrap">
+          {!ledger ? (
+            <Dash />
+          ) : value.signed ? (
+            <MoneyChange value={value.value} />
+          ) : (
+            <Money value={value.value} />
+          )}
+        </td>
+      ) : null}
       {showInstitution ? (
-        <td className="max-w-0 min-w-24 px-2.5 text-ink-2">
+        <td className="max-w-0 min-w-24 px-3 py-(--row-pad) text-ink-2">
           <span className="block truncate">{row.institution_name ?? '—'}</span>
         </td>
       ) : null}
-      <td className={`max-w-0 min-w-40 px-2.5 ${TONE_CLASS[effect.tone]}`}>
-        <span className="block truncate" title={effect.text}>
-          {effect.text}
-        </span>
-      </td>
-      <td className="px-1 opacity-0 focus-within:opacity-100 group-hover:opacity-100">
+      {showEffect ? (
+        <td className={`max-w-0 min-w-40 px-3 py-(--row-pad) ${TONE_CLASS[effect.tone]}`}>
+          <span className="block truncate" title={effect.text}>
+            {effect.text}
+          </span>
+        </td>
+      ) : null}
+      <td className="w-11 px-1.5 py-1">
         <Menu
           label={`Ações de ${rowLabel(row)}`}
           items={[
             {
               id: 'edit',
               label: 'Editar',
+              icon: <Icon name="pencil" />,
               shortcut: 'E',
-              // Perna de transferência e evento corporativo não se editam aqui.
-              hint: editable ? undefined : 'Transferência e evento não são editados aqui',
+              // Evento corporativo não se edita aqui.
+              hint: editable ? undefined : 'Evento não é editado aqui',
               disabled: !editable,
               onSelect: onEdit,
             },
             {
               id: 'duplicate',
               label: 'Duplicar',
+              icon: <Icon name="copy" />,
               shortcut: 'D',
               disabled: duplicateRequest(row) === null,
               onSelect: onDuplicate,
             },
-            { id: 'move', label: 'Mover para outra carteira', onSelect: onMove },
+            {
+              id: 'move',
+              label: 'Mover para outra carteira',
+              icon: <Icon name="arrow-right" />,
+              onSelect: onMove,
+            },
             ...(row.asset_id === null
               ? []
-              : [{ id: 'open_asset', label: 'Abrir ativo', onSelect: onOpenAsset }]),
-            { id: 'delete', label: 'Excluir', destructive: true, onSelect: onDelete },
-          ]}
+              : [
+                  {
+                    id: 'open_asset',
+                    label: 'Abrir ativo',
+                    icon: <Icon name="tag" />,
+                    onSelect: onOpenAsset,
+                  },
+                ]),
+            {
+              id: 'delete',
+              label: 'Excluir',
+              icon: <Icon name="trash" />,
+              shortcut: '⌫',
+              destructive: true,
+              onSelect: onDelete,
+            },
+          ].filter((item) => ledger || item.id === 'open_asset')}
         />
       </td>
     </tr>
@@ -918,40 +1058,6 @@ const StatementLine = ({
 };
 
 /* -------------------------------------------------------------------------- */
-
-const Pagination = ({
-  page,
-  limit,
-  total,
-  onChange,
-}: {
-  readonly page: number;
-  readonly limit: number;
-  readonly total: number;
-  readonly onChange: (page: number) => void;
-}): React.ReactElement | null => {
-  const pages = Math.max(1, Math.ceil(total / limit));
-  if (pages === 1) return null;
-
-  return (
-    <nav
-      aria-label="Páginas"
-      className="flex items-center justify-between gap-3 border-t border-line px-4 py-2 text-[0.8125rem] text-ink-2"
-    >
-      <span>
-        Página {page} de {pages} · {entriesLabel(total)}
-      </span>
-      <span className="flex gap-2">
-        <Button disabled={page <= 1} onClick={() => onChange(page - 1)}>
-          Anterior
-        </Button>
-        <Button disabled={page >= pages} onClick={() => onChange(page + 1)}>
-          Próxima
-        </Button>
-      </span>
-    </nav>
-  );
-};
 
 /**
  * Excluir não pede confirmação: oferece desfazer. A confirmação protege de um

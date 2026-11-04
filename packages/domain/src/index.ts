@@ -57,9 +57,8 @@ export {
   INDEXERS,
   LIQUIDITY_KINDS,
   PRICE_SOURCES,
+  REDEMPTION_RULES,
   TAX_REGIMES,
-  cashAssetName,
-  cashAssetTicker,
   describeFixedIncome,
   fixedIncomeTicker,
   isB3Type,
@@ -72,22 +71,24 @@ export type {
   Indexer,
   LiquidityKind,
   PriceSource,
+  RedemptionRule,
   TaxRegime,
 } from './asset/asset.entities.js';
 export { parseAssetFromDB } from './asset/asset.parsers.js';
 
 // ─── Categoria ───────────────────────────────────────────────────────────────
+export {
+  CATEGORY_CATALOG,
+  CATEGORY_IDS,
+  fixedIncomeCategoryId,
+} from './category/category.catalog.js';
+export type { CatalogCategory } from './category/category.catalog.js';
 export { classifyAsset, isColorToken, isRuleKey } from './category/category.entities.js';
 export type { Category, ClassifiableAsset } from './category/category.entities.js';
 export { parseCategoryFromDB } from './category/category.parsers.js';
 
 // ─── Instituição ─────────────────────────────────────────────────────────────
-export {
-  FGC_LIMIT_BRL,
-  INSTITUTION_ROLES,
-  isInstitutionRole,
-} from './institution/institution.entities.js';
-export type { Institution, InstitutionRole } from './institution/institution.entities.js';
+export type { Institution } from './institution/institution.entities.js';
 export { parseInstitutionFromDB } from './institution/institution.parsers.js';
 
 // ─── Lançamento ──────────────────────────────────────────────────────────────
@@ -106,6 +107,8 @@ export type {
 export { parseTransactionFromDB } from './transaction/transaction.parsers.js';
 
 // ─── Preço manual ────────────────────────────────────────────────────────────
+export type { CustodyTransfer } from './custody_transfer/custody_transfer.entities.js';
+export { parseCustodyTransferFromDB } from './custody_transfer/custody_transfer.parsers.js';
 export type { ManualPrice } from './manual_price/manual_price.entities.js';
 export { parseManualPriceFromDB } from './manual_price/manual_price.parsers.js';
 
@@ -127,23 +130,17 @@ export { parsePayoutDismissalFromDB } from './payout_dismissal/payout_dismissal.
 
 // ─── Projeção ────────────────────────────────────────────────────────────────
 export {
-  ALERT_GROUPS,
-  ALERT_STATUSES,
   ASSET_CLASSES,
   COMPUTED_PRICE_KINDS,
   INDEX_CODES,
   POSITION_GROUP_BY,
   POSITION_UNITS,
   PRICE_SOURCE_KINDS,
-  alertGroupFor,
   assetClassFor,
   indexForIndexer,
   isIndexCode,
 } from './projection/projection.entities.js';
 export type {
-  AlertGroup,
-  AlertInstance,
-  AlertStatus,
   AssetClass,
   AssetPrice,
   ComputedPriceKind,
@@ -158,7 +155,6 @@ export type {
   TaxMonth,
 } from './projection/projection.entities.js';
 export {
-  parseAlertInstanceFromDB,
   parseAssetPriceFromDB,
   parseIndexQuoteFromDB,
   parsePortfolioDailyFromDB,
@@ -168,12 +164,17 @@ export {
 } from './projection/projection.parsers.js';
 
 // ─── Carteira ────────────────────────────────────────────────────────────────
-export { REBALANCE_MODES, isRebalanceMode } from './portfolio/portfolio.entities.js';
-export type {
-  Portfolio,
-  RebalanceMode,
-  StrategyTarget,
-} from './portfolio/portfolio.entities.js';
+export { TOLERANCE_PP } from './portfolio/portfolio.entities.js';
+export {
+  INDEX_LABELS,
+  benchmarkLabel,
+  describeBenchmark,
+  formatBenchmark,
+  normalizeBenchmark,
+  parseBenchmark,
+} from './portfolio/benchmark.js';
+export type { BenchmarkValue } from './portfolio/benchmark.js';
+export type { Portfolio, StrategyTarget } from './portfolio/portfolio.entities.js';
 export {
   parsePortfolioFromDB,
   parseStrategyTargetFromDB,
@@ -191,3 +192,19 @@ export {
   parseMarketSourceRunFromDB,
   parsePriceableAssetFromDB,
 } from './market/market.parsers.js';
+
+// ─── Catálogo de instrumentos ────────────────────────────────────────────────
+export { INSTRUMENT_TYPES, isInstrumentType } from './instrument/instrument.entities.js';
+export type {
+  InstrumentType,
+  ListedInstrument,
+} from './instrument/instrument.entities.js';
+export {
+  TREASURY_KINDS,
+  parseTreasuryTicker,
+  treasuryName,
+  treasuryTicker,
+} from './instrument/instrument.treasury.js';
+export type { TreasuryIdentity, TreasuryKind } from './instrument/instrument.treasury.js';
+export { classifyListedInstrument } from './instrument/instrument.classify.js';
+export { parseListedInstrumentFromDB } from './instrument/instrument.parsers.js';

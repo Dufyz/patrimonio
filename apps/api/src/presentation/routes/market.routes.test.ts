@@ -48,20 +48,20 @@ beforeEach(async () => {
 
 const gravarPreco = async (date: string, close: string) => {
   await harness.sql`
-    insert into asset_price (asset_id, price_date, close, source, source_kind)
-    values (${ativo}, ${date}, ${close}, 'brapi', 'primary')
-    on conflict (asset_id, price_date) do update set close = excluded.close
+    INSERT INTO asset_price (asset_id, price_date, close, source, source_kind)
+    VALUES (${ativo}, ${date}, ${close}, 'brapi', 'primary')
+    ON CONFLICT (asset_id, price_date) DO UPDATE SET close = EXCLUDED.close
   `;
 };
 
 const registrarColeta = async (overrides: Record<string, unknown> = {}) => {
   await harness.sql`
-    insert into market_source_run (
+    INSERT INTO market_source_run (
       id, source, kind, reference_date, started_at, finished_at, ok, source_kind,
       requests, items, missing, error
     )
-    values (
-      gen_random_uuid(),
+    VALUES (
+      GEN_RANDOM_UUID(),
       ${String(overrides['source'] ?? 'brapi')},
       ${String(overrides['kind'] ?? 'quotes')}::market_run_kind,
       ${(overrides['reference_date'] ?? '2026-10-06') as string},
@@ -163,11 +163,11 @@ describe('situação dos dados de mercado', () => {
 
     // A posição do dia precisa existir para a consulta achar o papel sem preço.
     await harness.sql`
-      insert into position_daily (
+      INSERT INTO position_daily (
         portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
         market_value, price_source_kind
       )
-      values (
+      VALUES (
         ${carteira}, ${ativo}, '2026-10-01', 100, 30, 3000, 3000, 'fresh'
       )
     `;
@@ -191,6 +191,27 @@ describe('situação dos dados de mercado', () => {
     expect(body.sources).toEqual([]);
     expect(body.recent_failures).toEqual([]);
   });
+
+  it('os catálogos vazios aparecem como pendência, e sem demonstração tudo é zero', async () => {
+    const { body } = await request(harness.app).get(
+      '/api/market/health?on_date=2026-10-06',
+    );
+
+    const keys = body.catalogs.map((catalog: { key: string }) => catalog.key);
+    expect(keys).toEqual([
+      'institutions',
+      'instruments',
+      'treasury',
+      'indices',
+      'price_history',
+    ]);
+
+    const treasury = body.catalogs.find(
+      (catalog: { key: string }) => catalog.key === 'treasury',
+    );
+    expect(treasury).toMatchObject({ total: 0, state: 'pending' });
+    expect(body.demo).toEqual({ portfolios: 0, assets: 0, institutions: 0 });
+  });
 });
 
 describe('atualizar agora', () => {
@@ -201,11 +222,12 @@ describe('atualizar agora', () => {
 
     expect(response.status).toBe(202);
     expect(response.body.job_id).toMatch(/^[0-9a-f-]{36}$/u);
-    expect(response.body.dedupe_key).toBe('market:2026-10-06');
+    expect(response.body.dedupe_key).toBe('reset:2026-10-06');
     expect(response.body.already_queued).toBe(false);
+    expect(Date.parse(response.body.requested_at)).not.toBeNaN();
   });
 
-  it('dois pedidos seguidos viram uma coleta', async () => {
+  it('dois pedidos seguidos viram um reset', async () => {
     const primeiro = await request(harness.app).post('/api/market/refresh').send({});
     const segundo = await request(harness.app).post('/api/market/refresh').send({});
 
@@ -215,9 +237,9 @@ describe('atualizar agora', () => {
     // A compra do `beforeEach` criou um ativo novo, e isso já pediu o backfill
     // dele — que também é da fila de mercado. A conta é pela chave da coleta.
     const [total] = await harness.sql<{ total: string }[]>`
-      select count(*)::text as total
-        from pipeline_outbox
-       where dedupe_key = ${primeiro.body.dedupe_key as string}
+      SELECT COUNT(*)::TEXT AS total
+        FROM pipeline_outbox
+       WHERE dedupe_key = ${primeiro.body.dedupe_key as string}
     `;
     expect(Number(total?.total)).toBe(1);
   });

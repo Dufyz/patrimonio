@@ -13,7 +13,6 @@ import { portfolioLock } from './createTransaction.usecase.js';
 export type ConfirmPayoutInput = {
   /** O líquido que de fato caiu na conta, quando diferente do previsto. */
   readonly net_amount?: string | undefined;
-  readonly note?: string | undefined;
   readonly origin_request_id?: string | undefined;
 };
 
@@ -69,7 +68,6 @@ export const confirmPayout = (deps: ConfirmPayoutDeps) =>
           confirmed_at: deps.clock.now().toISOString(),
           net_amount: received,
           ...(diverged ? { expected_net_amount: found.net_amount } : {}),
-          ...(input.note === undefined ? {} : { note: input.note }),
         });
         if (updated.isFailure()) return updated;
         if (updated.value === null) {

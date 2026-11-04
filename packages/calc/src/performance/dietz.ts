@@ -23,9 +23,8 @@ import { calendarDaysBetween } from '../support/dates.js';
  * do meio do período também — e é por isso que a carteira, que tem cota, nunca
  * usa este método.
  *
- * Fluxo positivo é dinheiro que entrou na classe (compra, transferência
- * recebida); negativo é o que saiu (venda, amortização). Provento não é fluxo:
- * ele é resultado da classe que foi pago em caixa, e entra somando no numerador.
+ * Fluxo positivo é dinheiro que entrou na classe (compra); negativo é o que saiu (venda, amortização). Provento não é fluxo:
+ * ele é resultado da classe que saiu do patrimônio, e entra somando no numerador.
  */
 export type DietzFlow = {
   /** `YYYY-MM-DD`, dentro do período: depois da base e até o fim. */

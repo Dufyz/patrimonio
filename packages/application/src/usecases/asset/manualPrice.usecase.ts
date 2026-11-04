@@ -5,7 +5,11 @@ import { either, failure, success } from '@patrimonio/shared';
 import { BadRequestError, NotFoundError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
 import type { ManualPriceRepository } from '../../interfaces/manual_price.repository.js';
-import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
+import type {
+  TransactionalRepositories,
+  UnitOfWork,
+} from '../../interfaces/unit-of-work.js';
+import { recalcEventsFor } from '../market/collectMarketData.usecase.js';
 
 export type SetManualPriceInput = {
   readonly asset_id: string;
@@ -25,6 +29,23 @@ export type ManualPricePreview = {
   readonly previous_source: 'manual' | 'cost';
   readonly price: string;
   readonly position_value: { readonly before: string; readonly after: string };
+};
+
+/**
+ * O preço manual muda o valor da posição daquele dia em diante, e quem lê o
+ * gráfico e a consolidação é `position_daily` — que só o recálculo reescreve.
+ * Por isso gravar ou remover o preço pede o recálculo das carteiras que têm o
+ * ativo, na mesma transação: ou o preço e o pedido existem, ou nenhum existe.
+ */
+const requestRecalculation = async (
+  repositories: TransactionalRepositories,
+  assetId: string,
+  fromDate: DateOnly,
+) => {
+  const holdings = await repositories.ledger.portfoliosHoldingAsset(assetId);
+  if (holdings.isFailure()) return holdings;
+
+  return repositories.outbox.enqueue(recalcEventsFor(holdings.value, fromDate));
 };
 
 export type SetManualPriceResult = {
@@ -92,6 +113,13 @@ export const setManualPrice = (deps: ManualPriceDeps) =>
         });
         if (saved.isFailure()) return saved;
 
+        const queued = await requestRecalculation(
+          repositories,
+          input.asset_id,
+          input.price_date,
+        );
+        if (queued.isFailure()) return queued;
+
         return success({
           manual_price: saved.value,
           preview: {
@@ -125,6 +153,9 @@ export const deleteManualPrice = (deps: ManualPriceDeps) =>
             new NotFoundError(`Não há preço manual de ${assetId} em ${date}`),
           );
         }
+
+        const queued = await requestRecalculation(repositories, assetId, date);
+        if (queued.isFailure()) return queued;
 
         return success({ removed: true });
       },

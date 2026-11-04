@@ -20,9 +20,8 @@ describe('quem espera e quem não espera', () => {
     expect(coalesces('market')).toBe(true);
   });
 
-  it('fechamento, alertas, importação e backup não esperam: já têm hora', () => {
+  it('fechamento, importação e backup não esperam: já têm hora', () => {
     expect(coalesces('close')).toBe(false);
-    expect(coalesces('alerts')).toBe(false);
     expect(coalesces('import')).toBe(false);
     expect(coalesces('backup')).toBe(false);
   });

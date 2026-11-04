@@ -1,6 +1,16 @@
 import {
   archiveAssetSchema,
+  caixinhaRedemptionPlanSchema,
+  caixinhaResponseSchema,
+  getCaixinhaSchema,
+  previewCaixinhaRedemptionSchema,
+  redeemCaixinhaSchema,
   deleteManualPriceSchema,
+  deleteCustodyTransferSchema,
+  listCustodyTransfersResponseSchema,
+  listCustodyTransfersSchema,
+  transferCustodyResponseSchema,
+  transferCustodySchema,
   assetResourceSchema,
   createAssetSchema,
   deleteAssetSchema,
@@ -179,6 +189,113 @@ export const ASSET_ROUTE_DOCS: readonly RouteDoc[] = [
       },
       404: {
         description: 'Não há preço manual desse ativo nessa data.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'post',
+    path: '/portfolios/:portfolio_id/assets/:asset_id/custody-transfers',
+    tag: TAG,
+    summary: 'Transferir o ativo de uma instituição para outra',
+    request: transferCustodySchema,
+    responses: {
+      201: {
+        description:
+          'Transferido. A origem é a custódia atual; quantidade, preço médio, caixa e resultado não mudam.',
+        schema: transferCustodyResponseSchema,
+      },
+      400: {
+        description:
+          'Sem posição aberta, destino igual à custódia atual, data futura ou anterior ao último evento do ativo.',
+        schema: errorResponseSchema,
+      },
+      404: {
+        description: 'Carteira, ativo ou instituição inexistente.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'get',
+    path: '/portfolios/:portfolio_id/assets/:asset_id/custody-transfers',
+    tag: TAG,
+    summary: 'O histórico de custódia do ativo na carteira',
+    request: listCustodyTransfersSchema,
+    responses: {
+      200: {
+        description: 'Da transferência mais recente para a mais antiga.',
+        schema: listCustodyTransfersResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'delete',
+    path: '/portfolios/:portfolio_id/assets/:asset_id/custody-transfers/:transfer_id',
+    tag: TAG,
+    summary: 'Desfazer a transferência mais recente',
+    request: deleteCustodyTransferSchema,
+    responses: {
+      200: { description: 'Desfeita.', schema: z.object({ message: z.string() }) },
+      400: {
+        description: 'Há transferência posterior: desfaça as mais novas primeiro.',
+        schema: errorResponseSchema,
+      },
+      404: { description: 'Transferência inexistente.', schema: errorResponseSchema },
+    },
+  },
+  {
+    method: 'get',
+    path: '/portfolios/:portfolio_id/assets/:asset_id/caixinha',
+    tag: TAG,
+    summary: 'Lotes da caixinha numa data, com valor e IR de cada um',
+    request: getCaixinhaSchema,
+    responses: {
+      200: {
+        description:
+          'Cada aplicação aberta é um lote, marcado na curva a partir da própria data. ' +
+          'O IR é o estimado se o lote fosse resgatado na data.',
+        schema: caixinhaResponseSchema,
+      },
+      400: { description: 'O ativo não é uma caixinha.', schema: errorResponseSchema },
+      404: { description: 'Ativo não encontrado.', schema: errorResponseSchema },
+    },
+  },
+  {
+    method: 'post',
+    path: '/portfolios/:portfolio_id/assets/:asset_id/caixinha/redemptions/preview',
+    tag: TAG,
+    summary: 'Quais lotes um resgate consome e quanto cai na conta',
+    request: previewCaixinhaRedemptionSchema,
+    responses: {
+      200: {
+        description:
+          'O plano de consumo pela regra da caixinha. Pedido acima do disponível volta ' +
+          'com `insufficient` verdadeiro e nenhum lote consumido.',
+        schema: caixinhaRedemptionPlanSchema,
+      },
+      400: { description: 'O ativo não é uma caixinha.', schema: errorResponseSchema },
+    },
+  },
+  {
+    method: 'post',
+    path: '/portfolios/:portfolio_id/assets/:asset_id/caixinha/redemptions',
+    tag: TAG,
+    summary: 'Registrar resgate da caixinha',
+    request: redeemCaixinhaSchema,
+    responses: {
+      201: {
+        description:
+          'Gravado como venda do ativo: o principal consumido é a quantidade e o IR, a taxa.',
+        schema: z.object({
+          transaction: z.unknown(),
+          redemption: caixinhaRedemptionPlanSchema.nullable(),
+          recalculation: z.unknown(),
+          message: z.string(),
+        }),
+      },
+      400: {
+        description: 'Valor acima do disponível, ou ativo que não é caixinha.',
         schema: errorResponseSchema,
       },
     },

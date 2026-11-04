@@ -30,11 +30,10 @@ export type TransactionWrite = {
   readonly payout_kind?: PayoutKind | null | undefined;
   readonly expected_net_amount?: string | null | undefined;
   readonly record_date?: DateOnly | null | undefined;
+  readonly maturity_date?: DateOnly | null | undefined;
   readonly confirmed_at?: string | null | undefined;
-  readonly transfer_group_id?: string | null | undefined;
   readonly event_ratio_from?: string | null | undefined;
   readonly event_ratio_to?: string | null | undefined;
-  readonly note?: string | null | undefined;
   readonly idempotency_key?: string | null | undefined;
 };
 
@@ -58,11 +57,7 @@ export type TransactionPage = {
 };
 
 export type TransactionRepository = {
-  /**
-   * Um identificador novo. Gerar id é infraestrutura — UUID v7, crescente no
-   * tempo —, e o caso de uso precisa dele para ligar as duas pernas de uma
-   * transferência antes de gravá-las.
-   */
+  /** Um identificador novo. Gerar id é infraestrutura: UUID v7, crescente no tempo. */
   readonly nextId: () => string;
 
   readonly findById: (id: string) => Promise<Either<AppError, Transaction | null>>;
@@ -88,7 +83,7 @@ export type TransactionRepository = {
     filter: TransactionFilter,
   ) => Promise<Either<AppError, TransactionPage>>;
 
-  /** Uma consulta para N linhas: as duas pernas de uma transferência entram juntas. */
+  /** Uma consulta para N linhas. */
   readonly insertMany: (
     rows: readonly TransactionWrite[],
   ) => Promise<Either<AppError, Transaction[]>>;
@@ -100,12 +95,9 @@ export type TransactionRepository = {
 
   readonly remove: (id: string) => Promise<Either<AppError, Transaction | null>>;
 
-  /** As duas pernas de uma transferência saem ou ficam juntas. */
-  readonly removeByTransferGroup: (
-    groupId: string,
-  ) => Promise<Either<AppError, Transaction[]>>;
-
-  readonly findByTransferGroup: (
-    groupId: string,
-  ) => Promise<Either<AppError, Transaction[]>>;
+  /** Passa todos os lançamentos de um ativo para outra instituição; devolve quantos. */
+  readonly reassignInstitution: (
+    assetId: string,
+    institutionId: string,
+  ) => Promise<Either<AppError, number>>;
 };

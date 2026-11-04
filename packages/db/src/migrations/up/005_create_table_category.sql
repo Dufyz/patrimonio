@@ -1,42 +1,38 @@
--- Dois níveis: grupo (parent_id nulo) e categoria. O grupo é a soma das
--- categorias dentro dele.
-create table category (
-  id         uuid primary key,
-  parent_id  uuid references category (id) on delete restrict,
-  name       text not null,
-  color_token text not null,
-  auto_rule  jsonb,
-  sort_order integer not null default 0,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint category_not_own_parent check (parent_id is null or parent_id <> id)
+CREATE TABLE category (
+  id         UUID PRIMARY KEY,
+  parent_id  UUID REFERENCES category (id) ON DELETE RESTRICT,
+  name       TEXT NOT NULL,
+  color_token TEXT NOT NULL,
+  auto_rule  JSONB,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT category_not_own_parent CHECK (parent_id IS NULL OR parent_id <> id)
 );
 
--- Nome único dentro do mesmo nível; o UUID zero representa "sem pai".
-create unique index category_name_per_parent_idx
-  on category (coalesce(parent_id, '00000000-0000-0000-0000-000000000000'::uuid), lower(name));
+CREATE UNIQUE INDEX category_name_per_parent_idx
+  ON category (COALESCE(parent_id, '00000000-0000-0000-0000-000000000000'::UUID), LOWER(name));
 
-create index category_parent_idx on category (parent_id) where parent_id is not null;
+CREATE INDEX category_parent_idx ON category (parent_id) WHERE parent_id IS NOT NULL;
 
--- Dois níveis, não três: o pai de uma categoria precisa ser grupo.
-create or replace function assert_category_two_levels() returns trigger
-language plpgsql as $$
-begin
-  if new.parent_id is not null
-     and exists (select 1 from category c where c.id = new.parent_id and c.parent_id is not null)
-  then
-    raise exception 'categoria aceita dois níveis: o pai de %s já tem pai', new.name
-      using errcode = '23514';
-  end if;
+CREATE OR REPLACE FUNCTION assert_category_two_levels() RETURNS TRIGGER
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.parent_id IS NOT NULL
+     AND EXISTS (SELECT 1 FROM category c WHERE c.id = NEW.parent_id AND c.parent_id IS NOT NULL)
+  THEN
+    RAISE EXCEPTION 'category accepts two levels: the parent of %s already has a parent', NEW.name
+      USING ERRCODE = '23514';
+  END IF;
 
-  return new;
-end;
+  RETURN NEW;
+END;
 $$;
 
-create trigger category_two_levels
-  before insert or update on category
-  for each row execute function assert_category_two_levels();
+CREATE TRIGGER category_two_levels
+  BEFORE INSERT OR UPDATE ON category
+  FOR EACH ROW EXECUTE FUNCTION assert_category_two_levels();
 
-create trigger category_set_updated_at
-  before update on category
-  for each row execute function set_updated_at();
+CREATE TRIGGER category_set_updated_at
+  BEFORE UPDATE ON category
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();

@@ -68,6 +68,7 @@ export const SEMANTIC_COLORS = {
   contributions: 'var(--color-area-contributions)',
   return: 'var(--color-area-return)',
   loss: 'var(--color-area-loss)',
+  payouts: 'var(--color-area-payouts)',
 } as const;
 
 /**

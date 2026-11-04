@@ -23,7 +23,6 @@ import { NotFoundError } from '../../errors/app-error.js';
 import type { Clock } from '../../interfaces/clock.js';
 import type {
   GoalInflationRow,
-  GoalPortfolioRow,
   GoalRepository,
   GoalRow,
 } from '../../interfaces/goal.repository.js';
@@ -78,11 +77,10 @@ export type GetGoalsDeps = {
 };
 
 export type GetGoalsInput = {
-  /** Nulo é o consolidado. */
-  readonly portfolio_id: string | null;
+  readonly portfolio_id: string;
   readonly on_date?: DateOnly | undefined;
-  /** A taxa ao ano de cada objetivo, no lugar da premissa guardada. */
-  readonly rates?: Readonly<Record<string, string>> | undefined;
+  /** A taxa ao ano, no lugar da premissa guardada. */
+  readonly rate?: string | undefined;
 };
 
 export type GoalStatus = 'on_track' | 'behind' | 'overdue' | 'reached' | 'no_projection';
@@ -134,15 +132,8 @@ export type GoalResult = {
   readonly target_amount: string;
   readonly target_date: DateOnly;
   readonly amount_in_today_brl: boolean;
+  readonly return_assumption: string | null;
   readonly created_on: DateOnly;
-  readonly portfolios: {
-    readonly all: boolean;
-    readonly items: readonly {
-      readonly id: string;
-      readonly name: string;
-      readonly value: string | null;
-    }[];
-  };
   readonly current_value: string;
   readonly as_of: DateOnly | null;
   readonly progress_pct: string;
@@ -161,11 +152,10 @@ export type GoalResult = {
 
 export type GoalsResult = {
   readonly reference_date: DateOnly;
-  readonly scope: { readonly portfolio_id: string | null; readonly name: string };
-  readonly goals: readonly GoalResult[];
+  readonly scope: { readonly portfolio_id: string; readonly name: string };
+  readonly goal: GoalResult | null;
 };
 
-const ALL_PORTFOLIOS_NAME = 'Todas as carteiras';
 const PACE_MONTHS = 12;
 /** O IPCA de um ano inteiro: quase o ano, porque a divulgação tem atraso. */
 const INFLATION_GRACE_DAYS = 45;
@@ -206,7 +196,10 @@ const paceOf = (row: GoalRow, reference: DateOnly): GoalPace => {
  * O IPCA dos últimos doze meses, ou nada. Cobertura pela metade — três meses de
  * índice no banco — daria um percentual de três meses chamado de anual.
  */
-const inflationOf = (inflation: GoalInflationRow, reference: DateOnly): string | null => {
+export const inflationOf = (
+  inflation: GoalInflationRow,
+  reference: DateOnly,
+): string | null => {
   if (inflation.factor === null) return null;
   if (inflation.first_date === null || inflation.last_date === null) return null;
 
@@ -276,18 +269,7 @@ const rateOf = (
   };
 };
 
-const toPortfolios = (
-  row: GoalRow,
-): { readonly all: boolean; readonly items: GoalResult['portfolios']['items'] } => ({
-  all: !row.linked,
-  items: row.portfolios.map((portfolio: GoalPortfolioRow) => ({
-    id: portfolio.portfolio_id,
-    name: portfolio.name,
-    value: portfolio.value,
-  })),
-});
-
-const evaluate = (
+export const evaluate = (
   row: GoalRow,
   reference: DateOnly,
   override: string | undefined,
@@ -303,8 +285,8 @@ const evaluate = (
     target_amount: row.target_amount,
     target_date: row.target_date,
     amount_in_today_brl: row.amount_in_today_brl,
+    return_assumption: row.return_assumption,
     created_on: row.created_on,
-    portfolios: toPortfolios(row),
     current_value: row.current_value,
     as_of: row.as_of,
     progress_pct: standing.progress_pct,
@@ -423,7 +405,7 @@ export const getGoals = (deps: GetGoalsDeps) =>
       on_date: reference,
     });
 
-    if (input.portfolio_id !== null && snapshot.scope_portfolio === null) {
+    if (snapshot.scope_portfolio === null) {
       return yield* failure(
         new NotFoundError(`Carteira ${input.portfolio_id} não encontrada`),
       );
@@ -435,11 +417,12 @@ export const getGoals = (deps: GetGoalsDeps) =>
       reference_date: reference,
       scope: {
         portfolio_id: input.portfolio_id,
-        name: snapshot.scope_portfolio?.name ?? ALL_PORTFOLIOS_NAME,
+        name: snapshot.scope_portfolio.name,
       },
-      goals: snapshot.goals.map((row) =>
-        evaluate(row, reference, input.rates?.[row.goal_id], inflation),
-      ),
+      goal:
+        snapshot.goal === null
+          ? null
+          : evaluate(snapshot.goal, reference, input.rate, inflation),
     };
 
     return result;

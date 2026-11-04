@@ -2,16 +2,11 @@ import type { PerformanceResource } from '@patrimonio/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
-  CSV_BOM,
   addBenchmark,
   availableToAdd,
   benchmarkColor,
   chartSeries,
-  csvFilename,
-  decompositionCsv,
   extraBenchmarks,
-  gridYears,
-  methodLines,
   removeBenchmark,
   shortMonth,
   windowLabel,
@@ -70,6 +65,7 @@ describe('a escolha de benchmarks', () => {
         available: [CDI, IBOV, IPCA],
         selected: [CDI, IBOV],
         primary_id: 'b1',
+        gaps: [],
       }),
     ).toEqual([IPCA]);
   });
@@ -102,109 +98,5 @@ describe('o gráfico', () => {
     const series = chartSeries({ ...chart, benchmarks: [] }, [CDI], 'Longo prazo');
 
     expect(series).toHaveLength(1);
-  });
-});
-
-describe('a grade mensal', () => {
-  it('retorno vira razão e a diferença continua em pontos', () => {
-    const [year] = gridYears({
-      benchmark_name: 'CDI',
-      years: [
-        {
-          year: 2026,
-          months: ['1.00', null, ...Array<null>(10).fill(null)],
-          total_pct: '11.58',
-          benchmark_pct: '7.10',
-          difference_pp: '4.48',
-          partial: true,
-        },
-      ],
-    });
-
-    expect(year?.months[0]).toBe('0.0100');
-    expect(year?.months[1]).toBeNull();
-    expect(year?.total).toBe('0.1158');
-    expect(year?.extras).toEqual(['0.0710', '4.48']);
-    expect(year?.partial).toBe(true);
-  });
-});
-
-describe('o método', () => {
-  const method = {
-    portfolio: 'portfolio_quota',
-    class: 'modified_dietz',
-    benchmark: 'compound_daily_factors',
-    annualized: false,
-  } as const;
-
-  it('declara os quatro números e diz que nada é anualizado', () => {
-    const lines = methodLines(method);
-
-    expect(lines.map((line) => line.label)).toEqual([
-      'Carteira',
-      'Classes',
-      'Benchmarks',
-      'Janelas',
-    ]);
-    expect(lines[3]?.text).toMatch(/nada é anualizado/);
-  });
-
-  it('o consolidado diz que a cota é construída', () => {
-    const [carteira] = methodLines({ ...method, portfolio: 'consolidated_quota' });
-
-    expect(carteira?.text).toMatch(/cota construída/);
-  });
-});
-
-describe('o CSV', () => {
-  const decomposition: PerformanceResource['decomposition'] = {
-    benchmark_name: 'CDI',
-    rows: [
-      {
-        month: '2026-06',
-        opening_value: '1000.00',
-        net_flow: '100.00',
-        income: '50.50',
-        payouts: '10.00',
-        closing_value: '1150.50',
-        return_pct: '4.80',
-        benchmark_pct: null,
-        difference_pp: null,
-      },
-    ],
-    total: {
-      months: 1,
-      from: '2026-06-01',
-      to: '2026-06-30',
-      opening_value: '1000.00',
-      net_flow: '100.00',
-      income: '50.50',
-      payouts: '10.00',
-      closing_value: '1150.50',
-      return_pct: '4.80',
-      benchmark_pct: null,
-      difference_pp: null,
-    },
-  };
-
-  it('usa ponto e vírgula e vírgula decimal, com o valor inteiro da api', () => {
-    const [header, row, total] = decompositionCsv(decomposition).split('\r\n');
-
-    expect(header).toContain('"Saldo inicial"');
-    expect(row).toBe(
-      '"jun/26";"1000,00";"100,00";"50,50";"10,00";"1150,50";"4,80";"";""',
-    );
-    expect(total?.startsWith('"1 meses"')).toBe(true);
-  });
-
-  it('sem total, não há linha de total', () => {
-    expect(
-      decompositionCsv({ ...decomposition, total: null }).split('\r\n'),
-    ).toHaveLength(2);
-  });
-
-  it('o arquivo tem nome com a data e começa com BOM para a planilha', () => {
-    expect(csvFilename('2026-10-09')).toBe('desempenho-2026-10-09.csv');
-    expect(CSV_BOM).toBe('﻿');
   });
 });

@@ -1,7 +1,9 @@
 import { useId, useMemo, useRef, useState } from 'react';
 
 import { Compact } from './number.js';
+import { SearchInput } from './primitives.js';
 import { useDismiss } from './use_dismiss.js';
+import { Icon } from './icon.js';
 
 /**
  * D-12 · Seletor com busca.
@@ -113,7 +115,7 @@ export const SearchSelect = ({
       >
         <span className="truncate">{selected?.label ?? placeholder}</span>
         <span aria-hidden="true" className="text-ink-3">
-          ⌄
+          <Icon name="chevron-down" />
         </span>
       </button>
 
@@ -123,16 +125,15 @@ export const SearchSelect = ({
           onKeyDown={onKeyDown}
         >
           {withSearch ? (
-            <input
-              type="search"
+            <SearchInput
+              inline
               autoFocus
               value={query}
               placeholder={placeholder}
-              aria-label={`${label}: filtrar`}
+              label={`${label}: filtrar`}
               aria-controls={listId}
-              className="h-control w-full border-b border-line bg-transparent px-3 text-sm outline-none"
-              onChange={(event) => {
-                setQuery(event.target.value);
+              onChange={(next) => {
+                setQuery(next);
                 setActive(0);
               }}
             />
@@ -173,7 +174,7 @@ export const SearchSelect = ({
                     {option.value === undefined ? null : <Compact value={option.value} />}
                     {option.id === value ? (
                       <span aria-hidden="true" className="text-accent">
-                        ✓
+                        <Icon name="check" />
                       </span>
                     ) : null}
                   </span>

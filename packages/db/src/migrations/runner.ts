@@ -101,11 +101,11 @@ const ensureSchemaTable = async (
   sql: postgres.Sql<Record<string, never>>,
 ): Promise<void> => {
   await sql`
-    create table if not exists ${sql(SCHEMA_TABLE)} (
-      name        text        primary key,
-      checksum    text        not null,
-      applied_at  timestamptz not null default now(),
-      duration_ms integer     not null
+    CREATE TABLE IF NOT EXISTS ${sql(SCHEMA_TABLE)} (
+      name        TEXT        PRIMARY KEY,
+      checksum    TEXT        NOT NULL,
+      applied_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      duration_ms INTEGER     NOT NULL
     )
   `;
 };
@@ -114,9 +114,9 @@ const listApplied = async (
   sql: postgres.Sql<Record<string, never>>,
 ): Promise<AppliedMigration[]> => {
   const rows = await sql<AppliedMigration[]>`
-    select name, checksum, applied_at, duration_ms
-      from ${sql(SCHEMA_TABLE)}
-     order by name
+    SELECT name, checksum, applied_at, duration_ms
+      FROM ${sql(SCHEMA_TABLE)}
+     ORDER BY name
   `;
 
   return [...rows];
@@ -173,12 +173,12 @@ export const runMigrations = async (
 
       await sql.begin(async (tx) => {
         // Duas subidas simultâneas não aplicam a mesma migration.
-        await tx`select pg_advisory_xact_lock(hashtextextended('patrimonio:migrate', 0))`;
+        await tx`SELECT PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED('patrimonio:migrate', 0))`;
         await tx.unsafe(migration.up);
         const duration = Date.now() - started;
         await tx`
-          insert into ${tx(SCHEMA_TABLE)} (name, checksum, duration_ms)
-          values (${migration.name}, ${migration.checksum}, ${duration})
+          INSERT INTO ${tx(SCHEMA_TABLE)} (name, checksum, duration_ms)
+          VALUES (${migration.name}, ${migration.checksum}, ${duration})
         `;
       });
 
@@ -219,9 +219,9 @@ export const rollbackMigrations = async (
       const started = Date.now();
 
       await sql.begin(async (tx) => {
-        await tx`select pg_advisory_xact_lock(hashtextextended('patrimonio:migrate', 0))`;
+        await tx`SELECT PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED('patrimonio:migrate', 0))`;
         await tx.unsafe(migration.down);
-        await tx`delete from ${tx(SCHEMA_TABLE)} where name = ${migration.name}`;
+        await tx`DELETE FROM ${tx(SCHEMA_TABLE)} WHERE name = ${migration.name}`;
       });
 
       names.push(migration.name);

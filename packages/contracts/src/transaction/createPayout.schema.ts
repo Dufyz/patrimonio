@@ -4,7 +4,6 @@ import {
   dateOnly,
   decimalString,
   nonNegativeDecimal,
-  optionalText,
   positiveDecimal,
   uuid,
 } from '../support/primitives.schema.js';
@@ -27,7 +26,6 @@ export const createPayoutSchema = z.object({
       amount_per_share: positiveDecimal.optional(),
       gross_amount: positiveDecimal.optional(),
       tax_withheld: nonNegativeDecimal.optional(),
-      note: optionalText.optional(),
       /** Sem isso, o que já venceu entra confirmado e o futuro fica a receber. */
       confirmed: z.boolean().optional(),
     })

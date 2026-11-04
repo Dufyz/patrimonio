@@ -89,7 +89,7 @@ export const MonthYearGrid = ({
           <tr className="border-b border-line">
             <th
               scope="col"
-              className="w-20 px-2 pb-2 text-left text-label tracking-wide text-ink-3 uppercase"
+              className="w-20 px-2 pb-2 text-left tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase"
             >
               Ano
             </th>
@@ -97,14 +97,14 @@ export const MonthYearGrid = ({
               <th
                 key={month}
                 scope="col"
-                className="px-1 pb-2 text-center text-label tracking-wide text-ink-3 uppercase"
+                className="px-1 pb-2 text-center tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase"
               >
                 {month}
               </th>
             ))}
             <th
               scope="col"
-              className="w-24 border-l border-line px-2 pb-2 text-right text-label tracking-wide text-ink-3 uppercase"
+              className="w-24 border-l border-line px-2 pb-2 text-right tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase"
             >
               {totalHeader}
             </th>
@@ -112,7 +112,7 @@ export const MonthYearGrid = ({
               <th
                 key={header}
                 scope="col"
-                className="w-24 px-2 pb-2 text-right text-label tracking-wide text-ink-3 uppercase"
+                className="w-24 px-2 pb-2 text-right tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase"
               >
                 {header}
               </th>

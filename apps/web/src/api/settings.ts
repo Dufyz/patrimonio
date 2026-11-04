@@ -5,7 +5,7 @@ import { request } from './client.js';
 /**
  * T-08 · A tela de Configurações, em duas chamadas.
  *
- * `GET /api/settings` entrega as seções de cadastro — carteiras, alertas,
+ * `GET /api/settings` entrega as seções de cadastro — carteiras,
  * categorias, instituições, benchmarks, padrões de lançamento e backup — de uma
  * vez. Os dados de mercado têm a rota deles (`api/market.ts`), porque mudam por
  * conta própria enquanto uma coleta roda e precisam de releitura própria.

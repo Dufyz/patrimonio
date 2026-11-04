@@ -38,7 +38,6 @@ export type CreatePayoutInput = {
   readonly gross_amount?: string | undefined;
   /** Calculado para JCP quando não vem. */
   readonly tax_withheld?: string | undefined;
-  readonly note?: string | undefined;
   readonly confirmed?: boolean | undefined;
   readonly idempotency_key?: string | undefined;
   readonly origin_request_id?: string | undefined;
@@ -141,7 +140,6 @@ export const preparePayout = async (
     tax_withheld: tax,
     payout_kind: input.payout_kind,
     record_date: input.record_date,
-    ...(input.note === undefined ? {} : { note: input.note }),
   });
 
   return success({
@@ -213,7 +211,6 @@ export const createPayout = (deps: CreatePayoutDeps) =>
           payout_kind: input.payout_kind,
           record_date: input.record_date,
           confirmed_at: confirmed ? deps.clock.now().toISOString() : null,
-          ...(input.note === undefined ? {} : { note: input.note }),
           ...(input.idempotency_key === undefined
             ? {}
             : { idempotency_key: input.idempotency_key }),

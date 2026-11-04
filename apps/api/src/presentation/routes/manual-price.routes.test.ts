@@ -121,4 +121,30 @@ describe('preço manual', () => {
     const lista = await request(harness.app).get(`/api/assets/${knri11}/manual-prices`);
     expect(lista.body.manual_prices).toHaveLength(0);
   });
+
+  it('gravar o preço enfileira o recálculo da carteira a partir da data do preço', async () => {
+    await harness.sql`DELETE FROM pipeline_outbox`;
+
+    await definirPreco({});
+
+    const eventos = await harness.sql<{ portfolio_id: string; from_date: string }[]>`
+      SELECT payload ->> 'portfolio_id' AS portfolio_id,
+             payload ->> 'from_date' AS from_date
+        FROM pipeline_outbox WHERE stage = 'recalc'
+    `;
+    expect(eventos).toEqual([{ portfolio_id: carteira, from_date: '2026-10-06' }]);
+  });
+
+  it('remover o preço enfileira o recálculo, para a posição voltar ao que valia', async () => {
+    await definirPreco({});
+    await harness.sql`DELETE FROM pipeline_outbox`;
+
+    await request(harness.app).delete(`/api/assets/${knri11}/manual-price/2026-10-06`);
+
+    const [evento] = await harness.sql<{ from_date: string }[]>`
+      SELECT payload ->> 'from_date' AS from_date
+        FROM pipeline_outbox WHERE stage = 'recalc'
+    `;
+    expect(evento?.from_date).toBe('2026-10-06');
+  });
 });

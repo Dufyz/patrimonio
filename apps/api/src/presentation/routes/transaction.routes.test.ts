@@ -31,7 +31,7 @@ beforeEach(async () => {
     .post('/api/portfolios')
     .send({ name: 'Longo prazo' });
   carteira = criada.body.portfolio.id;
-  corretora = await seedInstitution(harness.sql, 'Corretora A', { brokerage: '4.90' });
+  corretora = await seedInstitution(harness.sql, 'Corretora A');
 });
 
 const lancar = (body: Record<string, unknown>) =>
@@ -75,6 +75,25 @@ describe('compra', () => {
     expect(ativos.body.assets[0].origin).toBe('market');
   });
 
+  it('o título do Tesouro nasce com indexador e vencimento do próprio código', async () => {
+    const response = await lancar({
+      asset: {
+        ticker: 'TD-IPCA-20350515',
+        name: 'Tesouro IPCA+ 2035',
+        b3_type: 'treasury',
+      },
+    });
+
+    expect(response.status).toBe(201);
+    const ativos = await request(harness.app).get('/api/assets?search=TD-IPCA');
+    expect(ativos.body.assets[0]).toMatchObject({
+      origin: 'market',
+      b3_type: 'treasury',
+      indexer: 'ipca_plus',
+      maturity_date: '2035-05-15',
+    });
+  });
+
   it('o valor bruto e o líquido são calculados, não digitados', async () => {
     const response = await lancar({ fees: '4.90' });
 
@@ -83,16 +102,16 @@ describe('compra', () => {
     expect(response.body.transaction.net_amount).toBe('-3688.90');
   });
 
-  it('a taxa vem da regra da instituição quando não é informada', async () => {
+  it('sem taxa informada, a taxa é zero', async () => {
     const response = await lancar({});
 
-    expect(response.body.transaction.fees).toBe('4.90');
+    expect(response.body.transaction.fees).toBe('0.00');
   });
 
-  it('a taxa informada no corpo sobrescreve a sugestão', async () => {
-    const response = await lancar({ fees: '0' });
+  it('a taxa informada no corpo é a gravada', async () => {
+    const response = await lancar({ fees: '2.50' });
 
-    expect(response.body.transaction.fees).toBe('0.00');
+    expect(response.body.transaction.fees).toBe('2.50');
   });
 
   it('a liquidação de ação é sugerida em D+2 dias úteis', async () => {
@@ -121,8 +140,8 @@ describe('compra', () => {
     expect(response.body.recalculation.already_queued).toBe(false);
 
     const [evento] = await harness.sql<{ from_date: string; stage: string }[]>`
-      select stage, payload ->> 'from_date' as from_date
-        from pipeline_outbox where stage = 'recalc'
+      SELECT stage, payload ->> 'from_date' AS from_date
+        FROM pipeline_outbox WHERE stage = 'recalc'
     `;
     expect(evento?.from_date).toBe('2026-10-06');
   });
@@ -133,14 +152,14 @@ describe('compra', () => {
     await lancar({ trade_date: '2026-10-02' });
 
     const [recalcs] = await harness.sql<{ total: string }[]>`
-      select count(*)::text as total from pipeline_outbox where stage = 'recalc'
+      SELECT COUNT(*)::TEXT AS total FROM pipeline_outbox WHERE stage = 'recalc'
     `;
     expect(Number(recalcs?.total)).toBe(1);
 
     // E o from_date recua para a data mais antiga pedida na rajada.
     const [evento] = await harness.sql<{ from_date: string }[]>`
-      select payload ->> 'from_date' as from_date
-        from pipeline_outbox where stage = 'recalc'
+      SELECT payload ->> 'from_date' AS from_date
+        FROM pipeline_outbox WHERE stage = 'recalc'
     `;
     expect(evento?.from_date).toBe('2026-10-02');
   });
@@ -149,8 +168,8 @@ describe('compra', () => {
     await lancar({});
 
     const [backfills] = await harness.sql<{ total: string }[]>`
-      select count(*)::text as total
-        from pipeline_outbox where dedupe_key like 'backfill:%'
+      SELECT COUNT(*)::TEXT AS total
+        FROM pipeline_outbox WHERE dedupe_key LIKE 'backfill:%'
     `;
     expect(Number(backfills?.total)).toBe(1);
   });
@@ -194,7 +213,7 @@ describe('venda', () => {
 });
 
 describe('preview', () => {
-  it('mostra quantidade, preço médio, peso e caixa antes e depois', async () => {
+  it('mostra quantidade, preço médio, e peso antes e depois', async () => {
     await lancar({ fees: '0' });
 
     const response = await preview({ quantity: '100', unit_price: '40.00', fees: '0' });
@@ -204,7 +223,6 @@ describe('preview', () => {
     expect(body.position.quantity.before).toBe('100.00000000');
     expect(body.position.quantity.after).toBe('200.00000000');
     expect(body.position.avg_price.after).toBe('38.42000000');
-    expect(body.cash.after).toBe('-7684.00');
   });
 
   it('o preview não grava nada: nem o lançamento, nem o ativo novo', async () => {
@@ -226,7 +244,6 @@ describe('preview', () => {
     const gravado = await lancar({ fees: '0' });
 
     expect(gravado.body.preview.position).toEqual(antes.body.preview.position);
-    expect(gravado.body.preview.cash).toEqual(antes.body.preview.cash);
     expect(gravado.body.preview.total_amount).toBe(antes.body.preview.total_amount);
   });
 });

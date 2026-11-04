@@ -39,20 +39,20 @@ export const createPriceRepository = (sql: Connection): PriceRepository => ({
 
     try {
       const rows = await sql<Row[]>`
-        select distinct on (asset_id) asset_id, price_date, close, manual
-          from (
-            select asset_id, price_date, close, false as manual
-              from asset_price
-             where asset_id = any(${sql.array([...assetIds])}::uuid[])
-               and price_date <= ${date}
-            union all
-            select asset_id, price_date, price as close, true as manual
-              from manual_price
-             where asset_id = any(${sql.array([...assetIds])}::uuid[])
-               and price_date <= ${date}
-          ) as prices
+        SELECT DISTINCT ON (asset_id) asset_id, price_date, close, manual
+          FROM (
+            SELECT asset_id, price_date, close, FALSE AS manual
+              FROM asset_price
+             WHERE asset_id = ANY(${sql.array([...assetIds])}::UUID[])
+               AND price_date <= ${date}
+            UNION ALL
+            SELECT asset_id, price_date, price AS close, TRUE AS manual
+              FROM manual_price
+             WHERE asset_id = ANY(${sql.array([...assetIds])}::UUID[])
+               AND price_date <= ${date}
+          ) AS prices
          -- Mesma data: o manual vence, porque foi uma decisão do usuário.
-         order by asset_id, price_date desc, manual desc
+         ORDER BY asset_id, price_date DESC, manual DESC
       `;
 
       return success(rows.map((row) => parsePriceAt(row)));
@@ -70,19 +70,19 @@ export const createPriceRepository = (sql: Connection): PriceRepository => ({
 
     try {
       const rows = await sql<Row[]>`
-        select distinct on (asset_id, price_date) asset_id, price_date, close, manual
-          from (
-            select asset_id, price_date, close, false as manual
-              from asset_price
-             where asset_id = any(${sql.array([...assetIds])}::uuid[])
-               and price_date between ${from} and ${to}
-            union all
-            select asset_id, price_date, price as close, true as manual
-              from manual_price
-             where asset_id = any(${sql.array([...assetIds])}::uuid[])
-               and price_date between ${from} and ${to}
-          ) as prices
-         order by asset_id, price_date, manual desc
+        SELECT DISTINCT ON (asset_id, price_date) asset_id, price_date, close, manual
+          FROM (
+            SELECT asset_id, price_date, close, FALSE AS manual
+              FROM asset_price
+             WHERE asset_id = ANY(${sql.array([...assetIds])}::UUID[])
+               AND price_date BETWEEN ${from} AND ${to}
+            UNION ALL
+            SELECT asset_id, price_date, price AS close, TRUE AS manual
+              FROM manual_price
+             WHERE asset_id = ANY(${sql.array([...assetIds])}::UUID[])
+               AND price_date BETWEEN ${from} AND ${to}
+          ) AS prices
+         ORDER BY asset_id, price_date, manual DESC
       `;
 
       return success(rows.map((row) => parsePriceAt(row)));
@@ -96,11 +96,11 @@ export const createPriceRepository = (sql: Connection): PriceRepository => ({
 
     try {
       const rows = await sql<Row[]>`
-        select *
-          from index_quote
-         where index_code = any(${sql.array([...indexCodes])}::text[])
-           and quote_date between ${from} and ${to}
-         order by index_code, quote_date
+        SELECT *
+          FROM index_quote
+         WHERE index_code = ANY(${sql.array([...indexCodes])}::TEXT[])
+           AND quote_date BETWEEN ${from} AND ${to}
+         ORDER BY index_code, quote_date
       `;
 
       return success(rows.map((row) => parseIndexQuoteFromDB(row)));
@@ -117,19 +117,19 @@ export const createPriceRepository = (sql: Connection): PriceRepository => ({
   assetsWithoutPriceOn: async (date: DateOnly) => {
     try {
       const rows = await sql<{ asset_id: string }[]>`
-        select distinct position.asset_id
-          from position_daily as position
-          join asset on asset.id = position.asset_id
-         where position.position_date = (
-                 select max(position_date) from position_daily
-                  where position_date <= ${date}
+        SELECT DISTINCT position.asset_id
+          FROM position_daily AS position
+          JOIN asset ON asset.id = position.asset_id
+         WHERE position.position_date = (
+                 SELECT MAX(position_date) FROM position_daily
+                  WHERE position_date <= ${date}
                )
-           and position.quantity <> 0
-           and asset.price_source = 'auto'
-           and not exists (
-                 select 1 from asset_price
-                  where asset_price.asset_id = position.asset_id
-                    and asset_price.price_date = ${date}
+           AND position.quantity <> 0
+           AND asset.price_source = 'auto'
+           AND NOT EXISTS (
+                 SELECT 1 FROM asset_price
+                  WHERE asset_price.asset_id = position.asset_id
+                    AND asset_price.price_date = ${date}
                )
       `;
 

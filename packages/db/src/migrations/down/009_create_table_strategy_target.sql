@@ -1,2 +1,2 @@
-drop table if exists strategy_target;
-drop function if exists assert_strategy_targets_sum_100();
+DROP TABLE IF EXISTS strategy_target;
+DROP FUNCTION IF EXISTS assert_strategy_targets_sum_100();

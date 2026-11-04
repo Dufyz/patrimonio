@@ -1,5 +1,5 @@
 import { applyLedger } from '@patrimonio/calc';
-import { assetClassFor, indexForIndexer, isIndexer } from '@patrimonio/domain';
+import { addDays, assetClassFor, indexForIndexer, isIndexer } from '@patrimonio/domain';
 import type { Asset, DateOnly } from '@patrimonio/domain';
 import { failure, success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
@@ -43,6 +43,9 @@ const fixedIncomeOf = (asset: Asset): FixedIncomeTerms | null => {
     rate: asset.rate,
     issued_at: asset.issued_at,
     maturity_date: asset.maturity_date,
+    redemption_rule: asset.redemption_rule,
+    lot_matured_only: asset.liquidity === 'at_maturity',
+    lot_term_months: asset.lot_term_months,
   };
 };
 
@@ -51,8 +54,6 @@ export const closeAssetOf = (asset: Asset): CloseAsset => ({
   ticker: asset.ticker,
   b3_type: asset.b3_type,
   category_id: asset.category_id,
-  // No caixa, o emissor é a própria instituição onde o dinheiro está.
-  institution_id: asset.b3_type === 'cash' ? asset.issuer_id : null,
   fixed_income: fixedIncomeOf(asset),
 });
 
@@ -61,6 +62,9 @@ const toPriceOn = (price: PriceAt): PriceOn => ({
   close: price.close,
   manual: price.manual,
 });
+
+/** Dias de folga no calendário depois do último fechamento. */
+const CALENDAR_LOOKAHEAD_DAYS = 10;
 
 export type LoadRecalculationParams = {
   readonly portfolio_id: string;
@@ -104,9 +108,11 @@ export const loadRecalculationContext = async (
   // O intervalo a reconstruir é de `from_date` para frente; o calendário vai desde
   // o lançamento mais antigo, porque o fator acumulado da curva conta os dias
   // úteis anteriores ao intervalo.
+  // Uma folga depois do último dia: o fechamento da renda fixa usa o fator do dia
+  // útil seguinte, e o fim de semana ou feriado prolongado pede alguns dias.
   const calendar = await repositories.businessDays.listBetween(
     oldest,
-    params.through_date,
+    addDays(params.through_date, CALENDAR_LOOKAHEAD_DAYS),
   );
   if (calendar.isFailure()) return calendar;
 
@@ -201,7 +207,7 @@ export const loadRecalculationContext = async (
  * As vendas de renda variável de **todas** as carteiras, que é o escopo da
  * apuração: o limite de isenção olha a soma das vendas do mês, não da carteira.
  *
- * Renda fixa, Tesouro e caixa ficam de fora: o IR deles é retido na fonte e não
+ * Renda fixa e Tesouro ficam de fora: o IR deles é retido na fonte e não
  * entra na apuração mensal.
  */
 export const loadTaxSales = async (
