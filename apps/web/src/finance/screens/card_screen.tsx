@@ -5,6 +5,7 @@ import { Button, IconButton } from '../../components/primitives.js';
 import { Amount } from '../components/amount.js';
 import { CardItemDialog } from '../components/card_item_dialog.js';
 import { ConfirmDialog } from '../components/entry_confirms.js';
+import { PayInvoiceDialog } from '../components/pay_invoice_dialog.js';
 import { InvoiceList } from '../components/invoice_list.js';
 import { InvoiceStatement } from '../components/invoice_statement.js';
 import { CardDialog } from '../components/card_dialog.js';
@@ -23,6 +24,7 @@ import {
   paymentOf,
   vigenteKey,
 } from '../domain/cards.js';
+import { payBlockedReason, payInvoice } from '../domain/invoice_ops.js';
 import { deleteCardItem, updateCardItem } from '../domain/card_item_ops.js';
 import {
   addEntry,
@@ -60,7 +62,7 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
   const navigate = useNavigate();
   const { today } = useFinancePeriod();
   const [search, setSearch] = useSearchParams();
-  const [dialog, setDialog] = useState<'edit' | 'entry' | null>(null);
+  const [dialog, setDialog] = useState<'edit' | 'entry' | 'pay' | null>(null);
   const [editingLine, setEditingLine] = useState<InvoiceLine | null>(null);
   const [deletingLine, setDeletingLine] = useState<InvoiceLine | null>(null);
 
@@ -125,6 +127,15 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
             </div>
             <StatusTag status={invoice.status} />
           </div>
+          {invoice.status === 'paga' ? null : (
+            <Button
+              variant="primary"
+              disabled={payBlockedReason(data, card.id, key, today) !== null}
+              onClick={() => setDialog('pay')}
+            >
+              Pagar fatura
+            </Button>
+          )}
         </header>
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-5">
           <span
@@ -203,6 +214,19 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
         </ConfirmDialog>
       )}
 
+      {dialog === 'pay' ? (
+        <PayInvoiceDialog
+          data={data}
+          cardId={card.id}
+          invoice={key}
+          today={today}
+          onClose={() => setDialog(null)}
+          onConfirm={(date) => {
+            store.set((current) => payInvoice(current, card.id, key, date, today));
+            setDialog(null);
+          }}
+        />
+      ) : null}
       {dialog === 'edit' ? (
         <CardDialog
           data={data}

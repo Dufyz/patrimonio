@@ -64,3 +64,27 @@ describe('totais das pranchas (RN-44, RN-47, RN-48)', () => {
     );
   });
 });
+
+import { payInvoice } from './invoice_ops.js';
+import { accountBalance, accountLines } from './accounts.js';
+
+describe('pagar fatura (RN-50, CE-04)', () => {
+  const paid = payInvoice(data, 'itau-visa', '2026-10', TODAY, TODAY);
+
+  it('debita a conta, aparece no extrato como fatura e não cria despesa', () => {
+    expect(accountBalance(paid, 'itau-corrente', TODAY)).toBe(
+      accountBalance(data, 'itau-corrente', TODAY) - 140010,
+    );
+    expect(
+      accountLines(paid, 'itau-corrente', TODAY).some(
+        (l) => l.tags[0] === 'fatura' && l.cents === -140010,
+      ),
+    ).toBe(true);
+    expect(paid.entries).toEqual(data.entries);
+  });
+
+  it('não paga duas vezes nem fatura prevista', () => {
+    expect(payInvoice(paid, 'itau-visa', '2026-10', TODAY, TODAY)).toBe(paid);
+    expect(payInvoice(data, 'nubank-master', '2026-12', TODAY, TODAY)).toBe(data);
+  });
+});

@@ -18,12 +18,14 @@ import {
   Th,
   THead,
 } from '../components/fin_table.js';
+import { PayInvoiceDialog } from '../components/pay_invoice_dialog.js';
 import { CardDialog } from '../components/card_dialog.js';
 import { UpcomingInvoices } from '../components/upcoming_invoices.js';
 import { LimitBar } from '../components/limit_bar.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { StatusTag } from '../components/tags.js';
+import { payInvoice } from '../domain/invoice_ops.js';
 import { addCard, updateCard } from '../domain/card_ops.js';
 import { cardSummary, openInvoicesTotal } from '../domain/cards.js';
 import type { CardSummary } from '../domain/cards.js';
@@ -84,6 +86,7 @@ export const CardsScreen = (): React.ReactElement => {
   const [editing, setEditing] = useState<
     { readonly type: 'new' } | { readonly type: 'edit'; readonly card: Card } | null
   >(null);
+  const [paying, setPaying] = useState<CardSummary | null>(null);
   const summaries = data.cards.map((card) => cardSummary(data, card, today));
   const total = openInvoicesTotal(summaries);
   const next = nextDue(summaries);
@@ -135,6 +138,7 @@ export const CardsScreen = (): React.ReactElement => {
                   rows={group.rows}
                   today={today}
                   onEdit={(card) => setEditing({ type: 'edit', card })}
+                  onPay={setPaying}
                 />
               );
             })}
@@ -153,6 +157,22 @@ export const CardsScreen = (): React.ReactElement => {
       </section>
 
       <UpcomingInvoices data={data} today={today} />
+
+      {paying === null ? null : (
+        <PayInvoiceDialog
+          data={data}
+          cardId={paying.card.id}
+          invoice={paying.invoice.key}
+          today={today}
+          onClose={() => setPaying(null)}
+          onConfirm={(date) => {
+            store.set((current) =>
+              payInvoice(current, paying.card.id, paying.invoice.key, date, today),
+            );
+            setPaying(null);
+          }}
+        />
+      )}
 
       {editing === null ? null : (
         <CardDialog
@@ -179,17 +199,25 @@ const GroupRows = ({
   rows,
   today,
   onEdit,
+  onPay,
 }: {
   readonly label: string;
   readonly sum: number;
   readonly rows: readonly CardSummary[];
   readonly today: string;
   readonly onEdit: (card: Card) => void;
+  readonly onPay: (item: CardSummary) => void;
 }): React.ReactElement => (
   <>
     <SectionRow colSpan={6} label={label} summary={formatBRL(sum)} />
     {rows.map((item) => (
-      <CardRow key={item.card.id} item={item} today={today} onEdit={onEdit} />
+      <CardRow
+        key={item.card.id}
+        item={item}
+        today={today}
+        onEdit={onEdit}
+        onPay={onPay}
+      />
     ))}
   </>
 );
@@ -198,10 +226,12 @@ const CardRow = ({
   item,
   today,
   onEdit,
+  onPay,
 }: {
   readonly item: CardSummary;
   readonly today: string;
   readonly onEdit: (card: Card) => void;
+  readonly onPay: (item: CardSummary) => void;
 }): React.ReactElement => {
   const navigate = useNavigate();
   const { card, invoice } = item;
@@ -236,7 +266,13 @@ const CardRow = ({
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          <Button disabled>Pagar fatura</Button>
+          <Button
+            aria-label={`Pagar fatura ${card.name}`}
+            disabled={invoice.status === 'paga' || invoice.total <= 0}
+            onClick={() => onPay(item)}
+          >
+            Pagar fatura
+          </Button>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <IconButton row label={`Ações de ${card.name}`} icon="dots" />

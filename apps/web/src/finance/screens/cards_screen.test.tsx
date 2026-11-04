@@ -153,3 +153,26 @@ describe('Novo cartão e editar cartão (FIN-503)', () => {
     expect(rowOf('Itaú Visa').textContent).toContain('35,0%');
   });
 });
+
+describe('Pagar fatura (FIN-507, CE-04)', () => {
+  it('paga a fatura fechada do Itaú Visa e atualiza os totais', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Pagar fatura Itaú Visa' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByText('Itaú Corrente')).toBeTruthy();
+    expect(dialog.getByText('R$ 1.400,10')).toBeTruthy();
+    await userEvent.click(dialog.getByRole('button', { name: 'Confirmar pagamento' }));
+    const visa = rowOf('Itaú Visa').textContent ?? '';
+    expect(visa).toContain('R$ 821,71');
+    expect(visa).toContain('aberta');
+    expect(
+      screen.getByRole('heading', { name: 'Cartões' }).parentElement?.textContent,
+    ).toContain('Faturas abertas R$ 4.843,88');
+    const next =
+      within(screen.getByRole('table', { name: 'Próximas faturas' }))
+        .getAllByRole('row')
+        .find((row) => row.textContent?.startsWith('out/2026'))?.textContent ?? '';
+    expect(next).toContain('R$ 540,00');
+    expect(next).toContain('—');
+  });
+});
