@@ -102,4 +102,72 @@ describe('Categorias (FIN-101)', () => {
       globalThis.localStorage.getItem('patrimonio.finance.columns.categorias'),
     ).toContain('media');
   });
+
+  it('cria uma categoria pelo modal', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /Categoria/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Nova categoria' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Nome' }), 'Pets');
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Verde' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    expect(screen.getByText('Pets')).toBeInTheDocument();
+    expect(screen.getByText('16 categorias')).toBeInTheDocument();
+  });
+
+  it('mostra o erro de nome repetido só ao salvar', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /Categoria/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Nova categoria' });
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: 'Nome' }),
+      'Moradia',
+    );
+    expect(within(dialog).queryByText(/Já existe/)).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    expect(within(dialog).getByText(/Já existe/)).toBeInTheDocument();
+  });
+
+  it('edita pelo menu da linha e trava o tipo de categoria em uso', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Ações de Moradia' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Editar' }));
+    const dialog = screen.getByRole('dialog', { name: 'Editar categoria' });
+    expect(within(dialog).getByRole('combobox', { name: 'Tipo' })).toBeDisabled();
+    const name = within(dialog).getByRole('textbox', { name: 'Nome' });
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Casa');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    expect(screen.getByText('Casa')).toBeInTheDocument();
+    expect(screen.queryByText('Moradia')).not.toBeInTheDocument();
+  });
+
+  it('exclui categoria em uso só depois de escolher o destino', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Ações de Transporte' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Excluir' }));
+    const dialog = screen.getByRole('dialog', { name: 'Excluir categoria' });
+    const confirm = within(dialog).getByRole('button', { name: 'Excluir' });
+    expect(confirm).toBeDisabled();
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: 'Mover para' }),
+      'Saúde',
+    );
+    await userEvent.click(confirm);
+    expect(screen.queryByText('Transporte')).not.toBeInTheDocument();
+    expect(within(rowOf('Saúde')).getByText('4')).toBeInTheDocument();
+  });
+
+  it('exclui categoria sem lançamentos com uma confirmação', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /Categoria/ }));
+    const form = screen.getByRole('dialog', { name: 'Nova categoria' });
+    await userEvent.type(within(form).getByRole('textbox', { name: 'Nome' }), 'Pets');
+    await userEvent.click(within(form).getByRole('button', { name: 'Salvar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ações de Pets' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Excluir' }));
+    const dialog = screen.getByRole('dialog', { name: 'Excluir categoria' });
+    expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Excluir' }));
+    expect(screen.queryByText('Pets')).not.toBeInTheDocument();
+  });
 });

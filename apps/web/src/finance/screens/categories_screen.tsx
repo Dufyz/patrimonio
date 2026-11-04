@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu.js';
+import { CategoryDialog, DeleteCategoryDialog } from '../components/category_dialogs.js';
 import { Amount } from '../components/amount.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
@@ -21,6 +22,7 @@ import {
 } from '../components/fin_table.js';
 import { TableToolbar } from '../components/table_toolbar.js';
 import { categoryUsage } from '../domain/categories.js';
+import { addCategory, deleteCategory, updateCategory } from '../domain/category_ops.js';
 import type { Category } from '../domain/types.js';
 import { categoryColor } from '../lib/category_colors.js';
 import {
@@ -37,7 +39,7 @@ import { PRIMARY_LABELS, pluralize } from '../lib/header.js';
 import { matchesSearch } from '../lib/text.js';
 import { browserStorage } from '../../lib/preferences.js';
 import { centsToDecimal } from '../lib/money.js';
-import { useFinanceData } from '../store/finance_store.js';
+import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
 
 /**
  * FIN-101 · Categorias.
@@ -69,7 +71,15 @@ const NO_VALUE = '—';
 
 export const CategoriesScreen = (): React.ReactElement => {
   const { today } = useFinancePeriod();
-  const { categories, entries } = useFinanceData();
+  const data = useFinanceData();
+  const store = useFinanceStore();
+  const { categories, entries } = data;
+  const [dialog, setDialog] = useState<
+    | { readonly type: 'new' }
+    | { readonly type: 'edit'; readonly category: Category }
+    | { readonly type: 'delete'; readonly category: Category }
+    | null
+  >(null);
 
   const monthLabel = MONTH_ABBREVIATIONS[parseIso(today).month - 1] ?? '';
   const columns: readonly ColumnSpec[] = useMemo(
@@ -131,7 +141,10 @@ export const CategoriesScreen = (): React.ReactElement => {
       <ScreenHeader
         title="Categorias"
         subtitle="Nome, tipo e cor de cada categoria"
-        primary={{ label: PRIMARY_LABELS.categories, onClick: () => {} }}
+        primary={{
+          label: PRIMARY_LABELS.categories,
+          onClick: () => setDialog({ type: 'new' }),
+        }}
       />
 
       <section className="rounded-panel border border-line bg-panel">
@@ -196,7 +209,11 @@ export const CategoriesScreen = (): React.ReactElement => {
                         </Td>
                       ) : null}
                       <Td align="right" className="w-12">
-                        <RowMenu category={category} />
+                        <RowMenu
+                          category={category}
+                          onEdit={() => setDialog({ type: 'edit', category })}
+                          onDelete={() => setDialog({ type: 'delete', category })}
+                        />
                       </Td>
                     </Row>
                   ))}
@@ -206,6 +223,35 @@ export const CategoriesScreen = (): React.ReactElement => {
           </tbody>
         </FinTable>
       </section>
+
+      {dialog?.type === 'new' || dialog?.type === 'edit' ? (
+        <CategoryDialog
+          data={data}
+          category={dialog.type === 'edit' ? dialog.category : undefined}
+          onClose={() => setDialog(null)}
+          onSave={(draft) => {
+            store.set((current) =>
+              dialog.type === 'edit'
+                ? updateCategory(current, dialog.category.id, draft)
+                : addCategory(current, draft),
+            );
+            setDialog(null);
+          }}
+        />
+      ) : null}
+      {dialog?.type === 'delete' ? (
+        <DeleteCategoryDialog
+          data={data}
+          category={dialog.category}
+          onClose={() => setDialog(null)}
+          onConfirm={(replacementId) => {
+            store.set((current) =>
+              deleteCategory(current, dialog.category.id, replacementId),
+            );
+            setDialog(null);
+          }}
+        />
+      ) : null}
     </>
   );
 };
@@ -225,15 +271,23 @@ const SectionGroup = ({
   </>
 );
 
-/** O `⋯` da linha. Editar e excluir chegam com a FIN-102. */
-const RowMenu = ({ category }: { readonly category: Category }): React.ReactElement => (
+/** O `⋯` da linha: editar e excluir. */
+const RowMenu = ({
+  category,
+  onEdit,
+  onDelete,
+}: {
+  readonly category: Category;
+  readonly onEdit: () => void;
+  readonly onDelete: () => void;
+}): React.ReactElement => (
   <DropdownMenu modal={false}>
     <DropdownMenuTrigger asChild>
       <IconButton row label={`Ações de ${category.name}`} icon="dots" />
     </DropdownMenuTrigger>
     <DropdownMenuContent className="min-w-40">
-      <DropdownMenuItem disabled>Editar</DropdownMenuItem>
-      <DropdownMenuItem disabled destructive>
+      <DropdownMenuItem onSelect={onEdit}>Editar</DropdownMenuItem>
+      <DropdownMenuItem destructive onSelect={onDelete}>
         Excluir
       </DropdownMenuItem>
     </DropdownMenuContent>
