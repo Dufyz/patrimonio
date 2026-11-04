@@ -111,3 +111,45 @@ describe('Próximas faturas (FIN-502)', () => {
     expect(line('out/2026')).toContain('—');
   });
 });
+
+describe('Novo cartão e editar cartão (FIN-503)', () => {
+  it('cria um cartão que ganha linha e coluna', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /^Cartão/ }));
+    const dialog = within(screen.getByRole('dialog'));
+    await userEvent.type(dialog.getByLabelText('Nome'), 'Inter Visa');
+    await userEvent.type(dialog.getByLabelText('Final'), '1234');
+    await userEvent.type(dialog.getByLabelText('Limite'), '3000');
+    await userEvent.type(dialog.getByLabelText('Dia de fechamento'), '10');
+    await userEvent.type(dialog.getByLabelText('Dia de vencimento'), '17');
+    await userEvent.click(dialog.getByRole('button', { name: 'Criar cartão' }));
+    expect(rowOf('Inter Visa').textContent).toContain('final 1234');
+    expect(
+      within(screen.getByRole('table', { name: 'Próximas faturas' }))
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent),
+    ).toContain('Inter Visa');
+  });
+
+  it('nome repetido e campos vazios aparecem só ao salvar', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /^Cartão/ }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.queryByText('Dê um nome.')).toBeNull();
+    await userEvent.click(dialog.getByRole('button', { name: 'Criar cartão' }));
+    expect(dialog.getByText('Dê um nome.')).toBeTruthy();
+    expect(dialog.getByText('Informe o limite.')).toBeTruthy();
+  });
+
+  it('edita o limite pelo menu da linha', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Ações de Itaú Visa' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Editar' }));
+    const dialog = within(screen.getByRole('dialog'));
+    const limit = dialog.getByLabelText('Limite');
+    await userEvent.clear(limit);
+    await userEvent.type(limit, '4000');
+    await userEvent.click(dialog.getByRole('button', { name: 'Salvar' }));
+    expect(rowOf('Itaú Visa').textContent).toContain('35,0%');
+  });
+});

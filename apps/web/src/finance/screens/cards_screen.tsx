@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Button, IconButton } from '../../components/primitives.js';
@@ -17,18 +18,21 @@ import {
   Th,
   THead,
 } from '../components/fin_table.js';
+import { CardDialog } from '../components/card_dialog.js';
 import { UpcomingInvoices } from '../components/upcoming_invoices.js';
 import { LimitBar } from '../components/limit_bar.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { StatusTag } from '../components/tags.js';
+import { addCard, updateCard } from '../domain/card_ops.js';
 import { cardSummary, openInvoicesTotal } from '../domain/cards.js';
 import type { CardSummary } from '../domain/cards.js';
 import { PRIMARY_LABELS } from '../lib/header.js';
 import { formatBRL, formatDay } from '../lib/format.js';
 import { financeRoutes } from '../lib/routes.js';
 import { accountLabel } from '../domain/accounts.js';
-import { useFinanceData } from '../store/finance_store.js';
+import type { Card } from '../domain/types.js';
+import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
 
 /**
  * FIN-501 · Cartões.
@@ -75,7 +79,11 @@ const groupByPayer = (
 
 export const CardsScreen = (): React.ReactElement => {
   const data = useFinanceData();
+  const store = useFinanceStore();
   const { today } = useFinancePeriod();
+  const [editing, setEditing] = useState<
+    { readonly type: 'new' } | { readonly type: 'edit'; readonly card: Card } | null
+  >(null);
   const summaries = data.cards.map((card) => cardSummary(data, card, today));
   const total = openInvoicesTotal(summaries);
   const next = nextDue(summaries);
@@ -84,7 +92,10 @@ export const CardsScreen = (): React.ReactElement => {
     <>
       <ScreenHeader
         title="Cartões"
-        primary={{ label: PRIMARY_LABELS.cards, onClick: () => {} }}
+        primary={{
+          label: PRIMARY_LABELS.cards,
+          onClick: () => setEditing({ type: 'new' }),
+        }}
         subtitle={
           <>
             Faturas abertas <Amount cents={total} />
@@ -123,6 +134,7 @@ export const CardsScreen = (): React.ReactElement => {
                   sum={sum}
                   rows={group.rows}
                   today={today}
+                  onEdit={(card) => setEditing({ type: 'edit', card })}
                 />
               );
             })}
@@ -141,6 +153,22 @@ export const CardsScreen = (): React.ReactElement => {
       </section>
 
       <UpcomingInvoices data={data} today={today} />
+
+      {editing === null ? null : (
+        <CardDialog
+          data={data}
+          card={editing.type === 'edit' ? editing.card : undefined}
+          onClose={() => setEditing(null)}
+          onSave={(draft) => {
+            store.set((current) =>
+              editing.type === 'edit'
+                ? updateCard(current, editing.card.id, draft)
+                : addCard(current, draft),
+            );
+            setEditing(null);
+          }}
+        />
+      )}
     </>
   );
 };
@@ -150,16 +178,18 @@ const GroupRows = ({
   sum,
   rows,
   today,
+  onEdit,
 }: {
   readonly label: string;
   readonly sum: number;
   readonly rows: readonly CardSummary[];
   readonly today: string;
+  readonly onEdit: (card: Card) => void;
 }): React.ReactElement => (
   <>
     <SectionRow colSpan={6} label={label} summary={formatBRL(sum)} />
     {rows.map((item) => (
-      <CardRow key={item.card.id} item={item} today={today} />
+      <CardRow key={item.card.id} item={item} today={today} onEdit={onEdit} />
     ))}
   </>
 );
@@ -167,9 +197,11 @@ const GroupRows = ({
 const CardRow = ({
   item,
   today,
+  onEdit,
 }: {
   readonly item: CardSummary;
   readonly today: string;
+  readonly onEdit: (card: Card) => void;
 }): React.ReactElement => {
   const navigate = useNavigate();
   const { card, invoice } = item;
@@ -210,7 +242,7 @@ const CardRow = ({
               <IconButton row label={`Ações de ${card.name}`} icon="dots" />
             </DropdownMenuTrigger>
             <DropdownMenuContent className="min-w-40">
-              <DropdownMenuItem disabled>Editar</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onEdit(card)}>Editar</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </span>
