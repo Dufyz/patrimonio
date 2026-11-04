@@ -1,7 +1,7 @@
 import type { IsoDate } from '../lib/dates.js';
 import { parseMoneyInput } from '../lib/format.js';
 import { invoiceKeyOf, paymentOf } from './cards.js';
-import type { CardItem, CreditType, FinanceData } from './types.js';
+import type { CardItem, ChargeType, CreditType, FinanceData } from './types.js';
 
 /**
  * Itens que só a fatura tem (RN-46): compras resumidas, créditos e encargos.
@@ -115,6 +115,59 @@ export const addCredit = (
     date: draft.date,
     description: draft.description.trim(),
     categoryId: draft.categoryId,
+    cents: parseMoneyInput(draft.value) ?? 0,
+    subtype: draft.subtype,
+    invoice,
+  };
+  return { ...data, cardItems: [...data.cardItems, item] };
+};
+
+export type ChargeDraft = {
+  readonly subtype: ChargeType;
+  readonly date: IsoDate;
+  readonly value: string;
+};
+
+export const CHARGE_TYPES: readonly { readonly id: ChargeType; readonly name: string }[] =
+  [
+    { id: 'juros', name: 'Juros' },
+    { id: 'multa', name: 'Multa' },
+    { id: 'iof', name: 'IOF' },
+  ];
+
+export const emptyChargeDraft = (today: IsoDate): ChargeDraft => ({
+  subtype: 'juros',
+  date: today,
+  value: '',
+});
+
+export const validateCharge = (
+  draft: ChargeDraft,
+): Partial<Record<'date' | 'value', string>> => {
+  const errors: Record<string, string> = {};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.date)) errors['date'] = 'Informe a data.';
+  const value = parseMoneyInput(draft.value);
+  if (value === null || value <= 0) errors['value'] = 'Informe um valor maior que zero.';
+  return errors;
+};
+
+/** FIN-512 · Encargo na fatura exibida: soma ao total (RN-44, RN-52). Não existe em fatura paga. */
+export const addCharge = (
+  data: FinanceData,
+  cardId: string,
+  invoice: string,
+  draft: ChargeDraft,
+): FinanceData => {
+  if (paymentOf(data, cardId, invoice) !== undefined) return data;
+  if (Object.keys(validateCharge(draft)).length > 0) return data;
+  const label =
+    CHARGE_TYPES.find((type) => type.id === draft.subtype)?.name ?? draft.subtype;
+  const item: CardItem = {
+    id: `charge-${cardId}-${invoice}-${data.cardItems.length + 1}`,
+    cardId,
+    kind: 'encargo',
+    date: draft.date,
+    description: label,
     cents: parseMoneyInput(draft.value) ?? 0,
     subtype: draft.subtype,
     invoice,

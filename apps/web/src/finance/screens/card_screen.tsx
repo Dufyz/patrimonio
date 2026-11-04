@@ -7,6 +7,7 @@ import { CardItemDialog } from '../components/card_item_dialog.js';
 import { InstallmentScopeDialog } from '../components/installment_scope_dialog.js';
 import { ConfirmDialog } from '../components/entry_confirms.js';
 import { PayInvoiceDialog } from '../components/pay_invoice_dialog.js';
+import { ChargeDialog } from '../components/charge_dialog.js';
 import { CreditDialog } from '../components/credit_dialog.js';
 import { InvoiceStatus } from '../components/invoice_status.js';
 import { InvoiceList } from '../components/invoice_list.js';
@@ -33,7 +34,12 @@ import {
 } from '../domain/installment_ops.js';
 import type { InstallmentScope } from '../domain/installment_ops.js';
 import { payBlockedReason, payInvoice } from '../domain/invoice_ops.js';
-import { addCredit, deleteCardItem, updateCardItem } from '../domain/card_item_ops.js';
+import {
+  addCharge,
+  addCredit,
+  deleteCardItem,
+  updateCardItem,
+} from '../domain/card_item_ops.js';
 import {
   addEntry,
   deleteEntries,
@@ -70,7 +76,9 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
   const navigate = useNavigate();
   const { today } = useFinancePeriod();
   const [search, setSearch] = useSearchParams();
-  const [dialog, setDialog] = useState<'edit' | 'entry' | 'pay' | 'credit' | null>(null);
+  const [dialog, setDialog] = useState<
+    'edit' | 'entry' | 'pay' | 'credit' | 'charge' | null
+  >(null);
   const [editingLine, setEditingLine] = useState<InvoiceLine | null>(null);
   const [deletingLine, setDeletingLine] = useState<InvoiceLine | null>(null);
   const [ask, setAsk] = useState<{
@@ -185,6 +193,11 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
         period={period}
         today={today}
         locked={payment !== undefined}
+        blockAction={(block) =>
+          block === 'encargos' && payment === undefined ? (
+            <Button onClick={() => setDialog('charge')}>Lançar encargo</Button>
+          ) : null
+        }
         onEdit={startEdit}
         onDelete={startDelete}
       />
@@ -264,6 +277,16 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
         </ConfirmDialog>
       )}
 
+      {dialog === 'charge' ? (
+        <ChargeDialog
+          today={today}
+          onClose={() => setDialog(null)}
+          onSave={(draft) => {
+            store.set((current) => addCharge(current, card.id, key, draft));
+            setDialog(null);
+          }}
+        />
+      ) : null}
       {dialog === 'credit' ? (
         <CreditDialog
           data={data}

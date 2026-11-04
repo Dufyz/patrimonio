@@ -331,3 +331,37 @@ describe('Ciclo de vida (FIN-511)', () => {
     expect(panel().getByText('venceu')).toBeTruthy();
   });
 });
+
+describe('Encargos (FIN-512)', () => {
+  const statement = () =>
+    within(screen.getByRole('table', { name: 'Extrato da fatura' }));
+
+  it('juros soma ao total da fatura e aparece no bloco com a etiqueta', async () => {
+    open();
+    await userEvent.click(statement().getByRole('button', { name: 'Lançar encargo' }));
+    const dialog = within(screen.getByRole('dialog'));
+    await userEvent.type(dialog.getByLabelText('Valor'), '12,34');
+    await userEvent.click(dialog.getByRole('button', { name: 'Lançar encargo' }));
+    expect(panel().getByLabelText('Total da fatura').textContent).toContain(
+      'R$ 3.494,51',
+    );
+    const row = statement().getByRole('row', { name: 'Juros' });
+    expect(row.textContent).toContain('R$ 12,34');
+    expect(statement().queryByText('nenhum nesta fatura')).toBeNull();
+  });
+
+  it('valor obrigatório só aparece ao salvar', async () => {
+    open();
+    await userEvent.click(statement().getByRole('button', { name: 'Lançar encargo' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.queryByText('Informe um valor maior que zero.')).toBeNull();
+    await userEvent.click(dialog.getByRole('button', { name: 'Lançar encargo' }));
+    expect(dialog.getByText('Informe um valor maior que zero.')).toBeTruthy();
+  });
+
+  it('fatura paga não oferece a ação', () => {
+    open('/financas/cartoes/nubank-master?fatura=2026-10');
+    expect(statement().queryByRole('button', { name: 'Lançar encargo' })).toBeNull();
+    expect(statement().getByText('nenhum nesta fatura')).toBeTruthy();
+  });
+});
