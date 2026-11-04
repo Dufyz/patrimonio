@@ -3,13 +3,24 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { PreferencesProvider } from '../../components/preferences.js';
+import { ShortcutProvider } from '../../components/shortcuts.js';
 import { FinanceApp } from '../finance_app.js';
 
 const open = (path: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/financas/*" element={<FinanceApp />} />
+        <Route
+          path="/financas/*"
+          element={
+            <PreferencesProvider>
+              <ShortcutProvider>
+                <FinanceApp />
+              </ShortcutProvider>
+            </PreferencesProvider>
+          }
+        />
       </Routes>
     </MemoryRouter>,
   );
