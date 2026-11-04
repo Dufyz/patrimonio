@@ -3,12 +3,20 @@ import { useNavigate, useSearchParams } from 'react-router';
 
 import { Button } from '../../components/primitives.js';
 import { EntryDialog } from '../components/entry_dialog.js';
+import { ConfirmDialog, MoveAccountDialog } from '../components/entry_confirms.js';
 import {
   addEntry,
+  deleteEntries,
+  deleteImpact,
   draftOfEntry,
   emptyEntryDraft,
   launchEntry,
+  moveAccount,
+  moveBlockedReason,
+  recategorize,
+  updateEntry,
 } from '../domain/entry_ops.js';
+import { formatBRL } from '../lib/format.js';
 import { financeRoutes } from '../lib/routes.js';
 import type { Entry } from '../domain/types.js';
 
@@ -54,6 +62,10 @@ export const EntriesScreen = (): React.ReactElement => {
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [launching, setLaunching] = useState<Entry | null>(null);
+  const [editing, setEditing] = useState<Entry | null>(null);
+  const [deleting, setDeleting] = useState<Entry | null>(null);
+  const [moving, setMoving] = useState<Entry | null>(null);
+  const [blocked, setBlocked] = useState<string | null>(null);
   const { range, setRange, today } = useFinancePeriod();
 
   const [grouping, setGrouping] = useState<EntryGrouping>(() =>
@@ -170,6 +182,17 @@ export const EntriesScreen = (): React.ReactElement => {
             today={today}
             hiddenColumns={hidden}
             onLaunch={setLaunching}
+            actions={{
+              onEdit: setEditing,
+              onDelete: setDeleting,
+              onMove: (entry) => {
+                const reason = moveBlockedReason(entry);
+                if (reason === null) setMoving(entry);
+                else setBlocked(reason);
+              },
+              onCategory: (entry, categoryId) =>
+                store.set((current) => recategorize(current, [entry.id], categoryId)),
+            }}
           />
         </div>
       </div>
@@ -188,6 +211,59 @@ export const EntriesScreen = (): React.ReactElement => {
           }}
         />
       ) : null}
+      {editing === null ? null : (
+        <EntryDialog
+          mode="edit"
+          data={data}
+          today={today}
+          initial={draftOfEntry(editing, today)}
+          onClose={() => setEditing(null)}
+          onSave={(draft) => {
+            store.set((current) => updateEntry(current, editing.id, draft, today));
+            setEditing(null);
+          }}
+        />
+      )}
+      {deleting === null ? null : (
+        <ConfirmDialog
+          title="Excluir lançamento"
+          confirmLabel="Excluir"
+          danger
+          onClose={() => setDeleting(null)}
+          onConfirm={() => {
+            store.set((current) => deleteEntries(current, [deleting.id]));
+            setDeleting(null);
+          }}
+        >
+          <p>
+            Excluir “{deleting.description}” ({formatBRL(deleting.cents)})? O efeito dele
+            nos saldos e na fatura é revertido: {deleteImpact([deleting])}.
+          </p>
+          {deleting.recurringId === undefined ? null : (
+            <p>Como veio de um recorrente, o previsto do mês não volta a ser gerado.</p>
+          )}
+        </ConfirmDialog>
+      )}
+      {moving === null ? null : (
+        <MoveAccountDialog
+          entries={[moving]}
+          onClose={() => setMoving(null)}
+          onConfirm={(sourceId) => {
+            store.set((current) => moveAccount(current, [moving.id], sourceId));
+            setMoving(null);
+          }}
+        />
+      )}
+      {blocked === null ? null : (
+        <ConfirmDialog
+          title="Não dá para mover"
+          confirmLabel="Entendi"
+          onClose={() => setBlocked(null)}
+          onConfirm={() => setBlocked(null)}
+        >
+          <p>{blocked}</p>
+        </ConfirmDialog>
+      )}
       {launching === null ? null : (
         <EntryDialog
           mode="launch"

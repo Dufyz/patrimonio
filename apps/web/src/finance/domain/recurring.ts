@@ -70,8 +70,14 @@ export const syncRecurring = (data: FinanceData, today: IsoDate): FinanceData =>
       .map((entry) => entry.recurringId),
   );
 
+  const skipped = new Set(data.skips ?? []);
   const generated = data.recurrings
-    .filter((recurring) => recurring.active && !have.has(recurring.id))
+    .filter(
+      (recurring) =>
+        recurring.active &&
+        !have.has(recurring.id) &&
+        !skipped.has(`${recurring.id}:${month}`),
+    )
     .map((recurring) => previstoFor(recurring, today));
 
   const automatic = new Set(

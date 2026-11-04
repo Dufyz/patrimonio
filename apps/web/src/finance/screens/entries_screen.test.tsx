@@ -440,3 +440,108 @@ describe('novo lançamento (FIN-307)', () => {
     ).toBeInTheDocument();
   });
 });
+
+describe('menu da linha e categoria inline (FIN-308)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  const rowOf = (text: string) => {
+    const row = screen
+      .getAllByText(text)
+      .map((el) => el.closest('tr'))
+      .find((r) => r !== null);
+    if (row === null || row === undefined) throw new Error(text);
+    return within(row);
+  };
+
+  it('previsto tem Lançar e nenhum menu; lançado tem o menu', () => {
+    open();
+    expect(
+      screen.queryByRole('button', { name: 'Ações de Spotify' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ações de Netflix' })).toBeInTheDocument();
+  });
+
+  it('o menu oferece Editar, Mover de conta e Excluir', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Ações de Internet' }));
+    for (const name of ['Editar', 'Mover de conta', 'Excluir']) {
+      expect(await screen.findByRole('menuitem', { name })).toBeInTheDocument();
+    }
+  });
+
+  it('Editar abre o modal preenchido e salva', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Ações de Internet' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Editar' }));
+    const dialog = screen.getByRole('dialog', { name: 'Editar lançamento' });
+    const value = within(dialog).getByRole('textbox', { name: 'Valor' });
+    expect(value).toHaveValue('50,00');
+    await userEvent.clear(value);
+    await userEvent.type(value, '55,00');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }));
+    expect(
+      within(screen.getByText('Internet').closest('tr')!).getByText(/55,00/),
+    ).toBeInTheDocument();
+  });
+
+  it('Excluir pede confirmação com o impacto e reverte os totais', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Ações de Netflix' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Excluir' }));
+    const dialog = screen.getByRole('dialog', { name: 'Excluir lançamento' });
+    expect(dialog).toHaveTextContent('Itaú Visa recupera R$ 55,90');
+    expect(dialog).toHaveTextContent('não volta a ser gerado');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Excluir' }));
+    expect(screen.queryByText('Netflix')).not.toBeInTheDocument();
+    expect(within(strip()).getByText(/9\.422,20/)).toBeInTheDocument();
+  });
+
+  it('mover de conta de compra no cartão explica o bloqueio', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Ações de Netflix' }));
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Mover de conta' }),
+    );
+    expect(screen.getByRole('dialog', { name: 'Não dá para mover' })).toHaveTextContent(
+      'compra no cartão',
+    );
+  });
+
+  it('mover de conta troca a conta da linha', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: 'Ações de Internet' }));
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Mover de conta' }),
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Mover de conta' });
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: 'Mover para' }),
+      'Nubank Conta',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Mover' }));
+    expect(rowOf('Internet').getByText('Nubank Conta')).toBeInTheDocument();
+  });
+
+  it('clicar na categoria de um lançado abre o seletor inline e salva na hora', async () => {
+    open();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Alterar categoria de Internet' }),
+    );
+    const select = screen.getByRole('combobox', { name: 'Categoria de Internet' });
+    expect(
+      within(select).queryByRole('option', { name: 'Salário' }),
+    ).not.toBeInTheDocument();
+    await userEvent.selectOptions(select, 'Mercado');
+    expect(rowOf('Internet').getByText('Mercado')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('combobox', { name: 'Categoria de Internet' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('previsto não tem categoria editável', () => {
+    open();
+    expect(
+      screen.queryByRole('button', { name: 'Alterar categoria de Spotify' }),
+    ).not.toBeInTheDocument();
+  });
+});

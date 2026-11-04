@@ -9,10 +9,17 @@ import {
   draftOfEntry,
   emptyEntryDraft,
   launchEntry,
+  deleteEntries,
+  deleteImpact,
+  moveAccount,
+  moveBlockedReason,
+  recategorize,
+  updateEntry,
   splitDifference,
   validateEntry,
 } from './entry_ops.js';
 import { indicators, queryEntries } from './ledger.js';
+import { syncRecurring } from './recurring.js';
 import { SEED_REFERENCE_DATE, seedData } from './seed.js';
 import { currentMonth } from '../lib/period.js';
 
@@ -260,5 +267,92 @@ describe('novo lançamento (FIN-307)', () => {
         'installments',
       );
     });
+  });
+});
+
+describe('corrigir lançamentos (FIN-308)', () => {
+  it('editar atualiza valor, data, categoria e origens', () => {
+    const draft = {
+      ...draftOfEntry(entry('l-internet'), TODAY),
+      value: '55,00',
+      categoryId: 'mercado',
+    };
+    const next = updateEntry(data, 'l-internet', draft, TODAY);
+    expect(next.entries.find((e) => e.id === 'l-internet')).toMatchObject({
+      cents: 5500,
+      categoryId: 'mercado',
+      payments: [{ sourceId: 'itau-corrente', cents: 5500 }],
+    });
+  });
+
+  it('previsto não se edita por aqui', () => {
+    expect(
+      updateEntry(data, 'l-spotify', draftOfEntry(entry('l-spotify'), TODAY), TODAY),
+    ).toBe(data);
+  });
+
+  it('excluir de recorrente não regenera o previsto (RN-06)', () => {
+    const next = deleteEntries(data, ['l-netflix']);
+    expect(next.entries.some((e) => e.id === 'l-netflix')).toBe(false);
+    expect(next.skips).toContain('r-netflix:2026-10');
+    expect(
+      syncRecurring(next, TODAY).entries.some(
+        (e) => e.recurringId === 'r-netflix' && e.date.startsWith('2026-10'),
+      ),
+    ).toBe(false);
+  });
+
+  it('excluir lançamento avulso não cria skip', () => {
+    expect(deleteEntries(data, ['l-freela']).skips).toContain('r-freela:2026-10');
+    const solo = addEntry(
+      data,
+      {
+        ...emptyEntryDraft(TODAY),
+        description: 'x',
+        categoryId: 'mercado',
+        value: '1,00',
+        sourceId: 'itau-corrente',
+      },
+      TODAY,
+    );
+    const id = solo.entries.at(-1)!.id;
+    expect(deleteEntries(solo, [id]).skips).toEqual([]);
+  });
+
+  it('excluir reverte o efeito nos totais', () => {
+    const october = currentMonth(TODAY);
+    const before = indicators(queryEntries(data, '', {}), october).despesas;
+    const after = indicators(
+      queryEntries(deleteEntries(data, ['l-netflix']), '', {}),
+      october,
+    ).despesas;
+    expect(before.cents - after.cents).toBe(5590);
+  });
+
+  it('a frase de impacto cita as origens', () => {
+    expect(deleteImpact([entry('l-luz')])).toBe(
+      'Flex recupera R$ 150,00; Itaú Corrente recupera R$ 162,40',
+    );
+  });
+
+  it('recategorizar só aceita categoria do mesmo tipo', () => {
+    expect(
+      recategorize(data, ['l-internet'], 'mercado').entries.find(
+        (e) => e.id === 'l-internet',
+      )?.categoryId,
+    ).toBe('mercado');
+    expect(recategorize(data, ['l-internet'], 'salario')).toBe(data);
+  });
+
+  it('mover de conta troca a origem; cartão e duas origens são bloqueados', () => {
+    const moved = moveAccount(data, ['l-internet'], 'nubank-conta');
+    expect(moved.entries.find((e) => e.id === 'l-internet')?.payments).toEqual([
+      { sourceId: 'nubank-conta', cents: 5000 },
+    ]);
+    expect(moveBlockedReason(entry('l-netflix'))).toMatch(/cartão/);
+    expect(moveBlockedReason(entry('l-luz'))).toMatch(/duas origens/);
+    expect(moveAccount(data, ['l-netflix'], 'nubank-conta')).toBe(data);
+    expect(moveAccount(data, ['l-internet', 'l-luz'], 'nubank-conta')).toBe(data);
+    expect(moveAccount(data, ['l-freela'], 'flex')).toBe(data);
   });
 });

@@ -1,4 +1,13 @@
-import { Button } from '../../components/primitives.js';
+import { useState } from 'react';
+
+import { Button, IconButton } from '../../components/primitives.js';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu.js';
+import { Select } from '../../views/entry/fields.js';
 import { Amount } from './amount.js';
 import { CategoryMarker, FinTable, Row, SectionRow, Td, Th, THead } from './fin_table.js';
 import { NatureTag } from './tags.js';
@@ -38,12 +47,21 @@ export const summaryText = (summary: GroupSummary): string =>
     .filter((part): part is string => part !== null)
     .join(' · ');
 
+/** O que a linha pode fazer: o menu `⋯` e a categoria inline (FIN-308). */
+export type RowActions = {
+  readonly onEdit: (entry: Entry) => void;
+  readonly onMove: (entry: Entry) => void;
+  readonly onDelete: (entry: Entry) => void;
+  readonly onCategory: (entry: Entry, categoryId: string) => void;
+};
+
 export const LedgerTable = ({
   groups,
   categories,
   today,
   hiddenColumns = [],
   onLaunch,
+  actions,
 }: {
   readonly groups: readonly LedgerGroup[];
   readonly categories: readonly Category[];
@@ -51,6 +69,7 @@ export const LedgerTable = ({
   /** Colunas ocultas pelo botão Exibição. */
   readonly hiddenColumns?: readonly string[];
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
+  readonly actions?: RowActions | undefined;
 }): React.ReactElement => {
   const visible = (id: string): boolean => !hiddenColumns.includes(id);
   const layout: Layout = {
@@ -80,6 +99,7 @@ export const LedgerTable = ({
               today={today}
               layout={layout}
               onLaunch={onLaunch}
+              actions={actions}
             />
           ))}
         </tbody>
@@ -100,12 +120,14 @@ const GroupRows = ({
   today,
   layout,
   onLaunch,
+  actions,
 }: {
   readonly group: LedgerGroup;
   readonly categories: readonly Category[];
   readonly today: string;
   readonly layout: Layout;
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
+  readonly actions?: RowActions | undefined;
 }): React.ReactElement => {
   const count = pluralize(group.entries.length, 'lançamento', 'lançamentos');
   const label =
@@ -129,7 +151,9 @@ const GroupRows = ({
           category={categories.find((c) => c.id === entry.categoryId)}
           today={today}
           layout={layout}
+          categories={categories}
           onLaunch={onLaunch}
+          actions={actions}
         />
       ))}
     </>
@@ -141,14 +165,19 @@ const EntryRow = ({
   category,
   today,
   layout,
+  categories,
   onLaunch,
+  actions,
 }: {
   readonly entry: Entry;
   readonly category: Category | undefined;
   readonly today: string;
   readonly layout: Layout;
+  readonly categories: readonly Category[];
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
+  readonly actions?: RowActions | undefined;
 }): React.ReactElement => {
+  const [editingCategory, setEditingCategory] = useState(false);
   const pending = entry.status === 'prevista';
   const split = entry.payments.length > 1;
   return (
@@ -157,10 +186,40 @@ const EntryRow = ({
         <Td className="tabular text-ink-2">{formatDate(entry.date, today)}</Td>
         <Td className="font-medium">{entry.description}</Td>
         <Td>
-          {category === undefined ? (
+          {editingCategory && actions !== undefined ? (
+            <Select
+              invalid={false}
+              aria-label={`Categoria de ${entry.description}`}
+              autoFocus
+              options={categories
+                .filter((c) => c.kind === entry.kind)
+                .map((c) => ({ id: c.id, name: c.name }))}
+              value={entry.categoryId}
+              onBlur={() => setEditingCategory(false)}
+              onChange={(event) => {
+                actions.onCategory(entry, event.target.value);
+                setEditingCategory(false);
+              }}
+            />
+          ) : category === undefined ? (
             '—'
-          ) : (
+          ) : pending || actions === undefined ? (
             <CategoryMarker color={categoryColor(category.color)} name={category.name} />
+          ) : (
+            <button
+              type="button"
+              aria-label={`Alterar categoria de ${entry.description}`}
+              className="cursor-pointer rounded-control px-1 py-0.5 hover:bg-panel-2"
+              onClick={(event) => {
+                event.stopPropagation();
+                setEditingCategory(true);
+              }}
+            >
+              <CategoryMarker
+                color={categoryColor(category.color)}
+                name={category.name}
+              />
+            </button>
           )}
         </Td>
         <Td>{accountNames(entry).join(' + ')}</Td>
@@ -191,7 +250,24 @@ const EntryRow = ({
             >
               Lançar
             </Button>
-          ) : null}
+          ) : actions === undefined ? null : (
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <IconButton row label={`Ações de ${entry.description}`} icon="dots" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="min-w-44">
+                <DropdownMenuItem onSelect={() => actions.onEdit(entry)}>
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => actions.onMove(entry)}>
+                  Mover de conta
+                </DropdownMenuItem>
+                <DropdownMenuItem destructive onSelect={() => actions.onDelete(entry)}>
+                  Excluir
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </Td>
       </Row>
       {split

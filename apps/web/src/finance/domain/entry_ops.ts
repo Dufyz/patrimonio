@@ -1,9 +1,9 @@
-import { addMonths, compareDates } from '../lib/dates.js';
+import { addMonths, compareDates, monthKey } from '../lib/dates.js';
 import type { IsoDate } from '../lib/dates.js';
 import { formatBRL, parseMoneyInput } from '../lib/format.js';
 import { splitInstallments } from '../lib/money.js';
 import type { Cents } from '../lib/money.js';
-import { SOURCES } from './sources.js';
+import { SOURCES, sourceName } from './sources.js';
 import type { Entry, EntryKind, FinanceData, Payment } from './types.js';
 
 /**
@@ -262,4 +262,125 @@ export const addEntry = (
     payments: [{ sourceId: draft.sourceId, cents }],
   }));
   return { ...data, entries: [...data.entries, ...created] };
+};
+
+/** FIN-308 · Editar um lançado: o mesmo modal, preenchido. Previstos não se editam aqui. */
+export const updateEntry = (
+  data: FinanceData,
+  id: string,
+  draft: EntryDraft,
+  today: IsoDate,
+): FinanceData => {
+  const current = data.entries.find((entry) => entry.id === id);
+  if (current === undefined || current.status !== 'lancada') return data;
+  if (Object.keys(validateEntry(data, draft, today)).length > 0) return data;
+  return {
+    ...data,
+    entries: data.entries.map((entry) =>
+      entry.id === id
+        ? {
+            ...entry,
+            kind: draft.kind,
+            description: draft.description.trim(),
+            date: draft.date,
+            categoryId: draft.categoryId,
+            cents: parseMoneyInput(draft.value) ?? entry.cents,
+            payments: paymentsOf(draft),
+          }
+        : entry,
+    ),
+  };
+};
+
+/**
+ * Excluir reverte o efeito em saldo e fatura (RN-06). Se veio de um recorrente,
+ * o previsto do mês não é regenerado.
+ */
+export const deleteEntries = (data: FinanceData, ids: readonly string[]): FinanceData => {
+  const doomed = data.entries.filter((entry) => ids.includes(entry.id));
+  if (doomed.length === 0) return data;
+  const skips = doomed
+    .filter((entry) => entry.recurringId !== undefined)
+    .map((entry) => `${entry.recurringId}:${monthKey(entry.date)}`);
+  return {
+    ...data,
+    entries: data.entries.filter((entry) => !ids.includes(entry.id)),
+    skips: [...new Set([...(data.skips ?? []), ...skips])],
+  };
+};
+
+/** Recategorizar: só para categoria do mesmo tipo (RN-01). Previsto não muda por aqui. */
+export const recategorize = (
+  data: FinanceData,
+  ids: readonly string[],
+  categoryId: string,
+): FinanceData => {
+  const category = data.categories.find((c) => c.id === categoryId);
+  if (category === undefined) return data;
+  let changed = false;
+  const entries = data.entries.map((entry) => {
+    if (!ids.includes(entry.id) || entry.status !== 'lancada') return entry;
+    if (entry.kind !== category.kind || entry.categoryId === categoryId) return entry;
+    changed = true;
+    return { ...entry, categoryId };
+  });
+  return changed ? { ...data, entries } : data;
+};
+
+/** Por que um lançamento não pode mudar de conta, ou `null` se pode. */
+export const moveBlockedReason = (entry: Entry): string | null => {
+  if (
+    entry.payments.some(
+      (p) => SOURCES.find((s) => s.id === p.sourceId)?.type === 'cartao',
+    )
+  ) {
+    return `“${entry.description}” é compra no cartão e não muda de conta.`;
+  }
+  if (entry.payments.length > 1) {
+    return `“${entry.description}” é paga por duas origens e não muda de conta.`;
+  }
+  return null;
+};
+
+/** Mover de conta: todos ou nenhum — se algum estiver bloqueado, nada muda. */
+export const moveAccount = (
+  data: FinanceData,
+  ids: readonly string[],
+  sourceId: string,
+): FinanceData => {
+  const source = SOURCES.find((s) => s.id === sourceId);
+  const targets = data.entries.filter((entry) => ids.includes(entry.id));
+  if (source === undefined || source.type === 'cartao' || targets.length === 0)
+    return data;
+  if (targets.some((entry) => moveBlockedReason(entry) !== null)) return data;
+  if (targets.some((entry) => entry.kind === 'receita' && source.type !== 'conta'))
+    return data;
+  return {
+    ...data,
+    entries: data.entries.map((entry) =>
+      ids.includes(entry.id)
+        ? { ...entry, payments: [{ sourceId, cents: entry.cents }] }
+        : entry,
+    ),
+  };
+};
+
+/** A frase de impacto da exclusão: que origens voltam a ter o valor. */
+export const deleteImpact = (entries: readonly Entry[]): string => {
+  const parts = entries.flatMap((entry) =>
+    entry.payments.map((payment) => ({
+      name: sourceName(payment.sourceId),
+      cents: entry.kind === 'despesa' ? payment.cents : -payment.cents,
+    })),
+  );
+  const byName = new Map<string, number>();
+  for (const part of parts)
+    byName.set(part.name, (byName.get(part.name) ?? 0) + part.cents);
+  return [...byName]
+    .map(([name, cents]) =>
+      cents >= 0
+        ? `${name} recupera ${formatBRL(cents)}`
+        : `${name} perde ${formatBRL(-cents)}`,
+    )
+    .join('; ');
 };

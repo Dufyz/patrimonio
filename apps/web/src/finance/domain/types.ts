@@ -74,4 +74,9 @@ export type FinanceData = {
   readonly categories: readonly Category[];
   readonly recurrings: readonly Recurring[];
   readonly entries: readonly Entry[];
+  /**
+   * Meses de um recorrente em que o lançamento foi excluído (`r-netflix:2026-10`):
+   * o previsto não é regenerado (RN-06).
+   */
+  readonly skips?: readonly string[];
 };
