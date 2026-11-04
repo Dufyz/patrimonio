@@ -30,8 +30,11 @@ const open = () => {
   );
 };
 
+const mainTable = () =>
+  within(screen.getByRole('table', { name: 'Contas e benefícios' }));
+
 const rowOf = (name: string) => {
-  const row = screen.getByText(name).closest('tr');
+  const row = mainTable().getByText(name).closest('tr');
   if (row === null) throw new Error(`sem linha para ${name}`);
   return row;
 };
@@ -50,7 +53,7 @@ describe('Contas (FIN-401)', () => {
   it('colunas e seções', () => {
     open();
     for (const name of ['Conta', 'Cartão', 'Saldo', 'Variação no mês']) {
-      expect(screen.getByRole('columnheader', { name })).toBeInTheDocument();
+      expect(mainTable().getByRole('columnheader', { name })).toBeInTheDocument();
     }
     expect(screen.getByText('entram no saldo em contas')).toBeInTheDocument();
     expect(screen.getByText('ficam fora do saldo em contas')).toBeInTheDocument();
@@ -93,7 +96,7 @@ describe('Contas (FIN-401)', () => {
 
   it('clicar na linha abre o Extrato', async () => {
     open();
-    await userEvent.click(screen.getByText('Nubank Conta'));
+    await userEvent.click(mainTable().getByText('Nubank Conta'));
     expect(screen.getByText('Extrato aberto')).toBeInTheDocument();
   });
 
@@ -104,5 +107,44 @@ describe('Contas (FIN-401)', () => {
     expect(screen.getByRole('menuitem', { name: 'Transferir' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Arquivar' })).toBeInTheDocument();
     expect(screen.queryByText('Extrato aberto')).not.toBeInTheDocument();
+  });
+
+  describe('Últimas movimentações (FIN-402)', () => {
+    const panel = () => {
+      const section = screen
+        .getByRole('heading', { name: 'Últimas movimentações' })
+        .closest('section');
+      if (section === null) throw new Error('sem painel');
+      return within(section);
+    };
+
+    it('painel com título, link e oito linhas da mais nova para a mais antiga', () => {
+      open();
+      expect(panel().getByRole('link', { name: 'Ver em Lançamentos' })).toHaveAttribute(
+        'href',
+        '/financas/lancamentos',
+      );
+      const rows = panel().getAllByRole('row').slice(1);
+      expect(rows).toHaveLength(8);
+      expect(rows[0]?.textContent).toContain('Investimento');
+      expect(rows[0]?.textContent).toContain('21/10');
+    });
+
+    it('despesa com duas origens aparece uma vez, com o total', () => {
+      open();
+      const luz = panel().getAllByText('Conta de luz');
+      expect(luz).toHaveLength(1);
+      const text = luz[0]?.closest('tr')?.textContent ?? '';
+      expect(text).toContain('Flex + Itaú Corrente');
+      expect(text).toContain('2 pagamentos');
+      expect(text).toContain('−R$ 312,40');
+    });
+
+    it('as colunas pedidas e categoria com o marcador', () => {
+      open();
+      for (const name of ['Data', 'Descrição', 'Categoria', 'Conta', 'Valor']) {
+        expect(panel().getByRole('columnheader', { name })).toBeInTheDocument();
+      }
+    });
   });
 });

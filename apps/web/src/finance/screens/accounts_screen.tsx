@@ -17,6 +17,7 @@ import {
   Th,
   THead,
 } from '../components/fin_table.js';
+import { RecentMovements } from '../components/recent_movements.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { NatureTag } from '../components/tags.js';
@@ -95,6 +96,8 @@ export const AccountsScreen = (): React.ReactElement => {
           </tbody>
         </FinTable>
       </section>
+
+      <RecentMovements />
     </>
   );
 };
