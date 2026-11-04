@@ -32,6 +32,7 @@ import { describeShortcut, SHORTCUTS } from './lib/shortcuts.js';
 import { onPortfoliosChanged } from './lib/portfolio_events.js';
 import { targetPath } from './lib/search.js';
 import type { SearchActionId, SearchTarget } from './lib/search.js';
+import { FinanceApp } from './finance/finance_app.js';
 import { AssetScreen } from './views/asset.js';
 import { Gallery } from './views/gallery.js';
 import { OverviewScreen } from './views/overview.js';
@@ -117,6 +118,8 @@ export const App = (): React.ReactElement => (
 const Workspace = (): React.ReactElement => (
   <Routes>
     <Route path="/galeria" element={<Gallery />} />
+    {/* Finanças é uma área à parte, com a própria navegação. */}
+    <Route path="/financas/*" element={<FinanceApp />} />
     {/* A página do ativo é uma tela dentro do escopo, e não uma tela da barra
         lateral: ela pertence ao papel, e o papel pertence à carteira. Por isso
         ela mora sob o escopo e mantém Posições destacada na navegação. */}
@@ -365,6 +368,9 @@ const Workbench = (): React.ReactElement => {
         settingsActive={onSettings}
         demo={demo}
         onOpenSettings={() => navigate(`/${scope}/configuracoes`)}
+        onSwitchArea={(area) => {
+          if (area === 'financas') navigate('/financas/visao-geral');
+        }}
       >
         {asset !== undefined ? (
           portfolioId === null ? null : (

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { AreaSwitcher } from './area_switcher.js';
+import type { AreaId } from './area_switcher.js';
 import { Compact } from './number.js';
 import { Icon } from './icon.js';
 import { Kbd } from './primitives.js';
@@ -48,6 +50,8 @@ export type AppShellProps = {
   readonly settingsActive?: boolean;
   /** Há dado de demonstração no banco: a barra lateral diz isso. */
   readonly demo?: boolean;
+  /** O seletor de área no topo da barra lateral (FIN-001). Sem ele, só o nome. */
+  readonly onSwitchArea?: ((area: AreaId) => void) | undefined;
   readonly children: React.ReactNode;
   /** Largura imposta, para teste e comparação visual. */
   readonly width?: number | undefined;
@@ -68,6 +72,7 @@ export const AppShell = ({
   onOpenSettings,
   settingsActive = false,
   demo = false,
+  onSwitchArea,
   children,
   width: forcedWidth,
 }: AppShellProps): React.ReactElement => {
@@ -111,6 +116,7 @@ export const AppShell = ({
       onOpenSettings={onOpenSettings}
       settingsActive={settingsActive}
       demo={demo}
+      onSwitchArea={onSwitchArea}
       onToggleCollapsed={
         asDrawer
           ? undefined
@@ -221,6 +227,18 @@ const GroupTitle = ({
   </div>
 );
 
+/** O nome da área no topo: com seletor quando a aplicação sabe trocar de área. */
+const HeaderName = ({
+  onSwitchArea,
+}: {
+  readonly onSwitchArea?: ((area: AreaId) => void) | undefined;
+}): React.ReactElement =>
+  onSwitchArea === undefined ? (
+    <span className="text-[0.9375rem] font-semibold tracking-[-0.01em]">Patrimônio</span>
+  ) : (
+    <AreaSwitcher current="investimentos" onSelect={onSwitchArea} />
+  );
+
 const Sidebar = ({
   portfolios,
   screens,
@@ -233,8 +251,10 @@ const Sidebar = ({
   onOpenSettings,
   settingsActive,
   demo,
+  onSwitchArea,
   onToggleCollapsed,
 }: {
+  readonly onSwitchArea?: ((area: AreaId) => void) | undefined;
   readonly onToggleCollapsed?: (() => void) | undefined;
   readonly portfolios: readonly PortfolioItem[];
   readonly screens: readonly ScreenItem[];
@@ -262,20 +282,16 @@ const Sidebar = ({
     ) : null}
 
     {onToggleCollapsed === undefined && !iconsOnly ? (
-      <p className="px-1.5 pb-3 text-[0.9375rem] font-semibold tracking-[-0.01em]">
-        Patrimônio
-      </p>
+      <div className="pb-3 pl-0.5">
+        <HeaderName onSwitchArea={onSwitchArea} />
+      </div>
     ) : onToggleCollapsed === undefined ? null : (
       <div
         className={`flex items-center ${
           iconsOnly ? 'mb-1 justify-center' : 'justify-between pr-1 pb-3 pl-1.5'
         }`}
       >
-        {iconsOnly ? null : (
-          <span className="text-[0.9375rem] font-semibold tracking-[-0.01em]">
-            Patrimônio
-          </span>
-        )}
+        {iconsOnly ? null : <HeaderName onSwitchArea={onSwitchArea} />}
         <button
           type="button"
           aria-label={iconsOnly ? 'Expandir barra lateral' : 'Recolher barra lateral'}
