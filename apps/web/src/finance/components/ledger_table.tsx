@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu.js';
+import { Checkbox } from '../../components/ui/checkbox.js';
 import { Select } from '../../views/entry/fields.js';
 import { Amount } from './amount.js';
 import { CategoryMarker, FinTable, Row, SectionRow, Td, Th, THead } from './fin_table.js';
@@ -55,6 +56,13 @@ export type RowActions = {
   readonly onCategory: (entry: Entry, categoryId: string) => void;
 };
 
+/** FIN-309 · A seleção em lote: previstos não são selecionáveis. */
+export type Selection = {
+  readonly ids: ReadonlySet<string>;
+  readonly onToggle: (entry: Entry) => void;
+  readonly onToggleAll: (checked: boolean) => void;
+};
+
 export const LedgerTable = ({
   groups,
   categories,
@@ -62,6 +70,7 @@ export const LedgerTable = ({
   hiddenColumns = [],
   onLaunch,
   actions,
+  selection,
 }: {
   readonly groups: readonly LedgerGroup[];
   readonly categories: readonly Category[];
@@ -70,16 +79,38 @@ export const LedgerTable = ({
   readonly hiddenColumns?: readonly string[];
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
   readonly actions?: RowActions | undefined;
+  readonly selection?: Selection | undefined;
 }): React.ReactElement => {
   const visible = (id: string): boolean => !hiddenColumns.includes(id);
   const layout: Layout = {
     visible,
-    colSpan: DATA_COLUMNS.filter(visible).length + 1,
+    colSpan: DATA_COLUMNS.filter(visible).length + (selection === undefined ? 1 : 2),
+    selectable: selection !== undefined,
   };
+  const selectableIds = groups.flatMap((g) =>
+    g.entries.filter((e) => e.status === 'lancada').map((e) => e.id),
+  );
+  const selectedCount = selectableIds.filter((id) => selection?.ids.has(id)).length;
+  const allChecked: boolean | 'indeterminate' =
+    selectedCount === 0
+      ? false
+      : selectedCount === selectableIds.length
+        ? true
+        : 'indeterminate';
   return (
     <section className="border-t border-line">
       <FinTable caption="Lançamentos">
         <THead>
+          {selection === undefined ? null : (
+            <Th className="w-10">
+              <Checkbox
+                aria-label="Selecionar todos os lançamentos"
+                checked={allChecked}
+                disabled={selectableIds.length === 0}
+                onCheckedChange={(checked) => selection.onToggleAll(checked === true)}
+              />
+            </Th>
+          )}
           {visible('data') ? <Th>Data</Th> : null}
           <Th>Descrição</Th>
           {visible('categoria') ? <Th>Categoria</Th> : null}
@@ -100,6 +131,7 @@ export const LedgerTable = ({
               layout={layout}
               onLaunch={onLaunch}
               actions={actions}
+              selection={selection}
             />
           ))}
         </tbody>
@@ -112,6 +144,7 @@ export const LedgerTable = ({
 type Layout = {
   readonly visible: (id: string) => boolean;
   readonly colSpan: number;
+  readonly selectable: boolean;
 };
 
 const GroupRows = ({
@@ -121,6 +154,7 @@ const GroupRows = ({
   layout,
   onLaunch,
   actions,
+  selection,
 }: {
   readonly group: LedgerGroup;
   readonly categories: readonly Category[];
@@ -128,6 +162,7 @@ const GroupRows = ({
   readonly layout: Layout;
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
   readonly actions?: RowActions | undefined;
+  readonly selection?: Selection | undefined;
 }): React.ReactElement => {
   const count = pluralize(group.entries.length, 'lançamento', 'lançamentos');
   const label =
@@ -154,6 +189,7 @@ const GroupRows = ({
           categories={categories}
           onLaunch={onLaunch}
           actions={actions}
+          selection={selection}
         />
       ))}
     </>
@@ -168,6 +204,7 @@ const EntryRow = ({
   categories,
   onLaunch,
   actions,
+  selection,
 }: {
   readonly entry: Entry;
   readonly category: Category | undefined;
@@ -176,13 +213,25 @@ const EntryRow = ({
   readonly categories: readonly Category[];
   readonly onLaunch?: ((entry: Entry) => void) | undefined;
   readonly actions?: RowActions | undefined;
+  readonly selection?: Selection | undefined;
 }): React.ReactElement => {
   const [editingCategory, setEditingCategory] = useState(false);
   const pending = entry.status === 'prevista';
   const split = entry.payments.length > 1;
   return (
     <>
-      <Row>
+      <Row selected={selection?.ids.has(entry.id) === true}>
+        {selection === undefined ? null : (
+          <Td className="w-10">
+            {pending ? null : (
+              <Checkbox
+                aria-label={`Selecionar ${entry.description}`}
+                checked={selection.ids.has(entry.id)}
+                onCheckedChange={() => selection.onToggle(entry)}
+              />
+            )}
+          </Td>
+        )}
         <Td className="tabular text-ink-2">{formatDate(entry.date, today)}</Td>
         <Td className="font-medium">{entry.description}</Td>
         <Td>
@@ -298,6 +347,7 @@ const PartRow = ({
   readonly layout: Layout;
 }): React.ReactElement => (
   <tr data-part={sourceId} className="border-b border-line text-ink-3 last:border-b-0">
+    {layout.selectable ? <td aria-hidden="true" /> : null}
     {layout.visible('data') ? <td aria-hidden="true" /> : null}
     <td
       colSpan={

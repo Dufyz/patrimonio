@@ -545,3 +545,115 @@ describe('menu da linha e categoria inline (FIN-308)', () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe('seleção em lote (FIN-309)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  const pick = (name: string) =>
+    userEvent.click(screen.getByRole('checkbox', { name: `Selecionar ${name}` }));
+
+  it('previstos não são selecionáveis', () => {
+    open();
+    expect(
+      screen.queryByRole('checkbox', { name: 'Selecionar Spotify' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: 'Selecionar Netflix' }),
+    ).toBeInTheDocument();
+  });
+
+  it('a barra aparece com a contagem e a linha fica destacada', async () => {
+    open();
+    expect(
+      screen.queryByRole('toolbar', { name: 'Seleção em lote' }),
+    ).not.toBeInTheDocument();
+    await pick('Netflix');
+    await pick('Internet');
+    const bar = screen.getByRole('toolbar', { name: 'Seleção em lote' });
+    expect(within(bar).getByText('2 selecionados')).toBeInTheDocument();
+    expect(screen.getByText('Netflix').closest('tr')).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    for (const name of ['Recategorizar', 'Mover de conta', 'Excluir']) {
+      expect(within(bar).getByRole('button', { name })).toBeInTheDocument();
+    }
+  });
+
+  it('o cabeçalho seleciona todas as lançadas visíveis, e de novo limpa', async () => {
+    open();
+    const all = screen.getByRole('checkbox', { name: 'Selecionar todos os lançamentos' });
+    await userEvent.click(all);
+    expect(screen.getByText('12 selecionados')).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'Selecionar todos os lançamentos' }),
+    );
+    expect(
+      screen.queryByRole('toolbar', { name: 'Seleção em lote' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('Esc e o botão limpar removem a seleção', async () => {
+    open();
+    await pick('Netflix');
+    await userEvent.keyboard('{Escape}');
+    expect(
+      screen.queryByRole('toolbar', { name: 'Seleção em lote' }),
+    ).not.toBeInTheDocument();
+    await pick('Netflix');
+    await userEvent.click(screen.getByRole('button', { name: 'Limpar seleção' }));
+    expect(
+      screen.queryByRole('toolbar', { name: 'Seleção em lote' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('recategoriza em lote', async () => {
+    open();
+    await pick('Internet');
+    await pick('Seguro do carro');
+    await userEvent.click(screen.getByRole('button', { name: 'Recategorizar' }));
+    const dialog = screen.getByRole('dialog', { name: 'Recategorizar' });
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: 'Categoria' }),
+      'Lazer',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Recategorizar' }));
+    expect(screen.getAllByText('Lazer').length).toBeGreaterThanOrEqual(2);
+    expect(
+      screen.queryByRole('toolbar', { name: 'Seleção em lote' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('mover de conta é bloqueado com cartão ou duas origens, com mensagem', async () => {
+    open();
+    await pick('Netflix');
+    await userEvent.click(screen.getByRole('button', { name: 'Mover de conta' }));
+    expect(screen.getByRole('dialog', { name: 'Não dá para mover' })).toHaveTextContent(
+      'cartão',
+    );
+  });
+
+  it('excluir pede confirmação com a contagem e o valor total', async () => {
+    open();
+    await pick('Netflix');
+    await pick('Internet');
+    await userEvent.click(
+      within(screen.getByRole('toolbar')).getByRole('button', { name: 'Excluir' }),
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Excluir lançamentos' });
+    expect(dialog).toHaveTextContent('2 lançamentos');
+    expect(dialog).toHaveTextContent('R$ 105,90');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Excluir 2' }));
+    expect(screen.queryByText('Netflix')).not.toBeInTheDocument();
+    expect(screen.queryByText('Internet')).not.toBeInTheDocument();
+  });
+
+  it('a seleção acompanha os filtros: linhas que saem da tabela saem da seleção', async () => {
+    open();
+    await pick('Netflix');
+    await userEvent.type(screen.getByRole('searchbox'), 'internet');
+    expect(
+      screen.queryByRole('toolbar', { name: 'Seleção em lote' }),
+    ).not.toBeInTheDocument();
+  });
+});

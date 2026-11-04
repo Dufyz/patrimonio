@@ -1,9 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import { Button } from '../../components/primitives.js';
 import { EntryDialog } from '../components/entry_dialog.js';
-import { ConfirmDialog, MoveAccountDialog } from '../components/entry_confirms.js';
+import { BatchBar } from '../components/batch_bar.js';
+import {
+  ConfirmDialog,
+  MoveAccountDialog,
+  RecategorizeDialog,
+} from '../components/entry_confirms.js';
 import {
   addEntry,
   deleteEntries,
@@ -66,6 +71,8 @@ export const EntriesScreen = (): React.ReactElement => {
   const [deleting, setDeleting] = useState<Entry | null>(null);
   const [moving, setMoving] = useState<Entry | null>(null);
   const [blocked, setBlocked] = useState<string | null>(null);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [batch, setBatch] = useState<'category' | 'move' | 'delete' | null>(null);
   const { range, setRange, today } = useFinancePeriod();
 
   const [grouping, setGrouping] = useState<EntryGrouping>(() =>
@@ -123,6 +130,31 @@ export const EntriesScreen = (): React.ReactElement => {
     [grouping, entries, range, data.categories],
   );
   const indicators = useMemo(() => computeIndicators(entries, range), [entries, range]);
+  // A seleção só vale para linhas lançadas que a tabela ainda mostra.
+  const selectableIds = useMemo(
+    () =>
+      groups.flatMap((g) =>
+        g.entries.filter((e) => e.status === 'lancada').map((e) => e.id),
+      ),
+    [groups],
+  );
+  const chosen = useMemo(
+    () => data.entries.filter((e) => selected.has(e.id) && selectableIds.includes(e.id)),
+    [data.entries, selected, selectableIds],
+  );
+
+  // Esc limpa a seleção, a menos que um modal esteja aberto (ele cuida do próprio Esc).
+  useEffect(() => {
+    if (selected.size === 0) return undefined;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape' && document.querySelector('[role="dialog"]') === null) {
+        setSelected(new Set());
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected.size]);
+
   const shown = groups.reduce((total, group) => total + group.entries.length, 0);
 
   return (
@@ -176,12 +208,36 @@ export const EntriesScreen = (): React.ReactElement => {
               </Button>
             </div>
           ) : null}
+          {chosen.length === 0 ? null : (
+            <BatchBar
+              count={chosen.length}
+              onRecategorize={() => setBatch('category')}
+              onMove={() => {
+                const reason = chosen.map(moveBlockedReason).find((r) => r !== null);
+                if (reason === undefined || reason === null) setBatch('move');
+                else setBlocked(reason);
+              }}
+              onDelete={() => setBatch('delete')}
+              onClear={() => setSelected(new Set())}
+            />
+          )}
           <LedgerTable
             groups={groups}
             categories={data.categories}
             today={today}
             hiddenColumns={hidden}
             onLaunch={setLaunching}
+            selection={{
+              ids: selected,
+              onToggle: (entry) =>
+                setSelected((current) => {
+                  const next = new Set(current);
+                  if (!next.delete(entry.id)) next.add(entry.id);
+                  return next;
+                }),
+              onToggleAll: (checked) =>
+                setSelected(new Set(checked ? selectableIds : [])),
+            }}
             actions={{
               onEdit: setEditing,
               onDelete: setDeleting,
@@ -210,6 +266,65 @@ export const EntriesScreen = (): React.ReactElement => {
             setCreating(false);
           }}
         />
+      ) : null}
+      {batch === 'category' ? (
+        <RecategorizeDialog
+          entries={chosen}
+          categories={data.categories}
+          onClose={() => setBatch(null)}
+          onConfirm={(categoryId) => {
+            store.set((current) =>
+              recategorize(
+                current,
+                chosen.map((e) => e.id),
+                categoryId,
+              ),
+            );
+            setBatch(null);
+            setSelected(new Set());
+          }}
+        />
+      ) : null}
+      {batch === 'move' ? (
+        <MoveAccountDialog
+          entries={chosen}
+          onClose={() => setBatch(null)}
+          onConfirm={(sourceId) => {
+            store.set((current) =>
+              moveAccount(
+                current,
+                chosen.map((e) => e.id),
+                sourceId,
+              ),
+            );
+            setBatch(null);
+            setSelected(new Set());
+          }}
+        />
+      ) : null}
+      {batch === 'delete' ? (
+        <ConfirmDialog
+          title="Excluir lançamentos"
+          confirmLabel={`Excluir ${chosen.length}`}
+          danger
+          onClose={() => setBatch(null)}
+          onConfirm={() => {
+            store.set((current) =>
+              deleteEntries(
+                current,
+                chosen.map((e) => e.id),
+              ),
+            );
+            setBatch(null);
+            setSelected(new Set());
+          }}
+        >
+          <p>
+            Excluir {chosen.length} lançamentos, num total de{' '}
+            {formatBRL(chosen.reduce((total, e) => total + e.cents, 0))}? O efeito deles
+            nos saldos e nas faturas é revertido: {deleteImpact(chosen)}.
+          </p>
+        </ConfirmDialog>
       ) : null}
       {editing === null ? null : (
         <EntryDialog

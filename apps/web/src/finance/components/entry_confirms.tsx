@@ -108,3 +108,68 @@ export const MoveAccountDialog = ({
     </Dialog>
   );
 };
+
+/** Recategorizar em lote: só categorias do tipo comum às linhas marcadas. */
+export const RecategorizeDialog = ({
+  entries,
+  categories,
+  onConfirm,
+  onClose,
+}: {
+  readonly entries: readonly Entry[];
+  readonly categories: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly kind: string;
+  }[];
+  readonly onConfirm: (categoryId: string) => void;
+  readonly onClose: () => void;
+}): React.ReactElement => {
+  const [categoryId, setCategoryId] = useState('');
+  const kinds = new Set(entries.map((entry) => entry.kind));
+  const mixed = kinds.size > 1;
+  const options = categories
+    .filter((category) => kinds.has(category.kind as Entry['kind']))
+    .map((category) => ({ id: category.id, name: category.name }));
+
+  return (
+    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Recategorizar</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <DialogDescription className="text-[0.8125rem] text-ink-2">
+            {mixed
+              ? 'Receitas e despesas têm categorias diferentes. Selecione só um tipo para recategorizar.'
+              : `Escolha a categoria dos ${entries.length} lançamentos.`}
+          </DialogDescription>
+          {mixed ? null : (
+            <Field label="Categoria">
+              {(props) => (
+                <Select
+                  {...props}
+                  invalid={false}
+                  placeholder="Escolha uma categoria"
+                  options={options}
+                  value={categoryId}
+                  onChange={(event) => setCategoryId(event.target.value)}
+                />
+              )}
+            </Field>
+          )}
+        </DialogBody>
+        <DialogFooter className="justify-end">
+          <Button onClick={onClose}>Cancelar</Button>
+          <Button
+            variant="primary"
+            disabled={mixed || categoryId === ''}
+            onClick={() => onConfirm(categoryId)}
+          >
+            Recategorizar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
