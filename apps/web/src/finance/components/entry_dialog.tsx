@@ -4,19 +4,21 @@ import { Modal } from '../../components/overlay.js';
 import { FormShell } from '../../views/entry/form_shell.js';
 import { Checkbox } from '../../components/ui/checkbox.js';
 import { EffectTable } from './effect_table.js';
-import { entryEffect } from '../domain/effects.js';
+import { entryEffect, launchEffect } from '../domain/effects.js';
+import { Segmented } from '../../components/primitives.js';
 import { Callout, Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
 import {
   FUTURE_DATE,
   allowedSources,
   canInstall,
   installmentSummary,
+  paymentsOf,
   splitDifference,
   validateEntry,
 } from '../domain/entry_ops.js';
 import type { EntryDraft } from '../domain/entry_ops.js';
 import { benefitWarnings } from '../domain/benefits.js';
-import type { EntryKind, FinanceData } from '../domain/types.js';
+import type { FinanceData } from '../domain/types.js';
 import { formatBRL } from '../lib/format.js';
 import { parseMoneyInput } from '../lib/format.js';
 
@@ -37,10 +39,10 @@ const TITLES: Readonly<Record<EntryDialogMode, string>> = {
   launch: 'Lançar previsto',
 };
 
-const KINDS: readonly { readonly id: EntryKind; readonly name: string }[] = [
-  { id: 'despesa', name: 'Despesa' },
-  { id: 'receita', name: 'Receita' },
-];
+const KIND_OPTIONS = [
+  { value: 'despesa', label: 'Despesa' },
+  { value: 'receita', label: 'Receita' },
+] as const;
 
 export const EntryDialog = ({
   mode,
@@ -51,6 +53,8 @@ export const EntryDialog = ({
   onClose,
   onCreateRecurring,
   ignoreEntryId,
+  launchId,
+  onSaveAndNew,
 }: {
   readonly mode: EntryDialogMode;
   readonly data: FinanceData;
@@ -62,6 +66,10 @@ export const EntryDialog = ({
   readonly onCreateRecurring?: (() => void) | undefined;
   /** Ao editar um lançado: a parte antiga já está descontada do saldo do benefício. */
   readonly ignoreEntryId?: string | undefined;
+  /** Ao lançar um previsto: qual é, para o efeito comparar com ele. */
+  readonly launchId?: string | undefined;
+  /** "Salvar e novo": grava sem fechar e limpa o formulário (⇧↵). Só em `new`. */
+  readonly onSaveAndNew?: ((draft: EntryDraft) => void) | undefined;
 }): React.ReactElement => {
   const [draft, setDraft] = useState<EntryDraft>(initial);
   const [attempted, setAttempted] = useState(false);
@@ -75,7 +83,13 @@ export const EntryDialog = ({
   const diff = splitDifference(draft);
   const warnings = benefitWarnings(data, draft, today, ignoreEntryId);
   const blocked = diff !== null && diff !== 0;
-  const effect = mode === 'new' ? entryEffect(data, draft, today) : null;
+  const effect =
+    mode === 'new'
+      ? entryEffect(data, draft, today)
+      : mode === 'launch' && launchId !== undefined
+        ? launchEffect(data, launchId, draft, today)
+        : null;
+  const modelParts = mode === 'launch' && draft.split ? paymentsOf(draft) : [];
 
   const categories = data.categories
     .filter((category) => category.kind === draft.kind)
@@ -89,6 +103,14 @@ export const EntryDialog = ({
     setAttempted(true);
     if (Object.keys(errors).length > 0) return;
     onSave(draft);
+  };
+
+  const saveAndNew = (): void => {
+    setAttempted(true);
+    if (Object.keys(errors).length > 0) return;
+    onSaveAndNew?.(draft);
+    setDraft({ ...initial, date: draft.date, kind: draft.kind });
+    setAttempted(false);
   };
 
   /** Com divisão, mudar o valor total ajusta a segunda parte para fechar a soma. */
@@ -105,56 +127,52 @@ export const EntryDialog = ({
       <FormShell
         pending={false}
         onSave={save}
+        {...(mode === 'new' && onSaveAndNew !== undefined
+          ? { onSaveAgain: saveAndNew }
+          : {})}
         onCancel={onClose}
         saveLabel={mode === 'launch' ? 'Lançar' : 'Salvar'}
         canSave={!blocked}
       >
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Tipo">
-            {(props) => (
-              <Select
-                {...props}
-                invalid={false}
-                disabled={locked}
-                options={KINDS}
-                value={draft.kind}
-                onChange={(event) => {
-                  const kind = event.target.value as EntryKind;
-                  const keepCategory = data.categories.some(
-                    (c) => c.id === draft.categoryId && c.kind === kind,
-                  );
-                  const keepSource = allowedSources(data, kind).some(
-                    (s) => s.id === draft.sourceId,
-                  );
-                  set({
-                    kind,
-                    categoryId: keepCategory ? draft.categoryId : '',
-                    sourceId: keepSource ? draft.sourceId : '',
-                    ...(kind === 'receita' ? { split: false } : {}),
-                  });
-                }}
-              />
-            )}
-          </Field>
-          <Field label="Data" error={shown('date')}>
-            {(props) => (
-              <Input
-                {...props}
-                type="date"
-                max={today}
-                invalid={shown('date') !== undefined}
-                value={draft.date}
-                onChange={(event) => set({ date: event.target.value })}
-              />
-            )}
-          </Field>
-        </div>
+        {locked ? null : (
+          <Segmented
+            label="Tipo"
+            options={KIND_OPTIONS}
+            value={draft.kind}
+            onChange={(kind) => {
+              const keepCategory = data.categories.some(
+                (c) => c.id === draft.categoryId && c.kind === kind,
+              );
+              const keepSource = allowedSources(data, kind).some(
+                (s) => s.id === draft.sourceId,
+              );
+              set({
+                kind,
+                categoryId: keepCategory ? draft.categoryId : '',
+                sourceId: keepSource ? draft.sourceId : '',
+                ...(kind === 'receita' ? { split: false } : {}),
+              });
+            }}
+          />
+        )}
+
+        <Field label="Valor" error={shown('value')}>
+          {(props) => (
+            <MoneyInput
+              {...props}
+              autoFocus
+              className="!h-12 !text-[1.375rem] font-semibold"
+              invalid={shown('value') !== undefined}
+              value={draft.value}
+              onChange={(event) => onValue(event.target.value)}
+            />
+          )}
+        </Field>
 
         <Field label="Descrição" error={shown('description')}>
           {(props) => (
             <Input
               {...props}
-              autoFocus={!locked}
               disabled={locked}
               invalid={shown('description') !== undefined}
               value={draft.description}
@@ -177,14 +195,15 @@ export const EntryDialog = ({
               />
             )}
           </Field>
-          <Field label="Valor" error={shown('value')}>
+          <Field label="Data" error={shown('date')}>
             {(props) => (
-              <MoneyInput
+              <Input
                 {...props}
-                autoFocus={locked}
-                invalid={shown('value') !== undefined}
-                value={draft.value}
-                onChange={(event) => onValue(event.target.value)}
+                type="date"
+                max={today}
+                invalid={shown('date') !== undefined}
+                value={draft.date}
+                onChange={(event) => set({ date: event.target.value })}
               />
             )}
           </Field>
@@ -214,7 +233,21 @@ export const EntryDialog = ({
                   {...props}
                   invalid={shown('firstValue') !== undefined}
                   value={draft.firstValue}
-                  onChange={(event) => set({ firstValue: event.target.value })}
+                  onChange={(event) => {
+                    const firstValue = event.target.value;
+                    const total = parseMoneyInput(draft.value);
+                    const first = parseMoneyInput(firstValue);
+                    set(
+                      total !== null && first !== null && total >= first
+                        ? {
+                            firstValue,
+                            secondValue: ((total - first) / 100)
+                              .toFixed(2)
+                              .replace('.', ','),
+                          }
+                        : { firstValue },
+                    );
+                  }}
                 />
               )}
             </Field>
@@ -293,6 +326,22 @@ export const EntryDialog = ({
           </div>
         ) : null}
 
+        {draft.split ? (
+          <div className="flex items-baseline justify-between gap-4 border-t border-line pt-3 text-[0.8125rem]">
+            <span className="text-ink-2">Soma das origens</span>
+            <strong className="tabular text-[1.125rem] font-semibold">
+              {formatBRL(paymentsOf(draft).reduce((sum, part) => sum + part.cents, 0))}
+            </strong>
+          </div>
+        ) : null}
+
+        {draft.split ? (
+          <Callout tone="info">
+            A soma das origens tem que fechar com o valor. Ao preencher a primeira origem,
+            a segunda recebe o que falta.
+          </Callout>
+        ) : null}
+
         {diff === null ? null : (
           <p
             role="status"
@@ -306,7 +355,45 @@ export const EntryDialog = ({
           </p>
         )}
 
+        {modelParts.length === 0 ? null : (
+          <div
+            role="group"
+            aria-label="Pagamento calculado pelo modelo"
+            className="rounded-control border border-line"
+          >
+            <div className="tabular border-b border-line px-3 py-1.5 text-label tracking-[0.06em] text-ink-3 uppercase">
+              Pagamento · calculado pelo modelo
+            </div>
+            <ul>
+              {modelParts.map((part, index) => (
+                <li
+                  key={`${part.sourceId}-${index}`}
+                  className="flex items-baseline justify-between gap-4 border-t border-line px-3 py-2 text-[0.8125rem] first:border-t-0"
+                >
+                  <span>
+                    {data.accounts.find((a) => a.id === part.sourceId)?.name ??
+                      part.sourceId}
+                    <span className="ml-1.5 text-xs text-ink-3">
+                      {index === 0 ? 'benefício' : 'o restante'}
+                    </span>
+                  </span>
+                  <strong className="tabular font-semibold">
+                    {formatBRL(part.cents)}
+                  </strong>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {effect === null ? null : <EffectTable rows={effect} />}
+
+        {mode === 'launch' ? (
+          <Callout tone="info">
+            Mudando o valor real, a parte do benefício continua até o limite configurado e
+            o restante ajusta na conta. Dá para editar as duas partes à mão.
+          </Callout>
+        ) : null}
 
         {mode === 'new' && canInstall(data, draft) && Number(draft.installments) > 1 ? (
           <Callout tone="info">

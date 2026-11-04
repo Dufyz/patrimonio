@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 
 import { Button, IconButton } from '../../components/primitives.js';
 import { CardItemDialog } from '../components/card_item_dialog.js';
+import { deleteInstallmentEffect } from '../domain/effects.js';
 import { InstallmentScopeDialog } from '../components/installment_scope_dialog.js';
 import { ConfirmDialog } from '../components/entry_confirms.js';
 import { PayInvoiceDialog } from '../components/pay_invoice_dialog.js';
@@ -238,6 +239,16 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
         <InstallmentScopeDialog
           action={ask.action}
           description={ask.line.description}
+          effect={(chosen) =>
+            deleteInstallmentEffect(
+              data,
+              card.id,
+              key,
+              ask.line.origin,
+              ask.line.id,
+              chosen,
+            )
+          }
           onClose={() => setAsk(null)}
           onChoose={(chosen) => {
             setScope(chosen);

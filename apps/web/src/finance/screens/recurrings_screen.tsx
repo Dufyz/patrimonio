@@ -284,6 +284,7 @@ export const RecurringsScreen = (): React.ReactElement => {
 
       {dialog?.type === 'new' || dialog?.type === 'edit' ? (
         <RecurringDialog
+          today={today}
           data={data}
           recurring={dialog.type === 'edit' ? dialog.recurring : undefined}
           onClose={() => setDialog(null)}

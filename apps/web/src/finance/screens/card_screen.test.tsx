@@ -309,15 +309,17 @@ describe('Compra parcelada (FIN-510, CE-07)', () => {
     );
   });
 
-  it('excluir pergunta todas ou só as futuras', async () => {
+  it('excluir pergunta o alcance e mostra o efeito nas faturas', async () => {
     open('/financas/cartoes/nubank-master?fatura=2026-12');
     await userEvent.click(
       statement().getByRole('button', { name: 'Ações de Notebook Dell Inspiron' }),
     );
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Excluir' }));
-    await userEvent.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: 'Só as futuras' }),
-    );
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByRole('heading', { name: 'Excluir esta compra?' })).toBeTruthy();
+    await userEvent.click(dialog.getByRole('radio', { name: 'Esta e as futuras' }));
+    expect(dialog.getByRole('group', { name: 'Efeito' })).toBeTruthy();
+    await userEvent.click(dialog.getByRole('button', { name: 'Excluir compra' }));
     // as faturas de dez a fev deixaram de existir: volta para a vigente, e a parcela 3 fica
     expect(panel().getByText('nov/2026')).toBeTruthy();
     expect(

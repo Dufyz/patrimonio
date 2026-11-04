@@ -351,10 +351,7 @@ describe('novo lançamento (FIN-307)', () => {
     expect(
       within(categoria).queryByRole('option', { name: 'Salário' }),
     ).not.toBeInTheDocument();
-    await userEvent.selectOptions(
-      within(dialog).getByRole('combobox', { name: 'Tipo' }),
-      'Receita',
-    );
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Receita' }));
     expect(
       within(categoria).getByRole('option', { name: 'Salário' }),
     ).toBeInTheDocument();
@@ -408,14 +405,20 @@ describe('novo lançamento (FIN-307)', () => {
       within(dialog).getAllByRole('textbox', { name: 'Parte desta origem' })[0]!,
       '60,00',
     );
-    expect(within(dialog).getByRole('status')).toHaveTextContent('Faltam R$ 40,00');
+    // a segunda origem recebe o que falta
+    expect(within(dialog).getByRole('status')).toHaveTextContent('As partes fecham');
+    expect(within(dialog).getByText('Soma das origens')).toBeTruthy();
+    const second = within(dialog).getAllByRole('textbox', {
+      name: 'Parte desta origem',
+    })[1]!;
+    await userEvent.clear(second);
+    await userEvent.type(second, '30,00');
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Faltam R$ 10,00');
     expect(
       within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }),
     ).toBeDisabled();
-    await userEvent.type(
-      within(dialog).getAllByRole('textbox', { name: 'Parte desta origem' })[1]!,
-      '40,00',
-    );
+    await userEvent.clear(second);
+    await userEvent.type(second, '40,00');
     expect(within(dialog).getByRole('status')).toHaveTextContent('As partes fecham');
     expect(
       within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }),
@@ -850,5 +853,50 @@ describe('aviso de saldo do benefício (FIN-408)', () => {
     );
     await userEvent.type(dialog.getByRole('textbox', { name: 'Valor' }), '100,00');
     expect(dialog.queryByRole('note')).not.toBeInTheDocument();
+  });
+});
+
+describe('modal de novo lançamento (prancha Modais A)', () => {
+  const openNew = async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /^Lançamento/ }));
+    return within(screen.getByRole('dialog', { name: 'Novo lançamento' }));
+  };
+
+  it('Salvar e novo grava, mantém o modal aberto e limpa o formulário', async () => {
+    const dialog = await openNew();
+    await userEvent.type(dialog.getByRole('textbox', { name: 'Valor' }), '25,00');
+    await userEvent.type(
+      dialog.getByRole('textbox', { name: 'Descrição' }),
+      'Café da tarde',
+    );
+    await userEvent.selectOptions(
+      dialog.getByRole('combobox', { name: 'Categoria' }),
+      'Mercado',
+    );
+    await userEvent.selectOptions(
+      dialog.getByRole('combobox', { name: /Origem/ }),
+      'itau-corrente',
+    );
+    await userEvent.click(dialog.getByRole('button', { name: /Salvar e novo/ }));
+    expect(screen.getByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument();
+    expect(dialog.getByRole('textbox', { name: 'Descrição' })).toHaveValue('');
+  });
+
+  it('mostra o efeito do lançamento antes de salvar', async () => {
+    const dialog = await openNew();
+    await userEvent.click(dialog.getByRole('radio', { name: 'Receita' }));
+    await userEvent.type(dialog.getByRole('textbox', { name: 'Valor' }), '1.800,00');
+    await userEvent.type(dialog.getByRole('textbox', { name: 'Descrição' }), 'Freela');
+    await userEvent.selectOptions(
+      dialog.getByRole('combobox', { name: 'Categoria' }),
+      'Freelas',
+    );
+    await userEvent.selectOptions(
+      dialog.getByRole('combobox', { name: /Origem/ }),
+      'itau-corrente',
+    );
+    const effect = within(dialog.getByRole('group', { name: 'Efeito' }));
+    expect(effect.getByText(/Receitas de/)).toBeTruthy();
   });
 });

@@ -5,6 +5,8 @@ import { Modal } from '../../components/overlay.js';
 import { FormShell } from '../../views/entry/form_shell.js';
 import { Checkbox } from '../../components/ui/checkbox.js';
 import { Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
+import { EffectTable } from './effect_table.js';
+import { effectMonthLabel, recurringEffect } from '../domain/effects.js';
 import { draftOf, validateRecurring } from '../domain/recurring.js';
 import type { RecurringDraft } from '../domain/recurring.js';
 import { activeSources } from '../domain/sources.js';
@@ -38,11 +40,13 @@ const STATES: readonly { readonly id: string; readonly name: string }[] = [
 
 export const RecurringDialog = ({
   data,
+  today,
   recurring,
   onSave,
   onClose,
 }: {
   readonly data: FinanceData;
+  readonly today: string;
   /** Ausente em "Novo recorrente". */
   readonly recurring?: Recurring | undefined;
   readonly onSave: (draft: RecurringDraft) => void;
@@ -60,6 +64,8 @@ export const RecurringDialog = ({
     .filter((category) => category.kind === draft.kind)
     .map((category) => ({ id: category.id, name: category.name }));
   const sourceOptions = activeSources(data).map((s) => ({ id: s.id, name: s.name }));
+
+  const effect = recurringEffect(data, draft, today);
 
   const save = (): void => {
     setAttempted(true);
@@ -229,6 +235,9 @@ export const RecurringDialog = ({
             )}
           </Field>
         </div>
+        {effect === null ? null : (
+          <EffectTable title={`Efeito em ${effectMonthLabel(today)}`} rows={effect} />
+        )}
       </FormShell>
     </Modal>
   );

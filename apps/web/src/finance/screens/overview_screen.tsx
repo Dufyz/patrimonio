@@ -95,6 +95,9 @@ export const OverviewScreen = (): React.ReactElement => {
       {creating ? (
         <EntryDialog
           mode="new"
+          onSaveAndNew={(draft) =>
+            store.set((current) => addEntry(current, draft, today))
+          }
           data={data}
           today={today}
           initial={emptyEntryDraft(today)}

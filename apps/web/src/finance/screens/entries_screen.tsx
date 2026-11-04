@@ -312,6 +312,9 @@ export const EntriesScreen = (): React.ReactElement => {
       {creating ? (
         <EntryDialog
           mode="new"
+          onSaveAndNew={(draft) =>
+            store.set((current) => addEntry(current, draft, today))
+          }
           data={data}
           today={today}
           initial={emptyEntryDraft(today)}
@@ -439,6 +442,7 @@ export const EntriesScreen = (): React.ReactElement => {
       {launching === null ? null : (
         <EntryDialog
           mode="launch"
+          launchId={launching.id}
           data={data}
           today={today}
           initial={draftOfEntry(launching, today)}

@@ -10,7 +10,7 @@ import type { CardItem, Entry, FinanceData } from './types.js';
  * as parcelas ou só para as futuras (a escolhida e as seguintes).
  */
 
-export type InstallmentScope = 'todas' | 'futuras';
+export type InstallmentScope = 'esta' | 'futuras' | 'todas';
 
 type Group = { readonly of: number; readonly origin: IsoDate | undefined };
 
@@ -28,7 +28,7 @@ const sameGroup = (a: Group | null, b: Group | null): boolean =>
   a !== null && b !== null && a.of === b.of && a.origin === b.origin;
 
 const inScope = (n: number, from: number, scope: InstallmentScope): boolean =>
-  scope === 'todas' || n >= from;
+  scope === 'todas' || (scope === 'esta' ? n === from : n >= from);
 
 /** As parcelas de uma compra de Lançamentos atingidas pelo escopo. */
 export const entryTargets = (
