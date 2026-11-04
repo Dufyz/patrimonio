@@ -1,3 +1,8 @@
+import {
+  chooseFilter,
+  chooseGrouping,
+  toggleDisplayColumn,
+} from '../lib/test_helpers.js';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -175,10 +180,7 @@ describe('agrupar (FIN-304)', () => {
   beforeEach(() => globalThis.localStorage.clear());
 
   const group = async (name: string) => {
-    await userEvent.click(screen.getByRole('button', { name: /^Agrupar:/ }));
-    await userEvent.click(
-      await screen.findByRole('menuitem', { name: new RegExp(`^${name}`) }),
-    );
+    await chooseGrouping(name);
   };
 
   it('abre por dia e mostra o seletor "Agrupar: Dia"', () => {
@@ -242,9 +244,8 @@ describe('busca e filtros (FIN-305)', () => {
 
   it('filtra por situação: só previstos', async () => {
     open();
-    await userEvent.click(screen.getByRole('button', { name: /Filtrar/ }));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Previsto' }));
-    expect(screen.getByText('4 lançamentos')).toBeInTheDocument();
+    await chooseFilter('Situação', 'Previsto');
+    expect(screen.getByText('Spotify')).toBeInTheDocument();
     expect(screen.queryByText('Netflix')).not.toBeInTheDocument();
   });
 
@@ -261,11 +262,9 @@ describe('busca e filtros (FIN-305)', () => {
 
   it('os filtros persistem ao trocar o agrupamento', async () => {
     open();
-    await userEvent.click(screen.getByRole('button', { name: /Filtrar/ }));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Receita' }));
+    await chooseFilter('Tipo', 'Receita');
     await userEvent.keyboard('{Escape}');
-    await userEvent.click(screen.getByRole('button', { name: /^Agrupar:/ }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: /^Tipo/ }));
+    await chooseGrouping('Tipo');
     expect(screen.getByText('Receitas · 3 lançamentos')).toBeInTheDocument();
     expect(screen.queryByText(/^Despesas ·/)).not.toBeInTheDocument();
   });
@@ -274,7 +273,7 @@ describe('busca e filtros (FIN-305)', () => {
     open('/?conta=flex');
     expect(screen.getAllByText('1 lançamento').length).toBeGreaterThan(0);
     expect(screen.getByText('Conta de luz')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Filtrar, 1 ativos' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Filtrar/ })).toHaveTextContent('1');
   });
 });
 
@@ -301,7 +300,9 @@ describe('lançar previsto (FIN-306)', () => {
     const value = within(dialog).getByRole('textbox', { name: 'Valor' });
     await userEvent.clear(value);
     await userEvent.type(value, '4500,00');
-    await userEvent.click(within(dialog).getByRole('button', { name: /^Lançar(?:\s*⌘↵)?$/ }));
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^Lançar(?:\s*⌘↵)?$/ }),
+    );
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Lançar Gasto livre' }),
@@ -365,7 +366,9 @@ describe('novo lançamento (FIN-307)', () => {
   it('valida inline só depois de tentar salvar', async () => {
     const dialog = await openNew();
     expect(within(dialog).queryByText('Dê uma descrição.')).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }),
+    );
     expect(within(dialog).getByText('Dê uma descrição.')).toBeInTheDocument();
     expect(within(dialog).getByText('Escolha uma categoria.')).toBeInTheDocument();
   });
@@ -385,7 +388,9 @@ describe('novo lançamento (FIN-307)', () => {
       within(dialog).getByRole('combobox', { name: 'Origem do pagamento' }),
       'Itaú Corrente',
     );
-    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }),
+    );
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByText('Padaria')).toBeInTheDocument();
     expect(screen.getByText('Sábado, 24/10')).toBeInTheDocument();
@@ -404,13 +409,17 @@ describe('novo lançamento (FIN-307)', () => {
       '60,00',
     );
     expect(within(dialog).getByRole('status')).toHaveTextContent('Faltam R$ 40,00');
-    expect(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ })).toBeDisabled();
+    expect(
+      within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }),
+    ).toBeDisabled();
     await userEvent.type(
       within(dialog).getAllByRole('textbox', { name: 'Parte desta origem' })[1]!,
       '40,00',
     );
     expect(within(dialog).getByRole('status')).toHaveTextContent('As partes fecham');
-    expect(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ })).toBeEnabled();
+    expect(
+      within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }),
+    ).toBeEnabled();
   });
 
   it('cartão oferece parcelas e mostra "n parcelas de R$ x"', async () => {
@@ -480,7 +489,9 @@ describe('menu da linha e categoria inline (FIN-308)', () => {
     expect(value).toHaveValue('50,00');
     await userEvent.clear(value);
     await userEvent.type(value, '55,00');
-    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }),
+    );
     expect(
       within(screen.getByText('Internet').closest('tr')!).getByText(/55,00/),
     ).toBeInTheDocument();
@@ -708,8 +719,7 @@ describe('exportar (FIN-310)', () => {
   it('exporta só o que está filtrado e as colunas visíveis', async () => {
     open();
     await userEvent.type(screen.getByRole('searchbox'), 'netflix');
-    await userEvent.click(screen.getByRole('button', { name: 'Exibição' }));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Detalhe' }));
+    await toggleDisplayColumn('Detalhe');
     await userEvent.keyboard('{Escape}');
     const { rows } = await exportNow();
     expect(rows).toEqual([
@@ -752,8 +762,7 @@ describe('previsto com data passada (FIN-311)', () => {
 
   it('filtrar por previsto lista os vencidos primeiro', async () => {
     open('/', '2026-11-02');
-    await userEvent.click(screen.getByRole('button', { name: /Filtrar/ }));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Previsto' }));
+    await chooseFilter('Situação', 'Previsto');
     const rows = screen.getAllByRole('row').map((r) => r.textContent ?? '');
     const order = ['Spotify', 'Gasto livre', 'Investimento', 'Aluguel'].map((name) =>
       rows.findIndex((line) => line.includes(name)),
@@ -770,9 +779,8 @@ describe('Exibição esconde colunas e células (correção)', () => {
 
   it('ocultar Conta e Detalhe tira cabeçalho e células', async () => {
     open();
-    await userEvent.click(screen.getByRole('button', { name: 'Exibição' }));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Conta' }));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Detalhe' }));
+    await toggleDisplayColumn('Conta');
+    await toggleDisplayColumn('Detalhe');
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('columnheader', { name: 'Conta' })).not.toBeInTheDocument();
     const row = screen.getByText('Netflix').closest('tr')!;
@@ -804,7 +812,9 @@ describe('Exibição esconde colunas e células (correção)', () => {
     const parcelas = within(dialog).getByRole('textbox', { name: 'Parcelas' });
     await userEvent.clear(parcelas);
     await userEvent.type(parcelas, '3');
-    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }),
+    );
     expect(screen.getByText('parcela 1/3')).toBeInTheDocument();
     expect(screen.getByText('parcela 2/3')).toBeInTheDocument();
   });

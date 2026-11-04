@@ -104,7 +104,9 @@ describe('Contas (FIN-401)', () => {
     open();
     await userEvent.click(screen.getByRole('button', { name: 'Ações de Carteira' }));
     expect(screen.getByRole('menuitem', { name: 'Editar' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /^Transferir(?:\s*⌘↵)?$/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: /^Transferir(?:\s*⌘↵)?$/ }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Arquivar' })).toBeInTheDocument();
     expect(screen.queryByText('Extrato aberto')).not.toBeInTheDocument();
   });
@@ -208,10 +210,9 @@ describe('Transferir (FIN-403)', () => {
     const user = userEvent.setup();
     open();
     await user.click(screen.getByRole('button', { name: 'Ações de Flex' }));
-    expect(screen.getByRole('menuitem', { name: /^Transferir(?:\s*⌘↵)?$/ })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
+    expect(
+      screen.getByRole('menuitem', { name: /^Transferir(?:\s*⌘↵)?$/ }),
+    ).toHaveAttribute('aria-disabled', 'true');
   });
 });
 
@@ -322,10 +323,9 @@ describe('Arquivar conta (FIN-409)', () => {
     expect(rowOf('Total em contas').textContent).toContain('R$ 11.533,15');
 
     await user.click(screen.getByRole('button', { name: 'Ações de Carteira' }));
-    expect(screen.getByRole('menuitem', { name: /^Transferir(?:\s*⌘↵)?$/ })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
+    expect(
+      screen.getByRole('menuitem', { name: /^Transferir(?:\s*⌘↵)?$/ }),
+    ).toHaveAttribute('aria-disabled', 'true');
     await user.click(screen.getByRole('menuitem', { name: 'Reativar' }));
     expect(rowOf('Total em contas').textContent).toContain('R$ 11.773,15');
     expect(rowOf('Carteira').textContent).not.toContain('arquivada');

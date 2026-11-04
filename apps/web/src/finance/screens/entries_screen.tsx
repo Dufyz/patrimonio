@@ -43,7 +43,7 @@ import type { ColumnSpec } from '../lib/columns.js';
 import { EMPTY_FILTERS } from '../lib/filters.js';
 import { EmptyPanel } from '../components/states.js';
 import type { FilterField, FilterState } from '../lib/filters.js';
-import { PRIMARY_LABELS, pluralize } from '../lib/header.js';
+import { PRIMARY_LABELS } from '../lib/header.js';
 import { readEntryGrouping, writeEntryGrouping } from '../lib/preferences.js';
 import type { EntryGrouping } from '../lib/preferences.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
@@ -199,8 +199,6 @@ export const EntriesScreen = (): React.ReactElement => {
       groups.flatMap((group) => group.entries),
     );
 
-  const shown = groups.reduce((total, group) => total + group.entries.length, 0);
-
   return (
     <>
       <ScreenHeader
@@ -216,7 +214,6 @@ export const EntriesScreen = (): React.ReactElement => {
             searchPlaceholder="Buscar lançamento"
             search={search}
             onSearch={setSearch}
-            counter={pluralize(shown, 'lançamento', 'lançamentos')}
             group={
               <GroupSelector
                 value={grouping}

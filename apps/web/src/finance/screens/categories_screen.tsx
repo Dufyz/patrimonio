@@ -159,10 +159,10 @@ export const CategoriesScreen = (): React.ReactElement => {
 
       <section className="rounded-panel border border-line bg-panel">
         <TableToolbar
+          counter={pluralize(rows.length, 'categoria', 'categorias')}
           searchPlaceholder="Buscar categoria"
           search={search}
           onSearch={setSearch}
-          counter={pluralize(rows.length, 'categoria', 'categorias')}
           filterFields={FILTER_FIELDS}
           filters={filters}
           onFilters={setFilters}

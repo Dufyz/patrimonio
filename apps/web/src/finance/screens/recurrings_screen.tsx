@@ -204,10 +204,10 @@ export const RecurringsScreen = (): React.ReactElement => {
 
       <section className="rounded-panel border border-line bg-panel">
         <TableToolbar
+          counter={summaryLabel(rows)}
           searchPlaceholder="Buscar recorrente"
           search={search}
           onSearch={setSearch}
-          counter={summaryLabel(rows)}
           filterFields={filterFields}
           filters={filters}
           onFilters={setFilters}

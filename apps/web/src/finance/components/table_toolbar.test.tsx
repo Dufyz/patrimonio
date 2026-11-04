@@ -57,7 +57,7 @@ describe('barra de ferramentas da tabela', () => {
     const order = [
       screen.getByRole('searchbox', { name: 'Buscar lançamento' }),
       screen.getByText('15 categorias'),
-      screen.getByRole('button', { name: 'Filtrar' }),
+      screen.getByRole('button', { name: /^Filtrar/ }),
       screen.getByRole('button', { name: 'Exibição' }),
       screen.getByRole('button', { name: 'Exportar' }),
     ];
@@ -68,28 +68,30 @@ describe('barra de ferramentas da tabela', () => {
         previous.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     }
-    expect(screen.getByRole('button', { name: 'Filtrar' })).toHaveTextContent('F');
+    expect(screen.getByRole('button', { name: /^Filtrar/ })).toHaveTextContent('F');
   });
 
   it('F abre os filtros e a contagem aparece no botão', async () => {
     wrap(<Harness />);
     await userEvent.keyboard('f');
-    const dialog = await screen.findByRole('dialog', { name: 'Filtros' });
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Tipo/ }));
+    const list = await screen.findByRole('group', { name: 'Tipo' });
 
-    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Despesa' }));
-    expect(screen.getByRole('button', { name: 'Filtrar, 1 ativos' })).toBeVisible();
+    await userEvent.click(within(list).getByRole('checkbox', { name: /Despesa/ }));
+    expect(screen.getByRole('button', { name: /^Filtrar/ })).toHaveTextContent('1');
   });
 
-  it('filtros ativos são etiquetas removíveis um a um', async () => {
+  it('filtros ativos viram etiquetas com campo, operador e valor', async () => {
     wrap(<Harness />);
-    await userEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Filtros' });
-    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Despesa' }));
-    expect(screen.getByText('Tipo: Despesa')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: /^Filtrar/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Tipo/ }));
+    const list = await screen.findByRole('group', { name: 'Tipo' });
+    await userEvent.click(within(list).getByRole('checkbox', { name: /Despesa/ }));
 
     await userEvent.keyboard('{Escape}');
-    await userEvent.click(screen.getByRole('button', { name: /Remover/ }));
-    expect(screen.queryByText('Tipo: Despesa')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Editar filtro Tipo' })).toHaveTextContent(
+      'Despesa',
+    );
   });
 
   it('a busca é controlada enquanto digita', async () => {
@@ -102,10 +104,12 @@ describe('barra de ferramentas da tabela', () => {
   it('Exibição não deixa ocultar a coluna fixa', async () => {
     wrap(<Harness />);
     await userEvent.click(screen.getByRole('button', { name: 'Exibição' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Exibição' });
-    expect(within(dialog).getByRole('checkbox', { name: 'Descrição' })).toBeDisabled();
-    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Conta' }));
-    expect(within(dialog).getByRole('checkbox', { name: 'Conta' })).not.toBeChecked();
+    expect(screen.queryByRole('button', { name: 'Descrição' })).toBeNull();
+    await userEvent.click(await screen.findByRole('button', { name: 'Conta' }));
+    expect(screen.getByRole('button', { name: 'Conta' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
   });
 
   it('exportar chama a ação da tela', async () => {

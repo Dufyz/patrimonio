@@ -128,7 +128,9 @@ describe('Novo cartão e editar cartão (FIN-503)', () => {
     await userEvent.type(dialog.getByLabelText('Limite'), '3000');
     await userEvent.type(dialog.getByLabelText('Dia de fechamento'), '10');
     await userEvent.type(dialog.getByLabelText('Dia de vencimento'), '17');
-    await userEvent.click(dialog.getByRole('button', { name: /^Criar cartão(?:\s*⌘↵)?$/ }));
+    await userEvent.click(
+      dialog.getByRole('button', { name: /^Criar cartão(?:\s*⌘↵)?$/ }),
+    );
     expect(rowOf('Inter Visa').textContent).toContain('final 1234');
     expect(
       within(screen.getByRole('table', { name: 'Próximas faturas' }))
@@ -142,7 +144,9 @@ describe('Novo cartão e editar cartão (FIN-503)', () => {
     await userEvent.click(screen.getByRole('button', { name: /^Cartão/ }));
     const dialog = within(screen.getByRole('dialog'));
     expect(dialog.queryByText('Dê um nome.')).toBeNull();
-    await userEvent.click(dialog.getByRole('button', { name: /^Criar cartão(?:\s*⌘↵)?$/ }));
+    await userEvent.click(
+      dialog.getByRole('button', { name: /^Criar cartão(?:\s*⌘↵)?$/ }),
+    );
     expect(dialog.getByText('Dê um nome.')).toBeTruthy();
     expect(dialog.getByText('Informe o limite.')).toBeTruthy();
   });
@@ -167,7 +171,9 @@ describe('Pagar fatura (FIN-507, CE-04)', () => {
     const dialog = within(screen.getByRole('dialog'));
     expect(dialog.getByText('Itaú Corrente')).toBeTruthy();
     expect(dialog.getByText('R$ 1.400,10')).toBeTruthy();
-    await userEvent.click(dialog.getByRole('button', { name: /^Confirmar pagamento(?:\s*⌘↵)?$/ }));
+    await userEvent.click(
+      dialog.getByRole('button', { name: /^Confirmar pagamento(?:\s*⌘↵)?$/ }),
+    );
     const visa = rowOf('Itaú Visa').textContent ?? '';
     expect(visa).toContain('R$ 821,71');
     expect(visa).toContain('aberta');

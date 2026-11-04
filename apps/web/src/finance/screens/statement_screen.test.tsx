@@ -58,7 +58,9 @@ describe('Extrato: cabeçalho de saldo (FIN-405)', () => {
     expect(panel.getByRole('heading', { name: 'Itaú Corrente' })).toBeInTheDocument();
     expect(panel.getByText('recebe receitas e paga despesas')).toBeInTheDocument();
     expect(panel.getByRole('button', { name: 'Editar' })).toBeInTheDocument();
-    expect(panel.getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ })).toBeInTheDocument();
+    expect(
+      panel.getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ }),
+    ).toBeInTheDocument();
   });
 
   it('saldo atual em destaque e a legenda de como se formou', () => {
@@ -106,7 +108,9 @@ describe('Extrato: cabeçalho de saldo (FIN-405)', () => {
 
   it('benefício não oferece Transferir', () => {
     open('flex');
-    expect(screen.queryByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Benefício')).toBeInTheDocument();
   });
 

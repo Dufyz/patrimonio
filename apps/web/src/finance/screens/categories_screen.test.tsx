@@ -1,3 +1,4 @@
+import { chooseFilter, toggleDisplayColumn } from '../lib/test_helpers.js';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -85,16 +86,14 @@ describe('Categorias (FIN-101)', () => {
 
   it('o filtro de tipo deixa só as receitas', async () => {
     open();
-    await userEvent.click(screen.getByRole('button', { name: /Filtrar/ }));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Receita' }));
+    await chooseFilter('Tipo', 'Receita');
     expect(screen.getByText('3 categorias')).toBeInTheDocument();
     expect(screen.queryByText('Despesas')).not.toBeInTheDocument();
   });
 
   it('Exibição oculta a média e a escolha persiste', async () => {
     open();
-    await userEvent.click(screen.getByRole('button', { name: 'Exibição' }));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Média de 12 meses' }));
+    await toggleDisplayColumn('Média de 12 meses');
     expect(
       screen.queryByRole('columnheader', { name: 'Média de 12 meses' }),
     ).not.toBeInTheDocument();
@@ -109,7 +108,9 @@ describe('Categorias (FIN-101)', () => {
     const dialog = screen.getByRole('dialog', { name: 'Nova categoria' });
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Nome' }), 'Pets');
     await userEvent.click(within(dialog).getByRole('radio', { name: 'Verde' }));
-    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }),
+    );
     expect(screen.getByText('Pets')).toBeInTheDocument();
     expect(screen.getByText('16 categorias')).toBeInTheDocument();
   });
@@ -123,7 +124,9 @@ describe('Categorias (FIN-101)', () => {
       'Moradia',
     );
     expect(within(dialog).queryByText(/Já existe/)).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }),
+    );
     expect(within(dialog).getByText(/Já existe/)).toBeInTheDocument();
   });
 
@@ -136,7 +139,9 @@ describe('Categorias (FIN-101)', () => {
     const name = within(dialog).getByRole('textbox', { name: 'Nome' });
     await userEvent.clear(name);
     await userEvent.type(name, 'Casa');
-    await userEvent.click(within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }),
+    );
     expect(screen.getByText('Casa')).toBeInTheDocument();
     expect(screen.queryByText('Moradia')).not.toBeInTheDocument();
   });
@@ -162,7 +167,9 @@ describe('Categorias (FIN-101)', () => {
     await userEvent.click(screen.getByRole('button', { name: /Categoria/ }));
     const form = screen.getByRole('dialog', { name: 'Nova categoria' });
     await userEvent.type(within(form).getByRole('textbox', { name: 'Nome' }), 'Pets');
-    await userEvent.click(within(form).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
+    await userEvent.click(
+      within(form).getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }),
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Ações de Pets' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Excluir' }));
     const dialog = screen.getByRole('dialog', { name: 'Excluir categoria' });

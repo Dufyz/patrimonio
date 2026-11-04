@@ -36,7 +36,7 @@ export const StatStrip = ({
           <dt className="tabular text-label tracking-[0.08em] text-ink-3 uppercase">
             {cell.label}
           </dt>
-          <dd className="tabular text-principal leading-none font-semibold tracking-[-0.02em]">
+          <dd className="tabular text-screen-title leading-none font-semibold tracking-[-0.02em]">
             {cell.value}
           </dd>
           {cell.caption === undefined ? null : (
