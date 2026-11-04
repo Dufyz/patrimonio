@@ -17,6 +17,7 @@ import {
   Th,
   THead,
 } from '../components/fin_table.js';
+import { UpcomingInvoices } from '../components/upcoming_invoices.js';
 import { LimitBar } from '../components/limit_bar.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
@@ -138,6 +139,8 @@ export const CardsScreen = (): React.ReactElement => {
           </tbody>
         </FinTable>
       </section>
+
+      <UpcomingInvoices data={data} today={today} />
     </>
   );
 };

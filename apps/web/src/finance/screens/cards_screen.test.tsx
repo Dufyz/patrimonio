@@ -31,7 +31,9 @@ const open = () => {
 };
 
 const rowOf = (name: string): HTMLElement =>
-  screen.getByRole('row', { name: new RegExp(name) });
+  within(screen.getByRole('table', { name: 'Cartões por conta' })).getByRole('row', {
+    name: new RegExp(name),
+  });
 
 describe('Cartões (FIN-501)', () => {
   it('subtítulo com faturas abertas e próximo vencimento', () => {
@@ -71,5 +73,41 @@ describe('Cartões (FIN-501)', () => {
     open();
     await userEvent.click(rowOf('Nubank Mastercard'));
     expect(screen.getByText('Fatura aberta')).toBeTruthy();
+  });
+});
+
+describe('Próximas faturas (FIN-502)', () => {
+  const table = () => screen.getByRole('table', { name: 'Próximas faturas' });
+  const line = (month: string) =>
+    within(table())
+      .getAllByRole('row')
+      .find((row) => row.textContent?.startsWith(month))?.textContent ?? '';
+
+  it('tem uma coluna por cartão e o total', () => {
+    open();
+    const headers = within(table())
+      .getAllByRole('columnheader')
+      .map((h) => h.textContent);
+    expect(headers).toEqual([
+      'Fatura de',
+      'Nubank Mastercard',
+      'Itaú Visa',
+      'Itaú Mastercard',
+      'Total',
+    ]);
+  });
+
+  it('out, nov e dez/jan batem com a prancha', () => {
+    open();
+    expect(line('out/2026')).toContain('R$ 1.940,10');
+    expect(line('out/2026')).toContain('fechada');
+    expect(line('nov/2026')).toContain('R$ 4.303,88');
+    expect(line('dez/2026')).toContain('R$ 1.905,11');
+    expect(line('jan/2027')).toContain('R$ 1.905,11');
+  });
+
+  it('cartão sem fatura a pagar mostra —', () => {
+    open();
+    expect(line('out/2026')).toContain('—');
   });
 });

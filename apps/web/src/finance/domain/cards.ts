@@ -278,3 +278,56 @@ export const cardSummary = (
 /** RN-48: soma das faturas vigentes não pagas dos cartões ativos. */
 export const openInvoicesTotal = (summaries: readonly CardSummary[]): Cents =>
   summaries.reduce((sum, item) => sum + item.usedCents, 0);
+
+export type UpcomingCell = {
+  readonly cardId: string;
+  /** `null` é o `—`: nada a pagar no mês, ou fatura já paga. */
+  readonly cents: Cents | null;
+};
+
+export type UpcomingRow = {
+  readonly key: string;
+  readonly status: Exclude<InvoiceStatus, 'paga'>;
+  readonly cells: readonly UpcomingCell[];
+  readonly total: Cents;
+};
+
+/**
+ * FIN-502 · As faturas a pagar, da vigente em diante, uma coluna por cartão.
+ * A situação da linha é a mais urgente entre os cartões: fechada, aberta, prevista.
+ */
+export const upcomingInvoices = (
+  data: FinanceData,
+  today: IsoDate,
+): readonly UpcomingRow[] => {
+  if (data.cards.length === 0) return [];
+  const first = data.cards.map((card) => vigenteKey(data, card, today)).sort()[0] ?? '';
+  const last = data.cards
+    .flatMap((card) => cardInvoiceKeys(data, card, today))
+    .sort()
+    .pop();
+  if (last === undefined) return [];
+  const rows: UpcomingRow[] = [];
+  for (let key = first; key <= last; key = shiftInvoice(key, 1)) {
+    const cells = data.cards.map((card): UpcomingCell => {
+      const unpaid = invoiceStatus(data, card, key, today) !== 'paga';
+      const total = unpaid ? invoiceTotal(data, card, key) : 0;
+      return { cardId: card.id, cents: total > 0 ? total : null };
+    });
+    const statuses = data.cards
+      .filter((_, index) => cells[index]?.cents !== null)
+      .map((card) => invoiceStatus(data, card, key, today));
+    const status = statuses.includes('fechada')
+      ? 'fechada'
+      : statuses.includes('aberta')
+        ? 'aberta'
+        : 'prevista';
+    rows.push({
+      key,
+      status,
+      cells,
+      total: cells.reduce((sum, cell) => sum + (cell.cents ?? 0), 0),
+    });
+  }
+  return rows;
+};
