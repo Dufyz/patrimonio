@@ -162,6 +162,8 @@ export type ValuedLot = Lot & {
   readonly gross_value: string;
   readonly accrued_interest: string;
   readonly elapsed_days: number;
+  readonly iof_rate: string;
+  readonly iof_due: string;
   readonly tax_rate: string;
   readonly tax_due: string;
   /** Quanto cairia na conta se o lote inteiro fosse resgatado hoje. */
@@ -174,6 +176,7 @@ export type LotsValuation = {
   readonly gross_value: string;
   /** Rendimento acumulado de todos os lotes: valor bruto menos o principal. */
   readonly accrued_interest: string;
+  readonly iof_due: string;
   readonly tax_due: string;
   readonly net_value: string;
 };
@@ -196,6 +199,7 @@ export const valueLots = (input: {
   let principal = zero;
   let gross = zero;
   let tax = zero;
+  let iof = zero;
 
   for (const lot of input.lots) {
     if (new Decimal(lot.remaining).lessThanOrEqualTo(0)) continue;
@@ -212,6 +216,7 @@ export const valueLots = (input: {
     principal = principal.plus(lot.remaining);
     gross = gross.plus(value);
     tax = tax.plus(exit.tax_due);
+    iof = iof.plus(exit.iof_due);
 
     const matured = isMatured(lot.maturity_date, input.reference_date);
     const settled = lot.settlement_date <= input.reference_date;
@@ -224,6 +229,8 @@ export const valueLots = (input: {
       gross_value: value.toFixed(MONEY_DP),
       accrued_interest: value.minus(new Decimal(lot.remaining)).toFixed(MONEY_DP),
       elapsed_days: exit.elapsed_days,
+      iof_rate: exit.iof_rate,
+      iof_due: exit.iof_due,
       tax_rate: exit.tax_rate,
       tax_due: exit.tax_due,
       net_value: exit.net_value,
@@ -235,8 +242,9 @@ export const valueLots = (input: {
     principal: money(principal),
     gross_value: money(gross),
     accrued_interest: money(gross.minus(principal)),
+    iof_due: money(iof),
     tax_due: money(tax),
-    net_value: money(gross.minus(tax)),
+    net_value: money(gross.minus(iof).minus(tax)),
   };
 };
 
@@ -245,6 +253,7 @@ export type RedemptionSlice = {
   readonly trade_date: string;
   readonly principal: string;
   readonly gross_value: string;
+  readonly iof_due: string;
   readonly tax_rate: string;
   readonly tax_due: string;
   readonly net_value: string;
@@ -257,7 +266,10 @@ export type RedemptionPlan = {
   /** Soma do principal consumido: é a quantidade da venda no livro. */
   readonly principal: string;
   readonly gross_value: string;
+  readonly iof_due: string;
   readonly tax_due: string;
+  /** IOF mais IR: o que o resgate desconta do bruto, gravado como taxa da venda. */
+  readonly deductions: string;
   readonly net_value: string;
   /** Preço unitário da venda: bruto por unidade de principal. */
   readonly unit_price: string;
@@ -304,7 +316,9 @@ export const planRedemption = (input: {
       slices: [],
       principal: money(zero),
       gross_value: money(zero),
+      iof_due: money(zero),
       tax_due: money(zero),
+      deductions: money(zero),
       net_value: money(zero),
       unit_price: '1.00000000',
       insufficient: true,
@@ -316,6 +330,7 @@ export const planRedemption = (input: {
   let need = asked;
   let principalTotal = zero;
   let taxTotal = zero;
+  let iofTotal = zero;
 
   for (const lot of open) {
     if (need.lessThanOrEqualTo(0)) break;
@@ -343,6 +358,7 @@ export const planRedemption = (input: {
       trade_date: lot.trade_date,
       principal: principal.toFixed(QUANTITY_DP),
       gross_value: gross.toFixed(MONEY_DP),
+      iof_due: exit.iof_due,
       tax_rate: exit.tax_rate,
       tax_due: exit.tax_due,
       net_value: exit.net_value,
@@ -351,6 +367,7 @@ export const planRedemption = (input: {
 
     principalTotal = principalTotal.plus(principal);
     taxTotal = taxTotal.plus(exit.tax_due);
+    iofTotal = iofTotal.plus(exit.iof_due);
     need = need.minus(gross);
   }
 
@@ -358,8 +375,10 @@ export const planRedemption = (input: {
     slices,
     principal: principalTotal.toFixed(QUANTITY_DP),
     gross_value: money(asked),
+    iof_due: money(iofTotal),
     tax_due: money(taxTotal),
-    net_value: money(asked.minus(taxTotal)),
+    deductions: money(iofTotal.plus(taxTotal)),
+    net_value: money(asked.minus(iofTotal).minus(taxTotal)),
     unit_price: principalTotal.isZero()
       ? '1.00000000'
       : asked.dividedBy(principalTotal).toDecimalPlaces(QUANTITY_DP).toFixed(QUANTITY_DP),

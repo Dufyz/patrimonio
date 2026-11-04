@@ -27,6 +27,23 @@ export const REGRESSIVE_BRACKETS: readonly RegressiveBracket[] = [
 
 const MONEY_DP = 2;
 
+/**
+ * O IOF sobre o rendimento de resgate em renda fixa: regressivo por dia corrido,
+ * de 96% no 1º dia a 3% no 29º, e zero a partir do 30º. Incide antes do IR — a
+ * base do IR é o rendimento já descontado do IOF. O dia da aplicação (0) não
+ * rende nada que valha tributar, mas o resgate no mesmo dia também paga 0.
+ */
+export const IOF_RATES: readonly number[] = [
+  0, 96, 93, 90, 86, 83, 80, 76, 73, 70, 66, 63, 60, 56, 53, 50, 46, 43, 40, 36, 33, 30,
+  26, 23, 20, 16, 13, 10, 6, 3,
+];
+
+/** A alíquota do IOF, em %, para os dias corridos desde a aplicação. */
+export const iofRate = (elapsedDays: number): string => {
+  if (elapsedDays <= 0 || elapsedDays >= IOF_RATES.length) return '0';
+  return String(IOF_RATES[elapsedDays]);
+};
+
 export const regressiveRate = (elapsedDays: number): string => {
   for (const bracket of REGRESSIVE_BRACKETS) {
     if (bracket.through_days === null) return bracket.rate;
@@ -56,6 +73,10 @@ export type Redemption = {
   readonly gross_value: string;
   /** O rendimento, que é a base do imposto. */
   readonly taxable_base: string;
+  /** IOF, em %, sobre o rendimento: só nos primeiros 29 dias. */
+  readonly iof_rate: string;
+  readonly iof_due: string;
+  /** O IR incide sobre o rendimento depois do IOF. */
   readonly tax_rate: string;
   readonly tax_due: string;
   readonly net_value: string;
@@ -82,14 +103,22 @@ export const redemption = (input: RedemptionInput): Redemption => {
   const rate =
     input.tax_regime === 'exempt' ? new Decimal(0) : new Decimal(regressiveRate(elapsed));
 
-  const tax = base.times(rate).dividedBy(100).toDecimalPlaces(MONEY_DP);
+  const iofRateValue = new Decimal(iofRate(elapsed));
+  const iof = base.times(iofRateValue).dividedBy(100).toDecimalPlaces(MONEY_DP);
+
+  const tax = Decimal.max(base.minus(iof), 0)
+    .times(rate)
+    .dividedBy(100)
+    .toDecimalPlaces(MONEY_DP);
 
   return {
     elapsed_days: elapsed,
     gross_value: gross.toDecimalPlaces(MONEY_DP).toFixed(MONEY_DP),
     taxable_base: base.toFixed(MONEY_DP),
+    iof_rate: iofRateValue.toFixed(2),
+    iof_due: iof.toFixed(MONEY_DP),
     tax_rate: rate.toFixed(2),
     tax_due: tax.toFixed(MONEY_DP),
-    net_value: gross.minus(tax).toDecimalPlaces(MONEY_DP).toFixed(MONEY_DP),
+    net_value: gross.minus(iof).minus(tax).toDecimalPlaces(MONEY_DP).toFixed(MONEY_DP),
   };
 };

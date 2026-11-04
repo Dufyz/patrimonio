@@ -58,6 +58,17 @@ const termsHint = (asset: AssetPageResource['asset']): string => {
   return `${vence} · ${liquidez}`;
 };
 
+const missingDaysLabel = (days: readonly string[]): string => {
+  const first = days[0];
+  const last = days[days.length - 1];
+  if (first === undefined || last === undefined) {
+    return 'Há dias úteis sem o índice publicado.';
+  }
+  return days.length === 1
+    ? `Sem o CDI de ${formatDate(first)}.`
+    : `Sem o CDI de ${days.length} dias úteis (${formatDate(first)} a ${formatDate(last)}).`;
+};
+
 export type CaixinhaDialog = 'contribute' | 'redeem' | null;
 
 /** Os lotes da caixinha; quem abre Aportar e Resgatar é o cabeçalho da página. */
@@ -93,8 +104,8 @@ export const CaixinhaPanel = ({
       >
         {rule === null ? null : (
           <p className="border-b border-line bg-panel-2 px-4 py-2.5 text-[0.8125rem] text-ink-2 first-letter:uppercase">
-            {termsHint(asset)} · o resgate consome {RULE_LABELS[rule]} · IR estimado como
-            se o lote fosse resgatado hoje
+            {termsHint(asset)} · o resgate consome {RULE_LABELS[rule]} · IOF e IR estimados
+            como se o lote fosse resgatado hoje
           </p>
         )}
         {lots.state.kind === 'loading' ? (
@@ -156,18 +167,19 @@ const LotsTable = ({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[46rem] text-[0.8125rem]">
+      <table className="w-full min-w-[52rem] text-[0.8125rem]">
         <caption className="sr-only">Lotes abertos da caixinha</caption>
         <thead>
           <tr className="tabular text-label tracking-[0.06em] text-ink-3 uppercase">
             <th className="w-44 px-4 py-2 text-left font-medium">Aporte</th>
             <th className="px-3 py-2 text-right font-medium">Dias</th>
             <th className="px-3 py-2 text-left font-medium">Vencimento</th>
-            <th className="px-3 py-2 text-right font-medium">Principal</th>
             <th className="px-3 py-2 text-right font-medium">Valor bruto</th>
-            <th className="px-3 py-2 text-right font-medium">Rendimento</th>
-            <th className="px-3 py-2 text-right font-medium">Alíquota</th>
-            <th className="px-4 py-2 text-right font-medium">Líquido</th>
+            <th className="px-3 py-2 text-right font-medium">Valor líquido</th>
+            <th className="px-3 py-2 text-right font-medium">Valor investido</th>
+            <th className="px-3 py-2 text-right font-medium">Rendimento bruto</th>
+            <th className="px-3 py-2 text-right font-medium">IOF</th>
+            <th className="px-4 py-2 text-right font-medium">IR</th>
           </tr>
         </thead>
         <tbody>
@@ -199,19 +211,26 @@ const LotsTable = ({
                 )}
               </td>
               <td className="px-3 py-2.5 text-right">
-                <Money value={lot.remaining} />
+                <Money value={lot.gross_value} />
               </td>
               <td className="px-3 py-2.5 text-right">
-                <Money value={lot.gross_value} />
+                <Money value={lot.net_value} />
+              </td>
+              <td className="px-3 py-2.5 text-right">
+                <Money value={lot.remaining} />
               </td>
               <td className="px-3 py-2.5 text-right">
                 <Money value={lot.accrued_interest} />
               </td>
-              <td className="tabular px-3 py-2.5 text-right text-ink-2">
-                {lot.tax_rate.replace('.', ',')}%
+              <td className="px-3 py-2.5 text-right text-ink-2">
+                <Money value={lot.iof_due} />
               </td>
-              <td className="px-4 py-2.5 text-right">
-                <Money value={lot.net_value} />
+              <td className="px-4 py-2.5 text-right text-ink-2">
+                <Money value={lot.tax_due} />
+                <span className="text-ink-3">
+                  {' '}
+                  · {lot.tax_rate.replace('.', ',')}%
+                </span>
               </td>
             </tr>
           ))}
@@ -222,26 +241,31 @@ const LotsTable = ({
             <td />
             <td />
             <td className="px-3 py-2.5 text-right">
-              <Money value={view.principal} />
+              <Money value={view.gross_value} />
             </td>
             <td className="px-3 py-2.5 text-right">
-              <Money value={view.gross_value} />
+              <Money value={view.net_value} />
+            </td>
+            <td className="px-3 py-2.5 text-right">
+              <Money value={view.principal} />
             </td>
             <td className="px-3 py-2.5 text-right">
               <Money value={view.accrued_interest} />
             </td>
             <td className="px-3 py-2.5 text-right text-ink-2">
-              <Money value={view.tax_due} />
+              <Money value={view.iof_due} />
             </td>
-            <td className="px-4 py-2.5 text-right">
-              <Money value={view.net_value} />
+            <td className="px-4 py-2.5 text-right text-ink-2">
+              <Money value={view.tax_due} />
             </td>
           </tr>
         </tfoot>
       </table>
       {view.incomplete ? (
         <p className="border-t border-line px-4 py-2.5 text-[0.8125rem] text-attention">
-          Há dias úteis sem o índice publicado: o valor é o melhor disponível.
+          {missingDaysLabel(view.missing_days)} O valor é o melhor disponível; esses dias
+          não renderam. Em Dados de mercado, “Atualizar agora” recarrega o histórico do
+          CDI.
         </p>
       ) : null}
     </div>
@@ -560,9 +584,10 @@ const RedeemDialog = ({
               <thead>
                 <tr className="tabular text-label tracking-[0.06em] text-ink-3 uppercase">
                   <th className="px-4 py-2 text-left font-medium">Lote</th>
-                  <th className="px-3 py-2 text-right font-medium">Bruto</th>
+                  <th className="px-3 py-2 text-right font-medium">Valor bruto</th>
+                  <th className="px-3 py-2 text-right font-medium">IOF</th>
                   <th className="px-3 py-2 text-right font-medium">IR</th>
-                  <th className="px-4 py-2 text-right font-medium">Líquido</th>
+                  <th className="px-4 py-2 text-right font-medium">Valor líquido</th>
                 </tr>
               </thead>
               <tbody>
@@ -576,6 +601,9 @@ const RedeemDialog = ({
                     </td>
                     <td className="px-3 py-2 text-right">
                       <Money value={slice.gross_value} />
+                    </td>
+                    <td className="px-3 py-2 text-right text-ink-2">
+                      <Money value={slice.iof_due} />
                     </td>
                     <td className="px-3 py-2 text-right text-ink-2">
                       <Money value={slice.tax_due} />
@@ -595,6 +623,9 @@ const RedeemDialog = ({
                   <td className="px-4 py-2">Cai na conta</td>
                   <td className="px-3 py-2 text-right">
                     <Money value={plan.value.gross_value} />
+                  </td>
+                  <td className="px-3 py-2 text-right text-ink-2">
+                    <Money value={plan.value.iof_due} />
                   </td>
                   <td className="px-3 py-2 text-right text-ink-2">
                     <Money value={plan.value.tax_due} />

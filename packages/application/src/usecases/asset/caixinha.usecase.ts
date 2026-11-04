@@ -32,7 +32,7 @@ import {
  * valoriza cada um na curva da própria data e planeja o resgate sobre eles.
  *
  * No livro a quantidade é o principal (uma unidade vale R$ 1,00 aplicado) e o
- * resgate grava o principal consumido, o bruto por unidade como preço e o IR como
+ * resgate grava o principal consumido, o bruto por unidade como preço e o IR e o IOF como
  * taxa. É isso que mantém o custo e o resultado realizado corretos no motor de
  * preço médio sem ele saber de lote nenhum.
  */
@@ -45,6 +45,8 @@ export type CaixinhaState = {
   readonly factors: ReadonlyMap<string, string>;
   /** Algum dia útil sem índice publicado: o valor é o melhor disponível. */
   readonly incomplete: boolean;
+  /** Os dias úteis sem índice publicado, sem repetição e em ordem. */
+  readonly missing_days: readonly string[];
 };
 
 /**
@@ -108,7 +110,7 @@ export const loadCaixinha = async (
   }));
 
   const factors = new Map<string, string>();
-  let incomplete = false;
+  const missing = new Set<string>();
 
   for (const lot of lots) {
     if (Number(lot.remaining) <= 0) continue;
@@ -127,11 +129,18 @@ export const loadCaixinha = async (
       index_factors: indexFactors,
     });
 
-    if (curve.missing_days.length > 0) incomplete = true;
+    for (const day of curve.missing_days) missing.add(day);
     factors.set(lot.id, curve.factor);
   }
 
-  return success({ asset: asset.value, rule, lots, factors, incomplete });
+  return success({
+    asset: asset.value,
+    rule,
+    lots,
+    factors,
+    incomplete: missing.size > 0,
+    missing_days: [...missing].sort(),
+  });
 };
 
 export const valueCaixinha = (state: CaixinhaState, asOf: DateOnly): LotsValuation =>
@@ -148,6 +157,7 @@ export type CaixinhaView = {
   readonly rule: RedemptionRule;
   readonly valuation: LotsValuation;
   readonly incomplete: boolean;
+  readonly missing_days: readonly string[];
 };
 
 /** Os lotes da caixinha numa data, com valor e IR de cada um. */
@@ -173,6 +183,7 @@ export const getCaixinha = (deps: CaixinhaDeps & { readonly clock: Clock }) =>
           rule: state.value.rule,
           valuation: valueCaixinha(state.value, asOf),
           incomplete: state.value.incomplete,
+          missing_days: state.value.missing_days,
         });
       },
     );
@@ -247,7 +258,7 @@ export type CaixinhaRedemptionResult = {
 
 /**
  * Grava o resgate como uma venda do ativo: o principal consumido como quantidade,
- * o bruto por unidade como preço e o IR como taxa. A venda passa pelo mesmo
+ * o bruto por unidade como preço e o IOF mais o IR como taxa. A venda passa pelo mesmo
  * plano de qualquer lançamento — preview, posição e evento de recálculo.
  */
 export const redeemCaixinha = (deps: CaixinhaDeps) =>
@@ -296,7 +307,8 @@ export const redeemCaixinha = (deps: CaixinhaDeps) =>
             settlement_date: input.trade_date,
             quantity: plan.principal,
             unit_price: plan.unit_price,
-            fees: plan.tax_due,
+            // IOF e IR saem do resgate como taxa: o líquido é o que cai na conta.
+            fees: plan.deductions,
             ...(input.idempotency_key === undefined
               ? {}
               : { idempotency_key: input.idempotency_key }),

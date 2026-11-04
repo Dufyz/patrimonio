@@ -1,5 +1,5 @@
 import { applyLedger } from '@patrimonio/calc';
-import { assetClassFor, indexForIndexer, isIndexer } from '@patrimonio/domain';
+import { addDays, assetClassFor, indexForIndexer, isIndexer } from '@patrimonio/domain';
 import type { Asset, DateOnly } from '@patrimonio/domain';
 import { failure, success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
@@ -63,6 +63,9 @@ const toPriceOn = (price: PriceAt): PriceOn => ({
   manual: price.manual,
 });
 
+/** Dias de folga no calendário depois do último fechamento. */
+const CALENDAR_LOOKAHEAD_DAYS = 10;
+
 export type LoadRecalculationParams = {
   readonly portfolio_id: string;
   readonly from_date: DateOnly;
@@ -105,9 +108,11 @@ export const loadRecalculationContext = async (
   // O intervalo a reconstruir é de `from_date` para frente; o calendário vai desde
   // o lançamento mais antigo, porque o fator acumulado da curva conta os dias
   // úteis anteriores ao intervalo.
+  // Uma folga depois do último dia: o fechamento da renda fixa usa o fator do dia
+  // útil seguinte, e o fim de semana ou feriado prolongado pede alguns dias.
   const calendar = await repositories.businessDays.listBetween(
     oldest,
-    params.through_date,
+    addDays(params.through_date, CALENDAR_LOOKAHEAD_DAYS),
   );
   if (calendar.isFailure()) return calendar;
 

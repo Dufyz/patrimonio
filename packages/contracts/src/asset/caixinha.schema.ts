@@ -29,6 +29,8 @@ export const caixinhaLotSchema = z.object({
   gross_value: decimalString,
   accrued_interest: decimalString,
   elapsed_days: z.number().int(),
+  iof_rate: decimalString,
+  iof_due: decimalString,
   tax_rate: decimalString,
   tax_due: decimalString,
   net_value: decimalString,
@@ -48,10 +50,13 @@ export const caixinhaResponseSchema = z.object({
   gross_value: decimalString,
   /** Soma do rendimento dos lotes abertos. */
   accrued_interest: decimalString,
+  iof_due: decimalString,
   tax_due: decimalString,
   net_value: decimalString,
   /** Algum dia útil sem índice publicado: o valor é o melhor disponível. */
   incomplete: z.boolean(),
+  /** Os dias úteis sem índice, em ordem; vazio quando a série está completa. */
+  missing_days: z.array(dateOnly),
 });
 
 const redemptionBody = z.object({
@@ -75,6 +80,7 @@ export const caixinhaSliceSchema = z.object({
   trade_date: dateOnly,
   principal: decimalString,
   gross_value: decimalString,
+  iof_due: decimalString,
   tax_rate: decimalString,
   tax_due: decimalString,
   net_value: decimalString,
@@ -85,6 +91,7 @@ export const caixinhaRedemptionPlanSchema = z.object({
   redemption_rule: redemptionRuleResourceSchema,
   slices: z.array(caixinhaSliceSchema),
   gross_value: decimalString,
+  iof_due: decimalString,
   tax_due: decimalString,
   net_value: decimalString,
   insufficient: z.boolean(),

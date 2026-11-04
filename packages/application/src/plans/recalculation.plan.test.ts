@@ -246,7 +246,8 @@ describe('renda fixa na reconstrução', () => {
     from_date: '2024-01-02',
     through_date: '2024-01-05',
     business_days: calendar,
-    calendar,
+    // Um dia útil de folga: o fechamento da renda fixa lê o fator do dia seguinte.
+    calendar: [...calendar, '2024-01-08'],
     entries: [
       {
         id: 'aplica',
@@ -288,7 +289,8 @@ describe('renda fixa na reconstrução', () => {
     const plan = planRecalculation(cdbContext());
     const values = plan.positions.map((row) => Number(row.market_value));
 
-    expect(values[0]).toBe(10000);
+    // O fechamento de renda fixa já traz o rendimento do próprio dia.
+    expect(values[0]).toBeGreaterThan(10000);
     expect(values).toEqual([...values].sort((left, right) => left - right));
     expect(values[values.length - 1]).toBeGreaterThan(10000);
   });
@@ -334,7 +336,7 @@ describe('caixinha na reconstrução', () => {
     from_date: '2024-01-02',
     through_date: '2024-01-05',
     business_days: calendar,
-    calendar,
+    calendar: [...calendar, '2024-01-08'],
     entries: book,
     assets: new Map([
       [
@@ -370,10 +372,11 @@ describe('caixinha na reconstrução', () => {
       ]),
     );
 
-    expect(valueOn(plan, '2024-01-03')).toBe('1000.40');
-    // a2 entra no dia 4 valendo o principal, sem herdar os dois dias do lote antigo.
-    expect(valueOn(plan, '2024-01-04')).toBe('1500.80');
-    expect(valueOn(plan, '2024-01-05')).toBe('1501.40');
+    // O fechamento do dia já inclui o CDI do próprio dia: a1 rende 02 e 03.
+    expect(valueOn(plan, '2024-01-03')).toBe('1000.80');
+    // a2 entra no dia 4 e rende só desde então, sem herdar os dias do lote antigo.
+    expect(valueOn(plan, '2024-01-04')).toBe('1501.40');
+    expect(valueOn(plan, '2024-01-05')).toBe('1502.00');
   });
 
   it('resgatar o lote mais antigo deixa só o lote novo rendendo', () => {
@@ -386,9 +389,9 @@ describe('caixinha na reconstrução', () => {
           kind: 'sell',
           trade_date: '2024-01-05',
           quantity: '1000',
-          unit_price: '1.0012',
+          unit_price: '1.0016',
           fees: '0',
-          net_amount: '1001.20',
+          net_amount: '1001.60',
           asset_id: 'caixinha',
           institution_id: INSTITUTION,
         },
@@ -397,9 +400,9 @@ describe('caixinha na reconstrução', () => {
 
     const last = plan.positions.find((row) => row.position_date === '2024-01-05');
 
-    expect(last?.market_value).toBe('500.20');
+    expect(last?.market_value).toBe('500.40');
     expect(last?.cost_basis).toBe('500.00');
-    expect(plan.realized[0]?.result).toBe('1.20');
+    expect(plan.realized[0]?.result).toBe('1.60');
   });
 
   it('com a regra do mais novo primeiro o mesmo resgate preserva o lote antigo', () => {
@@ -413,9 +416,9 @@ describe('caixinha na reconstrução', () => {
             kind: 'sell',
             trade_date: '2024-01-05',
             quantity: '500',
-            unit_price: '1.0004',
+            unit_price: '1.0008',
             fees: '0',
-            net_amount: '500.20',
+            net_amount: '500.40',
             asset_id: 'caixinha',
             institution_id: INSTITUTION,
           },
@@ -424,7 +427,7 @@ describe('caixinha na reconstrução', () => {
       ),
     );
 
-    expect(valueOn(plan, '2024-01-05')).toBe('1001.20');
+    expect(valueOn(plan, '2024-01-05')).toBe('1001.60');
   });
 
   it('reconstruir de um dia no meio dá o mesmo valor que reconstruir tudo', () => {

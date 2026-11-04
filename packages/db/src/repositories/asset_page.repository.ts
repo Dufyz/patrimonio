@@ -490,13 +490,19 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
                            THEN ROUND(SUM(h.market_value) / SUM(h.quantity),
                                       ${PRICE_SCALE})::TEXT
                          END,
-                'day_change_ratio', ROUND(
-                  (SUM(h.market_value) / NULLIF(SUM(h.quantity), 0))
-                  / NULLIF(
-                      (SELECT market_value / NULLIF(quantity, 0) FROM previous), 0
-                    ) - 1,
-                  ${RATIO_SCALE}
-                )::TEXT,
+                -- Caixinha não tem variação do dia por unidade: a quantidade é o
+                -- principal, e um aporte novo (valendo 1,00 por unidade) derrubaria
+                -- o valor unitário e acusaria uma queda que não houve.
+                'day_change_ratio', CASE
+                  WHEN (SELECT redemption_rule FROM asset_row) IS NOT NULL THEN NULL
+                  ELSE ROUND(
+                    (SUM(h.market_value) / NULLIF(SUM(h.quantity), 0))
+                    / NULLIF(
+                        (SELECT market_value / NULLIF(quantity, 0) FROM previous), 0
+                      ) - 1,
+                    ${RATIO_SCALE}
+                  )::TEXT
+                END,
                 -- A ressalva do recorte é a pior das linhas: uma carteira com
                 -- preço de ontem contamina o total mesmo que a outra esteja em
                 -- dia, e dizer "fresh" aí seria dizer que o número é de hoje.

@@ -314,7 +314,8 @@ export const createAssetController = (deps: AssetDeps): AssetController => ({
       return;
     }
 
-    const { as_of, rule, valuation, incomplete } = result.value;
+    const { as_of, rule, valuation, incomplete, missing_days: missingDays } =
+      result.value;
 
     response.status(200).json({
       as_of,
@@ -323,9 +324,11 @@ export const createAssetController = (deps: AssetDeps): AssetController => ({
       principal: valuation.principal,
       gross_value: valuation.gross_value,
       accrued_interest: valuation.accrued_interest,
+      iof_due: valuation.iof_due,
       tax_due: valuation.tax_due,
       net_value: valuation.net_value,
       incomplete,
+      missing_days: missingDays,
     });
   },
 
@@ -350,6 +353,7 @@ export const createAssetController = (deps: AssetDeps): AssetController => ({
       redemption_rule: rule,
       slices: plan.slices,
       gross_value: plan.gross_value,
+      iof_due: plan.iof_due,
       tax_due: plan.tax_due,
       net_value: plan.net_value,
       insufficient: plan.insufficient,
@@ -386,6 +390,7 @@ export const createAssetController = (deps: AssetDeps): AssetController => ({
               redemption_rule: redemption.rule,
               slices: redemption.plan.slices,
               gross_value: redemption.plan.gross_value,
+              iof_due: redemption.plan.iof_due,
               tax_due: redemption.plan.tax_due,
               net_value: redemption.plan.net_value,
               insufficient: false,

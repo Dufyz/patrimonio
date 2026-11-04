@@ -278,7 +278,9 @@ export const AssetScreen = ({
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-5 gap-y-2">
             <div className="flex flex-col items-end">
               <span className="tabular text-[1.625rem] leading-8 font-semibold">
-                {resource.price.value !== null ? (
+                {lotsView !== null ? (
+                  <Money value={lotsView.gross_value} />
+                ) : resource.price.value !== null ? (
                   <Money value={resource.price.value} />
                 ) : resource.position !== null && usesValueChart(resource) ? (
                   <Money value={resource.position.value} />
@@ -287,12 +289,14 @@ export const AssetScreen = ({
                 )}
               </span>
               <span className="flex items-center gap-1.5 text-xs text-ink-3">
-                {resource.price.value === null &&
-                resource.position !== null &&
-                usesValueChart(resource) ? (
+                {lotsView !== null ? (
+                  <span>valor bruto</span>
+                ) : resource.price.value === null &&
+                  resource.position !== null &&
+                  usesValueChart(resource) ? (
                   <span>valor na curva</span>
                 ) : null}
-                {resource.price.day_change_ratio === null ? null : (
+                {lotsView !== null || resource.price.day_change_ratio === null ? null : (
                   <>
                     <PercentChange value={resource.price.day_change_ratio} />
                     <span>hoje</span>
@@ -631,25 +635,38 @@ const KpiStrip = ({
       return fact === undefined ? [] : [{ label: as ?? label, value: fact.value }];
     };
 
+    // Com os lotes na mão, os cards usam a mesma conta da tabela (curva de hoje);
+    // o fechamento diário é de ontem e daria números diferentes dos da tabela.
+    const accruedRatio =
+      lots !== null && Number(lots.principal) > 0
+        ? (Number(lots.accrued_interest) / Number(lots.principal)).toFixed(6)
+        : null;
+
     cells = [
-      {
-        label: 'Valor atualizado',
-        value: <Money value={position.value} />,
-        sub: (
-          <>
-            na curva
-            {resource.price.day_change_ratio === null ? null : (
+      lots !== null
+        ? {
+            label: 'Valor bruto',
+            value: <Money value={lots.gross_value} />,
+            sub: 'na curva de hoje',
+          }
+        : {
+            label: 'Valor atualizado',
+            value: <Money value={position.value} />,
+            sub: (
               <>
-                {' · '}
-                <PercentChange value={resource.price.day_change_ratio} /> hoje
+                na curva
+                {resource.price.day_change_ratio === null ? null : (
+                  <>
+                    {' · '}
+                    <PercentChange value={resource.price.day_change_ratio} /> hoje
+                  </>
+                )}
               </>
-            )}
-          </>
-        ),
-      },
+            ),
+          },
       {
         label: 'Valor investido',
-        value: <Money value={position.cost_basis} />,
+        value: <Money value={lots !== null ? lots.principal : position.cost_basis} />,
         sub: caixinha
           ? `${lifetime.buys} ${lifetime.buys === 1 ? 'lote' : 'lotes'}`
           : lifetime.first_trade_date === null
@@ -658,21 +675,58 @@ const KpiStrip = ({
       },
       {
         label: 'Rendimento bruto',
-        value: <MoneyChange value={position.open_result} />,
+        value: (
+          <MoneyChange
+            value={lots !== null ? lots.accrued_interest : position.open_result}
+          />
+        ),
         sub: (
           <>
-            <PercentChange value={position.open_result_ratio} decimals={2} /> sobre o
-            principal
+            <PercentChange
+              value={accruedRatio ?? position.open_result_ratio}
+              decimals={2}
+            />{' '}
+            sobre o valor investido
           </>
         ),
       },
-      {
-        label: 'Peso na carteira',
-        value: <Percent value={position.weight} decimals={1} />,
-        sub: portfolioName,
-      },
+      lots === null
+        ? {
+            label: 'Peso na carteira',
+            value: <Percent value={position.weight} decimals={1} />,
+            sub: portfolioName,
+          }
+        : {
+            label: 'Valor líquido',
+            value: <Money value={lots.net_value} />,
+            sub: (
+              <>
+                se resgatado hoje, depois de <Money value={lots.iof_due} /> de IOF e{' '}
+                <Money value={lots.tax_due} /> de IR
+              </>
+            ),
+          },
     ];
+    // Caixinha: bruto, líquido, investido e rendimento, nessa ordem.
+    if (lots !== null && cells.length === 4) {
+      const [gross, invested, yielded, net] = cells as [
+        KpiCell,
+        KpiCell,
+        KpiCell,
+        KpiCell,
+      ];
+      cells = [gross, net, invested, yielded];
+    }
+
     facts = [
+      ...(lots === null
+        ? []
+        : [
+            {
+              label: 'Peso na carteira',
+              value: <Percent value={position.weight} decimals={1} />,
+            },
+          ]),
       ...pick('Remuneração'),
       ...(caixinha ? [] : pick('Vencimento')),
       ...(caixinha ? [] : pick('Carência', 'Liquidez')),
@@ -687,11 +741,8 @@ const KpiStrip = ({
       ...(lots === null
         ? []
         : [
-            { label: 'IR estimado', value: <Money value={lots.tax_due} /> },
-            {
-              label: 'Líquido se resgatado hoje',
-              value: <Money value={lots.net_value} />,
-            },
+            { label: 'IOF', value: <Money value={lots.iof_due} /> },
+            { label: 'IR', value: <Money value={lots.tax_due} /> },
           ]),
     ];
   } else {

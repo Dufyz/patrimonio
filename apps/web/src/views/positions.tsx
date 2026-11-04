@@ -595,16 +595,6 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
       ),
   },
   {
-    id: 'investido',
-    header: 'Investido',
-    numeric: true,
-    hideBelow: 1100,
-    sortable: true,
-    sortValue: (row) => row.cost_basis,
-    cell: (row) => <Money value={row.cost_basis} />,
-    summary: (summary) => <Money value={summary['custo'] ?? null} />,
-  },
-  {
     id: 'valor',
     header: 'Atualizado',
     numeric: true,
@@ -613,6 +603,16 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
     sortValue: (row) => row.value,
     cell: (row) => <Money value={row.value} />,
     summary: (summary) => <Money value={summary['valor'] ?? null} />,
+  },
+  {
+    id: 'investido',
+    header: 'Investido',
+    numeric: true,
+    hideBelow: 1100,
+    sortable: true,
+    sortValue: (row) => row.cost_basis,
+    cell: (row) => <Money value={row.cost_basis} />,
+    summary: (summary) => <Money value={summary['custo'] ?? null} />,
   },
   {
     id: 'peso',
@@ -652,7 +652,7 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
   },
 ];
 
-const CLOSED_VISIBLE = new Set(['investido', 'valor', 'resultado']);
+const CLOSED_VISIBLE = new Set(['valor', 'investido', 'resultado']);
 
 /** Em Todas as carteiras, a coluna que diz de qual carteira é cada linha. */
 const PORTFOLIO_COLUMN: TableColumn<PositionRow> = {

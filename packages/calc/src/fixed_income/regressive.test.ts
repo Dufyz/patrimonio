@@ -135,3 +135,34 @@ describe('valor líquido de resgate', () => {
     expect(value.tax_due).toBe('0.00');
   });
 });
+
+describe('IOF regressivo', () => {
+  it('cobra IOF só nos primeiros 29 dias, e o IR incide depois dele', () => {
+    const result = redemption({
+      principal: '1000.00',
+      gross_value: '1010.00',
+      issued_at: '2026-10-20',
+      redemption_date: '2026-11-03', // 14 dias corridos: 53%
+      tax_regime: 'regressive',
+    });
+
+    expect(result.iof_rate).toBe('53.00');
+    expect(result.iof_due).toBe('5.30');
+    // IR de 22,5% sobre (10,00 − 5,30)
+    expect(result.tax_due).toBe('1.06');
+    expect(result.net_value).toBe('1003.64');
+  });
+
+  it('não cobra IOF a partir do 30º dia', () => {
+    const result = redemption({
+      principal: '1000.00',
+      gross_value: '1010.00',
+      issued_at: '2026-10-01',
+      redemption_date: '2026-10-31',
+      tax_regime: 'regressive',
+    });
+
+    expect(result.iof_due).toBe('0.00');
+    expect(result.tax_due).toBe('2.25');
+  });
+});

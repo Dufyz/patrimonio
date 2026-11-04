@@ -178,7 +178,9 @@ describe('resgate da caixinha', () => {
     expect(response.body.gross_value).toBe('300.00');
     expect(Number(response.body.tax_due)).toBeGreaterThan(0);
     expect(Number(response.body.net_value)).toBe(
-      Number(response.body.gross_value) - Number(response.body.tax_due),
+      Number(response.body.gross_value) -
+        Number(response.body.iof_due) -
+        Number(response.body.tax_due),
     );
   });
 
