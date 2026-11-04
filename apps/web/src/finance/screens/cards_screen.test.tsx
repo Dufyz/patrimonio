@@ -182,3 +182,29 @@ describe('Pagar fatura (FIN-507, CE-04)', () => {
     expect(next).toContain('—');
   });
 });
+
+describe('Estados (FIN-701)', () => {
+  it('sem cartões: mensagem e a ação Novo cartão', async () => {
+    setTodayOverride('2026-10-24');
+    const empty = createFinanceStore(null);
+    empty.set((current) => ({ ...current, cards: [], cardItems: [], payments: [] }));
+    render(
+      <MemoryRouter initialEntries={['/cartoes']}>
+        <PreferencesProvider>
+          <ShortcutProvider>
+            <FinanceStoreProvider store={empty}>
+              <FinancePeriodProvider>
+                <Routes>
+                  <Route path="/cartoes" element={<CardsScreen />} />
+                </Routes>
+              </FinancePeriodProvider>
+            </FinanceStoreProvider>
+          </ShortcutProvider>
+        </PreferencesProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Nenhum cartão cadastrado.')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Novo cartão' }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+});

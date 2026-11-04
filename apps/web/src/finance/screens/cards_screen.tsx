@@ -20,6 +20,7 @@ import {
 } from '../components/fin_table.js';
 import { PayInvoiceDialog } from '../components/pay_invoice_dialog.js';
 import { CardDialog } from '../components/card_dialog.js';
+import { EmptyPanel, PanelBoundary } from '../components/states.js';
 import { UpcomingInvoices } from '../components/upcoming_invoices.js';
 import { LimitBar } from '../components/limit_bar.js';
 import { useFinancePeriod } from '../components/period_provider.js';
@@ -113,50 +114,66 @@ export const CardsScreen = (): React.ReactElement => {
         }
       />
 
-      <section className="rounded-panel border border-line bg-panel">
-        <FinTable caption="Cartões por conta">
-          <THead>
-            <Th>Cartão</Th>
-            <Th align="right">Fatura</Th>
-            <Th>Situação</Th>
-            <Th>Vence</Th>
-            <Th>Limite usado</Th>
-            <Th>
-              <span className="sr-only">Ações</span>
-            </Th>
-          </THead>
-          <tbody>
-            {groupByPayer(summaries).map((group) => {
-              const sum = group.rows.reduce((acc, item) => acc + item.usedCents, 0);
-              return (
-                <GroupRows
-                  key={group.payerId}
-                  label={`${accountLabel(data, group.payerId)} paga ${
-                    group.rows.length === 1 ? '1 cartão' : `${group.rows.length} cartões`
-                  }`}
-                  sum={sum}
-                  rows={group.rows}
-                  today={today}
-                  onEdit={(card) => setEditing({ type: 'edit', card })}
-                  onPay={setPaying}
-                />
-              );
-            })}
-            <SummaryRow kind="total">
-              <Td>Faturas abertas</Td>
-              <Td numeric>
-                <Amount cents={total} />
-              </Td>
-              <Td />
-              <Td />
-              <Td />
-              <Td />
-            </SummaryRow>
-          </tbody>
-        </FinTable>
-      </section>
+      <PanelBoundary title="os cartões">
+        {data.cards.length === 0 ? (
+          <section className="rounded-panel border border-line bg-panel">
+            <EmptyPanel
+              message="Nenhum cartão cadastrado."
+              actionLabel="Novo cartão"
+              onAction={() => setEditing({ type: 'new' })}
+            />
+          </section>
+        ) : (
+          <section className="rounded-panel border border-line bg-panel">
+            <FinTable caption="Cartões por conta">
+              <THead>
+                <Th>Cartão</Th>
+                <Th align="right">Fatura</Th>
+                <Th>Situação</Th>
+                <Th>Vence</Th>
+                <Th>Limite usado</Th>
+                <Th>
+                  <span className="sr-only">Ações</span>
+                </Th>
+              </THead>
+              <tbody>
+                {groupByPayer(summaries).map((group) => {
+                  const sum = group.rows.reduce((acc, item) => acc + item.usedCents, 0);
+                  return (
+                    <GroupRows
+                      key={group.payerId}
+                      label={`${accountLabel(data, group.payerId)} paga ${
+                        group.rows.length === 1
+                          ? '1 cartão'
+                          : `${group.rows.length} cartões`
+                      }`}
+                      sum={sum}
+                      rows={group.rows}
+                      today={today}
+                      onEdit={(card) => setEditing({ type: 'edit', card })}
+                      onPay={setPaying}
+                    />
+                  );
+                })}
+                <SummaryRow kind="total">
+                  <Td>Faturas abertas</Td>
+                  <Td numeric>
+                    <Amount cents={total} />
+                  </Td>
+                  <Td />
+                  <Td />
+                  <Td />
+                  <Td />
+                </SummaryRow>
+              </tbody>
+            </FinTable>
+          </section>
+        )}
+      </PanelBoundary>
 
-      <UpcomingInvoices data={data} today={today} />
+      <PanelBoundary title="as próximas faturas">
+        <UpcomingInvoices data={data} today={today} />
+      </PanelBoundary>
 
       {paying === null ? null : (
         <PayInvoiceDialog

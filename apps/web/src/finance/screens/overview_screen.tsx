@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 
 import { CategoryBreakdown } from '../components/category_breakdown.js';
 import { FlowChart } from '../components/flow_chart.js';
+import { PanelBoundary } from '../components/states.js';
 import { EntryDialog } from '../components/entry_dialog.js';
 import { OverviewLedger } from '../components/overview_ledger.js';
 import { PeriodControl } from '../components/period_control.js';
@@ -44,7 +45,9 @@ export const OverviewScreen = (): React.ReactElement => {
         primary={{ label: PRIMARY_LABELS.entries, onClick: () => setCreating(true) }}
       />
       <div className="flex flex-col gap-4">
-        <OverviewStrip result={result} range={range} today={today} />
+        <PanelBoundary title="o resultado do período">
+          <OverviewStrip result={result} range={range} today={today} />
+        </PanelBoundary>
         <section
           aria-labelledby="flow-title"
           className="rounded-panel border border-line bg-panel"
@@ -55,20 +58,26 @@ export const OverviewScreen = (): React.ReactElement => {
             </h2>
             <span className="text-xs text-ink-3">últimos 12 meses</span>
           </header>
-          <FlowChart points={series} />
+          <PanelBoundary title="o gráfico">
+            <FlowChart points={series} />
+          </PanelBoundary>
         </section>
-        <CategoryBreakdown
-          breakdown={breakdown}
-          categories={data.categories}
-          range={range}
-          today={today}
-        />
-        <OverviewLedger
-          data={data}
-          posted={ledger.posted}
-          planned={ledger.planned}
-          today={today}
-        />
+        <PanelBoundary title="as despesas por categoria">
+          <CategoryBreakdown
+            breakdown={breakdown}
+            categories={data.categories}
+            range={range}
+            today={today}
+          />
+        </PanelBoundary>
+        <PanelBoundary title="os lançamentos">
+          <OverviewLedger
+            data={data}
+            posted={ledger.posted}
+            planned={ledger.planned}
+            today={today}
+          />
+        </PanelBoundary>
       </div>
 
       {creating ? (

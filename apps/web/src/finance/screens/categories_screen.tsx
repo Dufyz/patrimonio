@@ -10,6 +10,7 @@ import {
 import { CategoryDialog, DeleteCategoryDialog } from '../components/category_dialogs.js';
 import { Amount } from '../components/amount.js';
 import { useFinancePeriod } from '../components/period_provider.js';
+import { EmptyPanel } from '../components/states.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import {
   CategoryMarker,
@@ -187,6 +188,17 @@ export const CategoriesScreen = (): React.ReactElement => {
             </Th>
           </THead>
           <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={colSpan}>
+                  <EmptyPanel
+                    message="Nenhuma categoria cadastrada."
+                    actionLabel="Nova categoria"
+                    onAction={() => setDialog({ type: 'new' })}
+                  />
+                </td>
+              </tr>
+            ) : null}
             {SECTIONS.map((section) => {
               const group = rows.filter(({ category }) => category.kind === section.kind);
               if (group.length === 0) return null;

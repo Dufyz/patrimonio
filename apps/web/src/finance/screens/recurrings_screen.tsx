@@ -24,6 +24,7 @@ import {
   Th,
   THead,
 } from '../components/fin_table.js';
+import { EmptyPanel } from '../components/states.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { TableToolbar } from '../components/table_toolbar.js';
 import {
@@ -232,6 +233,21 @@ export const RecurringsScreen = (): React.ReactElement => {
             </Th>
           </THead>
           <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={colSpan}>
+                  {data.recurrings.length === 0 ? (
+                    <EmptyPanel
+                      message="Nenhum recorrente cadastrado."
+                      actionLabel="Novo recorrente"
+                      onAction={() => setDialog({ type: 'new' })}
+                    />
+                  ) : (
+                    <EmptyPanel message="Nenhum recorrente com esses filtros." />
+                  )}
+                </td>
+              </tr>
+            ) : null}
             {SECTIONS.map((section) => {
               const group = rows
                 .filter((recurring) => recurring.kind === section.kind)

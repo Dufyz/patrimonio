@@ -41,6 +41,7 @@ import { activeSources } from '../domain/sources.js';
 import { readHiddenColumns, writeHiddenColumns } from '../lib/columns.js';
 import type { ColumnSpec } from '../lib/columns.js';
 import { EMPTY_FILTERS } from '../lib/filters.js';
+import { EmptyPanel } from '../components/states.js';
 import type { FilterField, FilterState } from '../lib/filters.js';
 import { PRIMARY_LABELS, pluralize } from '../lib/header.js';
 import { readEntryGrouping, writeEntryGrouping } from '../lib/preferences.js';
@@ -236,19 +237,30 @@ export const EntriesScreen = (): React.ReactElement => {
             onExport={exportEntries}
           />
           {groups.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 border-t border-line px-4 py-12 text-center">
-              <p className="text-[0.8125rem] text-ink-3">
-                Nenhum lançamento com esses filtros.
-              </p>
-              <Button
-                onClick={() => {
-                  setSearch('');
-                  setFilters(EMPTY_FILTERS);
-                }}
-              >
-                Limpar filtros
-              </Button>
-            </div>
+            search.trim() === '' &&
+            JSON.stringify(filters) === JSON.stringify(EMPTY_FILTERS) ? (
+              <div className="border-t border-line">
+                <EmptyPanel
+                  message="Nenhum lançamento neste período."
+                  actionLabel="Novo lançamento"
+                  onAction={() => setCreating(true)}
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 border-t border-line px-4 py-12 text-center">
+                <p className="text-[0.8125rem] text-ink-3">
+                  Nenhum lançamento com esses filtros.
+                </p>
+                <Button
+                  onClick={() => {
+                    setSearch('');
+                    setFilters(EMPTY_FILTERS);
+                  }}
+                >
+                  Limpar filtros
+                </Button>
+              </div>
+            )
           ) : null}
           {chosen.length === 0 ? null : (
             <BatchBar

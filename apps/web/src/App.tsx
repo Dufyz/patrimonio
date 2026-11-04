@@ -1,5 +1,5 @@
 import type { PortfolioResource } from '@patrimonio/contracts';
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
   Navigate,
   Route,
@@ -32,7 +32,7 @@ import { describeShortcut, SHORTCUTS } from './lib/shortcuts.js';
 import { onPortfoliosChanged } from './lib/portfolio_events.js';
 import { targetPath } from './lib/search.js';
 import type { SearchActionId, SearchTarget } from './lib/search.js';
-import { FinanceApp } from './finance/finance_app.js';
+import { FinanceLoading } from './finance/components/states.js';
 import { AssetScreen } from './views/asset.js';
 import { Gallery } from './views/gallery.js';
 import { OverviewScreen } from './views/overview.js';
@@ -115,11 +115,22 @@ export const App = (): React.ReactElement => (
   </BrowserRouter>
 );
 
+const FinanceApp = lazy(() =>
+  import('./finance/finance_app.js').then((module) => ({ default: module.FinanceApp })),
+);
+
 const Workspace = (): React.ReactElement => (
   <Routes>
     <Route path="/galeria" element={<Gallery />} />
     {/* Finanças é uma área à parte, com a própria navegação. */}
-    <Route path="/financas/*" element={<FinanceApp />} />
+    <Route
+      path="/financas/*"
+      element={
+        <Suspense fallback={<FinanceLoading />}>
+          <FinanceApp />
+        </Suspense>
+      }
+    />
     {/* A página do ativo é uma tela dentro do escopo, e não uma tela da barra
         lateral: ela pertence ao papel, e o papel pertence à carteira. Por isso
         ela mora sob o escopo e mantém Posições destacada na navegação. */}

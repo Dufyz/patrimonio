@@ -155,9 +155,9 @@ describe('Card Lançamentos (FIN-604)', () => {
     expect(plannedAt).toBeGreaterThan(0);
     expect(plannedAt - 1).toBeLessThanOrEqual(5);
     expect(text.length - plannedAt - 1).toBeLessThanOrEqual(3);
-    expect(
-      within(card()).getAllByText(/^$/, { selector: '[data-status="lancada"]' }).length,
-    ).toBe(plannedAt - 1);
+    expect(card().querySelectorAll('[data-status="lancada"]')).toHaveLength(
+      plannedAt - 1,
+    );
   });
 
   it('cada linha traz data, origem e categoria na segunda linha, e o valor com sinal', () => {
