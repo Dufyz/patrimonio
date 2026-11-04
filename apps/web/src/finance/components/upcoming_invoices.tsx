@@ -1,9 +1,12 @@
+import { Link } from 'react-router';
+
 import { Amount } from './amount.js';
 import { FinTable, Row, Td, Th, THead } from './fin_table.js';
 import { StatusTag } from './tags.js';
 import { upcomingInvoices } from '../domain/cards.js';
 import type { FinanceData } from '../domain/types.js';
 import { formatMonth } from '../lib/format.js';
+import { financeRoutes } from '../lib/routes.js';
 
 /** FIN-502 · Próximas faturas por cartão, para planejar o caixa. */
 export const UpcomingInvoices = ({
@@ -25,7 +28,9 @@ export const UpcomingInvoices = ({
           <Th>Fatura de</Th>
           {data.cards.map((card) => (
             <Th key={card.id} align="right">
-              {card.name}
+              <Link className="hover:underline" to={financeRoutes.card(card.id)}>
+                {card.name}
+              </Link>
             </Th>
           ))}
           <Th align="right">Total</Th>

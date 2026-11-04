@@ -250,3 +250,22 @@ describe('Lançar crédito (FIN-508, CE-05)', () => {
     expect(panel().queryByRole('button', { name: 'Lançar crédito' })).toBeNull();
   });
 });
+
+describe('Detalhe de qualquer cartão (FIN-509)', () => {
+  it('Itaú Visa abre com a mesma estrutura, na fatura fechada', () => {
+    open('/financas/cartoes/itau-visa');
+    expect(screen.getByRole('heading', { level: 1, name: 'Itaú Visa' })).toBeTruthy();
+    expect(panel().getByText('out/2026')).toBeTruthy();
+    expect(panel().getByText('fechada')).toBeTruthy();
+    expect(panel().getByLabelText('Total da fatura').textContent).toContain(
+      'R$ 1.400,10',
+    );
+    expect(screen.getByRole('table', { name: 'Faturas do cartão' })).toBeTruthy();
+  });
+
+  it('o mês na URL abre a fatura correta', () => {
+    open('/financas/cartoes/itau-mastercard?fatura=2026-10');
+    expect(panel().getByText('out/2026')).toBeTruthy();
+    expect(panel().getByLabelText('Total da fatura').textContent).toContain('R$ 540,00');
+  });
+});

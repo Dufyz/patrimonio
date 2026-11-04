@@ -106,6 +106,12 @@ describe('Próximas faturas (FIN-502)', () => {
     expect(line('jan/2027')).toContain('R$ 1.905,11');
   });
 
+  it('a coluna do cartão leva ao cartão', async () => {
+    open();
+    await userEvent.click(within(table()).getByRole('link', { name: 'Itaú Visa' }));
+    expect(screen.getByText('Fatura aberta')).toBeTruthy();
+  });
+
   it('cartão sem fatura a pagar mostra —', () => {
     open();
     expect(line('out/2026')).toContain('—');
