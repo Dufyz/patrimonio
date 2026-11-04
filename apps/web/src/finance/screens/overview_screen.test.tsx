@@ -60,8 +60,10 @@ describe('Receitas × despesas (FIN-602)', () => {
     open();
     const panel = screen.getByRole('region', { name: 'Receitas × despesas' });
     expect(within(panel).getByText('últimos 12 meses')).toBeTruthy();
-    expect(within(panel).getByText('Receitas R$ 16.350')).toBeTruthy();
-    expect(within(panel).getByText('Despesas R$ 9.478')).toBeTruthy();
+    expect(within(panel).getByText('Receitas')).toBeTruthy();
+    expect(within(panel).getByText('R$ 16.350')).toBeTruthy();
+    expect(within(panel).getByText('Despesas')).toBeTruthy();
+    expect(within(panel).getByText('R$ 9.478')).toBeTruthy();
     const months = panel.querySelectorAll('[data-month]');
     expect(months).toHaveLength(12);
     expect(months[0]?.getAttribute('data-month')).toBe('2025-11');

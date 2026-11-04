@@ -1,5 +1,7 @@
 import { Link } from 'react-router';
 
+import { Panel } from '../../components/primitives.js';
+
 import { cn } from '../../lib/cn.js';
 import { categoryColor } from '../lib/category_colors.js';
 import { formatChangePercent, formatMonth, formatPercentTenths } from '../lib/format.js';
@@ -7,6 +9,7 @@ import { formatRange, isWholeMonth } from '../lib/period.js';
 import type { DateRange } from '../lib/period.js';
 import { financeRoutes } from '../lib/routes.js';
 import { Amount } from './amount.js';
+import { EmptyPanel } from './states.js';
 import { CategoryMarker, FinTable, Row, Td, Th, THead } from './fin_table.js';
 import type { CategoryBreakdown as Breakdown } from '../domain/overview.js';
 import type { Category } from '../domain/types.js';
@@ -46,37 +49,23 @@ export const CategoryBreakdown = ({
     categories.find((c) => c.id === id);
 
   return (
-    <section
-      aria-labelledby="categories-title"
-      className="rounded-panel border border-line bg-panel"
+    <Panel
+      title="Despesas por categoria"
+      action={
+        <span className="text-xs text-ink-3">
+          {label}
+          {includesToday ? ' · até agora' : ''}
+        </span>
+      }
     >
-      <header className="flex flex-wrap items-baseline justify-between gap-4 px-5 pt-4 pb-3">
-        <div className="flex items-baseline gap-3">
-          <h2 id="categories-title" className="text-[0.9375rem] font-semibold">
-            Despesas por categoria
-          </h2>
-          <span className="text-xs text-ink-3">
-            {label}
-            {includesToday ? ' · até agora' : ''}
-          </span>
-        </div>
-        <Link
-          to={financeRoutes.entries()}
-          className="text-[0.8125rem] text-accent hover:underline"
-        >
-          Ver os lançamentos
-        </Link>
-      </header>
       {breakdown.rows.length === 0 ? (
-        <p className="px-5 pb-5 text-[0.8125rem] text-ink-3">
-          Nenhuma despesa lançada no período.
-        </p>
+        <EmptyPanel message="Nenhuma despesa lançada no período." />
       ) : (
         <>
           <div
             role="img"
             aria-label="Proporção de cada categoria nas despesas"
-            className="mx-5 mb-3 flex h-2.5 overflow-hidden rounded-full bg-line"
+            className="mx-5 mt-4 mb-3 flex h-2.5 overflow-hidden rounded-full bg-line"
           >
             {breakdown.rows.map((row) => (
               <span
@@ -95,7 +84,7 @@ export const CategoryBreakdown = ({
               <Th align="right">Despesa</Th>
               <Th align="right">{comparisonLabel}</Th>
               <Th align="right">Variação</Th>
-              <Th>% do total</Th>
+              <Th align="right">% do total</Th>
             </THead>
             <tbody>
               {breakdown.rows.map((row) => {
@@ -118,8 +107,8 @@ export const CategoryBreakdown = ({
                     <Td numeric className={cn(tone(row.cents, row.previous))}>
                       {change ?? '—'}
                     </Td>
-                    <Td>
-                      <span className="inline-flex items-center gap-2.5">
+                    <Td numeric>
+                      <span className="inline-flex items-center justify-end gap-2.5">
                         <span className="relative h-1 w-24 overflow-hidden rounded-full bg-line">
                           <span
                             className="absolute inset-y-0 left-0 rounded-full bg-ink-3"
@@ -136,8 +125,16 @@ export const CategoryBreakdown = ({
               })}
             </tbody>
           </FinTable>
+          <footer className="px-5 py-3.5">
+            <Link
+              to={financeRoutes.entries()}
+              className="text-[0.8125rem] text-accent hover:underline"
+            >
+              Ver os lançamentos
+            </Link>
+          </footer>
         </>
       )}
-    </section>
+    </Panel>
   );
 };

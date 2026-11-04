@@ -15,19 +15,25 @@ export type StatCell = {
 export const StatStrip = ({
   cells,
   label,
+  bare = false,
 }: {
   readonly cells: readonly StatCell[];
   /** Nome acessível da região. */
   readonly label: string;
+  /** Sem moldura própria: a faixa mora dentro de um `Panel`. */
+  readonly bare?: boolean;
 }): React.ReactElement => (
   <section
     aria-label={label}
-    className="overflow-hidden rounded-panel border border-line bg-panel shadow-panel"
+    className={
+      bare ? '' : 'overflow-hidden rounded-panel border border-line bg-panel shadow-panel'
+    }
   >
     <dl
       className={cn(
         'grid divide-line max-md:grid-cols-2 max-md:[&>div]:border-b max-md:[&>div]:border-line',
         '[&>div:not(:first-child)]:border-l [&>div]:border-line',
+        bare && 'max-md:[&>div:nth-child(odd)]:border-l-0',
       )}
       style={{ gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))` }}
     >

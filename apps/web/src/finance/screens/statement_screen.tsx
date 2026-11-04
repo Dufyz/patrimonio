@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate, useParams } from 'react-router';
 
 import { Button } from '../../components/primitives.js';
+import { EntryDialog } from '../components/entry_dialog.js';
 import { AccountDialog } from '../components/account_dialog.js';
 import { Amount } from '../components/amount.js';
 import { BalanceChart } from '../components/balance_chart.js';
@@ -19,9 +20,11 @@ import {
   statement,
   statementCloses,
 } from '../domain/accounts.js';
+import { addEntry, emptyEntryDraft } from '../domain/entry_ops.js';
 import { addTransfer } from '../domain/transfer_ops.js';
 import type { Account } from '../domain/types.js';
 import { formatDay } from '../lib/format.js';
+import { PRIMARY_LABELS } from '../lib/header.js';
 import { financeRoutes } from '../lib/routes.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
 
@@ -44,7 +47,7 @@ const Statement = ({ account }: { readonly account: Account }): React.ReactEleme
   const data = useFinanceData();
   const store = useFinanceStore();
   const { range, setRange, today } = useFinancePeriod();
-  const [dialog, setDialog] = useState<'edit' | 'transfer' | null>(null);
+  const [dialog, setDialog] = useState<'edit' | 'transfer' | 'entry' | null>(null);
 
   const stmt = statement(data, account.id, range, today);
   const closes = statementCloses(stmt);
@@ -62,6 +65,7 @@ const Statement = ({ account }: { readonly account: Account }): React.ReactEleme
           { label: account.name },
         ]}
         period={<PeriodControl value={range} onChange={setRange} today={today} />}
+        primary={{ label: PRIMARY_LABELS.entries, onClick: () => setDialog('entry') }}
       />
 
       <section
@@ -89,9 +93,11 @@ const Statement = ({ account }: { readonly account: Account }): React.ReactEleme
             >
               <Amount cents={stmt.closing} />
             </span>
-            <p className="tabular text-[0.8125rem] text-ink-3">
-              saldo de {formatDay(range.from, today)}: <Amount cents={stmt.opening} /> ·
-              entrou <Amount cents={stmt.entered} /> · saiu <Amount cents={stmt.left} />
+            <p className="text-[0.8125rem] text-ink-3">
+              saldo de {formatDay(range.from, today)}:{' '}
+              <Amount cents={stmt.opening} className="font-sans" /> · entrou{' '}
+              <Amount cents={stmt.entered} className="font-sans" /> · saiu{' '}
+              <Amount cents={stmt.left} className="font-sans" />
             </p>
           </div>
         ) : (
@@ -114,6 +120,19 @@ const Statement = ({ account }: { readonly account: Account }): React.ReactEleme
         today={today}
       />
 
+      {dialog === 'entry' ? (
+        <EntryDialog
+          mode="new"
+          data={data}
+          today={today}
+          initial={{ ...emptyEntryDraft(today), sourceId: account.id }}
+          onClose={() => setDialog(null)}
+          onSave={(draft) => {
+            store.set((current) => addEntry(current, draft, today));
+            setDialog(null);
+          }}
+        />
+      ) : null}
       {dialog === 'edit' ? (
         <AccountDialog
           data={data}

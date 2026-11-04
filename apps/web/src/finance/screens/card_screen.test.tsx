@@ -125,9 +125,9 @@ describe('Extrato completo da fatura (FIN-505)', () => {
     expect(at.every((position) => position >= 0)).toBe(true);
     expect([...at].sort((x, y) => x - y)).toEqual(at);
     expect(sectionOf('Compras do período')).toContain('29/09 a 28/10 · 9 lançamentos');
-    expect(sectionOf('Compras do período')).toContain('R$ 2.392,17');
-    expect(sectionOf('Parcelas de compras anteriores')).toContain('R$ 1.299,00');
-    expect(sectionOf('Créditos e ajustes')).toContain('R$ 209,00');
+    expect(sectionOf('Subtotal das compras')).toContain('R$ 2.392,17');
+    expect(sectionOf('Subtotal das parcelas')).toContain('R$ 1.299,00');
+    expect(sectionOf('Subtotal dos créditos')).toContain('R$ 209,00');
   });
 
   it('total = compras + parcelas − créditos + encargos', () => {

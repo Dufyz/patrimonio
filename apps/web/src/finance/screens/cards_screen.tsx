@@ -103,7 +103,7 @@ export const CardsScreen = (): React.ReactElement => {
         }}
         subtitle={
           <>
-            Faturas abertas <Amount cents={total} />
+            Faturas abertas <Amount cents={total} className="font-sans" />
             {next === null ? null : (
               <>
                 {' '}
@@ -115,66 +115,74 @@ export const CardsScreen = (): React.ReactElement => {
         }
       />
 
-      <PanelBoundary title="os cartões">
-        {data.cards.length === 0 ? (
-          <section className="rounded-panel border border-line bg-panel">
-            <EmptyPanel
-              message="Nenhum cartão cadastrado."
-              actionLabel="Novo cartão"
-              onAction={() => setEditing({ type: 'new' })}
-            />
-          </section>
-        ) : (
-          <section className="rounded-panel border border-line bg-panel">
-            <FinTable caption="Cartões por conta">
-              <THead>
-                <Th>Cartão</Th>
-                <Th align="right">Fatura</Th>
-                <Th>Situação</Th>
-                <Th className={hideBelow(2)}>Vence</Th>
-                <Th className={hideBelow(1)}>Limite usado</Th>
-                <Th>
-                  <span className="sr-only">Ações</span>
-                </Th>
-              </THead>
-              <tbody>
-                {groupByPayer(summaries).map((group) => {
-                  const sum = group.rows.reduce((acc, item) => acc + item.usedCents, 0);
-                  return (
-                    <GroupRows
-                      key={group.payerId}
-                      label={`${accountLabel(data, group.payerId)} paga ${
-                        group.rows.length === 1
-                          ? '1 cartão'
-                          : `${group.rows.length} cartões`
-                      }`}
-                      sum={sum}
-                      rows={group.rows}
-                      today={today}
-                      onEdit={(card) => setEditing({ type: 'edit', card })}
-                      onPay={setPaying}
-                    />
-                  );
-                })}
-                <SummaryRow kind="total">
-                  <Td>Faturas abertas</Td>
-                  <Td numeric>
-                    <Amount cents={total} />
-                  </Td>
-                  <Td />
-                  <Td className={hideBelow(2)} />
-                  <Td className={hideBelow(1)} />
-                  <Td />
-                </SummaryRow>
-              </tbody>
-            </FinTable>
-          </section>
-        )}
-      </PanelBoundary>
+      <div className="flex flex-col gap-4">
+        <PanelBoundary title="os cartões">
+          {data.cards.length === 0 ? (
+            <section className="rounded-panel border border-line bg-panel">
+              <EmptyPanel
+                message="Nenhum cartão cadastrado."
+                actionLabel="Novo cartão"
+                onAction={() => setEditing({ type: 'new' })}
+              />
+            </section>
+          ) : (
+            <section className="rounded-panel border border-line bg-panel">
+              <FinTable caption="Cartões por conta">
+                <THead>
+                  <Th>Cartão</Th>
+                  <Th align="right">Fatura</Th>
+                  <Th align="right" className={hideBelow(2)}>
+                    Vence
+                  </Th>
+                  <Th className={hideBelow(1)}>Limite usado</Th>
+                  <Th>
+                    <span className="sr-only">Ações</span>
+                  </Th>
+                </THead>
+                <tbody>
+                  {groupByPayer(summaries).map((group) => {
+                    const sum = group.rows.reduce((acc, item) => acc + item.usedCents, 0);
+                    return (
+                      <GroupRows
+                        key={group.payerId}
+                        label={
+                          <>
+                            {accountLabel(data, group.payerId)}{' '}
+                            <span className="font-normal text-ink-3">
+                              paga{' '}
+                              {group.rows.length === 1
+                                ? '1 cartão'
+                                : `${group.rows.length} cartões`}
+                            </span>
+                          </>
+                        }
+                        sum={sum}
+                        rows={group.rows}
+                        today={today}
+                        onEdit={(card) => setEditing({ type: 'edit', card })}
+                        onPay={setPaying}
+                      />
+                    );
+                  })}
+                  <SummaryRow kind="total">
+                    <Td>Faturas abertas</Td>
+                    <Td numeric>
+                      <Amount cents={total} />
+                    </Td>
+                    <Td className={hideBelow(2)} />
+                    <Td className={hideBelow(1)} />
+                    <Td />
+                  </SummaryRow>
+                </tbody>
+              </FinTable>
+            </section>
+          )}
+        </PanelBoundary>
 
-      <PanelBoundary title="as próximas faturas">
-        <UpcomingInvoices data={data} today={today} />
-      </PanelBoundary>
+        <PanelBoundary title="as próximas faturas">
+          <UpcomingInvoices data={data} today={today} />
+        </PanelBoundary>
+      </div>
 
       {paying === null ? null : (
         <PayInvoiceDialog
@@ -219,7 +227,7 @@ const GroupRows = ({
   onEdit,
   onPay,
 }: {
-  readonly label: string;
+  readonly label: React.ReactNode;
   readonly sum: number;
   readonly rows: readonly CardSummary[];
   readonly today: string;
@@ -227,7 +235,7 @@ const GroupRows = ({
   readonly onPay: (item: CardSummary) => void;
 }): React.ReactElement => (
   <>
-    <SectionRow colSpan={6} label={label} summary={formatBRL(sum)} />
+    <SectionRow colSpan={5} label={label} summary={formatBRL(sum)} strongSummary />
     {rows.map((item) => (
       <CardRow
         key={item.card.id}
@@ -259,14 +267,14 @@ const CardRow = ({
         <div className="font-medium">{card.name}</div>
         <div className="text-xs text-ink-3">final {card.last4}</div>
       </Td>
-      <Td numeric className="font-medium">
+      <Td numeric className="font-semibold">
         <Amount cents={invoice.total} />
+        <div className="mt-0.5 flex justify-end font-sans text-xs font-normal">
+          <InvoiceStatus invoice={invoice} today={today} closesAs="fecha" />
+        </div>
       </Td>
-      <Td>
-        <InvoiceStatus invoice={invoice} today={today} closesAs="fecha" />
-      </Td>
-      <Td className={hideBelow(2)}>
-        <div>{formatDay(invoice.due, today)}</div>
+      <Td align="right" className={hideBelow(2)}>
+        <div className="tabular">{formatDay(invoice.due, today)}</div>
         <div className="text-xs text-ink-3">{dueLabel(item.daysToDue)}</div>
       </Td>
       <Td className={hideBelow(1)}>

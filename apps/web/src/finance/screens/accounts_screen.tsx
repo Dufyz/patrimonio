@@ -79,9 +79,13 @@ export const AccountsScreen = (): React.ReactElement => {
         }}
         subtitle={
           <>
-            Em contas <Amount cents={overview.totalBalance} /> ·{' '}
-            <Amount cents={overview.totalVariation} variant="delta" /> no mês · saldos de{' '}
-            {formatFullDate(today)}
+            Em contas <Amount cents={overview.totalBalance} className="font-sans" /> ·{' '}
+            <Amount
+              cents={overview.totalVariation}
+              variant="signed"
+              className="font-sans"
+            />{' '}
+            no mês · saldos de {formatFullDate(today)}
           </>
         }
       />

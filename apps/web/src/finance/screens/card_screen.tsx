@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { Button, IconButton } from '../../components/primitives.js';
-import { Amount } from '../components/amount.js';
 import { CardItemDialog } from '../components/card_item_dialog.js';
 import { InstallmentScopeDialog } from '../components/installment_scope_dialog.js';
 import { ConfirmDialog } from '../components/entry_confirms.js';
@@ -52,6 +51,7 @@ import type { InvoiceLine } from '../domain/cards.js';
 import type { Card } from '../domain/types.js';
 import { formatBRL, formatDay, formatMonth } from '../lib/format.js';
 import { formatPercentValue } from '../components/limit_bar.js';
+import { csvAmount, exportTable } from '../lib/export.js';
 import { PRIMARY_LABELS } from '../lib/header.js';
 import { financeRoutes } from '../lib/routes.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
@@ -108,6 +108,35 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
   const payment = paymentOf(data, card.id, key);
   const lines = invoiceLines(data, card, key);
 
+  const exportInvoice = (): void =>
+    exportTable(
+      `fatura_${card.name.toLowerCase().replace(/\s+/g, '_')}`,
+      period,
+      [
+        { id: 'data', header: 'Data', value: (l: InvoiceLine) => l.date },
+        {
+          id: 'descricao',
+          header: 'Descrição',
+          value: (l: InvoiceLine) => l.description,
+        },
+        {
+          id: 'categoria',
+          header: 'Categoria',
+          value: (l: InvoiceLine) =>
+            data.categories.find((c) => c.id === l.categoryId)?.name ?? '',
+        },
+        { id: 'bloco', header: 'Bloco', value: (l: InvoiceLine) => l.block },
+        {
+          id: 'valor',
+          header: 'Valor',
+          value: (l: InvoiceLine) =>
+            csvAmount(l.block === 'creditos' ? l.cents : -l.cents),
+        },
+      ],
+      [],
+      lines,
+    );
+
   const go = (target: string | undefined): void => {
     if (target !== undefined) setSearch({ fatura: target }, { replace: true });
   };
@@ -126,83 +155,84 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
         primary={{ label: PRIMARY_LABELS.entries, onClick: () => setDialog('entry') }}
       />
 
-      <section
-        aria-label="Fatura"
-        className="rounded-panel border border-line bg-panel shadow-panel"
-      >
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-[1.0625rem] font-semibold">Fatura</h2>
-            <div
-              className="flex items-center gap-1"
-              role="group"
-              aria-label="Mês da fatura"
-            >
-              <IconButton
-                label="Fatura anterior"
-                icon="chevron-left"
-                disabled={index <= 0}
-                onClick={() => go(keys[index - 1])}
-              />
-              <span className="tabular min-w-20 text-center font-medium">
-                {formatMonth(`${key}-01`)}
-              </span>
-              <IconButton
-                label="Próxima fatura"
-                icon="chevron-right"
-                disabled={index < 0 || index >= keys.length - 1}
-                onClick={() => go(keys[index + 1])}
-              />
-            </div>
-            <InvoiceStatus invoice={invoice} today={today} />
-          </div>
-          {invoice.status === 'paga' ? null : (
-            <div className="flex items-center gap-2">
-              <Button onClick={() => setDialog('credit')}>Lançar crédito</Button>
-              <Button
-                variant="primary"
-                disabled={payBlockedReason(data, card.id, key, today) !== null}
-                onClick={() => setDialog('pay')}
+      <div className="flex flex-col gap-4">
+        <section
+          aria-label="Fatura"
+          className="overflow-hidden rounded-panel border border-line bg-panel shadow-panel"
+        >
+          <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-line px-5 py-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+              <h2 className="text-[1.0625rem] font-semibold">Fatura</h2>
+              <div
+                className="flex items-center gap-1"
+                role="group"
+                aria-label="Mês da fatura"
               >
-                Pagar fatura
-              </Button>
+                <IconButton
+                  label="Fatura anterior"
+                  icon="chevron-left"
+                  disabled={index <= 0}
+                  onClick={() => go(keys[index - 1])}
+                />
+                <span className="tabular min-w-20 text-center font-medium">
+                  {formatMonth(`${key}-01`)}
+                </span>
+                <IconButton
+                  label="Próxima fatura"
+                  icon="chevron-right"
+                  disabled={index < 0 || index >= keys.length - 1}
+                  onClick={() => go(keys[index + 1])}
+                />
+              </div>
+              <InvoiceStatus invoice={invoice} today={today} />
+              <p className="text-[0.8125rem] text-ink-3">
+                compras de {formatDay(period.from, today)} a {formatDay(period.to, today)}{' '}
+                · fecha em {formatDay(invoice.closing, today)} · vence em{' '}
+                {formatDay(invoice.due, today)} ·{' '}
+                {payment === undefined
+                  ? `paga com ${accountLabel(data, card.payerId)}`
+                  : `paga em ${formatDay(payment.date, today)} · ${accountLabel(data, payment.accountId)}`}
+              </p>
+              <span className="sr-only" aria-label="Total da fatura">
+                {formatBRL(invoice.total)}
+              </span>
             </div>
-          )}
-        </header>
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-5">
-          <span
-            className="text-[2.125rem] leading-none font-semibold"
-            aria-label="Total da fatura"
-          >
-            <Amount cents={invoice.total} />
-          </span>
-          <p className="text-[0.8125rem] text-ink-3">
-            compras de {formatDay(period.from, today)} a {formatDay(period.to, today)} ·
-            fecha em {formatDay(invoice.closing, today)} · vence em{' '}
-            {formatDay(invoice.due, today)} ·{' '}
-            {payment === undefined
-              ? `paga com ${accountLabel(data, card.payerId)}`
-              : `paga em ${formatDay(payment.date, today)} · ${accountLabel(data, payment.accountId)}`}
-          </p>
-        </div>
-      </section>
+            <div className="flex items-center gap-2">
+              {invoice.status === 'paga' ? null : (
+                <Button onClick={() => setDialog('credit')}>Lançar crédito</Button>
+              )}
+              <Button onClick={exportInvoice}>Exportar</Button>
+              {invoice.status === 'paga' ? null : (
+                <Button
+                  variant="primary"
+                  disabled={payBlockedReason(data, card.id, key, today) !== null}
+                  onClick={() => setDialog('pay')}
+                >
+                  Pagar fatura
+                </Button>
+              )}
+            </div>
+          </header>
 
-      <InvoiceStatement
-        lines={lines}
-        categories={data.categories}
-        period={period}
-        today={today}
-        locked={payment !== undefined}
-        blockAction={(block) =>
-          block === 'encargos' && payment === undefined ? (
-            <Button onClick={() => setDialog('charge')}>Lançar encargo</Button>
-          ) : null
-        }
-        onEdit={startEdit}
-        onDelete={startDelete}
-      />
+          <InvoiceStatement
+            bare
+            lines={lines}
+            categories={data.categories}
+            period={period}
+            today={today}
+            locked={payment !== undefined}
+            blockAction={(block) =>
+              block === 'encargos' && payment === undefined ? (
+                <Button onClick={() => setDialog('charge')}>Lançar encargo</Button>
+              ) : null
+            }
+            onEdit={startEdit}
+            onDelete={startDelete}
+          />
+        </section>
 
-      <InvoiceList data={data} card={card} today={today} selected={key} onSelect={go} />
+        <InvoiceList data={data} card={card} today={today} selected={key} onSelect={go} />
+      </div>
 
       {ask === null ? null : (
         <InstallmentScopeDialog

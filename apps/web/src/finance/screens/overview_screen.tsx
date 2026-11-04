@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
+import { Panel } from '../../components/primitives.js';
 import { CategoryBreakdown } from '../components/category_breakdown.js';
 import { FlowChart } from '../components/flow_chart.js';
 import { PanelBoundary } from '../components/states.js';
@@ -17,7 +18,9 @@ import {
   monthSeries,
 } from '../domain/overview.js';
 import { addEntry, emptyEntryDraft } from '../domain/entry_ops.js';
-import { PRIMARY_LABELS } from '../lib/header.js';
+import { formatMonth } from '../lib/format.js';
+import { PRIMARY_LABELS, pluralize } from '../lib/header.js';
+import { formatRange, isWholeMonth } from '../lib/period.js';
 import { financeRoutes } from '../lib/routes.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
 
@@ -40,7 +43,7 @@ export const OverviewScreen = (): React.ReactElement => {
     <>
       <ScreenHeader
         title="Visão geral"
-        subtitle="Como estou no período, de onde vem e para onde vai o dinheiro"
+        subtitle={`Finanças · ${isWholeMonth(range) ? formatMonth(range.from) : formatRange(range, today)} · receitas e despesas · ${pluralize(result.accountsCount, 'conta', 'contas')} e ${pluralize(data.cards.length, 'cartão', 'cartões')}`}
         period={<PeriodControl value={range} onChange={setRange} today={today} />}
         primary={{ label: PRIMARY_LABELS.entries, onClick: () => setCreating(true) }}
       />
@@ -48,20 +51,14 @@ export const OverviewScreen = (): React.ReactElement => {
         <PanelBoundary title="o resultado do período">
           <OverviewStrip result={result} range={range} today={today} />
         </PanelBoundary>
-        <section
-          aria-labelledby="flow-title"
-          className="rounded-panel border border-line bg-panel"
+        <Panel
+          title="Receitas × despesas"
+          action={<span className="text-xs text-ink-3">últimos 12 meses</span>}
         >
-          <header className="flex items-baseline justify-between gap-4 px-5 pt-4 pb-2">
-            <h2 id="flow-title" className="text-[0.9375rem] font-semibold">
-              Receitas × despesas
-            </h2>
-            <span className="text-xs text-ink-3">últimos 12 meses</span>
-          </header>
           <PanelBoundary title="o gráfico">
             <FlowChart points={series} />
           </PanelBoundary>
-        </section>
+        </Panel>
         <PanelBoundary title="as despesas por categoria">
           <CategoryBreakdown
             breakdown={breakdown}

@@ -48,8 +48,20 @@ describe('Cartões (FIN-501)', () => {
   it('agrupa os cartões pela conta que paga', () => {
     open();
     const table = screen.getByRole('table', { name: 'Cartões por conta' });
-    expect(within(table).getByText('Nubank Conta paga 1 cartão')).toBeTruthy();
-    expect(within(table).getByText('Itaú Corrente paga 2 cartões')).toBeTruthy();
+    expect(
+      within(table).getByText(
+        (_, el) =>
+          el?.tagName === 'SPAN' &&
+          el.textContent?.replace(/\s+/g, ' ') === 'Nubank Conta paga 1 cartão',
+      ),
+    ).toBeTruthy();
+    expect(
+      within(table).getByText(
+        (_, el) =>
+          el?.tagName === 'SPAN' &&
+          el.textContent?.replace(/\s+/g, ' ') === 'Itaú Corrente paga 2 cartões',
+      ),
+    ).toBeTruthy();
   });
 
   it('mostra fatura, situação, vencimento e limite usado', () => {

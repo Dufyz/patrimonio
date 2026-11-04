@@ -11,7 +11,7 @@ export const LIMIT_HIGH_ABOVE = 90;
 
 export const limitTone = (percent: number): LimitTone => {
   if (percent > LIMIT_HIGH_ABOVE) return 'high';
-  if (percent > LIMIT_WARN_FROM) return 'warn';
+  if (percent >= LIMIT_WARN_FROM) return 'warn';
   return 'ok';
 };
 

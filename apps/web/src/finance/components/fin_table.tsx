@@ -167,17 +167,28 @@ export const SectionRow = ({
   colSpan,
   label,
   summary,
+  strongSummary = false,
 }: {
   readonly colSpan: number;
   readonly label: React.ReactNode;
   readonly summary?: React.ReactNode;
+  /** O total do bloco em destaque (mono, forte), como em Cartões. */
+  readonly strongSummary?: boolean;
 }): React.ReactElement => (
   <tr className="border-y border-line bg-panel-2">
     <td colSpan={colSpan} className="px-3 py-2">
       <div className="flex items-baseline justify-between gap-4">
         <span className="text-[0.8125rem] font-semibold">{label}</span>
         {summary === undefined ? null : (
-          <span className="tabular text-xs text-ink-3">{summary}</span>
+          <span
+            className={
+              strongSummary
+                ? 'tabular text-[0.8125rem] font-semibold'
+                : 'tabular text-xs text-ink-3'
+            }
+          >
+            {summary}
+          </span>
         )}
       </div>
     </td>

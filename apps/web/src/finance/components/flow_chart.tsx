@@ -16,14 +16,7 @@ const HEIGHT = 220;
 const COMPACT_HEIGHT = 150;
 /** Abaixo disto o gráfico encolhe e mostra um rótulo de mês a cada dois (FIN-702). */
 const COMPACT_BELOW = 520;
-const MARGIN = { top: 12, right: 8, bottom: 26, left: 64 } as const;
-
-const compact = (cents: number): string => {
-  const value = Math.abs(cents) / 100;
-  return value >= 1000
-    ? `R$ ${(value / 1000).toFixed(0)} mil`
-    : `R$ ${Math.round(value)}`;
-};
+const MARGIN = { top: 12, right: 8, bottom: 26, left: 8 } as const;
 
 /** `R$ 16.350`, sem centavos, como na legenda da prancha. */
 export const roundedBRL = (cents: number): string =>
@@ -52,27 +45,10 @@ export const FlowChart = ({
   const slot = plotWidth / points.length;
   const bar = Math.max(2, Math.min(18, (slot - 6) / 2));
   const y = (cents: number): number => plotHeight - (cents / top) * plotHeight;
-  const ticks = [0, top / 2, top];
   const hovered = hover === null ? null : (points[hover] ?? null);
 
   return (
-    <div ref={container} className="relative px-5 pb-4">
-      <p className="tabular mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.8125rem]">
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            aria-hidden="true"
-            className="inline-block size-2.5 rounded-sm bg-positive"
-          />
-          Receitas {hiddenValues ? '•••' : roundedBRL(selected.receitas)}
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            aria-hidden="true"
-            className="inline-block size-2.5 rounded-sm bg-ink-3"
-          />
-          Despesas {hiddenValues ? '•••' : roundedBRL(selected.despesas)}
-        </span>
-      </p>
+    <div ref={container} className="relative px-5 pt-5 pb-4">
       <svg
         role="img"
         aria-label={`Receitas e despesas dos últimos 12 meses; ${formatMonthShort(selected.start)}: receitas ${formatBRL(selected.receitas)}, despesas ${formatBRL(selected.despesas)}`}
@@ -81,26 +57,13 @@ export const FlowChart = ({
         style={{ height }}
       >
         <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-          {ticks.map((tick) => (
-            <g key={tick}>
-              <line
-                x1={0}
-                x2={plotWidth}
-                y1={y(tick)}
-                y2={y(tick)}
-                className="stroke-line"
-              />
-              <text
-                x={-10}
-                y={y(tick)}
-                textAnchor="end"
-                dominantBaseline="middle"
-                className="tabular fill-ink-3 text-label"
-              >
-                {hiddenValues ? '•••' : compact(tick)}
-              </text>
-            </g>
-          ))}
+          <line
+            x1={0}
+            x2={plotWidth}
+            y1={plotHeight}
+            y2={plotHeight}
+            className="stroke-line-2"
+          />
           {points.map((point, index) => {
             const cx = index * slot + slot / 2;
             const strong = point.selected && point.inProgress;
@@ -156,6 +119,22 @@ export const FlowChart = ({
           })}
         </g>
       </svg>
+      <p className="tabular mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.8125rem]">
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden="true" className="inline-block h-0.5 w-3.5 bg-positive" />
+          <span className="text-ink-2">Receitas</span>{' '}
+          <strong className="font-semibold">
+            {hiddenValues ? '•••' : roundedBRL(selected.receitas)}
+          </strong>
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden="true" className="inline-block h-0.5 w-3.5 bg-ink-3" />
+          <span className="text-ink-2">Despesas</span>{' '}
+          <strong className="font-semibold">
+            {hiddenValues ? '•••' : roundedBRL(selected.despesas)}
+          </strong>
+        </span>
+      </p>
       {hovered === null || hover === null ? null : (
         <div
           role="tooltip"

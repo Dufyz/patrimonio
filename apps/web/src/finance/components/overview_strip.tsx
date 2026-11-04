@@ -1,3 +1,4 @@
+import { Panel } from '../../components/primitives.js';
 import { Amount } from './amount.js';
 import { StatStrip } from './stat_strip.js';
 import { NatureTag } from './tags.js';
@@ -27,18 +28,18 @@ export const OverviewStrip = ({
     : `Resultado de ${formatRange(range, today)}`;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-[0.9375rem] font-semibold">{title}</h2>
-          {includesToday ? <NatureTag kind="mês em andamento" /> : null}
-        </div>
-        {includesToday ? (
+    <Panel
+      title={title}
+      hint={includesToday ? <NatureTag kind="mês em andamento" /> : undefined}
+      action={
+        includesToday ? (
           <span className="tabular text-xs text-ink-3">{formatDayOfMonth(today)}</span>
-        ) : null}
-      </div>
+        ) : undefined
+      }
+    >
       <StatStrip
         label="Resultado do mês"
+        bare
         cells={[
           {
             id: 'receitas',
@@ -83,6 +84,6 @@ export const OverviewStrip = ({
           },
         ]}
       />
-    </div>
+    </Panel>
   );
 };

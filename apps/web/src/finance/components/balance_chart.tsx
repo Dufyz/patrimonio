@@ -1,7 +1,6 @@
 import { useId, useRef, useState } from 'react';
 
 import { useElementWidth } from '../../components/use_element_width.js';
-import { useValuesHidden } from '../../components/preferences.js';
 import type { DailyBalance } from '../domain/accounts.js';
 import { formatBRL, formatDay } from '../lib/format.js';
 import { Amount } from './amount.js';
@@ -16,18 +15,8 @@ import { Amount } from './amount.js';
  */
 
 const HEIGHT = 220;
-const MARGIN = { top: 14, right: 16, bottom: 26, left: 64 } as const;
+const MARGIN = { top: 14, right: 16, bottom: 26, left: 16 } as const;
 const TICK_EVERY = 4;
-
-const compact = (cents: number): string => {
-  const value = Math.abs(cents) / 100;
-  const sign = cents < 0 ? '−' : '';
-  if (value >= 1_000_000)
-    return `${sign}R$ ${(value / 1_000_000).toFixed(1).replace('.', ',')} mi`;
-  if (value >= 1_000)
-    return `${sign}R$ ${(value / 1_000).toFixed(1).replace('.', ',')} mil`;
-  return `${sign}R$ ${Math.round(value)}`;
-};
 
 export const BalanceChart = ({
   points,
@@ -41,7 +30,6 @@ export const BalanceChart = ({
   const gradient = useId();
   const container = useRef<HTMLDivElement>(null);
   const width = useElementWidth(container, 720);
-  const hiddenValues = useValuesHidden();
   const [hover, setHover] = useState<number | null>(null);
 
   const first = points[0];
@@ -72,9 +60,6 @@ export const BalanceChart = ({
     .join(' ');
   const area = `${line} L${x(points.length - 1).toFixed(1)},${plotHeight} L${x(0).toFixed(1)},${plotHeight} Z`;
 
-  const yTicks = [min + (max - min) * 0.1, (min + max) / 2, max - (max - min) * 0.1].map(
-    Math.round,
-  );
   const lastIndex = points.length - 1;
   const tickIndexes = Array.from(
     { length: Math.floor(lastIndex / TICK_EVERY) + 1 },
@@ -117,26 +102,6 @@ export const BalanceChart = ({
           </linearGradient>
         </defs>
         <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-          {yTicks.map((tick) => (
-            <g key={tick}>
-              <line
-                x1={0}
-                x2={plotWidth}
-                y1={y(tick)}
-                y2={y(tick)}
-                className="stroke-line"
-              />
-              <text
-                x={-10}
-                y={y(tick)}
-                textAnchor="end"
-                dominantBaseline="middle"
-                className="tabular fill-ink-3 text-label"
-              >
-                {hiddenValues ? '•••' : compact(tick)}
-              </text>
-            </g>
-          ))}
           <line
             x1={0}
             x2={plotWidth}

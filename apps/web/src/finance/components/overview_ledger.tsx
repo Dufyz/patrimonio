@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 
+import { Panel } from '../../components/primitives.js';
 import { cn } from '../../lib/cn.js';
 import { accountNames } from '../domain/ledger.js';
 import type { Entry, FinanceData } from '../domain/types.js';
@@ -35,7 +36,7 @@ const EntryLine = ({
         )}
       />
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium">{entry.description}</div>
+        <div className="truncate">{entry.description}</div>
         <div className="truncate text-xs text-ink-3">
           {[
             formatDay(entry.date, today),
@@ -46,7 +47,9 @@ const EntryLine = ({
             .join(' · ')}
         </div>
       </div>
-      <Amount cents={cents} variant={entry.kind === 'receita' ? 'flow' : 'signed'} />
+      <span className="font-semibold">
+        <Amount cents={cents} variant={entry.kind === 'receita' ? 'flow' : 'signed'} />
+      </span>
     </li>
   );
 };
@@ -58,9 +61,13 @@ const Section = ({
   readonly title: string;
   readonly note: string;
 }): React.ReactElement => (
-  <li className="flex items-baseline justify-between border-y border-line bg-panel-2 px-5 py-1.5 first:border-t-0">
-    <span className="text-[0.8125rem] font-semibold">{title}</span>
-    <span className="text-xs text-ink-3">{note}</span>
+  <li className="flex items-baseline justify-between border-y border-line bg-panel-2 px-5 py-2 first:border-t-0">
+    <span className="tabular text-label tracking-[0.08em] text-ink-3 uppercase">
+      {title}
+    </span>
+    <span className="tabular text-label tracking-[0.08em] text-ink-3 uppercase">
+      {note}
+    </span>
   </li>
 );
 
@@ -75,21 +82,12 @@ export const OverviewLedger = ({
   readonly planned: readonly Entry[];
   readonly today: string;
 }): React.ReactElement => (
-  <section
-    aria-labelledby="ledger-title"
-    className="rounded-panel border border-line bg-panel"
+  <Panel
+    title="Lançamentos"
+    action={
+      <span className="text-xs text-ink-3">últimos lançados e próximos previstos</span>
+    }
   >
-    <header className="flex items-baseline justify-between gap-4 px-5 pt-4 pb-3">
-      <h2 id="ledger-title" className="text-[0.9375rem] font-semibold">
-        Lançamentos
-      </h2>
-      <Link
-        to={financeRoutes.entries()}
-        className="text-[0.8125rem] text-accent hover:underline"
-      >
-        Ver todos os lançamentos
-      </Link>
-    </header>
     <ul aria-label="Lançamentos do período">
       <Section title="Lançados" note="mais recentes primeiro" />
       {posted.length === 0 ? (
@@ -112,5 +110,13 @@ export const OverviewLedger = ({
         ))
       )}
     </ul>
-  </section>
+    <footer className="border-t border-line px-5 py-3.5">
+      <Link
+        to={financeRoutes.entries()}
+        className="text-[0.8125rem] text-accent hover:underline"
+      >
+        Ver todos os lançamentos
+      </Link>
+    </footer>
+  </Panel>
 );

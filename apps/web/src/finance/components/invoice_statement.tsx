@@ -6,7 +6,7 @@ import {
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu.js';
 import { categoryColor } from '../lib/category_colors.js';
-import { formatBRL, formatDay } from '../lib/format.js';
+import { formatDay } from '../lib/format.js';
 import { Amount } from './amount.js';
 import { CategoryMarker, FinTable, Row, SectionRow, Td, Th, THead } from './fin_table.js';
 import { NatureTag } from './tags.js';
@@ -36,6 +36,13 @@ const NOTES: Readonly<Record<InvoiceBlock, string>> = {
   encargos: 'juros, multa e IOF',
 };
 
+const SUBTOTAL: Readonly<Record<InvoiceBlock, string>> = {
+  compras: 'Subtotal das compras',
+  parcelas: 'Subtotal das parcelas',
+  creditos: 'Subtotal dos créditos',
+  encargos: 'Subtotal dos encargos',
+};
+
 const EMPTY: Readonly<Record<InvoiceBlock, string>> = {
   compras: 'nenhuma compra nesta fatura',
   parcelas: 'nenhuma parcela nesta fatura',
@@ -52,6 +59,7 @@ export const InvoiceStatement = ({
   onEdit,
   onDelete,
   blockAction,
+  bare = false,
 }: {
   readonly lines: readonly InvoiceLine[];
   readonly categories: readonly Category[];
@@ -63,17 +71,22 @@ export const InvoiceStatement = ({
   readonly onDelete: (line: InvoiceLine) => void;
   /** Uma ação no cabeçalho de um bloco, como "Lançar encargo". */
   readonly blockAction?: ((block: InvoiceBlock) => React.ReactNode) | undefined;
+  /** Sem moldura: o extrato mora no mesmo painel do cabeçalho da fatura. */
+  readonly bare?: boolean;
 }): React.ReactElement => {
   const totals = invoiceTotals(lines);
   const subtotal: Readonly<Record<InvoiceBlock, number>> = totals;
 
   return (
-    <section className="rounded-panel border border-line bg-panel">
+    <section className={bare ? '' : 'rounded-panel border border-line bg-panel'}>
       <FinTable caption="Extrato da fatura">
         <THead>
           <Th>Data</Th>
           <Th>Descrição</Th>
           <Th>Categoria</Th>
+          <Th>
+            <span className="sr-only">Etiquetas</span>
+          </Th>
           <Th align="right">Valor</Th>
           <Th>
             <span className="sr-only">Ações</span>
@@ -93,36 +106,31 @@ export const InvoiceStatement = ({
                 key={block.id}
                 title={block.title}
                 note={note}
-                subtotal={formatBRL(subtotal[block.id])}
+                empty={rows.length === 0 ? EMPTY[block.id] : null}
+                subtotal={rows.length === 0 ? null : subtotal[block.id]}
+                subtotalLabel={SUBTOTAL[block.id]}
                 action={blockAction?.(block.id)}
               >
-                {rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-3 py-2 text-[0.8125rem] text-ink-3">
-                      {EMPTY[block.id]}
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((line) => (
-                    <LineRow
-                      key={line.id}
-                      line={line}
-                      category={categories.find((c) => c.id === line.categoryId)}
-                      today={today}
-                      locked={locked}
-                      onEdit={() => onEdit(line)}
-                      onDelete={() => onDelete(line)}
-                    />
-                  ))
-                )}
+                {rows.map((line) => (
+                  <LineRow
+                    key={line.id}
+                    line={line}
+                    category={categories.find((c) => c.id === line.categoryId)}
+                    today={today}
+                    locked={locked}
+                    onEdit={() => onEdit(line)}
+                    onDelete={() => onDelete(line)}
+                  />
+                ))}
               </Block>
             );
           })}
           <tr className="border-t border-line bg-panel-2 font-semibold">
-            <td colSpan={3} className="px-3 py-2">
+            <td />
+            <td colSpan={3} className="px-3 py-3">
               Total da fatura
             </td>
-            <td className="tabular px-3 py-2 text-right">
+            <td className="tabular px-3 py-3 text-right">
               <Amount cents={totals.total} />
             </td>
             <td />
@@ -136,33 +144,50 @@ export const InvoiceStatement = ({
 const Block = ({
   title,
   note,
+  empty,
   subtotal,
+  subtotalLabel,
   action,
   children,
 }: {
   readonly title: string;
   readonly note: string;
-  readonly subtotal: string;
+  readonly empty: string | null;
+  readonly subtotal: number | null;
+  readonly subtotalLabel: string;
   readonly action: React.ReactNode;
   readonly children: React.ReactNode;
 }): React.ReactElement => (
   <>
     <SectionRow
-      colSpan={5}
+      colSpan={6}
       label={
-        <span className="inline-flex items-baseline gap-3">
+        <span className="inline-flex flex-wrap items-baseline gap-x-3">
           {title}
           {note === '' ? null : <span className="font-normal text-ink-3">{note}</span>}
+          {empty === null ? null : (
+            <span className="font-normal text-ink-3">{empty}</span>
+          )}
         </span>
       }
-      summary={
-        <span className="inline-flex items-center gap-3">
-          {action}
-          <span className="tabular">{subtotal}</span>
-        </span>
-      }
+      summary={action}
     />
     {children}
+    {subtotal === null ? null : (
+      <tr className="bg-panel-2">
+        <td />
+        <td colSpan={3} className="px-3 py-2 text-ink-2">
+          {subtotalLabel}
+        </td>
+        <td className="tabular px-3 py-2 text-right text-ink-2">
+          <Amount
+            cents={subtotal}
+            variant={subtotalLabel.includes('créditos') ? 'signed' : 'plain'}
+          />
+        </td>
+        <td />
+      </tr>
+    )}
   </>
 );
 
@@ -195,9 +220,16 @@ const LineRow = ({
   return (
     <Row label={line.description}>
       <Td className="tabular text-ink-2">{formatDay(line.date, today)}</Td>
+      <Td>{line.description}</Td>
+      <Td>
+        {category === undefined ? (
+          '—'
+        ) : (
+          <CategoryMarker color={categoryColor(category.color)} name={category.name} />
+        )}
+      </Td>
       <Td>
         <span className="inline-flex flex-wrap items-center gap-2">
-          {line.description}
           {line.installment === undefined ? null : (
             <NatureTag kind={`parcela ${line.installment.n}/${line.installment.of}`} />
           )}
@@ -207,15 +239,8 @@ const LineRow = ({
           {line.forecast ? <NatureTag kind="previsto" /> : null}
         </span>
       </Td>
-      <Td>
-        {category === undefined ? (
-          '—'
-        ) : (
-          <CategoryMarker color={categoryColor(category.color)} name={category.name} />
-        )}
-      </Td>
-      <Td numeric>
-        <Amount cents={line.cents} variant={credit ? 'flow' : 'plain'} />
+      <Td numeric className="font-semibold">
+        <Amount cents={credit ? line.cents : -line.cents} variant="flow" />
       </Td>
       <Td align="right" className="w-12">
         <DropdownMenu modal={false}>
