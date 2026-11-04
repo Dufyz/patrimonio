@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 
 import { FinanceShell } from './components/finance_shell.js';
-import { FinancePeriodProvider } from './components/period_provider.js';
+import { FinancePeriodProvider, useFinancePeriod } from './components/period_provider.js';
+import { RecurringsScreen } from './screens/recurrings_screen.js';
 import { CategoriesScreen } from './screens/categories_screen.js';
 import { SettingsScreen } from './screens/settings_screen.js';
-import { FinanceStoreProvider } from './store/finance_store.js';
+
+import { syncRecurring } from './domain/recurring.js';
+import { FinanceStoreProvider, useFinanceStore } from './store/finance_store.js';
 import { setTodayOverride, todayFromSearch } from './lib/clock.js';
 
 /**
@@ -41,11 +44,25 @@ const useTodayFromUrl = (): void => {
   });
 };
 
+/**
+ * RN-10 e RN-11: ao abrir, gera o previsto do mês de cada recorrente ativo e
+ * lança os automáticos que já venceram. Idempotente — repetir não muda nada.
+ */
+const RecurringSync = (): null => {
+  const store = useFinanceStore();
+  const { today } = useFinancePeriod();
+  useEffect(() => {
+    store.set((data) => syncRecurring(data, today));
+  }, [store, today]);
+  return null;
+};
+
 export const FinanceApp = (): React.ReactElement => {
   useTodayFromUrl();
   return (
     <FinanceStoreProvider>
       <FinancePeriodProvider>
+        <RecurringSync />
         <FinanceShell onOpenSearch={() => {}}>
           <Routes>
             <Route path="/" element={<Navigate to="visao-geral" replace />} />
@@ -67,10 +84,7 @@ export const FinanceApp = (): React.ReactElement => {
               path="cartoes/:id"
               element={<Pending title="Fatura do cartão" story="FIN-504" />}
             />
-            <Route
-              path="recorrentes"
-              element={<Pending title="Recorrentes" story="FIN-201" />}
-            />
+            <Route path="recorrentes" element={<RecurringsScreen />} />
             <Route path="categorias" element={<CategoriesScreen />} />
             <Route path="configuracoes" element={<SettingsScreen />} />
             <Route path="*" element={<Navigate to="/financas/visao-geral" replace />} />

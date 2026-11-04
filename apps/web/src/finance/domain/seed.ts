@@ -1,7 +1,14 @@
 import { addMonths, startOfMonth } from '../lib/dates.js';
 import type { IsoDate } from '../lib/dates.js';
 import type { Cents } from '../lib/money.js';
-import type { Category, Entry, EntryKind, FinanceData, Payment } from './types.js';
+import type {
+  Category,
+  Entry,
+  EntryKind,
+  FinanceData,
+  Payment,
+  Recurring,
+} from './types.js';
 
 /**
  * A semente: os números das pranchas, desenhadas em 24/10/2026.
@@ -12,7 +19,7 @@ import type { Category, Entry, EntryKind, FinanceData, Payment } from './types.j
  */
 
 /** Muda quando a semente muda de forma que dados antigos não servem mais. */
-export const SEED_VERSION = 1;
+export const SEED_VERSION = 2;
 
 const category = (
   id: string,
@@ -76,6 +83,16 @@ const entry = (kind: EntryKind, draft: Draft): Entry => ({ kind, ...draft });
 /** Outubro de 2026, prancha 02A. */
 const OCTOBER: readonly Entry[] = [
   entry('despesa', {
+    id: 'l-aluguel-nov',
+    date: '2026-11-10',
+    description: 'Aluguel e condomínio',
+    categoryId: 'moradia',
+    cents: 320000,
+    status: 'prevista',
+    recurringId: 'r-aluguel',
+    payments: [pay('itau-corrente', 320000)],
+  }),
+  entry('despesa', {
     id: 'l-spotify',
     date: '2026-10-30',
     description: 'Spotify',
@@ -137,6 +154,7 @@ const OCTOBER: readonly Entry[] = [
   }),
   entry('receita', {
     id: 'l-reembolso',
+    recurringId: 'r-reembolso',
     date: '2026-10-15',
     description: 'Reembolso da empresa',
     categoryId: 'reembolso',
@@ -166,6 +184,7 @@ const OCTOBER: readonly Entry[] = [
   }),
   entry('receita', {
     id: 'l-freela',
+    recurringId: 'r-freela',
     date: '2026-10-12',
     description: 'Freela · Projeto Lume',
     categoryId: 'freelas',
@@ -225,6 +244,187 @@ const OCTOBER: readonly Entry[] = [
   }),
 ];
 
+const recurring = (
+  id: string,
+  name: string,
+  kind: EntryKind,
+  categoryId: string,
+  sourceId: string,
+  day: number,
+  mode: 'automatico' | 'manual',
+  cents: Cents,
+  active = true,
+): Recurring => ({ id, name, kind, categoryId, sourceId, day, mode, cents, active });
+
+/** Prancha 05: 15 ativos e 1 pausado. */
+export const SEED_RECURRINGS: readonly Recurring[] = [
+  recurring(
+    'r-salario',
+    'Salário',
+    'receita',
+    'salario',
+    'itau-corrente',
+    5,
+    'automatico',
+    1420000,
+  ),
+  recurring(
+    'r-freela',
+    'Freela · Projeto Lume',
+    'receita',
+    'freelas',
+    'itau-corrente',
+    12,
+    'manual',
+    180000,
+  ),
+  recurring(
+    'r-reembolso',
+    'Reembolso da empresa',
+    'receita',
+    'reembolso',
+    'itau-corrente',
+    15,
+    'manual',
+    35000,
+  ),
+  recurring(
+    'r-plano-saude',
+    'Plano de saúde',
+    'despesa',
+    'saude',
+    'itau-corrente',
+    5,
+    'automatico',
+    61200,
+  ),
+  recurring(
+    'r-plano-vida',
+    'Plano de vida',
+    'despesa',
+    'saude',
+    'itau-corrente',
+    5,
+    'automatico',
+    18990,
+  ),
+  recurring(
+    'r-aluguel',
+    'Aluguel e condomínio',
+    'despesa',
+    'moradia',
+    'itau-corrente',
+    10,
+    'automatico',
+    320000,
+  ),
+  recurring(
+    'r-academia',
+    'Academia',
+    'despesa',
+    'saude',
+    'itau-visa',
+    10,
+    'automatico',
+    10390,
+  ),
+  recurring(
+    'r-seguro-carro',
+    'Seguro do carro',
+    'despesa',
+    'transporte',
+    'itau-corrente',
+    15,
+    'automatico',
+    45400,
+  ),
+  recurring(
+    'r-internet',
+    'Internet',
+    'despesa',
+    'moradia',
+    'itau-corrente',
+    15,
+    'automatico',
+    5000,
+  ),
+  {
+    ...recurring(
+      'r-luz',
+      'Conta de luz',
+      'despesa',
+      'moradia',
+      'flex',
+      17,
+      'manual',
+      31240,
+    ),
+    secondSourceId: 'itau-corrente',
+    coversUpTo: 15000,
+  },
+  recurring(
+    'r-netflix',
+    'Netflix',
+    'despesa',
+    'assinaturas',
+    'itau-visa',
+    20,
+    'automatico',
+    5590,
+  ),
+  recurring(
+    'r-investimento',
+    'Investimento',
+    'despesa',
+    'investimento',
+    'itau-corrente',
+    21,
+    'manual',
+    450000,
+  ),
+  recurring(
+    'r-spotify',
+    'Spotify',
+    'despesa',
+    'assinaturas',
+    'itau-visa',
+    30,
+    'automatico',
+    2190,
+  ),
+  recurring(
+    'r-gasto-livre',
+    'Gasto livre',
+    'despesa',
+    'gasto-livre',
+    'nubank-conta',
+    31,
+    'manual',
+    470000,
+  ),
+  recurring(
+    'r-investimento-fim',
+    'Investimento',
+    'despesa',
+    'investimento',
+    'itau-corrente',
+    31,
+    'manual',
+    215000,
+  ),
+  recurring(
+    'r-seguro-res',
+    'Seguro residencial',
+    'despesa',
+    'moradia',
+    'itau-visa',
+    12,
+    'manual',
+    118000,
+    false,
+  ),
+];
+
 /**
  * Os 12 meses anteriores: um lançado por categoria e mês, no valor da média da
  * prancha. É histórico — conta nas médias, não move saldo (`historical`).
@@ -252,5 +452,6 @@ export const SEED_REFERENCE_DATE: IsoDate = '2026-10-24';
 
 export const seedData = (): FinanceData => ({
   categories: SEED_CATEGORIES,
+  recurrings: SEED_RECURRINGS,
   entries: [...OCTOBER, ...history(SEED_REFERENCE_DATE)],
 });

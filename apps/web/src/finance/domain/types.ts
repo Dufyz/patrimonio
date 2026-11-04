@@ -44,7 +44,32 @@ export type Entry = {
   readonly historical?: boolean;
 };
 
+export type RecurringMode = 'automatico' | 'manual';
+
+/**
+ * RN-10 a RN-16: o modelo que gera um previsto por mês. O valor é fixo no modo
+ * automático e só uma estimativa no manual (RN-12).
+ *
+ * A origem de pagamento é uma, ou duas: com `secondSourceId`, a primeira cobre
+ * até `coversUpTo` e a segunda o resto (RN-20, RN-21).
+ */
+export type Recurring = {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: EntryKind;
+  readonly categoryId: string;
+  readonly sourceId: string;
+  readonly secondSourceId?: string;
+  readonly coversUpTo?: Cents;
+  /** Dia do mês, de 1 a 31; em mês curto cai no último dia (RN-10). */
+  readonly day: number;
+  readonly mode: RecurringMode;
+  readonly cents: Cents;
+  readonly active: boolean;
+};
+
 export type FinanceData = {
   readonly categories: readonly Category[];
+  readonly recurrings: readonly Recurring[];
   readonly entries: readonly Entry[];
 };

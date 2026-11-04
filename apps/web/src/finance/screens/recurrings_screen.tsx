@@ -1,0 +1,313 @@
+import { useMemo, useState } from 'react';
+
+import { IconButton } from '../../components/primitives.js';
+import { Switch } from '../../components/ui/switch.js';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu.js';
+import { browserStorage } from '../../lib/preferences.js';
+import { Amount } from '../components/amount.js';
+import {
+  CategoryMarker,
+  FinTable,
+  Row,
+  SectionRow,
+  Td,
+  Th,
+  THead,
+} from '../components/fin_table.js';
+import { ScreenHeader } from '../components/screen_header.js';
+import { TableToolbar } from '../components/table_toolbar.js';
+import {
+  MODE_LABEL,
+  byDay,
+  categoryOf,
+  paymentLabel,
+  paymentNote,
+  summaryLabel,
+} from '../domain/recurring_view.js';
+import type { Recurring } from '../domain/types.js';
+import { categoryColor } from '../lib/category_colors.js';
+import {
+  isColumnVisible,
+  readHiddenColumns,
+  writeHiddenColumns,
+} from '../lib/columns.js';
+import type { ColumnSpec } from '../lib/columns.js';
+import { downloadCsv } from '../lib/csv.js';
+import { EMPTY_FILTERS, passesFilters } from '../lib/filters.js';
+import type { FilterField, FilterState } from '../lib/filters.js';
+import { PRIMARY_LABELS } from '../lib/header.js';
+import { centsToDecimal } from '../lib/money.js';
+import { matchesSearch } from '../lib/text.js';
+import { useFinanceData } from '../store/finance_store.js';
+
+/**
+ * FIN-201 · Recorrentes.
+ *
+ * Só a tabela: o que se repete todo mês e gera os previstos de Lançamentos no
+ * dia 1. Receitas primeiro, depois despesas; dentro de cada seção, pelo dia do
+ * mês. Valor de modo manual é estimativa e diz isso. Linha pausada fica esmaecida.
+ */
+
+const SCREEN = 'recorrentes';
+
+const COLUMNS: readonly ColumnSpec[] = [
+  { id: 'item', label: 'Item', locked: true },
+  { id: 'categoria', label: 'Categoria' },
+  { id: 'pagamento', label: 'Pagamento' },
+  { id: 'dia', label: 'Dia' },
+  { id: 'lancamento', label: 'Lançamento' },
+  { id: 'valor', label: 'Valor', locked: true },
+  { id: 'ativo', label: 'Ativo', locked: true },
+];
+
+const SECTIONS = [
+  { kind: 'receita', label: 'Receitas' },
+  { kind: 'despesa', label: 'Despesas' },
+] as const;
+
+export const RecurringsScreen = (): React.ReactElement => {
+  const { categories, recurrings } = useFinanceData();
+
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  const [hidden, setHidden] = useState(() =>
+    readHiddenColumns(browserStorage(), SCREEN, COLUMNS),
+  );
+
+  const filterFields: readonly FilterField[] = useMemo(
+    () => [
+      {
+        id: 'tipo',
+        label: 'Tipo',
+        options: [
+          { value: 'receita', label: 'Receita' },
+          { value: 'despesa', label: 'Despesa' },
+        ],
+      },
+      {
+        id: 'categoria',
+        label: 'Categoria',
+        options: categories.map((c) => ({ value: c.id, label: c.name })),
+      },
+      {
+        id: 'lancamento',
+        label: 'Lançamento',
+        options: [
+          { value: 'automatico', label: 'Automático' },
+          { value: 'manual', label: 'Manual' },
+        ],
+      },
+      {
+        id: 'situacao',
+        label: 'Situação',
+        options: [
+          { value: 'ativo', label: 'Ativo' },
+          { value: 'pausado', label: 'Pausado' },
+        ],
+      },
+    ],
+    [categories],
+  );
+
+  const rows = useMemo(
+    () =>
+      recurrings.filter(
+        (recurring) =>
+          matchesSearch(search, [
+            recurring.name,
+            categoryOf(categories, recurring)?.name ?? '',
+            paymentLabel(recurring),
+          ]) &&
+          passesFilters(filters, (field) => {
+            switch (field) {
+              case 'tipo':
+                return recurring.kind;
+              case 'categoria':
+                return recurring.categoryId;
+              case 'lancamento':
+                return recurring.mode;
+              default:
+                return recurring.active ? 'ativo' : 'pausado';
+            }
+          }),
+      ),
+    [categories, filters, recurrings, search],
+  );
+
+  const visible = (id: string): boolean => isColumnVisible(hidden, id);
+  const colSpan = COLUMNS.filter((column) => visible(column.id)).length + 1;
+
+  const exportCsv = (): void => {
+    downloadCsv('recorrentes.csv', [
+      ['Item', 'Tipo', 'Categoria', 'Pagamento', 'Dia', 'Lançamento', 'Valor', 'Ativo'],
+      ...rows.map((r) => [
+        r.name,
+        r.kind,
+        categoryOf(categories, r)?.name ?? '',
+        paymentLabel(r),
+        String(r.day),
+        MODE_LABEL[r.mode],
+        centsToDecimal(r.cents).replace('.', ','),
+        r.active ? 'sim' : 'não',
+      ]),
+    ]);
+  };
+
+  return (
+    <>
+      <ScreenHeader
+        title="Recorrentes"
+        subtitle="Receitas e despesas que se repetem e geram os previstos de Lançamentos todo dia 1"
+        primary={{ label: PRIMARY_LABELS.recurrings, onClick: () => {} }}
+      />
+
+      <section className="rounded-panel border border-line bg-panel">
+        <TableToolbar
+          searchPlaceholder="Buscar recorrente"
+          search={search}
+          onSearch={setSearch}
+          counter={summaryLabel(rows)}
+          filterFields={filterFields}
+          filters={filters}
+          onFilters={setFilters}
+          columns={COLUMNS}
+          hiddenColumns={hidden}
+          onHiddenColumns={(next) => {
+            setHidden(next);
+            writeHiddenColumns(browserStorage(), SCREEN, next);
+          }}
+          onExport={exportCsv}
+        />
+
+        <FinTable caption="Recorrentes">
+          <THead>
+            <Th>Item</Th>
+            {visible('categoria') ? <Th>Categoria</Th> : null}
+            {visible('pagamento') ? <Th>Pagamento</Th> : null}
+            {visible('dia') ? <Th align="right">Dia</Th> : null}
+            {visible('lancamento') ? <Th>Lançamento</Th> : null}
+            <Th align="right">Valor</Th>
+            <Th align="center">Ativo</Th>
+            <Th>
+              <span className="sr-only">Ações</span>
+            </Th>
+          </THead>
+          <tbody>
+            {SECTIONS.map((section) => {
+              const group = rows
+                .filter((recurring) => recurring.kind === section.kind)
+                .toSorted(byDay);
+              if (group.length === 0) return null;
+              return (
+                <SectionGroup key={section.kind} label={section.label} colSpan={colSpan}>
+                  {group.map((recurring) => (
+                    <RecurringRow
+                      key={recurring.id}
+                      recurring={recurring}
+                      visible={visible}
+                    />
+                  ))}
+                </SectionGroup>
+              );
+            })}
+          </tbody>
+        </FinTable>
+      </section>
+    </>
+  );
+};
+
+const SectionGroup = ({
+  label,
+  colSpan,
+  children,
+}: {
+  readonly label: string;
+  readonly colSpan: number;
+  readonly children: React.ReactNode;
+}): React.ReactElement => (
+  <>
+    <SectionRow colSpan={colSpan} label={label} />
+    {children}
+  </>
+);
+
+const RecurringRow = ({
+  recurring,
+  visible,
+}: {
+  readonly recurring: Recurring;
+  readonly visible: (id: string) => boolean;
+}): React.ReactElement => {
+  const { categories } = useFinanceData();
+  const category = categoryOf(categories, recurring);
+  const note = paymentNote(recurring);
+
+  return (
+    <Row muted={!recurring.active}>
+      <Td className="font-medium">{recurring.name}</Td>
+      {visible('categoria') ? (
+        <Td>
+          {category === undefined ? (
+            '—'
+          ) : (
+            <CategoryMarker color={categoryColor(category.color)} name={category.name} />
+          )}
+        </Td>
+      ) : null}
+      {visible('pagamento') ? (
+        <Td>
+          {paymentLabel(recurring)}
+          {note === null ? null : <span className="ml-2 text-xs text-ink-3">{note}</span>}
+        </Td>
+      ) : null}
+      {visible('dia') ? <Td numeric>{String(recurring.day).padStart(2, '0')}</Td> : null}
+      {visible('lancamento') ? (
+        <Td className="text-xs text-ink-3">{MODE_LABEL[recurring.mode]}</Td>
+      ) : null}
+      <Td numeric>
+        {recurring.mode === 'manual' ? (
+          <span className="mr-2 text-xs font-normal text-ink-3">estimativa</span>
+        ) : null}
+        <Amount
+          cents={recurring.cents}
+          variant={recurring.kind === 'receita' ? 'flow' : 'plain'}
+        />
+      </Td>
+      <Td align="center">
+        <Switch
+          checked={recurring.active}
+          disabled
+          aria-label={`Ativo: ${recurring.name}`}
+        />
+      </Td>
+      <Td align="right" className="w-12">
+        <RowMenu recurring={recurring} />
+      </Td>
+    </Row>
+  );
+};
+
+/** O `⋯` da linha. Editar e excluir chegam com a FIN-202. */
+const RowMenu = ({
+  recurring,
+}: {
+  readonly recurring: Recurring;
+}): React.ReactElement => (
+  <DropdownMenu modal={false}>
+    <DropdownMenuTrigger asChild>
+      <IconButton row label={`Ações de ${recurring.name}`} icon="dots" />
+    </DropdownMenuTrigger>
+    <DropdownMenuContent className="min-w-40">
+      <DropdownMenuItem disabled>Editar</DropdownMenuItem>
+      <DropdownMenuItem disabled destructive>
+        Excluir
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+);

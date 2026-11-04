@@ -27,6 +27,7 @@ const isStored = (value: unknown): value is Stored => {
     typeof data === 'object' &&
     data !== null &&
     Array.isArray(data['categories']) &&
+    Array.isArray(data['recurrings']) &&
     Array.isArray(data['entries'])
   );
 };
@@ -58,6 +59,7 @@ export const createFinanceStore = (
   const listeners = new Set<() => void>();
 
   const commit = (next: FinanceData): void => {
+    if (next === data) return;
     data = next;
     writeRaw(storage, DATA_KEY, JSON.stringify({ version: SEED_VERSION, data }));
     for (const listener of listeners) listener();
