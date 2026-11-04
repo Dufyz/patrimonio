@@ -141,7 +141,7 @@ export const RecurringsScreen = (): React.ReactElement => {
           matchesSearch(search, [
             recurring.name,
             categoryOf(categories, recurring)?.name ?? '',
-            paymentLabel(recurring),
+            paymentLabel(data, recurring),
           ]) &&
           passesFilters(filters, (field) => {
             switch (field) {
@@ -173,7 +173,7 @@ export const RecurringsScreen = (): React.ReactElement => {
           header: 'Categoria',
           value: (r) => categoryOf(categories, r)?.name ?? '',
         },
-        { id: 'pagamento', header: 'Pagamento', value: (r) => paymentLabel(r) },
+        { id: 'pagamento', header: 'Pagamento', value: (r) => paymentLabel(data, r) },
         { id: 'dia', header: 'Dia', value: (r) => String(r.day) },
         { id: 'lancamento', header: 'Lançamento', value: (r) => MODE_LABEL[r.mode] },
         {
@@ -317,9 +317,10 @@ const RecurringRow = ({
   readonly onEdit: () => void;
   readonly onDelete: () => void;
 }): React.ReactElement => {
-  const { categories } = useFinanceData();
+  const data = useFinanceData();
+  const { categories } = data;
   const category = categoryOf(categories, recurring);
-  const note = paymentNote(recurring);
+  const note = paymentNote(data, recurring);
 
   return (
     <Row muted={!recurring.active}>
@@ -335,7 +336,7 @@ const RecurringRow = ({
       ) : null}
       {visible('pagamento') ? (
         <Td>
-          {paymentLabel(recurring)}
+          {paymentLabel(data, recurring)}
           {note === null ? null : <span className="ml-2 text-xs text-ink-3">{note}</span>}
         </Td>
       ) : null}

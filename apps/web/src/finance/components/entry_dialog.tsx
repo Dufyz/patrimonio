@@ -79,7 +79,10 @@ export const EntryDialog = ({
   const categories = data.categories
     .filter((category) => category.kind === draft.kind)
     .map((category) => ({ id: category.id, name: category.name }));
-  const sources = allowedSources(draft.kind).map((s) => ({ id: s.id, name: s.name }));
+  const sources = allowedSources(data, draft.kind).map((s) => ({
+    id: s.id,
+    name: s.name,
+  }));
 
   const submit = (event: React.FormEvent): void => {
     event.preventDefault();
@@ -119,7 +122,7 @@ export const EntryDialog = ({
                       const keepCategory = data.categories.some(
                         (c) => c.id === draft.categoryId && c.kind === kind,
                       );
-                      const keepSource = allowedSources(kind).some(
+                      const keepSource = allowedSources(data, kind).some(
                         (s) => s.id === draft.sourceId,
                       );
                       set({
@@ -230,11 +233,11 @@ export const EntryDialog = ({
               </p>
             ) : null}
 
-            {canInstall(draft) && mode !== 'launch' ? (
+            {canInstall(data, draft) && mode !== 'launch' ? (
               <Field
                 label="Parcelas"
                 error={shown('installments')}
-                hint={installmentSummary(draft) ?? 'À vista'}
+                hint={installmentSummary(data, draft) ?? 'À vista'}
               >
                 {(props) => (
                   <Input

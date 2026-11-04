@@ -37,7 +37,7 @@ import { ScreenHeader } from '../components/screen_header.js';
 import { TableToolbar } from '../components/table_toolbar.js';
 import { groupEntries } from '../domain/ledger_groups.js';
 import { indicators as computeIndicators, queryEntries } from '../domain/ledger.js';
-import { SOURCES } from '../domain/sources.js';
+import { activeSources } from '../domain/sources.js';
 import { readHiddenColumns, writeHiddenColumns } from '../lib/columns.js';
 import type { ColumnSpec } from '../lib/columns.js';
 import { EMPTY_FILTERS } from '../lib/filters.js';
@@ -109,7 +109,7 @@ export const EntriesScreen = (): React.ReactElement => {
       {
         id: 'conta',
         label: 'Conta',
-        options: SOURCES.map((s) => ({ value: s.id, label: s.name })),
+        options: activeSources(data).map((s) => ({ value: s.id, label: s.name })),
       },
       {
         id: 'situacao',
@@ -128,7 +128,7 @@ export const EntriesScreen = (): React.ReactElement => {
     [data, search, filters],
   );
   const groups = useMemo(
-    () => groupEntries(grouping, entries, range, data.categories),
+    () => groupEntries(grouping, entries, range, data),
     [grouping, entries, range, data.categories],
   );
   const indicators = useMemo(() => computeIndicators(entries, range), [entries, range]);
@@ -170,7 +170,7 @@ export const EntriesScreen = (): React.ReactElement => {
         {
           id: 'conta',
           header: 'Conta',
-          value: (e: Entry) => accountNames(e).join(' + '),
+          value: (e: Entry) => accountNames(data, e).join(' + '),
         },
         {
           id: 'detalhe',
@@ -255,7 +255,9 @@ export const EntriesScreen = (): React.ReactElement => {
               count={chosen.length}
               onRecategorize={() => setBatch('category')}
               onMove={() => {
-                const reason = chosen.map(moveBlockedReason).find((r) => r !== null);
+                const reason = chosen
+                  .map((e) => moveBlockedReason(data, e))
+                  .find((r) => r !== null);
                 if (reason === undefined || reason === null) setBatch('move');
                 else setBlocked(reason);
               }}
@@ -285,7 +287,7 @@ export const EntriesScreen = (): React.ReactElement => {
               onEdit: setEditing,
               onDelete: setDeleting,
               onMove: (entry) => {
-                const reason = moveBlockedReason(entry);
+                const reason = moveBlockedReason(data, entry);
                 if (reason === null) setMoving(entry);
                 else setBlocked(reason);
               },
@@ -365,7 +367,7 @@ export const EntriesScreen = (): React.ReactElement => {
           <p>
             Excluir {chosen.length} lançamentos, num total de{' '}
             {formatBRL(chosen.reduce((total, e) => total + e.cents, 0))}? O efeito deles
-            nos saldos e nas faturas é revertido: {deleteImpact(chosen)}.
+            nos saldos e nas faturas é revertido: {deleteImpact(data, chosen)}.
           </p>
         </ConfirmDialog>
       ) : null}
@@ -395,7 +397,7 @@ export const EntriesScreen = (): React.ReactElement => {
         >
           <p>
             Excluir “{deleting.description}” ({formatBRL(deleting.cents)})? O efeito dele
-            nos saldos e na fatura é revertido: {deleteImpact([deleting])}.
+            nos saldos e na fatura é revertido: {deleteImpact(data, [deleting])}.
           </p>
           {deleting.recurringId === undefined ? null : (
             <p>Como veio de um recorrente, o previsto do mês não volta a ser gerado.</p>

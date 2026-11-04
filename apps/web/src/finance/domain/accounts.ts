@@ -4,7 +4,7 @@ import { formatBRL } from '../lib/format.js';
 import { sum } from '../lib/money.js';
 import type { Cents } from '../lib/money.js';
 import type { DateRange } from '../lib/period.js';
-import { SOURCES, sourceName } from './sources.js';
+import { CARDS, sourceName } from './sources.js';
 import type { Account, Entry, FinanceData, MovementKind } from './types.js';
 
 /**
@@ -47,10 +47,9 @@ export const findAccount = (data: FinanceData, id: string): Account | undefined 
   data.accounts.find((account) => account.id === id);
 
 export const accountLabel = (data: FinanceData, id: string): string =>
-  findAccount(data, id)?.name ?? sourceName(id);
+  findAccount(data, id)?.name ?? sourceName(data, id);
 
-const isCard = (sourceId: string): boolean =>
-  SOURCES.find((source) => source.id === sourceId)?.type === 'cartao';
+const isCard = (sourceId: string): boolean => CARDS.some((card) => card.id === sourceId);
 
 const entryNote = (
   data: FinanceData,
@@ -227,9 +226,9 @@ export const accountsOverview = (
         account,
         balance: accountBalance(data, account.id, today),
         variation: stmt.closing - stmt.opening,
-        cards: SOURCES.filter(
-          (source) => source.type === 'cartao' && source.payerId === account.id,
-        ).map((source) => source.name),
+        cards: CARDS.filter((card) => card.payerId === account.id).map(
+          (card) => card.name,
+        ),
       };
     });
   const accounts = rows.filter((row) => row.account.type === 'conta');

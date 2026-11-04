@@ -5,8 +5,8 @@ import type { Cents } from '../lib/money.js';
 import type { DateRange } from '../lib/period.js';
 import type { EntryGrouping } from '../lib/preferences.js';
 import { isPosted, primarySourceId } from './ledger.js';
-import { SOURCES, sourceName } from './sources.js';
-import type { Category, Entry } from './types.js';
+import { allSources, sourceName } from './sources.js';
+import type { Category, Entry, FinanceData } from './types.js';
 
 /**
  * Os grupos da tabela de Lançamentos: por dia (FIN-302) e por tipo, categoria e
@@ -147,26 +147,28 @@ const byCategory = (
  * Por conta: a despesa fica no grupo da origem principal, com o valor total
  * (RN-23), e compra no cartão fica na seção do cartão — a origem dela é o cartão.
  */
-const byAccount = (entries: readonly Entry[]): readonly LedgerGroup[] => {
+const byAccount = (
+  data: FinanceData,
+  entries: readonly Entry[],
+): readonly LedgerGroup[] => {
+  const known = allSources(data);
   const ids = [
-    ...SOURCES.map((source) => source.id),
+    ...known.map((source) => source.id),
     ...entries
       .map(primarySourceId)
-      .filter(
-        (id): id is string => id !== undefined && !SOURCES.some((s) => s.id === id),
-      ),
+      .filter((id): id is string => id !== undefined && !known.some((s) => s.id === id)),
   ];
   return [...new Set(ids)]
     .map((id) => ({ id, list: entries.filter((entry) => primarySourceId(entry) === id) }))
     .filter(({ list }) => list.length > 0)
-    .map(({ id, list }) => named('conta', id, sourceName(id), list));
+    .map(({ id, list }) => named('conta', id, sourceName(data, id), list));
 };
 
 export const groupEntries = (
   grouping: EntryGrouping,
   entries: readonly Entry[],
   range: DateRange,
-  categories: readonly Category[],
+  data: FinanceData,
 ): readonly LedgerGroup[] => {
   const scoped = inScope(entries, range);
   switch (grouping) {
@@ -180,8 +182,8 @@ export const groupEntries = (
           named('tipo', kind, kind === 'receita' ? 'Receitas' : 'Despesas', list),
         );
     case 'categoria':
-      return byCategory(scoped, categories);
+      return byCategory(scoped, data.categories);
     case 'conta':
-      return byAccount(scoped);
+      return byAccount(data, scoped);
   }
 };

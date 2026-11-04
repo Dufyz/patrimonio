@@ -1,18 +1,18 @@
-import type { Category, Recurring } from './types.js';
+import type { Category, FinanceData, Recurring } from './types.js';
 import { sourceName } from './sources.js';
 import { formatBRL } from '../lib/format.js';
 
 /** "Itaú Corrente" ou "Flex + Itaú Corrente". */
-export const paymentLabel = (recurring: Recurring): string =>
+export const paymentLabel = (data: FinanceData, recurring: Recurring): string =>
   recurring.secondSourceId === undefined
-    ? sourceName(recurring.sourceId)
-    : `${sourceName(recurring.sourceId)} + ${sourceName(recurring.secondSourceId)}`;
+    ? sourceName(data, recurring.sourceId)
+    : `${sourceName(data, recurring.sourceId)} + ${sourceName(data, recurring.secondSourceId)}`;
 
 /** "Flex cobre até R$ 150,00", só quando há duas origens. */
-export const paymentNote = (recurring: Recurring): string | null =>
+export const paymentNote = (data: FinanceData, recurring: Recurring): string | null =>
   recurring.secondSourceId === undefined || recurring.coversUpTo === undefined
     ? null
-    : `${sourceName(recurring.sourceId)} cobre até ${formatBRL(recurring.coversUpTo)}`;
+    : `${sourceName(data, recurring.sourceId)} cobre até ${formatBRL(recurring.coversUpTo)}`;
 
 export const MODE_LABEL = { automatico: 'automático', manual: 'manual' } as const;
 

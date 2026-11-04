@@ -214,3 +214,62 @@ describe('Transferir (FIN-403)', () => {
     );
   });
 });
+
+describe('Nova conta e editar conta (FIN-404)', () => {
+  beforeEach(() => globalThis.localStorage.clear());
+
+  it('o botão Conta cria uma conta que entra na seção e no total', async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole('button', { name: /^Conta/ }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Nova conta' }));
+    await user.type(dialog.getByLabelText('Nome'), 'Inter Conta');
+    await user.type(dialog.getByLabelText('Saldo inicial'), '1000,00');
+    await user.click(dialog.getByRole('button', { name: 'Criar conta' }));
+    expect(rowOf('Inter Conta').textContent).toContain('R$ 1.000,00');
+    expect(rowOf('Total em contas').textContent).toContain('R$ 12.773,15');
+  });
+
+  it('benefício mostra os campos do crédito e entra em Benefícios', async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole('button', { name: /^Conta/ }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.queryByLabelText('Crédito mensal')).not.toBeInTheDocument();
+    await user.selectOptions(dialog.getByLabelText('Tipo'), 'beneficio');
+    await user.type(dialog.getByLabelText('Nome'), 'Vale Refeição');
+    await user.type(dialog.getByLabelText('Saldo inicial'), '0,00');
+    await user.type(dialog.getByLabelText('Crédito mensal'), '800,00');
+    await user.type(dialog.getByLabelText('Dia do crédito'), '10');
+    await user.click(dialog.getByRole('button', { name: 'Criar conta' }));
+    expect(rowOf('Vale Refeição').textContent).toContain('todo dia 10');
+    expect(rowOf('Total em contas').textContent).toContain('R$ 11.773,15');
+  });
+
+  it('nome repetido é recusado ao salvar', async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole('button', { name: /^Conta/ }));
+    const dialog = within(screen.getByRole('dialog'));
+    await user.type(dialog.getByLabelText('Nome'), 'Flex');
+    await user.type(dialog.getByLabelText('Saldo inicial'), '0,00');
+    await user.click(dialog.getByRole('button', { name: 'Criar conta' }));
+    expect(
+      dialog.getByText('Já existe uma conta ou benefício com esse nome.'),
+    ).toBeInTheDocument();
+  });
+
+  it('Editar abre o modal preenchido, com o tipo travado', async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole('button', { name: 'Ações de Carteira' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Editar' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Editar conta' }));
+    expect(dialog.getByLabelText('Nome')).toHaveValue('Carteira');
+    expect(dialog.getByLabelText('Tipo')).toBeDisabled();
+    await user.clear(dialog.getByLabelText('Nome'));
+    await user.type(dialog.getByLabelText('Nome'), 'Carteira de bolso');
+    await user.click(dialog.getByRole('button', { name: 'Salvar' }));
+    expect(rowOf('Carteira de bolso').textContent).toContain('R$ 240,00');
+  });
+});

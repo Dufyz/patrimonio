@@ -20,6 +20,7 @@ import { categoryColor } from '../lib/category_colors.js';
 import { formatBRL, formatDayHeader } from '../lib/format.js';
 import { pluralize } from '../lib/header.js';
 import { formatDate } from '../lib/period.js';
+import { useFinanceData } from '../store/finance_store.js';
 
 /**
  * FIN-302 · A tabela de lançamentos.
@@ -229,6 +230,7 @@ const EntryRow = ({
   readonly actions?: RowActions | undefined;
   readonly selection?: Selection | undefined;
 }): React.ReactElement => {
+  const data = useFinanceData();
   const [editingCategory, setEditingCategory] = useState(false);
   const pending = entry.status === 'prevista';
   const split = entry.payments.length > 1;
@@ -296,7 +298,9 @@ const EntryRow = ({
             )}
           </Td>
         ) : null}
-        {layout.visible('conta') ? <Td>{accountNames(entry).join(' + ')}</Td> : null}
+        {layout.visible('conta') ? (
+          <Td>{accountNames(data, entry).join(' + ')}</Td>
+        ) : null}
         {layout.visible('detalhe') ? (
           <Td>
             {pending ? (
@@ -386,24 +390,27 @@ const PartRow = ({
   readonly sourceId: string;
   readonly cents: number;
   readonly layout: Layout;
-}): React.ReactElement => (
-  <tr data-part={sourceId} className="border-b border-line text-ink-3 last:border-b-0">
-    {layout.selectable ? <td aria-hidden="true" /> : null}
-    {layout.visible('data') ? <td aria-hidden="true" /> : null}
-    <td
-      colSpan={
-        ['descricao', 'categoria', 'conta', 'detalhe'].filter(layout.visible).length
-      }
-      className="border-l border-line-2 py-1.5 pl-4 text-[0.8125rem]"
-    >
-      Pago com {sourceName(sourceId)}
-    </td>
-    <td className="tabular px-3 py-1.5 text-right text-[0.8125rem]">
-      {formatBRL(cents)}
-    </td>
-    <td aria-hidden="true" />
-  </tr>
-);
+}): React.ReactElement => {
+  const data = useFinanceData();
+  return (
+    <tr data-part={sourceId} className="border-b border-line text-ink-3 last:border-b-0">
+      {layout.selectable ? <td aria-hidden="true" /> : null}
+      {layout.visible('data') ? <td aria-hidden="true" /> : null}
+      <td
+        colSpan={
+          ['descricao', 'categoria', 'conta', 'detalhe'].filter(layout.visible).length
+        }
+        className="border-l border-line-2 py-1.5 pl-4 text-[0.8125rem]"
+      >
+        Pago com {sourceName(data, sourceId)}
+      </td>
+      <td className="tabular px-3 py-1.5 text-right text-[0.8125rem]">
+        {formatBRL(cents)}
+      </td>
+      <td aria-hidden="true" />
+    </tr>
+  );
+};
 
 const Legend = (): React.ReactElement => (
   <footer className="flex flex-col gap-2 border-t border-line px-4 py-3 text-xs text-ink-3">

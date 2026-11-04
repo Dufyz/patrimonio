@@ -231,17 +231,19 @@ describe('novo lançamento (FIN-307)', () => {
     const card = { ...draft, sourceId: 'itau-visa', value: '100,00', installments: '3' };
 
     it('só cartão aceita parcelas', () => {
-      expect(canInstall(card)).toBe(true);
-      expect(canInstall({ ...card, sourceId: 'itau-corrente' })).toBe(false);
-      expect(installmentCount({ ...card, sourceId: 'itau-corrente' })).toBe(1);
+      expect(canInstall(data, card)).toBe(true);
+      expect(canInstall(data, { ...card, sourceId: 'itau-corrente' })).toBe(false);
+      expect(installmentCount(data, { ...card, sourceId: 'itau-corrente' })).toBe(1);
     });
 
     it('o resumo mostra n parcelas de R$ x', () => {
-      expect(installmentSummary({ ...card, value: '300,00' })).toBe(
+      expect(installmentSummary(data, { ...card, value: '300,00' })).toBe(
         '3 parcelas de R$ 100,00',
       );
-      expect(installmentSummary(card)).toBe('3 parcelas: 1ª de R$ 33,34 e 2 de R$ 33,33');
-      expect(installmentSummary({ ...card, installments: '1' })).toBeNull();
+      expect(installmentSummary(data, card)).toBe(
+        '3 parcelas: 1ª de R$ 33,34 e 2 de R$ 33,33',
+      );
+      expect(installmentSummary(data, { ...card, installments: '1' })).toBeNull();
     });
 
     it('gera N parcelas com o resto na primeira: a 1ª lançada, as demais previstas', () => {
@@ -330,7 +332,7 @@ describe('corrigir lançamentos (FIN-308)', () => {
   });
 
   it('a frase de impacto cita as origens', () => {
-    expect(deleteImpact([entry('l-luz')])).toBe(
+    expect(deleteImpact(data, [entry('l-luz')])).toBe(
       'Flex recupera R$ 150,00; Itaú Corrente recupera R$ 162,40',
     );
   });
@@ -349,8 +351,8 @@ describe('corrigir lançamentos (FIN-308)', () => {
     expect(moved.entries.find((e) => e.id === 'l-internet')?.payments).toEqual([
       { sourceId: 'nubank-conta', cents: 5000 },
     ]);
-    expect(moveBlockedReason(entry('l-netflix'))).toMatch(/cartão/);
-    expect(moveBlockedReason(entry('l-luz'))).toMatch(/duas origens/);
+    expect(moveBlockedReason(data, entry('l-netflix'))).toMatch(/cartão/);
+    expect(moveBlockedReason(data, entry('l-luz'))).toMatch(/duas origens/);
     expect(moveAccount(data, ['l-netflix'], 'nubank-conta')).toBe(data);
     expect(moveAccount(data, ['l-internet', 'l-luz'], 'nubank-conta')).toBe(data);
     expect(moveAccount(data, ['l-freela'], 'flex')).toBe(data);

@@ -14,7 +14,7 @@ import {
 import { Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
 import { draftOf, validateRecurring } from '../domain/recurring.js';
 import type { RecurringDraft } from '../domain/recurring.js';
-import { SOURCES } from '../domain/sources.js';
+import { activeSources } from '../domain/sources.js';
 import type {
   EntryKind,
   FinanceData,
@@ -43,8 +43,6 @@ const STATES: readonly { readonly id: string; readonly name: string }[] = [
   { id: 'pausado', name: 'Pausado' },
 ];
 
-const SOURCE_OPTIONS = SOURCES.map((source) => ({ id: source.id, name: source.name }));
-
 export const RecurringDialog = ({
   data,
   recurring,
@@ -68,6 +66,7 @@ export const RecurringDialog = ({
   const categories = data.categories
     .filter((category) => category.kind === draft.kind)
     .map((category) => ({ id: category.id, name: category.name }));
+  const sourceOptions = activeSources(data).map((s) => ({ id: s.id, name: s.name }));
 
   const submit = (event: React.FormEvent): void => {
     event.preventDefault();
@@ -139,7 +138,7 @@ export const RecurringDialog = ({
                   {...props}
                   invalid={shown('sourceId') !== undefined}
                   placeholder="Conta, benefício ou cartão"
-                  options={SOURCE_OPTIONS}
+                  options={sourceOptions}
                   value={draft.sourceId}
                   onChange={(event) => set({ sourceId: event.target.value })}
                 />
@@ -172,7 +171,7 @@ export const RecurringDialog = ({
                       {...props}
                       invalid={shown('secondSourceId') !== undefined}
                       placeholder="Escolha"
-                      options={SOURCE_OPTIONS}
+                      options={sourceOptions}
                       value={draft.secondSourceId}
                       onChange={(event) => set({ secondSourceId: event.target.value })}
                     />

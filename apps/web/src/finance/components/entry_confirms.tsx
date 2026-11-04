@@ -13,6 +13,7 @@ import {
 import { Field, Select } from '../../views/entry/fields.js';
 import { allowedSources } from '../domain/entry_ops.js';
 import type { Entry } from '../domain/types.js';
+import { useFinanceData } from '../store/finance_store.js';
 
 /** FIN-308 e FIN-309 · As confirmações de lançamento: excluir e mover de conta. */
 
@@ -63,9 +64,10 @@ export const MoveAccountDialog = ({
   readonly onConfirm: (sourceId: string) => void;
   readonly onClose: () => void;
 }): React.ReactElement => {
+  const data = useFinanceData();
   const [sourceId, setSourceId] = useState('');
   const hasIncome = entries.some((entry) => entry.kind === 'receita');
-  const options = allowedSources(hasIncome ? 'receita' : 'despesa')
+  const options = allowedSources(data, hasIncome ? 'receita' : 'despesa')
     .filter((source) => source.type !== 'cartao')
     .map((source) => ({ id: source.id, name: source.name }));
 

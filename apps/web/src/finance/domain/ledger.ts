@@ -20,8 +20,8 @@ import type { Entry, FinanceData } from './types.js';
 export const isPosted = (entry: Entry): boolean => entry.status === 'lancada';
 
 /** Os nomes das origens, na ordem em que foram informadas. */
-export const accountNames = (entry: Entry): readonly string[] =>
-  entry.payments.map((payment) => sourceName(payment.sourceId));
+export const accountNames = (data: FinanceData, entry: Entry): readonly string[] =>
+  entry.payments.map((payment) => sourceName(data, payment.sourceId));
 
 /** RN-23: a origem principal é a de maior parte; no empate, a primeira informada. */
 export const primarySourceId = (entry: Entry): string | undefined => {
@@ -41,7 +41,9 @@ export const queryEntries = (
   data.entries.filter((entry) => {
     if (entry.historical === true) return false;
     const category = data.categories.find((c) => c.id === entry.categoryId)?.name ?? '';
-    if (!matchesSearch(search, [entry.description, category, ...accountNames(entry)])) {
+    if (
+      !matchesSearch(search, [entry.description, category, ...accountNames(data, entry)])
+    ) {
       return false;
     }
     return passesFilters(filters, (field) => {

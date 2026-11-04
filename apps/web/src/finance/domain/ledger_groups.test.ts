@@ -9,7 +9,7 @@ const data = seedData();
 const october = currentMonth(SEED_REFERENCE_DATE);
 const entries = queryEntries(data, '', {});
 const group = (grouping: Parameters<typeof groupEntries>[0]) =>
-  groupEntries(grouping, entries, october, data.categories);
+  groupEntries(grouping, entries, october, data);
 
 describe('por dia', () => {
   it('previstos primeiro e depois os dias, do mais novo ao mais antigo', () => {

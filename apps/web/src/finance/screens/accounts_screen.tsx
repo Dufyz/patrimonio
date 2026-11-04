@@ -18,14 +18,18 @@ import {
   Th,
   THead,
 } from '../components/fin_table.js';
+import { AccountDialog } from '../components/account_dialog.js';
 import { TransferDialog } from '../components/transfer_dialog.js';
 import { RecentMovements } from '../components/recent_movements.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { NatureTag } from '../components/tags.js';
+import { addAccount, updateAccount } from '../domain/account_ops.js';
 import { accountsOverview } from '../domain/accounts.js';
 import type { AccountRow } from '../domain/accounts.js';
+import type { Account } from '../domain/types.js';
 import { addTransfer } from '../domain/transfer_ops.js';
+import { PRIMARY_LABELS } from '../lib/header.js';
 import { currentMonth } from '../lib/period.js';
 import { financeRoutes } from '../lib/routes.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
@@ -49,12 +53,19 @@ export const AccountsScreen = (): React.ReactElement => {
   const store = useFinanceStore();
   const overview = accountsOverview(data, currentMonth(today), today);
   const [transfer, setTransfer] = useState<{ readonly fromId: string } | null>(null);
+  const [editing, setEditing] = useState<
+    { readonly type: 'new' } | { readonly type: 'edit'; readonly account: Account } | null
+  >(null);
 
   return (
     <>
       <ScreenHeader
         title="Contas"
         extra={<Button onClick={() => setTransfer({ fromId: '' })}>Transferir</Button>}
+        primary={{
+          label: PRIMARY_LABELS.accounts,
+          onClick: () => setEditing({ type: 'new' }),
+        }}
         subtitle={
           <>
             Em contas <Amount cents={overview.totalBalance} /> ·{' '}
@@ -82,6 +93,7 @@ export const AccountsScreen = (): React.ReactElement => {
                 key={row.account.id}
                 row={row}
                 onTransfer={() => setTransfer({ fromId: row.account.id })}
+                onEdit={() => setEditing({ type: 'edit', account: row.account })}
               />
             ))}
             <SummaryRow kind="total">
@@ -105,6 +117,7 @@ export const AccountsScreen = (): React.ReactElement => {
                 key={row.account.id}
                 row={row}
                 onTransfer={() => setTransfer({ fromId: row.account.id })}
+                onEdit={() => setEditing({ type: 'edit', account: row.account })}
               />
             ))}
           </tbody>
@@ -112,6 +125,22 @@ export const AccountsScreen = (): React.ReactElement => {
       </section>
 
       <RecentMovements />
+
+      {editing === null ? null : (
+        <AccountDialog
+          data={data}
+          account={editing.type === 'edit' ? editing.account : undefined}
+          onClose={() => setEditing(null)}
+          onSave={(draft) => {
+            store.set((current) =>
+              editing.type === 'edit'
+                ? updateAccount(current, editing.account.id, draft, today)
+                : addAccount(current, draft, today),
+            );
+            setEditing(null);
+          }}
+        />
+      )}
 
       {transfer === null ? null : (
         <TransferDialog
@@ -135,9 +164,11 @@ const creditLabel = (day: number | undefined): string =>
 const AccountTableRow = ({
   row,
   onTransfer,
+  onEdit,
 }: {
   readonly row: AccountRow;
   readonly onTransfer: () => void;
+  readonly onEdit: () => void;
 }): React.ReactElement => {
   const navigate = useNavigate();
   const { account } = row;
@@ -182,29 +213,36 @@ const AccountTableRow = ({
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          <RowMenu name={account.name} canTransfer={!isBenefit} onTransfer={onTransfer} />
+          <RowMenu
+            name={account.name}
+            canTransfer={!isBenefit}
+            onTransfer={onTransfer}
+            onEdit={onEdit}
+          />
         </span>
       </Td>
     </Row>
   );
 };
 
-/** O `⋯` da linha. Editar entra com FIN-404 e Arquivar com FIN-409. */
+/** O `⋯` da linha. Arquivar entra com FIN-409. */
 const RowMenu = ({
   name,
   canTransfer,
   onTransfer,
+  onEdit,
 }: {
   readonly name: string;
   readonly canTransfer: boolean;
   readonly onTransfer: () => void;
+  readonly onEdit: () => void;
 }): React.ReactElement => (
   <DropdownMenu modal={false}>
     <DropdownMenuTrigger asChild>
       <IconButton row label={`Ações de ${name}`} icon="dots" />
     </DropdownMenuTrigger>
     <DropdownMenuContent className="min-w-40">
-      <DropdownMenuItem disabled>Editar</DropdownMenuItem>
+      <DropdownMenuItem onSelect={onEdit}>Editar</DropdownMenuItem>
       <DropdownMenuItem disabled={!canTransfer} onSelect={onTransfer}>
         Transferir
       </DropdownMenuItem>

@@ -3,7 +3,7 @@ import type { IsoDate } from '../lib/dates.js';
 import { formatBRL, parseMoneyInput } from '../lib/format.js';
 import { splitInstallments } from '../lib/money.js';
 import type { Cents } from '../lib/money.js';
-import { SOURCES, sourceName } from './sources.js';
+import { activeSources, findSource, sourceName } from './sources.js';
 import type { Entry, EntryKind, FinanceData, Payment } from './types.js';
 
 /**
@@ -83,8 +83,8 @@ export const draftOfEntry = (entry: Entry, today: IsoDate): EntryDraft => {
 };
 
 /** Só conta recebe receita; despesa sai de conta, benefício ou cartão (RN-01, FIN-307). */
-export const allowedSources = (kind: EntryKind) =>
-  SOURCES.filter((source) => kind === 'despesa' || source.type === 'conta');
+export const allowedSources = (data: FinanceData, kind: EntryKind) =>
+  activeSources(data).filter((source) => kind === 'despesa' || source.type === 'conta');
 
 /** A diferença entre o valor e a soma das partes, em tempo real (RN-21). */
 export const splitDifference = (draft: EntryDraft): Cents | null => {
@@ -96,18 +96,23 @@ export const splitDifference = (draft: EntryDraft): Cents | null => {
 };
 
 /** Parcelamento só existe em despesa paga no cartão, com uma origem. */
-export const canInstall = (draft: EntryDraft): boolean =>
+export const canInstall = (data: FinanceData, draft: EntryDraft): boolean =>
   draft.kind === 'despesa' &&
   !draft.split &&
-  SOURCES.find((source) => source.id === draft.sourceId)?.type === 'cartao';
+  findSource(data, draft.sourceId)?.type === 'cartao';
 
-export const installmentCount = (draft: EntryDraft): number =>
-  canInstall(draft) && /^\d+$/.test(draft.installments) ? Number(draft.installments) : 1;
+export const installmentCount = (data: FinanceData, draft: EntryDraft): number =>
+  canInstall(data, draft) && /^\d+$/.test(draft.installments)
+    ? Number(draft.installments)
+    : 1;
 
 /** `3 parcelas de R$ 100,00` (a primeira leva o resto de centavos, RN-45). */
-export const installmentSummary = (draft: EntryDraft): string | null => {
+export const installmentSummary = (
+  data: FinanceData,
+  draft: EntryDraft,
+): string | null => {
   const total = parseMoneyInput(draft.value);
-  const count = installmentCount(draft);
+  const count = installmentCount(data, draft);
   if (total === null || total <= 0 || count < 2) return null;
   const parts = splitInstallments(total, count);
   const first = parts[0] ?? 0;
@@ -137,7 +142,7 @@ export const validateEntry = (
   const total = parseMoneyInput(draft.value);
   if (total === null || total <= 0) errors['value'] = 'Informe um valor maior que zero.';
 
-  const allowed = allowedSources(draft.kind);
+  const allowed = allowedSources(data, draft.kind);
   if (draft.sourceId === '') errors['sourceId'] = 'Escolha a origem do pagamento.';
   else if (!allowed.some((s) => s.id === draft.sourceId)) {
     errors['sourceId'] = 'Receita só aceita conta ou Carteira.';
@@ -166,7 +171,7 @@ export const validateEntry = (
       errors['sum'] = 'A soma das partes precisa ser igual ao valor.';
     }
   }
-  if (draft.installments !== '1' && canInstall(draft)) {
+  if (draft.installments !== '1' && canInstall(data, draft)) {
     const n = Number(draft.installments);
     if (!/^\d+$/.test(draft.installments) || n < 1 || n > 24) {
       errors['installments'] = 'Informe de 1 a 24 parcelas.';
@@ -232,7 +237,7 @@ export const addEntry = (
 ): FinanceData => {
   if (Object.keys(validateEntry(data, draft, today)).length > 0) return data;
   const total = parseMoneyInput(draft.value) ?? 0;
-  const count = installmentCount(draft);
+  const count = installmentCount(data, draft);
   const base = {
     kind: draft.kind,
     description: draft.description.trim(),
@@ -328,12 +333,8 @@ export const recategorize = (
 };
 
 /** Por que um lançamento não pode mudar de conta, ou `null` se pode. */
-export const moveBlockedReason = (entry: Entry): string | null => {
-  if (
-    entry.payments.some(
-      (p) => SOURCES.find((s) => s.id === p.sourceId)?.type === 'cartao',
-    )
-  ) {
+export const moveBlockedReason = (data: FinanceData, entry: Entry): string | null => {
+  if (entry.payments.some((p) => findSource(data, p.sourceId)?.type === 'cartao')) {
     return `“${entry.description}” é compra no cartão e não muda de conta.`;
   }
   if (entry.payments.length > 1) {
@@ -348,11 +349,11 @@ export const moveAccount = (
   ids: readonly string[],
   sourceId: string,
 ): FinanceData => {
-  const source = SOURCES.find((s) => s.id === sourceId);
+  const source = activeSources(data).find((s) => s.id === sourceId);
   const targets = data.entries.filter((entry) => ids.includes(entry.id));
   if (source === undefined || source.type === 'cartao' || targets.length === 0)
     return data;
-  if (targets.some((entry) => moveBlockedReason(entry) !== null)) return data;
+  if (targets.some((entry) => moveBlockedReason(data, entry) !== null)) return data;
   if (targets.some((entry) => entry.kind === 'receita' && source.type !== 'conta'))
     return data;
   return {
@@ -366,10 +367,10 @@ export const moveAccount = (
 };
 
 /** A frase de impacto da exclusão: que origens voltam a ter o valor. */
-export const deleteImpact = (entries: readonly Entry[]): string => {
+export const deleteImpact = (data: FinanceData, entries: readonly Entry[]): string => {
   const parts = entries.flatMap((entry) =>
     entry.payments.map((payment) => ({
-      name: sourceName(payment.sourceId),
+      name: sourceName(data, payment.sourceId),
       cents: entry.kind === 'despesa' ? payment.cents : -payment.cents,
     })),
   );
