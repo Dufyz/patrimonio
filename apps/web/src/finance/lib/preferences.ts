@@ -25,3 +25,17 @@ export const writeEntryGrouping = (
   storage: Storageish | null,
   grouping: EntryGrouping,
 ): void => writeRaw(storage, GROUPING_KEY, grouping);
+
+/** Recorrentes: agrupa por tipo (padrão), categoria ou conta. */
+export const RECURRING_GROUPINGS = ['tipo', 'categoria', 'conta'] as const;
+export type RecurringGrouping = (typeof RECURRING_GROUPINGS)[number];
+
+export const RECURRING_GROUPING_KEY = 'patrimonio.finance.recurrings-grouping';
+
+export const readRecurringGrouping = (storage: Storageish | null): RecurringGrouping =>
+  readEnum(storage, RECURRING_GROUPING_KEY, RECURRING_GROUPINGS, 'tipo');
+
+export const writeRecurringGrouping = (
+  storage: Storageish | null,
+  grouping: RecurringGrouping,
+): void => writeRaw(storage, RECURRING_GROUPING_KEY, grouping);

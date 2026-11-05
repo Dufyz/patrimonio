@@ -25,12 +25,15 @@ export const GROUPING_SUBTITLES: Readonly<Record<EntryGrouping, string>> = {
   conta: 'por conta',
 };
 
-export const GroupSelector = ({
+export const GroupSelector = <T extends EntryGrouping = EntryGrouping>({
   value,
   onChange,
+  options = ENTRY_GROUPINGS as readonly EntryGrouping[] as readonly T[],
 }: {
-  readonly value: EntryGrouping;
-  readonly onChange: (value: EntryGrouping) => void;
+  readonly value: T;
+  readonly onChange: (value: T) => void;
+  /** Quais agrupamentos a tela oferece; por padrão, os de Lançamentos. */
+  readonly options?: readonly T[];
 }): React.ReactElement => (
   <DropdownMenu modal={false}>
     <DropdownMenuTrigger asChild>
@@ -39,7 +42,7 @@ export const GroupSelector = ({
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent className="min-w-40">
-      {ENTRY_GROUPINGS.map((grouping) => (
+      {options.map((grouping) => (
         <DropdownMenuItem
           key={grouping}
           aria-checked={grouping === value}

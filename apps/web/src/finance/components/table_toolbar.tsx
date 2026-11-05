@@ -57,9 +57,10 @@ export const TableToolbar = ({
   readonly filterFields: readonly FilterField[];
   readonly filters: FilterState;
   readonly onFilters: (next: FilterState) => void;
-  readonly columns: readonly ColumnSpec[];
-  readonly hiddenColumns: readonly string[];
-  readonly onHiddenColumns: (next: readonly string[]) => void;
+  /** Sem colunas escolhíveis (tela de cadastro com uma coluna só), some o "Exibição". */
+  readonly columns?: readonly ColumnSpec[] | undefined;
+  readonly hiddenColumns?: readonly string[] | undefined;
+  readonly onHiddenColumns?: ((next: readonly string[]) => void) | undefined;
   readonly onExport: () => void;
 }): React.ReactElement => {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -108,15 +109,22 @@ export const TableToolbar = ({
       }
       open={filterOpen}
       onOpenChange={setFilterOpen}
-      display={{
-        columns: columns.map((column) => ({
-          id: column.id,
-          label: column.label,
-          locked: column.locked === true,
-          hidden: hiddenColumns.includes(column.id),
-        })),
-        onToggleColumn: (id) => onHiddenColumns(toggleColumn(hiddenColumns, columns, id)),
-      }}
+      display={
+        columns === undefined ||
+        hiddenColumns === undefined ||
+        onHiddenColumns === undefined
+          ? undefined
+          : {
+              columns: columns.map((column) => ({
+                id: column.id,
+                label: column.label,
+                locked: column.locked === true,
+                hidden: hiddenColumns.includes(column.id),
+              })),
+              onToggleColumn: (id) =>
+                onHiddenColumns(toggleColumn(hiddenColumns, columns, id)),
+            }
+      }
       actions={<ToolbarIconButton label="Exportar" icon="download" onClick={onExport} />}
     />
   );

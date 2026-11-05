@@ -1,6 +1,6 @@
 import type { Category, FinanceData, Recurring } from './types.js';
 import { sourceName } from './sources.js';
-import { formatBRL } from '../lib/format.js';
+import { paymentsFor } from './recurring.js';
 
 /** "Itaú Corrente" ou "Flex + Itaú Corrente". */
 export const paymentLabel = (data: FinanceData, recurring: Recurring): string =>
@@ -8,11 +8,29 @@ export const paymentLabel = (data: FinanceData, recurring: Recurring): string =>
     ? sourceName(data, recurring.sourceId)
     : `${sourceName(data, recurring.sourceId)} + ${sourceName(data, recurring.secondSourceId)}`;
 
-/** "Flex cobre até R$ 150,00", só quando há duas origens. */
-export const paymentNote = (data: FinanceData, recurring: Recurring): string | null =>
-  recurring.secondSourceId === undefined || recurring.coversUpTo === undefined
-    ? null
-    : `${sourceName(data, recurring.sourceId)} cobre até ${formatBRL(recurring.coversUpTo)}`;
+/** Quanto sai de cada origem no valor cheio do recorrente (uma linha por origem). */
+export const paymentParts = (
+  data: FinanceData,
+  recurring: Recurring,
+): readonly {
+  readonly sourceId: string;
+  readonly name: string;
+  readonly cents: number;
+}[] =>
+  paymentsFor(recurring, recurring.cents).map((payment) => ({
+    sourceId: payment.sourceId,
+    name: sourceName(data, payment.sourceId),
+    cents: payment.cents,
+  }));
+
+/** A conta do agrupamento: a origem que paga mais (RN-23). */
+export const primarySourceOf = (recurring: Recurring): string =>
+  paymentsFor(recurring, recurring.cents).reduce((a, b) => (b.cents > a.cents ? b : a))
+    .sourceId;
+
+/** Valor com sinal: receita positiva, despesa negativa. */
+export const signedCents = (recurring: Recurring): number =>
+  recurring.kind === 'receita' ? recurring.cents : -recurring.cents;
 
 export const MODE_LABEL = { automatico: 'automático', manual: 'manual' } as const;
 

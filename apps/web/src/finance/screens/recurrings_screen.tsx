@@ -20,6 +20,7 @@ import {
   FinTable,
   Row,
   SectionRow,
+  SummaryRow,
   Td,
   Th,
   THead,
@@ -33,10 +34,21 @@ import {
   byDay,
   categoryOf,
   paymentLabel,
-  paymentNote,
+  paymentParts,
+  primarySourceOf,
+  signedCents,
   summaryLabel,
 } from '../domain/recurring_view.js';
-import type { Recurring } from '../domain/types.js';
+import { sourceName } from '../domain/sources.js';
+import { GroupSelector } from '../components/group_selector.js';
+import {
+  RECURRING_GROUPINGS,
+  readRecurringGrouping,
+  writeRecurringGrouping,
+} from '../lib/preferences.js';
+import type { RecurringGrouping } from '../lib/preferences.js';
+import type { Category, FinanceData, Recurring } from '../domain/types.js';
+import { allocatePercentTenths, formatPercentTenths } from '../lib/format.js';
 import { categoryColor } from '../lib/category_colors.js';
 import {
   isColumnVisible,
@@ -50,13 +62,8 @@ import { EMPTY_FILTERS, passesFilters } from '../lib/filters.js';
 import type { FilterField, FilterState } from '../lib/filters.js';
 import { PRIMARY_LABELS } from '../lib/header.js';
 import { matchesSearch } from '../lib/text.js';
-import {
-  addRecurring,
-  deleteRecurring,
-  setRecurringActive,
-  updateRecurring,
-} from '../domain/recurring.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
+import { commands } from '../store/commands.js';
 
 /**
  * FIN-201 · Recorrentes.
@@ -75,13 +82,81 @@ const COLUMNS: readonly ColumnSpec[] = [
   { id: 'dia', label: 'Dia' },
   { id: 'lancamento', label: 'Lançamento' },
   { id: 'valor', label: 'Valor', locked: true },
+  { id: 'peso', label: '% do bloco' },
   { id: 'ativo', label: 'Ativo', locked: true },
 ];
 
 const SECTIONS = [
-  { kind: 'receita', label: 'Receitas' },
-  { kind: 'despesa', label: 'Despesas' },
+  { kind: 'receita', label: 'Receitas', total: 'Total de receitas' },
+  { kind: 'despesa', label: 'Despesas', total: 'Total de despesas' },
 ] as const;
+
+type Group = {
+  readonly key: string;
+  readonly label: string;
+  readonly total: string;
+  readonly items: readonly Recurring[];
+};
+
+/** Só o que está ativo entra nos totais: pausado não gera previsto. */
+const activeTotal = (items: readonly Recurring[]): number =>
+  items.filter((r) => r.active).reduce((sum, r) => sum + signedCents(r), 0);
+
+/**
+ * O peso de cada item ativo no bloco, em décimos de ponto (RN-64): a soma dos
+ * de cada tipo fecha em 100%. Receita pesa contra receitas, despesa contra
+ * despesas — num bloco misto (agrupado por conta) os dois somam 100% à parte.
+ */
+const weightsOf = (items: readonly Recurring[]): ReadonlyMap<string, number> => {
+  const weights = new Map<string, number>();
+  for (const kind of ['receita', 'despesa'] as const) {
+    const active = items.filter((r) => r.kind === kind && r.active);
+    const tenths = allocatePercentTenths(active.map((r) => r.cents));
+    active.forEach((r, index) => weights.set(r.id, tenths[index] ?? 0));
+  }
+  return weights;
+};
+
+/** Monta os blocos da tabela conforme o agrupamento; dentro de cada um, pelo dia. */
+const groupRecurrings = (
+  grouping: RecurringGrouping,
+  rows: readonly Recurring[],
+  categories: readonly Category[],
+  data: FinanceData,
+): readonly Group[] => {
+  const sorted = rows.toSorted(byDay);
+  if (grouping === 'tipo') {
+    return SECTIONS.map((s) => ({
+      key: s.kind,
+      label: s.label,
+      total: s.total,
+      items: sorted.filter((r) => r.kind === s.kind),
+    })).filter((g) => g.items.length > 0);
+  }
+  if (grouping === 'categoria') {
+    const ordered = [
+      ...categories.filter((c) => c.kind === 'receita'),
+      ...categories.filter((c) => c.kind === 'despesa'),
+    ];
+    return ordered
+      .map((c) => ({
+        key: c.id,
+        label: c.name,
+        total: `Total · ${c.name}`,
+        items: sorted.filter((r) => r.categoryId === c.id),
+      }))
+      .filter((g) => g.items.length > 0);
+  }
+  const ids = [...new Set(sorted.map(primarySourceOf))].toSorted((a, b) =>
+    sourceName(data, a).localeCompare(sourceName(data, b), 'pt-BR'),
+  );
+  return ids.map((id) => ({
+    key: id,
+    label: sourceName(data, id),
+    total: `Total · ${sourceName(data, id)}`,
+    items: sorted.filter((r) => primarySourceOf(r) === id),
+  }));
+};
 
 export const RecurringsScreen = (): React.ReactElement => {
   const data = useFinanceData();
@@ -161,6 +236,16 @@ export const RecurringsScreen = (): React.ReactElement => {
     [categories, filters, recurrings, search],
   );
 
+  const [grouping, setGrouping] = useState<RecurringGrouping>(() =>
+    readRecurringGrouping(browserStorage()),
+  );
+  const groups = useMemo(
+    () => groupRecurrings(grouping, rows, categories, data),
+    [grouping, rows, categories, data],
+  );
+  const hasBothKinds =
+    rows.some((r) => r.kind === 'receita') && rows.some((r) => r.kind === 'despesa');
+
   const visible = (id: string): boolean => isColumnVisible(hidden, id);
   const colSpan = COLUMNS.filter((column) => visible(column.id)).length + 1;
 
@@ -175,7 +260,11 @@ export const RecurringsScreen = (): React.ReactElement => {
           header: 'Categoria',
           value: (r) => categoryOf(categories, r)?.name ?? '',
         },
-        { id: 'pagamento', header: 'Pagamento', value: (r) => paymentLabel(data, r) },
+        {
+          id: 'pagamento',
+          header: 'Pagamento',
+          value: (r) => paymentText(data, r),
+        },
         { id: 'dia', header: 'Dia', value: (r) => String(r.day) },
         { id: 'lancamento', header: 'Lançamento', value: (r) => MODE_LABEL[r.mode] },
         {
@@ -186,9 +275,7 @@ export const RecurringsScreen = (): React.ReactElement => {
         { id: 'ativo', header: 'Ativo', value: (r) => (r.active ? 'sim' : 'não') },
       ],
       hidden,
-      SECTIONS.flatMap((section) =>
-        rows.filter((r) => r.kind === section.kind).toSorted(byDay),
-      ),
+      groups.flatMap((group) => group.items),
     );
 
   return (
@@ -219,6 +306,16 @@ export const RecurringsScreen = (): React.ReactElement => {
             writeHiddenColumns(browserStorage(), SCREEN, next);
           }}
           onExport={exportCsv}
+          group={
+            <GroupSelector
+              value={grouping}
+              options={RECURRING_GROUPINGS}
+              onChange={(next) => {
+                setGrouping(next);
+                writeRecurringGrouping(browserStorage(), next);
+              }}
+            />
+          }
         />
 
         <FinTable caption="Recorrentes">
@@ -233,6 +330,11 @@ export const RecurringsScreen = (): React.ReactElement => {
             ) : null}
             {visible('lancamento') ? <Th className={hideBelow(1)}>Lançamento</Th> : null}
             <Th align="right">Valor</Th>
+            {visible('peso') ? (
+              <Th align="right" className={hideBelow(1)}>
+                % do bloco
+              </Th>
+            ) : null}
             <Th align="center">Ativo</Th>
             <Th>
               <span className="sr-only">Ações</span>
@@ -254,30 +356,45 @@ export const RecurringsScreen = (): React.ReactElement => {
                 </td>
               </tr>
             ) : null}
-            {SECTIONS.map((section) => {
-              const group = rows
-                .filter((recurring) => recurring.kind === section.kind)
-                .toSorted(byDay);
-              if (group.length === 0) return null;
+            {groups.map((group) => {
+              const weights = weightsOf(group.items);
               return (
-                <SectionGroup key={section.kind} label={section.label} colSpan={colSpan}>
-                  {group.map((recurring) => (
+                <SectionGroup key={group.key} label={group.label} colSpan={colSpan}>
+                  {group.items.map((recurring) => (
                     <RecurringRow
                       key={recurring.id}
                       recurring={recurring}
+                      weight={weights.get(recurring.id)}
                       visible={visible}
                       onToggle={(active) =>
-                        store.set((current) =>
-                          setRecurringActive(current, recurring.id, active, today),
+                        store.run(
+                          commands.setRecurringActive(recurring.id, active, today),
                         )
                       }
                       onEdit={() => setDialog({ type: 'edit', recurring })}
                       onDelete={() => setDialog({ type: 'delete', recurring })}
                     />
                   ))}
+                  <TotalRow
+                    label={group.total}
+                    cents={activeTotal(group.items)}
+                    paused={group.items.filter((r) => !r.active).length}
+                    colSpan={colSpan}
+                    showWeight={visible('peso')}
+                  />
                 </SectionGroup>
               );
             })}
+            {groups.length > 0 && hasBothKinds ? (
+              <TotalRow
+                grand
+                label="Resultado mensal (receitas − despesas)"
+                cents={activeTotal(rows)}
+                paused={0}
+                colSpan={colSpan}
+                showWeight={visible('peso')}
+              />
+            ) : null}
           </tbody>
         </FinTable>
       </section>
@@ -289,10 +406,10 @@ export const RecurringsScreen = (): React.ReactElement => {
           recurring={dialog.type === 'edit' ? dialog.recurring : undefined}
           onClose={() => setDialog(null)}
           onSave={(draft) => {
-            store.set((current) =>
+            store.run(
               dialog.type === 'edit'
-                ? updateRecurring(current, dialog.recurring.id, draft, today)
-                : addRecurring(current, draft, today),
+                ? commands.updateRecurring(dialog.recurring.id, draft, today)
+                : commands.addRecurring(draft, today),
             );
             setDialog(null);
           }}
@@ -303,7 +420,7 @@ export const RecurringsScreen = (): React.ReactElement => {
           recurring={dialog.recurring}
           onClose={() => setDialog(null)}
           onConfirm={() => {
-            store.set((current) => deleteRecurring(current, dialog.recurring.id));
+            store.run(commands.deleteRecurring(dialog.recurring.id));
             setDialog(null);
           }}
         />
@@ -311,6 +428,47 @@ export const RecurringsScreen = (): React.ReactElement => {
     </>
   );
 };
+
+/** O texto de Pagamento para exportar: "Flex R$ 150,00 + Itaú R$ 850,00". */
+const paymentText = (data: FinanceData, recurring: Recurring): string => {
+  const parts = paymentParts(data, recurring);
+  return parts.length === 1
+    ? paymentLabel(data, recurring)
+    : parts.map((p) => `${p.name} ${csvAmount(p.cents)}`).join(' + ');
+};
+
+/** Total do bloco (ou resultado do mês): sob a coluna Valor, só do que está ativo. */
+const TotalRow = ({
+  label,
+  cents,
+  paused,
+  colSpan,
+  showWeight,
+  grand = false,
+}: {
+  readonly label: string;
+  readonly cents: number;
+  readonly paused: number;
+  readonly colSpan: number;
+  readonly showWeight: boolean;
+  readonly grand?: boolean;
+}): React.ReactElement => (
+  <SummaryRow kind={grand ? 'total' : 'subtotal'}>
+    <Td colSpan={Math.max(colSpan - (showWeight ? 4 : 3), 1)}>
+      {label}
+      {paused === 0 ? null : (
+        <span className="ml-2 text-xs font-normal text-ink-3">
+          sem {paused === 1 ? '1 pausado' : `${paused} pausados`}
+        </span>
+      )}
+    </Td>
+    <Td numeric>
+      <Amount cents={cents} variant="flow" />
+    </Td>
+    {showWeight ? <Td className={hideBelow(1)} /> : null}
+    <Td colSpan={2} />
+  </SummaryRow>
+);
 
 const SectionGroup = ({
   label,
@@ -329,12 +487,15 @@ const SectionGroup = ({
 
 const RecurringRow = ({
   recurring,
+  weight,
   visible,
   onToggle,
   onEdit,
   onDelete,
 }: {
   readonly recurring: Recurring;
+  /** Peso no bloco, em décimos de ponto; ausente para pausado. */
+  readonly weight: number | undefined;
   readonly visible: (id: string) => boolean;
   readonly onToggle: (active: boolean) => void;
   readonly onEdit: () => void;
@@ -343,7 +504,7 @@ const RecurringRow = ({
   const data = useFinanceData();
   const { categories } = data;
   const category = categoryOf(categories, recurring);
-  const note = paymentNote(data, recurring);
+  const parts = paymentParts(data, recurring);
 
   return (
     <Row muted={!recurring.active}>
@@ -359,11 +520,22 @@ const RecurringRow = ({
       ) : null}
       {visible('pagamento') ? (
         <Td className={hideBelow(2)}>
-          <span className={note === null ? undefined : 'font-semibold'}>
-            {paymentLabel(data, recurring)}
-          </span>
-          {note === null ? null : (
-            <span className="block text-xs text-ink-3">{note}</span>
+          {parts.length === 1 ? (
+            parts[0]?.name
+          ) : (
+            <ul className="grid gap-0.5">
+              {parts.map((part) => (
+                <li
+                  key={part.sourceId}
+                  className="flex items-baseline justify-between gap-4"
+                >
+                  <span>{part.name}</span>
+                  <span className="tabular text-xs text-ink-2">
+                    <Amount cents={part.cents} />
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
         </Td>
       ) : null}
@@ -387,6 +559,11 @@ const RecurringRow = ({
           <span className="block text-xs font-normal text-ink-3">estimativa</span>
         ) : null}
       </Td>
+      {visible('peso') ? (
+        <Td numeric className={`text-ink-2 ${hideBelow(1)}`}>
+          {weight === undefined ? '—' : formatPercentTenths(weight)}
+        </Td>
+      ) : null}
       <Td align="center">
         <Switch
           checked={recurring.active}

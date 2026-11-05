@@ -80,11 +80,32 @@ describe('Recorrentes (FIN-201)', () => {
     expect(within(rowOf('Netflix')).queryByText('estimativa')).not.toBeInTheDocument();
   });
 
-  it('pagamento com duas origens mostra as duas e a nota', () => {
+  it('pagamento com duas origens mostra quanto sai de cada uma', () => {
     open();
     const row = rowOf('Conta de luz');
-    expect(within(row).getByText(/Flex \+ Itaú Corrente/)).toBeInTheDocument();
-    expect(within(row).getByText('Flex cobre até R$ 150,00')).toBeInTheDocument();
+    const flex = within(row).getByText('Flex').closest('li');
+    expect(flex).toHaveTextContent('R$ 150,00');
+    expect(within(row).getByText('Itaú Corrente').closest('li')).toHaveTextContent('R$');
+  });
+
+  it('cada bloco termina com o total dos ativos e há o resultado do mês', () => {
+    open();
+    expect(screen.getByText('Total de receitas')).toBeInTheDocument();
+    expect(screen.getByText('Total de despesas')).toBeInTheDocument();
+    expect(screen.getByText(/Resultado mensal/)).toBeInTheDocument();
+  });
+
+  it('agrupa por categoria e por conta, com total em cada bloco', async () => {
+    open();
+    await userEvent.click(screen.getByRole('button', { name: /Agrupar: Tipo/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Categoria/ }));
+    expect(screen.getByText('Total · Moradia')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Agrupar: Categoria/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Conta/ }));
+    expect(screen.getByText('Total · Itaú Corrente')).toBeInTheDocument();
+    expect(
+      globalThis.localStorage.getItem('patrimonio.finance.recurrings-grouping'),
+    ).toBe('conta');
   });
 
   it('linha pausada fica esmaecida e o interruptor mostra desligado', () => {
@@ -173,8 +194,10 @@ describe('Novo recorrente, edição e exclusão (FIN-202)', () => {
     );
     expect(within(dialog).getByText('Valor estimado')).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('checkbox', { name: /Dividir/ }));
-    expect(within(dialog).getByText('Primeira origem cobre até')).toBeInTheDocument();
-    expect(within(dialog).getByText('Segunda origem')).toBeInTheDocument();
+    expect(within(dialog).getByText('Origem 1')).toBeInTheDocument();
+    expect(within(dialog).getByText('Valor da origem 1')).toBeInTheDocument();
+    expect(within(dialog).getByText('Origem 2')).toBeInTheDocument();
+    expect(within(dialog).getByText('Valor da origem 2')).toBeInTheDocument();
   });
 
   it('edita pelo menu da linha', async () => {
