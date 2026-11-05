@@ -27,28 +27,21 @@ import { RecentMovements } from '../components/recent_movements.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { NatureTag } from '../components/tags.js';
-import {
-  addAccount,
-  archiveAccount,
-  restoreAccount,
-  updateAccount,
-} from '../domain/account_ops.js';
 import { accountsOverview } from '../domain/accounts.js';
 import type { AccountRow } from '../domain/accounts.js';
 import type { Account } from '../domain/types.js';
-import { addTransfer } from '../domain/transfer_ops.js';
 import { hideBelow } from '../lib/responsive.js';
 import { PRIMARY_LABELS } from '../lib/header.js';
 import { currentMonth } from '../lib/period.js';
 import { financeRoutes } from '../lib/routes.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
+import { commands } from '../store/commands.js';
 
 /**
  * FIN-401 · Contas.
  *
- * Onde o dinheiro está: contas (que somam em "Em contas", RN-30) e benefícios
- * (que ficam de fora). A variação é a do mês corrente; no benefício a coluna
- * mostra o crédito mensal, que não é variação (RN-36).
+ * Onde o dinheiro está: as contas, que somam em "Em contas" (RN-30). A
+ * variação é a do mês corrente.
  */
 
 const formatFullDate = (iso: string): string => {
@@ -112,7 +105,7 @@ export const AccountsScreen = (): React.ReactElement => {
               </label>
             </div>
           ) : null}
-          <FinTable caption="Contas e benefícios">
+          <FinTable caption="Contas">
             <THead>
               <Th>Conta</Th>
               <Th className={hideBelow(1)}>Cartão</Th>
@@ -137,9 +130,7 @@ export const AccountsScreen = (): React.ReactElement => {
                   onTransfer={() => setTransfer({ fromId: row.account.id })}
                   onEdit={() => setEditing({ type: 'edit', account: row.account })}
                   onArchive={() => setArchiving(row.account)}
-                  onRestore={() =>
-                    store.set((current) => restoreAccount(current, row.account.id))
-                  }
+                  onRestore={() => store.run(commands.restoreAccount(row.account.id))}
                 />
               ))}
               <SummaryRow kind="total">
@@ -153,23 +144,6 @@ export const AccountsScreen = (): React.ReactElement => {
                 </Td>
                 <Td />
               </SummaryRow>
-              <SectionRow
-                colSpan={5}
-                label="Benefícios"
-                summary="ficam fora do saldo em contas"
-              />
-              {overview.benefits.map((row) => (
-                <AccountTableRow
-                  key={row.account.id}
-                  row={row}
-                  onTransfer={() => setTransfer({ fromId: row.account.id })}
-                  onEdit={() => setEditing({ type: 'edit', account: row.account })}
-                  onArchive={() => setArchiving(row.account)}
-                  onRestore={() =>
-                    store.set((current) => restoreAccount(current, row.account.id))
-                  }
-                />
-              ))}
             </tbody>
           </FinTable>
         </section>
@@ -183,10 +157,10 @@ export const AccountsScreen = (): React.ReactElement => {
           account={editing.type === 'edit' ? editing.account : undefined}
           onClose={() => setEditing(null)}
           onSave={(draft) => {
-            store.set((current) =>
+            store.run(
               editing.type === 'edit'
-                ? updateAccount(current, editing.account.id, draft, today)
-                : addAccount(current, draft, today),
+                ? commands.updateAccount(editing.account.id, draft, today)
+                : commands.addAccount(draft, today),
             );
             setEditing(null);
           }}
@@ -204,9 +178,7 @@ export const AccountsScreen = (): React.ReactElement => {
             setArchiving(null);
           }}
           onConfirm={(confirmedBalance) => {
-            store.set((current) =>
-              archiveAccount(current, archiving.id, today, confirmedBalance),
-            );
+            store.run(commands.archiveAccount(archiving.id, today, confirmedBalance));
             setArchiving(null);
           }}
         />
@@ -219,7 +191,7 @@ export const AccountsScreen = (): React.ReactElement => {
           fromId={transfer.fromId}
           onClose={() => setTransfer(null)}
           onSave={(draft) => {
-            store.set((current) => addTransfer(current, draft, today));
+            store.run(commands.addTransfer(draft, today));
             setTransfer(null);
           }}
         />
@@ -227,9 +199,6 @@ export const AccountsScreen = (): React.ReactElement => {
     </>
   );
 };
-
-const creditLabel = (day: number | undefined): string =>
-  day === undefined ? '' : `todo dia ${String(day).padStart(2, '0')}`;
 
 const AccountTableRow = ({
   row,
@@ -246,7 +215,6 @@ const AccountTableRow = ({
 }): React.ReactElement => {
   const navigate = useNavigate();
   const { account } = row;
-  const isBenefit = account.type === 'beneficio';
 
   return (
     <Row
@@ -280,14 +248,7 @@ const AccountTableRow = ({
         <Amount cents={row.balance} />
       </Td>
       <Td numeric className={hideBelow(2)}>
-        {isBenefit ? (
-          <>
-            <Amount cents={account.creditCents ?? 0} />{' '}
-            <span className="text-xs text-ink-3">{creditLabel(account.creditDay)}</span>
-          </>
-        ) : (
-          <Amount cents={row.variation} variant="delta" />
-        )}
+        <Amount cents={row.variation} variant="delta" />
       </Td>
       <Td align="right" className="w-12">
         <span
@@ -297,7 +258,7 @@ const AccountTableRow = ({
         >
           <RowMenu
             name={account.name}
-            canTransfer={!isBenefit && account.archived !== true}
+            canTransfer={account.archived !== true}
             archived={account.archived === true}
             onTransfer={onTransfer}
             onEdit={onEdit}

@@ -5,7 +5,7 @@ import type { Either } from '@patrimonio/shared';
 import { compareDates, isIsoDate } from './dates.js';
 import { rule } from './errors.js';
 import type { FinRuleError } from './errors.js';
-import { findAccount, isBenefit } from './lookup.js';
+import { findAccount } from './lookup.js';
 import { dec, money } from './money.js';
 
 /**
@@ -32,22 +32,22 @@ export const validateTransfer = (
   const from = findAccount(data, input.from_account_id);
   const to = findAccount(data, input.to_account_id);
 
-  if (from === undefined || from.archived || isBenefit(from)) {
+  if (from === undefined || from.archived) {
     errors.push(
       rule(
         'TRANSFER_SOURCE_INVALID',
-        'Escolha uma conta de origem ativa (benefício não transfere).',
+        'Escolha uma conta de origem ativa.',
         {
           field: 'from_account_id',
         },
       ),
     );
   }
-  if (to === undefined || to.archived || isBenefit(to)) {
+  if (to === undefined || to.archived) {
     errors.push(
       rule(
         'TRANSFER_DESTINATION_INVALID',
-        'Escolha uma conta de destino ativa (benefício só recebe crédito).',
+        'Escolha uma conta de destino ativa.',
         {
           field: 'to_account_id',
         },

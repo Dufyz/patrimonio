@@ -6,7 +6,6 @@ import { monthKey, monthRange } from './dates.js';
 import { dec, money } from './money.js';
 import { indicators, ledgerPool } from './ledger.js';
 import { findAccount, findCard } from './lookup.js';
-import type { Warning } from './benefits.js';
 
 /**
  * "Efeito · antes → depois" dos modais: o que muda nos números se a pessoa
@@ -208,3 +207,10 @@ export const effectBetween = (
 };
 
 export { cardInvoiceKeys, dec };
+
+/** Aviso que acompanha um resultado de escrita (não bloqueia). */
+export type Warning = {
+  readonly account_id: string;
+  readonly code: string;
+  readonly message: string;
+};

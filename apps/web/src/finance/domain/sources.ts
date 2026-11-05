@@ -1,14 +1,14 @@
 import type { FinanceData } from './types.js';
 
 /**
- * As origens de pagamento: conta, benefício ou cartão.
+ * As origens de pagamento: conta ou cartão.
  *
- * Contas e benefícios vêm do cadastro (`data.accounts`, FIN-404), de modo que
+ * As contas vêm do cadastro (`data.accounts`, FIN-404), de modo que
  * uma conta nova já é uma origem possível. Os cartões vêm do cadastro de
  * cartões (`data.cards`, FIN-503).
  */
 
-export type SourceType = 'conta' | 'beneficio' | 'cartao';
+export type SourceType = 'conta' | 'cartao';
 
 export type PaymentSource = {
   readonly id: string;

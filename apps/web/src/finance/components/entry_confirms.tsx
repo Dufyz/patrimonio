@@ -42,7 +42,7 @@ export const ConfirmDialog = ({
   </Modal>
 );
 
-/** Mover de conta: a origem nova é uma conta (receita) ou conta, benefício (despesa). */
+/** Mover de conta: a origem nova é uma conta (receita) ou conta ou cartão (despesa). */
 export const MoveAccountDialog = ({
   entries,
   onConfirm,

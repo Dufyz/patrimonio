@@ -9,7 +9,7 @@ import type { Decimal } from 'decimal.js';
 import { addDays, compareDates, isDateInRange } from './dates.js';
 import type { DateRange } from './dates.js';
 import { dec, money, total, ZERO } from './money.js';
-import { findAccount, findCard, isBenefit } from './lookup.js';
+import { findAccount, findCard } from './lookup.js';
 
 /**
  * Contas e extratos. O saldo de uma conta é o inicial mais as movimentações
@@ -44,7 +44,6 @@ type RawLine = Omit<StatementLine, 'balance_after' | 'amount'> & {
 };
 
 const ORIGIN_TAG: Readonly<Record<FinMovementKind, string>> = {
-  credito: 'crédito',
   transferencia_entrada: 'transferência',
   transferencia_saida: 'transferência',
   ajuste: 'ajuste',
@@ -266,8 +265,7 @@ export type AccountRow = {
 
 export type AccountsOverview = {
   readonly accounts: readonly AccountRow[];
-  readonly benefits: readonly AccountRow[];
-  /** RN-30: o total "em contas" só soma contas — benefício e arquivada ficam fora. */
+  /** RN-30: o total "em contas" só soma contas ativas — arquivada fica fora. */
   readonly total_balance: string;
   readonly total_variation: string;
 };
@@ -291,21 +289,19 @@ export const accountsOverview = (
           .map((c) => c.name),
       };
     });
-  const accounts = rows.filter((row) => !isBenefit(row.account));
-  const counted = accounts.filter((row) => !row.account.archived);
+  const counted = rows.filter((row) => !row.account.archived);
   return {
-    accounts,
-    benefits: rows.filter((row) => isBenefit(row.account)),
+    accounts: rows,
     total_balance: money(total(counted.map((row) => dec(row.balance)))),
     total_variation: money(total(counted.map((row) => dec(row.variation)))),
   };
 };
 
-/** O total "em contas" hoje: a soma dos saldos das contas ativas que não são benefício. */
+/** O total "em contas" hoje: a soma dos saldos das contas ativas. */
 export const totalInAccounts = (data: FinSnapshot, today: string): Decimal =>
   total(
     data.accounts
-      .filter((account) => !account.archived && !isBenefit(account))
+      .filter((account) => !account.archived)
       .map((account) => accountBalance(data, account.id, today)),
   );
 
@@ -342,7 +338,7 @@ export const dailyTotalInAccounts = (
   today: string,
 ): readonly DailyBalance[] => {
   const series = data.accounts
-    .filter((account) => !account.archived && !isBenefit(account))
+    .filter((account) => !account.archived)
     .map((account) => dailyBalances(data, account.id, range, today));
   const first = series[0] ?? [];
   return first.map((point, index) => ({

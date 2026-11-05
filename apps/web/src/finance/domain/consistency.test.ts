@@ -109,7 +109,7 @@ describe('consistência entre telas (FIN-704, RN-70)', () => {
     expect(overview.receitas.cents).toBe(1635000);
     expect(overview.despesas.cents).toBe(947810);
     expect(overview.saldo).toBe(687190);
-    expect(accounts.totalBalance).toBe(1177315);
+    expect(accounts.totalBalance).toBe(1258385);
     expect(overview.invoicesCents).toBe(542227);
   });
 });
@@ -159,7 +159,7 @@ describe('CE-02 · lançar o previsto manual com o valor real', () => {
     expect(ledger.aLancar.cents).toBe(472190);
     expect(ledger.aLancar.count).toBe(2);
     expect(balance(launched, 'itau-corrente')).toBe(81280);
-    expect(overview.accountsCents).toBe(947315);
+    expect(overview.accountsCents).toBe(1028385);
     expect(categoryUsage(launched.entries, 'investimento', TODAY).total).toBe(680000);
     expect(launched.recurrings.find((r) => r.id === 'r-investimento-fim')?.cents).toBe(
       215000,
@@ -180,13 +180,13 @@ describe('CE-03 · despesa dividida entre duas origens', () => {
     secondValue: '80,00',
   });
   const next = addEntry(base, draft, TODAY);
-  it('Despesas sobe uma vez; Itaú e Flex descem a parte de cada um; Em contas só a do Itaú', () => {
+  it('Despesas sobe uma vez; Itaú e Flex descem a parte de cada um; Em contas desce o valor todo', () => {
     const before = screens(base);
     const after = screens(next);
     expect(after.overview.despesas.cents - before.overview.despesas.cents).toBe(20000);
     expect(balance(next, 'itau-corrente')).toBe(303280);
     expect(balance(next, 'flex')).toBe(7830);
-    expect(before.overview.accountsCents - after.overview.accountsCents).toBe(8000);
+    expect(before.overview.accountsCents - after.overview.accountsCents).toBe(20000);
     expectConsistent(next);
   });
   it('partes que não fecham não salvam', () => {
@@ -199,7 +199,7 @@ describe('CE-04 · pagar a fatura fechada do Itaú Visa', () => {
   const paid = payInvoice(base, 'itau-visa', '2026-10', '2026-10-24', TODAY);
   it('conta, extrato, faturas abertas e próximas faturas', () => {
     expect(balance(paid, 'itau-corrente')).toBe(171270);
-    expect(screens(paid).overview.accountsCents).toBe(1037305);
+    expect(screens(paid).overview.accountsCents).toBe(1118375);
     expect(
       accountLines(paid, 'itau-corrente', TODAY).some(
         (l) => l.tags[0] === 'fatura' && l.cents === -140010,
@@ -254,7 +254,7 @@ describe('CE-06 · transferência entre contas', () => {
   it('move entre as contas e não muda o total nem receitas e despesas', () => {
     expect(balance(next, 'itau-corrente')).toBe(261280);
     expect(balance(next, 'nubank-conta')).toBe(892035);
-    expect(screens(next).overview.accountsCents).toBe(1177315);
+    expect(screens(next).overview.accountsCents).toBe(1258385);
     expect(screens(next).overview.receitas).toEqual(screens(base).overview.receitas);
     expect(screens(next).overview.despesas).toEqual(screens(base).overview.despesas);
     expectConsistent(next);

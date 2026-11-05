@@ -43,3 +43,17 @@ describe('efeito dos modais', () => {
     expect(rows[0]!.after).toBeLessThanOrEqual(rows[0]!.before);
   });
 });
+
+describe('Efeito de recorrente ao editar', () => {
+  it('trocar só o nome não muda nada: o item não é contado de novo', async () => {
+    const { recurringEffect } = await import('./effects.js');
+    const { draftOf } = await import('./recurring.js');
+    const { SEED_RECURRINGS, SEED_REFERENCE_DATE, seedData } = await import('./seed.js');
+    const data = seedData();
+    const recurring = SEED_RECURRINGS.find((r) => r.kind === 'despesa' && r.active);
+    if (recurring === undefined) throw new Error('sem recorrente');
+    const draft = { ...draftOf(recurring), name: 'Outro nome' };
+    const rows = recurringEffect(data, draft, SEED_REFERENCE_DATE, recurring.id);
+    expect(rows?.every((row) => row.before === row.after)).toBe(true);
+  });
+});

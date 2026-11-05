@@ -181,9 +181,6 @@ export type AccountInput = {
   readonly role_tag?: string | null | undefined;
   readonly opening_amount: string;
   readonly opening_date: string;
-  readonly credit_amount?: string | null | undefined;
-  readonly credit_day?: number | null | undefined;
-  readonly credits_from?: string | null | undefined;
 };
 
 export const validateAccount = (
@@ -224,39 +221,6 @@ export const validateAccount = (
     );
   }
 
-  const hasCredit =
-    input.credit_amount != null || input.credit_day != null || input.credits_from != null;
-  if (input.type !== 'beneficio') {
-    if (hasCredit) {
-      errors.push(
-        rule('ACCOUNT_CREDIT_NOT_BENEFIT', 'Só benefício tem crédito mensal.', {
-          field: 'credit_amount',
-        }),
-      );
-    }
-  } else if (hasCredit) {
-    if (input.credit_amount == null || !positiveMoney(input.credit_amount)) {
-      errors.push(
-        rule('ACCOUNT_CREDIT_INVALID', 'Informe o valor do crédito mensal.', {
-          field: 'credit_amount',
-        }),
-      );
-    }
-    if (input.credit_day == null || !validDay(input.credit_day)) {
-      errors.push(
-        rule('ACCOUNT_CREDIT_INVALID', 'Informe o dia do crédito (1 a 31).', {
-          field: 'credit_day',
-        }),
-      );
-    }
-    if (input.credits_from == null || !isIsoDate(input.credits_from)) {
-      errors.push(
-        rule('ACCOUNT_CREDIT_INVALID', 'Informe a partir de quando o crédito é gerado.', {
-          field: 'credits_from',
-        }),
-      );
-    }
-  }
   return errors;
 };
 
@@ -268,9 +232,6 @@ const accountFields = (input: AccountInput) => ({
   role_tag: input.role_tag ?? null,
   opening_amount: money(dec(input.opening_amount)),
   opening_date: input.opening_date,
-  credit_amount: input.type === 'beneficio' ? (input.credit_amount ?? null) : null,
-  credit_day: input.type === 'beneficio' ? (input.credit_day ?? null) : null,
-  credits_from: input.type === 'beneficio' ? (input.credits_from ?? null) : null,
 });
 
 export const createAccount = (
@@ -328,7 +289,7 @@ export const accountUsage = (data: FinSnapshot, id: string): number =>
   data.cards.filter((card) => card.pay_account_id === id).length +
   data.invoice_payments.filter((payment) => payment.account_id === id).length +
   data.movements.filter(
-    (movement) => movement.account_id === id && movement.kind !== 'credito',
+    (movement) => movement.account_id === id,
   ).length;
 
 export const setAccountArchived = (
@@ -415,7 +376,7 @@ export const validateCard = (
     );
   }
   const payer = findAccount(data, input.pay_account_id);
-  if (payer === undefined || payer.archived || payer.type === 'beneficio') {
+  if (payer === undefined || payer.archived) {
     errors.push(
       rule('CARD_PAYER_INVALID', 'Escolha uma conta ativa para pagar a fatura.', {
         field: 'pay_account_id',

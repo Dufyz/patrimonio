@@ -25,16 +25,14 @@ describe('saldos de 24/10/2026 (prancha 03)', () => {
     expect(accountBalance(data, 'flex', TODAY)).toBe(19830);
   });
 
-  it('o total só soma contas; benefícios ficam fora (RN-30)', () => {
+  it('o total soma as contas ativas (RN-30)', () => {
     const overview = accountsOverview(data, OCTOBER, TODAY);
-    expect(overview.totalBalance).toBe(1177315);
-    expect(overview.totalVariation).toBe(157360);
+    expect(overview.totalBalance).toBe(1258385);
+    expect(overview.totalVariation).toBe(142360);
     expect(overview.accounts.map((r) => r.account.name)).toEqual([
       'Itaú Corrente',
       'Nubank Conta',
       'Carteira',
-    ]);
-    expect(overview.benefits.map((r) => r.account.name)).toEqual([
       'Vale Alimentação',
       'Flex',
     ]);
@@ -42,10 +40,12 @@ describe('saldos de 24/10/2026 (prancha 03)', () => {
 
   it('variação por conta e cartões vinculados', () => {
     const rows = accountsOverview(data, OCTOBER, TODAY).accounts;
-    expect(rows.map((r) => r.variation)).toEqual([97925, 65435, -6000]);
+    expect(rows.map((r) => r.variation)).toEqual([97925, 65435, -6000, 0, -15000]);
     expect(rows.map((r) => r.cards)).toEqual([
       ['Itaú Visa', 'Itaú Mastercard'],
       ['Nubank Mastercard'],
+      [],
+      [],
       [],
     ]);
   });
@@ -57,13 +57,13 @@ describe('saldos de 24/10/2026 (prancha 03)', () => {
         a.id === 'carteira' ? { ...a, archived: true } : a,
       ),
     };
-    expect(accountsOverview(archived, OCTOBER, TODAY).accounts).toHaveLength(2);
-    expect(accountsOverview(archived, OCTOBER, TODAY, true).accounts).toHaveLength(3);
+    expect(accountsOverview(archived, OCTOBER, TODAY).accounts).toHaveLength(4);
+    expect(accountsOverview(archived, OCTOBER, TODAY, true).accounts).toHaveLength(5);
     // arquivada exibida continua fora do total (RN-38)
     expect(accountsOverview(archived, OCTOBER, TODAY, true).totalBalance).toBe(
-      1177315 - 24000,
+      1258385 - 24000,
     );
-    expect(accountsOverview(archived, OCTOBER, TODAY).totalBalance).toBe(1177315 - 24000);
+    expect(accountsOverview(archived, OCTOBER, TODAY).totalBalance).toBe(1258385 - 24000);
   });
 });
 
@@ -218,7 +218,7 @@ describe('consistência do extrato (FIN-405)', () => {
       'Conta corrente · Itaú Unibanco · cartões Itaú Visa e Itaú Mastercard',
     );
     expect(accountSubtitle(data, by('carteira'))).toBe('Conta');
-    expect(accountSubtitle(data, by('flex'))).toBe('Benefício');
+    expect(accountSubtitle(data, by('flex'))).toBe('Conta');
   });
 });
 

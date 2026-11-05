@@ -240,19 +240,6 @@ export const validateEntryDraft = (
           field: 'payments',
         }),
       );
-    } else if (
-      draft.kind === 'receita' &&
-      findAccount(data, source.id)?.type === 'beneficio'
-    ) {
-      errors.push(
-        rule(
-          'ENTRY_RECEITA_SOURCE_INVALID',
-          'Receita não entra em benefício: o crédito é mensal.',
-          {
-            field: 'payments',
-          },
-        ),
-      );
     }
   }
   if (draft.kind === 'receita' && draft.payments.length > 1) {

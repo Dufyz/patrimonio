@@ -1,5 +1,4 @@
 export * from './accounts.js';
-export * from './benefits.js';
 export * from './cards.js';
 export * from './catalog.js';
 export * from './categories.js';

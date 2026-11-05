@@ -106,14 +106,6 @@ describe('Extrato: cabeçalho de saldo (FIN-405)', () => {
     ).toBeInTheDocument();
   });
 
-  it('benefício não oferece Transferir', () => {
-    open('flex');
-    expect(
-      screen.queryByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText('Benefício')).toBeInTheDocument();
-  });
-
   it('conta que não existe volta para a lista', () => {
     open('nao-existe');
     expect(screen.getByText('Lista de contas')).toBeInTheDocument();
@@ -221,7 +213,7 @@ describe('Extrato: tabela com saldo após (FIN-407)', () => {
   });
 });
 
-describe('Extrato de benefício (FIN-408)', () => {
+describe('Extrato de uma conta com duas origens (FIN-408)', () => {
   beforeEach(() => globalThis.localStorage.clear());
 
   it('mostra o saldo e as partes pagas pelo Flex', () => {

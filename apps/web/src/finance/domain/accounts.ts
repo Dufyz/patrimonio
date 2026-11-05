@@ -38,7 +38,6 @@ export type PostedLine = StatementLine & { readonly balanceAfter: Cents };
 
 const ORIGIN_TAG: Readonly<Record<MovementKind, string>> = {
   transferencia: 'transferência',
-  credito: 'crédito',
   ajuste: 'ajuste',
 };
 
@@ -104,10 +103,13 @@ export const accountLines = (
   type Ranked = { line: StatementLine; rank: number; order: number };
   const ranked: Ranked[] = [];
   let order = 0;
+  const counts = (date: IsoDate): boolean =>
+    compareDates(date, today) <= 0 &&
+    (account.openedOn === undefined || compareDates(date, account.openedOn) >= 0);
 
   for (const entry of data.entries) {
     if (entry.historical === true || entry.status !== 'lancada') continue;
-    if (compareDates(entry.date, today) > 0) continue;
+    if (!counts(entry.date)) continue;
     const payment = entry.payments.find((p) => p.sourceId === accountId);
     if (payment === undefined) continue;
     const note = entryNote(data, entry, accountId);
@@ -126,8 +128,7 @@ export const accountLines = (
   }
 
   for (const movement of data.movements) {
-    if (movement.accountId !== accountId || compareDates(movement.date, today) > 0)
-      continue;
+    if (movement.accountId !== accountId || !counts(movement.date)) continue;
     const line: StatementLine = {
       id: movement.id,
       date: movement.date,
@@ -142,7 +143,7 @@ export const accountLines = (
 
   for (const payment of data.payments) {
     if (payment.accountId !== accountId || payment.posted === false) continue;
-    if (compareDates(payment.date, today) > 0) continue;
+    if (!counts(payment.date)) continue;
     const line: StatementLine = {
       id: payment.id,
       date: payment.date,
@@ -231,7 +232,6 @@ export type AccountRow = {
 
 export type AccountsOverview = {
   readonly accounts: readonly AccountRow[];
-  readonly benefits: readonly AccountRow[];
   readonly totalBalance: Cents;
   readonly totalVariation: Cents;
 };
@@ -256,11 +256,9 @@ export const accountsOverview = (
           .map((card) => card.name),
       };
     });
-  const accounts = rows.filter((row) => row.account.type === 'conta');
-  const counted = accounts.filter((row) => row.account.archived !== true);
+  const counted = rows.filter((row) => row.account.archived !== true);
   return {
-    accounts,
-    benefits: rows.filter((row) => row.account.type === 'beneficio'),
+    accounts: rows,
     // RN-38: conta arquivada, mesmo exibida, não entra no total em contas.
     totalBalance: sum(counted.map((row) => row.balance)),
     totalVariation: sum(counted.map((row) => row.variation)),
@@ -354,12 +352,7 @@ export const statementCloses = (stmt: Statement): boolean =>
 
 /** Tipo, instituição e cartão vinculado: "Conta corrente · Itaú Unibanco · cartão Itaú Visa". */
 export const accountSubtitle = (data: FinanceData, account: Account): string => {
-  const kind =
-    account.type === 'beneficio'
-      ? 'Benefício'
-      : account.institution === undefined
-        ? 'Conta'
-        : 'Conta corrente';
+  const kind = account.institution === undefined ? 'Conta' : 'Conta corrente';
   const cards = data.cards
     .filter((card) => card.payerId === account.id)
     .map((c) => c.name);

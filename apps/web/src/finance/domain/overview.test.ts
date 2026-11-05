@@ -17,8 +17,8 @@ describe('faixa de totais (FIN-601)', () => {
     expect(result.saldo).toBe(687190);
   });
   it('em contas e faturas abertas refletem hoje', () => {
-    expect(result.accountsCents).toBe(1177315);
-    expect(result.accountsCount).toBe(3);
+    expect(result.accountsCents).toBe(1258385);
+    expect(result.accountsCount).toBe(5);
     expect(result.invoicesCents).toBe(542227);
     expect(result.dueByAccount.map((d) => `${d.name} ${d.due}`)).toEqual([
       'Itaú 2026-10-30',

@@ -29,10 +29,7 @@ describe('validateTransfer (FIN-403)', () => {
     });
   });
 
-  it('benefício e conta arquivada não participam', () => {
-    expect(
-      validateTransfer(data, { ...draft, toId: 'flex' }, TODAY)['toId'],
-    ).toBeDefined();
+  it('conta arquivada não participa', () => {
     const archived = {
       ...data,
       accounts: data.accounts.map((a) =>
@@ -61,7 +58,7 @@ describe('addTransfer (CE-06)', () => {
     expect(accountBalance(next, 'itau-corrente', TODAY)).toBe(261280);
     expect(accountBalance(next, 'nubank-conta', TODAY)).toBe(892035);
     const range = { from: '2026-10-01', to: '2026-10-31' };
-    expect(accountsOverview(next, range, TODAY).totalBalance).toBe(1177315);
+    expect(accountsOverview(next, range, TODAY).totalBalance).toBe(1258385);
   });
 
   it('aparece nos dois extratos com a etiqueta e a descrição', () => {

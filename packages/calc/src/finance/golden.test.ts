@@ -28,7 +28,7 @@ describe('golden · semente de demonstração', () => {
   });
 
   it('em contas e faturas abertas', () => {
-    expect(view.em_contas.amount).toBe('11773.15');
+    expect(view.em_contas.amount).toBe('12583.85');
     expect(view.faturas_abertas).toBe('5422.27');
   });
 

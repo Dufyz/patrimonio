@@ -32,7 +32,7 @@ export const emptyTransferDraft = (today: IsoDate, fromId = ''): TransferDraft =
   description: '',
 });
 
-/** Origem e destino são contas ativas; benefício só recebe crédito (RN-36). */
+/** Origem e destino são contas ativas. */
 export const transferAccounts = (data: FinanceData): readonly Account[] =>
   data.accounts.filter((a) => a.type === 'conta' && a.archived !== true);
 

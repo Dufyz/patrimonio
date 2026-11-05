@@ -30,8 +30,7 @@ const open = () => {
   );
 };
 
-const mainTable = () =>
-  within(screen.getByRole('table', { name: 'Contas e benefícios' }));
+const mainTable = () => within(screen.getByRole('table', { name: 'Contas' }));
 
 const rowOf = (name: string) => {
   const row = mainTable().getByText(name).closest('tr');
@@ -46,8 +45,8 @@ describe('Contas (FIN-401)', () => {
     open();
     expect(screen.getByRole('heading', { name: 'Contas' })).toBeInTheDocument();
     const subtitle = screen.getByText(/saldos de 24\/10\/2026/);
-    expect(subtitle.textContent).toContain('Em contas R$ 11.773,15');
-    expect(subtitle.textContent).toContain('+R$ 1.573,60 no mês');
+    expect(subtitle.textContent).toContain('Em contas R$ 12.583,85');
+    expect(subtitle.textContent).toContain('+R$ 1.423,60 no mês');
   });
 
   it('colunas e seções', () => {
@@ -56,7 +55,6 @@ describe('Contas (FIN-401)', () => {
       expect(mainTable().getByRole('columnheader', { name })).toBeInTheDocument();
     }
     expect(screen.getByText('entram no saldo em contas')).toBeInTheDocument();
-    expect(screen.getByText('ficam fora do saldo em contas')).toBeInTheDocument();
   });
 
   it('Itaú Corrente: papel, cartão, saldo e variação', () => {
@@ -76,22 +74,20 @@ describe('Contas (FIN-401)', () => {
     expect(rowOf('Carteira').textContent).toContain('−R$ 60,00');
   });
 
-  it('Total em contas soma só as contas', () => {
+  it('Total em contas soma todas as contas ativas', () => {
     open();
     const row = within(rowOf('Total em contas'));
-    expect(row.getByText('R$ 11.773,15')).toBeInTheDocument();
-    expect(rowOf('Total em contas').textContent).toContain('+R$ 1.573,60');
+    expect(row.getByText('R$ 12.583,85')).toBeInTheDocument();
+    expect(rowOf('Total em contas').textContent).toContain('+R$ 1.423,60');
   });
 
-  it('benefícios mostram o crédito mensal no lugar da variação', () => {
+  it('Flex e Vale Alimentação são contas comuns, com saldo e variação', () => {
     open();
     const vale = within(rowOf('Vale Alimentação'));
     expect(vale.getByText('R$ 612,40')).toBeInTheDocument();
-    expect(vale.getByText('R$ 1.100,00')).toBeInTheDocument();
-    expect(vale.getByText('todo dia 05')).toBeInTheDocument();
     const flex = within(rowOf('Flex'));
     expect(flex.getByText('R$ 198,30')).toBeInTheDocument();
-    expect(flex.getByText('R$ 400,00')).toBeInTheDocument();
+    expect(rowOf('Flex').textContent).toContain('−R$ 150,00');
   });
 
   it('clicar na linha abre o Extrato', async () => {
@@ -169,7 +165,7 @@ describe('Transferir (FIN-403)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(rowOf('Itaú Corrente').textContent).toContain('R$ 2.612,80');
     expect(rowOf('Nubank Conta').textContent).toContain('R$ 8.920,35');
-    expect(rowOf('Total em contas').textContent).toContain('R$ 11.773,15');
+    expect(rowOf('Total em contas').textContent).toContain('R$ 12.583,85');
   });
 
   it('pelo menu ⋯ a origem já vem preenchida', async () => {
@@ -205,15 +201,6 @@ describe('Transferir (FIN-403)', () => {
       dialog.getByText('Origem e destino precisam ser contas diferentes.'),
     ).toBeInTheDocument();
   });
-
-  it('benefício não oferece Transferir no menu', async () => {
-    const user = userEvent.setup();
-    open();
-    await user.click(screen.getByRole('button', { name: 'Ações de Flex' }));
-    expect(
-      screen.getByRole('menuitem', { name: /^Transferir(?:\s*⌘↵)?$/ }),
-    ).toHaveAttribute('aria-disabled', 'true');
-  });
 });
 
 describe('Nova conta e editar conta (FIN-404)', () => {
@@ -228,23 +215,7 @@ describe('Nova conta e editar conta (FIN-404)', () => {
     await user.type(dialog.getByLabelText('Saldo inicial'), '1000,00');
     await user.click(dialog.getByRole('button', { name: /^Criar conta(?:\s*⌘↵)?$/ }));
     expect(rowOf('Inter Conta').textContent).toContain('R$ 1.000,00');
-    expect(rowOf('Total em contas').textContent).toContain('R$ 12.773,15');
-  });
-
-  it('benefício mostra os campos do crédito e entra em Benefícios', async () => {
-    const user = userEvent.setup();
-    open();
-    await user.click(screen.getByRole('button', { name: /^Conta/ }));
-    const dialog = within(screen.getByRole('dialog'));
-    expect(dialog.queryByLabelText('Crédito mensal')).not.toBeInTheDocument();
-    await user.selectOptions(dialog.getByLabelText('Tipo'), 'beneficio');
-    await user.type(dialog.getByLabelText('Nome'), 'Vale Refeição');
-    await user.type(dialog.getByLabelText('Saldo inicial'), '0,00');
-    await user.type(dialog.getByLabelText('Crédito mensal'), '800,00');
-    await user.type(dialog.getByLabelText('Dia do crédito'), '10');
-    await user.click(dialog.getByRole('button', { name: /^Criar conta(?:\s*⌘↵)?$/ }));
-    expect(rowOf('Vale Refeição').textContent).toContain('todo dia 10');
-    expect(rowOf('Total em contas').textContent).toContain('R$ 11.773,15');
+    expect(rowOf('Total em contas').textContent).toContain('R$ 13.583,85');
   });
 
   it('nome repetido é recusado ao salvar', async () => {
@@ -255,19 +226,16 @@ describe('Nova conta e editar conta (FIN-404)', () => {
     await user.type(dialog.getByLabelText('Nome'), 'Flex');
     await user.type(dialog.getByLabelText('Saldo inicial'), '0,00');
     await user.click(dialog.getByRole('button', { name: /^Criar conta(?:\s*⌘↵)?$/ }));
-    expect(
-      dialog.getByText('Já existe uma conta ou benefício com esse nome.'),
-    ).toBeInTheDocument();
+    expect(dialog.getByText('Já existe uma conta com esse nome.')).toBeInTheDocument();
   });
 
-  it('Editar abre o modal preenchido, com o tipo travado', async () => {
+  it('Editar abre o modal preenchido', async () => {
     const user = userEvent.setup();
     open();
     await user.click(screen.getByRole('button', { name: 'Ações de Carteira' }));
     await user.click(screen.getByRole('menuitem', { name: 'Editar' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Editar conta' }));
     expect(dialog.getByLabelText('Nome')).toHaveValue('Carteira');
-    expect(dialog.getByLabelText('Tipo')).toBeDisabled();
     await user.clear(dialog.getByLabelText('Nome'));
     await user.type(dialog.getByLabelText('Nome'), 'Carteira de bolso');
     await user.click(dialog.getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ }));
@@ -296,7 +264,7 @@ describe('Arquivar conta (FIN-409)', () => {
     await user.click(confirm);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(mainTable().queryByText('Carteira')).not.toBeInTheDocument();
-    expect(rowOf('Total em contas').textContent).toContain('R$ 11.533,15');
+    expect(rowOf('Total em contas').textContent).toContain('R$ 12.343,85');
   });
 
   it('conta com cartão ativo não pode ser arquivada', async () => {
@@ -320,14 +288,14 @@ describe('Arquivar conta (FIN-409)', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Mostrar arquivadas' }));
     const row = rowOf('Carteira');
     expect(row.textContent).toContain('arquivada');
-    expect(rowOf('Total em contas').textContent).toContain('R$ 11.533,15');
+    expect(rowOf('Total em contas').textContent).toContain('R$ 12.343,85');
 
     await user.click(screen.getByRole('button', { name: 'Ações de Carteira' }));
     expect(
       screen.getByRole('menuitem', { name: /^Transferir(?:\s*⌘↵)?$/ }),
     ).toHaveAttribute('aria-disabled', 'true');
     await user.click(screen.getByRole('menuitem', { name: 'Reativar' }));
-    expect(rowOf('Total em contas').textContent).toContain('R$ 11.773,15');
+    expect(rowOf('Total em contas').textContent).toContain('R$ 12.583,85');
     expect(rowOf('Carteira').textContent).not.toContain('arquivada');
   });
 

@@ -39,4 +39,3 @@ export const isActiveSource = (data: FinSnapshot, source: FinSource): boolean =>
   return card !== undefined && !card.archived;
 };
 
-export const isBenefit = (account: FinAccount): boolean => account.type === 'beneficio';

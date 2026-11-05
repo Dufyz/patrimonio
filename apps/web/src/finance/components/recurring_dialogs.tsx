@@ -7,6 +7,7 @@ import { Checkbox } from '../../components/ui/checkbox.js';
 import { Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
 import { EffectTable } from './effect_table.js';
 import { effectMonthLabel, recurringEffect } from '../domain/effects.js';
+import { formatBRL, parseMoneyInput } from '../lib/format.js';
 import { draftOf, validateRecurring } from '../domain/recurring.js';
 import type { RecurringDraft } from '../domain/recurring.js';
 import { activeSources } from '../domain/sources.js';
@@ -65,7 +66,12 @@ export const RecurringDialog = ({
     .map((category) => ({ id: category.id, name: category.name }));
   const sourceOptions = activeSources(data).map((s) => ({ id: s.id, name: s.name }));
 
-  const effect = recurringEffect(data, draft, today);
+  const total = parseMoneyInput(draft.value);
+  const first = parseMoneyInput(draft.coversUpTo);
+  const restLabel =
+    total !== null && first !== null && total >= first ? formatBRL(total - first) : '—';
+
+  const effect = recurringEffect(data, draft, today, recurring?.id);
 
   const save = (): void => {
     setAttempted(true);
@@ -127,21 +133,76 @@ export const RecurringDialog = ({
           </Field>
         </div>
 
-        <Field
-          label={draft.split ? 'Pagamento · primeira origem' : 'Pagamento'}
-          error={shown('sourceId')}
-        >
-          {(props) => (
-            <Select
-              {...props}
-              invalid={shown('sourceId') !== undefined}
-              placeholder="Conta, benefício ou cartão"
-              options={sourceOptions}
-              value={draft.sourceId}
-              onChange={(event) => set({ sourceId: event.target.value })}
-            />
-          )}
-        </Field>
+        {draft.split ? (
+          <fieldset className="grid gap-3 rounded-control border border-line p-3">
+            <legend className="px-1 text-label tracking-[0.06em] text-ink-3 uppercase">
+              Pagamento dividido
+            </legend>
+            <div className="grid grid-cols-[1fr_9rem] gap-3">
+              <Field label="Origem 1" error={shown('sourceId')}>
+                {(props) => (
+                  <Select
+                    {...props}
+                    invalid={shown('sourceId') !== undefined}
+                    placeholder="Conta ou cartão"
+                    options={sourceOptions}
+                    value={draft.sourceId}
+                    onChange={(event) => set({ sourceId: event.target.value })}
+                  />
+                )}
+              </Field>
+              <Field label="Valor da origem 1" error={shown('coversUpTo')}>
+                {(props) => (
+                  <MoneyInput
+                    {...props}
+                    invalid={shown('coversUpTo') !== undefined}
+                    value={draft.coversUpTo}
+                    onChange={(event) => set({ coversUpTo: event.target.value })}
+                  />
+                )}
+              </Field>
+            </div>
+            <div className="grid grid-cols-[1fr_9rem] gap-3">
+              <Field label="Origem 2" error={shown('secondSourceId')}>
+                {(props) => (
+                  <Select
+                    {...props}
+                    invalid={shown('secondSourceId') !== undefined}
+                    placeholder="Escolha"
+                    options={sourceOptions}
+                    value={draft.secondSourceId}
+                    onChange={(event) => set({ secondSourceId: event.target.value })}
+                  />
+                )}
+              </Field>
+              <Field label="Valor da origem 2" hint="O restante">
+                {(props) => (
+                  <Input
+                    {...props}
+                    invalid={false}
+                    numeric
+                    readOnly
+                    tabIndex={-1}
+                    value={restLabel}
+                  />
+                )}
+              </Field>
+            </div>
+          </fieldset>
+        ) : (
+          <Field label="Pagamento" error={shown('sourceId')}>
+            {(props) => (
+              <Select
+                {...props}
+                invalid={shown('sourceId') !== undefined}
+                placeholder="Conta ou cartão"
+                options={sourceOptions}
+                value={draft.sourceId}
+                onChange={(event) => set({ sourceId: event.target.value })}
+              />
+            )}
+          </Field>
+        )}
 
         <label className="flex items-center gap-2 text-[0.8125rem]">
           <Checkbox
@@ -150,33 +211,6 @@ export const RecurringDialog = ({
           />
           Dividir entre duas origens
         </label>
-
-        {draft.split ? (
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Primeira origem cobre até" error={shown('coversUpTo')}>
-              {(props) => (
-                <MoneyInput
-                  {...props}
-                  invalid={shown('coversUpTo') !== undefined}
-                  value={draft.coversUpTo}
-                  onChange={(event) => set({ coversUpTo: event.target.value })}
-                />
-              )}
-            </Field>
-            <Field label="Segunda origem" error={shown('secondSourceId')}>
-              {(props) => (
-                <Select
-                  {...props}
-                  invalid={shown('secondSourceId') !== undefined}
-                  placeholder="Escolha"
-                  options={sourceOptions}
-                  value={draft.secondSourceId}
-                  onChange={(event) => set({ secondSourceId: event.target.value })}
-                />
-              )}
-            </Field>
-          </div>
-        ) : null}
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Dia do mês" error={shown('day')}>

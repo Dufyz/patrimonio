@@ -66,7 +66,7 @@ export const searchFinance = (
         id: account.id,
         group: 'contas' as const,
         label: account.name,
-        hint: account.type === 'beneficio' ? 'Benefício' : 'Conta',
+        hint: 'Conta',
         to: financeRoutes.account(account.id),
       })),
     cartoes: data.cards
