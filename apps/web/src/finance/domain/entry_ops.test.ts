@@ -81,7 +81,16 @@ describe('validação (RN-01, RN-03, RN-21)', () => {
     ]);
   });
 
-  it('não aceita data futura, mas aceita hoje e o passado', () => {
+  it('data futura só vale em lançamento novo e entra como previsto', () => {
+    const future = { ...valid, date: '2026-10-25' };
+    expect(validateEntry(data, future, TODAY, true)).toEqual({});
+    const next = addEntry(data, future, TODAY);
+    const created = next.entries.find((e) => !data.entries.includes(e));
+    expect(created?.status).toBe('prevista');
+    expect(created?.date).toBe('2026-10-25');
+  });
+
+  it('não aceita data futura ao editar ou lançar, mas aceita hoje e o passado', () => {
     expect(validateEntry(data, { ...valid, date: '2026-10-25' }, TODAY)).toEqual({
       date: FUTURE_DATE,
     });
@@ -97,9 +106,6 @@ describe('validação (RN-01, RN-03, RN-21)', () => {
 
   it('receita só aceita conta ou Carteira', () => {
     const receita = { ...valid, kind: 'receita' as const, categoryId: 'salario' };
-    expect(validateEntry(data, { ...receita, sourceId: 'flex' }, TODAY)).toHaveProperty(
-      'sourceId',
-    );
     expect(
       validateEntry(data, { ...receita, sourceId: 'itau-visa' }, TODAY),
     ).toHaveProperty('sourceId');
@@ -203,8 +209,7 @@ describe('novo lançamento (FIN-307)', () => {
     expect(after.count - before.count).toBe(1);
   });
 
-  it('não cria lançamento inválido nem de data futura', () => {
-    expect(addEntry(data, { ...draft, date: '2026-10-25' }, TODAY)).toBe(data);
+  it('não cria lançamento inválido', () => {
     expect(addEntry(data, { ...draft, description: '' }, TODAY)).toBe(data);
   });
 
@@ -355,6 +360,5 @@ describe('corrigir lançamentos (FIN-308)', () => {
     expect(moveBlockedReason(data, entry('l-luz'))).toMatch(/duas origens/);
     expect(moveAccount(data, ['l-netflix'], 'nubank-conta')).toBe(data);
     expect(moveAccount(data, ['l-internet', 'l-luz'], 'nubank-conta')).toBe(data);
-    expect(moveAccount(data, ['l-freela'], 'flex')).toBe(data);
   });
 });

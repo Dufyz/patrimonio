@@ -46,7 +46,12 @@ export type EntryErrors = Partial<
   >
 >;
 
-export const FUTURE_DATE = 'Data futura não vira lançamento: crie um recorrente.';
+export const FUTURE_DATE =
+  'Data futura só entra como previsto ao criar um lançamento novo.';
+
+/** Aviso do modal quando a data é futura: o lançamento entra como previsto. */
+export const FUTURE_HINT =
+  'Data futura: entra como previsto e só conta nos saldos quando você lançar.';
 
 const toInput = (cents: Cents): string => (cents / 100).toFixed(2).replace('.', ',');
 
@@ -82,7 +87,7 @@ export const draftOfEntry = (entry: Entry, today: IsoDate): EntryDraft => {
   };
 };
 
-/** Só conta recebe receita; despesa sai de conta, benefício ou cartão (RN-01, FIN-307). */
+/** Só conta recebe receita; despesa sai de conta ou cartão (RN-01, FIN-307). */
 export const allowedSources = (data: FinanceData, kind: EntryKind) =>
   activeSources(data).filter((source) => kind === 'despesa' || source.type === 'conta');
 
@@ -126,12 +131,15 @@ export const validateEntry = (
   data: FinanceData,
   draft: EntryDraft,
   today: IsoDate,
+  /** Lançamento novo aceita data futura (vira previsto); editar e lançar, não. */
+  allowFuture = false,
 ): EntryErrors => {
   const errors: Record<string, string> = {};
   if (draft.description.trim() === '') errors['description'] = 'Dê uma descrição.';
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.date)) errors['date'] = 'Informe a data.';
-  else if (compareDates(draft.date, today) > 0) errors['date'] = FUTURE_DATE;
+  else if (!allowFuture && compareDates(draft.date, today) > 0)
+    errors['date'] = FUTURE_DATE;
 
   const category = data.categories.find((c) => c.id === draft.categoryId);
   if (category === undefined) errors['categoryId'] = 'Escolha uma categoria.';
@@ -235,7 +243,7 @@ export const addEntry = (
   draft: EntryDraft,
   today: IsoDate,
 ): FinanceData => {
-  if (Object.keys(validateEntry(data, draft, today)).length > 0) return data;
+  if (Object.keys(validateEntry(data, draft, today, true)).length > 0) return data;
   const total = parseMoneyInput(draft.value) ?? 0;
   const count = installmentCount(data, draft);
   const base = {
@@ -250,7 +258,7 @@ export const addEntry = (
       id: nextId(data, 'l-novo'),
       date: draft.date,
       cents: total,
-      status: 'lancada',
+      status: compareDates(draft.date, today) > 0 ? 'prevista' : 'lancada',
       payments: paymentsOf(draft),
     };
     return { ...data, entries: [...data.entries, entry] };
@@ -262,7 +270,7 @@ export const addEntry = (
     id: nextId(data, `l-novo-p${index + 1}`),
     date: addMonths(draft.date, index),
     cents,
-    status: index === 0 ? 'lancada' : 'prevista',
+    status: index === 0 && compareDates(draft.date, today) <= 0 ? 'lancada' : 'prevista',
     installment: { n: index + 1, of: count, origin: draft.date },
     payments: [{ sourceId: draft.sourceId, cents }],
   }));

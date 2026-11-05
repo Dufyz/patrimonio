@@ -9,6 +9,7 @@ import { Segmented } from '../../components/primitives.js';
 import { Callout, Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
 import {
   FUTURE_DATE,
+  FUTURE_HINT,
   allowedSources,
   canInstall,
   installmentSummary,
@@ -17,7 +18,6 @@ import {
   validateEntry,
 } from '../domain/entry_ops.js';
 import type { EntryDraft } from '../domain/entry_ops.js';
-import { benefitWarnings } from '../domain/benefits.js';
 import type { FinanceData } from '../domain/types.js';
 import { formatBRL } from '../lib/format.js';
 import { parseMoneyInput } from '../lib/format.js';
@@ -52,7 +52,6 @@ export const EntryDialog = ({
   onSave,
   onClose,
   onCreateRecurring,
-  ignoreEntryId,
   launchId,
   onSaveAndNew,
 }: {
@@ -64,8 +63,6 @@ export const EntryDialog = ({
   readonly onClose: () => void;
   /** Para algo futuro, o modal oferece criar um recorrente. */
   readonly onCreateRecurring?: (() => void) | undefined;
-  /** Ao editar um lançado: a parte antiga já está descontada do saldo do benefício. */
-  readonly ignoreEntryId?: string | undefined;
   /** Ao lançar um previsto: qual é, para o efeito comparar com ele. */
   readonly launchId?: string | undefined;
   /** "Salvar e novo": grava sem fechar e limpa o formulário (⇧↵). Só em `new`. */
@@ -74,14 +71,13 @@ export const EntryDialog = ({
   const [draft, setDraft] = useState<EntryDraft>(initial);
   const [attempted, setAttempted] = useState(false);
 
-  const errors = validateEntry(data, draft, today);
+  const errors = validateEntry(data, draft, today, mode === 'new');
   const shown = (field: keyof typeof errors): string | undefined =>
     attempted ? errors[field] : undefined;
   const set = (patch: Partial<EntryDraft>): void => setDraft({ ...draft, ...patch });
 
   const locked = mode === 'launch';
   const diff = splitDifference(draft);
-  const warnings = benefitWarnings(data, draft, today, ignoreEntryId);
   const blocked = diff !== null && diff !== 0;
   const effect =
     mode === 'new'
@@ -200,7 +196,7 @@ export const EntryDialog = ({
               <Input
                 {...props}
                 type="date"
-                max={today}
+                {...(mode === 'new' ? {} : { max: today })}
                 invalid={shown('date') !== undefined}
                 value={draft.date}
                 onChange={(event) => set({ date: event.target.value })}
@@ -219,7 +215,7 @@ export const EntryDialog = ({
                 {...props}
                 disabled={locked}
                 invalid={shown('sourceId') !== undefined}
-                placeholder="Conta, benefício ou cartão"
+                placeholder="Conta ou cartão"
                 options={sources}
                 value={draft.sourceId}
                 onChange={(event) => set({ sourceId: event.target.value })}
@@ -254,16 +250,23 @@ export const EntryDialog = ({
           ) : null}
         </div>
 
-        {draft.date > today && onCreateRecurring !== undefined ? (
+        {draft.date > today ? (
           <p className="text-xs text-ink-3">
-            {FUTURE_DATE}{' '}
-            <button
-              type="button"
-              className="cursor-pointer font-medium text-accent underline"
-              onClick={onCreateRecurring}
-            >
-              Criar recorrente
-            </button>
+            {mode === 'new' ? FUTURE_HINT : FUTURE_DATE}
+            {mode === 'new' && onCreateRecurring !== undefined ? (
+              <>
+                {' '}
+                Se repete todo mês,{' '}
+                <button
+                  type="button"
+                  className="cursor-pointer font-medium text-accent underline"
+                  onClick={onCreateRecurring}
+                >
+                  crie um recorrente
+                </button>
+                .
+              </>
+            ) : null}
           </p>
         ) : null}
 
@@ -374,7 +377,7 @@ export const EntryDialog = ({
                     {data.accounts.find((a) => a.id === part.sourceId)?.name ??
                       part.sourceId}
                     <span className="ml-1.5 text-xs text-ink-3">
-                      {index === 0 ? 'benefício' : 'o restante'}
+                      {index === 0 ? 'primeira origem' : 'o restante'}
                     </span>
                   </span>
                   <strong className="tabular font-semibold">
@@ -390,8 +393,8 @@ export const EntryDialog = ({
 
         {mode === 'launch' ? (
           <Callout tone="info">
-            Mudando o valor real, a parte do benefício continua até o limite configurado e
-            o restante ajusta na conta. Dá para editar as duas partes à mão.
+            Mudando o valor real, a primeira origem continua até o limite configurado e o
+            restante ajusta na segunda. Dá para editar as duas partes à mão.
           </Callout>
         ) : null}
 
@@ -401,14 +404,6 @@ export const EntryDialog = ({
             última.
           </Callout>
         ) : null}
-
-        {warnings.length === 0 ? null : (
-          <Callout tone="warning">
-            {warnings.map((warning) => (
-              <p key={warning}>{warning} O lançamento continua permitido.</p>
-            ))}
-          </Callout>
-        )}
       </FormShell>
     </Modal>
   );

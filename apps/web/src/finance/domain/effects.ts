@@ -11,7 +11,12 @@ import type { EntryDraft } from './entry_ops.js';
 import { deleteInstallments } from './installment_ops.js';
 import type { InstallmentScope } from './installment_ops.js';
 import { payInvoice } from './invoice_ops.js';
-import { addRecurring, syncRecurring, validateRecurring } from './recurring.js';
+import {
+  addRecurring,
+  syncRecurring,
+  updateRecurring,
+  validateRecurring,
+} from './recurring.js';
 import type { RecurringDraft } from './recurring.js';
 import { sourceName } from './sources.js';
 import { monthResult } from './overview.js';
@@ -42,7 +47,7 @@ export const entryEffect = (
   draft: EntryDraft,
   today: IsoDate,
 ): readonly EffectRow[] | null => {
-  if (Object.keys(validateEntry(data, draft, today)).length > 0) return null;
+  if (Object.keys(validateEntry(data, draft, today, true)).length > 0) return null;
   const after = addEntry(data, draft, today);
   if (after === data) return null;
   return effectBetween(data, after, draft, today);
@@ -165,9 +170,15 @@ export const recurringEffect = (
   data: FinanceData,
   draft: RecurringDraft,
   today: IsoDate,
+  /** Ao editar, o id do recorrente: o "depois" substitui o item em vez de somar outro. */
+  existingId?: string,
 ): readonly EffectRow[] | null => {
   if (Object.keys(validateRecurring(data, draft)).length > 0) return null;
-  const after = syncRecurring(addRecurring(data, draft, today), today);
+  const changed =
+    existingId === undefined
+      ? addRecurring(data, draft, today)
+      : updateRecurring(data, existingId, draft, today);
+  const after = syncRecurring(changed, today);
   const range = currentMonth(today);
   const planned = (d: FinanceData) =>
     d.entries.filter(

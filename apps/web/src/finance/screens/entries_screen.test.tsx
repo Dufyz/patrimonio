@@ -444,14 +444,15 @@ describe('novo lançamento (FIN-307)', () => {
     expect(within(dialog).getByText('3 parcelas de R$ 100,00')).toBeInTheDocument();
   });
 
-  it('para data futura oferece criar um recorrente', async () => {
+  it('para data futura avisa que entra como previsto e oferece recorrente', async () => {
     const dialog = await openNew();
     fireEvent.change(within(dialog).getByLabelText('Data'), {
       target: { value: '2026-11-15' },
     });
     expect(
-      within(dialog).getByRole('button', { name: 'Criar recorrente' }),
+      within(dialog).getByRole('button', { name: 'crie um recorrente' }),
     ).toBeInTheDocument();
+    expect(within(dialog).getByText(/entra como previsto/)).toBeInTheDocument();
   });
 });
 
@@ -820,39 +821,6 @@ describe('Exibição esconde colunas e células (correção)', () => {
     );
     expect(screen.getByText('parcela 1/3')).toBeInTheDocument();
     expect(screen.getByText('parcela 2/3')).toBeInTheDocument();
-  });
-});
-
-describe('aviso de saldo do benefício (FIN-408)', () => {
-  beforeEach(() => globalThis.localStorage.clear());
-
-  const openNew = async () => {
-    open();
-    await userEvent.click(screen.getByRole('button', { name: /^Lançamento/ }));
-    return within(screen.getByRole('dialog', { name: 'Novo lançamento' }));
-  };
-
-  it('parte maior que o saldo do Flex avisa, sem bloquear o salvar', async () => {
-    const dialog = await openNew();
-    await userEvent.selectOptions(
-      dialog.getByRole('combobox', { name: /Origem/ }),
-      'flex',
-    );
-    await userEvent.type(dialog.getByRole('textbox', { name: 'Valor' }), '250,00');
-    expect(dialog.getByRole('note').textContent).toContain(
-      'Flex tem R$ 198,30 de saldo e esta parte é de R$ 250,00.',
-    );
-    expect(dialog.getByRole('button', { name: /^Salvar(?:\s*⌘↵)?$/ })).toBeEnabled();
-  });
-
-  it('dentro do saldo não há aviso', async () => {
-    const dialog = await openNew();
-    await userEvent.selectOptions(
-      dialog.getByRole('combobox', { name: /Origem/ }),
-      'flex',
-    );
-    await userEvent.type(dialog.getByRole('textbox', { name: 'Valor' }), '100,00');
-    expect(dialog.queryByRole('note')).not.toBeInTheDocument();
   });
 });
 
