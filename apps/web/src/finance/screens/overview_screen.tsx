@@ -18,12 +18,13 @@ import {
   monthResult,
   monthSeries,
 } from '../domain/overview.js';
-import { addEntry, emptyEntryDraft } from '../domain/entry_ops.js';
+import { emptyEntryDraft } from '../domain/entry_ops.js';
 import { formatMonth } from '../lib/format.js';
 import { PRIMARY_LABELS, pluralize } from '../lib/header.js';
 import { formatRange, isWholeMonth } from '../lib/period.js';
 import { financeRoutes } from '../lib/routes.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
+import { commands } from '../store/commands.js';
 
 /**
  * Visão geral (prancha 01): como estou no mês, de onde vem e para onde vai o
@@ -95,16 +96,14 @@ export const OverviewScreen = (): React.ReactElement => {
       {creating ? (
         <EntryDialog
           mode="new"
-          onSaveAndNew={(draft) =>
-            store.set((current) => addEntry(current, draft, today))
-          }
+          onSaveAndNew={(draft) => store.run(commands.addEntry(draft, today))}
           data={data}
           today={today}
           initial={emptyEntryDraft(today)}
           onClose={() => setCreating(false)}
           onCreateRecurring={() => navigate(financeRoutes.recurrings())}
           onSave={(draft) => {
-            store.set((current) => addEntry(current, draft, today));
+            store.run(commands.addEntry(draft, today));
             setCreating(false);
           }}
         />

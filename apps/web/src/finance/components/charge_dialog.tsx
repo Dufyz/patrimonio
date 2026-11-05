@@ -9,14 +9,16 @@ import {
   validateCharge,
 } from '../domain/card_item_ops.js';
 import type { ChargeDraft } from '../domain/card_item_ops.js';
-import type { ChargeType } from '../domain/types.js';
+import type { ChargeType, FinanceData } from '../domain/types.js';
 
 /** FIN-512 · Lançar encargo (juros, multa ou IOF) na fatura exibida. */
 export const ChargeDialog = ({
+  data,
   today,
   onSave,
   onClose,
 }: {
+  readonly data: FinanceData;
   readonly today: string;
   readonly onSave: (draft: ChargeDraft) => void;
   readonly onClose: () => void;
@@ -27,6 +29,9 @@ export const ChargeDialog = ({
   const shown = (field: keyof typeof errors): string | undefined =>
     attempted ? errors[field] : undefined;
   const set = (patch: Partial<ChargeDraft>): void => setDraft({ ...draft, ...patch });
+  const categories = data.categories
+    .filter((category) => category.kind === 'despesa')
+    .map((category) => ({ id: category.id, name: category.name }));
 
   const save = (): void => {
     setAttempted(true);
@@ -83,6 +88,18 @@ export const ChargeDialog = ({
             )}
           </Field>
         </div>
+        <Field label="Categoria" error={shown('categoryId')}>
+          {(props) => (
+            <Select
+              {...props}
+              invalid={shown('categoryId') !== undefined}
+              placeholder="Categoria da despesa"
+              options={categories}
+              value={draft.categoryId}
+              onChange={(event) => set({ categoryId: event.target.value })}
+            />
+          )}
+        </Field>
       </FormShell>
     </Modal>
   );

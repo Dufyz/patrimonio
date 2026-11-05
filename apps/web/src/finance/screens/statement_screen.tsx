@@ -12,7 +12,6 @@ import { ScreenHeader } from '../components/screen_header.js';
 import { NatureTag } from '../components/tags.js';
 import { StatementTable } from '../components/statement_table.js';
 import { TransferDialog } from '../components/transfer_dialog.js';
-import { updateAccount } from '../domain/account_ops.js';
 import {
   accountSubtitle,
   dailyBalances,
@@ -20,13 +19,13 @@ import {
   statement,
   statementCloses,
 } from '../domain/accounts.js';
-import { addEntry, emptyEntryDraft } from '../domain/entry_ops.js';
-import { addTransfer } from '../domain/transfer_ops.js';
+import { emptyEntryDraft } from '../domain/entry_ops.js';
 import type { Account } from '../domain/types.js';
 import { formatDay } from '../lib/format.js';
 import { PRIMARY_LABELS } from '../lib/header.js';
 import { financeRoutes } from '../lib/routes.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
+import { commands } from '../store/commands.js';
 
 /**
  * FIN-405 a FIN-408 · Extrato de uma conta ou benefício.
@@ -128,7 +127,7 @@ const Statement = ({ account }: { readonly account: Account }): React.ReactEleme
           initial={{ ...emptyEntryDraft(today), sourceId: account.id }}
           onClose={() => setDialog(null)}
           onSave={(draft) => {
-            store.set((current) => addEntry(current, draft, today));
+            store.run(commands.addEntry(draft, today));
             setDialog(null);
           }}
         />
@@ -139,7 +138,7 @@ const Statement = ({ account }: { readonly account: Account }): React.ReactEleme
           account={account}
           onClose={() => setDialog(null)}
           onSave={(draft) => {
-            store.set((current) => updateAccount(current, account.id, draft, today));
+            store.run(commands.updateAccount(account.id, draft, today));
             setDialog(null);
           }}
         />
@@ -151,7 +150,7 @@ const Statement = ({ account }: { readonly account: Account }): React.ReactEleme
           fromId={account.id}
           onClose={() => setDialog(null)}
           onSave={(draft) => {
-            store.set((current) => addTransfer(current, draft, today));
+            store.run(commands.addTransfer(draft, today));
             setDialog(null);
           }}
         />

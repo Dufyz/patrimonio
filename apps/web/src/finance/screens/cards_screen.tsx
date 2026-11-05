@@ -26,8 +26,6 @@ import { LimitBar } from '../components/limit_bar.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { InvoiceStatus } from '../components/invoice_status.js';
-import { payInvoice } from '../domain/invoice_ops.js';
-import { addCard, updateCard } from '../domain/card_ops.js';
 import { cardSummary, openInvoicesTotal } from '../domain/cards.js';
 import type { CardSummary } from '../domain/cards.js';
 import { hideBelow } from '../lib/responsive.js';
@@ -37,6 +35,7 @@ import { financeRoutes } from '../lib/routes.js';
 import { accountLabel } from '../domain/accounts.js';
 import type { Card } from '../domain/types.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
+import { commands } from '../store/commands.js';
 
 /**
  * FIN-501 · Cartões.
@@ -194,8 +193,8 @@ export const CardsScreen = (): React.ReactElement => {
           today={today}
           onClose={() => setPaying(null)}
           onConfirm={(date) => {
-            store.set((current) =>
-              payInvoice(current, paying.card.id, paying.invoice.key, date, today),
+            store.run(
+              commands.payInvoice(paying.card.id, paying.invoice.key, date, today),
             );
             setPaying(null);
           }}
@@ -208,10 +207,10 @@ export const CardsScreen = (): React.ReactElement => {
           card={editing.type === 'edit' ? editing.card : undefined}
           onClose={() => setEditing(null)}
           onSave={(draft) => {
-            store.set((current) =>
+            store.run(
               editing.type === 'edit'
-                ? updateCard(current, editing.card.id, draft)
-                : addCard(current, draft),
+                ? commands.updateCard(editing.card.id, draft)
+                : commands.addCard(draft),
             );
             setEditing(null);
           }}

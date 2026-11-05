@@ -48,8 +48,8 @@ describe('Faixa de totais do mês (FIN-601)', () => {
     expect(cell('Despesas')).toContain('R$ 9.478,10');
     expect(cell('Despesas')).toContain('9 lançamentos');
     expect(cell('Saldo do mês')).toContain('R$ 6.871,90');
-    expect(cell('Em contas')).toContain('R$ 11.773,15');
-    expect(cell('Em contas')).toContain('3 contas');
+    expect(cell('Em contas')).toContain('R$ 12.583,85');
+    expect(cell('Em contas')).toContain('5 contas');
     expect(cell('Faturas abertas')).toContain('R$ 5.422,27');
     expect(cell('Faturas abertas')).toContain('Itaú 30/10 · Nubank 05/11');
   });

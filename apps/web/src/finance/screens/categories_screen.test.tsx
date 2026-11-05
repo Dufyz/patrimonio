@@ -1,4 +1,4 @@
-import { chooseFilter, toggleDisplayColumn } from '../lib/test_helpers.js';
+import { chooseFilter } from '../lib/test_helpers.js';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -40,21 +40,18 @@ describe('Categorias (FIN-101)', () => {
   it('mostra título, subtítulo e o contador', () => {
     open();
     expect(screen.getByRole('heading', { name: 'Categorias' })).toBeInTheDocument();
-    expect(screen.getByText('Nome, tipo e cor de cada categoria')).toBeInTheDocument();
+    expect(
+      screen.getByText('Nome e cor das categorias de despesa e receita'),
+    ).toBeInTheDocument();
     expect(screen.getByText('15 categorias')).toBeInTheDocument();
   });
 
-  it('rotula as colunas com o mês corrente', () => {
+  it('é só cadastro: sem tipo, lançamentos, total ou média', () => {
     open();
-    expect(
-      screen.getByRole('columnheader', { name: 'Lançamentos em out' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('columnheader', { name: 'Total em out' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('columnheader', { name: 'Média de 12 meses' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Categoria' })).toBeInTheDocument();
+    for (const name of [/Tipo/, /Lançamentos/, /Total/, /Média/]) {
+      expect(screen.queryByRole('columnheader', { name })).not.toBeInTheDocument();
+    }
   });
 
   it('separa Despesas e Receitas', () => {
@@ -63,17 +60,9 @@ describe('Categorias (FIN-101)', () => {
     expect(screen.getByText('Receitas')).toBeInTheDocument();
   });
 
-  it('categoria sem lançamento no mês mostra 0 e —', () => {
-    open();
-    const row = rowOf('Mercado');
-    expect(within(row).getByText('0')).toBeInTheDocument();
-    expect(within(row).getByText('—')).toBeInTheDocument();
-    expect(within(row).getByText(/1\.482,35/)).toBeInTheDocument();
-  });
-
   it('Investimento e Gasto livre aparecem como as demais', () => {
     open();
-    expect(within(rowOf('Investimento')).getByText(/4\.500,00/)).toBeInTheDocument();
+    expect(rowOf('Investimento')).toBeInTheDocument();
     expect(rowOf('Gasto livre')).toBeInTheDocument();
   });
 
@@ -89,17 +78,6 @@ describe('Categorias (FIN-101)', () => {
     await chooseFilter('Tipo', 'Receita');
     expect(screen.getByText('3 categorias')).toBeInTheDocument();
     expect(screen.queryByText('Despesas')).not.toBeInTheDocument();
-  });
-
-  it('Exibição oculta a média e a escolha persiste', async () => {
-    open();
-    await toggleDisplayColumn('Média de 12 meses');
-    expect(
-      screen.queryByRole('columnheader', { name: 'Média de 12 meses' }),
-    ).not.toBeInTheDocument();
-    expect(
-      globalThis.localStorage.getItem('patrimonio.finance.columns.categorias'),
-    ).toContain('media');
   });
 
   it('cria uma categoria pelo modal', async () => {
@@ -159,7 +137,7 @@ describe('Categorias (FIN-101)', () => {
     );
     await userEvent.click(confirm);
     expect(screen.queryByText('Transporte')).not.toBeInTheDocument();
-    expect(within(rowOf('Saúde')).getByText('4')).toBeInTheDocument();
+    expect(rowOf('Saúde')).toBeInTheDocument();
   });
 
   it('exclui categoria sem lançamentos com uma confirmação', async () => {

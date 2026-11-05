@@ -10,16 +10,10 @@ import {
   RecategorizeDialog,
 } from '../components/entry_confirms.js';
 import {
-  addEntry,
-  deleteEntries,
   deleteImpact,
   draftOfEntry,
   emptyEntryDraft,
-  launchEntry,
-  moveAccount,
   moveBlockedReason,
-  recategorize,
-  updateEntry,
 } from '../domain/entry_ops.js';
 import { csvAmount, exportTable } from '../lib/export.js';
 import { accountNames, isOverdue } from '../domain/ledger.js';
@@ -47,6 +41,7 @@ import { PRIMARY_LABELS } from '../lib/header.js';
 import { readEntryGrouping, writeEntryGrouping } from '../lib/preferences.js';
 import type { EntryGrouping } from '../lib/preferences.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
+import { commands } from '../store/commands.js';
 
 /**
  * Lançamentos: o que entrou, o que saiu e o que ainda falta lançar no período.
@@ -303,7 +298,7 @@ export const EntriesScreen = (): React.ReactElement => {
                 else setBlocked(reason);
               },
               onCategory: (entry, categoryId) =>
-                store.set((current) => recategorize(current, [entry.id], categoryId)),
+                store.run(commands.recategorize([entry.id], categoryId)),
             }}
           />
         </div>
@@ -312,16 +307,14 @@ export const EntriesScreen = (): React.ReactElement => {
       {creating ? (
         <EntryDialog
           mode="new"
-          onSaveAndNew={(draft) =>
-            store.set((current) => addEntry(current, draft, today))
-          }
+          onSaveAndNew={(draft) => store.run(commands.addEntry(draft, today))}
           data={data}
           today={today}
           initial={emptyEntryDraft(today)}
           onClose={() => setCreating(false)}
           onCreateRecurring={() => navigate(financeRoutes.recurrings())}
           onSave={(draft) => {
-            store.set((current) => addEntry(current, draft, today));
+            store.run(commands.addEntry(draft, today));
             setCreating(false);
           }}
         />
@@ -332,9 +325,8 @@ export const EntriesScreen = (): React.ReactElement => {
           categories={data.categories}
           onClose={() => setBatch(null)}
           onConfirm={(categoryId) => {
-            store.set((current) =>
-              recategorize(
-                current,
+            store.run(
+              commands.recategorize(
                 chosen.map((e) => e.id),
                 categoryId,
               ),
@@ -349,9 +341,8 @@ export const EntriesScreen = (): React.ReactElement => {
           entries={chosen}
           onClose={() => setBatch(null)}
           onConfirm={(sourceId) => {
-            store.set((current) =>
-              moveAccount(
-                current,
+            store.run(
+              commands.moveAccount(
                 chosen.map((e) => e.id),
                 sourceId,
               ),
@@ -368,12 +359,7 @@ export const EntriesScreen = (): React.ReactElement => {
           danger
           onClose={() => setBatch(null)}
           onConfirm={() => {
-            store.set((current) =>
-              deleteEntries(
-                current,
-                chosen.map((e) => e.id),
-              ),
-            );
+            store.run(commands.deleteEntries(chosen.map((e) => e.id)));
             setBatch(null);
             setSelected(new Set());
           }}
@@ -391,10 +377,9 @@ export const EntriesScreen = (): React.ReactElement => {
           data={data}
           today={today}
           initial={draftOfEntry(editing, today)}
-          ignoreEntryId={editing.id}
           onClose={() => setEditing(null)}
           onSave={(draft) => {
-            store.set((current) => updateEntry(current, editing.id, draft, today));
+            store.run(commands.updateEntry(editing.id, draft, today));
             setEditing(null);
           }}
         />
@@ -406,7 +391,7 @@ export const EntriesScreen = (): React.ReactElement => {
           danger
           onClose={() => setDeleting(null)}
           onConfirm={() => {
-            store.set((current) => deleteEntries(current, [deleting.id]));
+            store.run(commands.deleteEntries([deleting.id]));
             setDeleting(null);
           }}
         >
@@ -424,7 +409,7 @@ export const EntriesScreen = (): React.ReactElement => {
           entries={[moving]}
           onClose={() => setMoving(null)}
           onConfirm={(sourceId) => {
-            store.set((current) => moveAccount(current, [moving.id], sourceId));
+            store.run(commands.moveAccount([moving.id], sourceId));
             setMoving(null);
           }}
         />
@@ -448,7 +433,7 @@ export const EntriesScreen = (): React.ReactElement => {
           initial={draftOfEntry(launching, today)}
           onClose={() => setLaunching(null)}
           onSave={(draft) => {
-            store.set((current) => launchEntry(current, launching.id, draft, today));
+            store.run(commands.launchEntry(launching.id, draft, today));
             setLaunching(null);
           }}
         />

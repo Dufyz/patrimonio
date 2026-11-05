@@ -2,12 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Button } from '../../components/primitives.js';
-import { addAccount } from '../domain/account_ops.js';
-import { addCard } from '../domain/card_ops.js';
-import { addEntry, emptyEntryDraft } from '../domain/entry_ops.js';
+import { emptyEntryDraft } from '../domain/entry_ops.js';
 import type { FinanceData } from '../domain/types.js';
 import { financeRoutes } from '../lib/routes.js';
 import { useFinanceStore } from '../store/finance_store.js';
+import { commands } from '../store/commands.js';
 import { AccountDialog } from './account_dialog.js';
 import { CardDialog } from './card_dialog.js';
 import { EntryDialog } from './entry_dialog.js';
@@ -92,7 +91,7 @@ export const FinanceWelcome = ({
           data={data}
           onClose={close}
           onSave={(draft) => {
-            store.set((current) => addAccount(current, draft, today));
+            store.run(commands.addAccount(draft, today));
             close();
           }}
         />
@@ -102,7 +101,7 @@ export const FinanceWelcome = ({
           data={data}
           onClose={close}
           onSave={(draft) => {
-            store.set((current) => addCard(current, draft));
+            store.run(commands.addCard(draft));
             close();
           }}
         />
@@ -116,7 +115,7 @@ export const FinanceWelcome = ({
           onClose={close}
           onCreateRecurring={() => navigate(financeRoutes.recurrings())}
           onSave={(draft) => {
-            store.set((current) => addEntry(current, draft, today));
+            store.run(commands.addEntry(draft, today));
             close();
           }}
         />
