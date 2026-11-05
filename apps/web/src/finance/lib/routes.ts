@@ -34,7 +34,8 @@ export const financeRoutes = {
     }`,
   recurrings: (): string => `${FINANCE_ROOT}/recorrentes`,
   categories: (): string => `${FINANCE_ROOT}/categorias`,
-  settings: (): string => `${FINANCE_ROOT}/configuracoes`,
+  /** Configurações é global: mora na raiz, fora de qualquer área. */
+  settings: (): string => '/configuracoes',
   /** A área de Investimentos, para o seletor de área. */
   investments: (): string => '/todas/visao-geral',
 } as const;
@@ -45,7 +46,10 @@ export const financeRoutes = {
  * Cartões.
  */
 export const screenForPath = (pathname: string): FinanceScreen => {
-  const segment = pathname.split('/').filter((part) => part !== '')[1];
+  const parts = pathname.split('/').filter((part) => part !== '');
+  // Configurações está na raiz (`/configuracoes`); as demais telas, sob `/financas`.
+  if (parts[0] === 'configuracoes') return 'configuracoes';
+  const segment = parts[1];
   return (FINANCE_SCREENS as readonly string[]).includes(segment ?? '')
     ? (segment as FinanceScreen)
     : 'visao-geral';

@@ -14,7 +14,7 @@ import {
  * Cada área tem a sua navegação, e trocar de área abre a tela inicial dela.
  */
 
-export const AREAS = ['financas', 'investimentos'] as const;
+export const AREAS = ['investimentos', 'financas'] as const;
 export type AreaId = (typeof AREAS)[number];
 
 export const AREA_LABELS: Readonly<Record<AreaId, string>> = {
@@ -34,7 +34,7 @@ export const AreaSwitcher = ({
       <button
         type="button"
         aria-label={`Área: ${AREA_LABELS[current]}. Trocar de área`}
-        className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-control px-1.5 text-[0.9375rem] font-semibold tracking-[-0.01em] outline-none hover:bg-panel-2 focus-visible:ring-2 focus-visible:ring-focus/40 data-[state=open]:bg-panel-2"
+        className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-control px-0 text-[0.9375rem] font-semibold tracking-[-0.01em] outline-none hover:bg-panel-2 focus-visible:ring-2 focus-visible:ring-focus/40 data-[state=open]:bg-panel-2"
       >
         {AREA_LABELS[current]}
         <span aria-hidden="true" className="text-ink-3">

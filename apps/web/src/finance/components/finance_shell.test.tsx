@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { PreferencesProvider } from '../../components/preferences.js';
 import { ShortcutProvider } from '../../components/shortcuts.js';
 import { FinanceApp } from '../finance_app.js';
+import { createFinanceStore } from '../store/finance_store.js';
 
 const open = (path: string) =>
   render(
@@ -16,7 +17,7 @@ const open = (path: string) =>
           element={
             <PreferencesProvider>
               <ShortcutProvider>
-                <FinanceApp />
+                <FinanceApp store={createFinanceStore(null)} />
               </ShortcutProvider>
             </PreferencesProvider>
           }

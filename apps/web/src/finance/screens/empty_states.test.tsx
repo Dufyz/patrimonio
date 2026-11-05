@@ -19,7 +19,6 @@ import { CategoriesScreen } from './categories_screen.js';
 import { EntriesScreen } from './entries_screen.js';
 import { OverviewScreen } from './overview_screen.js';
 import { RecurringsScreen } from './recurrings_screen.js';
-import { SettingsScreen } from './settings_screen.js';
 import { StatementScreen } from './statement_screen.js';
 
 /** FIN-701 · Nenhuma tela quebra nem fica muda sem dados: todas dizem o que falta. */
@@ -60,7 +59,6 @@ const open = (path: string): void => {
                 <Route path="/cartoes/:id" element={<CardScreen />} />
                 <Route path="/recorrentes" element={<RecurringsScreen />} />
                 <Route path="/categorias" element={<CategoriesScreen />} />
-                <Route path="/configuracoes" element={<SettingsScreen />} />
                 <Route path="/financas/contas" element={<p>Contas aberta</p>} />
                 <Route path="/financas/cartoes" element={<p>Cartões aberta</p>} />
               </Routes>
@@ -113,7 +111,6 @@ describe('telas sem nenhum dado', () => {
     ['Fatura de cartão inexistente', '/cartoes/x'],
     ['Recorrentes', '/recorrentes'],
     ['Categorias', '/categorias'],
-    ['Configurações', '/configuracoes'],
   ];
   for (const [name, path] of screens) {
     it(`${name} abre sem quebrar (inexistentes voltam à lista)`, () => {

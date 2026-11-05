@@ -20,6 +20,12 @@ import { WelcomeScreen } from './views/welcome.js';
 import { ShortcutProvider, useShortcuts } from './components/shortcuts.js';
 import { ALL_PORTFOLIOS, AppShell } from './components/shell.js';
 import type { ScreenItem } from './components/shell.js';
+import {
+  readLastArea,
+  readLastScope,
+  writeLastArea,
+  writeLastScope,
+} from './lib/last_area.js';
 import { hasDemoData } from './lib/settings.js';
 import { useResource } from './lib/use_resource.js';
 import {
@@ -122,6 +128,13 @@ const FinanceApp = lazy(() =>
 const Workspace = (): React.ReactElement => (
   <Routes>
     <Route path="/galeria" element={<Gallery />} />
+    {/* Configurações vale para o app inteiro: mora na raiz, e a barra lateral é a
+        da área em que a pessoa estava. */}
+    <Route path="/configuracoes" element={<GlobalSettings />} />
+    <Route
+      path="/:scope/configuracoes"
+      element={<Navigate to="/configuracoes" replace />}
+    />
     {/* Finanças é uma área à parte, com a própria navegação. */}
     <Route
       path="/financas/*"
@@ -140,9 +153,31 @@ const Workspace = (): React.ReactElement => (
   </Routes>
 );
 
-const Workbench = (): React.ReactElement => {
-  const { scope = ALL_SCOPE, screen = 'visao-geral', asset } = useParams();
+const GlobalSettings = (): React.ReactElement =>
+  readLastArea() === 'financas' ? (
+    <Suspense fallback={<FinanceLoading />}>
+      <FinanceApp settingsOnly />
+    </Suspense>
+  ) : (
+    <Workbench global />
+  );
+
+const Workbench = ({
+  global = false,
+}: {
+  /** Configurações na raiz: o escopo vem do último usado, e a tela é a de configuração. */
+  readonly global?: boolean;
+}): React.ReactElement => {
+  const params = useParams();
+  const scope = global ? (readLastScope() ?? ALL_SCOPE) : (params['scope'] ?? ALL_SCOPE);
+  const screen = global ? 'configuracoes' : (params['screen'] ?? 'visao-geral');
+  const asset = global ? undefined : params['asset'];
   const navigate = useNavigate();
+
+  useEffect(() => {
+    writeLastArea('investimentos');
+    if (!global) writeLastScope(scope);
+  }, [global, scope]);
 
   const [portfolios, setPortfolios] = useState<readonly PortfolioResource[]>([]);
   const [values, setValues] = useState<Readonly<Record<string, string>>>({});
@@ -340,7 +375,7 @@ const Workbench = (): React.ReactElement => {
         </div>
       );
     }
-    return <WelcomeScreen onOpenSettings={() => navigate(`/${scope}/configuracoes`)} />;
+    return <WelcomeScreen onOpenSettings={() => navigate('/configuracoes')} />;
   }
   if (!allPortfolios && portfolioId === null) {
     return <Navigate to={`/${ALL_SCOPE}/visao-geral`} replace />;
@@ -378,7 +413,7 @@ const Workbench = (): React.ReactElement => {
         onOpenSearch={() => setSearchOpen(true)}
         settingsActive={onSettings}
         demo={demo}
-        onOpenSettings={() => navigate(`/${scope}/configuracoes`)}
+        onOpenSettings={() => navigate('/configuracoes')}
         onSwitchArea={(area) => {
           if (area === 'financas') navigate('/financas/visao-geral');
         }}
