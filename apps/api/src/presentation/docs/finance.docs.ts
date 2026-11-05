@@ -35,6 +35,13 @@ type Entry = readonly [
 const rows: readonly Entry[] = [
   [
     'get',
+    '/finance/snapshot',
+    'Tudo que Finanças guarda numa foto só (o front monta as telas a partir dela)',
+    c.finSnapshotSchema,
+    { 200: READ },
+  ],
+  [
+    'get',
     '/finance/overview',
     'Visão geral do mês: indicadores, 12 meses, vencimentos e pendências',
     c.finOverviewSchema,
@@ -50,7 +57,7 @@ const rows: readonly Entry[] = [
   [
     'post',
     '/finance/jobs/sync',
-    'Gera previstos, lança automáticos e credita benefícios (a rotina diária, sob demanda)',
+    'Gera previstos, lança automáticos (a rotina diária, sob demanda)',
     c.syncFinanceSchema,
     { 200: WROTE },
   ],
@@ -93,7 +100,7 @@ const rows: readonly Entry[] = [
   [
     'get',
     '/finance/accounts',
-    'Contas e benefícios, com saldo e variação do período',
+    'Contas, com saldo e variação do período',
     c.listAccountsSchema,
     { 200: READ },
   ],
@@ -215,6 +222,20 @@ const rows: readonly Entry[] = [
     'Excluir pagamento de fatura (reabre a fatura)',
     c.deleteInvoicePaymentSchema,
     { 200: WROTE, 404: MISSING },
+  ],
+  [
+    'post',
+    '/finance/entries/:id/invoice',
+    'Mover a parte no cartão de um lançamento para outra fatura',
+    c.moveEntryInvoiceSchema,
+    { 200: WROTE, 404: MISSING, 422: RULE },
+  ],
+  [
+    'post',
+    '/finance/card-items/:item_id/invoice',
+    'Mover um item para outra fatura',
+    c.moveCardItemInvoiceSchema,
+    { 200: WROTE, 404: MISSING, 422: RULE },
   ],
   [
     'delete',

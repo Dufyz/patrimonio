@@ -9,6 +9,8 @@ import { ConfirmDialog } from '../components/entry_confirms.js';
 import { PayInvoiceDialog } from '../components/pay_invoice_dialog.js';
 import { ChargeDialog } from '../components/charge_dialog.js';
 import { CreditDialog } from '../components/credit_dialog.js';
+import { MoveInvoiceDialog } from '../components/move_invoice_dialog.js';
+import { firstOpenInvoice } from '../domain/card_item_ops.js';
 import { InvoiceStatus } from '../components/invoice_status.js';
 import { InvoiceList } from '../components/invoice_list.js';
 import { InvoiceStatement } from '../components/invoice_statement.js';
@@ -16,7 +18,6 @@ import { CardDialog } from '../components/card_dialog.js';
 import { EntryDialog } from '../components/entry_dialog.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
-import { updateCard } from '../domain/card_ops.js';
 import {
   cardInvoiceKeys,
   cardSummary,
@@ -27,26 +28,9 @@ import {
   paymentOf,
   vigenteKey,
 } from '../domain/cards.js';
-import {
-  deleteInstallments,
-  updateInstallmentEntries,
-  updateInstallmentItems,
-} from '../domain/installment_ops.js';
 import type { InstallmentScope } from '../domain/installment_ops.js';
-import { payBlockedReason, payInvoice } from '../domain/invoice_ops.js';
-import {
-  addCharge,
-  addCredit,
-  deleteCardItem,
-  updateCardItem,
-} from '../domain/card_item_ops.js';
-import {
-  addEntry,
-  deleteEntries,
-  draftOfEntry,
-  emptyEntryDraft,
-  updateEntry,
-} from '../domain/entry_ops.js';
+import { payBlockedReason } from '../domain/invoice_ops.js';
+import { draftOfEntry, emptyEntryDraft } from '../domain/entry_ops.js';
 import { accountLabel } from '../domain/accounts.js';
 import type { InvoiceLine } from '../domain/cards.js';
 import type { Card } from '../domain/types.js';
@@ -56,6 +40,7 @@ import { csvAmount, exportTable } from '../lib/export.js';
 import { PRIMARY_LABELS } from '../lib/header.js';
 import { financeRoutes } from '../lib/routes.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
+import { commands } from '../store/commands.js';
 
 /**
  * FIN-504 · Fatura de um cartão: cabeçalho e navegador de mês.
@@ -82,6 +67,8 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
   >(null);
   const [editingLine, setEditingLine] = useState<InvoiceLine | null>(null);
   const [deletingLine, setDeletingLine] = useState<InvoiceLine | null>(null);
+  const [reversingLine, setReversingLine] = useState<InvoiceLine | null>(null);
+  const [movingLine, setMovingLine] = useState<InvoiceLine | null>(null);
   const [ask, setAsk] = useState<{
     readonly line: InvoiceLine;
     readonly action: 'editar' | 'excluir';
@@ -229,6 +216,8 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
             }
             onEdit={startEdit}
             onDelete={startDelete}
+            onReverse={setReversingLine}
+            onMove={setMovingLine}
           />
         </section>
 
@@ -253,8 +242,8 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
           onChoose={(chosen) => {
             setScope(chosen);
             if (ask.action === 'excluir') {
-              store.set((current) =>
-                deleteInstallments(current, ask.line.origin, ask.line.id, chosen),
+              store.run(
+                commands.deleteInstallments(ask.line.origin, ask.line.id, chosen),
               );
             } else {
               setEditingLine(ask.line);
@@ -272,13 +261,12 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
             data.entries.find((e) => e.id === editingLine.id) ?? data.entries[0]!,
             today,
           )}
-          ignoreEntryId={editingLine.id}
           onClose={() => setEditingLine(null)}
           onSave={(draft) => {
-            store.set((current) =>
+            store.run(
               editingLine.installment === undefined
-                ? updateEntry(current, editingLine.id, draft, today)
-                : updateInstallmentEntries(current, editingLine.id, draft, scope),
+                ? commands.updateEntry(editingLine.id, draft, today)
+                : commands.updateInstallmentEntries(editingLine.id, draft, scope),
             );
             setEditingLine(null);
           }}
@@ -290,10 +278,10 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
           item={data.cardItems.find((i) => i.id === editingLine.id)!}
           onClose={() => setEditingLine(null)}
           onSave={(draft) => {
-            store.set((current) =>
+            store.run(
               editingLine.installment === undefined
-                ? updateCardItem(current, editingLine.id, draft)
-                : updateInstallmentItems(current, editingLine.id, draft, scope),
+                ? commands.updateCardItem(editingLine.id, draft)
+                : commands.updateInstallmentItems(editingLine.id, draft, scope),
             );
             setEditingLine(null);
           }}
@@ -306,10 +294,10 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
           danger
           onClose={() => setDeletingLine(null)}
           onConfirm={() => {
-            store.set((current) =>
+            store.run(
               deletingLine.origin === 'entry'
-                ? deleteEntries(current, [deletingLine.id])
-                : deleteCardItem(current, deletingLine.id),
+                ? commands.deleteEntries([deletingLine.id])
+                : commands.deleteCardItem(deletingLine.id),
             );
             setDeletingLine(null);
           }}
@@ -320,10 +308,11 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
 
       {dialog === 'charge' ? (
         <ChargeDialog
+          data={data}
           today={today}
           onClose={() => setDialog(null)}
           onSave={(draft) => {
-            store.set((current) => addCharge(current, card.id, key, draft));
+            store.run(commands.addCharge(card.id, key, draft));
             setDialog(null);
           }}
         />
@@ -334,11 +323,47 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
           today={today}
           onClose={() => setDialog(null)}
           onSave={(draft) => {
-            store.set((current) => addCredit(current, card.id, key, draft));
+            store.run(commands.addCredit(card.id, key, draft));
             setDialog(null);
           }}
         />
       ) : null}
+      {reversingLine === null ? null : (
+        <CreditDialog
+          data={data}
+          today={today}
+          initial={{
+            subtype: 'estorno',
+            description: `Estorno: ${reversingLine.description}`,
+            categoryId: reversingLine.categoryId ?? '',
+            value: (reversingLine.cents / 100).toFixed(2).replace('.', ','),
+            reversesId: reversingLine.id,
+          }}
+          onClose={() => setReversingLine(null)}
+          onSave={(draft) => {
+            store.run(
+              commands.addCredit(card.id, firstOpenInvoice(data, card.id, key), draft),
+            );
+            setReversingLine(null);
+          }}
+        />
+      )}
+      {movingLine === null ? null : (
+        <MoveInvoiceDialog
+          data={data}
+          card={card}
+          line={movingLine}
+          current={key}
+          today={today}
+          onClose={() => setMovingLine(null)}
+          onSave={(month) => {
+            store.run(
+              commands.moveToInvoice(movingLine.origin, movingLine.id, card.id, month),
+            );
+            setMovingLine(null);
+          }}
+        />
+      )}
       {dialog === 'pay' ? (
         <PayInvoiceDialog
           data={data}
@@ -347,7 +372,7 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
           today={today}
           onClose={() => setDialog(null)}
           onConfirm={(date) => {
-            store.set((current) => payInvoice(current, card.id, key, date, today));
+            store.run(commands.payInvoice(card.id, key, date, today));
             setDialog(null);
           }}
         />
@@ -358,7 +383,7 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
           card={card}
           onClose={() => setDialog(null)}
           onSave={(draft) => {
-            store.set((current) => updateCard(current, card.id, draft));
+            store.run(commands.updateCard(card.id, draft));
             setDialog(null);
           }}
         />
@@ -372,7 +397,7 @@ const CardInvoices = ({ card }: { readonly card: Card }): React.ReactElement => 
           onClose={() => setDialog(null)}
           onCreateRecurring={() => navigate(financeRoutes.recurrings())}
           onSave={(draft) => {
-            store.set((current) => addEntry(current, draft, today));
+            store.run(commands.addEntry(draft, today));
             setDialog(null);
           }}
         />

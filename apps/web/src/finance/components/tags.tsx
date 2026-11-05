@@ -39,6 +39,8 @@ export const StatusTag = ({
 
 export type NatureKind =
   | 'previsto'
+  | 'estornado'
+  | 'movido'
   | 'recorrente'
   | 'transferência'
   | 'fatura'

@@ -61,6 +61,7 @@ const csvEscape = (value: string): string =>
 const decimalComma = (value: string): string => value.replace('.', ',');
 
 export type FinanceHandler =
+  | 'snapshot'
   | 'overview'
   | 'search'
   | 'listCategories'
@@ -88,6 +89,8 @@ export type FinanceHandler =
   | 'deleteInvoicePayment'
   | 'createCardItem'
   | 'deleteCardItem'
+  | 'moveEntryInvoice'
+  | 'moveCardItemInvoice'
   | 'listRecurrings'
   | 'createRecurring'
   | 'updateRecurring'
@@ -124,6 +127,7 @@ export const createFinanceController = (deps: FinanceRouteDeps): FinanceControll
       });
 
   return {
+    snapshot: read(() => uc.getSnapshot()),
     overview: read((r) => uc.getOverview(q(r)['month'] as string | undefined)),
     search: read(
       (r) => uc.search(q(r)['q'] as string, q(r)['limit'] as number | undefined),
@@ -208,6 +212,12 @@ export const createFinanceController = (deps: FinanceRouteDeps): FinanceControll
     ),
     createCardItem: write((r) => uc.addCardItem(param(r, 'id'), body(r), meta(r))),
     deleteCardItem: write((r) => uc.deleteCardItem(param(r, 'item_id'), meta(r))),
+    moveEntryInvoice: write((r) =>
+      uc.moveToInvoice('entry', param(r, 'id'), body<{ invoice_month: string }>(r).invoice_month, meta(r)),
+    ),
+    moveCardItemInvoice: write((r) =>
+      uc.moveToInvoice('item', param(r, 'item_id'), body<{ invoice_month: string }>(r).invoice_month, meta(r)),
+    ),
 
     // Recorrentes
     listRecurrings: read(

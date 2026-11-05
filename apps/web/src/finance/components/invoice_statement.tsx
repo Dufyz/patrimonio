@@ -58,6 +58,8 @@ export const InvoiceStatement = ({
   locked,
   onEdit,
   onDelete,
+  onReverse,
+  onMove,
   blockAction,
   bare = false,
 }: {
@@ -69,6 +71,10 @@ export const InvoiceStatement = ({
   readonly locked: boolean;
   readonly onEdit: (line: InvoiceLine) => void;
   readonly onDelete: (line: InvoiceLine) => void;
+  /** Lança um crédito de estorno ligado à linha. */
+  readonly onReverse: (line: InvoiceLine) => void;
+  /** Move a linha para outra fatura, sem mudar a data. */
+  readonly onMove: (line: InvoiceLine) => void;
   /** Uma ação no cabeçalho de um bloco, como "Lançar encargo". */
   readonly blockAction?: ((block: InvoiceBlock) => React.ReactNode) | undefined;
   /** Sem moldura: o extrato mora no mesmo painel do cabeçalho da fatura. */
@@ -120,6 +126,8 @@ export const InvoiceStatement = ({
                     locked={locked}
                     onEdit={() => onEdit(line)}
                     onDelete={() => onDelete(line)}
+                    onReverse={() => onReverse(line)}
+                    onMove={() => onMove(line)}
                   />
                 ))}
               </Block>
@@ -208,6 +216,8 @@ const LineRow = ({
   locked,
   onEdit,
   onDelete,
+  onReverse,
+  onMove,
 }: {
   readonly line: InvoiceLine;
   readonly category: Category | undefined;
@@ -215,6 +225,8 @@ const LineRow = ({
   readonly locked: boolean;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
+  readonly onReverse: () => void;
+  readonly onMove: () => void;
 }): React.ReactElement => {
   const credit = line.block === 'creditos';
   return (
@@ -237,6 +249,8 @@ const LineRow = ({
             <NatureTag kind={TYPE_LABEL[line.subtype] ?? line.subtype} />
           )}
           {line.forecast ? <NatureTag kind="previsto" /> : null}
+          {line.reversed ? <NatureTag kind="estornado" /> : null}
+          {line.moved ? <NatureTag kind="movido" /> : null}
         </span>
       </Td>
       <Td numeric className="font-semibold">
@@ -251,6 +265,16 @@ const LineRow = ({
             <DropdownMenuItem disabled={locked} onSelect={onEdit}>
               Editar
             </DropdownMenuItem>
+            {credit || line.block === 'encargos' ? null : (
+              <DropdownMenuItem disabled={line.reversed} onSelect={onReverse}>
+                Estornar
+              </DropdownMenuItem>
+            )}
+            {line.block === 'encargos' ? null : (
+              <DropdownMenuItem disabled={locked} onSelect={onMove}>
+                Mover de fatura
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem disabled={locked} onSelect={onDelete}>
               Excluir
             </DropdownMenuItem>

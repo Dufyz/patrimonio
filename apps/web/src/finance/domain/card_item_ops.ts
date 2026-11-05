@@ -1,6 +1,6 @@
 import type { IsoDate } from '../lib/dates.js';
 import { parseMoneyInput } from '../lib/format.js';
-import { invoiceKeyOf, paymentOf } from './cards.js';
+import { entryInvoiceKey, invoiceKeyOf, paymentOf, shiftInvoice } from './cards.js';
 import type { CardItem, ChargeType, CreditType, FinanceData } from './types.js';
 
 /**
@@ -80,7 +80,11 @@ export const deleteCardItem = (data: FinanceData, id: string): FinanceData => {
   return { ...data, cardItems: data.cardItems.filter((item) => item.id !== id) };
 };
 
-export type CreditDraft = CardItemDraft & { readonly subtype: CreditType };
+export type CreditDraft = CardItemDraft & {
+  readonly subtype: CreditType;
+  /** O item ou lançamento da fatura que este crédito estorna. */
+  readonly reversesId?: string;
+};
 
 export const emptyCreditDraft = (today: IsoDate): CreditDraft => ({
   subtype: 'devolucao',
@@ -118,6 +122,7 @@ export const addCredit = (
     cents: parseMoneyInput(draft.value) ?? 0,
     subtype: draft.subtype,
     invoice,
+    ...(draft.reversesId === undefined ? {} : { reversesId: draft.reversesId }),
   };
   return { ...data, cardItems: [...data.cardItems, item] };
 };
@@ -126,6 +131,8 @@ export type ChargeDraft = {
   readonly subtype: ChargeType;
   readonly date: IsoDate;
   readonly value: string;
+  /** O encargo conta como despesa na categoria escolhida. */
+  readonly categoryId: string;
 };
 
 export const CHARGE_TYPES: readonly { readonly id: ChargeType; readonly name: string }[] =
@@ -139,12 +146,14 @@ export const emptyChargeDraft = (today: IsoDate): ChargeDraft => ({
   subtype: 'juros',
   date: today,
   value: '',
+  categoryId: '',
 });
 
 export const validateCharge = (
   draft: ChargeDraft,
-): Partial<Record<'date' | 'value', string>> => {
+): Partial<Record<'date' | 'value' | 'categoryId', string>> => {
   const errors: Record<string, string> = {};
+  if (draft.categoryId === '') errors['categoryId'] = 'Escolha a categoria.';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.date)) errors['date'] = 'Informe a data.';
   const value = parseMoneyInput(draft.value);
   if (value === null || value <= 0) errors['value'] = 'Informe um valor maior que zero.';
@@ -168,9 +177,73 @@ export const addCharge = (
     kind: 'encargo',
     date: draft.date,
     description: label,
+    categoryId: draft.categoryId,
     cents: parseMoneyInput(draft.value) ?? 0,
     subtype: draft.subtype,
     invoice,
   };
   return { ...data, cardItems: [...data.cardItems, item] };
+};
+
+/** O primeiro mês, a partir de `from`, cuja fatura ainda não tem pagamento. */
+export const firstOpenInvoice = (
+  data: FinanceData,
+  cardId: string,
+  from: string,
+): string => {
+  let key = from;
+  for (
+    let guard = 0;
+    guard < 36 && paymentOf(data, cardId, key) !== undefined;
+    guard += 1
+  )
+    key = shiftInvoice(key, 1);
+  return key;
+};
+
+/** Mover de fatura: o lançamento ou o item muda de fatura sem mudar de data. */
+export const moveToInvoice = (
+  data: FinanceData,
+  origin: 'entry' | 'item',
+  id: string,
+  cardId: string,
+  month: string,
+): FinanceData => {
+  if (!/^\d{4}-\d{2}$/.test(month)) return data;
+  const card = data.cards.find((c) => c.id === cardId);
+  if (card === undefined) return data;
+  if (origin === 'item') {
+    const item = data.cardItems.find((i) => i.id === id);
+    if (item === undefined) return data;
+    if (
+      paymentOf(data, cardId, itemInvoice(data, item)) !== undefined ||
+      paymentOf(data, cardId, month) !== undefined
+    )
+      return data;
+    return {
+      ...data,
+      cardItems: data.cardItems.map((i) => (i.id === id ? { ...i, invoice: month } : i)),
+    };
+  }
+  const entry = data.entries.find((e) => e.id === id);
+  if (entry === undefined || !entry.payments.some((p) => p.sourceId === cardId))
+    return data;
+  if (
+    paymentOf(data, cardId, entryInvoiceKey(card, entry)) !== undefined ||
+    paymentOf(data, cardId, month) !== undefined
+  )
+    return data;
+  return {
+    ...data,
+    entries: data.entries.map((e) =>
+      e.id === id
+        ? {
+            ...e,
+            payments: e.payments.map((p) =>
+              p.sourceId === cardId ? { ...p, invoice: month } : p,
+            ),
+          }
+        : e,
+    ),
+  };
 };

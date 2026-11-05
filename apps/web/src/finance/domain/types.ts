@@ -24,7 +24,12 @@ export type Category = {
 export type EntryStatus = 'prevista' | 'lancada';
 
 /** Uma origem de pagamento e a parte do valor que ela cobre (RN-01, RN-20). */
-export type Payment = { readonly sourceId: string; readonly cents: Cents };
+export type Payment = {
+  readonly sourceId: string;
+  readonly cents: Cents;
+  /** Pagamento no cartão: a fatura (`AAAA-MM`) em que a parte cai, quando movida de fatura. */
+  readonly invoice?: string;
+};
 
 export type Entry = {
   readonly id: string;
@@ -75,11 +80,11 @@ export type Recurring = {
   readonly active: boolean;
 };
 
-export type AccountType = 'conta' | 'beneficio';
+export type AccountType = 'conta';
 
 /**
- * RN-30 a RN-38: onde o dinheiro está. Conta entra no saldo em contas; benefício
- * fica fora (RN-30). O saldo é o inicial mais as movimentações (RN-31).
+ * RN-30 a RN-38: onde o dinheiro está. Toda conta entra no saldo em contas
+ * (RN-30), salvo se arquivada. O saldo é o inicial mais as movimentações (RN-31).
  */
 export type Account = {
   readonly id: string;
@@ -92,16 +97,13 @@ export type Account = {
   readonly type: AccountType;
   /** Saldo antes da primeira movimentação acompanhada. */
   readonly initialCents: Cents;
-  /** Benefício: crédito fixo mensal e o dia dele (RN-36). */
-  readonly creditCents?: Cents;
-  readonly creditDay?: number;
-  /** Primeiro mês (`AAAA-MM-01`) em que o crédito é gerado sozinho. */
-  readonly creditsFrom?: IsoDate;
   readonly archived?: boolean;
+  /** Movimentações anteriores a esta data já estão no saldo inicial e não contam. */
+  readonly openedOn?: IsoDate;
 };
 
-/** O que move uma conta além dos lançamentos (RN-32 a RN-34, RN-36). */
-export type MovementKind = 'transferencia' | 'credito' | 'ajuste';
+/** O que move uma conta além dos lançamentos (RN-32 a RN-34). */
+export type MovementKind = 'transferencia' | 'ajuste';
 
 /**
  * Movimentação fora de Lançamentos: nunca é receita nem despesa (RN-33).
@@ -161,6 +163,8 @@ export type CardItem = {
   };
   /** Crédito e encargo: o mês de vencimento da fatura (`AAAA-MM`). */
   readonly invoice?: string;
+  /** Crédito: o item da fatura que ele estorna. */
+  readonly reversesId?: string;
 };
 
 /**

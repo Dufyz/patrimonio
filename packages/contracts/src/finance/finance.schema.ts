@@ -60,15 +60,12 @@ export const categoryBreakdownSchema = z.object({
 // ─── Contas ──────────────────────────────────────────────────────────────────
 export const accountBody = z.object({
   name: text(60),
-  type: z.enum(['corrente', 'poupanca', 'carteira', 'beneficio']),
+  type: z.enum(['corrente', 'poupanca', 'carteira']),
   institution: z.string().trim().max(60).nullable().optional(),
   role: z.string().trim().max(160).optional(),
   role_tag: z.string().trim().max(30).nullable().optional(),
   opening_amount: nonNegativeDecimal,
   opening_date: dateOnly,
-  credit_amount: positiveDecimal.nullable().optional(),
-  credit_day: z.number().int().min(1).max(31).nullable().optional(),
-  credits_from: dateOnly.nullable().optional(),
 });
 export const listAccountsSchema = z.object({
   query: z.object({ month: finMonth.optional(), include_archived: flag }).optional(),
@@ -156,9 +153,14 @@ export const cardItemBody = z.object({
   amount: positiveDecimal,
   date: dateOnly.optional(),
   category_id: uuid.optional(),
+  /** Estorno: o lançamento ou item da fatura que este crédito desfaz. */
+  reverses_id: uuid.optional(),
 });
 export const createCardItemSchema = written({ id: uuid }, cardItemBody);
 export const deleteCardItemSchema = written({ item_id: uuid });
+export const moveInvoiceBody = z.object({ invoice_month: finMonth });
+export const moveEntryInvoiceSchema = written({ id: uuid }, moveInvoiceBody);
+export const moveCardItemInvoiceSchema = written({ item_id: uuid }, moveInvoiceBody);
 
 // ─── Recorrentes ─────────────────────────────────────────────────────────────
 const source = z.object({ type: finSourceType, id: uuid });
@@ -252,6 +254,8 @@ export const deleteEntrySchema = z.object({
 export const finOverviewSchema = z.object({
   query: z.object({ month: finMonth.optional() }).optional(),
 });
+/** A foto inteira de Finanças, como o front a lê para montar as telas. */
+export const finSnapshotSchema = z.object({ query: z.object({}).optional() });
 export const finSearchSchema = z.object({
   query: z.object({
     q: z.string().trim().min(1).max(120),

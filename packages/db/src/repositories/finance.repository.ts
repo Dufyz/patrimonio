@@ -33,7 +33,7 @@ const LOAD = `
   SELECT jsonb_build_object(
     'categories', (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.name), '[]') FROM fin_category t),
     'accounts', (SELECT COALESCE(jsonb_agg(to_jsonb(t) || jsonb_build_object(
-        'opening_amount', t.opening_amount::TEXT, 'credit_amount', t.credit_amount::TEXT) ORDER BY t.name), '[]') FROM fin_account t),
+        'opening_amount', t.opening_amount::TEXT) ORDER BY t.name), '[]') FROM fin_account t),
     'cards', (SELECT COALESCE(jsonb_agg(to_jsonb(t) || jsonb_build_object('limit_amount', t.limit_amount::TEXT) ORDER BY t.name), '[]') FROM fin_card t),
     'recurrings', (SELECT COALESCE(jsonb_agg(to_jsonb(t) || jsonb_build_object(
         'amount', t.amount::TEXT, 'covers_up_to', t.covers_up_to::TEXT) ORDER BY t.day, t.name), '[]') FROM fin_recurring t),
@@ -83,9 +83,6 @@ export const parseSnapshot = (raw: Record<string, Row[]>): FinSnapshot => ({
     role_tag: (r['role_tag'] as string | null) ?? null,
     opening_amount: r['opening_amount'] as string,
     opening_date: r['opening_date'] as string,
-    credit_amount: (r['credit_amount'] as string | null) ?? null,
-    credit_day: (r['credit_day'] as number | null) ?? null,
-    credits_from: (r['credits_from'] as string | null) ?? null,
     archived: r['archived'] as boolean,
     version: r['version'] as number,
   })),
@@ -161,6 +158,7 @@ export const parseSnapshot = (raw: Record<string, Row[]>): FinSnapshot => ({
     category_id: (r['category_id'] as string | null) ?? null,
     amount: r['amount'] as string,
     installment: installment(r),
+    reverses_id: (r['reverses_id'] as string | null) ?? null,
     version: r['version'] as number,
   })),
   invoice_payments: (raw['invoice_payments'] ?? []).map((r): FinInvoicePayment => ({
@@ -255,9 +253,6 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
           role_tag: r.role_tag,
           opening_amount: r.opening_amount,
           opening_date: r.opening_date,
-          credit_amount: r.credit_amount,
-          credit_day: r.credit_day,
-          credits_from: r.credits_from,
           archived: r.archived,
           version: r.version,
         }));
@@ -265,8 +260,7 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
           INSERT INTO fin_account ${sql(rows)}
           ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, type = EXCLUDED.type, institution = EXCLUDED.institution,
             role = EXCLUDED.role, role_tag = EXCLUDED.role_tag, opening_amount = EXCLUDED.opening_amount,
-            opening_date = EXCLUDED.opening_date, credit_amount = EXCLUDED.credit_amount, credit_day = EXCLUDED.credit_day,
-            credits_from = EXCLUDED.credits_from, archived = EXCLUDED.archived, version = fin_account.version + 1
+            opening_date = EXCLUDED.opening_date, archived = EXCLUDED.archived, version = fin_account.version + 1
             WHERE fin_account.version = EXCLUDED.version
           RETURNING id`;
         guard(rows.length, out.length);
@@ -410,6 +404,7 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
           installment_no: r.installment?.no ?? null,
           installment_total: r.installment?.total ?? null,
           installment_origin: r.installment?.origin ?? null,
+          reverses_id: r.reverses_id ?? null,
           version: r.version,
         }));
         const out = await sql`
@@ -418,7 +413,7 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
             purchase_date = EXCLUDED.purchase_date, invoice_month = EXCLUDED.invoice_month,
             description = EXCLUDED.description, category_id = EXCLUDED.category_id, amount = EXCLUDED.amount,
             installment_group_id = EXCLUDED.installment_group_id, installment_no = EXCLUDED.installment_no,
-            installment_total = EXCLUDED.installment_total, installment_origin = EXCLUDED.installment_origin,
+            installment_total = EXCLUDED.installment_total, installment_origin = EXCLUDED.installment_origin, reverses_id = EXCLUDED.reverses_id,
             version = fin_card_item.version + 1
             WHERE fin_card_item.version = EXCLUDED.version
           RETURNING id`;

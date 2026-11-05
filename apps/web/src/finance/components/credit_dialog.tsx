@@ -15,15 +15,21 @@ import type { CreditType, FinanceData } from '../domain/types.js';
 export const CreditDialog = ({
   data,
   today,
+  initial,
   onSave,
   onClose,
 }: {
+  /** Estorno de uma linha: já vem preenchido e ligado a ela. */
+  readonly initial?: Partial<CreditDraft> | undefined;
   readonly data: FinanceData;
   readonly today: string;
   readonly onSave: (draft: CreditDraft) => void;
   readonly onClose: () => void;
 }): React.ReactElement => {
-  const [draft, setDraft] = useState<CreditDraft>(() => emptyCreditDraft(today));
+  const [draft, setDraft] = useState<CreditDraft>(() => ({
+    ...emptyCreditDraft(today),
+    ...initial,
+  }));
   const [attempted, setAttempted] = useState(false);
   const errors = validateCardItem(draft, true);
   const shown = (field: keyof typeof errors): string | undefined =>
@@ -43,8 +49,12 @@ export const CreditDialog = ({
       open
       guard
       narrow
-      title="Lançar crédito"
-      subtitle="Estorno, cashback ou ajuste a favor"
+      title={initial?.reversesId === undefined ? 'Lançar crédito' : 'Estornar lançamento'}
+      subtitle={
+        initial?.reversesId === undefined
+          ? 'Estorno, cashback ou ajuste a favor'
+          : 'O crédito abate a fatura e marca o lançamento como estornado'
+      }
       onClose={onClose}
     >
       <FormShell

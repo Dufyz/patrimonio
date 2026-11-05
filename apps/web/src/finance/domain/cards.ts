@@ -99,9 +99,18 @@ export type InvoiceLine = {
   readonly installment: { readonly n: number; readonly of: number } | undefined;
   readonly subtype: string | undefined;
   readonly forecast: boolean;
+  /** Já existe um crédito que estorna esta linha. */
+  readonly reversed: boolean;
+  /** Veio de Lançamentos ou do item: a fatura foi escolhida à mão. */
+  readonly moved: boolean;
 };
 
-const entryLine = (entry: Entry, cents: Cents): InvoiceLine => ({
+const entryLine = (
+  entry: Entry,
+  cents: Cents,
+  reversed: boolean,
+  moved: boolean,
+): InvoiceLine => ({
   id: entry.id,
   origin: 'entry',
   block:
@@ -116,9 +125,11 @@ const entryLine = (entry: Entry, cents: Cents): InvoiceLine => ({
       : { n: entry.installment.n, of: entry.installment.of },
   subtype: undefined,
   forecast: entry.status === 'prevista',
+  reversed,
+  moved,
 });
 
-const itemLine = (item: CardItem): InvoiceLine => ({
+const itemLine = (item: CardItem, reversed: boolean, moved: boolean): InvoiceLine => ({
   id: item.id,
   origin: 'item',
   block:
@@ -139,10 +150,25 @@ const itemLine = (item: CardItem): InvoiceLine => ({
       : { n: item.installment.n, of: item.installment.of },
   subtype: item.subtype,
   forecast: false,
+  reversed,
+  moved,
 });
 
 const itemKey = (card: Card, item: CardItem): string =>
   item.invoice ?? invoiceKeyOf(card, item.date);
+
+/** A fatura em que a despesa cai neste cartão: a parte movida à mão, ou a da data (RN-42). */
+export const entryInvoiceKey = (card: Card, entry: Entry): string =>
+  entry.payments.find((payment) => payment.sourceId === card.id)?.invoice ??
+  invoiceKeyOf(card, entry.date);
+
+/** O item da fatura que o crédito `item` estorna. */
+const reversedIds = (data: FinanceData, card: Card): ReadonlySet<string> =>
+  new Set(
+    data.cardItems
+      .filter((item) => item.cardId === card.id && item.reversesId !== undefined)
+      .map((item) => item.reversesId as string),
+  );
 
 const byDate = (a: InvoiceLine, b: InvoiceLine): number =>
   compareDates(b.date, a.date) || a.description.localeCompare(b.description, 'pt-BR');
@@ -154,17 +180,35 @@ export const invoiceLines = (
   key: string,
 ): readonly InvoiceLine[] => {
   const lines: InvoiceLine[] = [];
+  const reversed = reversedIds(data, card);
   for (const entry of data.entries) {
     if (entry.kind !== 'despesa' || entry.historical === true) continue;
-    if (invoiceKeyOf(card, entry.date) !== key) continue;
+    if (entryInvoiceKey(card, entry) !== key) continue;
     const cents = entry.payments
       .filter((payment) => payment.sourceId === card.id)
       .reduce((sum, payment) => sum + payment.cents, 0);
-    if (cents > 0) lines.push(entryLine(entry, cents));
+    if (cents > 0)
+      lines.push(
+        entryLine(
+          entry,
+          cents,
+          reversed.has(entry.id),
+          invoiceKeyOf(card, entry.date) !== key,
+        ),
+      );
   }
   for (const item of data.cardItems) {
     if (item.cardId === card.id && itemKey(card, item) === key)
-      lines.push(itemLine(item));
+      lines.push(
+        itemLine(
+          item,
+          reversed.has(item.id),
+          item.kind !== 'credito' &&
+            item.kind !== 'encargo' &&
+            item.invoice !== undefined &&
+            item.invoice !== invoiceKeyOf(card, item.date),
+        ),
+      );
   }
   return lines.sort(byDate);
 };
@@ -233,7 +277,7 @@ export const cardInvoiceKeys = (
       entry.historical !== true &&
       entry.payments.some((p) => p.sourceId === card.id)
     ) {
-      keys.add(invoiceKeyOf(card, entry.date));
+      keys.add(entryInvoiceKey(card, entry));
     }
   }
   for (const item of data.cardItems)

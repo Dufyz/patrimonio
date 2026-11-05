@@ -15,7 +15,6 @@ export const FIN_ACCOUNT_TYPES = [
   'corrente',
   'poupanca',
   'carteira',
-  'beneficio',
 ] as const;
 export type FinAccountType = (typeof FIN_ACCOUNT_TYPES)[number];
 
@@ -30,7 +29,6 @@ export const FIN_RECURRING_MODES = ['manual', 'automatico'] as const;
 export type FinRecurringMode = (typeof FIN_RECURRING_MODES)[number];
 
 export const FIN_MOVEMENT_KINDS = [
-  'credito',
   'transferencia_entrada',
   'transferencia_saida',
   'ajuste',
@@ -71,10 +69,6 @@ export type FinAccount = {
   readonly opening_amount: string;
   /** Movimentações anteriores a esta data não entram no saldo. */
   readonly opening_date: string;
-  /** Benefício: crédito fixo mensal, o dia dele e o primeiro mês gerado (RN-36). */
-  readonly credit_amount: string | null;
-  readonly credit_day: number | null;
-  readonly credits_from: string | null;
   readonly archived: boolean;
   readonly version: number;
 };
@@ -166,6 +160,8 @@ export type FinCardItem = {
   readonly category_id: string | null;
   readonly amount: string;
   readonly installment: FinInstallment | null;
+  /** Crédito que estorna uma compra: o id do lançamento ou item estornado. */
+  readonly reverses_id: string | null;
   readonly version: number;
 };
 

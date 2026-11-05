@@ -355,6 +355,7 @@ describe('Encargos (FIN-512)', () => {
     );
     const dialog = within(screen.getByRole('dialog'));
     await userEvent.type(dialog.getByLabelText('Valor'), '12,34');
+    await userEvent.selectOptions(dialog.getByLabelText('Categoria'), 'Mercado');
     await userEvent.click(
       dialog.getByRole('button', { name: /^Lançar encargo(?:\s*⌘↵)?$/ }),
     );

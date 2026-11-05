@@ -93,6 +93,9 @@ export type Scope = fin.InstallmentScope;
  */
 export const financeUseCases = (deps: FinanceDeps) => ({
   // ─── Leituras ───────────────────────────────────────────────────────────────
+  /** Tudo que Finanças guarda, mais o "hoje" do servidor (fuso de São Paulo). */
+  getSnapshot: () => runRead(deps, (data, today) => ({ today, ...data })),
+
   getOverview: (month?: string) =>
     runRead(deps, (data, today) =>
       fin.overview(data, month ?? fin.monthKey(today), today),
@@ -419,11 +422,6 @@ export const financeUseCases = (deps: FinanceDeps) => ({
           ok(
             v.data,
             v.created.map((e) => e.id),
-            fin.benefitWarnings(
-              data,
-              { kind: draft.kind, payments: v.created[0]?.payments ?? [] },
-              ctx.today,
-            ),
           ),
         ),
       {
@@ -582,11 +580,27 @@ export const financeUseCases = (deps: FinanceDeps) => ({
       lift(fin.deleteCardItem(data, itemId), (next) => ok(next, { id: itemId })),
     ),
 
+  moveToInvoice: (
+    origin: 'entry' | 'item',
+    id: string,
+    invoiceMonth: string,
+    meta: WriteMeta = {},
+  ) =>
+    run(
+      deps,
+      'invoice.move',
+      { origin, id, invoiceMonth },
+      meta,
+      (data) =>
+        lift(fin.moveToInvoice(data, origin, id, invoiceMonth), (next) =>
+          ok(next, { id }),
+        ),
+    ),
+
   // ─── Rotina diária (worker e "sincronizar agora") ───────────────────────────
   syncDaily: (meta: WriteMeta = {}) =>
     run(deps, 'finance.sync', {}, meta, (data, ctx) => {
-      const recurring = fin.syncRecurring(data, ctx.today, ctx.newId);
-      const next = fin.syncBenefitCredits(recurring, ctx.today, ctx.newId);
+      const next = fin.syncRecurring(data, ctx.today, ctx.newId);
       return success(ok(next, { date: ctx.today }));
     }),
 });

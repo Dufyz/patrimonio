@@ -34,9 +34,31 @@ beforeEach(async () => {
   ]);
   ids = {};
   for (const c of categories.body.categories) ids[`cat:${c.name}`] = c.id;
-  for (const a of [...accounts.body.accounts, ...accounts.body.benefits])
+  for (const a of accounts.body.accounts)
     ids[`acc:${a.account.name}`] = a.account.id;
   for (const c of cards.body.cards) ids[`card:${c.card.name}`] = c.card.id;
+});
+
+describe('snapshot', () => {
+  it('devolve todas as coleções e o hoje do servidor', async () => {
+    const response = await get('/snapshot');
+    expect(response.status).toBe(200);
+    expect(response.body.today).toBe('2026-10-24');
+    for (const key of [
+      'categories',
+      'accounts',
+      'cards',
+      'recurrings',
+      'skips',
+      'entries',
+      'movements',
+      'card_items',
+      'invoice_payments',
+    ]) {
+      expect(Array.isArray(response.body[key])).toBe(true);
+    }
+    expect(response.body.entries.length).toBeGreaterThan(0);
+  });
 });
 
 describe('visão geral (CE-01 a CE-03)', () => {
@@ -46,7 +68,7 @@ describe('visão geral (CE-01 a CE-03)', () => {
     expect(response.body.receitas.amount).toBe('16350.00');
     expect(response.body.despesas.amount).toBe('9478.10');
     expect(response.body.saldo).toBe('6871.90');
-    expect(response.body.em_contas.amount).toBe('11773.15');
+    expect(response.body.em_contas.amount).toBe('12583.85');
     expect(response.body.faturas_abertas).toBe('5422.27');
     expect(response.body.months).toHaveLength(12);
   });
@@ -326,6 +348,71 @@ describe('contas, transferências e faturas', () => {
     expect(invoice.body.payments).toHaveLength(1);
   });
 
+  it('mover a compra para outra fatura muda só a fatura, não a data', async () => {
+    const snap = await get('/snapshot');
+    const entry = snap.body.entries.find(
+      (e: { payments: { source_type: string; source_id: string }[]; status: string }) =>
+        e.status === 'lancada' &&
+        e.payments.some((p) => p.source_type === 'cartao'),
+    );
+    const part = entry.payments.find((p: { source_type: string }) => p.source_type === 'cartao');
+    const target = '2027-01';
+    const moved = await send('post', `/entries/${entry.id}/invoice`, {
+      invoice_month: target,
+    });
+    expect(moved.status).toBe(200);
+    const after = await get('/snapshot');
+    const next = after.body.entries.find((e: { id: string }) => e.id === entry.id);
+    expect(next.date).toBe(entry.date);
+    expect(
+      next.payments.find((p: { source_type: string }) => p.source_type === 'cartao')
+        .invoice_month,
+    ).toBe(target);
+    expect(part.invoice_month).not.toBe(target);
+  });
+
+  it('mover para fatura com pagamento é recusado', async () => {
+    const snap = await get('/snapshot');
+    const item = snap.body.card_items[0];
+    const paid = snap.body.invoice_payments.find(
+      (p: { card_id: string }) => p.card_id === item.card_id,
+    );
+    if (paid === undefined) return;
+    const response = await send('post', `/card-items/${item.id}/invoice`, {
+      invoice_month: paid.invoice_month,
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it('estorno guarda de qual compra veio', async () => {
+    const snap = await get('/snapshot');
+    const entry = snap.body.entries.find(
+      (e: { payments: { source_type: string; source_id: string }[]; status: string }) =>
+        e.status === 'lancada' &&
+        e.payments.some((p) => p.source_type === 'cartao'),
+    );
+    const cardPart = entry.payments.find(
+      (p: { source_type: string }) => p.source_type === 'cartao',
+    );
+    const month = cardPart.invoice_month;
+    const cardId = cardPart.source_id;
+    const created = await send('post', `/cards/${cardId}/items`, {
+      kind: 'credito',
+      subtype: 'estorno',
+      invoice_month: month,
+      description: `Estorno · ${entry.description}`,
+      amount: '10.00',
+      reverses_id: entry.id,
+    });
+    expect(created.status).toBe(201);
+    const after = await get('/snapshot');
+    expect(
+      after.body.card_items.some(
+        (i: { reverses_id: string | null }) => i.reverses_id === entry.id,
+      ),
+    ).toBe(true);
+  });
+
   it('categoria em uso não é excluída (409 CATEGORY_IN_USE)', async () => {
     const response = await send('delete', `/categories/${ids['cat:Mercado']}`);
     expect(response.status).toBe(409);
@@ -334,18 +421,13 @@ describe('contas, transferências e faturas', () => {
 });
 
 describe('recorrentes e rotina diária', () => {
-  it('a rotina é idempotente: rodar duas vezes não duplica previstos nem créditos', async () => {
+  it('a rotina é idempotente: rodar duas vezes não duplica previstos', async () => {
     await send('post', '/jobs/sync');
     const first = await get('/entries?from=2026-01-01&to=2026-12-31&limit=200');
     await send('post', '/jobs/sync');
     const second = await get('/entries?from=2026-01-01&to=2026-12-31&limit=200');
     expect(second.body.total).toBe(first.body.total);
 
-    const [credits] = await harness.sql<{ n: string }[]>`
-      SELECT COUNT(*)::TEXT AS n FROM (
-        SELECT account_id, date_trunc('month', date) FROM fin_movement WHERE kind = 'CREDITO'
-        GROUP BY 1, 2 HAVING COUNT(*) > 1) d`;
-    expect(credits?.n).toBe('0');
   });
 
   it('pular um mês remove o previsto e a rotina não o recria', async () => {

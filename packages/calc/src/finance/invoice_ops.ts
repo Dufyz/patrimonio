@@ -72,7 +72,7 @@ export const payInvoiceErrors = (
   }
 
   const account = findAccount(data, input.account_id ?? card.pay_account_id);
-  if (account === undefined || account.archived || account.type === 'beneficio') {
+  if (account === undefined || account.archived) {
     errors.push(
       rule('INVOICE_ACCOUNT_INVALID', 'Escolha uma conta ativa para pagar a fatura.', {
         field: 'account_id',
@@ -163,6 +163,8 @@ export type CardItemInput = {
   readonly date?: string | undefined;
   /** Encargo: a categoria de despesa em que ele conta. */
   readonly category_id?: string | undefined;
+  /** Estorno: o lançamento ou item que este crédito desfaz. */
+  readonly reverses_id?: string | undefined;
 };
 
 const validateItem = (
@@ -255,6 +257,7 @@ export const addCardItem = (
     purchase_date: date,
     description: input.description.trim(),
     installment: null,
+    reverses_id: input.kind === 'credito' ? (input.reverses_id ?? null) : null,
     version: 1,
   } as const;
 
@@ -329,3 +332,79 @@ export const invoiceMonthOf = (
 };
 
 export { invoicePeriod };
+
+/**
+ * Mover um lançamento (a parte no cartão) ou um item para outra fatura do mesmo
+ * cartão, sem mexer na data da compra. Fatura que já recebeu pagamento não
+ * entra nem sai: mexer nela mudaria um total que já foi pago.
+ */
+export const moveToInvoice = (
+  data: FinSnapshot,
+  origin: 'entry' | 'item',
+  id: string,
+  month: string,
+): Either<readonly FinRuleError[], FinSnapshot> => {
+  if (!isMonthKey(month)) {
+    return failure([
+      rule('INVOICE_MONTH_INVALID', 'Informe o mês da fatura (AAAA-MM).', {
+        field: 'invoice_month',
+      }),
+    ]);
+  }
+  const paid = (cardId: string, key: string): boolean =>
+    data.invoice_payments.some((p) => p.card_id === cardId && p.invoice_month === key);
+  const blocked = (cardId: string, from: string): readonly FinRuleError[] | null =>
+    paid(cardId, from) || paid(cardId, month)
+      ? [
+          rule(
+            'INVOICE_PAID_LOCKED',
+            'Fatura com pagamento não recebe nem perde lançamentos. Exclua o pagamento antes.',
+          ),
+        ]
+      : null;
+
+  if (origin === 'item') {
+    const item = data.card_items.find((i) => i.id === id);
+    if (item === undefined) {
+      return failure([
+        rule('CARD_ITEM_NOT_FOUND', 'Item da fatura não encontrado.', { status: 404 }),
+      ]);
+    }
+    const locked = blocked(item.card_id, item.invoice_month);
+    if (locked !== null) return failure(locked);
+    return success({
+      ...data,
+      card_items: data.card_items.map((i) =>
+        i.id === id ? { ...i, invoice_month: month } : i,
+      ),
+    });
+  }
+
+  const entry = data.entries.find((e) => e.id === id);
+  if (entry === undefined) {
+    return failure([
+      rule('ENTRY_NOT_FOUND', 'Lançamento não encontrado.', { status: 404 }),
+    ]);
+  }
+  const part = entry.payments.find((p) => p.source_type === 'cartao');
+  if (part === undefined || part.invoice_month === null) {
+    return failure([
+      rule('ENTRY_NOT_ON_CARD', 'Só lançamento no cartão muda de fatura.'),
+    ]);
+  }
+  const locked = blocked(part.source_id, part.invoice_month);
+  if (locked !== null) return failure(locked);
+  return success({
+    ...data,
+    entries: data.entries.map((e) =>
+      e.id === id
+        ? {
+            ...e,
+            payments: e.payments.map((p) =>
+              p.source_type === 'cartao' ? { ...p, invoice_month: month } : p,
+            ),
+          }
+        : e,
+    ),
+  });
+};

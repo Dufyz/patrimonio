@@ -14,6 +14,7 @@ export const financeRoutes = (deps: FinanceRouteDeps): Router => {
   const router = Router();
   const f = createFinanceController(deps);
 
+  router.get('/finance/snapshot', validate(c.finSnapshotSchema), f.snapshot);
   router.get('/finance/overview', validate(c.finOverviewSchema), f.overview);
   router.get('/finance/search', validate(c.finSearchSchema), f.search);
   router.post('/finance/jobs/sync', validate(c.syncFinanceSchema), f.sync);
@@ -96,6 +97,16 @@ export const financeRoutes = (deps: FinanceRouteDeps): Router => {
     '/finance/payments/:payment_id',
     validate(c.deleteInvoicePaymentSchema),
     f.deleteInvoicePayment,
+  );
+  router.post(
+    '/finance/entries/:id/invoice',
+    validate(c.moveEntryInvoiceSchema),
+    f.moveEntryInvoice,
+  );
+  router.post(
+    '/finance/card-items/:item_id/invoice',
+    validate(c.moveCardItemInvoiceSchema),
+    f.moveCardItemInvoice,
   );
   router.delete(
     '/finance/card-items/:item_id',
