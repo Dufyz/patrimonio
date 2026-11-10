@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { currentMonth } from '../lib/period.js';
-import { categoryBreakdown, ledgerCard, monthResult, monthSeries } from './overview.js';
+import { categoryBreakdown, monthResult, monthSeries } from './overview.js';
 import { SEED_REFERENCE_DATE, seedData } from './seed.js';
 
 const data = seedData();
@@ -53,14 +53,5 @@ describe('Despesas por categoria (FIN-603)', () => {
       previous: 620000,
       tenths: 475,
     });
-  });
-});
-
-describe('card Lançamentos (FIN-604)', () => {
-  it('cinco lançados e até três previstos', () => {
-    const card = ledgerCard(data, OCTOBER);
-    expect(card.posted.length).toBeLessThanOrEqual(5);
-    expect(card.planned.length).toBeLessThanOrEqual(3);
-    expect(card.posted.every((e) => e.status === 'lancada')).toBe(true);
   });
 });

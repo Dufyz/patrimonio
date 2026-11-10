@@ -59,15 +59,28 @@ describe('Receitas × despesas (FIN-602)', () => {
   it('painel com subtítulo, legenda do mês do período e 12 meses no eixo', () => {
     open();
     const panel = screen.getByRole('region', { name: 'Receitas × despesas' });
-    expect(within(panel).getByText('últimos 12 meses')).toBeTruthy();
+    expect(within(panel).getByText(/últimos 12 meses/)).toBeTruthy();
     expect(within(panel).getByText('Receitas')).toBeTruthy();
     expect(within(panel).getByText('R$ 16.350')).toBeTruthy();
     expect(within(panel).getByText('Despesas')).toBeTruthy();
     expect(within(panel).getByText('R$ 9.478')).toBeTruthy();
-    const months = panel.querySelectorAll('[data-month]');
+    const months = panel.querySelectorAll('[data-month]:not([data-future])');
     expect(months).toHaveLength(12);
     expect(months[0]?.getAttribute('data-month')).toBe('2025-11');
     expect(months[11]?.getAttribute('data-month')).toBe('2026-10');
+  });
+
+  it('os três meses seguintes entram como previstos, sem o tom cheio', () => {
+    open();
+    const panel = screen.getByRole('region', { name: 'Receitas × despesas' });
+    const future = panel.querySelectorAll('[data-future="true"]');
+    expect(Array.from(future).map((g) => g.getAttribute('data-month'))).toEqual([
+      '2026-11',
+      '2026-12',
+      '2027-01',
+    ]);
+    expect(panel.querySelectorAll('[data-strong="true"]')).toHaveLength(1);
+    expect(within(panel).getByText('Previsto')).toBeTruthy();
   });
 
   it('o mês em andamento é o único com o tom cheio', () => {
@@ -145,38 +158,64 @@ describe('Despesas por categoria (FIN-603)', () => {
   });
 });
 
-describe('Card Lançamentos (FIN-604)', () => {
-  const card = () => screen.getByRole('region', { name: 'Lançamentos' });
-
-  it('duas seções, cinco lançados no máximo e previstos até três', () => {
-    open();
-    const items = within(card()).getAllByRole('listitem');
-    const text = items.map((item) => item.textContent ?? '');
-    expect(text[0]).toContain('Lançados');
-    const plannedAt = text.findIndex((t) => t.startsWith('Previstos'));
-    expect(plannedAt).toBeGreaterThan(0);
-    expect(plannedAt - 1).toBeLessThanOrEqual(5);
-    expect(text.length - plannedAt - 1).toBeLessThanOrEqual(3);
-    expect(card().querySelectorAll('[data-status="lancada"]')).toHaveLength(
-      plannedAt - 1,
-    );
-  });
-
-  it('cada linha traz data, origem e categoria na segunda linha, e o valor com sinal', () => {
-    open();
-    const first = within(card()).getAllByRole('listitem')[1]?.textContent ?? '';
-    expect(first).toMatch(/\d{2}\/\d{2} · .+ · .+/);
-    expect(first).toMatch(/[+−]R\$/);
-  });
-
-  it('o botão Lançamento abre o novo lançamento e o link abre Lançamentos', async () => {
+describe('Novo lançamento', () => {
+  it('o botão Lançamento abre o formulário', async () => {
     open();
     await userEvent.click(screen.getByRole('button', { name: /^Lançamento/ }));
     expect(screen.getByRole('dialog')).toBeTruthy();
-    await userEvent.keyboard('{Escape}');
-    await userEvent.click(
-      within(card()).getByRole('link', { name: 'Ver todos os lançamentos' }),
+  });
+
+  it('a Visão geral não tem mais o card de lançamentos', () => {
+    open();
+    expect(screen.queryByRole('region', { name: 'Lançamentos' })).toBeNull();
+  });
+});
+
+describe('Projeção de saldo', () => {
+  const panel = () => screen.getByRole('region', { name: 'Projeção de saldo' });
+
+  it('parte do saldo em contas de hoje e projeta até o fim do ano', () => {
+    open();
+    const text = panel().textContent ?? '';
+    expect(text).toContain('R$ 12.583,85');
+    expect(within(panel()).getByText('Menor saldo')).toBeTruthy();
+    expect(within(panel()).getByRole('img').getAttribute('aria-label')).toContain(
+      '31/12',
     );
-    expect(screen.getByText('Lançamentos aberto')).toBeTruthy();
+    expect(
+      within(panel()).getByRole('table', { name: 'Projeção mês a mês' }),
+    ).toBeTruthy();
+  });
+
+  it('trocar o horizonte muda a tabela mês a mês', async () => {
+    open();
+    const months = () =>
+      within(
+        within(panel()).getByRole('table', { name: 'Projeção mês a mês' }),
+      ).getAllByRole('row').length - 1;
+    expect(months()).toBe(3);
+    await userEvent.click(within(panel()).getByRole('radio', { name: 'Fim do mês' }));
+    expect(months()).toBe(1);
+    await userEvent.click(within(panel()).getByRole('radio', { name: '6 meses' }));
+    expect(months()).toBe(7);
+  });
+
+  it('o tooltip acompanha o cursor e marca o menor saldo', async () => {
+    open();
+    await userEvent.hover(within(panel()).getByTestId('projection-hit'));
+    expect(within(panel()).queryByTestId('projection-lowest')).toBeTruthy();
+  });
+});
+
+describe('Próximos 30 dias', () => {
+  it('lista o que ainda vai mexer nas contas, sem coluna de saldo', () => {
+    open();
+    const panel = screen.getByRole('region', { name: 'Próximos 30 dias' });
+    const rows = within(panel).getAllByRole('row').slice(1);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(panel.textContent).toContain('Fatura');
+    expect(
+      within(panel).queryByRole('columnheader', { name: 'Saldo depois' }),
+    ).toBeNull();
   });
 });

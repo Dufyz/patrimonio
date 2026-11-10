@@ -152,27 +152,5 @@ export const categoryBreakdown = (
   };
 };
 
-/** FIN-604 · Os cinco últimos lançados e até três previstos do período. */
-export const ledgerCard = (
-  data: FinanceData,
-  range: DateRange,
-): { readonly posted: readonly Entry[]; readonly planned: readonly Entry[] } => {
-  const inRange = data.entries.filter(
-    (entry) =>
-      entry.historical !== true &&
-      compareDates(entry.date, range.from) >= 0 &&
-      compareDates(entry.date, range.to) <= 0,
-  );
-  const byDateDesc = (a: Entry, b: Entry): number =>
-    compareDates(b.date, a.date) || a.description.localeCompare(b.description, 'pt-BR');
-  return {
-    posted: inRange.filter(isPosted).sort(byDateDesc).slice(0, 5),
-    planned: inRange
-      .filter((entry) => !isPosted(entry))
-      .sort((a, b) => -byDateDesc(a, b))
-      .slice(0, 3),
-  };
-};
-
 export const periodLength = (range: DateRange): number =>
   diffDays(range.from, range.to) + 1;

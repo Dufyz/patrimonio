@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Panel } from '../../components/primitives.js';
@@ -7,17 +7,14 @@ import { FlowChart } from '../components/flow_chart.js';
 import { PanelBoundary } from '../components/states.js';
 import { FinanceWelcome } from '../components/finance_welcome.js';
 import { EntryDialog } from '../components/entry_dialog.js';
-import { OverviewLedger } from '../components/overview_ledger.js';
 import { PeriodControl } from '../components/period_control.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { OverviewStrip } from '../components/overview_strip.js';
+import { ProjectionPanel } from '../components/projection_panel.js';
 import { ScreenHeader } from '../components/screen_header.js';
-import {
-  categoryBreakdown,
-  ledgerCard,
-  monthResult,
-  monthSeries,
-} from '../domain/overview.js';
+import { UpcomingPanel } from '../components/upcoming_panel.js';
+import { categoryBreakdown, monthResult, monthSeries } from '../domain/overview.js';
+import { projectedMonths } from '../domain/projection.js';
 import { emptyEntryDraft } from '../domain/entry_ops.js';
 import { formatMonth } from '../lib/format.js';
 import { PRIMARY_LABELS, pluralize } from '../lib/header.js';
@@ -26,9 +23,13 @@ import { financeRoutes } from '../lib/routes.js';
 import { useFinanceData, useFinanceStore } from '../store/finance_store.js';
 import { commands } from '../store/commands.js';
 
+/** Quantos meses depois do atual o gráfico de receitas × despesas prevê. */
+const PROJECTED_MONTHS = 3;
+
 /**
- * Visão geral (prancha 01): como estou no mês, de onde vem e para onde vai o
- * dinheiro. Só resume números que as outras telas produzem.
+ * Visão geral (prancha 01): como estou no mês, para onde o saldo vai e de onde
+ * vem e para onde vai o dinheiro. Só resume números que as outras telas
+ * produzem; a projeção é leitura sobre os mesmos dados.
  */
 export const OverviewScreen = (): React.ReactElement => {
   const data = useFinanceData();
@@ -39,7 +40,14 @@ export const OverviewScreen = (): React.ReactElement => {
   const result = monthResult(data, range, today);
   const series = monthSeries(data, range, today);
   const breakdown = categoryBreakdown(data, range);
-  const ledger = ledgerCard(data, range);
+  const current = series[series.length - 1];
+  const future = useMemo(
+    () =>
+      current?.selected === true && current.inProgress
+        ? projectedMonths(data, today, PROJECTED_MONTHS).slice(1)
+        : [],
+    [data, today, current?.selected, current?.inProgress],
+  );
 
   const firstUse =
     data.accounts.length === 0 && data.cards.length === 0 && data.entries.length === 0;
@@ -67,27 +75,30 @@ export const OverviewScreen = (): React.ReactElement => {
         <PanelBoundary title="o resultado do período">
           <OverviewStrip result={result} range={range} today={today} />
         </PanelBoundary>
+        <PanelBoundary title="a projeção de saldo">
+          <ProjectionPanel data={data} today={today} />
+        </PanelBoundary>
         <Panel
           title="Receitas × despesas"
-          action={<span className="text-xs text-ink-3">últimos 12 meses</span>}
+          action={
+            <span className="text-xs text-ink-3">
+              últimos 12 meses
+              {future.length > 0 ? ` e os ${future.length} seguintes` : ''}
+            </span>
+          }
         >
           <PanelBoundary title="o gráfico">
-            <FlowChart points={series} />
+            <FlowChart points={series} projected={future} />
           </PanelBoundary>
         </Panel>
+        <PanelBoundary title="os próximos 30 dias">
+          <UpcomingPanel data={data} today={today} />
+        </PanelBoundary>
         <PanelBoundary title="as despesas por categoria">
           <CategoryBreakdown
             breakdown={breakdown}
             categories={data.categories}
             range={range}
-            today={today}
-          />
-        </PanelBoundary>
-        <PanelBoundary title="os lançamentos">
-          <OverviewLedger
-            data={data}
-            posted={ledger.posted}
-            planned={ledger.planned}
             today={today}
           />
         </PanelBoundary>
