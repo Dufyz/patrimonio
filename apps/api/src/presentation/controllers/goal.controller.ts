@@ -39,6 +39,8 @@ type GoalQuery = {
   readonly portfolio_id: string;
   readonly on_date?: string;
   readonly rate?: string;
+  readonly nominal_rate?: string;
+  readonly monthly?: string;
 };
 
 type OverviewQuery = {
@@ -47,6 +49,7 @@ type OverviewQuery = {
   readonly distribution?: 'proportional' | 'priority';
   readonly cascade?: boolean;
   readonly priority?: readonly string[];
+  readonly rates?: Readonly<Record<string, string>>;
 };
 
 export const createGoalController = (deps: GoalDeps): GoalController => ({
@@ -56,6 +59,8 @@ export const createGoalController = (deps: GoalDeps): GoalController => ({
       portfolio_id: String(query?.portfolio_id),
       ...(query?.on_date === undefined ? {} : { on_date: query.on_date }),
       ...(query?.rate === undefined ? {} : { rate: query.rate }),
+      ...(query?.nominal_rate === undefined ? {} : { nominal_rate: query.nominal_rate }),
+      ...(query?.monthly === undefined ? {} : { monthly: query.monthly }),
     });
 
     if (result.isFailure()) {
@@ -74,6 +79,7 @@ export const createGoalController = (deps: GoalDeps): GoalController => ({
       ...(query?.distribution === undefined ? {} : { distribution: query.distribution }),
       ...(query?.cascade === undefined ? {} : { cascade: query.cascade }),
       ...(query?.priority === undefined ? {} : { priority: query.priority }),
+      ...(query?.rates === undefined ? {} : { rates: query.rates }),
     });
 
     if (result.isFailure()) {

@@ -85,6 +85,19 @@ export const goalsOverviewGoalSchema = z.object({
   current_months_to_arrival: z.number().int().nonnegative().nullable(),
   /** A parcela do orçamento pedido. Nulo para quem não entra no plano. */
   plan: goalsPlanShareSchema.nullable(),
+  /**
+   * A rentabilidade nominal ao ano: a da premissa e a que entrou na conta. Nulo
+   * sem premissa reconhecida nem simulação.
+   */
+  rate: z
+    .object({
+      /** Nulo quando a premissa é real (IPCA+x) e não há IPCA para convertê-la. */
+      premise_pct: decimalString.nullable(),
+      used_pct: decimalString.nullable(),
+      /** Verdadeiro quando a simulação trocou a taxa da premissa. */
+      overridden: z.boolean(),
+    })
+    .nullable(),
 });
 
 export const goalsOverviewRowSchema = z.object({
@@ -166,6 +179,31 @@ export const goalsOverviewSchema = z.object({
 
 const boolean = z.enum(['true', 'false']).transform((value) => value === 'true');
 
+const RATE = /^\d{1,3}(\.\d{1,4})?$/;
+
+/** `id:6.5,id:10`: a taxa ao ano simulada de cada carteira, no lugar da premissa. */
+const ratesQuery = z
+  .string()
+  .transform((value) =>
+    value === ''
+      ? []
+      : value.split(',').map((pair) => {
+          const [id = '', rate = ''] = pair.split(':');
+          return [id, rate] as const;
+        }),
+  )
+  .pipe(
+    z.array(
+      z.tuple([
+        uuid,
+        z
+          .string()
+          .refine((rate) => RATE.test(rate) && Number(rate) <= 100, 'taxa de 0 a 100'),
+      ]),
+    ),
+  )
+  .transform((pairs) => Object.fromEntries(pairs) as Record<string, string>);
+
 export const getGoalsOverviewSchema = z.object({
   query: z.object({
     on_date: dateOnly.optional(),
@@ -180,6 +218,8 @@ export const getGoalsOverviewSchema = z.object({
       .transform((value) => (value === '' ? [] : value.split(',')))
       .pipe(z.array(uuid))
       .optional(),
+    /** A rentabilidade nominal ao ano simulada por carteira (`id:taxa`, separadas por vírgula). */
+    rates: ratesQuery.optional(),
   }),
 });
 
