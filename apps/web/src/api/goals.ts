@@ -18,8 +18,10 @@ import { request } from './client.js';
  */
 export type GoalsQuery = {
   readonly portfolioId: string;
-  /** Taxa ao ano, em %, no lugar da premissa guardada. Ausente usa a premissa. */
-  readonly rate?: string | null | undefined;
+  /** Rentabilidade nominal ao ano, em %, no lugar da premissa. Ausente usa a premissa. */
+  readonly nominalRate?: string | null | undefined;
+  /** Um aporte mensal simulado para esta carteira. Ausente não simula. */
+  readonly monthly?: string | null | undefined;
 };
 
 export const fetchGoals = async (
@@ -29,8 +31,11 @@ export const fetchGoals = async (
   const search = new URLSearchParams();
   search.set('portfolio_id', query.portfolioId);
 
-  if (query.rate !== undefined && query.rate !== null) {
-    search.set('rate', query.rate);
+  if (query.nominalRate !== undefined && query.nominalRate !== null) {
+    search.set('nominal_rate', query.nominalRate);
+  }
+  if (query.monthly !== undefined && query.monthly !== null) {
+    search.set('monthly', query.monthly);
   }
 
   const suffix = search.toString();
@@ -49,9 +54,9 @@ export const fetchGoals = async (
 export type GoalsOverviewQuery = {
   /** O aporte mensal total a distribuir. Ausente vale o necessário. */
   readonly budget?: string | null | undefined;
-  readonly distribution?: 'proportional' | 'priority' | undefined;
   readonly cascade?: boolean | undefined;
-  readonly priority?: readonly string[] | undefined;
+  /** A rentabilidade simulada por carteira (id → taxa ao ano, em %). */
+  readonly rates?: Readonly<Record<string, string>> | undefined;
 };
 
 export const fetchGoalsOverview = async (
@@ -63,10 +68,10 @@ export const fetchGoalsOverview = async (
   if (query.budget !== undefined && query.budget !== null) {
     search.set('budget', query.budget);
   }
-  if (query.distribution !== undefined) search.set('distribution', query.distribution);
   if (query.cascade !== undefined) search.set('cascade', String(query.cascade));
-  if (query.priority !== undefined && query.priority.length > 0) {
-    search.set('priority', query.priority.join(','));
+  const rates = Object.entries(query.rates ?? {});
+  if (rates.length > 0) {
+    search.set('rates', rates.map(([id, rate]) => `${id}:${rate}`).join(','));
   }
 
   const suffix = search.toString();

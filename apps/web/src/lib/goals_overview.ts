@@ -9,25 +9,6 @@ import type { Series } from './chart/series.js';
  * aportes chegam prontos da `api`.
  */
 
-export type Distribution = 'proportional' | 'priority';
-
-export const DISTRIBUTION_OPTIONS: readonly {
-  readonly value: Distribution;
-  readonly label: string;
-  readonly title: string;
-}[] = [
-  {
-    value: 'proportional',
-    label: 'Proporcional',
-    title: 'Divide o aporte na proporção do que cada carteira precisa',
-  },
-  {
-    value: 'priority',
-    label: 'Por prioridade',
-    title: 'Enche as carteiras na ordem escolhida, cada uma até o necessário',
-  },
-];
-
 /* -------------------------------------------------------------------------- */
 /* O aporte digitado                                                           */
 
@@ -59,53 +40,8 @@ export const parseBudgetInput = (text: string): string | null => {
 export const decodeBudget = (raw: string | null): string | null =>
   raw !== null && /^\d{1,12}(\.\d{1,2})?$/.test(raw) && Number(raw) > 0 ? raw : null;
 
-export const decodeDistribution = (raw: string | null): Distribution =>
-  raw === 'priority' ? 'priority' : 'proportional';
-
 /** A cascata é o padrão: só `0` a desliga. */
 export const decodeCascade = (raw: string | null): boolean => raw !== '0';
-
-/* -------------------------------------------------------------------------- */
-/* A ordem de prioridade                                                       */
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export const decodePriority = (raw: string | null): readonly string[] =>
-  raw === null ? [] : raw.split(',').filter((id) => UUID.test(id));
-
-/**
- * A ordem completa: a da URL para quem está nela, e depois as carteiras que
- * faltam, na ordem em que a tabela as mostra. Id que não é mais de uma carteira
- * com meta somada cai fora, para a URL antiga não inventar prioridade.
- */
-export const effectivePriority = (
-  stored: readonly string[],
-  tableOrder: readonly string[],
-): readonly string[] => {
-  const known = new Set(tableOrder);
-  const kept = stored.filter(
-    (id, index) => known.has(id) && stored.indexOf(id) === index,
-  );
-
-  return [...kept, ...tableOrder.filter((id) => !kept.includes(id))];
-};
-
-export const moveInOrder = (
-  order: readonly string[],
-  id: string,
-  delta: -1 | 1,
-): readonly string[] => {
-  const index = order.indexOf(id);
-  const target = index + delta;
-
-  if (index === -1 || target < 0 || target >= order.length) return order;
-
-  const next = [...order];
-  const [moved] = next.splice(index, 1);
-  if (moved !== undefined) next.splice(target, 0, moved);
-
-  return next;
-};
 
 /* -------------------------------------------------------------------------- */
 /* Texto                                                                       */
@@ -165,16 +101,10 @@ export const overviewBadge = (
 type Row = GoalsOverviewResource['portfolios'][number];
 
 /**
- * A ordem da tabela. Por padrão, quem mais se atrasa vem primeiro — é onde a
- * pessoa precisa olhar —, depois as metas fora da soma, depois as carteiras sem
- * objetivo. Na distribuição por prioridade, a ordem é a da fila, para a tabela
- * mostrar o que o aporte vai encher primeiro.
+ * A ordem da tabela: quem mais se atrasa vem primeiro — é onde a pessoa precisa
+ * olhar —, depois as metas fora da soma, depois as carteiras sem objetivo.
  */
-export const sortRows = (
-  rows: readonly Row[],
-  distribution: Distribution,
-  priority: readonly string[],
-): readonly Row[] => {
+export const sortRows = (rows: readonly Row[]): readonly Row[] => {
   const rank = (row: Row): number => (row.goal === null ? 2 : row.goal.counted ? 0 : 1);
 
   const lateness = (row: Row): number => {
@@ -188,10 +118,6 @@ export const sortRows = (
 
   return [...rows].sort((left, right) => {
     if (rank(left) !== rank(right)) return rank(left) - rank(right);
-
-    if (distribution === 'priority' && rank(left) === 0) {
-      return priority.indexOf(left.portfolio_id) - priority.indexOf(right.portfolio_id);
-    }
 
     return lateness(right) - lateness(left);
   });

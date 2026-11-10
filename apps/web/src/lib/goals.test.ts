@@ -4,7 +4,6 @@ import {
   arrivalText,
   barState,
   OTHER_ASSUMPTION,
-  decodeRate,
   emptyGoalForm,
   formFromGoal,
   goalFormResult,
@@ -42,15 +41,6 @@ describe('lib/goals', () => {
     for (const bad of ['', 'abc', '-1', '101', '6.12345']) {
       expect(normalizeRateInput(bad)).toBeNull();
     }
-  });
-
-  it('a taxa na URL volta como saiu e descarta a inválida', () => {
-    expect(decodeRate('6')).toBe('6');
-    expect(decodeRate('5.5')).toBe('5.5');
-    for (const bad of ['', 'x', '-1', '101', '6.12345', 'a:6']) {
-      expect(decodeRate(bad)).toBeNull();
-    }
-    expect(decodeRate(null)).toBeNull();
   });
 
   it('a data do objetivo é mês e ano, e vale o último dia do mês', () => {
