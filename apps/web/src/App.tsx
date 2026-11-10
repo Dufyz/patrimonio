@@ -45,6 +45,7 @@ import { OverviewScreen } from './views/overview.js';
 import { GoalsScreen } from './views/goals.js';
 import { GoalsOverviewScreen } from './views/goals_overview.js';
 import { PositionsScreen } from './views/positions.js';
+import { ProjectionScreen } from './views/projection.js';
 import { SettingsScreen } from './views/settings/index.js';
 import { StatementScreen } from './views/statement.js';
 import { StrategyScreen } from './views/strategy.js';
@@ -108,6 +109,14 @@ const SCREENS: readonly (ScreenItem & {
       glyph: 'flag',
       path: 'objetivos',
       story: 'T-07',
+      consolidated: true,
+    },
+    {
+      id: 'projecao',
+      label: 'Projeção',
+      glyph: 'growth',
+      path: 'projecao',
+      story: 'T-08',
       consolidated: true,
     },
   ] as const
@@ -471,6 +480,12 @@ const Workbench = ({
           ) : (
             <GoalsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
           )
+        ) : current?.id === 'projecao' ? (
+          <ProjectionScreen
+            portfolios={portfolios}
+            portfolioId={portfolioId}
+            values={values}
+          />
         ) : (
           <ScreenPending label={current?.label ?? ''} story={current?.story ?? ''} />
         )}
@@ -580,6 +595,7 @@ const SHORTCUT_IDS: Readonly<Record<string, string>> = {
   movimentacoes: 'transactions',
   estrategia: 'strategy',
   objetivos: 'goals',
+  projecao: 'projection',
 };
 
 /**

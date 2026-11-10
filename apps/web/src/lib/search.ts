@@ -204,6 +204,7 @@ const SCREEN_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
   movimentacoes: ['extrato', 'lancamentos', 'transacoes', 'historico', 'operacoes'],
   estrategia: ['alocacao', 'alvo', 'rebalanceamento', 'distribuicao'],
   objetivos: ['metas', 'aposentadoria', 'sonhos'],
+  projecao: ['futuro', 'aportes', 'simulacao', 'plano', 'rentabilidade', 'reserva'],
   configuracoes: [
     'preferencias',
     'tema',
