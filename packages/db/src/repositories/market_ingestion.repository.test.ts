@@ -187,10 +187,7 @@ describe('escrita dos preços', () => {
     expect(unwrapSuccess(await repositories.market.upsertIndexQuotes([]))).toBe(0);
   });
 
-  it('o preço manual continua vencendo a fonte automática na leitura', async () => {
-    unwrapSuccess(
-      await repositories.market.upsertPrices([price(ITUB4, '2026-10-06', '32.41')]),
-    );
+  it('o preço manual cobre a ausência da cotação: sem cotação do dia, ele vale e vem marcado', async () => {
     unwrapSuccess(
       await repositories.manualPrices.upsert({
         asset_id: ITUB4,
@@ -205,6 +202,44 @@ describe('escrita dos preços', () => {
 
     expect(vigente?.manual).toBe(true);
     expect(vigente?.close).toBe('30.00000000');
+  });
+
+  it('quando a cotação real do dia chega, ela prevalece e o preço manual é descartado (MER-02)', async () => {
+    unwrapSuccess(
+      await repositories.manualPrices.upsert({
+        asset_id: ITUB4,
+        price_date: '2026-10-06',
+        price: '30.00',
+      }),
+    );
+    unwrapSuccess(
+      await repositories.market.upsertPrices([price(ITUB4, '2026-10-06', '32.41')]),
+    );
+
+    const [vigente] = unwrapSuccess(
+      await repositories.prices.latestPricesOn([ITUB4], '2026-10-06'),
+    );
+    expect(vigente?.manual).toBe(false);
+    expect(vigente?.close).toBe('32.41000000');
+
+    const restantes = unwrapSuccess(await repositories.manualPrices.listByAsset(ITUB4));
+    expect(restantes).toHaveLength(0);
+  });
+
+  it('a cotação de um dia não descarta o manual de outro dia', async () => {
+    unwrapSuccess(
+      await repositories.manualPrices.upsert({
+        asset_id: ITUB4,
+        price_date: '2026-10-07',
+        price: '31.00',
+      }),
+    );
+    unwrapSuccess(
+      await repositories.market.upsertPrices([price(ITUB4, '2026-10-06', '32.41')]),
+    );
+
+    const restantes = unwrapSuccess(await repositories.manualPrices.listByAsset(ITUB4));
+    expect(restantes).toHaveLength(1);
   });
 });
 

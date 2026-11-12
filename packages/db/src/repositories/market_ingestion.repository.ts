@@ -90,6 +90,24 @@ export const createMarketIngestionRepository = (
         RETURNING asset_id
       `;
 
+      // MER-02: o preço manual cobre a ausência da cotação. Quando a cotação
+      // real daquele dia chega, ela prevalece e o manual é descartado.
+      await sql`
+        DELETE FROM manual_price manual
+         USING UNNEST(
+           ${sql.array(
+             rows.map((row) => row.asset_id),
+             ARRAY_OID.uuid,
+           )}::UUID[],
+           ${sql.array(
+             rows.map((row) => row.price_date),
+             ARRAY_OID.date,
+           )}::DATE[]
+         ) AS arrived (asset_id, price_date)
+         WHERE manual.asset_id = arrived.asset_id
+           AND manual.price_date = arrived.price_date
+      `;
+
       return success(written.length);
     } catch (error) {
       return failure(getRepositoryError(error));

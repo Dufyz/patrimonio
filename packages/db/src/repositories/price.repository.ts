@@ -8,8 +8,8 @@ import { getRepositoryError } from '../errors/repository-error.js';
 import type { Connection } from '../postgresql.js';
 
 /**
- * A leitura de preço do fechamento. O preço manual vence a fonte automática
- * enquanto vale — é o que L-14 promete — e a consulta resolve isso com um `union`
+ * A leitura de preço do fechamento. O preço manual cobre a ausência da fonte
+ * automática, e a cotação real do mesmo dia prevalece sobre ele (MER-02) — e a consulta resolve isso com um `union`
  * e um `distinct on`, em vez de o motor decidir depois com duas listas na mão.
  *
  * `asset_price` e `manual_price` são lidas juntas de propósito: o fechamento
@@ -51,8 +51,8 @@ export const createPriceRepository = (sql: Connection): PriceRepository => ({
              WHERE asset_id = ANY(${sql.array([...assetIds])}::UUID[])
                AND price_date <= ${date}
           ) AS prices
-         -- Mesma data: o manual vence, porque foi uma decisão do usuário.
-         ORDER BY asset_id, price_date DESC, manual DESC
+         -- Mesma data: a cotação real vence (MER-02); o manual só cobre a ausência.
+         ORDER BY asset_id, price_date DESC, manual ASC
       `;
 
       return success(rows.map((row) => parsePriceAt(row)));
@@ -82,7 +82,7 @@ export const createPriceRepository = (sql: Connection): PriceRepository => ({
              WHERE asset_id = ANY(${sql.array([...assetIds])}::UUID[])
                AND price_date BETWEEN ${from} AND ${to}
           ) AS prices
-         ORDER BY asset_id, price_date, manual DESC
+         ORDER BY asset_id, price_date, manual ASC
       `;
 
       return success(rows.map((row) => parsePriceAt(row)));
