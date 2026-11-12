@@ -1,4 +1,8 @@
-import type { FinanceUseCases, FinanceOutcome } from '@patrimonio/application';
+import type {
+  FinanceUseCases,
+  FinanceOutcome,
+  listPortfolios,
+} from '@patrimonio/application';
 import type { AppError } from '@patrimonio/application';
 import type { Either } from '@patrimonio/shared';
 import type { Request, RequestHandler, Response } from 'express';
@@ -11,7 +15,10 @@ import {
 } from '../middleware/respond.js';
 
 export type FinanceRouteDeps = {
-  readonly usecases: { readonly finance: FinanceUseCases };
+  readonly usecases: {
+    readonly finance: FinanceUseCases;
+    readonly listPortfolios: ReturnType<typeof listPortfolios>;
+  };
 };
 
 type Query = Record<string, unknown>;
@@ -63,6 +70,7 @@ const decimalComma = (value: string): string => value.replace('.', ',');
 export type FinanceHandler =
   | 'snapshot'
   | 'overview'
+  | 'wealth'
   | 'search'
   | 'listCategories'
   | 'categoryBreakdown'
@@ -129,6 +137,12 @@ export const createFinanceController = (deps: FinanceRouteDeps): FinanceControll
   return {
     snapshot: read(() => uc.getSnapshot()),
     overview: read((r) => uc.getOverview(q(r)['month'] as string | undefined)),
+    // O valor das carteiras vem da última consolidação; sem nenhuma, o patrimônio é nulo.
+    wealth: read(async () => {
+      const portfolios = await deps.usecases.listPortfolios({ includeArchived: false });
+      if (portfolios.isFailure()) return portfolios;
+      return uc.getWealth(portfolios.value.total);
+    }),
     search: read(
       (r) => uc.search(q(r)['q'] as string, q(r)['limit'] as number | undefined),
       (groups) => ({ groups }),

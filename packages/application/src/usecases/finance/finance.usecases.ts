@@ -101,6 +101,13 @@ export const financeUseCases = (deps: FinanceDeps) => ({
       fin.overview(data, month ?? fin.monthKey(today), today),
     ),
 
+  /**
+   * LIV-09 · Patrimônio e Livre após faturas. `emCarteiras` é a soma das carteiras
+   * na última consolidação (`null` quando nenhuma foi consolidada).
+   */
+  getWealth: (emCarteiras: string | null) =>
+    runRead(deps, (data, today) => fin.wealthSummary(data, today, emCarteiras)),
+
   listEntries: (
     filters: Omit<fin.EntryFilters, 'range'> & Period,
     cursor: string | undefined,

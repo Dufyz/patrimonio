@@ -1,6 +1,14 @@
+import type { FinSnapshot } from '@patrimonio/domain';
 import type { Decimal } from 'decimal.js';
 
-import { dec, max, money, ZERO } from './money.js';
+import { totalInAccounts } from './accounts.js';
+import {
+  activeCards,
+  cardInvoiceKeys,
+  invoiceRemaining,
+  invoiceStatus,
+} from './cards.js';
+import { dec, max, money, total, ZERO } from './money.js';
 
 /**
  * LIV-08 e LIV-09 · A cascata do mês, o Patrimônio total e o Livre após faturas.
@@ -77,5 +85,52 @@ export const freeAfterInvoices = (
     livre: money(max(ZERO, balance.minus(owed))),
     falta: money(max(ZERO, owed.minus(balance))),
     total_devido: money(owed),
+  };
+};
+
+export type InvoiceDebt = {
+  /** Faturas abertas: compras ainda não fechadas, menos o que já foi pago. */
+  readonly abertas: string;
+  /** Fechadas a pagar: fechadas (ou parcialmente pagas) com saldo devedor. */
+  readonly fechadas_a_pagar: string;
+};
+
+/**
+ * RN-U4 · Total devido = aberta + fechada a pagar, dos cartões ativos. A fatura
+ * prevista (ciclo que ainda não abriu) e a paga não entram.
+ */
+export const invoiceDebt = (data: FinSnapshot, today: string): InvoiceDebt => {
+  const open: Decimal[] = [];
+  const closed: Decimal[] = [];
+  for (const card of activeCards(data)) {
+    for (const key of cardInvoiceKeys(data, card, today)) {
+      const remaining = invoiceRemaining(data, card, key);
+      if (remaining.lte(0)) continue;
+      const status = invoiceStatus(data, card, key, today);
+      if (status === 'aberta') open.push(remaining);
+      else if (status === 'fechada' || status === 'parcial') closed.push(remaining);
+    }
+  }
+  return { abertas: money(total(open)), fechadas_a_pagar: money(total(closed)) };
+};
+
+export type WealthSummary = Wealth & FreeAfterInvoices & InvoiceDebt;
+
+/**
+ * Os números de patrimônio de uma só vez, para que Visão geral, Contas e
+ * Cartões leiam o mesmo resultado (RN-U16). `emCarteiras` vem da última
+ * consolidação das carteiras; `null` quando nenhuma foi consolidada.
+ */
+export const wealthSummary = (
+  data: FinSnapshot,
+  today: string,
+  emCarteiras: string | null,
+): WealthSummary => {
+  const emContas = money(totalInAccounts(data, today));
+  const debt = invoiceDebt(data, today);
+  return {
+    ...wealth({ em_carteiras: emCarteiras, em_contas: emContas }),
+    ...freeAfterInvoices(emContas, debt.abertas, debt.fechadas_a_pagar),
+    ...debt,
   };
 };

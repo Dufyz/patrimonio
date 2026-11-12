@@ -1,7 +1,12 @@
+import { readFileSync } from 'node:fs';
+
 import { LEDGER_EFFECTS, LEDGER_KINDS } from '@patrimonio/domain';
+import type { FinSnapshot } from '@patrimonio/domain';
 import { describe, expect, it } from 'vitest';
 
-import { freeAfterInvoices, monthCascade, wealth } from './wealth.js';
+import { dec, money } from './money.js';
+import { overview } from './overview.js';
+import { freeAfterInvoices, monthCascade, wealth, wealthSummary } from './wealth.js';
 
 /** Fixture de 11/11/2026 (§2.3 da especificação). */
 describe('cascata do mês (LIV-08)', () => {
@@ -97,5 +102,40 @@ describe('Livre após faturas (LIV-09)', () => {
 
   it('sem fatura, tudo em contas é livre', () => {
     expect(freeAfterInvoices('1462.51', '0.00', '0.00').livre).toBe('1462.51');
+  });
+});
+
+describe('wealthSummary sobre a semente de demonstração', () => {
+  const seed = JSON.parse(
+    readFileSync(
+      new URL('../../../db/src/seeds/finance_demo.json', import.meta.url),
+      'utf8',
+    ),
+  ) as { snapshot: FinSnapshot };
+  const TODAY = '2026-10-24';
+  const summary = wealthSummary(seed.snapshot, TODAY, '100000.00');
+
+  it('o Em contas é o mesmo da Visão geral e o patrimônio soma carteiras e contas', () => {
+    expect(summary.em_contas).toBe(
+      overview(seed.snapshot, '2026-10', TODAY).em_contas.amount,
+    );
+    expect(summary.patrimonio).toBe(money(dec('100000.00').plus(summary.em_contas)));
+  });
+
+  it('o total devido é abertas + fechadas a pagar, e o livre fecha com ele', () => {
+    const owed = dec(summary.abertas).plus(summary.fechadas_a_pagar);
+    expect(summary.total_devido).toBe(money(owed));
+    expect(owed.gt(0)).toBe(true);
+    const free = dec(summary.livre);
+    const short = dec(summary.falta);
+    // Nunca sobra e falta ao mesmo tempo, e a conta fecha com Em contas.
+    expect(free.gt(0) && short.gt(0)).toBe(false);
+    expect(free.minus(short).plus(owed).toFixed(2)).toBe(summary.em_contas);
+  });
+
+  it('sem consolidação, o patrimônio é nulo e o livre continua valendo', () => {
+    const none = wealthSummary(seed.snapshot, TODAY, null);
+    expect(none.patrimonio).toBeNull();
+    expect(none.livre).toBe(summary.livre);
   });
 });

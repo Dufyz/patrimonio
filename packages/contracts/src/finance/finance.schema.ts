@@ -254,6 +254,8 @@ export const deleteEntrySchema = z.object({
 export const finOverviewSchema = z.object({
   query: z.object({ month: finMonth.optional() }).optional(),
 });
+/** LIV-09 · O patrimônio total e o livre após faturas, de uma leitura só. */
+export const finWealthSchema = z.object({ query: z.object({}).optional() });
 /** A foto inteira de Finanças, como o front a lê para montar as telas. */
 export const finSnapshotSchema = z.object({ query: z.object({}).optional() });
 export const finSearchSchema = z.object({

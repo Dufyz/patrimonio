@@ -482,3 +482,25 @@ describe('orçamento de consultas', () => {
     expect(count.queries).toBeLessThanOrEqual(2);
   });
 });
+
+describe('patrimônio e livre após faturas (LIV-09)', () => {
+  it('bate com o Em contas e com as faturas da Visão geral', async () => {
+    const wealth = await get('/wealth');
+    const overview = await get('/overview?month=2026-10');
+    expect(wealth.status).toBe(200);
+    expect(wealth.body.em_contas).toBe(overview.body.em_contas.amount);
+    // A demonstração não tem carteira consolidada: patrimônio nulo, nunca zero.
+    expect(wealth.body.em_carteiras).toBeNull();
+    expect(wealth.body.patrimonio).toBeNull();
+  });
+
+  it('o livre e o que falta fecham com Em contas e o total devido', async () => {
+    const { body } = await get('/wealth');
+    const owed = Number(body.abertas) + Number(body.fechadas_a_pagar);
+    expect(Number(body.total_devido)).toBeCloseTo(owed, 2);
+    expect(Number(body.livre) - Number(body.falta) + owed).toBeCloseTo(
+      Number(body.em_contas),
+      2,
+    );
+  });
+});

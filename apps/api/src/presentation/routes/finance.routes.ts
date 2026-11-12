@@ -16,6 +16,7 @@ export const financeRoutes = (deps: FinanceRouteDeps): Router => {
 
   router.get('/finance/snapshot', validate(c.finSnapshotSchema), f.snapshot);
   router.get('/finance/overview', validate(c.finOverviewSchema), f.overview);
+  router.get('/finance/wealth', validate(c.finWealthSchema), f.wealth);
   router.get('/finance/search', validate(c.finSearchSchema), f.search);
   router.post('/finance/jobs/sync', validate(c.syncFinanceSchema), f.sync);
 
