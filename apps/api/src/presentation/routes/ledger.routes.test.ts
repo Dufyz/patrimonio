@@ -353,3 +353,55 @@ describe('provento creditado na conta (LIV-05)', () => {
     ).toBe(0);
   });
 });
+
+describe('evento no livro (LIV-06)', () => {
+  const livro = (query: string) =>
+    request(harness.app).get(`/api/finance/book?month=2026-10&limit=200${query}`);
+
+  it('desdobramento não muda o custo total, não move dinheiro e só aparece com o filtro Evento', async () => {
+    const compra = await aportar({ account_id: conta, trade_date: '2026-10-10' });
+    const ativoId = compra.body.transaction.asset_id as string;
+
+    const registrado = await request(harness.app).post('/api/corporate-events').send({
+      asset_id: ativoId,
+      kind: 'split',
+      record_date: '2026-10-15',
+      ratio_from: '1',
+      ratio_to: '2',
+    });
+    expect(registrado.status).toBe(201);
+    const antes = await saldo();
+    const movimentos = await contagem(`SELECT COUNT(*) AS n FROM fin_movement`);
+    const confirmado = await request(harness.app).post(
+      `/api/corporate-events/${registrado.body.event.id}/confirm`,
+    );
+    expect(confirmado.status).toBe(200);
+
+    // nenhum dinheiro se moveu
+    expect(await saldo()).toBeCloseTo(antes, 2);
+    expect(await contagem(`SELECT COUNT(*) AS n FROM fin_movement`)).toBe(movimentos);
+
+    // o custo total da posição é o mesmo: 10 a 100,50 → 20 a 50,25
+    const preview = await request(harness.app).post('/api/transactions/preview').send({
+      kind: 'buy',
+      portfolio_id: carteira,
+      institution_id: corretora,
+      asset_id: ativoId,
+      trade_date: '2026-10-24',
+      quantity: '0',
+      unit_price: '0',
+      fees: '0',
+    });
+    expect(Number(preview.body.preview.position.cost_basis.before)).toBeCloseTo(1005, 2);
+    expect(Number(preview.body.preview.position.quantity.before)).toBeCloseTo(20, 4);
+
+    const padrao = await livro('');
+    const tipos = (padrao.body.rows as { kind: string }[]).map((r) => r.kind);
+    expect(tipos).not.toContain('EVENTO');
+
+    const soEvento = await livro('&tipo=EVENTO');
+    const eventos = (soEvento.body.rows as { kind: string }[]).map((r) => r.kind);
+    expect(eventos.length).toBeGreaterThan(0);
+    expect(new Set(eventos)).toEqual(new Set(['EVENTO']));
+  });
+});
