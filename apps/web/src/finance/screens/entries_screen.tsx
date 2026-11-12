@@ -25,7 +25,7 @@ import { browserStorage } from '../../lib/preferences.js';
 import { GROUPING_SUBTITLES, GroupSelector } from '../components/group_selector.js';
 import { LedgerStrip } from '../components/ledger_strip.js';
 import { LedgerTable } from '../components/ledger_table.js';
-import { PeriodControl } from '../components/period_control.js';
+import { FlowPeriodControl as PeriodControl } from '../../components/period_control.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { TableToolbar } from '../components/table_toolbar.js';

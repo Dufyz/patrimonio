@@ -864,7 +864,7 @@ describe('modal de novo lançamento (prancha Modais A)', () => {
       dialog.getByRole('combobox', { name: /Origem/ }),
       'itau-corrente',
     );
-    const effect = within(dialog.getByRole('group', { name: 'Efeito' }));
+    const effect = within(dialog.getByRole('table', { name: 'Efeito' }));
     expect(effect.getByText(/Receitas de/)).toBeTruthy();
   });
 });

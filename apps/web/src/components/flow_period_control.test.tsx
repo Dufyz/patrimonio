@@ -3,10 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { PeriodControl } from './period_control.js';
-import { FinancePeriodProvider, useFinancePeriod } from './period_provider.js';
-import { setTodayOverride } from '../lib/clock.js';
-import type { DateRange } from '../lib/period.js';
+import { FlowPeriodControl as PeriodControl } from './period_control.js';
+import {
+  FinancePeriodProvider,
+  useFinancePeriod,
+} from '../finance/components/period_provider.js';
+import { setTodayOverride } from '../finance/lib/clock.js';
+import type { DateRange } from '../finance/lib/period.js';
 
 const Harness = ({ onRange }: { readonly onRange?: (range: DateRange) => void }) => {
   const [range, setRange] = useState<DateRange>({ from: '2026-10-01', to: '2026-10-31' });

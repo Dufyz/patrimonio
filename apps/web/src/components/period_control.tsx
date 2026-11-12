@@ -9,6 +9,13 @@ import {
   formatRange,
   resolvePeriod,
 } from '../lib/period.js';
+import type { IsoDate } from '../finance/lib/dates.js';
+import {
+  PERIOD_SHORTCUTS as FLOW_SHORTCUTS,
+  formatRange as formatFlowRange,
+  shortcutFor as flowShortcutFor,
+} from '../finance/lib/period.js';
+import type { DateRange as FlowRange } from '../finance/lib/period.js';
 import { Icon } from './icon.js';
 import { Button, Label } from './primitives.js';
 import { Calendar } from './ui/calendar.js';
@@ -312,3 +319,65 @@ const RangeBody = ({
     onClose={onClose}
   />
 );
+
+/**
+ * CMP-05 · O controle de período do fluxo (intervalo livre em datas).
+ *
+ * É o seletor de intervalo de Investimentos — o mesmo botão (calendário,
+ * intervalo, seta) e o mesmo corpo (atalhos + calendário de dois meses) —, com
+ * os atalhos de Finanças e datas futuras liberadas, porque o mês inclui os
+ * lançamentos previstos. Nenhuma tela tem outro controle de período.
+ */
+export const FlowPeriodControl = ({
+  value,
+  onChange,
+  today,
+}: {
+  readonly value: FlowRange;
+  readonly onChange: (range: FlowRange) => void;
+  readonly today: IsoDate;
+}): React.ReactElement => {
+  const [open, setOpen] = useState(false);
+  const label = formatFlowRange(value, today);
+  const active = flowShortcutFor(value, today);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={`Período: ${label}`}
+          className="inline-flex h-control cursor-pointer items-center gap-2 rounded-control border border-line-2 bg-panel px-[11px] text-[0.78125rem] font-medium text-ink-2 hover:bg-panel-2"
+        >
+          <Icon name="calendar" />
+          <span className="tabular">{label}</span>
+          <Icon name="chevron-down" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        role="dialog"
+        aria-label="Escolher período"
+        align="end"
+        collisionPadding={16}
+        className="flex max-w-[calc(100vw-2rem)] flex-wrap"
+      >
+        <RangePickerBody
+          shortcuts={FLOW_SHORTCUTS.map((shortcut) => ({
+            id: shortcut.id,
+            label: shortcut.label,
+            range: shortcut.range(today),
+          }))}
+          activeId={active}
+          custom={active === null ? value : null}
+          today={today}
+          allowFuture
+          onShortcut={(shortcut) => onChange(shortcut.range as FlowRange)}
+          onApply={(range) => onChange(range as FlowRange)}
+          onClose={() => setOpen(false)}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+};

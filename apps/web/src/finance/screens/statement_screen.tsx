@@ -6,7 +6,7 @@ import { EntryDialog } from '../components/entry_dialog.js';
 import { AccountDialog } from '../components/account_dialog.js';
 import { Amount } from '../components/amount.js';
 import { BalanceChart } from '../components/balance_chart.js';
-import { PeriodControl } from '../components/period_control.js';
+import { FlowPeriodControl as PeriodControl } from '../../components/period_control.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { NatureTag } from '../components/tags.js';

@@ -6,7 +6,7 @@ import { FlowChart } from '../components/flow_chart.js';
 import { PanelBoundary } from '../components/states.js';
 import { FinanceWelcome } from '../components/finance_welcome.js';
 import { EntryDialog } from '../components/entry_dialog.js';
-import { PeriodControl } from '../components/period_control.js';
+import { FlowPeriodControl as PeriodControl } from '../../components/period_control.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import {
   ContasPanel,
