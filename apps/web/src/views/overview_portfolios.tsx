@@ -1,45 +1,56 @@
-import type { OverviewResource, PerformanceResource } from '@patrimonio/contracts';
+import type { OverviewResource } from '@patrimonio/contracts';
 
 import { CompositionBar } from '../components/bars.js';
 import { Money, Percent } from '../components/number.js';
-import { colorForSeries } from '../lib/tokens.js';
+import { usePortfolios } from '../components/portfolios_provider.js';
 import { percentAsRatio } from '../lib/overview.js';
-import { windowLabel } from '../lib/performance.js';
-
-const RETURN_KEYS = ['month', 'ytd', '12m', 'inception'] as const;
+import { colorForSeries } from '../lib/tokens.js';
 
 /**
- * "Quanto eu tenho em cada carteira" — o painel que só existe em Todas as
- * carteiras. A barra e a tabela leem a mesma lista: a cor de uma carteira é a
- * mesma nas duas, e o peso que a barra desenha é o que a coluna escreve.
- *
- * O retorno de cada carteira é o da cota dela, na mesma janela das classes:
- * a soma não tem cota, e esta é a leitura que ela esconde.
- *
- * As cores são as de série, e não as de classe: uma carteira não é uma classe
- * de ativo, e emprestar o verde de Ações a ela faria a barra mentir.
+ * IVG-003 · Carteiras: todas as carteiras, com a do escopo atual em destaque, e
+ * o total embaixo. A lista é a mesma nos dois escopos; só o destaque muda. A
+ * cor de uma carteira é de série, e não de classe: uma carteira não é uma
+ * classe de ativo, e emprestar o verde de Ações a ela faria a barra mentir.
  */
-export const PortfoliosTable = ({
+type Line = {
+  readonly id: string;
+  readonly name: string;
+  readonly value: string;
+  readonly weight: string | null;
+};
+
+export const PortfoliosPanel = ({
   overview,
-  performance,
   onOpenPortfolio,
 }: {
   readonly overview: OverviewResource;
-  /** Ausente enquanto carrega ou quando falha: o retorno vira traço. */
-  readonly performance: PerformanceResource | null;
   /** Abre a Visão geral da carteira. Ausente, o nome é só texto. */
   readonly onOpenPortfolio?: ((portfolioId: string) => void) | undefined;
 }): React.ReactElement => {
-  const rows = overview.by_portfolio;
-  const returns = new Map(
-    (performance?.breakdown.portfolios ?? []).map((row) => [row.portfolio_id, row]),
-  );
-  const labelContext = {
-    referenceDate: overview.reference_date,
-    inception: overview.scope.inception,
-  };
+  const shared = usePortfolios();
+  const weights = new Map(overview.by_portfolio.map((row) => [row.portfolio_id, row]));
+  const selected = overview.scope.portfolio_id;
 
-  if (rows.length === 0) {
+  // O app lê a lista uma vez; sem ela (galeria, teste) vale a da própria resposta.
+  const lines: readonly Line[] =
+    shared.portfolios.length > 0
+      ? shared.portfolios.map((portfolio) => ({
+          id: portfolio.id,
+          name: portfolio.name,
+          value: shared.values[portfolio.id] ?? '0.00',
+          weight: weights.get(portfolio.id)?.weight_pct ?? null,
+        }))
+      : overview.by_portfolio.map((row) => ({
+          id: row.portfolio_id,
+          name: row.name,
+          value: row.value,
+          weight: row.weight_pct,
+        }));
+
+  const total = shared.total ?? overview.totals.value;
+  const withWeight = lines.some((line) => line.weight !== null);
+
+  if (lines.length === 0) {
     return (
       <p className="p-4 text-[0.8125rem] text-ink-3">
         Nenhuma carteira consolidada até a data de referência.
@@ -49,22 +60,24 @@ export const PortfoliosTable = ({
 
   return (
     <>
-      <div className="px-4 pt-4 pb-1">
-        <CompositionBar
-          slices={rows.map((row, index) => ({
-            id: row.portfolio_id,
-            label: row.name,
-            colorToken: 'class.outros',
-            color: colorForSeries(index),
-            share: percentAsRatio(row.weight_pct),
-          }))}
-          label="Distribuição por carteira"
-        />
-      </div>
+      {withWeight ? (
+        <div className="px-4 pt-4 pb-1">
+          <CompositionBar
+            slices={lines.map((line, index) => ({
+              id: line.id,
+              label: line.name,
+              colorToken: 'class.outros',
+              color: colorForSeries(index),
+              share: percentAsRatio(line.weight),
+            }))}
+            label="Distribuição por carteira"
+          />
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-160 border-collapse text-[0.8125rem]">
-          <caption className="sr-only">Valor, peso e retorno de cada carteira</caption>
+        <table className="w-full border-collapse text-[0.8125rem]">
+          <caption className="sr-only">Valor de cada carteira</caption>
           <thead>
             <tr className="tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
               <th scope="col" className="px-4 py-[9px] text-left font-medium">
@@ -73,69 +86,64 @@ export const PortfoliosTable = ({
               <th scope="col" className="px-4 py-[9px] text-right font-medium">
                 Valor
               </th>
-              <th scope="col" className="px-4 py-[9px] text-right font-medium">
-                Peso
-              </th>
-              {RETURN_KEYS.map((key) => (
-                <th
-                  key={key}
-                  scope="col"
-                  className="px-4 py-[9px] text-right font-medium"
-                >
-                  {windowLabel(key, labelContext)}
+              {withWeight ? (
+                <th scope="col" className="px-4 py-[9px] text-right font-medium">
+                  Peso
                 </th>
-              ))}
+              ) : null}
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
+            {lines.map((line, index) => (
               <tr
-                key={row.portfolio_id}
-                className="h-(--row-height) border-t border-line"
+                key={line.id}
+                aria-current={line.id === selected ? 'true' : undefined}
+                className={`h-(--row-height) border-t border-line ${
+                  line.id === selected ? 'bg-panel-2 font-medium' : ''
+                }`}
               >
-                <th scope="row" className="px-4 text-left font-normal">
+                <th scope="row" className="px-4 text-left font-[inherit]">
                   <span className="flex items-center gap-2">
-                    {/* O mesmo recuo da seta das classes: os nomes alinham. */}
-                    <span aria-hidden="true" className="w-3.5 shrink-0" />
                     <span
                       aria-hidden="true"
                       className="size-2 shrink-0 rounded-xs"
                       style={{ backgroundColor: colorForSeries(index) }}
                     />
                     {onOpenPortfolio === undefined ? (
-                      row.name
+                      line.name
                     ) : (
                       <button
                         type="button"
                         className="cursor-pointer hover:text-accent"
-                        onClick={() => onOpenPortfolio(row.portfolio_id)}
+                        onClick={() => onOpenPortfolio(line.id)}
                       >
-                        {row.name}
+                        {line.name}
                       </button>
                     )}
                   </span>
                 </th>
                 <td className="px-4 text-right">
-                  <Money value={row.value} />
+                  <Money value={line.value} />
                 </td>
-                <td className="px-4 text-right">
-                  <Percent value={percentAsRatio(row.weight_pct)} decimals={1} />
-                </td>
-                {RETURN_KEYS.map((key, column) => (
-                  <td key={key} className="px-4 text-right">
-                    <Percent
-                      value={percentAsRatio(
-                        returns.get(row.portfolio_id)?.returns[column] ?? null,
-                      )}
-                      decimals={2}
-                      signed
-                      tone="signed"
-                    />
+                {withWeight ? (
+                  <td className="px-4 text-right">
+                    <Percent value={percentAsRatio(line.weight)} decimals={1} />
                   </td>
-                ))}
+                ) : null}
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr className="h-(--row-height) border-t border-line-strong font-medium">
+              <th scope="row" className="px-4 text-left font-[inherit]">
+                Total
+              </th>
+              <td className="px-4 text-right">
+                <Money value={total} />
+              </td>
+              {withWeight ? <td /> : null}
+            </tr>
+          </tfoot>
         </table>
       </div>
     </>

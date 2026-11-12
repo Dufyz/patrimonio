@@ -1,6 +1,4 @@
-import type { OverviewResource, PerformanceResource } from '@patrimonio/contracts';
-
-type PerformanceClassRow = PerformanceResource['breakdown']['classes'][number];
+import type { OverviewResource } from '@patrimonio/contracts';
 
 import { useState } from 'react';
 
@@ -8,17 +6,13 @@ import { CompositionBar } from '../components/bars.js';
 import { Icon } from '../components/icon.js';
 import { Money, Percent, Points } from '../components/number.js';
 import { percentAsRatio, trimDecimals } from '../lib/overview.js';
-import { windowLabel } from '../lib/performance.js';
 import { colorForToken } from '../lib/tokens.js';
 
 /**
- * Por classe de ativo: a distribuição, o desvio do alvo e o retorno de cada
- * classe numa tabela só. A composição (peso e alvo) vem de Visão geral; o
- * retorno, de Desempenho. As duas leituras descrevem as mesmas classes, e duas
- * tabelas com as mesmas linhas obrigavam a ler uma contra a outra.
+ * IVG-002 · Alocação por classe: a distribuição e, numa carteira, o desvio do
+ * alvo. O retorno das classes fica em Posições e Estratégia; aqui a pergunta é
+ * onde está o dinheiro.
  */
-
-const RETURN_KEYS = ['month', 'ytd', '12m', 'inception'] as const;
 
 type ClassLine = {
   readonly id: string;
@@ -69,17 +63,13 @@ const classLines = (
 
 export const ClassesTable = ({
   overview,
-  performance,
 }: {
   readonly overview: OverviewResource;
-  /** Ausente enquanto carrega ou quando falha: o retorno vira traço. */
-  readonly performance: PerformanceResource | null;
 }): React.ReactElement => {
   const lines = classLines(overview.composition.nodes);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   // Todas as carteiras: o alvo é de cada carteira, e a soma delas não tem um.
-  // A coluna some em vez de aparecer só com traço. O retorno da classe é Dietz
-  // sobre a soma dos fluxos, e esse vale para qualquer escopo.
+  // A coluna some em vez de aparecer só com traço.
   const consolidated = overview.scope.portfolio_id === null;
 
   if (lines.length === 0) {
@@ -89,14 +79,6 @@ export const ClassesTable = ({
       </p>
     );
   }
-
-  const returns = new Map<string, PerformanceClassRow>(
-    (performance?.breakdown.classes ?? []).map((row) => [row.category_id, row]),
-  );
-  const labelContext = {
-    referenceDate: overview.reference_date,
-    inception: overview.scope.inception,
-  };
 
   const withTarget = lines.filter((line) => line.hasTarget);
   const out = withTarget.filter((line) => line.overTolerance);
@@ -125,10 +107,8 @@ export const ClassesTable = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-160 border-collapse text-[0.8125rem]">
-          <caption className="sr-only">
-            Distribuição e retorno por classe de ativo
-          </caption>
+        <table className="w-full min-w-80 border-collapse text-[0.8125rem]">
+          <caption className="sr-only">Distribuição por classe de ativo</caption>
           <thead>
             <tr className="tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
               <th scope="col" className="px-4 py-[9px] text-left font-medium">
@@ -145,20 +125,10 @@ export const ClassesTable = ({
                   vs alvo
                 </th>
               )}
-              {RETURN_KEYS.map((key) => (
-                <th
-                  key={key}
-                  scope="col"
-                  className="px-4 py-[9px] text-right font-medium"
-                >
-                  {windowLabel(key, labelContext)}
-                </th>
-              ))}
             </tr>
           </thead>
           <tbody>
             {lines.flatMap((line) => {
-              const row = returns.get(line.id);
               const expanded = open.has(line.id);
               const members = line.members.filter((member) => member.value !== '0.00');
 
@@ -208,20 +178,6 @@ export const ClassesTable = ({
                       />
                     </td>
                   )}
-                  {RETURN_KEYS.map((key, index) => (
-                    <td key={key} className="px-4 text-right">
-                      <Percent
-                        value={
-                          row === undefined
-                            ? null
-                            : percentAsRatio(row.returns[index] ?? null)
-                        }
-                        decimals={2}
-                        signed
-                        tone="signed"
-                      />
-                    </td>
-                  ))}
                 </tr>
               );
 
@@ -240,7 +196,7 @@ export const ClassesTable = ({
                       <td className="px-4 text-right">
                         <Percent value={percentAsRatio(member.currentPct)} decimals={1} />
                       </td>
-                      <td colSpan={RETURN_KEYS.length + (consolidated ? 0 : 1)} />
+                      {consolidated ? null : <td />}
                     </tr>
                   ))
                 : [];

@@ -1,4 +1,5 @@
 import type {
+  GoalsOverviewResource,
   OverviewResource,
   OverviewTopPositionResource,
   PerformanceResource,
@@ -7,6 +8,7 @@ import type { DateOnly } from '@patrimonio/domain';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
+import { fetchGoalsOverview } from '../api/goals.js';
 import { fetchOverview } from '../api/overview.js';
 import { fetchPerformance } from '../api/performance.js';
 
@@ -43,8 +45,9 @@ import { SEMANTIC_COLORS, colorForToken } from '../lib/tokens.js';
 import { listParam, readParams, writeParams } from '../lib/url_state.js';
 import { Icon } from '../components/icon.js';
 import { ClassesTable } from './overview_classes.js';
-import { PortfoliosTable } from './overview_portfolios.js';
-import { ReturnsChart } from './overview_returns.js';
+import { GoalPanelBody } from './overview_goal.js';
+import { PortfoliosPanel } from './overview_portfolios.js';
+import { ReturnsBars } from './overview_returns.js';
 import {
   SkeletonChart,
   SkeletonHeader,
@@ -75,6 +78,8 @@ export type OverviewViewProps = {
    * leitura não foi pedida; a tela então mostra só o que não depende dela.
    */
   readonly performance: Resource<PerformanceResource> | null;
+  /** O objetivo da carteira (ou os de todas): alimenta o painel de independência. */
+  readonly goals?: Resource<GoalsOverviewResource> | null | undefined;
   readonly period: Period;
   readonly onPeriodChange: (period: Period) => void;
   /** Os benchmarks pedidos além do da carteira, que a URL guarda. */
@@ -82,8 +87,9 @@ export type OverviewViewProps = {
   readonly onExtraIdsChange: (ids: readonly string[]) => void;
   readonly today: DateOnly;
   readonly onOpenAsset?: ((slug: string) => void) | undefined;
-  /** Leva a outra tela da carteira: `estrategia`, `posicoes`. */
-  readonly onOpenScreen?: ((path: 'estrategia' | 'posicoes') => void) | undefined;
+  /** Leva a outra tela do escopo: `estrategia`, `posicoes`, `objetivos`. */
+  readonly onOpenScreen?:
+    ((path: 'estrategia' | 'posicoes' | 'objetivos') => void) | undefined;
   /** Abre a Visão geral de uma carteira, a partir da distribuição por carteira. */
   readonly onOpenPortfolio?: ((portfolioId: string) => void) | undefined;
 };
@@ -93,7 +99,8 @@ export type OverviewScreenProps = {
   readonly portfolioId: string | null;
   /** Abre a página do ativo (T-03), pelo mesmo apelido que Posições usa. */
   readonly onOpenAsset?: ((slug: string) => void) | undefined;
-  readonly onOpenScreen?: ((path: 'estrategia' | 'posicoes') => void) | undefined;
+  readonly onOpenScreen?:
+    ((path: 'estrategia' | 'posicoes' | 'objetivos') => void) | undefined;
   readonly onOpenPortfolio?: ((portfolioId: string) => void) | undefined;
 };
 
@@ -167,6 +174,8 @@ export const OverviewScreen = ({
     [portfolioId, range.from, range.to, extraIds.join(',')],
   );
 
+  const goals = useResource((signal) => fetchGoalsOverview({}, signal), [portfolioId]);
+
   useEffect(() => {
     if (resource.state.kind === 'ready') {
       setInception(resource.state.value.scope.inception as DateOnly | null);
@@ -177,6 +186,7 @@ export const OverviewScreen = ({
     <OverviewView
       resource={resource}
       performance={performance}
+      goals={goals}
       period={period}
       onPeriodChange={onPeriodChange}
       extraIds={extraIds}
@@ -482,7 +492,7 @@ const ReturnsCard = ({
   return (
     <Panel
       title={`Retorno × benchmarks ${periodSuffix(period)}`}
-      hint="pela cota · base 0% · nada anualizado"
+      hint="pela cota · nada anualizado"
     >
       <div className="p-4">
         {state.kind === 'loading' ? (
@@ -494,7 +504,7 @@ const ReturnsCard = ({
         ) : state.value.reference_date === null ? (
           <p className="text-[0.8125rem] text-ink-3">Sem consolidação no período.</p>
         ) : (
-          <ReturnsChart
+          <ReturnsBars
             data={state.value}
             extraIds={extraIds}
             onExtraIdsChange={onExtraIdsChange}
@@ -508,6 +518,7 @@ const ReturnsCard = ({
 export const OverviewView = ({
   resource,
   performance,
+  goals = null,
   period,
   onPeriodChange,
   extraIds,
@@ -618,23 +629,73 @@ export const OverviewView = ({
             chart={<EvolutionCard overview={overview} period={period} today={today} />}
           />
 
-          {overview.scope.portfolio_id === null ? (
+          <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
             <Panel
-              title="Distribuição por carteira"
-              hint="peso e retorno pela cota de cada carteira"
+              title="Alocação por classe"
+              hint={
+                overview.scope.portfolio_id === null
+                  ? 'soma das carteiras'
+                  : 'peso e desvio do alvo'
+              }
               className="flex flex-col"
+              action={
+                onOpenScreen === undefined ||
+                overview.scope.portfolio_id === null ? undefined : (
+                  <PanelLink onClick={() => onOpenScreen('estrategia')}>
+                    Estratégia
+                  </PanelLink>
+                )
+              }
             >
-              <PortfoliosTable
+              <ClassesTable overview={overview} />
+            </Panel>
+
+            <Panel title="Carteiras" className="flex flex-col">
+              <PortfoliosPanel
                 overview={overview}
-                performance={
-                  performance !== null && performance.state.kind === 'ready'
-                    ? performance.state.value
-                    : null
-                }
                 {...(onOpenPortfolio === undefined ? {} : { onOpenPortfolio })}
               />
             </Panel>
-          ) : null}
+          </div>
+
+          <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
+            <Panel
+              title="Maiores posições"
+              className="flex flex-col"
+              action={
+                onOpenScreen === undefined ? undefined : (
+                  <PanelLink onClick={() => onOpenScreen('posicoes')}>
+                    Todas · {overview.top_positions.total_count}
+                  </PanelLink>
+                )
+              }
+            >
+              <TopPositions
+                overview={overview}
+                {...(onOpenAsset === undefined ? {} : { onOpenAsset })}
+              />
+            </Panel>
+
+            <Panel
+              title="Independência financeira"
+              className="flex flex-col"
+              action={
+                onOpenScreen === undefined ? undefined : (
+                  <PanelLink onClick={() => onOpenScreen('objetivos')}>
+                    {overview.scope.portfolio_id === null ? 'Objetivos' : 'Objetivo'}
+                  </PanelLink>
+                )
+              }
+            >
+              <GoalPanelBody
+                goals={goals}
+                portfolioId={overview.scope.portfolio_id}
+                {...(onOpenScreen === undefined
+                  ? {}
+                  : { onOpenGoals: () => onOpenScreen('objetivos') })}
+              />
+            </Panel>
+          </div>
 
           {performance === null ? null : (
             <ReturnsCard
@@ -644,50 +705,6 @@ export const OverviewView = ({
               period={period}
             />
           )}
-
-          <Panel
-            title="Por classe de ativo"
-            hint={
-              overview.scope.portfolio_id === null
-                ? 'peso e retorno somando as carteiras · Dietz modificado, a classe não tem cota'
-                : 'peso, alvo e retorno · Dietz modificado, a classe não tem cota'
-            }
-            className="flex flex-col"
-            action={
-              onOpenScreen === undefined ||
-              overview.scope.portfolio_id === null ? undefined : (
-                <PanelLink onClick={() => onOpenScreen('estrategia')}>
-                  Estratégia
-                </PanelLink>
-              )
-            }
-          >
-            <ClassesTable
-              overview={overview}
-              performance={
-                performance !== null && performance.state.kind === 'ready'
-                  ? performance.state.value
-                  : null
-              }
-            />
-          </Panel>
-
-          <Panel
-            title="Maiores posições"
-            className="flex flex-col"
-            action={
-              onOpenScreen === undefined ? undefined : (
-                <PanelLink onClick={() => onOpenScreen('posicoes')}>
-                  Todas · {overview.top_positions.total_count}
-                </PanelLink>
-              )
-            }
-          >
-            <TopPositions
-              overview={overview}
-              {...(onOpenAsset === undefined ? {} : { onOpenAsset })}
-            />
-          </Panel>
         </KeepPrevious>
       )}
     </div>

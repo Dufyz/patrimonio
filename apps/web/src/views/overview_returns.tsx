@@ -4,18 +4,19 @@ import type { DateOnly } from '@patrimonio/domain';
 import { useRef, useState } from 'react';
 
 import { Chip } from '../components/primitives.js';
-import { SeriesChart } from '../components/series_chart.js';
+import { Percent } from '../components/number.js';
 import { useDismiss } from '../components/use_dismiss.js';
-import { formatDate, monthTicks } from '../lib/overview.js';
+import { formatDate, percentAsRatio } from '../lib/overview.js';
 import {
   PORTFOLIO_COLOR,
+  windowLabel,
   addBenchmark,
   availableToAdd,
   benchmarkColor,
-  chartSeries,
   extraBenchmarks,
   removeBenchmark,
 } from '../lib/performance.js';
+import { colorForSeries } from '../lib/tokens.js';
 
 /**
  * O retorno da carteira dentro da Visão geral: o gráfico acumulado contra os
@@ -120,11 +121,61 @@ const LineSwatch = ({
   />
 );
 
+/** As janelas que a prancha mostra, na ordem em que a leitura vai do curto ao longo. */
+const WINDOWS = ['month', 'ytd', '12m', 'inception'] as const;
+
+type Bar = {
+  readonly id: string;
+  readonly label: string;
+  readonly color: string;
+  readonly value: string | null;
+};
+
+const BarRow = ({
+  bar,
+  scale,
+}: {
+  readonly bar: Bar;
+  /** O maior módulo entre todas as barras: o comprimento é comparável entre janelas. */
+  readonly scale: number;
+}): React.ReactElement => {
+  const ratio = percentAsRatio(bar.value);
+  const magnitude = bar.value === null ? 0 : Math.abs(Number(bar.value));
+  const width = scale === 0 ? 0 : Math.min(100, (magnitude / scale) * 100);
+
+  return (
+    <li className="flex items-center gap-3 text-[0.8125rem]">
+      <span className="w-40 shrink-0 truncate" title={bar.label}>
+        {bar.label}
+      </span>
+      <span
+        className="relative h-2 min-w-0 flex-1 rounded-xs bg-panel-2"
+        aria-hidden="true"
+      >
+        <span
+          className="absolute inset-y-0 left-0 rounded-xs"
+          style={{
+            width: `${width}%`,
+            backgroundColor:
+              bar.value !== null && Number(bar.value) < 0
+                ? 'var(--color-negative)'
+                : bar.color,
+          }}
+        />
+      </span>
+      <span className="w-20 shrink-0 text-right">
+        <Percent value={ratio} decimals={2} signed tone="signed" />
+      </span>
+    </li>
+  );
+};
+
 /**
- * O gráfico de retorno acumulado, com os benchmarks escolhidos como etiquetas
- * removíveis e o aviso do que não tem série no período.
+ * IVG-005 · Retorno × benchmarks em barras: a carteira (ou todas) ao lado do
+ * benchmark, por janela. Em Todas as carteiras entram também as carteiras, cada
+ * uma pela cota dela. O benchmark é escolhido por etiquetas removíveis.
  */
-export const ReturnsChart = ({
+export const ReturnsBars = ({
   data,
   extraIds,
   onExtraIdsChange,
@@ -133,19 +184,63 @@ export const ReturnsChart = ({
   readonly extraIds: readonly string[];
   readonly onExtraIdsChange: (ids: readonly string[]) => void;
 }): React.ReactElement => {
-  const { benchmarks, chart, scope } = data;
+  const { benchmarks, scope, windows, breakdown } = data;
   const primary = benchmarks.selected.find((item) => item.id === benchmarks.primary_id);
   const extras = extraBenchmarks(benchmarks.selected, benchmarks.primary_id);
-  const ticks = monthTicks(chart.dates as DateOnly[]);
+  const consolidated = scope.portfolio_id === null;
+  const context = { referenceDate: data.reference_date, inception: scope.inception };
+
+  const groups = WINDOWS.map((key) => {
+    const column = windows.columns.findIndex((item) => item.key === key);
+    const breakdownColumn = breakdown.columns.findIndex((item) => item.key === key);
+
+    const bars: Bar[] = windows.rows
+      .filter((row) => row.kind !== 'difference')
+      .map((row) => ({
+        id: `${row.kind}:${row.benchmark ?? ''}`,
+        label: row.name,
+        color:
+          row.kind === 'portfolio'
+            ? PORTFOLIO_COLOR
+            : benchmarkColor(
+                Math.max(
+                  0,
+                  benchmarks.selected.findIndex((item) => item.id === row.benchmark),
+                ),
+              ),
+        value: column < 0 ? null : (row.values[column] ?? null),
+      }));
+
+    if (consolidated) {
+      breakdown.portfolios.forEach((portfolio, index) =>
+        bars.push({
+          id: `carteira:${portfolio.portfolio_id}`,
+          label: portfolio.name,
+          color: colorForSeries(index),
+          value:
+            breakdownColumn < 0 ? null : (portfolio.returns[breakdownColumn] ?? null),
+        }),
+      );
+    }
+
+    return { key, bars };
+  });
+
+  const scale = Math.max(
+    0,
+    ...groups.flatMap((group) =>
+      group.bars.map((bar) => (bar.value === null ? 0 : Math.abs(Number(bar.value)))),
+    ),
+  );
 
   const gapIds = new Set(benchmarks.gaps.map((gap) => gap.id));
   const missing = benchmarks.selected.filter(
     (item) =>
-      !gapIds.has(item.id) && !chart.benchmarks.some((line) => line.id === item.id),
+      !gapIds.has(item.id) && !windows.rows.some((row) => row.benchmark === item.id),
   );
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <Chip selected>
           <LineSwatch color={PORTFOLIO_COLOR} />
@@ -175,22 +270,31 @@ export const ReturnsChart = ({
         />
       </div>
 
-      {chart.dates.length === 0 ? (
-        <p className="flex min-h-40 items-center justify-center text-[0.8125rem] text-ink-3">
-          Sem consolidação no período escolhido.
-        </p>
-      ) : (
-        <SeriesChart
-          dates={chart.dates as DateOnly[]}
-          series={chartSeries(chart, benchmarks.selected, scope.name)}
-          valueFormat="percent"
-          endLabels
-          inception={scope.inception as DateOnly | null}
-          ariaLabel="Retorno acumulado da carteira contra os benchmarks"
-          xTickLabel={(date) => ticks.get(date) ?? ''}
-          tooltipDateLabel={(date) => formatDate(date)}
-        />
-      )}
+      <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+        {groups.map((group) => (
+          <section
+            key={group.key}
+            aria-label={`Retorno · ${windowLabel(group.key, context)}`}
+          >
+            <h3 className="tabular mb-2 text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
+              {windowLabel(group.key, context)}
+            </h3>
+            <ul className="flex flex-col gap-2">
+              {group.bars.map((bar) => (
+                <BarRow key={bar.id} bar={bar} scale={scale} />
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+
+      <p className="text-[0.75rem] text-ink-3">
+        Retorno pela cota, acumulado até{' '}
+        {data.reference_date === null
+          ? 'a última consolidação'
+          : formatDate(data.reference_date as DateOnly)}{' '}
+        · nada anualizado · a janela “Início” parte do primeiro fechamento.
+      </p>
 
       {benchmarks.gaps.length === 0 ? null : (
         <p className="text-[0.75rem] text-attention">
@@ -202,8 +306,8 @@ export const ReturnsChart = ({
                 : `${gap.name} (série a partir de ${formatDate(gap.available_from as DateOnly)})`,
             )
             .join('; ')}
-          . O benchmark aparece como traço, e não como uma linha mais curta. Use
-          Atualizar agora em Configurações para carregar o histórico.
+          . O benchmark aparece como traço, e não como uma barra mais curta. Use Atualizar
+          agora em Configurações para carregar o histórico.
         </p>
       )}
       {missing.length === 0 ? null : (
