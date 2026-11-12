@@ -1,18 +1,14 @@
 import { useMemo, useState } from 'react';
 
-import type { FilterField as BarField } from '../../components/filter_bar.js';
-import {
-  FilterBar,
-  ToolbarIconButton,
-  ToolbarSearch,
-} from '../../components/filter_bar.js';
-import { Icon } from '../../components/icon.js';
-import type { IconName } from '../../components/icon.js';
-import { useShortcuts } from '../../components/shortcuts.js';
-import { toggleColumn } from '../lib/columns.js';
-import type { ColumnSpec } from '../lib/columns.js';
-import { clearFilterField, countActiveFilters } from '../lib/filters.js';
-import type { FilterField, FilterState } from '../lib/filters.js';
+import type { FilterField as BarField } from './filter_bar.js';
+import { FilterBar, ToolbarIconButton, ToolbarSearch } from './filter_bar.js';
+import { Icon } from './icon.js';
+import type { IconName } from './icon.js';
+import { useShortcuts } from './shortcuts.js';
+import { toggleColumn } from '../finance/lib/columns.js';
+import type { ColumnSpec } from '../finance/lib/columns.js';
+import { clearFilterField, countActiveFilters } from '../finance/lib/filters.js';
+import type { FilterField, FilterState } from '../finance/lib/filters.js';
 
 /**
  * FIN-005 · A barra de ferramentas da tabela: a `FilterBar` de Investimentos

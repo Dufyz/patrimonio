@@ -28,7 +28,7 @@ import { LedgerTable } from '../components/ledger_table.js';
 import { FlowPeriodControl as PeriodControl } from '../../components/period_control.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import { ScreenHeader } from '../components/screen_header.js';
-import { TableToolbar } from '../components/table_toolbar.js';
+import { TableToolbar } from '../../components/table_toolbar.js';
 import { groupEntries } from '../domain/ledger_groups.js';
 import { indicators as computeIndicators, queryEntries } from '../domain/ledger.js';
 import { activeSources } from '../domain/sources.js';

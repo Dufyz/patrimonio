@@ -28,7 +28,7 @@ import {
 import { EmptyPanel } from '../components/states.js';
 import { hideBelow } from '../lib/responsive.js';
 import { ScreenHeader } from '../components/screen_header.js';
-import { TableToolbar } from '../components/table_toolbar.js';
+import { TableToolbar } from '../../components/table_toolbar.js';
 import {
   MODE_LABEL,
   byDay,

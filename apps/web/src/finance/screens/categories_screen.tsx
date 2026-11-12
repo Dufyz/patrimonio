@@ -22,7 +22,7 @@ import {
   Th,
   THead,
 } from '../components/fin_table.js';
-import { TableToolbar } from '../components/table_toolbar.js';
+import { TableToolbar } from '../../components/table_toolbar.js';
 import type { Category } from '../domain/types.js';
 import { categoryColor } from '../lib/category_colors.js';
 import { exportTable } from '../lib/export.js';

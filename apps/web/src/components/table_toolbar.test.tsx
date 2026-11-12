@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { PreferencesProvider } from '../../components/preferences.js';
-import { ShortcutProvider } from '../../components/shortcuts.js';
-import type { FilterState } from '../lib/filters.js';
+import { PreferencesProvider } from './preferences.js';
+import { ShortcutProvider } from './shortcuts.js';
+import type { FilterState } from '../finance/lib/filters.js';
 import { TableToolbar } from './table_toolbar.js';
 
 const FIELDS = [
