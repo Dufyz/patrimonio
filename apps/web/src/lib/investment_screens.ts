@@ -57,6 +57,13 @@ export const INVESTMENT_SCREENS: readonly InvestmentScreen[] = [
     consolidated: true,
     shortcut: 'goals',
   },
+  {
+    id: 'projecao',
+    label: 'Projeção',
+    icon: 'growth',
+    consolidated: true,
+    shortcut: 'projection',
+  },
 ];
 
 /** As telas que existem no escopo, com o nome certo para ele. */

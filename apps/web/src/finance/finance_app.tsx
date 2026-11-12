@@ -1,9 +1,6 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { useRegisterSearch } from '../components/shell_search.js';
-import { useShortcuts } from '../components/shortcuts.js';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 
-import { FinanceSearch } from './components/finance_search.js';
 import { FinancePeriodProvider, useFinancePeriod } from './components/period_provider.js';
 
 import {
@@ -94,7 +91,7 @@ const RecurringSync = (): null => {
  * "Tentar novamente". Uma escrita que falha não tira a tela do ar: aparece um
  * aviso no topo, e a foto relida mostra o que o servidor tem de fato.
  */
-const StatusGate = ({ children }: { readonly children: React.ReactNode }) => {
+export const StatusGate = ({ children }: { readonly children: React.ReactNode }) => {
   const store = useFinanceStore();
   const status = useFinanceStatus();
   useEffect(() => {
@@ -131,9 +128,10 @@ const StatusGate = ({ children }: { readonly children: React.ReactNode }) => {
 };
 
 /**
- * O dono dos dados de Finanças: a foto do servidor, o período e o "hoje". Geral
- * e Finanças leem do mesmo lugar, e é por isso que o mesmo número aparece igual
- * nas duas áreas (RN-70) sem ler o servidor duas vezes.
+ * O dono dos dados de Finanças: a foto do servidor, o período e o "hoje". Mora
+ * na casca, acima de tudo: Geral, Finanças e a busca global leem do mesmo lugar,
+ * e é por isso que o mesmo número aparece igual em todas (RN-70) sem ler o
+ * servidor duas vezes. Quem espera a primeira foto é `StatusGate`.
  */
 export const FinanceProviders = ({
   store,
@@ -148,7 +146,7 @@ export const FinanceProviders = ({
     <FinanceStoreProvider store={remote}>
       <FinancePeriodProvider>
         <RecurringSync />
-        <StatusGate>{children}</StatusGate>
+        {children}
       </FinancePeriodProvider>
     </FinanceStoreProvider>
   );
@@ -156,11 +154,6 @@ export const FinanceProviders = ({
 
 /** As telas de Finanças, que esperam os provedores acima. */
 export const FinanceRoutes = (): React.ReactElement => {
-  const [searching, setSearching] = useState(false);
-  const shortcuts = useMemo(() => ({ search: () => setSearching(true) }), []);
-  useShortcuts(shortcuts);
-  // O botão de buscar da barra lateral abre a busca de Finanças.
-  useRegisterSearch(useCallback(() => setSearching(true), []));
   return (
     <>
       <Routes>
@@ -243,7 +236,6 @@ export const FinanceRoutes = (): React.ReactElement => {
         />
         <Route path="*" element={<Navigate to="/financas/visao-geral" replace />} />
       </Routes>
-      <FinanceSearch open={searching} onClose={() => setSearching(false)} />
     </>
   );
 };
@@ -254,13 +246,15 @@ export const FinanceApp = ({
   readonly store?: FinanceStore | undefined;
 }): React.ReactElement => (
   <FinanceProviders store={store}>
-    <FinanceRoutes />
+    <StatusGate>
+      <FinanceRoutes />
+    </StatusGate>
   </FinanceProviders>
 );
 
 /** O que Geral e Finanças têm em comum: os dados de Finanças. */
 export const FinanceHost = (): React.ReactElement => (
-  <FinanceProviders>
+  <StatusGate>
     <Outlet />
-  </FinanceProviders>
+  </StatusGate>
 );

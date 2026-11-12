@@ -33,7 +33,7 @@ export const Panel = ({
     <section
       {...(title === undefined ? {} : { 'aria-labelledby': titleId })}
       className={cn(
-        'min-w-0 overflow-hidden rounded-panel border border-line bg-panel shadow-panel',
+        'flex min-w-0 flex-col overflow-hidden rounded-panel border border-line bg-panel shadow-panel',
         className,
       )}
     >

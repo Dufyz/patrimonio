@@ -7,6 +7,7 @@ import { AppLayout } from './app_layout.js';
 import { PortfoliosProvider } from './components/portfolios_provider.js';
 import { PreferencesProvider } from './components/preferences.js';
 import { ShortcutProvider } from './components/shortcuts.js';
+import { createFinanceStore } from './finance/store/finance_store.js';
 
 vi.mock('./api/portfolios.js', () => ({
   fetchPortfolios: () =>
@@ -20,6 +21,11 @@ vi.mock('./api/portfolios.js', () => ({
     }),
 }));
 
+vi.mock('./api/search.js', () => ({
+  SEARCH_TEXT_MAX: 80,
+  fetchSearch: () => new Promise(() => undefined),
+}));
+
 vi.mock('./api/market.js', () => ({
   fetchMarketHealth: () => new Promise(() => undefined),
 }));
@@ -29,6 +35,8 @@ const Where = (): React.ReactElement => {
   return <output aria-label="caminho">{location.pathname}</output>;
 };
 
+const store = createFinanceStore(null);
+
 const open = async (path: string) => {
   const user = userEvent.setup();
   render(
@@ -37,7 +45,7 @@ const open = async (path: string) => {
         <PortfoliosProvider>
           <MemoryRouter initialEntries={[path]}>
             <Routes>
-              <Route element={<AppLayout />}>
+              <Route element={<AppLayout financeStore={store} />}>
                 <Route path="*" element={<Where />} />
               </Route>
             </Routes>
@@ -95,7 +103,7 @@ describe('NAV-004 · trocar de carteira e de área', () => {
       .map((button) => button.getAttribute('title'));
     expect(titles).toContain('Objetivo');
     expect(titles).toContain('Estratégia');
-    expect(titles).not.toContain('Projeção');
+    expect(titles).toContain('Projeção');
   });
 
   it('a página do ativo mantém Posições destacada, e trocar de carteira abre Posições', async () => {
@@ -174,22 +182,51 @@ describe('NAV-007 e NAV-008 · busca e atalhos de área', () => {
     await waitFor(() => expect(path()).toBe('/financas/contas'));
   });
 
-  it('em Geral, ⌘K abre o "Ir para" e leva à tela escolhida', async () => {
+  it('⌘K abre a busca global em qualquer área e leva à tela escolhida', async () => {
     const user = await open('/geral');
 
     await user.keyboard('{Meta>}k{/Meta}');
-    const campo = await screen.findByRole('searchbox', { name: 'Ir para' });
+    const campo = await screen.findByRole('combobox', { name: /Buscar/u });
     await user.type(campo, 'cartoes');
-    await user.click(screen.getByRole('button', { name: /Finanças › Cartões/u }));
+    await user.click(await screen.findByRole('option', { name: /Cartões.*Finanças/u }));
 
     await waitFor(() => expect(path()).toBe('/financas/cartoes'));
   });
 
-  it('o botão de buscar da barra também abre o "Ir para" em Geral', async () => {
+  it('a busca é a mesma em Finanças e chega às telas de Investimentos', async () => {
+    const user = await open('/financas/contas');
+
+    await user.keyboard('{Meta>}k{/Meta}');
+    await user.type(await screen.findByRole('combobox', { name: /Buscar/u }), 'posicoes');
+    await user.click(await screen.findByRole('option', { name: /Posições/u }));
+
+    await waitFor(() => expect(path()).toBe('/investimentos/todas/posicoes'));
+  });
+
+  it('acha lançamentos de Finanças e abre a tela deles', async () => {
+    const description = store.get().entries.find((entry) => entry.historical !== true)
+      ?.description as string;
+    const user = await open('/investimentos/todas/visao-geral');
+
+    await user.keyboard('{Meta>}k{/Meta}');
+    await user.type(
+      await screen.findByRole('combobox', { name: /Buscar/u }),
+      description,
+    );
+    const busca = await screen.findByRole('dialog', { name: 'Busca global' });
+    const grupo = await within(busca).findByRole('region', { name: 'Finanças' });
+    await user.click(within(grupo).getAllByRole('option')[0] as HTMLElement);
+
+    await waitFor(() => expect(path()).toBe('/financas/lancamentos'));
+  });
+
+  it('o botão de buscar da barra abre a mesma busca', async () => {
     const user = await open('/geral');
 
     await user.click(within(nav()).getByRole('button', { name: /Buscar/u }));
 
-    expect(await screen.findByRole('searchbox', { name: 'Ir para' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('dialog', { name: 'Busca global' }),
+    ).toBeInTheDocument();
   });
 });

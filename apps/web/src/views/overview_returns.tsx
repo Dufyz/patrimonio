@@ -8,8 +8,6 @@ import { Percent } from '../components/number.js';
 import { useDismiss } from '../components/use_dismiss.js';
 import { formatDate, percentAsRatio } from '../lib/overview.js';
 import {
-  PORTFOLIO_COLOR,
-  windowLabel,
   addBenchmark,
   availableToAdd,
   benchmarkColor,
@@ -121,14 +119,17 @@ const LineSwatch = ({
   />
 );
 
-/** As janelas que a prancha mostra, na ordem em que a leitura vai do curto ao longo. */
-const WINDOWS = ['month', 'ytd', '12m', 'inception'] as const;
+/** A janela da prancha: 12 meses, e a carteira sem 12M cai no ano (YTD). */
+const MAIN = '12m';
+const FALLBACK = 'ytd';
 
 type Bar = {
   readonly id: string;
   readonly label: string;
   readonly color: string;
   readonly value: string | null;
+  /** O rótulo curto da janela quando a linha não usa a principal. */
+  readonly window?: string | undefined;
 };
 
 const BarRow = ({
@@ -136,44 +137,43 @@ const BarRow = ({
   scale,
 }: {
   readonly bar: Bar;
-  /** O maior módulo entre todas as barras: o comprimento é comparável entre janelas. */
+  /** O maior módulo entre as barras: o comprimento é comparável entre linhas. */
   readonly scale: number;
 }): React.ReactElement => {
-  const ratio = percentAsRatio(bar.value);
+  const negative = bar.value !== null && Number(bar.value) < 0;
   const magnitude = bar.value === null ? 0 : Math.abs(Number(bar.value));
   const width = scale === 0 ? 0 : Math.min(100, (magnitude / scale) * 100);
 
   return (
-    <li className="flex items-center gap-3 text-[0.8125rem]">
-      <span className="w-40 shrink-0 truncate" title={bar.label}>
+    <li className="grid grid-cols-[minmax(7rem,12rem)_1fr_5.5rem] items-center gap-4 text-[0.8125rem]">
+      <span className="truncate text-ink-2" title={bar.label}>
         {bar.label}
+        {bar.window === undefined ? null : (
+          <span className="text-ink-3"> · {bar.window}</span>
+        )}
       </span>
-      <span
-        className="relative h-2 min-w-0 flex-1 rounded-xs bg-panel-2"
-        aria-hidden="true"
-      >
+      <span className="relative h-2.5 min-w-0 rounded-full bg-panel-2" aria-hidden="true">
         <span
-          className="absolute inset-y-0 left-0 rounded-xs"
+          className="absolute inset-y-0 left-0 rounded-full"
           style={{
             width: `${width}%`,
-            backgroundColor:
-              bar.value !== null && Number(bar.value) < 0
-                ? 'var(--color-negative)'
-                : bar.color,
+            backgroundColor: negative ? 'var(--color-negative)' : bar.color,
           }}
         />
       </span>
-      <span className="w-20 shrink-0 text-right">
-        <Percent value={ratio} decimals={2} signed tone="signed" />
+      <span className="text-right font-semibold">
+        <Percent value={percentAsRatio(bar.value)} decimals={2} signed tone="signed" />
       </span>
     </li>
   );
 };
 
 /**
- * IVG-005 · Retorno × benchmarks em barras: a carteira (ou todas) ao lado do
- * benchmark, por janela. Em Todas as carteiras entram também as carteiras, cada
- * uma pela cota dela. O benchmark é escolhido por etiquetas removíveis.
+ * IVG-005 · Retorno × benchmarks: uma barra por linha, na janela de 12 meses.
+ * A carteira (ou todas) vem primeiro, depois o benchmark; em Todas entram as
+ * carteiras, cada uma pela cota dela. Quem não tem 12 meses de história aparece
+ * no ano (YTD), dito no rótulo. Os benchmarks escolhidos são etiquetas
+ * removíveis, e "+ Benchmark" adiciona outro.
  */
 export const ReturnsBars = ({
   data,
@@ -188,49 +188,49 @@ export const ReturnsBars = ({
   const primary = benchmarks.selected.find((item) => item.id === benchmarks.primary_id);
   const extras = extraBenchmarks(benchmarks.selected, benchmarks.primary_id);
   const consolidated = scope.portfolio_id === null;
-  const context = { referenceDate: data.reference_date, inception: scope.inception };
 
-  const groups = WINDOWS.map((key) => {
-    const column = windows.columns.findIndex((item) => item.key === key);
-    const breakdownColumn = breakdown.columns.findIndex((item) => item.key === key);
+  const mainColumn = windows.columns.findIndex((item) => item.key === MAIN);
+  const mainBase =
+    mainColumn < 0 ? null : (windows.columns[mainColumn]?.base_date ?? null);
+  const partial = scope.inception !== null && mainBase === null;
 
-    const bars: Bar[] = windows.rows
-      .filter((row) => row.kind !== 'difference')
-      .map((row) => ({
-        id: `${row.kind}:${row.benchmark ?? ''}`,
-        label: row.name,
-        color:
-          row.kind === 'portfolio'
-            ? PORTFOLIO_COLOR
-            : benchmarkColor(
-                Math.max(
-                  0,
-                  benchmarks.selected.findIndex((item) => item.id === row.benchmark),
-                ),
+  const bars: Bar[] = windows.rows
+    .filter((row) => row.kind !== 'difference')
+    .map((row) => ({
+      id: `${row.kind}:${row.benchmark ?? ''}`,
+      label: row.name,
+      color:
+        row.kind === 'portfolio'
+          ? 'var(--color-ink)'
+          : benchmarkColor(
+              Math.max(
+                0,
+                benchmarks.selected.findIndex((item) => item.id === row.benchmark),
               ),
-        value: column < 0 ? null : (row.values[column] ?? null),
-      }));
+            ),
+      value: mainColumn < 0 ? null : (row.values[mainColumn] ?? null),
+    }));
 
-    if (consolidated) {
-      breakdown.portfolios.forEach((portfolio, index) =>
-        bars.push({
-          id: `carteira:${portfolio.portfolio_id}`,
-          label: portfolio.name,
-          color: colorForSeries(index),
-          value:
-            breakdownColumn < 0 ? null : (portfolio.returns[breakdownColumn] ?? null),
-        }),
-      );
-    }
-
-    return { key, bars };
-  });
+  if (consolidated) {
+    const main = breakdown.columns.findIndex((item) => item.key === MAIN);
+    const fallback = breakdown.columns.findIndex((item) => item.key === FALLBACK);
+    breakdown.portfolios.forEach((portfolio, index) => {
+      const full = main < 0 ? null : (portfolio.returns[main] ?? null);
+      const ytd = fallback < 0 ? null : (portfolio.returns[fallback] ?? null);
+      const usesYtd = full === null && ytd !== null;
+      bars.push({
+        id: `carteira:${portfolio.portfolio_id}`,
+        label: portfolio.name,
+        color: colorForSeries(index),
+        value: usesYtd ? ytd : full,
+        window: usesYtd ? 'YTD' : undefined,
+      });
+    });
+  }
 
   const scale = Math.max(
     0,
-    ...groups.flatMap((group) =>
-      group.bars.map((bar) => (bar.value === null ? 0 : Math.abs(Number(bar.value)))),
-    ),
+    ...bars.map((bar) => (bar.value === null ? 0 : Math.abs(Number(bar.value)))),
   );
 
   const gapIds = new Set(benchmarks.gaps.map((gap) => gap.id));
@@ -240,10 +240,10 @@ export const ReturnsBars = ({
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
         <Chip selected>
-          <LineSwatch color={PORTFOLIO_COLOR} />
+          <LineSwatch color="var(--color-ink)" />
           {scope.name}
         </Chip>
         {primary === undefined ? null : (
@@ -270,52 +270,42 @@ export const ReturnsBars = ({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
-        {groups.map((group) => (
-          <section
-            key={group.key}
-            aria-label={`Retorno · ${windowLabel(group.key, context)}`}
-          >
-            <h3 className="tabular mb-2 text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
-              {windowLabel(group.key, context)}
-            </h3>
-            <ul className="flex flex-col gap-2">
-              {group.bars.map((bar) => (
-                <BarRow key={bar.id} bar={bar} scale={scale} />
-              ))}
-            </ul>
-          </section>
+      <ul className="flex flex-col gap-4 px-4 py-5">
+        {bars.map((bar) => (
+          <BarRow key={bar.id} bar={bar} scale={scale} />
         ))}
-      </div>
+      </ul>
 
-      <p className="text-[0.75rem] text-ink-3">
-        Retorno pela cota, acumulado até{' '}
-        {data.reference_date === null
-          ? 'a última consolidação'
-          : formatDate(data.reference_date as DateOnly)}{' '}
-        · nada anualizado · a janela “Início” parte do primeiro fechamento.
-      </p>
-
-      {benchmarks.gaps.length === 0 ? null : (
-        <p className="text-[0.75rem] text-attention">
-          Falta série para o período:{' '}
-          {benchmarks.gaps
-            .map((gap) =>
-              gap.available_from === null
-                ? `${gap.name} (nenhum dado coletado)`
-                : `${gap.name} (série a partir de ${formatDate(gap.available_from as DateOnly)})`,
-            )
-            .join('; ')}
-          . O benchmark aparece como traço, e não como uma barra mais curta. Use Atualizar
-          agora em Configurações para carregar o histórico.
-        </p>
-      )}
-      {missing.length === 0 ? null : (
-        <p className="text-[0.75rem] text-attention">
-          Sem dado de índice no período: {missing.map((item) => item.name).join(', ')}.
-          Eles aparecem como traço, e não como zero.
-        </p>
-      )}
+      {partial || benchmarks.gaps.length > 0 || missing.length > 0 ? (
+        <div className="flex flex-col gap-1 border-t border-line px-4 py-3 text-xs text-ink-3">
+          {partial ? (
+            <p>
+              Início dos lançamentos em {formatDate(scope.inception as DateOnly).slice(3)}
+              : o 12M cobre só parte da janela.
+            </p>
+          ) : null}
+          {benchmarks.gaps.length === 0 ? null : (
+            <p className="text-attention">
+              Falta série para o período:{' '}
+              {benchmarks.gaps
+                .map((gap) =>
+                  gap.available_from === null
+                    ? `${gap.name} (nenhum dado coletado)`
+                    : `${gap.name} (série a partir de ${formatDate(gap.available_from as DateOnly)})`,
+                )
+                .join('; ')}
+              . O benchmark aparece como traço, e não como uma barra mais curta. Use
+              Atualizar agora em Configurações para carregar o histórico.
+            </p>
+          )}
+          {missing.length === 0 ? null : (
+            <p className="text-attention">
+              Sem dado de índice no período: {missing.map((item) => item.name).join(', ')}
+              . Eles aparecem como traço, e não como zero.
+            </p>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 };

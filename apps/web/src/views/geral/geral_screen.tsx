@@ -10,7 +10,7 @@ import { Panel } from '../../components/primitives.js';
 import { SkeletonChart, SkeletonRegion } from '../../components/skeleton.js';
 import { Amount } from '../../finance/components/amount.js';
 import { EntryDialog } from '../../finance/components/entry_dialog.js';
-import { FinTable, Th, THead } from '../../finance/components/fin_table.js';
+import { FillRow, FinTable, Th, THead } from '../../finance/components/fin_table.js';
 import {
   ContasPanel,
   FaturasAbertasPanel,
@@ -19,12 +19,12 @@ import {
 import { useFinancePeriod } from '../../finance/components/period_provider.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
 import { PanelBoundary } from '../../finance/components/states.js';
-import { monthFlow } from '../../finance/domain/cash_flow.js';
+import { accountsTotal, monthFlow } from '../../finance/domain/cash_flow.js';
 import { emptyEntryDraft } from '../../finance/domain/entry_ops.js';
 import type { FinanceData } from '../../finance/domain/types.js';
 import type { IsoDate } from '../../finance/lib/dates.js';
 import { formatMonth } from '../../finance/lib/format.js';
-import { decimalToCents, sum } from '../../finance/lib/money.js';
+import { decimalToCents } from '../../finance/lib/money.js';
 import type { Cents } from '../../finance/lib/money.js';
 import { financeRoutes } from '../../finance/lib/routes.js';
 import { useFinanceData, useFinanceStore } from '../../finance/store/finance_store.js';
@@ -95,9 +95,14 @@ const Line = ({
 );
 
 /* -------------------------------------------------------------------------- */
-/* GER-002 · Patrimônio líquido                                               */
+/* GER-002 · Patrimônio                                                       */
 
-export const PatrimonioLiquidoPanel = ({
+/**
+ * O patrimônio é o que está em contas mais o que está em carteiras. Faturas
+ * abertas não entram: o que se deve no cartão depende de datas de fechamento e
+ * vencimento, e uma subtração aqui esconderia isso. Elas têm o próprio painel.
+ */
+export const PatrimonioPanel = ({
   data,
   today,
   investments,
@@ -107,48 +112,35 @@ export const PatrimonioLiquidoPanel = ({
   /** O valor de Todas as carteiras; nulo enquanto a leitura não chega. */
   readonly investments: Cents | null;
 }): React.ReactElement => {
-  const flow = useMemo(() => monthFlow(data, today), [data, today]);
-  const net =
-    investments === null
-      ? null
-      : sum([flow.emContasCents, investments, -flow.faturasAbertasCents]);
+  const inAccounts = useMemo(() => accountsTotal(data, today), [data, today]);
+  const total = investments === null ? null : inAccounts + investments;
 
   return (
     <Panel
-      title="Patrimônio líquido"
+      title="Patrimônio"
       action={<span className="text-xs text-ink-3">em {formatDate(today)}</span>}
       className="flex flex-col"
     >
       <div className="px-4 pt-4 pb-2">
         <p className="tabular text-[1.75rem] leading-9 font-semibold">
-          {net === null ? <Muted>—</Muted> : <Amount cents={net} />}
+          {total === null ? <Muted>—</Muted> : <Amount cents={total} />}
         </p>
-        <p className="text-xs text-ink-3">contas + investimentos − faturas abertas</p>
+        <p className="text-xs text-ink-3">em contas + em carteiras</p>
       </div>
-      <FinTable caption="Composição do patrimônio líquido">
+      <FinTable caption="Composição do patrimônio" fill>
         <THead>
           <Th>Composição</Th>
           <Th align="right">Valor</Th>
         </THead>
         <tbody>
+          <Line label="Em contas" to={financeRoutes.accounts()} cents={inAccounts} />
           <Line
-            label="Em contas"
-            to={financeRoutes.accounts()}
-            cents={flow.emContasCents}
-          />
-          <Line
-            label="Investimentos"
+            label="Em carteiras"
             to={routes.investments(ALL_SCOPE)}
             cents={investments}
-            sign="+"
           />
-          <Line
-            label="Faturas abertas"
-            to={financeRoutes.cards()}
-            cents={flow.faturasAbertasCents}
-            sign="−"
-          />
-          <Line label="Patrimônio líquido" cents={net} strong />
+          <FillRow colSpan={2} />
+          <Line label="Patrimônio" cents={total} strong />
         </tbody>
       </FinTable>
     </Panel>
@@ -170,10 +162,17 @@ export const FluxoDoMesPanel = ({
   return (
     <Panel
       title="Fluxo do mês"
-      action={<span className="text-xs text-ink-3">{formatMonth(today)}</span>}
+      action={
+        <span className="flex items-baseline gap-3">
+          <span className="text-xs text-ink-3">{formatMonth(today)}</span>
+          <Link to={financeRoutes.overview()} className={LINK}>
+            Finanças →
+          </Link>
+        </span>
+      }
       className="flex flex-col"
     >
-      <FinTable caption="Fluxo do mês">
+      <FinTable caption="Fluxo do mês" fill>
         <THead>
           <Th>Até {formatDate(flow.monthEnd as DateOnly)}</Th>
           <Th align="right">Valor</Th>
@@ -288,8 +287,8 @@ export const GeralView = ({
       <div className="flex flex-col gap-4">
         {/* Cards na mesma linha têm a mesma altura (grid com itens esticados). */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <PanelBoundary title="o patrimônio líquido">
-            <PatrimonioLiquidoPanel data={data} today={today} investments={investments} />
+          <PanelBoundary title="o patrimônio">
+            <PatrimonioPanel data={data} today={today} investments={investments} />
           </PanelBoundary>
           <PanelBoundary title="o fluxo do mês">
             <FluxoDoMesPanel data={data} today={today} />
@@ -341,7 +340,7 @@ export const GeralView = ({
           </Panel>
 
           <Panel
-            title="Independência financeira"
+            title="Objetivos"
             className="flex flex-col"
             action={
               <Link to={routes.investments(ALL_SCOPE, 'objetivos')} className={LINK}>
@@ -361,14 +360,29 @@ export const GeralView = ({
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <PanelBoundary title="os próximos lançamentos">
-            <ProximosLancamentosPanel data={data} today={today} />
+            <ProximosLancamentosPanel
+              data={data}
+              today={today}
+              more={{
+                to: financeRoutes.entries('situacao=prevista'),
+                label: 'Lançamentos',
+              }}
+            />
           </PanelBoundary>
           <div className="flex min-w-0 flex-col gap-4">
             <PanelBoundary title="as faturas abertas">
-              <FaturasAbertasPanel data={data} today={today} />
+              <FaturasAbertasPanel
+                data={data}
+                today={today}
+                more={{ to: financeRoutes.cards(), label: 'Cartões' }}
+              />
             </PanelBoundary>
             <PanelBoundary title="as contas">
-              <ContasPanel data={data} today={today} />
+              <ContasPanel
+                data={data}
+                today={today}
+                more={{ to: financeRoutes.accounts(), label: 'Contas' }}
+              />
             </PanelBoundary>
           </div>
         </div>

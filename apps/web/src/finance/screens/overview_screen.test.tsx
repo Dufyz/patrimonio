@@ -60,10 +60,10 @@ describe('Composição da tela (FVG-008)', () => {
 describe('Saldo previsto (FVG-001, FVG-002)', () => {
   const panel = () => screen.getByRole('region', { name: 'Saldo previsto' });
 
-  it('mostra o dia do mês, o saldo ao fim do mês e Em contas hoje', () => {
+  it('mostra a data de hoje, o saldo ao fim do mês e Em contas hoje', () => {
     open();
-    expect(within(panel()).getByText('dia 24 de 31')).toBeTruthy();
-    expect(within(panel()).getByText('fim de out/2026')).toBeTruthy();
+    expect(within(panel()).getByText(/hoje, .* · fim de out\/2026/u)).toBeTruthy();
+    expect(within(panel()).queryByText('dia 24 de 31')).toBeNull();
     expect(within(panel()).getByText('Saldo ao fim do mês')).toBeTruthy();
     expect(panel().textContent).toContain('R$ 12.583,85');
   });

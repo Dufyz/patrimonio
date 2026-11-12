@@ -313,7 +313,9 @@ describe('SettingsView', () => {
     expect(screen.getByText(/312 instituições/)).toBeTruthy();
     expect(screen.getByText(/1840 papéis listados/)).toBeTruthy();
     expect(screen.getByText(/carregando na próxima atualização/)).toBeTruthy();
-    expect(screen.queryByRole('table', { name: 'Catálogos da carga inicial' })).toBeNull();
+    expect(
+      screen.queryByRole('table', { name: 'Catálogos da carga inicial' }),
+    ).toBeNull();
   });
 
   it('sem dado de demonstração, não há aviso', () => {

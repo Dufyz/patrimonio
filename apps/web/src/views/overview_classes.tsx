@@ -93,7 +93,7 @@ export const ClassesTable = ({
         : `${out.length} ${out.length === 1 ? 'classe fora' : 'classes fora'} da tolerância de ${tolerance} pp.`;
 
   return (
-    <>
+    <div className="flex flex-1 flex-col">
       <div className="px-4 pt-4 pb-1">
         <CompositionBar
           slices={lines.map((line) => ({
@@ -106,7 +106,7 @@ export const ClassesTable = ({
         />
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="flex-1 overflow-x-auto">
         <table className="w-full min-w-80 border-collapse text-[0.8125rem]">
           <caption className="sr-only">Distribuição por classe de ativo</caption>
           <thead>
@@ -208,6 +208,6 @@ export const ClassesTable = ({
       </div>
 
       <p className="border-t border-line px-4 py-3 text-xs text-ink-3">{note}</p>
-    </>
+    </div>
   );
 };

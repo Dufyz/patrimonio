@@ -104,8 +104,8 @@ export const CaixinhaPanel = ({
       >
         {rule === null ? null : (
           <p className="border-b border-line bg-panel-2 px-4 py-2.5 text-[0.8125rem] text-ink-2 first-letter:uppercase">
-            {termsHint(asset)} · o resgate consome {RULE_LABELS[rule]} · IOF e IR estimados
-            como se o lote fosse resgatado hoje
+            {termsHint(asset)} · o resgate consome {RULE_LABELS[rule]} · IOF e IR
+            estimados como se o lote fosse resgatado hoje
           </p>
         )}
         {lots.state.kind === 'loading' ? (
@@ -227,10 +227,7 @@ const LotsTable = ({
               </td>
               <td className="px-4 py-2.5 text-right text-ink-2">
                 <Money value={lot.tax_due} />
-                <span className="text-ink-3">
-                  {' '}
-                  · {lot.tax_rate.replace('.', ',')}%
-                </span>
+                <span className="text-ink-3"> · {lot.tax_rate.replace('.', ',')}%</span>
               </td>
             </tr>
           ))}

@@ -113,7 +113,7 @@ describe('casca única', () => {
     const titles = within(nav())
       .getAllByRole('heading', { level: 3 })
       .map((heading) => heading.textContent);
-    expect(titles).toEqual(['Geral', 'Finanças', 'Investimentos']);
+    expect(titles).toEqual(['Geral', 'Investimentos', 'Finanças']);
   });
 
   it('a barra lateral mostra o valor de cada carteira', () => {

@@ -428,7 +428,10 @@ const Distribution = ({
                         key={child.id}
                         className="h-(--row-height) border-b border-line"
                       >
-                        <th scope="row" className="px-4 pl-12 text-left font-normal whitespace-nowrap">
+                        <th
+                          scope="row"
+                          className="px-4 pl-12 text-left font-normal whitespace-nowrap"
+                        >
                           <span className="flex items-center gap-2">
                             <span
                               aria-hidden="true"

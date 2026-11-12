@@ -10,8 +10,8 @@ import { browserStorage, readRaw, writeRaw } from '../lib/preferences.js';
  * NAV-002 · A casca única do app.
  *
  * Uma só barra lateral serve as três áreas. De cima para baixo: o nome
- * "Patrimônio" (só texto) e o botão de recolher; a busca; GERAL; FINANÇAS;
- * INVESTIMENTOS — com o seletor de carteiras e as telas do escopo escolhido —; e
+ * "Patrimônio" (só texto) e o botão de recolher; a busca; GERAL; INVESTIMENTOS
+ * — com o seletor de carteiras e as telas do escopo escolhido —; FINANÇAS; e
  * Configurações no pé. As três áreas ficam sempre à vista: não existe seletor de
  * área para trocar de uma para a outra.
  *
@@ -364,25 +364,6 @@ const Sidebar = ({
         </section>
 
         <section
-          aria-label="Finanças"
-          className={iconsOnly ? 'flex flex-col items-center' : ''}
-        >
-          {iconsOnly ? <Divider /> : <GroupTitle>Finanças</GroupTitle>}
-          <ul className="flex flex-col gap-0.5">
-            {finance.map((entry) => (
-              <li key={entry.id}>
-                <NavButton
-                  entry={entry}
-                  current={active.area === 'financas' && active.screen === entry.id}
-                  iconsOnly={iconsOnly}
-                  onGo={onGo}
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section
           aria-label="Investimentos"
           className={iconsOnly ? 'flex flex-col items-center' : ''}
         >
@@ -440,6 +421,25 @@ const Sidebar = ({
                   />
                 </li>
               </Fragment>
+            ))}
+          </ul>
+        </section>
+
+        <section
+          aria-label="Finanças"
+          className={iconsOnly ? 'flex flex-col items-center' : ''}
+        >
+          {iconsOnly ? <Divider /> : <GroupTitle>Finanças</GroupTitle>}
+          <ul className="flex flex-col gap-0.5">
+            {finance.map((entry) => (
+              <li key={entry.id}>
+                <NavButton
+                  entry={entry}
+                  current={active.area === 'financas' && active.screen === entry.id}
+                  iconsOnly={iconsOnly}
+                  onGo={onGo}
+                />
+              </li>
             ))}
           </ul>
         </section>

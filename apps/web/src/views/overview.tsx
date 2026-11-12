@@ -492,9 +492,13 @@ const ReturnsCard = ({
   return (
     <Panel
       title={`Retorno × benchmarks ${periodSuffix(period)}`}
-      hint="pela cota · nada anualizado"
+      hint="12M · pela cota · nada anualizado"
     >
-      <div className="p-4">
+      <div
+        className={
+          state.kind === 'ready' && state.value.reference_date !== null ? '' : 'p-4'
+        }
+      >
         {state.kind === 'loading' ? (
           <SkeletonRegion label="Carregando o retorno">
             <SkeletonChart />
@@ -677,7 +681,7 @@ export const OverviewView = ({
             </Panel>
 
             <Panel
-              title="Independência financeira"
+              title="Objetivos"
               className="flex flex-col"
               action={
                 onOpenScreen === undefined ? undefined : (

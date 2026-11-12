@@ -327,14 +327,15 @@ describe('todas as carteiras', () => {
     expect(within(total).getByText('R$ 318.904,12')).toBeInTheDocument();
   });
 
-  it('mostra o retorno de cada carteira pela cota dela em barras, com traço onde não há base', () => {
+  it('mostra o retorno de cada carteira pela cota dela em barras, no ano quando não há 12 meses', () => {
     showConsolidated();
 
-    const doze = screen.getByRole('region', { name: /Retorno · 12M/ });
+    const doze = screen.getByRole('region', { name: /Retorno × benchmarks/ });
     const reserva = within(doze).getByText('Reserva').closest('li');
 
     expect(reserva).not.toBeNull();
-    expect(within(reserva as HTMLElement).getByText('—')).toBeInTheDocument();
+    // Sem 12 meses de história, a carteira cai no ano, e o rótulo diz isso.
+    expect(within(reserva as HTMLElement).getByText(/YTD/)).toBeInTheDocument();
     expect(within(doze).getAllByText('15,92%').length).toBeGreaterThan(0);
   });
 

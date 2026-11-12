@@ -115,11 +115,11 @@ describe('Visão geral de Geral (GER)', () => {
 
     expect(screen.getByText(/Hoje · 24\/10\/2026/)).toBeInTheDocument();
     for (const name of [
-      'Patrimônio líquido',
+      'Patrimônio',
       'Fluxo do mês',
       'Evolução dos investimentos',
       'Alocação por classe',
-      'Independência financeira',
+      'Objetivos',
       'Próximos lançamentos',
       'Faturas abertas',
       'Contas',
@@ -128,18 +128,18 @@ describe('Visão geral de Geral (GER)', () => {
     }
   });
 
-  it('o patrimônio líquido soma contas e investimentos e subtrai as faturas', () => {
+  it('o patrimônio soma o que está em contas e o que está em carteiras, sem subtrair faturas', () => {
     const { store } = open(ready(overviewOf('300000.00')));
     const flow = monthFlow(store.get(), HOJE);
-    const esperado = flow.emContasCents + 30000000 - flow.faturasAbertasCents;
+    const esperado = flow.emContasCents + 30000000;
 
-    const painel = screen.getByRole('region', { name: 'Patrimônio líquido' });
+    const painel = screen.getByRole('region', { name: 'Patrimônio' });
     const tabela = within(painel).getByRole('table', {
-      name: 'Composição do patrimônio líquido',
+      name: 'Composição do patrimônio',
     });
 
     expect(
-      within(within(tabela).getByRole('row', { name: /Investimentos/ })).getByText(
+      within(within(tabela).getByRole('row', { name: /Em carteiras/ })).getByText(
         'R$ 300.000,00',
       ),
     ).toBeInTheDocument();
@@ -167,13 +167,13 @@ describe('Visão geral de Geral (GER)', () => {
     });
 
     expect(screen.getByRole('alert')).toHaveTextContent('api fora do ar');
-    const painel = screen.getByRole('region', { name: 'Patrimônio líquido' });
+    const painel = screen.getByRole('region', { name: 'Patrimônio' });
     const tabela = within(painel).getByRole('table', {
-      name: 'Composição do patrimônio líquido',
+      name: 'Composição do patrimônio',
     });
 
     expect(
-      within(within(tabela).getByRole('row', { name: /Investimentos/ })).getByText('—'),
+      within(within(tabela).getByRole('row', { name: /Em carteiras/ })).getByText('—'),
     ).toBeInTheDocument();
   });
 

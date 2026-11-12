@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import { fetchMarketHealth } from './api/market.js';
+import { EntryProvider } from './components/entry_provider.js';
 import { usePortfolios } from './components/portfolios_provider.js';
 import { ALL_PORTFOLIOS, AppShell } from './components/shell.js';
 import type { NavEntry, PortfolioEntry, ShellActive } from './components/shell.js';
-import { GoToPalette } from './components/goto_palette.js';
-import type { Destination } from './components/goto_palette.js';
-import { ShellSearchContext } from './components/shell_search.js';
 import { useShortcuts } from './components/shortcuts.js';
+import { FinanceProviders } from './finance/finance_app.js';
 import { financeRoutes } from './finance/lib/routes.js';
+import type { FinanceStore } from './finance/store/finance_store.js';
+import { GlobalSearch } from './global_search.js';
 import { screensForScope, screenInScope } from './lib/investment_screens.js';
 import {
   readLastPath,
@@ -19,6 +20,8 @@ import {
   writeLastScope,
 } from './lib/last_area.js';
 import { placeForPath, routes } from './lib/routes.js';
+import type { SearchScreen } from './lib/search.js';
+import { describeShortcut, SHORTCUTS } from './lib/shortcuts.js';
 import { ALL_SCOPE, portfolioIdForScope } from './lib/scope.js';
 import { hasDemoData } from './lib/settings.js';
 import { useResource } from './lib/use_resource.js';
@@ -82,7 +85,12 @@ const titleFor = (active: ShellActive, scopeLabel: string): string => {
   }
 };
 
-export const AppLayout = (): React.ReactElement => {
+export const AppLayout = ({
+  financeStore,
+}: {
+  /** Troca-se nos testes para não depender da rede. */
+  readonly financeStore?: FinanceStore;
+}): React.ReactElement => {
   const location = useLocation();
   const navigate = useNavigate();
   const { portfolios, values, total, slugs } = usePortfolios();
@@ -99,22 +107,11 @@ export const AppLayout = (): React.ReactElement => {
   const health = useResource((signal) => fetchMarketHealth(signal), []);
   const demo = health.state.kind === 'ready' && hasDemoData(health.state.value.demo);
 
-  // Quem registra a busca é a área aberta; o botão da barra só a chama.
-  const searchRef = useRef<(() => void) | null>(null);
-  const search = useMemo(
-    () => ({
-      register: (open: (() => void) | null) => {
-        searchRef.current = open;
-      },
-    }),
-    [],
-  );
-  // Área sem busca própria (Geral) abre o "Ir para".
-  const [goToOpen, setGoToOpen] = useState(false);
-  const openSearch = useCallback(() => {
-    if (searchRef.current === null) setGoToOpen(true);
-    else searchRef.current();
-  }, []);
+  // NAV-007 · a busca é uma só. ⌘K abre e fecha: quem a abriu sem querer não
+  // precisa procurar o Esc.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const openSearch = useCallback(() => setSearchOpen(true), []);
+  const toggleSearch = useCallback(() => setSearchOpen((open) => !open), []);
 
   // O escopo mostrado na barra: o da URL em Investimentos, o último nas demais.
   const scope =
@@ -192,65 +189,96 @@ export const AppLayout = (): React.ReactElement => {
         void navigate(readLastPath('financas') ?? financeRoutes.overview()),
       go_investimentos: () =>
         void navigate(readLastPath('investimentos') ?? routes.investments(scope)),
-      search: openSearch,
+      search: toggleSearch,
     }),
-    [navigate, scope, openSearch],
+    [navigate, scope, toggleSearch],
   );
   useShortcuts(areaShortcuts);
 
-  const destinations = useMemo(
-    (): readonly Destination[] => [
-      { id: 'geral', label: 'Geral › Visão geral', path: routes.geral() },
-      ...FINANCE_ENTRIES.map((entry) => ({
+  /**
+   * As telas de todas as áreas, como a paleta as lista, com o atalho que cada
+   * uma realmente tem. Configurações fecha a lista, como fecha a barra lateral.
+   */
+  const searchScreens = useMemo((): readonly SearchScreen[] => {
+    const shortcutOf = (id: string): string | null => {
+      const shortcut = SHORTCUTS.find((candidate) => candidate.id === id);
+      return shortcut === undefined ? null : describeShortcut(shortcut);
+    };
+    return [
+      {
+        id: 'geral',
+        label: 'Visão geral',
+        glyph: 'grid',
+        shortcut: shortcutOf('go_geral'),
+        detail: 'Geral',
+        path: routes.geral(),
+      },
+      ...FINANCE_ENTRIES.map((entry): SearchScreen => ({
         id: `fin-${entry.id}`,
-        label: `Finanças › ${entry.label}`,
+        label: entry.label,
+        glyph: entry.icon,
+        shortcut: entry.id === 'visao-geral' ? shortcutOf('go_financas') : null,
+        detail: 'Finanças',
         path: entry.path,
       })),
-      ...screensForScope(true).map((screen) => ({
-        id: `inv-${screen.id}`,
-        label: `Investimentos › Todas as carteiras › ${screen.label}`,
-        path: routes.investments(ALL_SCOPE, screen.id),
+      ...screensForScope(allPortfolios).map((screen): SearchScreen => ({
+        id: screen.id,
+        label: screen.label,
+        glyph: screen.icon,
+        shortcut: shortcutOf(`go_${screen.shortcut}`),
+        detail: `Investimentos · ${scopeLabel}`,
+        path: routes.investments(scope, screen.id),
       })),
-      ...portfolios.flatMap((portfolio): Destination[] => {
-        const slug = slugs.get(portfolio.id);
-        return slug === undefined
-          ? []
-          : [
-              {
-                id: `cart-${portfolio.id}`,
-                label: `Investimentos › ${portfolio.name}`,
-                path: routes.investments(slug),
-              },
-            ];
-      }),
-      { id: 'config', label: 'Configurações', path: routes.settings() },
-    ],
-    [portfolios, slugs],
-  );
+      {
+        id: 'configuracoes',
+        label: 'Configurações',
+        glyph: 'settings',
+        shortcut: null,
+        path: routes.settings(),
+      },
+    ];
+  }, [allPortfolios, scope, scopeLabel]);
+
+  const inFinance = place.area === 'geral' || place.area === 'financas';
+  const currentScreen =
+    place.area === 'investimentos' && place.screen !== 'ativo'
+      ? place.screen
+      : screenAfterSwitch;
 
   return (
-    <ShellSearchContext.Provider value={search}>
-      <AppShell
-        geral={{ id: 'geral', label: 'Visão geral', icon: 'grid', path: routes.geral() }}
-        finance={FINANCE_ENTRIES}
-        portfolios={portfolioEntries}
-        screens={screens}
-        active={active}
-        title={titleFor(active, scopeLabel)}
-        settingsPath={routes.settings()}
-        onGo={(path) => void navigate(path)}
-        onOpenSearch={openSearch}
-        demo={demo}
-      >
-        <Outlet />
-      </AppShell>
-      <GoToPalette
-        open={goToOpen}
-        destinations={destinations}
-        onGo={(path) => void navigate(path)}
-        onClose={() => setGoToOpen(false)}
-      />
-    </ShellSearchContext.Provider>
+    <FinanceProviders store={financeStore}>
+      <EntryProvider scopePortfolioId={allPortfolios ? null : scopeId}>
+        <AppShell
+          geral={{
+            id: 'geral',
+            label: 'Visão geral',
+            icon: 'grid',
+            path: routes.geral(),
+          }}
+          finance={FINANCE_ENTRIES}
+          portfolios={portfolioEntries}
+          screens={screens}
+          active={active}
+          title={titleFor(active, scopeLabel)}
+          settingsPath={routes.settings()}
+          onGo={(path) => void navigate(path)}
+          onOpenSearch={openSearch}
+          demo={demo}
+        >
+          <Outlet />
+        </AppShell>
+        <GlobalSearch
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          scope={scope}
+          scopeLabel={scopeLabel}
+          portfolioId={allPortfolios ? null : scopeId}
+          currentScreen={currentScreen}
+          inFinance={inFinance}
+          screens={searchScreens}
+        />
+      </EntryProvider>
+    </FinanceProviders>
   );
 };
 

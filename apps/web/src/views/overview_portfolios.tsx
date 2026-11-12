@@ -59,7 +59,7 @@ export const PortfoliosPanel = ({
   }
 
   return (
-    <>
+    <div className="flex flex-1 flex-col">
       {withWeight ? (
         <div className="px-4 pt-4 pb-1">
           <CompositionBar
@@ -75,8 +75,8 @@ export const PortfoliosPanel = ({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-[0.8125rem]">
+      <div className="flex-1 overflow-x-auto">
+        <table className="h-full w-full border-collapse text-[0.8125rem]">
           <caption className="sr-only">Valor de cada carteira</caption>
           <thead>
             <tr className="tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
@@ -132,6 +132,9 @@ export const PortfoliosPanel = ({
                 ) : null}
               </tr>
             ))}
+            <tr aria-hidden="true" className="h-full">
+              <td colSpan={withWeight ? 3 : 2} />
+            </tr>
           </tbody>
           <tfoot>
             <tr className="h-(--row-height) border-t border-line-strong font-medium">
@@ -146,6 +149,6 @@ export const PortfoliosPanel = ({
           </tfoot>
         </table>
       </div>
-    </>
+    </div>
   );
 };

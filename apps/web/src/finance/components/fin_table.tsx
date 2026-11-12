@@ -20,16 +20,38 @@ const ALIGN: Readonly<Record<Align, string>> = {
 
 export const FinTable = ({
   caption,
+  fill = false,
   children,
 }: {
   /** Nome acessível da tabela; não é exibido. */
   readonly caption: string;
+  /**
+   * Ocupa a altura que sobra no painel: com um `FillRow` entre as linhas e o
+   * total, o total fica no pé do cartão e o vazio fica no meio, sem quebrar.
+   */
+  readonly fill?: boolean;
   readonly children: React.ReactNode;
+}): React.ReactElement => {
+  const table = (
+    <table
+      className={`w-full border-collapse text-cell whitespace-nowrap ${fill ? 'h-full' : ''}`}
+    >
+      <caption className="sr-only">{caption}</caption>
+      {children}
+    </table>
+  );
+  return fill ? <div className="min-h-0 flex-1">{table}</div> : table;
+};
+
+/** A linha que absorve a altura que sobra numa `FinTable` com `fill`. */
+export const FillRow = ({
+  colSpan,
+}: {
+  readonly colSpan: number;
 }): React.ReactElement => (
-  <table className="w-full border-collapse text-cell whitespace-nowrap">
-    <caption className="sr-only">{caption}</caption>
-    {children}
-  </table>
+  <tr aria-hidden="true" className="h-full">
+    <td colSpan={colSpan} />
+  </tr>
 );
 
 export const THead = ({

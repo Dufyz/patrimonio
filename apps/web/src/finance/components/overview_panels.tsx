@@ -14,13 +14,7 @@ import type { Entry, FinanceData } from '../domain/types.js';
 import { categoryColor } from '../lib/category_colors.js';
 import { compareDates, endOfMonth, startOfMonth } from '../lib/dates.js';
 import type { IsoDate } from '../lib/dates.js';
-import {
-  formatBRL,
-  formatDay,
-  formatDayOfMonth,
-  formatMonth,
-  formatPercentTenths,
-} from '../lib/format.js';
+import { formatBRL, formatDay, formatMonth, formatPercentTenths } from '../lib/format.js';
 import { limitTone } from '../lib/limit.js';
 import { sum } from '../lib/money.js';
 import type { Cents } from '../lib/money.js';
@@ -28,7 +22,7 @@ import { formatRange, isWholeMonth } from '../lib/period.js';
 import type { DateRange } from '../lib/period.js';
 import { financeRoutes } from '../lib/routes.js';
 import { Amount } from './amount.js';
-import { CategoryMarker, FinTable, Row, Td, Th, THead } from './fin_table.js';
+import { CategoryMarker, FillRow, FinTable, Row, Td, Th, THead } from './fin_table.js';
 import { formatPercentValue } from './limit_bar.js';
 import { EmptyPanel } from './states.js';
 
@@ -38,9 +32,6 @@ import { EmptyPanel } from './states.js';
  */
 
 const LINK = 'cursor-pointer text-[0.8125rem] text-accent hover:underline';
-
-const TAG =
-  'tabular rounded-control bg-panel-2 px-1.5 py-0.5 text-label font-semibold text-ink-3';
 
 /** Uma linha com barra: rótulo, barra proporcional e valor. */
 const BarRow = ({
@@ -272,10 +263,9 @@ export const SaldoPrevistoPanel = ({
   return (
     <Panel
       title="Saldo previsto"
-      hint={<span className={TAG}>{formatDayOfMonth(today)}</span>}
       action={
         <span className="text-xs text-ink-3">
-          fim de {formatMonth(monthEnd).toLowerCase()}
+          hoje, {formatDay(today, today)} · fim de {formatMonth(monthEnd).toLowerCase()}
         </span>
       }
       className="h-full"
@@ -389,7 +379,7 @@ export const DespesasCategoriaPanel = ({
         <EmptyPanel message="Nenhuma despesa lançada no período." />
       ) : (
         <>
-          <FinTable caption="Despesas por categoria">
+          <FinTable caption="Despesas por categoria" fill>
             <THead>
               <Th>Categoria</Th>
               <Th align="right">Despesa</Th>
@@ -425,6 +415,7 @@ export const DespesasCategoriaPanel = ({
                   </Row>
                 );
               })}
+              <FillRow colSpan={3} />
               <tr className="border-t border-line bg-panel-2 font-semibold">
                 <td className="px-3 py-[var(--row-pad)]">Total</td>
                 <td className="tabular px-3 py-[var(--row-pad)] text-right">
@@ -464,12 +455,35 @@ export const plannedAhead = (data: FinanceData, today: IsoDate): readonly Entry[
         a.id.localeCompare(b.id),
     );
 
+/** O texto do cabeçalho e, quando a tela pede, o link para a página do painel. */
+const PanelHeaderAction = ({
+  hint,
+  more,
+}: {
+  readonly hint: string;
+  readonly more?: PanelMore | undefined;
+}): React.ReactElement => (
+  <span className="flex items-baseline gap-3">
+    <span className="text-xs text-ink-3">{hint}</span>
+    {more === undefined ? null : (
+      <Link to={more.to} className={LINK}>
+        {more.label} →
+      </Link>
+    )}
+  </span>
+);
+
+/** O link do cabeçalho que leva à página com mais detalhes (Geral usa). */
+export type PanelMore = { readonly to: string; readonly label: string };
+
 export const ProximosLancamentosPanel = ({
   data,
   today,
+  more,
 }: {
   readonly data: FinanceData;
   readonly today: IsoDate;
+  readonly more?: PanelMore | undefined;
 }): React.ReactElement => {
   const planned = useMemo(() => plannedAhead(data, today), [data, today]);
   const shown = planned.slice(0, NEXT_ENTRIES);
@@ -485,14 +499,14 @@ export const ProximosLancamentosPanel = ({
   return (
     <Panel
       title="Próximos lançamentos"
-      action={<span className="text-xs text-ink-3">o que ainda vai sair e entrar</span>}
+      action={<PanelHeaderAction hint="o que ainda vai sair e entrar" more={more} />}
       className="h-full"
     >
       {shown.length === 0 ? (
         <EmptyPanel message="Nada previsto." />
       ) : (
         <>
-          <FinTable caption="Próximos lançamentos">
+          <FinTable caption="Próximos lançamentos" fill>
             <THead>
               <Th>Data</Th>
               <Th>Descrição</Th>
@@ -526,6 +540,7 @@ export const ProximosLancamentosPanel = ({
                   </Row>
                 );
               })}
+              <FillRow colSpan={4} />
             </tbody>
           </FinTable>
           <footer className="px-4 py-3">
@@ -545,9 +560,11 @@ export const ProximosLancamentosPanel = ({
 export const FaturasAbertasPanel = ({
   data,
   today,
+  more,
 }: {
   readonly data: FinanceData;
   readonly today: IsoDate;
+  readonly more?: PanelMore | undefined;
 }): React.ReactElement => {
   const summaries = useMemo(
     () => data.cards.map((card) => cardSummary(data, card, today)),
@@ -561,13 +578,14 @@ export const FaturasAbertasPanel = ({
   return (
     <Panel
       title="Faturas abertas"
-      action={<span className="text-xs text-ink-3">% do limite usado</span>}
+      action={<PanelHeaderAction hint="% do limite usado" more={more} />}
+      className="flex-1"
     >
       {summaries.length === 0 ? (
         <EmptyPanel message="Nenhum cartão cadastrado." />
       ) : (
         <>
-          <FinTable caption="Faturas abertas">
+          <FinTable caption="Faturas abertas" fill>
             <THead>
               <Th>Cartão</Th>
               <Th align="right">Fatura</Th>
@@ -615,6 +633,7 @@ export const FaturasAbertasPanel = ({
                   </Row>
                 );
               })}
+              <FillRow colSpan={3} />
             </tbody>
           </FinTable>
           <footer className="flex items-baseline justify-between gap-3 border-t border-line px-4 py-3 text-xs text-ink-3">
@@ -639,9 +658,11 @@ export const FaturasAbertasPanel = ({
 export const ContasPanel = ({
   data,
   today,
+  more,
 }: {
   readonly data: FinanceData;
   readonly today: IsoDate;
+  readonly more?: PanelMore | undefined;
 }): React.ReactElement => {
   const navigate = useNavigate();
   const overview = useMemo(
@@ -658,12 +679,13 @@ export const ContasPanel = ({
   return (
     <Panel
       title="Contas"
-      action={<span className="text-xs text-ink-3">saldo de hoje</span>}
+      action={<PanelHeaderAction hint="saldo de hoje" more={more} />}
+      className="flex-1"
     >
       {overview.accounts.length === 0 ? (
         <EmptyPanel message="Nenhuma conta cadastrada." />
       ) : (
-        <FinTable caption="Contas">
+        <FinTable caption="Contas" fill>
           <THead>
             <Th>Conta</Th>
             <Th align="right">Saldo</Th>
@@ -681,6 +703,7 @@ export const ContasPanel = ({
                 </Td>
               </Row>
             ))}
+            <FillRow colSpan={2} />
             <tr className="border-t border-line bg-panel-2 font-semibold">
               <td className="px-3 py-[var(--row-pad)]">
                 <Link

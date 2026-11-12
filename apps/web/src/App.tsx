@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import {
   Navigate,
   Route,
@@ -9,20 +9,13 @@ import {
 } from 'react-router';
 
 import { AppLayout } from './app_layout.js';
-import { EntryProvider, useEntry } from './components/entry_provider.js';
 import { PortfoliosProvider, usePortfolios } from './components/portfolios_provider.js';
-import { SearchPalette } from './components/search_palette.js';
-import { useRegisterSearch } from './components/shell_search.js';
 import { SkeletonRegion, SkeletonTable } from './components/skeleton.js';
 import { WelcomeScreen } from './views/welcome.js';
 import { ShortcutProvider, useShortcuts } from './components/shortcuts.js';
-import { ALL_PORTFOLIOS } from './components/shell.js';
 import { screensForScope } from './lib/investment_screens.js';
 import { routes } from './lib/routes.js';
 import { ALL_SCOPE, portfolioIdForScope, scopeForPortfolioId } from './lib/scope.js';
-import { describeShortcut, SHORTCUTS } from './lib/shortcuts.js';
-import { targetPath } from './lib/search.js';
-import type { SearchActionId, SearchTarget } from './lib/search.js';
 import { FinanceLoading } from './finance/components/states.js';
 import { AssetScreen } from './views/asset.js';
 import { Gallery } from './views/gallery.js';
@@ -30,6 +23,7 @@ import { OverviewScreen } from './views/overview.js';
 import { GoalsScreen } from './views/goals.js';
 import { GoalsOverviewScreen } from './views/goals_overview.js';
 import { PositionsScreen } from './views/positions.js';
+import { ProjectionScreen } from './views/projection.js';
 import { SettingsScreen } from './views/settings/index.js';
 import { StatementScreen } from './views/statement.js';
 import { StrategyScreen } from './views/strategy.js';
@@ -111,8 +105,7 @@ const Workbench = (): React.ReactElement => {
   const asset = params['asset'];
   const navigate = useNavigate();
 
-  const { portfolios, slugs, loaded, failed, reload } = usePortfolios();
-  const [searchOpen, setSearchOpen] = useState(false);
+  const { portfolios, values, slugs, loaded, failed, reload } = usePortfolios();
 
   const allPortfolios = scope === ALL_SCOPE;
   const portfolioId = allPortfolios ? null : portfolioIdForScope(scope, slugs);
@@ -140,45 +133,10 @@ const Workbench = (): React.ReactElement => {
           () => navigate(routes.investments(scope, item.id)),
         ]),
       ),
-      // ⌘K abre e fecha: quem a abriu sem querer não precisa procurar o Esc.
-      search: () => setSearchOpen((open) => !open),
     }),
     [navigate, scope, screens],
   );
   useShortcuts(shortcuts);
-
-  // O botão de buscar da barra lateral abre a paleta de Investimentos.
-  useRegisterSearch(useCallback(() => setSearchOpen(true), []));
-
-  /**
-   * As telas como a paleta as lista, com o atalho que cada uma realmente tem.
-   * Configurações fecha a lista, como fecha a barra lateral, e não tem atalho.
-   */
-  const searchScreens = useMemo(
-    () => [
-      ...screens.map((item) => {
-        const shortcut = SHORTCUTS.find(
-          (candidate) => candidate.id === `go_${item.shortcut}`,
-        );
-        return {
-          id: item.id,
-          label: item.label,
-          glyph: item.icon,
-          shortcut: shortcut === undefined ? null : describeShortcut(shortcut),
-        };
-      }),
-      { id: SETTINGS_SCREEN, label: 'Configurações', glyph: 'settings', shortcut: null },
-    ],
-    [screens],
-  );
-
-  const searchPortfolios = useMemo(
-    () => [
-      { id: ALL_PORTFOLIOS, label: 'Todas as carteiras' },
-      ...portfolios.map((portfolio) => ({ id: portfolio.id, label: portfolio.name })),
-    ],
-    [portfolios],
-  );
 
   /**
    * "Ver lançamentos" de um ativo abre o extrato todo, e não os últimos três
@@ -188,34 +146,6 @@ const Workbench = (): React.ReactElement => {
     void navigate(
       `${routes.investments(scope, 'movimentacoes')}?${new URLSearchParams({ busca: search, periodo: 'inicio' }).toString()}`,
     );
-  };
-
-  /** O que a paleta faz com o destino escolhido. As regras estão em `targetPath`. */
-  const openTarget = (target: SearchTarget): void => {
-    if (target.kind === 'screen' && target.screen === SETTINGS_SCREEN) {
-      void navigate(routes.settings());
-      return;
-    }
-
-    const path = targetPath(target, {
-      scope,
-      currentScreenPath: current?.id ?? 'visao-geral',
-      screenPaths: Object.fromEntries(screens.map((item) => [item.id, item.id])),
-      scopeFor: (id) =>
-        id === ALL_PORTFOLIOS ? ALL_SCOPE : (scopeForPortfolioId(id, slugs) ?? scope),
-    });
-
-    // Sem página de ativo em "Todas as carteiras": o ativo aparece em Posições,
-    // já filtrado por ele, com a carteira de cada linha.
-    if (allPortfolios && target.kind === 'asset') {
-      void navigate(
-        `${routes.investments(ALL_SCOPE, 'posicoes')}?${new URLSearchParams({ busca: target.slug }).toString()}`,
-      );
-      return;
-    }
-
-    // Ação não é navegação: quem a executa é o `Palette`, que abre o modal.
-    if (path !== null) void navigate(path);
   };
 
   /**
@@ -269,7 +199,7 @@ const Workbench = (): React.ReactElement => {
   }
 
   return (
-    <EntryProvider scopePortfolioId={portfolioId}>
+    <>
       {asset !== undefined ? (
         portfolioId === null ? null : (
           <AssetScreen
@@ -321,17 +251,14 @@ const Workbench = (): React.ReactElement => {
         ) : (
           <GoalsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
         )
+      ) : current?.id === 'projecao' ? (
+        <ProjectionScreen
+          portfolios={portfolios}
+          portfolioId={portfolioId}
+          values={values}
+        />
       ) : null}
-      <Palette
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        scopeLabel={scopeLabel}
-        portfolioId={portfolioId}
-        screens={searchScreens}
-        portfolios={searchPortfolios}
-        onSelect={openTarget}
-      />
-    </EntryProvider>
+    </>
   );
 };
 
@@ -341,73 +268,3 @@ const WorkbenchSkeleton = (): React.ReactElement => (
     <SkeletonTable rows={8} columns={5} />
   </SkeletonRegion>
 );
-
-/** As ações da paleta que o modal de lançamento executa. */
-const READY_ACTIONS: ReadonlySet<SearchActionId> = new Set([
-  'new_transaction',
-  'buy_asset',
-  'payout_asset',
-]);
-
-/**
- * A paleta mora dentro do provedor de lançamento: escolher "Comprar ITUB4" abre
- * o modal já nesse ativo, em vez de navegar para uma tela.
- */
-const Palette = ({
-  onSelect,
-  ...rest
-}: Omit<React.ComponentProps<typeof SearchPalette>, 'readyActions' | 'onSelect'> & {
-  readonly onSelect: (target: SearchTarget) => void;
-}): React.ReactElement => {
-  const entry = useEntry();
-
-  return (
-    <SearchPalette
-      {...rest}
-      readyActions={READY_ACTIONS}
-      onSelect={(target) => {
-        if (target.kind === 'instrument') {
-          entry.openEntry({
-            tab: 'buy',
-            asset: {
-              id: null,
-              instrument: {
-                ticker: target.ticker,
-                name: target.name,
-                b3_type: target.b3_type,
-              },
-              label: target.ticker,
-              name: target.name,
-              held: null,
-            },
-          });
-          return;
-        }
-
-        if (target.kind !== 'action') {
-          onSelect(target);
-          return;
-        }
-
-        const asset =
-          target.assetId === undefined
-            ? null
-            : {
-                id: target.assetId,
-                instrument: null,
-                label: target.title ?? '',
-                name: null,
-                held: null,
-              };
-
-        entry.openEntry({
-          tab: target.action === 'payout_asset' ? 'payout' : 'buy',
-          asset,
-        });
-      }}
-    />
-  );
-};
-
-/** O identificador de Configurações na paleta: ela não está em `SCREENS`. */
-const SETTINGS_SCREEN = 'configuracoes';
