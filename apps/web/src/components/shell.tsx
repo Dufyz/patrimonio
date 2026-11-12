@@ -135,6 +135,13 @@ export const AppShell = ({
 
   return (
     <div className="flex min-h-dvh bg-bg">
+      {/* NAV-14 · o primeiro foco do Tab: pula a barra e vai direto à tela. */}
+      <a
+        href="#conteudo"
+        className="sr-only cursor-pointer rounded-control bg-panel px-3 py-2 text-[0.8125rem] font-medium focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:ring-2 focus:ring-focus/40"
+      >
+        Pular para o conteúdo
+      </a>
       {asDrawer ? (
         drawerOpen ? (
           <div className="fixed inset-0 z-40 flex">
@@ -183,7 +190,13 @@ export const AppShell = ({
             </button>
           </div>
         ) : null}
-        <main className="min-w-0 flex-1 px-7 pt-5 pb-10">{children}</main>
+        <main
+          id="conteudo"
+          tabIndex={-1}
+          className="min-w-0 flex-1 px-7 pt-5 pb-10 outline-none"
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

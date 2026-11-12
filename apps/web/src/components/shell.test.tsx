@@ -132,6 +132,18 @@ describe('casca única', () => {
     expect(screen.queryByRole('button', { name: /Trocar de área/u })).toBeNull();
   });
 
+  it('o primeiro Tab leva ao link de pular para o conteúdo', async () => {
+    const user = userEvent.setup();
+    shell();
+
+    await user.tab();
+
+    const skip = screen.getByRole('link', { name: 'Pular para o conteúdo' });
+    expect(skip).toHaveFocus();
+    expect(skip).toHaveAttribute('href', '#conteudo');
+    expect(document.getElementById('conteudo')).toBeInTheDocument();
+  });
+
   it('os grupos aparecem na ordem da especificação, sem seletor de áreas', () => {
     shell();
 
