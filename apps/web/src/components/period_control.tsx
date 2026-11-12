@@ -214,7 +214,9 @@ export const RangePickerBody = ({
             type="button"
             aria-current={activeId === shortcut.id ? 'true' : undefined}
             className={`mx-2 block w-[calc(100%-1rem)] cursor-pointer rounded-control px-2 py-2 text-left text-[0.84375rem] ${
-              activeId === shortcut.id ? 'bg-accent-soft font-semibold' : 'hover:bg-panel-2'
+              activeId === shortcut.id
+                ? 'bg-accent-soft font-semibold'
+                : 'hover:bg-panel-2'
             }`}
             onClick={() => {
               onShortcut(shortcut);
@@ -242,7 +244,9 @@ export const RangePickerBody = ({
           }
           selected={range}
           onSelect={setRange}
-          {...(allowFuture ? {} : { disabled: { after: todayDate }, endMonth: todayDate })}
+          {...(allowFuture
+            ? {}
+            : { disabled: { after: todayDate }, endMonth: todayDate })}
           formatters={{
             formatWeekdayName: (day) => WEEKDAY_INITIALS[day.getDay()] ?? '',
           }}

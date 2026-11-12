@@ -34,7 +34,7 @@ import { indicators as computeIndicators, queryEntries } from '../domain/ledger.
 import { activeSources } from '../domain/sources.js';
 import { readHiddenColumns, writeHiddenColumns } from '../lib/columns.js';
 import type { ColumnSpec } from '../lib/columns.js';
-import { EMPTY_FILTERS } from '../lib/filters.js';
+import { EMPTY_FILTERS, filtersFromParams } from '../lib/filters.js';
 import { EmptyPanel } from '../components/states.js';
 import type { FilterField, FilterState } from '../lib/filters.js';
 import { PRIMARY_LABELS } from '../lib/header.js';
@@ -80,10 +80,9 @@ export const EntriesScreen = (): React.ReactElement => {
   // e a busca global (FIN-703) com `?busca=`.
   const [params] = useSearchParams();
   const [search, setSearch] = useState(() => params.get('busca') ?? '');
-  const [filters, setFilters] = useState<FilterState>(() => {
-    const account = params.get('conta');
-    return account === null ? EMPTY_FILTERS : { conta: [account] };
-  });
+  // NAV-010: todo total chega aqui já filtrado, por `?tipo=`, `?categoria=`,
+  // `?conta=` e `?situacao=` (valores separados por vírgula).
+  const [filters, setFilters] = useState<FilterState>(() => filtersFromParams(params));
   const [hidden, setHidden] = useState(() =>
     readHiddenColumns(browserStorage(), SCREEN, COLUMNS),
   );

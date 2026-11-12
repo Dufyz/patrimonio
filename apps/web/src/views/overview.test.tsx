@@ -1,4 +1,8 @@
-import type { OverviewResource, PerformanceResource } from '@patrimonio/contracts';
+import type {
+  GoalsOverviewResource,
+  OverviewResource,
+  PerformanceResource,
+} from '@patrimonio/contracts';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -274,6 +278,25 @@ const showConsolidated = (opened: string[] = []) =>
       <OverviewView
         resource={ready(consolidated)}
         performance={readyPerf(consolidatedPerformance)}
+        portfolioReturns={{
+          state: {
+            kind: 'ready',
+            value: [
+              {
+                id: '0191e5a0-0000-7000-8000-00000000c001',
+                name: 'Longo prazo',
+                value: '15.92',
+              },
+              {
+                id: '0191e5a0-0000-7000-8000-00000000c002',
+                name: 'Reserva',
+                value: null,
+              },
+            ],
+          },
+          pending: false,
+          reload: () => {},
+        }}
         extraIds={[]}
         onExtraIdsChange={() => {}}
         period={DEFAULT_PERIOD}
@@ -306,7 +329,7 @@ describe('todas as carteiras', () => {
     expect(screen.getByText(/Patrimônio · todas as carteiras/i)).toBeInTheDocument();
 
     const tabela = screen.getByRole('table', {
-      name: 'Valor, peso e retorno de cada carteira',
+      name: 'Valor de cada carteira',
     });
 
     expect(within(tabela).getByText('Longo prazo')).toBeInTheDocument();
@@ -314,29 +337,44 @@ describe('todas as carteiras', () => {
     expect(within(tabela).getByText('20,0%')).toBeInTheDocument();
   });
 
-  it('mostra o retorno de cada carteira pela cota dela, com traço onde não há base', () => {
+  it('lista o total embaixo das carteiras', () => {
     showConsolidated();
 
-    const tabela = screen.getByRole('table', {
-      name: 'Valor, peso e retorno de cada carteira',
-    });
-    const reserva = within(tabela).getByRole('row', { name: /Reserva/ });
+    const tabela = screen.getByRole('table', { name: 'Valor de cada carteira' });
+    const total = within(tabela).getByRole('row', { name: /Total/ });
 
-    expect(within(reserva).getByText('0,80%')).toBeInTheDocument();
-    expect(within(reserva).getAllByText('9,50%')).toHaveLength(2);
-    expect(within(reserva).getByText('—')).toBeInTheDocument();
+    expect(within(total).getByText('R$ 318.904,12')).toBeInTheDocument();
   });
 
-  it('mantém o retorno contra benchmark e o retorno por classe, sem o alvo', () => {
+  it('mostra o retorno do período de cada carteira pela cota dela, com traço onde não há base', () => {
+    showConsolidated();
+
+    const painel = screen.getByRole('region', { name: /Retorno × benchmarks/ });
+    const reserva = within(painel).getByText('Reserva').closest('li');
+
+    expect(reserva).not.toBeNull();
+    expect(within(reserva as HTMLElement).getByText('—')).toBeInTheDocument();
+    expect(within(painel).getAllByText('15,92%').length).toBeGreaterThan(0);
+    // O período escolhido no cabeçalho é o que o painel diz medir.
+    expect(within(painel).getByText(/12M · pela cota/)).toBeInTheDocument();
+  });
+
+  it('a barra da carteira e a do benchmark seguem o período da série, e não uma janela fixa', () => {
+    showConsolidated();
+
+    const painel = screen.getByRole('region', { name: /Retorno × benchmarks/ });
+    // Último ponto da série acumulada do período: 30,10% e 29,29%.
+    expect(within(painel).getByText('30,10%')).toBeInTheDocument();
+    expect(within(painel).getByText('29,29%')).toBeInTheDocument();
+  });
+
+  it('mantém o retorno contra benchmark e a alocação por classe, sem o alvo', () => {
     showConsolidated();
 
     expect(screen.getByText(/Retorno × benchmarks/)).toBeInTheDocument();
-
-    const classes = screen.getByRole('table', {
-      name: 'Distribuição e retorno por classe de ativo',
-    });
-
-    expect(within(classes).getByText('12,00%')).toBeInTheDocument();
+    expect(
+      screen.getByRole('table', { name: 'Distribuição por classe de ativo' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('vs alvo')).not.toBeInTheDocument();
     expect(screen.getByText(/O alvo é declarado por carteira/)).toBeInTheDocument();
   });
@@ -378,7 +416,7 @@ describe('quanto eu tenho hoje', () => {
     show(ready(overview));
 
     const tabela = screen.getByRole('table', {
-      name: 'Distribuição e retorno por classe de ativo',
+      name: 'Distribuição por classe de ativo',
     });
 
     expect(within(tabela).getByText('0,3 pp')).toBeInTheDocument();
@@ -485,17 +523,121 @@ describe('o atalho para a página do ativo', () => {
   });
 });
 
+describe('independência financeira', () => {
+  const goalsOf = (goal: unknown, totalGoals = 0): Resource<GoalsOverviewResource> =>
+    ({
+      state: {
+        kind: 'ready',
+        value: {
+          reference_date: '2026-10-06',
+          portfolios: [{ portfolio_id: LONGO, portfolio_name: 'Longo prazo', goal }],
+          totals: {
+            goals: totalGoals,
+            counted: totalGoals,
+            target_amount: '1000000.00',
+            current_value: '318904.12',
+            remaining_brl: '681095.88',
+            progress_pct: '31.89',
+            expected_pct: null,
+            last_target_date: '2040-12-31',
+            required_monthly: '0.00',
+            current_monthly: '0.00',
+            gap_monthly: '0.00',
+            required_schedule: [],
+            pace_arrival_date: null,
+            pace_months_vs_deadline: null,
+            inflation_pct: null,
+          },
+          plan: {
+            budget: '0.00',
+            distribution: 'proportional',
+            cascade: false,
+            arrival_date: null,
+            months_vs_deadline: null,
+          },
+          scenarios: [],
+          chart: null,
+        },
+      },
+      pending: false,
+      reload: () => {},
+    }) as unknown as Resource<GoalsOverviewResource>;
+
+  const showGoals = (goals: Resource<GoalsOverviewResource>, onOpenScreen = vi.fn()) => {
+    render(
+      <PreferencesProvider storage={null}>
+        <OverviewView
+          resource={ready(overview)}
+          performance={readyPerf(performanceData)}
+          goals={goals}
+          extraIds={[]}
+          onExtraIdsChange={() => {}}
+          period={DEFAULT_PERIOD}
+          onPeriodChange={() => {}}
+          today={HOJE}
+          onOpenScreen={onOpenScreen}
+        />
+      </PreferencesProvider>,
+    );
+    return onOpenScreen;
+  };
+
+  it('carteira sem objetivo diz isso e oferece defini-lo', async () => {
+    const onOpenScreen = showGoals(goalsOf(null));
+
+    expect(screen.getByText('Esta carteira não tem objetivo.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Definir objetivo/ }));
+
+    expect(onOpenScreen).toHaveBeenCalledWith('objetivos');
+  });
+
+  it('mostra o progresso do objetivo da carteira', () => {
+    showGoals(
+      goalsOf({
+        id: 'g1',
+        name: 'Independência',
+        target_amount: '1000000.00',
+        nominal_target_amount: null,
+        target_date: '2040-12-31',
+        amount_in_today_brl: true,
+        return_assumption: null,
+        current_value: '318904.12',
+        as_of: '2026-10-06',
+        progress_pct: '31.89',
+        remaining_brl: '681095.88',
+        expected_pct: null,
+        status: 'on_track',
+        blocked: null,
+        months_remaining: 170,
+        counted: true,
+        excluded_reason: null,
+        required_monthly: null,
+        required_share_pct: null,
+        current_monthly: '0.00',
+        current_share_pct: null,
+        current_arrival_date: null,
+        current_months_to_arrival: null,
+        plan: null,
+        rate: null,
+      }),
+    );
+
+    expect(screen.getByText('Independência')).toBeInTheDocument();
+    expect(screen.getByText(/No ritmo/)).toBeInTheDocument();
+  });
+});
+
 describe('por classe', () => {
   it('classe sem base no período: traço, e não 0,00%', () => {
     show(ready(overview));
 
     const tabela = screen.getByRole('table', {
-      name: 'Distribuição e retorno por classe de ativo',
+      name: 'Distribuição por classe de ativo',
     });
     const caixa = within(tabela).getByRole('row', { name: /Cripto/ });
 
-    // Sem alvo (vs alvo) e sem base nas quatro janelas de retorno: cinco traços.
-    expect(within(caixa).getAllByText('—')).toHaveLength(5);
+    // Sem alvo declarado: o desvio vira traço, e não 0,0 pp.
+    expect(within(caixa).getAllByText('—')).toHaveLength(1);
   });
 
   it('uma linha por classe, e as categorias dela abrem por baixo', async () => {
@@ -553,7 +695,7 @@ describe('por classe', () => {
     show(ready(grupo));
 
     const tabela = screen.getByRole('table', {
-      name: 'Distribuição e retorno por classe de ativo',
+      name: 'Distribuição por classe de ativo',
     });
     expect(within(tabela).getByRole('row', { name: /Ações/ })).toBeInTheDocument();
     expect(within(tabela).queryByText('ETF de ações')).not.toBeInTheDocument();

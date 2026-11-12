@@ -1,19 +1,14 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { useShortcuts } from '../components/shortcuts.js';
-import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 
-import { FinanceSearch } from './components/finance_search.js';
-import { FinanceShell } from './components/finance_shell.js';
 import { FinancePeriodProvider, useFinancePeriod } from './components/period_provider.js';
 
 import {
   DetailSkeleton,
   OverviewSkeleton,
-  SettingsSkeleton,
   TableScreenSkeleton,
 } from './components/screen_skeletons.js';
 import { PanelError } from './components/states.js';
-import { writeLastArea } from '../lib/last_area.js';
 import { syncRecurring } from './domain/recurring.js';
 import {
   createRemoteFinanceStore,
@@ -61,11 +56,6 @@ const CategoriesScreen = lazy(() =>
     default: module.CategoriesScreen,
   })),
 );
-const SettingsScreen = lazy(() =>
-  import('../views/settings/index.js').then((module) => ({
-    default: module.SettingsScreen,
-  })),
-);
 
 /**
  * `?hoje=2026-10-24` fixa o "hoje" da sessão: é como se confere uma tela contra
@@ -101,7 +91,7 @@ const RecurringSync = (): null => {
  * "Tentar novamente". Uma escrita que falha não tira a tela do ar: aparece um
  * aviso no topo, e a foto relida mostra o que o servidor tem de fato.
  */
-const StatusGate = ({ children }: { readonly children: React.ReactNode }) => {
+export const StatusGate = ({ children }: { readonly children: React.ReactNode }) => {
   const store = useFinanceStore();
   const status = useFinanceStatus();
   useEffect(() => {
@@ -137,135 +127,134 @@ const StatusGate = ({ children }: { readonly children: React.ReactNode }) => {
   );
 };
 
-export const FinanceApp = ({
+/**
+ * O dono dos dados de Finanças: a foto do servidor, o período e o "hoje". Mora
+ * na casca, acima de tudo: Geral, Finanças e a busca global leem do mesmo lugar,
+ * e é por isso que o mesmo número aparece igual em todas (RN-70) sem ler o
+ * servidor duas vezes. Quem espera a primeira foto é `StatusGate`.
+ */
+export const FinanceProviders = ({
   store,
-  settingsOnly = false,
+  children,
 }: {
   readonly store?: FinanceStore | undefined;
-  /** Montado em `/configuracoes`: a tela inicial é a de Configurações. */
-  readonly settingsOnly?: boolean;
+  readonly children: React.ReactNode;
 }): React.ReactElement => {
   useTodayFromUrl();
-  useEffect(() => writeLastArea('financas'), []);
   const [remote] = useState(() => store ?? createRemoteFinanceStore());
-  const [searching, setSearching] = useState(false);
-  const shortcuts = useMemo(() => ({ search: () => setSearching(true) }), []);
-  useShortcuts(shortcuts);
   return (
     <FinanceStoreProvider store={remote}>
       <FinancePeriodProvider>
         <RecurringSync />
-        <FinanceShell onOpenSearch={() => setSearching(true)}>
-          <StatusGate>
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  settingsOnly ? (
-                    <Suspense fallback={<SettingsSkeleton />}>
-                      <SettingsScreen />
-                    </Suspense>
-                  ) : (
-                    <Navigate to="visao-geral" replace />
-                  )
-                }
-              />
-              <Route
-                path="visao-geral"
-                element={
-                  <Suspense fallback={<OverviewSkeleton />}>
-                    <OverviewScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="lancamentos"
-                element={
-                  <Suspense
-                    fallback={
-                      <TableScreenSkeleton label="Carregando Lançamentos" stats={4} />
-                    }
-                  >
-                    <EntriesScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="contas"
-                element={
-                  <Suspense
-                    fallback={
-                      <TableScreenSkeleton label="Carregando Contas" stats={3} rows={5} />
-                    }
-                  >
-                    <AccountsScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="contas/:id"
-                element={
-                  <Suspense fallback={<DetailSkeleton label="Carregando extrato" />}>
-                    <StatementScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="cartoes"
-                element={
-                  <Suspense
-                    fallback={
-                      <TableScreenSkeleton
-                        label="Carregando Cartões"
-                        stats={3}
-                        rows={5}
-                      />
-                    }
-                  >
-                    <CardsScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="cartoes/:id"
-                element={
-                  <Suspense fallback={<DetailSkeleton label="Carregando fatura" />}>
-                    <CardScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="recorrentes"
-                element={
-                  <Suspense
-                    fallback={
-                      <TableScreenSkeleton label="Carregando Recorrentes" stats={3} />
-                    }
-                  >
-                    <RecurringsScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="categorias"
-                element={
-                  <Suspense
-                    fallback={<TableScreenSkeleton label="Carregando Categorias" />}
-                  >
-                    <CategoriesScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="configuracoes"
-                element={<Navigate to="/configuracoes" replace />}
-              />
-              <Route path="*" element={<Navigate to="/financas/visao-geral" replace />} />
-            </Routes>
-          </StatusGate>
-        </FinanceShell>
-        <FinanceSearch open={searching} onClose={() => setSearching(false)} />
+        {children}
       </FinancePeriodProvider>
     </FinanceStoreProvider>
   );
 };
+
+/** As telas de Finanças, que esperam os provedores acima. */
+export const FinanceRoutes = (): React.ReactElement => {
+  return (
+    <>
+      <Routes>
+        <Route path="/" element={<Navigate to="visao-geral" replace />} />
+        <Route
+          path="visao-geral"
+          element={
+            <Suspense fallback={<OverviewSkeleton />}>
+              <OverviewScreen />
+            </Suspense>
+          }
+        />
+        <Route
+          path="lancamentos"
+          element={
+            <Suspense
+              fallback={<TableScreenSkeleton label="Carregando Lançamentos" stats={4} />}
+            >
+              <EntriesScreen />
+            </Suspense>
+          }
+        />
+        <Route
+          path="contas"
+          element={
+            <Suspense
+              fallback={
+                <TableScreenSkeleton label="Carregando Contas" stats={3} rows={5} />
+              }
+            >
+              <AccountsScreen />
+            </Suspense>
+          }
+        />
+        <Route
+          path="contas/:id"
+          element={
+            <Suspense fallback={<DetailSkeleton label="Carregando extrato" />}>
+              <StatementScreen />
+            </Suspense>
+          }
+        />
+        <Route
+          path="cartoes"
+          element={
+            <Suspense
+              fallback={
+                <TableScreenSkeleton label="Carregando Cartões" stats={3} rows={5} />
+              }
+            >
+              <CardsScreen />
+            </Suspense>
+          }
+        />
+        <Route
+          path="cartoes/:id"
+          element={
+            <Suspense fallback={<DetailSkeleton label="Carregando fatura" />}>
+              <CardScreen />
+            </Suspense>
+          }
+        />
+        <Route
+          path="recorrentes"
+          element={
+            <Suspense
+              fallback={<TableScreenSkeleton label="Carregando Recorrentes" stats={3} />}
+            >
+              <RecurringsScreen />
+            </Suspense>
+          }
+        />
+        <Route
+          path="categorias"
+          element={
+            <Suspense fallback={<TableScreenSkeleton label="Carregando Categorias" />}>
+              <CategoriesScreen />
+            </Suspense>
+          }
+        />
+        <Route path="*" element={<Navigate to="/financas/visao-geral" replace />} />
+      </Routes>
+    </>
+  );
+};
+
+export const FinanceApp = ({
+  store,
+}: {
+  readonly store?: FinanceStore | undefined;
+}): React.ReactElement => (
+  <FinanceProviders store={store}>
+    <StatusGate>
+      <FinanceRoutes />
+    </StatusGate>
+  </FinanceProviders>
+);
+
+/** O que Geral e Finanças têm em comum: os dados de Finanças. */
+export const FinanceHost = (): React.ReactElement => (
+  <StatusGate>
+    <Outlet />
+  </StatusGate>
+);

@@ -36,6 +36,14 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: 'hide_values', sequence: ['h'], label: 'Ocultar valores', scope: 'global' },
   { id: 'help', sequence: ['?'], label: 'Esta ajuda', scope: 'global' },
 
+  { id: 'go_geral', sequence: ['g', 'g'], label: 'Geral', scope: 'navigation' },
+  { id: 'go_financas', sequence: ['g', 'f'], label: 'Finanças', scope: 'navigation' },
+  {
+    id: 'go_investimentos',
+    sequence: ['g', 'i'],
+    label: 'Investimentos',
+    scope: 'navigation',
+  },
   { id: 'go_overview', sequence: ['g', 'v'], label: 'Visão geral', scope: 'navigation' },
   { id: 'go_positions', sequence: ['g', 'p'], label: 'Posições', scope: 'navigation' },
   {
@@ -45,8 +53,8 @@ export const SHORTCUTS: readonly Shortcut[] = [
     scope: 'navigation',
   },
   { id: 'go_strategy', sequence: ['g', 'e'], label: 'Estratégia', scope: 'navigation' },
-  { id: 'go_goals', sequence: ['g', 'o'], label: 'Objetivos', scope: 'navigation' },
   { id: 'go_projection', sequence: ['g', 'j'], label: 'Projeção', scope: 'navigation' },
+  { id: 'go_goals', sequence: ['g', 'o'], label: 'Objetivos', scope: 'navigation' },
 
   { id: 'row_transaction', sequence: ['l'], label: 'Lançar na linha', scope: 'row' },
   { id: 'row_edit', sequence: ['e'], label: 'Editar a linha', scope: 'row' },

@@ -30,28 +30,66 @@ const open = () => {
   );
 };
 
-describe('Faixa de totais do mês (FIN-601)', () => {
-  it('cabeçalho do painel com a etiqueta e o dia do mês', () => {
+describe('Composição da tela (FVG-008)', () => {
+  it('o subtítulo diz o período e as contagens do cadastro', () => {
     open();
-    expect(screen.getByRole('heading', { name: 'Resultado de out/2026' })).toBeTruthy();
-    expect(screen.getByText('mês em andamento')).toBeTruthy();
-    expect(screen.getByText('dia 24 de 31')).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Finanças · out\/2026 · receitas e despesas · 5 contas e \d+ cartões/u,
+      ),
+    ).toBeTruthy();
   });
 
-  it('cinco células com valores e legendas', () => {
+  it('tem os seis painéis e não tem mais a faixa de resultado nem a projeção em tabela', () => {
     open();
-    const strip = within(screen.getByRole('region', { name: 'Resultado do mês' }));
-    const cell = (label: string) =>
-      strip.getByText(label).parentElement?.textContent ?? '';
-    expect(cell('Receitas')).toContain('R$ 16.350,00');
-    expect(cell('Receitas')).toContain('3 lançamentos');
-    expect(cell('Despesas')).toContain('R$ 9.478,10');
-    expect(cell('Despesas')).toContain('9 lançamentos');
-    expect(cell('Saldo do mês')).toContain('R$ 6.871,90');
-    expect(cell('Em contas')).toContain('R$ 12.583,85');
-    expect(cell('Em contas')).toContain('5 contas');
-    expect(cell('Faturas abertas')).toContain('R$ 5.422,27');
-    expect(cell('Faturas abertas')).toContain('Itaú 30/10 · Nubank 05/11');
+    for (const name of [
+      'Saldo previsto',
+      'Despesas por categoria',
+      'Próximos lançamentos',
+      'Faturas abertas',
+      'Contas',
+      'Receitas × despesas',
+    ]) {
+      expect(screen.getByRole('region', { name })).toBeTruthy();
+    }
+    expect(screen.queryByRole('region', { name: 'Resultado do mês' })).toBeNull();
+    expect(screen.queryByRole('table', { name: 'Projeção mês a mês' })).toBeNull();
+  });
+});
+
+describe('Saldo previsto (FVG-001, FVG-002)', () => {
+  const panel = () => screen.getByRole('region', { name: 'Saldo previsto' });
+
+  it('mostra a data de hoje, o saldo ao fim do mês e Em contas hoje', () => {
+    open();
+    expect(within(panel()).getByText(/hoje, .* · fim de out\/2026/u)).toBeTruthy();
+    expect(within(panel()).queryByText('dia 24 de 31')).toBeNull();
+    expect(within(panel()).getByText('Saldo ao fim do mês')).toBeTruthy();
+    expect(panel().textContent).toContain('R$ 12.583,85');
+  });
+
+  it('tem as três linhas com barra e o menor saldo do horizonte', () => {
+    open();
+    for (const label of ['Em contas hoje', 'Entradas previstas', 'Saídas previstas']) {
+      expect(within(panel()).getByText(label)).toBeTruthy();
+    }
+    expect(within(panel()).getByText(/Menor saldo até 30\/11/u)).toBeTruthy();
+  });
+
+  it('cada linha leva ao que a compõe', () => {
+    open();
+    const link = within(panel()).getByText('Saídas previstas').closest('a');
+    expect(link?.getAttribute('href')).toBe(
+      '/financas/lancamentos?tipo=despesa&situacao=prevista',
+    );
+  });
+
+  it('o gráfico traz realizado e previsto e marca o menor saldo', () => {
+    open();
+    expect(
+      within(panel()).getByRole('img', { name: /realizado até hoje e previsto depois/u }),
+    ).toBeTruthy();
+    expect(within(panel()).getByLabelText('Menor saldo')).toBeTruthy();
   });
 });
 
@@ -104,57 +142,73 @@ describe('Receitas × despesas (FIN-602)', () => {
   });
 });
 
-describe('Despesas por categoria (FIN-603)', () => {
+describe('Despesas por categoria (FVG-003)', () => {
   const panel = () => screen.getByRole('region', { name: 'Despesas por categoria' });
   const table = () =>
     within(screen.getByRole('table', { name: 'Despesas por categoria' }));
 
-  it('subtítulo com o mês e "até agora", e a coluna de comparação com o mês anterior', () => {
+  it('subtítulo com o mês e "até agora", sem coluna de variação', () => {
     open();
     expect(within(panel()).getByText('out/2026 · até agora')).toBeTruthy();
-    expect(table().getByRole('columnheader', { name: 'SET/2026' })).toBeTruthy();
+    expect(table().queryByRole('columnheader', { name: 'Variação' })).toBeNull();
+    expect(table().getByRole('columnheader', { name: '% do total' })).toBeTruthy();
   });
 
-  it('ordena da maior para a menor e mostra marcador, valor, variação e percentual', () => {
+  it('ordena da maior para a menor, com valor e percentual, e fecha com o total', () => {
     open();
     const rows = table().getAllByRole('row').slice(1);
     expect(rows[0]?.textContent).toContain('Investimento');
     expect(rows[0]?.textContent).toContain('R$ 4.500,00');
-    expect(rows[0]?.textContent).toContain('R$ 6.200,00');
-    expect(rows[0]?.textContent).toContain('−27%');
     expect(rows[0]?.textContent).toContain('47,5%');
-    expect(rows[1]?.textContent).toContain('Moradia');
-    expect(rows[1]?.textContent).toContain('+4%');
+    expect(rows[rows.length - 1]?.textContent).toContain('Total');
+    expect(rows[rows.length - 1]?.textContent).toContain('R$ 9.478,10');
   });
 
-  it('variação menor é verde e maior é vermelha; os percentuais somam 100%', () => {
+  it('o link leva a Lançamentos de despesas lançadas', () => {
     open();
-    const rows = table().getAllByRole('row').slice(1);
-    const cellTone = (row: HTMLElement | undefined) =>
-      row?.querySelector('td:nth-child(4)')?.className ?? '';
-    expect(cellTone(rows[0])).toContain('text-positive');
-    expect(cellTone(rows[1])).toContain('text-negative');
-    const total = rows
-      .map((row) =>
-        Number(
-          (row.querySelector('td:nth-child(5)')?.textContent ?? '0')
-            .replace(',', '.')
-            .replace('%', ''),
-        ),
-      )
-      .reduce((a, b) => a + b, 0);
-    expect(Math.round(total * 10) / 10).toBe(100);
+    expect(
+      within(panel())
+        .getByRole('link', { name: /^Ver por categoria/u })
+        .getAttribute('href'),
+    ).toBe('/financas/lancamentos?tipo=despesa&situacao=lancada');
+  });
+});
+
+describe('Próximos lançamentos (FVG-004)', () => {
+  const panel = () => screen.getByRole('region', { name: 'Próximos lançamentos' });
+
+  it('lista até nove previstos, do mais próximo ao mais distante', () => {
+    open();
+    const rows = within(panel()).getAllByRole('row').slice(1);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.length).toBeLessThanOrEqual(9);
+    expect(
+      within(panel()).getByRole('columnheader', { name: 'Conta ou cartão' }),
+    ).toBeTruthy();
   });
 
-  it('a barra empilhada tem um trecho por categoria e o link leva a Lançamentos', async () => {
+  it('o link do cabeçalho diz o total real de previstos e leva a Lançamentos', () => {
     open();
-    expect(panel().querySelectorAll('[data-category]').length).toBe(
-      table().getAllByRole('row').length - 1,
-    );
-    await userEvent.click(
-      within(panel()).getByRole('link', { name: 'Ver os lançamentos' }),
-    );
-    expect(screen.getByText('Lançamentos aberto')).toBeTruthy();
+    const link = within(panel()).getByRole('link', { name: /^Ver os \d+ previstos/u });
+    expect(link.getAttribute('href')).toBe('/financas/lancamentos?situacao=prevista');
+  });
+});
+
+describe('Faturas abertas e Contas (FVG-005, FVG-006)', () => {
+  it('Faturas abertas mostra fatura e limite por cartão, com o total no rodapé', () => {
+    open();
+    const panel = screen.getByRole('region', { name: 'Faturas abertas' });
+    expect(within(panel).getByText('% do limite usado')).toBeTruthy();
+    expect(within(panel).getByRole('columnheader', { name: 'Limite' })).toBeTruthy();
+    expect(panel.textContent).toContain('R$ 5.422,27');
+    expect(panel.textContent).toMatch(/fecham \d\d\/\d\d · vencem \d\d\/\d\d/u);
+  });
+
+  it('Contas fecha com o total em contas, igual ao de Em contas hoje', () => {
+    open();
+    const panel = screen.getByRole('region', { name: 'Contas' });
+    expect(within(panel).getByText('Total em contas')).toBeTruthy();
+    expect(panel.textContent).toContain('R$ 12.583,85');
   });
 });
 
@@ -168,54 +222,5 @@ describe('Novo lançamento', () => {
   it('a Visão geral não tem mais o card de lançamentos', () => {
     open();
     expect(screen.queryByRole('region', { name: 'Lançamentos' })).toBeNull();
-  });
-});
-
-describe('Projeção de saldo', () => {
-  const panel = () => screen.getByRole('region', { name: 'Projeção de saldo' });
-
-  it('parte do saldo em contas de hoje e projeta até o fim do ano', () => {
-    open();
-    const text = panel().textContent ?? '';
-    expect(text).toContain('R$ 12.583,85');
-    expect(within(panel()).getByText('Menor saldo')).toBeTruthy();
-    expect(within(panel()).getByRole('img').getAttribute('aria-label')).toContain(
-      '31/12',
-    );
-    expect(
-      within(panel()).getByRole('table', { name: 'Projeção mês a mês' }),
-    ).toBeTruthy();
-  });
-
-  it('trocar o horizonte muda a tabela mês a mês', async () => {
-    open();
-    const months = () =>
-      within(
-        within(panel()).getByRole('table', { name: 'Projeção mês a mês' }),
-      ).getAllByRole('row').length - 1;
-    expect(months()).toBe(3);
-    await userEvent.click(within(panel()).getByRole('radio', { name: 'Fim do mês' }));
-    expect(months()).toBe(1);
-    await userEvent.click(within(panel()).getByRole('radio', { name: '6 meses' }));
-    expect(months()).toBe(7);
-  });
-
-  it('o tooltip acompanha o cursor e marca o menor saldo', async () => {
-    open();
-    await userEvent.hover(within(panel()).getByTestId('projection-hit'));
-    expect(within(panel()).queryByTestId('projection-lowest')).toBeTruthy();
-  });
-});
-
-describe('Próximos 30 dias', () => {
-  it('lista o que ainda vai mexer nas contas, sem coluna de saldo', () => {
-    open();
-    const panel = screen.getByRole('region', { name: 'Próximos 30 dias' });
-    const rows = within(panel).getAllByRole('row').slice(1);
-    expect(rows.length).toBeGreaterThan(0);
-    expect(panel.textContent).toContain('Fatura');
-    expect(
-      within(panel).queryByRole('columnheader', { name: 'Saldo depois' }),
-    ).toBeNull();
   });
 });

@@ -59,6 +59,8 @@ export type SearchPaletteProps = {
   readonly portfolios: readonly SearchPortfolio[];
   /** Quais ações já têm tela que as execute; as outras aparecem desativadas. */
   readonly readyActions: ReadonlySet<SearchActionId>;
+  /** Finanças: o que ela acha para o texto digitado. */
+  readonly finance?: (query: string) => readonly SearchItem[];
   readonly onSelect: (target: SearchTarget) => void;
   /** A busca no banco. Troca-se nos testes; a identidade precisa ser estável. */
   readonly search?: (text: string, signal: AbortSignal) => Promise<SearchResource>;
@@ -76,6 +78,7 @@ const PaletteDialog = ({
   screens,
   portfolios,
   readyActions,
+  finance,
   onSelect,
   search: injectedSearch,
   storage,
@@ -150,17 +153,23 @@ const PaletteDialog = ({
     [screens, portfolios, readyActions],
   );
 
+  const financeItems = useMemo(
+    () => (finance === undefined || query.trim() === '' ? [] : finance(query.trim())),
+    [finance, query],
+  );
+
   const model = useMemo(
     () =>
       buildModel({
         query,
         filter,
         local,
+        finance: financeItems,
         recents: recentItems(recents),
         server,
         readyActions,
       }),
-    [query, filter, local, recents, server, readyActions],
+    [query, filter, local, financeItems, recents, server, readyActions],
   );
 
   const active = resolveActive(model.sections, activeId);

@@ -2,6 +2,7 @@ import { formatBRL, formatDay } from '../lib/format.js';
 import { financeRoutes } from '../lib/routes.js';
 import { matchesSearch } from '../lib/text.js';
 import { sourceName } from './sources.js';
+import type { SearchItem as PaletteItem } from '../../lib/search.js';
 import type { FinanceData } from './types.js';
 
 /**
@@ -104,3 +105,35 @@ export const searchFinance = (
     .map((id) => ({ id, title: TITLES[id], items: groups[id].slice(0, SEARCH_LIMIT) }))
     .filter((group) => group.items.length > 0);
 };
+
+const GLYPHS: Readonly<Record<SearchGroupId, string>> = {
+  lancamentos: 'swap',
+  contas: 'bank',
+  cartoes: 'card',
+  recorrentes: 'repeat',
+  categorias: 'tag',
+};
+
+/**
+ * Os mesmos resultados, no formato da paleta global: a busca é uma só, e
+ * Finanças entra nela como mais um grupo. O que a busca achou já vem filtrado.
+ */
+export const financeSearchItems = (
+  data: FinanceData,
+  query: string,
+  today: string,
+): readonly PaletteItem[] =>
+  searchFinance(data, query, today)
+    .flatMap((group) => group.items)
+    .map((item): PaletteItem => ({
+      id: `finance:${item.group}:${item.id}`,
+      group: 'finance',
+      glyph: GLYPHS[item.group],
+      label: item.label,
+      detail: item.hint,
+      amount: null,
+      shortcut: null,
+      keywords: [],
+      target: { kind: 'path', path: item.to },
+      disabled: null,
+    }));

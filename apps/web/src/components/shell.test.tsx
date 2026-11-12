@@ -17,10 +17,41 @@ const portfolios = [
 ];
 
 const screens = [
-  { id: 'visao', label: 'Visão geral', icon: '▦' },
-  { id: 'posicoes', label: 'Posições', icon: '≡' },
-  { id: 'movimentacoes', label: 'Movimentações', icon: '⇄' },
-];
+  {
+    id: 'visao-geral',
+    label: 'Visão geral',
+    icon: 'grid',
+    path: '/investimentos/longo/visao-geral',
+  },
+  {
+    id: 'posicoes',
+    label: 'Posições',
+    icon: 'list',
+    path: '/investimentos/longo/posicoes',
+  },
+  {
+    id: 'movimentacoes',
+    label: 'Movimentações',
+    icon: 'swap',
+    path: '/investimentos/longo/movimentacoes',
+  },
+] as const;
+
+const finance = [
+  {
+    id: 'visao-geral',
+    label: 'Visão geral',
+    icon: 'grid',
+    path: '/financas/visao-geral',
+  },
+  {
+    id: 'lancamentos',
+    label: 'Lançamentos',
+    icon: 'swap',
+    path: '/financas/lancamentos',
+  },
+  { id: 'contas', label: 'Contas', icon: 'bank', path: '/financas/contas' },
+] as const;
 
 const wrap = (node: React.ReactNode) =>
   render(
@@ -30,32 +61,37 @@ const wrap = (node: React.ReactNode) =>
   );
 
 const shell = (props: Partial<React.ComponentProps<typeof AppShell>> = {}) => {
-  const onNavigate = props.onNavigate ?? vi.fn();
+  const onGo = props.onGo ?? vi.fn();
   wrap(
     <AppShell
-      portfolios={portfolios}
+      geral={{ id: 'geral', label: 'Visão geral', icon: 'grid', path: '/geral' }}
+      finance={finance}
+      portfolios={portfolios.map((portfolio) => ({
+        ...portfolio,
+        path: `/investimentos/${portfolio.id}/posicoes`,
+      }))}
       screens={screens}
-      scope="longo"
-      screen="posicoes"
-      onNavigate={onNavigate}
+      active={{ area: 'investimentos', scope: 'longo', screen: 'posicoes' }}
+      title="Longo prazo"
+      settingsPath="/configuracoes"
+      onGo={onGo}
       onOpenSearch={vi.fn()}
-      onOpenSettings={vi.fn()}
       width={1440}
       {...props}
     >
       <p>conteúdo da tela</p>
     </AppShell>,
   );
-  return onNavigate;
+  return onGo;
 };
 
-describe('moldura da aplicação', () => {
+const nav = (): HTMLElement => screen.getByRole('navigation');
+
+describe('casca única', () => {
   it('mostra o rótulo de demonstração enquanto houver dado de demonstração', () => {
     shell({ demo: true });
 
-    expect(
-      within(screen.getByRole('navigation')).getByText('Demonstração'),
-    ).toBeVisible();
+    expect(within(nav()).getByText('Demonstração')).toBeVisible();
   });
 
   it('sem dado de demonstração, o rótulo não aparece', () => {
@@ -64,11 +100,26 @@ describe('moldura da aplicação', () => {
     expect(screen.queryByText('Demonstração')).toBeNull();
   });
 
+  it('o topo mostra só o nome, sem seletor de área', () => {
+    shell();
+
+    expect(within(nav()).getByText('Patrimônio')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Trocar de área/u })).toBeNull();
+  });
+
+  it('as três áreas ficam sempre à vista, na ordem', () => {
+    shell();
+
+    const titles = within(nav())
+      .getAllByRole('heading', { level: 3 })
+      .map((heading) => heading.textContent);
+    expect(titles).toEqual(['Geral', 'Investimentos', 'Finanças']);
+  });
+
   it('a barra lateral mostra o valor de cada carteira', () => {
     shell();
-    const nav = screen.getByRole('navigation');
-    expect(within(nav).getByText('318,9k')).toBeVisible();
-    expect(within(nav).getByText('84,8k')).toBeVisible();
+    expect(within(nav()).getByText('318,9k')).toBeVisible();
+    expect(within(nav()).getByText('84,8k')).toBeVisible();
   });
 
   it('o botão de recolher leva a barra ao trilho e a lembra', async () => {
@@ -77,54 +128,90 @@ describe('moldura da aplicação', () => {
 
     await user.click(screen.getByRole('button', { name: 'Recolher barra lateral' }));
 
-    expect(screen.getByRole('navigation')).toHaveClass('w-[60px]');
+    expect(nav()).toHaveClass('w-[60px]');
     expect(screen.getByRole('button', { name: 'Expandir barra lateral' })).toBeVisible();
     expect(globalThis.localStorage.getItem('patrimonio:sidebar-collapsed')).toBe('1');
     globalThis.localStorage.removeItem('patrimonio:sidebar-collapsed');
   });
 
-  it('trocar de carteira mantém a tela atual', async () => {
+  it('o trilho mostra os ícones das três áreas e as siglas das carteiras', async () => {
+    shell({ width: 1100 });
+
+    const rail = nav();
+    expect(within(rail).getByTitle('Contas')).toBeVisible();
+    expect(within(rail).getByTitle('Entrada do imóvel')).toHaveTextContent('EN');
+    expect(within(rail).getByTitle('Configurações')).toBeVisible();
+  });
+
+  it('clicar numa carteira vai ao caminho que a camada de rotas decidiu', async () => {
     const user = userEvent.setup();
-    const onNavigate = shell();
+    const onGo = shell();
 
     await user.click(screen.getByRole('button', { name: /Entrada do imóvel/u }));
 
-    expect(onNavigate).toHaveBeenCalledWith('imovel', 'posicoes');
+    expect(onGo).toHaveBeenCalledWith('/investimentos/imovel/posicoes');
   });
 
-  it('trocar de tela mantém a carteira', async () => {
+  it('clicar numa tela de Finanças e em Geral navega para elas', async () => {
     const user = userEvent.setup();
-    const onNavigate = shell();
+    const onGo = shell();
 
-    await user.click(screen.getByRole('button', { name: /Visão geral/u }));
+    await user.click(screen.getByRole('button', { name: 'Contas' }));
+    expect(onGo).toHaveBeenLastCalledWith('/financas/contas');
 
-    expect(onNavigate).toHaveBeenCalledWith('longo', 'visao');
+    await user.click(within(nav()).getAllByRole('button', { name: /Visão geral/u })[0]!);
+    expect(onGo).toHaveBeenLastCalledWith('/geral');
   });
 
-  it('as telas ficam sob o nome da carteira escolhida', () => {
-    shell();
-    // Duas vezes: na lista de carteiras e como título do grupo de telas, que é
-    // o que deixa claro de qual carteira é a tabela na tela.
-    const occurrences = screen.getAllByText('Longo prazo');
-    expect(occurrences).toHaveLength(2);
-    expect(occurrences.some((node) => node.className.includes('uppercase'))).toBe(true);
+  it('Configurações fica no pé e abre a tela global', async () => {
+    const user = userEvent.setup();
+    const onGo = shell();
+
+    await user.click(screen.getByRole('button', { name: 'Configurações' }));
+
+    expect(onGo).toHaveBeenCalledWith('/configuracoes');
   });
 
-  it('a tela atual se anuncia como tal', () => {
+  it('só a tela de agora fica destacada', () => {
     shell();
-    expect(screen.getByRole('button', { name: /Posições/u })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+
+    const current = within(nav())
+      .getAllByRole('button')
+      .filter((button) => button.hasAttribute('aria-current'));
+    // A carteira do escopo e a tela de Investimentos; nada em Geral ou Finanças.
+    expect(current.map((button) => button.getAttribute('title'))).toEqual([
+      'Longo prazo',
+      'Posições',
+    ]);
+  });
+
+  it('em Finanças nenhuma carteira fica destacada', () => {
+    shell({ active: { area: 'financas', screen: 'contas' } });
+
+    const current = within(nav())
+      .getAllByRole('button')
+      .filter((button) => button.hasAttribute('aria-current'));
+    expect(current.map((button) => button.getAttribute('title'))).toEqual(['Contas']);
+  });
+
+  it('em Configurações só ela fica destacada', () => {
+    shell({ active: { area: 'configuracoes' } });
+
+    const current = within(nav())
+      .getAllByRole('button')
+      .filter((button) => button.hasAttribute('aria-current'));
+    expect(current.map((button) => button.getAttribute('title'))).toEqual([
+      'Configurações',
+    ]);
   });
 
   it('em tela média a barra lateral colapsa para ícones', () => {
     shell({ width: 1100 });
     expect(screen.queryByText('Buscar')).not.toBeInTheDocument();
-    expect(screen.getByRole('navigation')).toHaveClass('w-[60px]');
+    expect(nav()).toHaveClass('w-[60px]');
   });
 
-  it('em tela estreita a barra lateral vira gaveta, sem perder a seleção', async () => {
+  it('em tela estreita a barra lateral vira gaveta, com o título da tela', async () => {
     const user = userEvent.setup();
     shell({ width: 820 });
 

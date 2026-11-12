@@ -36,6 +36,7 @@ import {
 } from './parts.js';
 import { Icon } from '../../components/icon.js';
 import { useInRouterContext, Link } from 'react-router';
+import { routes } from '../../lib/routes.js';
 import { ALL_SCOPE } from '../../lib/scope.js';
 
 /**
@@ -70,7 +71,7 @@ const Failed = ({
 );
 
 const PositionsLink = ({ children }: { readonly children: React.ReactNode }) => {
-  const to = `/${ALL_SCOPE}/posicoes`;
+  const to = routes.investments(ALL_SCOPE, 'posicoes');
   const className = 'text-accent hover:underline';
   // Sem roteador (uma pré-visualização isolada) o link vira âncora comum.
   return useInRouterContext() ? (
@@ -356,7 +357,9 @@ export const MarketSection = ({
         setNote({
           tone: 'error',
           text:
-            error instanceof Error ? error.message : 'Não foi possível pedir a atualização',
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível pedir a atualização',
         }),
       )
       .finally(() => setRefreshing(false));

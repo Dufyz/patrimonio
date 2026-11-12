@@ -4,18 +4,17 @@ import type { DateOnly } from '@patrimonio/domain';
 import { useRef, useState } from 'react';
 
 import { Chip } from '../components/primitives.js';
-import { SeriesChart } from '../components/series_chart.js';
+import { Percent } from '../components/number.js';
 import { useDismiss } from '../components/use_dismiss.js';
-import { formatDate, monthTicks } from '../lib/overview.js';
+import { formatDate, percentAsRatio } from '../lib/overview.js';
 import {
-  PORTFOLIO_COLOR,
   addBenchmark,
   availableToAdd,
   benchmarkColor,
-  chartSeries,
   extraBenchmarks,
   removeBenchmark,
 } from '../lib/performance.js';
+import { colorForSeries } from '../lib/tokens.js';
 
 /**
  * O retorno da carteira dentro da Visão geral: o gráfico acumulado contra os
@@ -120,35 +119,133 @@ const LineSwatch = ({
   />
 );
 
+type Bar = {
+  readonly id: string;
+  readonly label: string;
+  readonly color: string;
+  readonly value: string | null;
+};
+
+/** O retorno do período: o último ponto da série acumulada, que parte de 0% na base. */
+const lastOf = (values: readonly string[]): string | null =>
+  values.length < 2 ? null : (values[values.length - 1] ?? null);
+
+/** O retorno de uma carteira no período, pela cota dela. */
+export type PortfolioReturn = {
+  readonly id: string;
+  readonly name: string;
+  readonly value: string | null;
+};
+
+const BarRow = ({
+  bar,
+  scale,
+}: {
+  readonly bar: Bar;
+  /** O maior módulo entre as barras: o comprimento é comparável entre linhas. */
+  readonly scale: number;
+}): React.ReactElement => {
+  const negative = bar.value !== null && Number(bar.value) < 0;
+  const magnitude = bar.value === null ? 0 : Math.abs(Number(bar.value));
+  const width = scale === 0 ? 0 : Math.min(100, (magnitude / scale) * 100);
+
+  return (
+    <li className="grid grid-cols-[minmax(7rem,12rem)_1fr_5.5rem] items-center gap-4 text-[0.8125rem]">
+      <span className="truncate text-ink-2" title={bar.label}>
+        {bar.label}
+      </span>
+      <span className="relative h-2.5 min-w-0 rounded-full bg-panel-2" aria-hidden="true">
+        <span
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{
+            width: `${width}%`,
+            backgroundColor: negative ? 'var(--color-negative)' : bar.color,
+          }}
+        />
+      </span>
+      <span className="text-right font-semibold">
+        <Percent value={percentAsRatio(bar.value)} decimals={2} signed tone="signed" />
+      </span>
+    </li>
+  );
+};
+
 /**
- * O gráfico de retorno acumulado, com os benchmarks escolhidos como etiquetas
- * removíveis e o aviso do que não tem série no período.
+ * IVG-005 · Retorno × benchmarks: uma barra por linha, no período escolhido no
+ * cabeçalho da tela. A carteira (ou todas) vem primeiro, depois os benchmarks;
+ * em Todas entram as carteiras, cada uma pela cota dela. Os benchmarks
+ * escolhidos são etiquetas removíveis, e "+ Benchmark" adiciona outro.
  */
-export const ReturnsChart = ({
+export const ReturnsBars = ({
   data,
   extraIds,
   onExtraIdsChange,
+  portfolios,
+  periodFrom,
 }: {
   readonly data: PerformanceResource;
   readonly extraIds: readonly string[];
   readonly onExtraIdsChange: (ids: readonly string[]) => void;
+  /** Em Todas as carteiras, o retorno de cada uma no mesmo período. */
+  readonly portfolios: readonly PortfolioReturn[] | null;
+  /** O início do período escolhido, para dizer quando ele passa do histórico. */
+  readonly periodFrom: DateOnly;
 }): React.ReactElement => {
-  const { benchmarks, chart, scope } = data;
+  const { benchmarks, scope, chart } = data;
   const primary = benchmarks.selected.find((item) => item.id === benchmarks.primary_id);
   const extras = extraBenchmarks(benchmarks.selected, benchmarks.primary_id);
-  const ticks = monthTicks(chart.dates as DateOnly[]);
+  const consolidated = scope.portfolio_id === null;
+
+  // O período é o do filtro da tela: cada barra é o último ponto da série
+  // acumulada que parte de 0% na base do período.
+  const hasHistory = chart.base_date !== null;
+  const partial =
+    scope.inception !== null && hasHistory && periodFrom < (scope.inception as DateOnly);
+
+  const bars: Bar[] = [
+    {
+      id: 'portfolio',
+      label: scope.name,
+      color: 'var(--color-ink)',
+      value: hasHistory ? lastOf(chart.portfolio) : null,
+    },
+    ...benchmarks.selected.map((item, index): Bar => {
+      const series = chart.benchmarks.find((one) => one.id === item.id);
+      return {
+        id: `benchmark:${item.id}`,
+        label: item.name,
+        color: benchmarkColor(index),
+        value: hasHistory && series !== undefined ? lastOf(series.values) : null,
+      };
+    }),
+  ];
+
+  if (consolidated && portfolios !== null) {
+    portfolios.forEach((portfolio, index) => {
+      bars.push({
+        id: `carteira:${portfolio.id}`,
+        label: portfolio.name,
+        color: colorForSeries(index),
+        value: portfolio.value,
+      });
+    });
+  }
+
+  const scale = Math.max(
+    0,
+    ...bars.map((bar) => (bar.value === null ? 0 : Math.abs(Number(bar.value)))),
+  );
 
   const gapIds = new Set(benchmarks.gaps.map((gap) => gap.id));
   const missing = benchmarks.selected.filter(
-    (item) =>
-      !gapIds.has(item.id) && !chart.benchmarks.some((line) => line.id === item.id),
+    (item) => !gapIds.has(item.id) && !chart.benchmarks.some((one) => one.id === item.id),
   );
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
         <Chip selected>
-          <LineSwatch color={PORTFOLIO_COLOR} />
+          <LineSwatch color="var(--color-ink)" />
           {scope.name}
         </Chip>
         {primary === undefined ? null : (
@@ -175,43 +272,42 @@ export const ReturnsChart = ({
         />
       </div>
 
-      {chart.dates.length === 0 ? (
-        <p className="flex min-h-40 items-center justify-center text-[0.8125rem] text-ink-3">
-          Sem consolidação no período escolhido.
-        </p>
-      ) : (
-        <SeriesChart
-          dates={chart.dates as DateOnly[]}
-          series={chartSeries(chart, benchmarks.selected, scope.name)}
-          valueFormat="percent"
-          endLabels
-          inception={scope.inception as DateOnly | null}
-          ariaLabel="Retorno acumulado da carteira contra os benchmarks"
-          xTickLabel={(date) => ticks.get(date) ?? ''}
-          tooltipDateLabel={(date) => formatDate(date)}
-        />
-      )}
+      <ul className="flex flex-col gap-4 px-4 py-5">
+        {bars.map((bar) => (
+          <BarRow key={bar.id} bar={bar} scale={scale} />
+        ))}
+      </ul>
 
-      {benchmarks.gaps.length === 0 ? null : (
-        <p className="text-[0.75rem] text-attention">
-          Falta série para o período:{' '}
-          {benchmarks.gaps
-            .map((gap) =>
-              gap.available_from === null
-                ? `${gap.name} (nenhum dado coletado)`
-                : `${gap.name} (série a partir de ${formatDate(gap.available_from as DateOnly)})`,
-            )
-            .join('; ')}
-          . O benchmark aparece como traço, e não como uma linha mais curta. Use
-          Atualizar agora em Configurações para carregar o histórico.
-        </p>
-      )}
-      {missing.length === 0 ? null : (
-        <p className="text-[0.75rem] text-attention">
-          Sem dado de índice no período: {missing.map((item) => item.name).join(', ')}.
-          Eles aparecem como traço, e não como zero.
-        </p>
-      )}
+      {partial || benchmarks.gaps.length > 0 || missing.length > 0 ? (
+        <div className="flex flex-col gap-1 border-t border-line px-4 py-3 text-xs text-ink-3">
+          {partial ? (
+            <p>
+              Início dos lançamentos em {formatDate(scope.inception as DateOnly).slice(3)}
+              : o período escolhido cobre só parte da janela.
+            </p>
+          ) : null}
+          {benchmarks.gaps.length === 0 ? null : (
+            <p className="text-attention">
+              Falta série para o período:{' '}
+              {benchmarks.gaps
+                .map((gap) =>
+                  gap.available_from === null
+                    ? `${gap.name} (nenhum dado coletado)`
+                    : `${gap.name} (série a partir de ${formatDate(gap.available_from as DateOnly)})`,
+                )
+                .join('; ')}
+              . O benchmark aparece como traço, e não como uma barra mais curta. Use
+              Atualizar agora em Configurações para carregar o histórico.
+            </p>
+          )}
+          {missing.length === 0 ? null : (
+            <p className="text-attention">
+              Sem dado de índice no período: {missing.map((item) => item.name).join(', ')}
+              . Eles aparecem como traço, e não como zero.
+            </p>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 };

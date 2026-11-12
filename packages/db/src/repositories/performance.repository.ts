@@ -166,20 +166,41 @@ export const createPerformanceRepository = (sql: Connection): PerformanceReposit
                  ) AS total_value
            WHERE ${scope}::UUID IS NULL
         ),
-        series AS (
-          SELECT position_date,
-                 SUM(total_value)::TEXT AS total_value,
-                 SUM(net_flow)::TEXT AS net_flow,
-                 SUM(income)::TEXT AS income,
-                 SUM(payouts)::TEXT AS payouts,
-                 CASE
-                   WHEN ${scope}::UUID IS NULL THEN NULL
-                   ELSE MIN(quota_value)::TEXT
-                 END AS quota_value
+        days AS (
+          SELECT DISTINCT position_date
             FROM portfolio_daily
            WHERE portfolio_id IN (SELECT id FROM scope)
              AND position_date <= (SELECT position_date FROM reference)
-           GROUP BY position_date
+        ),
+        -- Em Todas, o total de um dia soma o último valor conhecido de cada
+        -- carteira. Sem isso, um dia em que só uma carteira tem linha derrubaria
+        -- o total, e um aporte nesse dia entraria a uma cota artificialmente
+        -- baixa. Fluxo, rendimento e provento só contam no dia em que ocorreram.
+        series AS (
+          SELECT d.position_date,
+                 SUM(last.total_value)::TEXT AS total_value,
+                 SUM(CASE WHEN last.position_date = d.position_date
+                          THEN last.net_flow ELSE 0 END)::TEXT AS net_flow,
+                 SUM(CASE WHEN last.position_date = d.position_date
+                          THEN last.income ELSE 0 END)::TEXT AS income,
+                 SUM(CASE WHEN last.position_date = d.position_date
+                          THEN last.payouts ELSE 0 END)::TEXT AS payouts,
+                 CASE
+                   WHEN ${scope}::UUID IS NULL THEN NULL
+                   ELSE MIN(last.quota_value)::TEXT
+                 END AS quota_value
+            FROM days d
+           CROSS JOIN scope s
+            JOIN LATERAL (
+                   SELECT pd.position_date, pd.total_value, pd.net_flow,
+                          pd.income, pd.payouts, pd.quota_value
+                     FROM portfolio_daily pd
+                    WHERE pd.portfolio_id = s.id
+                      AND pd.position_date <= d.position_date
+                    ORDER BY pd.position_date DESC
+                    LIMIT 1
+                 ) last ON TRUE
+           GROUP BY d.position_date
         ),
         portfolio AS (
           SELECT p.id::TEXT AS portfolio_id,

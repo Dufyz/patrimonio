@@ -48,6 +48,10 @@ export type SearchGroupId =
   | 'instruments'
   | 'transactions'
   | 'screens'
+  | 'screens_geral'
+  | 'screens_investimentos'
+  | 'screens_financas'
+  | 'finance'
   | 'actions';
 
 /** A ordem de desempate quando dois grupos são igualmente prováveis. */
@@ -57,9 +61,24 @@ const CANONICAL_ORDER: readonly SearchGroupId[] = [
   'asset_actions',
   'instruments',
   'transactions',
+  'screens_geral',
+  'screens_investimentos',
+  'screens_financas',
   'screens',
+  'finance',
   'actions',
 ];
+
+/** As telas se separam por módulo, na ordem da barra lateral. */
+export const SCREEN_GROUPS = [
+  'screens_geral',
+  'screens_investimentos',
+  'screens_financas',
+  'screens',
+] as const satisfies readonly SearchGroupId[];
+
+const isScreenGroup = (group: SearchGroupId): boolean =>
+  (SCREEN_GROUPS as readonly SearchGroupId[]).includes(group);
 
 export const GROUP_TITLES: Readonly<Record<SearchGroupId, string>> = {
   recent: 'Recentes',
@@ -69,6 +88,10 @@ export const GROUP_TITLES: Readonly<Record<SearchGroupId, string>> = {
   instruments: 'Papéis do mercado',
   transactions: 'Lançamentos',
   screens: 'Ir para',
+  screens_geral: 'Telas · Geral',
+  screens_investimentos: 'Telas · Investimentos',
+  screens_financas: 'Telas · Finanças',
+  finance: 'Finanças',
   actions: 'Ações',
 };
 
@@ -86,7 +109,13 @@ export const GLYPHS = {
 } as const;
 
 export type SearchTarget =
-  | { readonly kind: 'screen'; readonly screen: string }
+  | {
+      readonly kind: 'screen';
+      readonly screen: string;
+      /** Tela de outra área: o endereço dela, que dispensa as regras de escopo. */
+      readonly path?: string;
+    }
+  | { readonly kind: 'path'; readonly path: string }
   | { readonly kind: 'portfolio'; readonly portfolioId: string }
   | { readonly kind: 'asset'; readonly assetId: string; readonly slug: string }
   | {
@@ -139,7 +168,19 @@ export type SearchScreen = {
   readonly glyph: string;
   /** `G V`, quando o atalho existe. */
   readonly shortcut: string | null;
+  /** A área, em cinza, quando a lista mistura áreas: "Finanças", "Investimentos". */
+  readonly detail?: string;
+  /** O endereço, para telas que não são do escopo de Investimentos. */
+  readonly path?: string;
+  /** O módulo da tela: a lista "Ir para" se separa por ele. */
+  readonly module?: 'geral' | 'investimentos' | 'financas';
 };
+
+const SCREEN_GROUP_OF = {
+  geral: 'screens_geral',
+  investimentos: 'screens_investimentos',
+  financas: 'screens_financas',
+} as const;
 
 export type SearchPortfolio = { readonly id: string; readonly label: string };
 
@@ -223,14 +264,17 @@ export const localItems = (input: {
 }): readonly SearchItem[] => [
   ...input.screens.map((screen): SearchItem => ({
     id: `screen:${screen.id}`,
-    group: 'screens',
+    group: screen.module === undefined ? 'screens' : SCREEN_GROUP_OF[screen.module],
     glyph: screen.glyph,
     label: screen.label,
-    detail: null,
+    detail: screen.detail ?? null,
     amount: null,
     shortcut: screen.shortcut,
     keywords: SCREEN_KEYWORDS[screen.id] ?? [],
-    target: { kind: 'screen', screen: screen.id },
+    target:
+      screen.path === undefined
+        ? { kind: 'screen', screen: screen.id }
+        : { kind: 'screen', screen: screen.id, path: screen.path },
     disabled: null,
   })),
   {
@@ -507,12 +551,14 @@ export const recentItems = (recents: readonly RecentEntry[]): readonly SearchIte
 /* Montagem das seções                                                        */
 
 /** Os filtros do Tab: tudo, e depois cada tipo. */
-export type SearchFilter = 'assets' | 'transactions' | 'screens' | 'actions' | null;
+export type SearchFilter =
+  'assets' | 'transactions' | 'finance' | 'screens' | 'actions' | null;
 
 export const SEARCH_FILTERS: readonly SearchFilter[] = [
   null,
   'assets',
   'transactions',
+  'finance',
   'screens',
   'actions',
 ];
@@ -520,6 +566,7 @@ export const SEARCH_FILTERS: readonly SearchFilter[] = [
 export const FILTER_LABELS: Readonly<Record<Exclude<SearchFilter, null>, string>> = {
   assets: 'Ativos',
   transactions: 'Lançamentos',
+  finance: 'Finanças',
   screens: 'Telas',
   actions: 'Ações',
 };
@@ -536,6 +583,7 @@ const passesFilter = (group: SearchGroupId, filter: SearchFilter): boolean => {
   if (filter === 'assets') {
     return group === 'assets' || group === 'asset_actions' || group === 'instruments';
   }
+  if (filter === 'screens') return isScreenGroup(group);
   return group === filter;
 };
 
@@ -569,6 +617,8 @@ export const buildModel = (input: {
   readonly query: string;
   readonly filter: SearchFilter;
   readonly local: readonly SearchItem[];
+  /** O que Finanças achou para o texto; já vem filtrado. */
+  readonly finance?: readonly SearchItem[];
   readonly recents: readonly SearchItem[];
   readonly server: SearchServerState;
   readonly readyActions: ReadonlySet<SearchActionId>;
@@ -588,16 +638,18 @@ export const buildModel = (input: {
 
   if (query === '') {
     push('recent', input.recents);
-    push(
-      'screens',
-      input.local.filter((item) => item.group === 'screens'),
-    );
+    for (const group of SCREEN_GROUPS) {
+      push(
+        group,
+        input.local.filter((item) => item.group === group),
+      );
+    }
     push(
       'actions',
       input.local.filter((item) => item.group === 'actions'),
     );
   } else {
-    for (const group of ['screens', 'actions'] as const) {
+    for (const group of [...SCREEN_GROUPS, 'actions'] as const) {
       const scored = input.local
         .filter((item) => item.group === group)
         .map((item) => ({ item, score: scoreItem(item, query) }))
@@ -611,6 +663,10 @@ export const buildModel = (input: {
       );
       if (scored[0] !== undefined) scores.set(group, scored[0].score);
     }
+
+    const finance = input.finance ?? [];
+    push('finance', finance);
+    if (finance.length > 0) scores.set('finance', 22);
 
     if (input.server.kind === 'ready') {
       const { assets, instruments, transactions } = input.server.resource;
@@ -704,20 +760,23 @@ export const targetPath = (
 ): string | null => {
   switch (target.kind) {
     case 'screen': {
+      if (target.path !== undefined) return target.path;
       const path = context.screenPaths[target.screen];
-      return path === undefined ? null : `/${context.scope}/${path}`;
+      return path === undefined ? null : `/investimentos/${context.scope}/${path}`;
     }
     case 'portfolio':
-      return `/${context.scopeFor(target.portfolioId)}/${context.currentScreenPath}`;
+      return `/investimentos/${context.scopeFor(target.portfolioId)}/${context.currentScreenPath}`;
     case 'asset':
-      return `/${context.scope}/ativo/${target.slug}`;
+      return `/investimentos/${context.scope}/ativo/${target.slug}`;
     case 'transaction':
       return target.search === null || target.search === ''
-        ? `/${context.scope}/movimentacoes`
-        : `/${context.scope}/movimentacoes?${new URLSearchParams({
+        ? `/investimentos/${context.scope}/movimentacoes`
+        : `/investimentos/${context.scope}/movimentacoes?${new URLSearchParams({
             busca: target.search,
             periodo: 'inicio',
           }).toString()}`;
+    case 'path':
+      return target.path;
     case 'instrument':
     case 'action':
       return null;

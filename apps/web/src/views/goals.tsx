@@ -261,7 +261,20 @@ export const Stat = ({
   </div>
 );
 
-const GoalTrack = ({ goal }: { readonly goal: GoalResource }): React.ReactElement => {
+/**
+ * A barra do objetivo: acumulado, marca de onde deveria estar hoje e a meta.
+ * A tela Objetivo e os painéis de Objetivos das Visões gerais usam esta mesma.
+ */
+export const GoalTrack = ({
+  goal,
+  className = 'px-5 py-4',
+}: {
+  readonly goal: Pick<
+    GoalResource,
+    'status' | 'progress_pct' | 'expected_pct' | 'target_amount'
+  >;
+  readonly className?: string;
+}): React.ReactElement => {
   const state = barState(goal.status);
   const progress = Math.min(100, Math.max(0, Number(goal.progress_pct)));
   const expected =
@@ -270,7 +283,7 @@ const GoalTrack = ({ goal }: { readonly goal: GoalResource }): React.ReactElemen
       : Math.min(100, Math.max(0, Number(goal.expected_pct)));
 
   return (
-    <div className="flex flex-col gap-2 px-5 py-4">
+    <div className={`flex flex-col gap-2 ${className}`}>
       <span
         role="img"
         aria-label={STATUS_LABEL[goal.status]}
