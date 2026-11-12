@@ -7,6 +7,7 @@ import {
 } from './dates.js';
 import type { IsoDate } from './dates.js';
 import type { Cents } from './money.js';
+import { splitPercentTenths } from '../../lib/format.js';
 
 /**
  * FIN-008 · Formatação.
@@ -64,32 +65,11 @@ export const formatDayOfMonth = (date: IsoDate): string => {
 };
 
 /**
- * RN-64 · Percentuais em uma casa decimal ajustados para somar 100%.
- *
- * Método do maior resto: cada parte recebe o piso em décimos de ponto e os
- * décimos que faltam vão para as maiores partes fracionárias. Devolve décimos de
- * ponto percentual (`475` = 47,5%), para a soma ser exata.
+ * RN-U10 · Percentuais em décimos de ponto que somam exatamente 1000, com o
+ * resíduo na maior parcela. A regra mora em `lib/format.ts`; esta é a mesma
+ * função, mantida aqui só até a fusão dos formatadores (CMP-12).
  */
-export const allocatePercentTenths = (values: readonly number[]): readonly number[] => {
-  const total = values.reduce((acc, value) => acc + value, 0);
-  if (total <= 0) return values.map(() => 0);
-
-  const exact = values.map((value) => (value * 1000) / total);
-  const floors = exact.map(Math.floor);
-  let missing = 1000 - floors.reduce((acc, value) => acc + value, 0);
-
-  const order = exact
-    .map((value, index) => ({ index, remainder: value - Math.floor(value) }))
-    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
-
-  const result = [...floors];
-  for (const { index } of order) {
-    if (missing <= 0) break;
-    result[index] = (result[index] ?? 0) + 1;
-    missing -= 1;
-  }
-  return result;
-};
+export const allocatePercentTenths = splitPercentTenths;
 
 /** `475` → `47,5%`. */
 export const formatPercentTenths = (tenths: number): string =>

@@ -264,3 +264,26 @@ export const formatCompact = (
   const shown = { ...scaled, fraction: trimFraction(scaled.fraction, 0) };
   return assemble(shown, `${render(shown)}${tier.suffix}`, options.signed === true);
 };
+
+/**
+ * CMP-01 · RN-U10. Percentuais em décimos de ponto (`475` = 47,5%) que somam
+ * exatamente 1000: cada parte é arredondada e o resíduo, positivo ou negativo,
+ * vai para a maior parcela (a primeira, em caso de empate). Lista vazia ou de
+ * soma zero devolve zeros.
+ *
+ * É a única repartição do app: a lista exibida sempre soma 100,0%.
+ */
+export const splitPercentTenths = (values: readonly number[]): readonly number[] => {
+  const total = values.reduce((acc, value) => acc + value, 0);
+  if (total <= 0) return values.map(() => 0);
+
+  const rounded = values.map((value) => Math.round((value * 1000) / total));
+  const residue = 1000 - rounded.reduce((acc, value) => acc + value, 0);
+  if (residue === 0) return rounded;
+
+  const largest = values.reduce(
+    (best, value, index) => (value > (values[best] ?? 0) ? index : best),
+    0,
+  );
+  return rounded.map((tenths, index) => (index === largest ? tenths + residue : tenths));
+};

@@ -60,13 +60,14 @@ describe('datas', () => {
 });
 
 describe('percentuais', () => {
-  it('RN-64: uma casa decimal, ajustados para somar 100%', () => {
+  it('RN-U10: uma casa decimal, com o resíduo na maior parcela', () => {
     const tenths = allocatePercentTenths([450000, 356240, 90580, 45400, 5590]);
     expect(tenths.reduce((a, b) => a + b, 0)).toBe(1000);
+    // Arredondadas, as partes somam 100,1%: o 0,1 a mais sai da maior (47,5 → 47,4).
     expect(tenths.map(formatPercentTenths)).toEqual([
-      '47,5%',
+      '47,4%',
       '37,6%',
-      '9,5%',
+      '9,6%',
       '4,8%',
       '0,6%',
     ]);

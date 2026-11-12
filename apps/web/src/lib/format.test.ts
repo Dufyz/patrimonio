@@ -10,6 +10,7 @@ import {
   formatPoints,
   formatQuantity,
   formatQuota,
+  splitPercentTenths,
 } from './format.js';
 
 /**
@@ -126,5 +127,33 @@ describe('formatação de número', () => {
 
   it('valor grande demais para um number continua exato', () => {
     expect(formatMoney('9007199254740993.21').text).toBe('R$ 9.007.199.254.740.993,21');
+  });
+});
+
+describe('splitPercentTenths (CMP-01, RN-U10)', () => {
+  it('o resíduo vai para a maior parcela, e a primeira vence o empate', () => {
+    expect(splitPercentTenths([1, 1, 1])).toEqual([334, 333, 333]);
+    expect(splitPercentTenths([2, 1])).toEqual([667, 333]);
+  });
+
+  it('lista vazia ou zerada devolve zeros', () => {
+    expect(splitPercentTenths([])).toEqual([]);
+    expect(splitPercentTenths([0, 0])).toEqual([0, 0]);
+  });
+
+  it('propriedade: para qualquer lista de partes positivas, soma 100,0% e nada fica negativo', () => {
+    // Gerador determinístico (LCG): o teste falha sempre do mesmo jeito.
+    let seed = 20261112;
+    const next = (): number => {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      return seed / 4294967296;
+    };
+    for (let run = 0; run < 3000; run += 1) {
+      const size = 1 + Math.floor(next() * 30);
+      const parts = Array.from({ length: size }, () => 1 + Math.floor(next() ** 3 * 1e7));
+      const tenths = splitPercentTenths(parts);
+      expect(tenths.reduce((a, b) => a + b, 0)).toBe(1000);
+      expect(tenths.every((value) => value >= 0)).toBe(true);
+    }
   });
 });

@@ -51,7 +51,7 @@ describe('Despesas por categoria (FIN-603)', () => {
       categoryId: 'investimento',
       cents: 450000,
       previous: 620000,
-      tenths: 475,
+      tenths: 474,
     });
   });
 });

@@ -159,7 +159,7 @@ describe('Despesas por categoria (FVG-003)', () => {
     const rows = table().getAllByRole('row').slice(1);
     expect(rows[0]?.textContent).toContain('Investimento');
     expect(rows[0]?.textContent).toContain('R$ 4.500,00');
-    expect(rows[0]?.textContent).toContain('47,5%');
+    expect(rows[0]?.textContent).toContain('47,4%');
     expect(rows[rows.length - 1]?.textContent).toContain('Total');
     expect(rows[rows.length - 1]?.textContent).toContain('R$ 9.478,10');
   });
