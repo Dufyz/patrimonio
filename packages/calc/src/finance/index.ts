@@ -17,3 +17,4 @@ export * from './recurring.js';
 export * from './search.js';
 export * from './text.js';
 export * from './transfers.js';
+export * from './wealth.js';

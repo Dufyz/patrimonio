@@ -1,4 +1,5 @@
-import { FormatChangedError, MarketDataUnavailableError } from '@patrimonio/application';
+import type { FormatChangedError} from '@patrimonio/application';
+import { MarketDataUnavailableError } from '@patrimonio/application';
 import type { DateOnly } from '@patrimonio/domain';
 import { failure, success } from '@patrimonio/shared';
 import { describe, expect, it } from 'vitest';
