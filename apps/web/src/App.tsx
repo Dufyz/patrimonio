@@ -1,5 +1,4 @@
-import type { PortfolioResource } from '@patrimonio/contracts';
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import {
   Navigate,
   Route,
@@ -9,33 +8,19 @@ import {
   BrowserRouter,
 } from 'react-router';
 
-import { fetchMarketHealth } from './api/market.js';
-import { fetchPortfolios } from './api/portfolios.js';
-import { Icon } from './components/icon.js';
-import type { IconName } from './components/icon.js';
+import { AppLayout } from './app_layout.js';
 import { EntryProvider, useEntry } from './components/entry_provider.js';
+import { PortfoliosProvider, usePortfolios } from './components/portfolios_provider.js';
 import { SearchPalette } from './components/search_palette.js';
+import { useRegisterSearch } from './components/shell_search.js';
 import { SkeletonRegion, SkeletonTable } from './components/skeleton.js';
 import { WelcomeScreen } from './views/welcome.js';
 import { ShortcutProvider, useShortcuts } from './components/shortcuts.js';
-import { ALL_PORTFOLIOS, AppShell } from './components/shell.js';
-import type { ScreenItem } from './components/shell.js';
-import {
-  readLastArea,
-  readLastScope,
-  writeLastArea,
-  writeLastScope,
-} from './lib/last_area.js';
-import { hasDemoData } from './lib/settings.js';
-import { useResource } from './lib/use_resource.js';
-import {
-  ALL_SCOPE,
-  portfolioIdForScope,
-  portfolioSlugs,
-  scopeForPortfolioId,
-} from './lib/scope.js';
+import { ALL_PORTFOLIOS } from './components/shell.js';
+import { screensForScope } from './lib/investment_screens.js';
+import { routes } from './lib/routes.js';
+import { ALL_SCOPE, portfolioIdForScope, scopeForPortfolioId } from './lib/scope.js';
 import { describeShortcut, SHORTCUTS } from './lib/shortcuts.js';
-import { onPortfoliosChanged } from './lib/portfolio_events.js';
 import { targetPath } from './lib/search.js';
 import type { SearchActionId, SearchTarget } from './lib/search.js';
 import { FinanceLoading } from './finance/components/states.js';
@@ -43,89 +28,30 @@ import { AssetScreen } from './views/asset.js';
 import { Gallery } from './views/gallery.js';
 import { OverviewScreen } from './views/overview.js';
 import { GoalsScreen } from './views/goals.js';
+import { GeralScreen } from './views/geral/geral_screen.js';
 import { GoalsOverviewScreen } from './views/goals_overview.js';
 import { PositionsScreen } from './views/positions.js';
-import { ProjectionScreen } from './views/projection.js';
 import { SettingsScreen } from './views/settings/index.js';
 import { StatementScreen } from './views/statement.js';
 import { StrategyScreen } from './views/strategy.js';
 
 /**
- * E6 · A moldura e as telas.
+ * NAV-001 · As rotas do app.
  *
- * Até E5 o que a aplicação abria era a galeria do design system. Agora ela abre
- * a Visão geral, como a prancha `02 · Mapa de telas e navegação` manda — é a
- * tela que responde "quanto eu tenho hoje" —, e a galeria continua existindo em
- * `/galeria`: ela é o lugar onde uma mudança no botão aparece antes de aparecer
- * em seis telas.
+ * `/geral`, `/financas/<tela>`, `/investimentos/<escopo>/<tela>` e
+ * `/configuracoes`, todas dentro da casca única (`AppLayout`). A galeria do
+ * design system continua em `/galeria`, fora dela.
  *
  * O escopo e a tela vivem na URL, não em estado. Trocar de carteira mantém a
  * tela atual, porque quem troca está comparando, não recomeçando.
  */
 
-const SCREENS: readonly (ScreenItem & {
-  readonly path: string;
-  readonly story: string;
-  readonly glyph: IconName;
-  /** A tela também existe em "Todas as carteiras". */
-  readonly consolidated: boolean;
-})[] = (
-  [
-    {
-      id: 'visao',
-      label: 'Visão geral',
-      glyph: 'grid',
-      path: 'visao-geral',
-      story: 'T-01',
-      consolidated: true,
-    },
-    {
-      id: 'posicoes',
-      label: 'Posições',
-      glyph: 'list',
-      path: 'posicoes',
-      story: 'T-02',
-      consolidated: true,
-    },
-    {
-      id: 'movimentacoes',
-      label: 'Movimentações',
-      glyph: 'swap',
-      path: 'movimentacoes',
-      story: 'T-04',
-      consolidated: true,
-    },
-    {
-      id: 'estrategia',
-      label: 'Estratégia',
-      glyph: 'target',
-      path: 'estrategia',
-      story: 'T-06',
-      consolidated: false,
-    },
-    {
-      id: 'objetivos',
-      label: 'Objetivos',
-      glyph: 'flag',
-      path: 'objetivos',
-      story: 'T-07',
-      consolidated: true,
-    },
-    {
-      id: 'projecao',
-      label: 'Projeção',
-      glyph: 'growth',
-      path: 'projecao',
-      story: 'T-08',
-      consolidated: true,
-    },
-  ] as const
-).map((item) => ({ ...item, icon: <Icon name={item.glyph} /> }));
-
 export const App = (): React.ReactElement => (
   <BrowserRouter>
     <ShortcutProvider>
-      <Workspace />
+      <PortfoliosProvider>
+        <Workspace />
+      </PortfoliosProvider>
     </ShortcutProvider>
   </BrowserRouter>
 );
@@ -137,109 +63,61 @@ const FinanceApp = lazy(() =>
 const Workspace = (): React.ReactElement => (
   <Routes>
     <Route path="/galeria" element={<Gallery />} />
-    {/* Configurações vale para o app inteiro: mora na raiz, e a barra lateral é a
-        da área em que a pessoa estava. */}
-    <Route path="/configuracoes" element={<GlobalSettings />} />
-    <Route
-      path="/:scope/configuracoes"
-      element={<Navigate to="/configuracoes" replace />}
-    />
-    {/* Finanças é uma área à parte, com a própria navegação. */}
-    <Route
-      path="/financas/*"
-      element={
-        <Suspense fallback={<FinanceLoading />}>
-          <FinanceApp />
-        </Suspense>
-      }
-    />
-    {/* A página do ativo é uma tela dentro do escopo, e não uma tela da barra
-        lateral: ela pertence ao papel, e o papel pertence à carteira. Por isso
-        ela mora sob o escopo e mantém Posições destacada na navegação. */}
-    <Route path="/:scope/ativo/:asset" element={<Workbench />} />
-    <Route path="/:scope/:screen" element={<Workbench />} />
-    <Route path="*" element={<Navigate to={`/${ALL_SCOPE}/visao-geral`} replace />} />
+    <Route element={<AppLayout />}>
+      <Route path="/geral" element={<GeralScreen />} />
+      {/* Finanças tem as próprias telas, dentro da mesma casca. */}
+      <Route
+        path="/financas/*"
+        element={
+          <Suspense fallback={<FinanceLoading />}>
+            <FinanceApp />
+          </Suspense>
+        }
+      />
+      {/* A página do ativo é uma tela dentro do escopo, e não uma tela da barra
+          lateral: ela pertence ao papel, e o papel pertence à carteira. Por isso
+          ela mora sob o escopo e mantém Posições destacada na navegação. */}
+      <Route path="/investimentos/:scope/ativo/:asset" element={<Workbench />} />
+      <Route path="/investimentos/:scope/:screen" element={<Workbench />} />
+      <Route
+        path="/investimentos/:scope"
+        element={<Navigate to={routes.investments(ALL_SCOPE)} replace />}
+      />
+      <Route
+        path="/investimentos"
+        element={<Navigate to={routes.investments(ALL_SCOPE)} replace />}
+      />
+      {/* Configurações vale para o app inteiro. */}
+      <Route path="/configuracoes" element={<SettingsScreen />} />
+    </Route>
+    <Route path="*" element={<Navigate to={routes.home()} replace />} />
   </Routes>
 );
 
-const GlobalSettings = (): React.ReactElement =>
-  readLastArea() === 'financas' ? (
-    <Suspense fallback={<FinanceLoading />}>
-      <FinanceApp settingsOnly />
-    </Suspense>
-  ) : (
-    <Workbench global />
-  );
-
-const Workbench = ({
-  global = false,
-}: {
-  /** Configurações na raiz: o escopo vem do último usado, e a tela é a de configuração. */
-  readonly global?: boolean;
-}): React.ReactElement => {
+const Workbench = (): React.ReactElement => {
   const params = useParams();
-  const scope = global ? (readLastScope() ?? ALL_SCOPE) : (params['scope'] ?? ALL_SCOPE);
-  const screen = global ? 'configuracoes' : (params['screen'] ?? 'visao-geral');
-  const asset = global ? undefined : params['asset'];
+  const scope = params['scope'] ?? ALL_SCOPE;
+  const screen = params['screen'] ?? 'visao-geral';
+  const asset = params['asset'];
   const navigate = useNavigate();
 
-  useEffect(() => {
-    writeLastArea('investimentos');
-    if (!global) writeLastScope(scope);
-  }, [global, scope]);
-
-  const [portfolios, setPortfolios] = useState<readonly PortfolioResource[]>([]);
-  const [values, setValues] = useState<Readonly<Record<string, string>>>({});
-  const [total, setTotal] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState<Error | null>(null);
+  const { portfolios, slugs, loaded, failed, reload } = usePortfolios();
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const [reloads, setReloads] = useState(0);
-  useEffect(() => onPortfoliosChanged(() => setReloads((count) => count + 1)), []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchPortfolios(controller.signal)
-      .then((list) => {
-        setFailed(null);
-        setPortfolios(list.portfolios);
-        setValues(list.values);
-        setTotal(list.total);
-        setLoaded(true);
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
-        // Falha ao ler as carteiras não é "nenhuma carteira": mostrar a tela de
-        // boas-vindas para quem tem carteira e uma api fora do ar seria mentir.
-        setFailed(error instanceof Error ? error : new Error(String(error)));
-        setLoaded(true);
-      });
-    return () => controller.abort();
-  }, [reloads]);
-
-  const slugs = useMemo(() => portfolioSlugs(portfolios), [portfolios]);
   const allPortfolios = scope === ALL_SCOPE;
   const portfolioId = allPortfolios ? null : portfolioIdForScope(scope, slugs);
 
   // Em "Todas as carteiras" só existem as telas que somam carteiras. As demais
-  // (estratégia, objetivos) medem uma carteira, e a página do ativo pertence ao
-  // papel dentro de uma carteira: abrir uma delas aqui cai na tela mais próxima.
-  const screens = useMemo(
-    () => (allPortfolios ? SCREENS.filter((item) => item.consolidated) : SCREENS),
-    [allPortfolios],
-  );
+  // (estratégia) medem uma carteira, e a página do ativo pertence ao papel
+  // dentro de uma carteira: abrir uma delas aqui cai na tela mais próxima.
+  const screens = useMemo(() => screensForScope(allPortfolios), [allPortfolios]);
 
   // Com um ativo na URL, a tela ativa continua sendo Posições: a página do
   // ativo foi aberta de lá, e é para lá que a trilha volta.
   const current =
     asset === undefined
-      ? (screens.find((item) => item.path === screen) ?? screens[0])
-      : SCREENS[1];
-  // Configurações não está na lista de telas da carteira: ela vale para o app
-  // inteiro, e o botão dela fica no pé da barra lateral. `/:escopo/configuracoes`
-  // mantém o escopo na URL só para a barra lateral continuar a mesma.
-  const onSettings = asset === undefined && screen === 'configuracoes';
+      ? (screens.find((item) => item.id === screen) ?? screens[0])
+      : screens.find((item) => item.id === 'posicoes');
   const scopeLabel = allPortfolios
     ? 'Todas as carteiras'
     : (portfolios.find((item) => item.id === portfolioId)?.name ?? 'Carteira');
@@ -248,16 +126,19 @@ const Workbench = ({
     () => ({
       ...Object.fromEntries(
         screens.map((item) => [
-          `go_${SHORTCUT_IDS[item.id] ?? item.id}`,
-          () => navigate(`/${scope}/${item.path}`),
+          `go_${item.shortcut}`,
+          () => navigate(routes.investments(scope, item.id)),
         ]),
       ),
       // ⌘K abre e fecha: quem a abriu sem querer não precisa procurar o Esc.
       search: () => setSearchOpen((open) => !open),
     }),
-    [navigate, scope],
+    [navigate, scope, screens],
   );
   useShortcuts(shortcuts);
+
+  // O botão de buscar da barra lateral abre a paleta de Investimentos.
+  useRegisterSearch(useCallback(() => setSearchOpen(true), []));
 
   /**
    * As telas como a paleta as lista, com o atalho que cada uma realmente tem.
@@ -267,12 +148,12 @@ const Workbench = ({
     () => [
       ...screens.map((item) => {
         const shortcut = SHORTCUTS.find(
-          (candidate) => candidate.id === `go_${SHORTCUT_IDS[item.id] ?? item.id}`,
+          (candidate) => candidate.id === `go_${item.shortcut}`,
         );
         return {
           id: item.id,
           label: item.label,
-          glyph: item.glyph,
+          glyph: item.icon,
           shortcut: shortcut === undefined ? null : describeShortcut(shortcut),
         };
       }),
@@ -289,28 +170,27 @@ const Workbench = ({
     [portfolios],
   );
 
-  const health = useResource((signal) => fetchMarketHealth(signal), []);
-  const demo = health.state.kind === 'ready' && hasDemoData(health.state.value.demo);
-
   /**
    * "Ver lançamentos" de um ativo abre o extrato todo, e não os últimos três
    * meses: quem pergunta pelos lançamentos de um ativo quer o histórico dele.
    */
   const openStatement = (search: string): void => {
     void navigate(
-      `/${scope}/movimentacoes?${new URLSearchParams({ busca: search, periodo: 'inicio' }).toString()}`,
+      `${routes.investments(scope, 'movimentacoes')}?${new URLSearchParams({ busca: search, periodo: 'inicio' }).toString()}`,
     );
   };
 
   /** O que a paleta faz com o destino escolhido. As regras estão em `targetPath`. */
   const openTarget = (target: SearchTarget): void => {
+    if (target.kind === 'screen' && target.screen === SETTINGS_SCREEN) {
+      void navigate(routes.settings());
+      return;
+    }
+
     const path = targetPath(target, {
       scope,
-      currentScreenPath: current?.path ?? 'visao-geral',
-      screenPaths: {
-        ...Object.fromEntries(SCREENS.map((item) => [item.id, item.path])),
-        [SETTINGS_SCREEN]: 'configuracoes',
-      },
+      currentScreenPath: current?.id ?? 'visao-geral',
+      screenPaths: Object.fromEntries(screens.map((item) => [item.id, item.id])),
       scopeFor: (id) =>
         id === ALL_PORTFOLIOS ? ALL_SCOPE : (scopeForPortfolioId(id, slugs) ?? scope),
     });
@@ -319,7 +199,7 @@ const Workbench = ({
     // já filtrado por ele, com a carteira de cada linha.
     if (allPortfolios && target.kind === 'asset') {
       void navigate(
-        `/${ALL_SCOPE}/posicoes?${new URLSearchParams({ busca: target.slug }).toString()}`,
+        `${routes.investments(ALL_SCOPE, 'posicoes')}?${new URLSearchParams({ busca: target.slug }).toString()}`,
       );
       return;
     }
@@ -338,14 +218,14 @@ const Workbench = ({
     if (target === null) return;
 
     const targetScope = scopeForPortfolioId(target, slugs);
-    if (targetScope !== null) void navigate(`/${targetScope}/ativo/${slug}`);
+    if (targetScope !== null) void navigate(routes.asset(targetScope, slug));
   };
 
   if (!loaded) return <WorkbenchSkeleton />;
 
   if (failed !== null) {
     return (
-      <main role="alert" className="mx-auto max-w-md p-8 text-center">
+      <div role="alert" className="mx-auto max-w-md p-8 text-center">
         <h1 className="text-panel-title font-semibold text-negative">
           Não foi possível carregar as carteiras
         </h1>
@@ -353,143 +233,85 @@ const Workbench = ({
         <button
           type="button"
           className="mt-4 h-control cursor-pointer rounded-control border border-line px-3 text-[0.8125rem] hover:bg-panel-2"
-          onClick={() => {
-            setLoaded(false);
-            setReloads((count) => count + 1);
-          }}
+          onClick={reload}
         >
           Tentar de novo
         </button>
-      </main>
+      </div>
     );
   }
 
-  const first = portfolios[0];
-  if (first === undefined) {
-    // Configurações continua alcançável: é onde se importa um backup, e quem o
-    // restaura ainda não tem carteira.
-    if (onSettings) {
-      return (
-        <div className="flex flex-col gap-3 p-6">
-          <div>
-            <button
-              type="button"
-              className="cursor-pointer text-[0.8125rem] text-accent hover:underline"
-              onClick={() => navigate(`/${scope}/visao-geral`)}
-            >
-              ← Voltar
-            </button>
-          </div>
-          <SettingsScreen />
-        </div>
-      );
-    }
-    return <WelcomeScreen onOpenSettings={() => navigate('/configuracoes')} />;
+  if (portfolios[0] === undefined) {
+    return <WelcomeScreen onOpenSettings={() => navigate(routes.settings())} />;
   }
   if (!allPortfolios && portfolioId === null) {
-    return <Navigate to={`/${ALL_SCOPE}/visao-geral`} replace />;
+    return <Navigate to={routes.investments(ALL_SCOPE)} replace />;
   }
   if (allPortfolios && asset !== undefined) {
-    return <Navigate to={`/${ALL_SCOPE}/posicoes`} replace />;
+    return <Navigate to={routes.investments(ALL_SCOPE, 'posicoes')} replace />;
   }
-  if (allPortfolios && !onSettings && !screens.some((item) => item.path === screen)) {
-    return <Navigate to={`/${ALL_SCOPE}/visao-geral`} replace />;
+  if (allPortfolios && !screens.some((item) => item.id === screen)) {
+    return <Navigate to={routes.investments(ALL_SCOPE)} replace />;
+  }
+  // Tela desconhecida em uma carteira (ou que não existe mais): Visão geral.
+  if (asset === undefined && !screens.some((item) => item.id === screen)) {
+    return <Navigate to={routes.investments(scope)} replace />;
   }
 
   return (
     <EntryProvider scopePortfolioId={portfolioId}>
-      <AppShell
-        portfolios={[
-          { id: ALL_PORTFOLIOS, label: 'Todas as carteiras', value: total },
-          ...portfolios.map((portfolio) => ({
-            id: portfolio.id,
-            label: portfolio.name,
-            value: values[portfolio.id] ?? null,
-          })),
-        ]}
-        screens={screens.map(({ id, label, icon }) => ({ id, label, icon }))}
-        scope={portfolioId ?? ALL_PORTFOLIOS}
-        screen={onSettings ? 'configuracoes' : (current?.id ?? 'visao')}
-        onNavigate={(nextScope, nextScreen) => {
-          const toAll = nextScope === ALL_PORTFOLIOS;
-          const available = toAll ? SCREENS.filter((item) => item.consolidated) : SCREENS;
-          const target = available.find((item) => item.id === nextScreen) ?? available[0];
-          const slug = toAll
-            ? ALL_SCOPE
-            : (scopeForPortfolioId(nextScope, slugs) ?? scope);
-          navigate(`/${slug}/${target?.path ?? 'visao-geral'}`);
-        }}
-        onOpenSearch={() => setSearchOpen(true)}
-        settingsActive={onSettings}
-        demo={demo}
-        onOpenSettings={() => navigate('/configuracoes')}
-        onSwitchArea={(area) => {
-          if (area === 'financas') navigate('/financas/visao-geral');
-        }}
-      >
-        {asset !== undefined ? (
-          portfolioId === null ? null : (
-            <AssetScreen
-              assetRef={asset}
-              portfolioId={portfolioId}
-              scopeLabel={scopeLabel}
-              onBack={() => navigate(`/${scope}/posicoes`)}
-              onOpenStatement={openStatement}
-            />
-          )
-        ) : onSettings ? (
-          <SettingsScreen />
-        ) : current?.id === 'visao' ? (
-          <OverviewScreen
-            portfolioId={portfolioId}
-            {...(allPortfolios
-              ? {}
-              : { onOpenAsset: (slug: string) => navigate(`/${scope}/ativo/${slug}`) })}
-            onOpenScreen={(path) => navigate(`/${scope}/${path}`)}
-            onOpenPortfolio={(id) => {
-              const target = scopeForPortfolioId(id, slugs);
-              if (target !== null) navigate(`/${target}/visao-geral`);
-            }}
-          />
-        ) : current?.id === 'posicoes' ? (
-          <PositionsScreen
+      {asset !== undefined ? (
+        portfolioId === null ? null : (
+          <AssetScreen
+            assetRef={asset}
             portfolioId={portfolioId}
             scopeLabel={scopeLabel}
-            onOpenAsset={openAssetIn}
+            onBack={() => navigate(routes.investments(scope, 'posicoes'))}
             onOpenStatement={openStatement}
           />
-        ) : current?.id === 'movimentacoes' ? (
-          <StatementScreen
-            portfolioId={portfolioId}
-            scopeLabel={scopeLabel}
-            portfolios={portfolios}
-            onOpenAsset={openAssetIn}
-          />
-        ) : current?.id === 'estrategia' ? (
-          portfolioId === null ? null : (
-            <StrategyScreen portfolioId={portfolioId} />
-          )
-        ) : current?.id === 'objetivos' ? (
-          portfolioId === null ? (
-            <GoalsOverviewScreen
-              onOpenPortfolio={(id) => {
-                const target = scopeForPortfolioId(id, slugs);
-                if (target !== null) navigate(`/${target}/objetivos`);
-              }}
-            />
-          ) : (
-            <GoalsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
-          )
-        ) : current?.id === 'projecao' ? (
-          <ProjectionScreen
-            portfolios={portfolios}
-            portfolioId={portfolioId}
-            values={values}
+        )
+      ) : current?.id === 'visao-geral' ? (
+        <OverviewScreen
+          portfolioId={portfolioId}
+          {...(allPortfolios
+            ? {}
+            : { onOpenAsset: (slug: string) => navigate(routes.asset(scope, slug)) })}
+          onOpenScreen={(path) => navigate(routes.investments(scope, path))}
+          onOpenPortfolio={(id) => {
+            const target = scopeForPortfolioId(id, slugs);
+            if (target !== null) navigate(routes.investments(target));
+          }}
+        />
+      ) : current?.id === 'posicoes' ? (
+        <PositionsScreen
+          portfolioId={portfolioId}
+          scopeLabel={scopeLabel}
+          onOpenAsset={openAssetIn}
+          onOpenStatement={openStatement}
+        />
+      ) : current?.id === 'movimentacoes' ? (
+        <StatementScreen
+          portfolioId={portfolioId}
+          scopeLabel={scopeLabel}
+          portfolios={portfolios}
+          onOpenAsset={openAssetIn}
+        />
+      ) : current?.id === 'estrategia' ? (
+        portfolioId === null ? null : (
+          <StrategyScreen portfolioId={portfolioId} />
+        )
+      ) : current?.id === 'objetivos' ? (
+        portfolioId === null ? (
+          <GoalsOverviewScreen
+            onOpenPortfolio={(id) => {
+              const target = scopeForPortfolioId(id, slugs);
+              if (target !== null) navigate(routes.investments(target, 'objetivos'));
+            }}
           />
         ) : (
-          <ScreenPending label={current?.label ?? ''} story={current?.story ?? ''} />
-        )}
-      </AppShell>
+          <GoalsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
+        )
+      ) : null}
       <Palette
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
@@ -503,20 +325,11 @@ const Workbench = ({
   );
 };
 
-/** A moldura inteira em cinza, enquanto a lista de carteiras não chegou. */
+/** O corpo em cinza, enquanto a lista de carteiras não chegou. */
 const WorkbenchSkeleton = (): React.ReactElement => (
-  <div className="flex min-h-screen">
-    <aside className="hidden w-64 shrink-0 border-r border-line p-4 md:block">
-      <SkeletonRegion label="Carregando as carteiras">
-        <SkeletonTable rows={7} columns={1} />
-      </SkeletonRegion>
-    </aside>
-    <main className="min-w-0 flex-1 p-6">
-      <SkeletonRegion label="Carregando">
-        <SkeletonTable rows={8} columns={5} />
-      </SkeletonRegion>
-    </main>
-  </div>
+  <SkeletonRegion label="Carregando">
+    <SkeletonTable rows={8} columns={5} />
+  </SkeletonRegion>
 );
 
 /** As ações da paleta que o modal de lançamento executa. */
@@ -588,31 +401,3 @@ const Palette = ({
 
 /** O identificador de Configurações na paleta: ela não está em `SCREENS`. */
 const SETTINGS_SCREEN = 'configuracoes';
-
-const SHORTCUT_IDS: Readonly<Record<string, string>> = {
-  visao: 'overview',
-  posicoes: 'positions',
-  movimentacoes: 'transactions',
-  estrategia: 'strategy',
-  objetivos: 'goals',
-  projecao: 'projection',
-};
-
-/**
- * A tela que ainda não existe diz qual história a entrega, em vez de abrir em
- * branco. Em E6 ela some uma por vez.
- */
-const ScreenPending = ({
-  label,
-  story,
-}: {
-  readonly label: string;
-  readonly story: string;
-}): React.ReactElement => (
-  <div className="flex flex-col gap-1 rounded-panel border border-line bg-panel p-6">
-    <h1 className="text-base font-semibold">{label}</h1>
-    <p className="text-[0.8125rem] text-ink-3">
-      Esta tela chega com {story}. As demais telas já estão de pé.
-    </p>
-  </div>
-);

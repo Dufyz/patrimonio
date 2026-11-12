@@ -543,7 +543,7 @@ describe('destinos', () => {
 
   it('vai para a tela dentro do escopo de agora', () => {
     expect(targetPath({ kind: 'screen', screen: 'visao' }, context)).toBe(
-      '/longo-prazo/visao-geral',
+      '/investimentos/longo-prazo/visao-geral',
     );
   });
 
@@ -553,32 +553,32 @@ describe('destinos', () => {
 
   it('troca de carteira mantendo a tela', () => {
     expect(targetPath({ kind: 'portfolio', portfolioId: 'x' }, context)).toBe(
-      '/reserva/posicoes',
+      '/investimentos/reserva/posicoes',
     );
   });
 
   it('abre o ativo pelo apelido dele', () => {
     expect(targetPath({ kind: 'asset', assetId: 'a', slug: 'itub4' }, context)).toBe(
-      '/longo-prazo/ativo/itub4',
+      '/investimentos/longo-prazo/ativo/itub4',
     );
   });
 
   it('abre o lançamento no extrato inteiro filtrado pelo ativo', () => {
     expect(
       targetPath({ kind: 'transaction', transactionId: 't', search: 'ITUB4' }, context),
-    ).toBe('/longo-prazo/movimentacoes?busca=ITUB4&periodo=inicio');
+    ).toBe('/investimentos/longo-prazo/movimentacoes?busca=ITUB4&periodo=inicio');
   });
 
   it('codifica o que a pessoa não escreveu em URL', () => {
     expect(
       targetPath({ kind: 'transaction', transactionId: 't', search: 'A&B C' }, context),
-    ).toBe('/longo-prazo/movimentacoes?busca=A%26B+C&periodo=inicio');
+    ).toBe('/investimentos/longo-prazo/movimentacoes?busca=A%26B+C&periodo=inicio');
   });
 
   it('abre o extrato sem filtro quando o lançamento não tem ativo', () => {
     expect(
       targetPath({ kind: 'transaction', transactionId: 't', search: null }, context),
-    ).toBe('/longo-prazo/movimentacoes');
+    ).toBe('/investimentos/longo-prazo/movimentacoes');
   });
 
   it('não leva a lugar nenhum uma ação cuja tela ainda não existe', () => {

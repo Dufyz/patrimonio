@@ -705,16 +705,16 @@ export const targetPath = (
   switch (target.kind) {
     case 'screen': {
       const path = context.screenPaths[target.screen];
-      return path === undefined ? null : `/${context.scope}/${path}`;
+      return path === undefined ? null : `/investimentos/${context.scope}/${path}`;
     }
     case 'portfolio':
-      return `/${context.scopeFor(target.portfolioId)}/${context.currentScreenPath}`;
+      return `/investimentos/${context.scopeFor(target.portfolioId)}/${context.currentScreenPath}`;
     case 'asset':
-      return `/${context.scope}/ativo/${target.slug}`;
+      return `/investimentos/${context.scope}/ativo/${target.slug}`;
     case 'transaction':
       return target.search === null || target.search === ''
-        ? `/${context.scope}/movimentacoes`
-        : `/${context.scope}/movimentacoes?${new URLSearchParams({
+        ? `/investimentos/${context.scope}/movimentacoes`
+        : `/investimentos/${context.scope}/movimentacoes?${new URLSearchParams({
             busca: target.search,
             periodo: 'inicio',
           }).toString()}`;

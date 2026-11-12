@@ -37,7 +37,7 @@ export const financeRoutes = {
   /** Configurações é global: mora na raiz, fora de qualquer área. */
   settings: (): string => '/configuracoes',
   /** A área de Investimentos, para o seletor de área. */
-  investments: (): string => '/todas/visao-geral',
+  investments: (): string => '/investimentos/todas/visao-geral',
 } as const;
 
 /**

@@ -46,7 +46,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   { id: 'go_strategy', sequence: ['g', 'e'], label: 'Estratégia', scope: 'navigation' },
   { id: 'go_goals', sequence: ['g', 'o'], label: 'Objetivos', scope: 'navigation' },
-  { id: 'go_projection', sequence: ['g', 'j'], label: 'Projeção', scope: 'navigation' },
 
   { id: 'row_transaction', sequence: ['l'], label: 'Lançar na linha', scope: 'row' },
   { id: 'row_edit', sequence: ['e'], label: 'Editar a linha', scope: 'row' },

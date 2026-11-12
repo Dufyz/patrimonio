@@ -97,10 +97,13 @@ describe('galeria do design system', () => {
     gallery();
 
     await user.keyboard('gv');
-    expect(screen.getByRole('button', { name: /Visão geral/u })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    // Geral e Investimentos têm uma "Visão geral" cada: só a de Investimentos
+    // fica destacada, porque a galeria simula a carteira "Longo prazo".
+    const current = screen
+      .getAllByRole('button', { name: /Visão geral/u })
+      .filter((button) => button.hasAttribute('aria-current'));
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveAttribute('aria-current', 'page');
   });
 
   it('nenhuma cor literal sobrou em um componente', async () => {

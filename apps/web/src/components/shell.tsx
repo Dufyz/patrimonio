@@ -1,78 +1,92 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 
-import { AreaSwitcher } from './area_switcher.js';
-import type { AreaId } from './area_switcher.js';
 import { Compact } from './number.js';
 import { Icon } from './icon.js';
+import type { IconName } from './icon.js';
 import { Kbd } from './primitives.js';
+import { browserStorage, readRaw, writeRaw } from '../lib/preferences.js';
 
 /**
- * D-10 · A moldura da aplicação.
+ * NAV-002 · A casca única do app.
  *
- * A barra lateral lista as carteiras primeiro e, abaixo delas, as telas da
- * carteira escolhida. A ordem não é estética: trocar de carteira é trocar de
- * espaço de trabalho, e trocar de tela é andar dentro dele. O título acima das
- * telas repete o nome da carteira, então nunca há dúvida sobre de qual carteira
- * é a tabela que está na tela.
+ * Uma só barra lateral serve as três áreas. De cima para baixo: o nome
+ * "Patrimônio" (só texto) e o botão de recolher; a busca; GERAL; FINANÇAS;
+ * INVESTIMENTOS — com o seletor de carteiras e as telas do escopo escolhido —; e
+ * Configurações no pé. As três áreas ficam sempre à vista: não existe seletor de
+ * área para trocar de uma para a outra.
  *
- * Trocar de carteira mantém a tela atual — de Posições de uma carteira se vai
- * para Posições da outra — porque quem troca está comparando, não recomeçando.
- *
- * O escopo e a tela vivem na URL, e não em estado: voltar, avançar e abrir em
- * nova aba preservam a seleção, que é o que `/longo-prazo/posicoes` promete ao
- * ser colada em outro lugar.
+ * A área, o escopo e a tela vivem na URL, e não em estado: voltar, avançar e
+ * abrir em nova aba preservam a seleção. Trocar de carteira mantém a tela
+ * atual, porque quem troca está comparando, não recomeçando — quem decide o
+ * destino de cada item é `AppLayout`, que entrega aqui o caminho pronto.
  */
 
 /** O identificador de "Todas as carteiras" na barra lateral e na paleta. */
 export const ALL_PORTFOLIOS = 'todas';
 
-export type ScreenItem = {
+export type NavEntry = {
   readonly id: string;
   readonly label: string;
-  readonly icon: React.ReactNode;
+  readonly icon: IconName;
+  readonly path: string;
 };
 
-export type PortfolioItem = {
+export type PortfolioEntry = {
   readonly id: string;
   readonly label: string;
   readonly value: string | null;
+  readonly path: string;
 };
 
+/** Onde a pessoa está, para destacar um único item. */
+export type ShellActive =
+  | { readonly area: 'geral' }
+  | { readonly area: 'financas'; readonly screen: string }
+  | { readonly area: 'investimentos'; readonly scope: string; readonly screen: string }
+  | { readonly area: 'configuracoes' };
+
 export type AppShellProps = {
-  readonly portfolios: readonly PortfolioItem[];
-  readonly screens: readonly ScreenItem[];
-  readonly scope: string;
-  readonly screen: string;
-  readonly onNavigate: (scope: string, screen: string) => void;
+  readonly geral: NavEntry;
+  readonly finance: readonly NavEntry[];
+  readonly portfolios: readonly PortfolioEntry[];
+  /** As telas de Investimentos do escopo atual (ou do último escopo usado). */
+  readonly screens: readonly NavEntry[];
+  readonly active: ShellActive;
+  /** O título da tela de agora, para a gaveta. */
+  readonly title: string;
+  readonly settingsPath: string;
+  readonly onGo: (path: string) => void;
   readonly onOpenSearch: () => void;
-  readonly onOpenSettings: () => void;
-  /** Configurações aberta: o botão do pé da barra lateral fica destacado. */
-  readonly settingsActive?: boolean;
   /** Há dado de demonstração no banco: a barra lateral diz isso. */
   readonly demo?: boolean;
-  /** O seletor de área no topo da barra lateral (FIN-001). Sem ele, só o nome. */
-  readonly onSwitchArea?: ((area: AreaId) => void) | undefined;
   readonly children: React.ReactNode;
   /** Largura imposta, para teste e comparação visual. */
   readonly width?: number | undefined;
 };
 
-/** Abaixo disto a barra lateral vira gaveta (prancha 18). */
+/** Abaixo disto a barra lateral vira gaveta (NAV-005). */
 export const DRAWER_BELOW = 1000;
 /** Entre isto e a gaveta, a barra lateral mostra só ícones. */
 export const ICONS_BELOW = 1240;
 
+const COLLAPSED_KEY = 'patrimonio:sidebar-collapsed';
+
+const readCollapsed = (): boolean => readRaw(browserStorage(), COLLAPSED_KEY) === '1';
+
+const writeCollapsed = (value: boolean): void =>
+  writeRaw(browserStorage(), COLLAPSED_KEY, value ? '1' : '0');
+
 export const AppShell = ({
+  geral,
+  finance,
   portfolios,
   screens,
-  scope,
-  screen,
-  onNavigate,
+  active,
+  title,
+  settingsPath,
+  onGo,
   onOpenSearch,
-  onOpenSettings,
-  settingsActive = false,
   demo = false,
-  onSwitchArea,
   children,
   width: forcedWidth,
 }: AppShellProps): React.ReactElement => {
@@ -91,32 +105,26 @@ export const AppShell = ({
 
   const width = forcedWidth ?? viewport;
   const asDrawer = width < DRAWER_BELOW;
-  // A pessoa recolhe a barra quando quer (prancha 11B); em janela estreita ela
-  // vira trilho sozinha. Na gaveta o recolhimento não se aplica.
+  // A pessoa recolhe a barra quando quer; em janela estreita ela vira trilho
+  // sozinha. Na gaveta o recolhimento não se aplica. O estado vale para as três
+  // áreas, porque a barra é uma só.
   const iconsOnly = !asDrawer && (collapsed || width < ICONS_BELOW);
-
-  const scopeLabel =
-    scope === ALL_PORTFOLIOS
-      ? 'Todas as carteiras'
-      : (portfolios.find((portfolio) => portfolio.id === scope)?.label ?? 'Carteira');
 
   const sidebar = (
     <Sidebar
+      geral={geral}
+      finance={finance}
       portfolios={portfolios}
       screens={screens}
-      scope={scope}
-      scopeLabel={scopeLabel}
-      screen={screen}
+      active={active}
+      settingsPath={settingsPath}
       iconsOnly={iconsOnly}
-      onNavigate={(nextScope, nextScreen) => {
-        onNavigate(nextScope, nextScreen);
+      demo={demo}
+      onGo={(path) => {
+        onGo(path);
         setDrawerOpen(false);
       }}
       onOpenSearch={onOpenSearch}
-      onOpenSettings={onOpenSettings}
-      settingsActive={settingsActive}
-      demo={demo}
-      onSwitchArea={onSwitchArea}
       onToggleCollapsed={
         asDrawer
           ? undefined
@@ -133,19 +141,22 @@ export const AppShell = ({
   return (
     <div className="flex min-h-dvh bg-bg">
       {asDrawer ? (
-        <>
-          {drawerOpen ? (
-            <div className="fixed inset-0 z-40 flex">
-              <div className="h-dvh w-64 border-r border-line bg-panel">{sidebar}</div>
-              <button
-                type="button"
-                aria-label="Fechar a barra lateral"
-                className="flex-1 cursor-default bg-overlay"
-                onClick={() => setDrawerOpen(false)}
-              />
-            </div>
-          ) : null}
-        </>
+        drawerOpen ? (
+          <div className="fixed inset-0 z-40 flex">
+            <nav
+              aria-label="Navegação"
+              className="h-dvh w-64 border-r border-line bg-panel"
+            >
+              {sidebar}
+            </nav>
+            <button
+              type="button"
+              aria-label="Fechar a barra lateral"
+              className="flex-1 cursor-pointer bg-overlay"
+              onClick={() => setDrawerOpen(false)}
+            />
+          </div>
+        ) : null
       ) : (
         /*
          * A barra lateral tem a altura da janela e fica presa ao topo: a página
@@ -173,7 +184,7 @@ export const AppShell = ({
               onClick={() => setDrawerOpen(true)}
             >
               <Icon name="list" />
-              {scopeLabel}
+              {title}
             </button>
           </div>
         ) : null}
@@ -183,24 +194,6 @@ export const AppShell = ({
   );
 };
 
-const COLLAPSED_KEY = 'patrimonio:sidebar-collapsed';
-
-const readCollapsed = (): boolean => {
-  try {
-    return globalThis.localStorage.getItem(COLLAPSED_KEY) === '1';
-  } catch {
-    return false;
-  }
-};
-
-const writeCollapsed = (value: boolean): void => {
-  try {
-    globalThis.localStorage.setItem(COLLAPSED_KEY, value ? '1' : '0');
-  } catch {
-    // Janela anônima ou armazenamento bloqueado: a barra só não lembra.
-  }
-};
-
 /** `GL` para todas as carteiras, as duas primeiras letras nas demais. */
 const initials = (id: string, label: string): string =>
   id === ALL_PORTFOLIOS ? 'GL' : label.slice(0, 2).toUpperCase();
@@ -208,220 +201,264 @@ const initials = (id: string, label: string): string =>
 const NAV_BASE =
   'flex w-full cursor-pointer items-center gap-2.5 rounded-control px-2.5 py-[7px] text-left text-[0.84375rem] outline-none focus-visible:ring-2 focus-visible:ring-focus/40';
 
-/** O item do trilho recolhido: 40 × 36, centralizado (prancha 11B). */
+/** O item do trilho recolhido: 40 × 36, centralizado. */
 const RAIL_BASE =
   'flex h-9 w-10 cursor-pointer items-center justify-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-focus/40';
+
+const ACTIVE = 'bg-nav-active font-medium text-ink';
+const IDLE = 'text-ink-2 hover:bg-panel-2 hover:text-ink';
 
 /** O título de bloco da barra lateral: mono 10,5, peso 600, caixa alta. */
 const GroupTitle = ({
   children,
-  className,
+  first = false,
 }: {
   readonly children: React.ReactNode;
-  readonly className?: string;
+  readonly first?: boolean;
 }): React.ReactElement => (
-  <div
-    className={`tabular flex items-center gap-2 px-2.5 pt-2 pb-1.5 text-label font-semibold tracking-[0.1em] text-ink-3 uppercase ${className ?? ''}`}
+  <h3
+    className={`tabular flex items-center gap-2 px-2.5 pt-2 pb-1.5 text-label font-semibold tracking-[0.1em] text-ink-3 uppercase ${
+      first ? '' : 'mt-2.5 border-t border-line pt-4'
+    }`}
   >
     {children}
-  </div>
+  </h3>
 );
 
-/** O nome da área no topo: com seletor quando a aplicação sabe trocar de área. */
-const HeaderName = ({
-  onSwitchArea,
+const Divider = (): React.ReactElement => (
+  <div className="my-2 w-8 border-t border-line" />
+);
+
+const NavButton = ({
+  entry,
+  current,
+  iconsOnly,
+  onGo,
 }: {
-  readonly onSwitchArea?: ((area: AreaId) => void) | undefined;
-}): React.ReactElement =>
-  onSwitchArea === undefined ? (
-    <span className="text-[0.9375rem] font-semibold tracking-[-0.01em]">Patrimônio</span>
-  ) : (
-    <AreaSwitcher current="investimentos" onSelect={onSwitchArea} />
-  );
+  readonly entry: NavEntry;
+  readonly current: boolean;
+  readonly iconsOnly: boolean;
+  readonly onGo: (path: string) => void;
+}): React.ReactElement => (
+  <button
+    type="button"
+    title={entry.label}
+    aria-current={current ? 'page' : undefined}
+    className={`${iconsOnly ? RAIL_BASE : NAV_BASE} ${current ? ACTIVE : IDLE}`}
+    onClick={() => onGo(entry.path)}
+  >
+    <span aria-hidden="true" className={current ? 'text-accent' : undefined}>
+      <Icon name={entry.icon} />
+    </span>
+    {iconsOnly ? null : entry.label}
+  </button>
+);
 
 const Sidebar = ({
+  geral,
+  finance,
   portfolios,
   screens,
-  scope,
-  scopeLabel,
-  screen,
+  active,
+  settingsPath,
   iconsOnly,
-  onNavigate,
-  onOpenSearch,
-  onOpenSettings,
-  settingsActive,
   demo,
-  onSwitchArea,
+  onGo,
+  onOpenSearch,
   onToggleCollapsed,
 }: {
-  readonly onSwitchArea?: ((area: AreaId) => void) | undefined;
-  readonly onToggleCollapsed?: (() => void) | undefined;
-  readonly portfolios: readonly PortfolioItem[];
-  readonly screens: readonly ScreenItem[];
-  readonly scope: string;
-  readonly scopeLabel: string;
-  readonly screen: string;
+  readonly geral: NavEntry;
+  readonly finance: readonly NavEntry[];
+  readonly portfolios: readonly PortfolioEntry[];
+  readonly screens: readonly NavEntry[];
+  readonly active: ShellActive;
+  readonly settingsPath: string;
   readonly iconsOnly: boolean;
-  readonly onNavigate: (scope: string, screen: string) => void;
-  readonly onOpenSearch: () => void;
-  readonly onOpenSettings: () => void;
-  readonly settingsActive: boolean;
   readonly demo: boolean;
-}): React.ReactElement => (
-  <div
-    className={`flex h-full flex-col pt-3.5 pb-3 ${iconsOnly ? 'items-center px-0' : 'px-3'}`}
-  >
-    {demo ? (
-      <p
-        role="note"
-        title="O banco tem dados de demonstração. Rode pnpm demo:remove para apagá-los."
-        className="tabular mx-2 mb-2 rounded-control bg-attention-soft px-2 py-1 text-center text-label font-semibold tracking-[0.08em] uppercase"
-      >
-        {iconsOnly ? 'demo' : 'Demonstração'}
-      </p>
-    ) : null}
+  readonly onGo: (path: string) => void;
+  readonly onOpenSearch: () => void;
+  readonly onToggleCollapsed?: (() => void) | undefined;
+}): React.ReactElement => {
+  const inInvestments = active.area === 'investimentos';
+  const settingsActive = active.area === 'configuracoes';
 
-    {onToggleCollapsed === undefined && !iconsOnly ? (
-      <div className="pb-3 pl-0.5">
-        <HeaderName onSwitchArea={onSwitchArea} />
-      </div>
-    ) : onToggleCollapsed === undefined ? null : (
+  return (
+    <div
+      className={`flex h-full flex-col pt-3.5 pb-3 ${iconsOnly ? 'items-center px-0' : 'px-3'}`}
+    >
+      {demo ? (
+        <p
+          role="note"
+          title="O banco tem dados de demonstração. Rode pnpm demo:remove para apagá-los."
+          className="tabular mx-2 mb-2 rounded-control bg-attention-soft px-2 py-1 text-center text-label font-semibold tracking-[0.08em] uppercase"
+        >
+          {iconsOnly ? 'demo' : 'Demonstração'}
+        </p>
+      ) : null}
+
       <div
         className={`flex items-center ${
           iconsOnly ? 'mb-1 justify-center' : 'justify-between pr-1 pb-3 pl-1.5'
         }`}
       >
-        {iconsOnly ? null : <HeaderName onSwitchArea={onSwitchArea} />}
-        <button
-          type="button"
-          aria-label={iconsOnly ? 'Expandir barra lateral' : 'Recolher barra lateral'}
-          title={iconsOnly ? 'Expandir barra lateral' : 'Recolher barra lateral'}
-          className="inline-flex size-7 cursor-pointer items-center justify-center rounded-control text-ink-3 hover:bg-panel-2 hover:text-ink"
-          onClick={onToggleCollapsed}
-        >
-          <Icon name="sidebar" />
-        </button>
+        {iconsOnly ? null : (
+          <span className="text-[0.9375rem] font-semibold tracking-[-0.01em]">
+            Patrimônio
+          </span>
+        )}
+        {onToggleCollapsed === undefined ? null : (
+          <button
+            type="button"
+            aria-label={iconsOnly ? 'Expandir barra lateral' : 'Recolher barra lateral'}
+            title={iconsOnly ? 'Expandir barra lateral' : 'Recolher barra lateral'}
+            className="inline-flex size-7 cursor-pointer items-center justify-center rounded-control text-ink-3 hover:bg-panel-2 hover:text-ink"
+            onClick={onToggleCollapsed}
+          >
+            <Icon name="sidebar" />
+          </button>
+        )}
       </div>
-    )}
-
-    {iconsOnly ? (
-      <button
-        type="button"
-        aria-label="Buscar"
-        title="Buscar (⌘K)"
-        className="mb-1.5 inline-flex size-9 cursor-pointer items-center justify-center rounded-control text-ink-3 hover:bg-panel-2 hover:text-ink"
-        onClick={onOpenSearch}
-      >
-        <Icon name="search" />
-      </button>
-    ) : (
-      <button
-        type="button"
-        aria-label="Buscar"
-        className="mb-2 inline-flex h-control w-full cursor-pointer items-center justify-between gap-2 rounded-control border border-line-2 bg-panel px-[11px] text-[0.78125rem] font-medium text-ink-3 hover:bg-panel-2"
-        onClick={onOpenSearch}
-      >
-        <span className="flex items-center gap-2">
-          <Icon name="search" />
-          Buscar
-        </span>
-        <Kbd>⌘K</Kbd>
-      </button>
-    )}
-
-    {/* Só esta região rola: a busca e Configurações ficam onde estão. */}
-    <div
-      className={`flex min-h-0 flex-1 flex-col overflow-y-auto ${
-        iconsOnly ? 'items-center' : '-mx-1 px-1'
-      }`}
-    >
-      {iconsOnly ? null : <GroupTitle>Carteiras</GroupTitle>}
-
-      <ul className="flex flex-col gap-px">
-        {portfolios.map((portfolio) => (
-          <li key={portfolio.id}>
-            <button
-              type="button"
-              aria-current={portfolio.id === scope ? 'true' : undefined}
-              title={portfolio.label}
-              className={`${iconsOnly ? RAIL_BASE : `${NAV_BASE} min-h-9 justify-between py-1.5`} ${
-                portfolio.id === scope
-                  ? 'bg-accent-soft font-semibold text-ink'
-                  : 'text-ink hover:bg-panel-2'
-              }`}
-              onClick={() => onNavigate(portfolio.id, screen)}
-            >
-              <span
-                className={
-                  iconsOnly
-                    ? 'tabular text-[0.6875rem] font-semibold'
-                    : 'min-w-0 flex-1 truncate'
-                }
-              >
-                {iconsOnly ? initials(portfolio.id, portfolio.label) : portfolio.label}
-              </span>
-              {iconsOnly ? null : (
-                <span className="text-xs font-normal text-ink-3">
-                  <Compact value={portfolio.value} />
-                </span>
-              )}
-            </button>
-          </li>
-        ))}
-      </ul>
 
       {iconsOnly ? (
-        <div className="my-2 w-8 border-t border-line" />
+        <button
+          type="button"
+          aria-label="Buscar"
+          title="Buscar (⌘K)"
+          className="mb-1.5 inline-flex size-9 cursor-pointer items-center justify-center rounded-control text-ink-3 hover:bg-panel-2 hover:text-ink"
+          onClick={onOpenSearch}
+        >
+          <Icon name="search" />
+        </button>
       ) : (
-        <GroupTitle className="mt-2.5 truncate border-t border-line pt-4">
-          {scopeLabel}
-        </GroupTitle>
+        <button
+          type="button"
+          aria-label="Buscar"
+          className="mb-2 inline-flex h-control w-full cursor-pointer items-center justify-between gap-2 rounded-control border border-line-2 bg-panel px-[11px] text-[0.78125rem] font-medium text-ink-3 hover:bg-panel-2"
+          onClick={onOpenSearch}
+        >
+          <span className="flex items-center gap-2">
+            <Icon name="search" />
+            Buscar
+          </span>
+          <Kbd>⌘K</Kbd>
+        </button>
       )}
 
-      <ul className="flex flex-col gap-0.5">
-        {screens.map((item) => (
-          <li key={item.id}>
-            <button
-              type="button"
-              aria-current={item.id === screen ? 'page' : undefined}
-              title={item.label}
-              className={`${iconsOnly ? RAIL_BASE : NAV_BASE} ${
-                item.id === screen
-                  ? 'bg-nav-active font-medium text-ink'
-                  : 'text-ink-2 hover:bg-panel-2 hover:text-ink'
-              }`}
-              onClick={() => onNavigate(scope, item.id)}
-            >
-              <span
-                aria-hidden="true"
-                className={item.id === screen ? 'text-accent' : undefined}
-              >
-                {item.icon}
-              </span>
-              {iconsOnly ? null : item.label}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-
-    <div className="mt-2 border-t border-line pt-2">
-      <button
-        type="button"
-        title="Configurações"
-        aria-current={settingsActive ? 'page' : undefined}
-        className={`${iconsOnly ? RAIL_BASE : NAV_BASE} ${
-          settingsActive
-            ? 'bg-nav-active font-medium text-ink'
-            : 'text-ink-2 hover:bg-panel-2 hover:text-ink'
+      {/* Só esta região rola: a busca e Configurações ficam onde estão. */}
+      <div
+        className={`flex min-h-0 flex-1 flex-col overflow-y-auto ${
+          iconsOnly ? 'items-center' : '-mx-1 px-1'
         }`}
-        onClick={onOpenSettings}
       >
-        <span className={settingsActive ? 'text-accent' : undefined}>
-          <Icon name="settings" />
-        </span>
-        {iconsOnly ? null : 'Configurações'}
-      </button>
+        <section
+          aria-label="Geral"
+          className={iconsOnly ? 'flex flex-col items-center' : ''}
+        >
+          {iconsOnly ? null : <GroupTitle first>Geral</GroupTitle>}
+          <NavButton
+            entry={geral}
+            current={active.area === 'geral'}
+            iconsOnly={iconsOnly}
+            onGo={onGo}
+          />
+        </section>
+
+        <section
+          aria-label="Finanças"
+          className={iconsOnly ? 'flex flex-col items-center' : ''}
+        >
+          {iconsOnly ? <Divider /> : <GroupTitle>Finanças</GroupTitle>}
+          <ul className="flex flex-col gap-0.5">
+            {finance.map((entry) => (
+              <li key={entry.id}>
+                <NavButton
+                  entry={entry}
+                  current={active.area === 'financas' && active.screen === entry.id}
+                  iconsOnly={iconsOnly}
+                  onGo={onGo}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section
+          aria-label="Investimentos"
+          className={iconsOnly ? 'flex flex-col items-center' : ''}
+        >
+          {iconsOnly ? <Divider /> : <GroupTitle>Investimentos</GroupTitle>}
+          <ul className="flex flex-col gap-px">
+            {portfolios.map((portfolio) => {
+              const current =
+                active.area === 'investimentos' && active.scope === portfolio.id;
+              return (
+                <li key={portfolio.id}>
+                  <button
+                    type="button"
+                    aria-current={current ? 'true' : undefined}
+                    title={portfolio.label}
+                    className={`${iconsOnly ? RAIL_BASE : `${NAV_BASE} min-h-9 justify-between py-1.5`} ${
+                      current
+                        ? 'bg-accent-soft font-semibold text-ink'
+                        : 'text-ink hover:bg-panel-2'
+                    }`}
+                    onClick={() => onGo(portfolio.path)}
+                  >
+                    <span
+                      className={
+                        iconsOnly
+                          ? 'tabular text-[0.6875rem] font-semibold'
+                          : 'min-w-0 flex-1 truncate'
+                      }
+                    >
+                      {iconsOnly
+                        ? initials(portfolio.id, portfolio.label)
+                        : portfolio.label}
+                    </span>
+                    {iconsOnly ? null : (
+                      <span className="text-xs font-normal text-ink-3">
+                        <Compact value={portfolio.value} />
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          {iconsOnly ? <Divider /> : <div className="mt-2 border-t border-line pt-2" />}
+
+          <ul className="flex flex-col gap-0.5">
+            {screens.map((entry) => (
+              <Fragment key={entry.id}>
+                <li>
+                  <NavButton
+                    entry={entry}
+                    current={inInvestments && active.screen === entry.id}
+                    iconsOnly={iconsOnly}
+                    onGo={onGo}
+                  />
+                </li>
+              </Fragment>
+            ))}
+          </ul>
+        </section>
+      </div>
+
+      <div className="mt-2 border-t border-line pt-2">
+        <button
+          type="button"
+          title="Configurações"
+          aria-current={settingsActive ? 'page' : undefined}
+          className={`${iconsOnly ? RAIL_BASE : NAV_BASE} ${settingsActive ? ACTIVE : IDLE}`}
+          onClick={() => onGo(settingsPath)}
+        >
+          <span className={settingsActive ? 'text-accent' : undefined}>
+            <Icon name="settings" />
+          </span>
+          {iconsOnly ? null : 'Configurações'}
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};

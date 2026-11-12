@@ -300,12 +300,12 @@ const DATES = Array.from({ length: 13 }, (_, index) => {
 });
 
 const SCREENS = [
-  { id: 'visao', label: 'Visão geral', icon: <Icon name="grid" /> },
-  { id: 'posicoes', label: 'Posições', icon: <Icon name="list" /> },
-  { id: 'movimentacoes', label: 'Movimentações', icon: <Icon name="swap" /> },
-  { id: 'estrategia', label: 'Estratégia', icon: <Icon name="target" /> },
-  { id: 'objetivos', label: 'Objetivos', icon: <Icon name="flag" /> },
-];
+  { id: 'visao-geral', label: 'Visão geral', icon: 'grid' },
+  { id: 'posicoes', label: 'Posições', icon: 'list' },
+  { id: 'movimentacoes', label: 'Movimentações', icon: 'swap' },
+  { id: 'estrategia', label: 'Estratégia', icon: 'target' },
+  { id: 'objetivos', label: 'Objetivos', icon: 'flag' },
+] as const;
 
 const PORTFOLIOS = [
   { id: 'longo', label: 'Longo prazo', value: '318904.12' },
@@ -344,7 +344,7 @@ export const Gallery = (): React.ReactElement => {
   useShortcuts(
     useMemo(
       () => ({
-        go_overview: () => setScreen('visao'),
+        go_overview: () => setScreen('visao-geral'),
         go_positions: () => setScreen('posicoes'),
         go_transactions: () => setScreen('movimentacoes'),
         go_strategy: () => setScreen('estrategia'),
@@ -393,16 +393,25 @@ export const Gallery = (): React.ReactElement => {
 
   return (
     <AppShell
-      portfolios={PORTFOLIOS}
-      screens={SCREENS}
-      scope={scope}
-      screen={screen}
-      onNavigate={(nextScope, nextScreen) => {
-        setScope(nextScope);
-        setScreen(nextScreen);
+      geral={{ id: 'geral', label: 'Visão geral', icon: 'grid', path: '/geral' }}
+      finance={[]}
+      portfolios={PORTFOLIOS.map((entry) => ({
+        ...entry,
+        path: `/investimentos/${entry.id}/${screen}`,
+      }))}
+      screens={SCREENS.map((entry) => ({
+        ...entry,
+        path: `/investimentos/${scope}/${entry.id}`,
+      }))}
+      active={{ area: 'investimentos', scope, screen }}
+      title="Design system"
+      settingsPath="/configuracoes"
+      onGo={(path) => {
+        const [, , nextScope, nextScreen] = path.split('/');
+        if (nextScope !== undefined) setScope(nextScope);
+        if (nextScreen !== undefined) setScreen(nextScreen);
       }}
       onOpenSearch={openHelp}
-      onOpenSettings={openHelp}
     >
       <div className="flex flex-col gap-5">
         <header className="flex flex-wrap items-end justify-between gap-4">

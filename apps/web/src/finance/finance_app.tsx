@@ -1,19 +1,17 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useRegisterSearch } from '../components/shell_search.js';
 import { useShortcuts } from '../components/shortcuts.js';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 
 import { FinanceSearch } from './components/finance_search.js';
-import { FinanceShell } from './components/finance_shell.js';
 import { FinancePeriodProvider, useFinancePeriod } from './components/period_provider.js';
 
 import {
   DetailSkeleton,
   OverviewSkeleton,
-  SettingsSkeleton,
   TableScreenSkeleton,
 } from './components/screen_skeletons.js';
 import { PanelError } from './components/states.js';
-import { writeLastArea } from '../lib/last_area.js';
 import { syncRecurring } from './domain/recurring.js';
 import {
   createRemoteFinanceStore,
@@ -59,11 +57,6 @@ const RecurringsScreen = lazy(() =>
 const CategoriesScreen = lazy(() =>
   import('./screens/categories_screen.js').then((module) => ({
     default: module.CategoriesScreen,
-  })),
-);
-const SettingsScreen = lazy(() =>
-  import('../views/settings/index.js').then((module) => ({
-    default: module.SettingsScreen,
   })),
 );
 
@@ -139,131 +132,108 @@ const StatusGate = ({ children }: { readonly children: React.ReactNode }) => {
 
 export const FinanceApp = ({
   store,
-  settingsOnly = false,
 }: {
   readonly store?: FinanceStore | undefined;
-  /** Montado em `/configuracoes`: a tela inicial é a de Configurações. */
-  readonly settingsOnly?: boolean;
 }): React.ReactElement => {
   useTodayFromUrl();
-  useEffect(() => writeLastArea('financas'), []);
   const [remote] = useState(() => store ?? createRemoteFinanceStore());
   const [searching, setSearching] = useState(false);
   const shortcuts = useMemo(() => ({ search: () => setSearching(true) }), []);
   useShortcuts(shortcuts);
+  // O botão de buscar da barra lateral abre a busca de Finanças.
+  useRegisterSearch(useCallback(() => setSearching(true), []));
   return (
     <FinanceStoreProvider store={remote}>
       <FinancePeriodProvider>
         <RecurringSync />
-        <FinanceShell onOpenSearch={() => setSearching(true)}>
-          <StatusGate>
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  settingsOnly ? (
-                    <Suspense fallback={<SettingsSkeleton />}>
-                      <SettingsScreen />
-                    </Suspense>
-                  ) : (
-                    <Navigate to="visao-geral" replace />
-                  )
-                }
-              />
-              <Route
-                path="visao-geral"
-                element={
-                  <Suspense fallback={<OverviewSkeleton />}>
-                    <OverviewScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="lancamentos"
-                element={
-                  <Suspense
-                    fallback={
-                      <TableScreenSkeleton label="Carregando Lançamentos" stats={4} />
-                    }
-                  >
-                    <EntriesScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="contas"
-                element={
-                  <Suspense
-                    fallback={
-                      <TableScreenSkeleton label="Carregando Contas" stats={3} rows={5} />
-                    }
-                  >
-                    <AccountsScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="contas/:id"
-                element={
-                  <Suspense fallback={<DetailSkeleton label="Carregando extrato" />}>
-                    <StatementScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="cartoes"
-                element={
-                  <Suspense
-                    fallback={
-                      <TableScreenSkeleton
-                        label="Carregando Cartões"
-                        stats={3}
-                        rows={5}
-                      />
-                    }
-                  >
-                    <CardsScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="cartoes/:id"
-                element={
-                  <Suspense fallback={<DetailSkeleton label="Carregando fatura" />}>
-                    <CardScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="recorrentes"
-                element={
-                  <Suspense
-                    fallback={
-                      <TableScreenSkeleton label="Carregando Recorrentes" stats={3} />
-                    }
-                  >
-                    <RecurringsScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="categorias"
-                element={
-                  <Suspense
-                    fallback={<TableScreenSkeleton label="Carregando Categorias" />}
-                  >
-                    <CategoriesScreen />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="configuracoes"
-                element={<Navigate to="/configuracoes" replace />}
-              />
-              <Route path="*" element={<Navigate to="/financas/visao-geral" replace />} />
-            </Routes>
-          </StatusGate>
-        </FinanceShell>
+        <StatusGate>
+          <Routes>
+            <Route path="/" element={<Navigate to="visao-geral" replace />} />
+            <Route
+              path="visao-geral"
+              element={
+                <Suspense fallback={<OverviewSkeleton />}>
+                  <OverviewScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="lancamentos"
+              element={
+                <Suspense
+                  fallback={
+                    <TableScreenSkeleton label="Carregando Lançamentos" stats={4} />
+                  }
+                >
+                  <EntriesScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="contas"
+              element={
+                <Suspense
+                  fallback={
+                    <TableScreenSkeleton label="Carregando Contas" stats={3} rows={5} />
+                  }
+                >
+                  <AccountsScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="contas/:id"
+              element={
+                <Suspense fallback={<DetailSkeleton label="Carregando extrato" />}>
+                  <StatementScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="cartoes"
+              element={
+                <Suspense
+                  fallback={
+                    <TableScreenSkeleton label="Carregando Cartões" stats={3} rows={5} />
+                  }
+                >
+                  <CardsScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="cartoes/:id"
+              element={
+                <Suspense fallback={<DetailSkeleton label="Carregando fatura" />}>
+                  <CardScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="recorrentes"
+              element={
+                <Suspense
+                  fallback={
+                    <TableScreenSkeleton label="Carregando Recorrentes" stats={3} />
+                  }
+                >
+                  <RecurringsScreen />
+                </Suspense>
+              }
+            />
+            <Route
+              path="categorias"
+              element={
+                <Suspense
+                  fallback={<TableScreenSkeleton label="Carregando Categorias" />}
+                >
+                  <CategoriesScreen />
+                </Suspense>
+              }
+            />
+            <Route path="*" element={<Navigate to="/financas/visao-geral" replace />} />
+          </Routes>
+        </StatusGate>
         <FinanceSearch open={searching} onClose={() => setSearching(false)} />
       </FinancePeriodProvider>
     </FinanceStoreProvider>
