@@ -1,4 +1,4 @@
-import type { LedgerEntry } from '@patrimonio/calc';
+import type { LedgerEntry, finance } from '@patrimonio/calc';
 import type { B3Type, DateOnly } from '@patrimonio/domain';
 import type { Either } from '@patrimonio/shared';
 
