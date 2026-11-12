@@ -148,6 +148,35 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
   },
 
   /** Uma consulta para as duas contagens: é o que a tela de exclusão mostra. */
+  legEventIds: async (id: string) => {
+    try {
+      const rows = await sql<{ event_id: string }[]>`
+        SELECT DISTINCT event_id FROM transaction
+         WHERE portfolio_id = ${id} AND event_id IS NOT NULL
+      `;
+      return success(rows.map((row) => row.event_id));
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
+  reorder: async (ids: readonly string[]) => {
+    try {
+      const rows = await sql<{ id: string }[]>`
+        UPDATE portfolio SET sort_order = ordered.position
+          FROM (
+            SELECT id, (ordinality - 1)::INT AS position
+              FROM unnest(${ids as string[]}::UUID[]) WITH ORDINALITY AS t (id, ordinality)
+          ) AS ordered
+         WHERE portfolio.id = ordered.id
+         RETURNING portfolio.id
+      `;
+      return success(rows.length);
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
   contentSummary: async (id: string) => {
     try {
       const rows = await sql<{ transactions: string; assets: string }[]>`

@@ -48,6 +48,8 @@ export {
   listPortfoliosResponseSchema,
   listPortfoliosSchema,
 } from './portfolio/listPortfolios.schema.js';
+export { reorderPortfoliosSchema } from './portfolio/reorderPortfolios.schema.js';
+export type { ReorderPortfoliosBody } from './portfolio/reorderPortfolios.schema.js';
 export { archivePortfolioSchema } from './portfolio/archivePortfolio.schema.js';
 export { deletePortfolioSchema } from './portfolio/deletePortfolio.schema.js';
 export type { DeletePortfolioBody } from './portfolio/deletePortfolio.schema.js';

@@ -748,3 +748,68 @@ describe('aporte recorrente e previstos de aporte (LIV-11)', () => {
     expect(await contagem(`SELECT COUNT(*) AS n FROM "transaction"`)).toBe(0);
   });
 });
+
+describe('carteiras: excluir com pernas e reordenar (CFG-05)', () => {
+  const excluirCarteira = (id: string, nome: string, ifMatch?: string) => {
+    const call = request(harness.app).delete(`/api/portfolios/${id}`);
+    if (ifMatch !== undefined) call.set('If-Match', ifMatch);
+    return call.send({ confirm_name: nome, transactions: 'delete' });
+  };
+
+  it('excluir carteira com aportes de conta exige If-Match e devolve o valor às contas', async () => {
+    const antes = await saldo();
+    await aportar();
+    expect(await saldo()).toBeCloseTo(antes - 1005, 2);
+
+    const outra = await request(harness.app)
+      .post('/api/portfolios')
+      .send({ name: 'Reserva' });
+
+    const semHeader = await excluirCarteira(carteira, 'Longo prazo');
+    expect(semHeader.status).toBe(428);
+
+    const divergente = await excluirCarteira(
+      carteira,
+      'Longo prazo',
+      '2000-01-01T00:00:00.000Z',
+    );
+    expect(divergente.status).toBe(409);
+
+    const atual = await request(harness.app).get(`/api/portfolios/${carteira}`);
+    const versao = atual.body.portfolio.updated_at as string;
+
+    const ok = await excluirCarteira(carteira, 'Longo prazo', `"${versao}"`);
+    expect(ok.status).toBe(200);
+    expect(await saldo()).toBeCloseTo(antes, 2);
+    expect(await contagem(`SELECT COUNT(*) AS n FROM "transaction"`)).toBe(0);
+    expect(
+      await contagem(`SELECT COUNT(*) AS n FROM fin_movement WHERE kind = 'APORTE'`),
+    ).toBe(0);
+    // A outra carteira não foi tocada.
+    const lista = await request(harness.app).get('/api/portfolios');
+    expect(lista.body.portfolios.map((p: { id: string }) => p.id)).toContain(
+      outra.body.portfolio.id,
+    );
+  });
+
+  it('reordenar grava a ordem da lista e recusa id repetido ou inexistente', async () => {
+    const b = await request(harness.app).post('/api/portfolios').send({ name: 'B' });
+    const c = await request(harness.app).post('/api/portfolios').send({ name: 'C' });
+    const ids = [c.body.portfolio.id, carteira, b.body.portfolio.id];
+
+    const ok = await request(harness.app).put('/api/portfolios/order').send({ ids });
+    expect(ok.status).toBe(200);
+    const lista = await request(harness.app).get('/api/portfolios');
+    expect(lista.body.portfolios.map((p: { id: string }) => p.id)).toEqual(ids);
+
+    const repetido = await request(harness.app)
+      .put('/api/portfolios/order')
+      .send({ ids: [carteira, carteira] });
+    expect(repetido.status).toBe(400);
+
+    const inexistente = await request(harness.app)
+      .put('/api/portfolios/order')
+      .send({ ids: [carteira, '00000000-0000-4000-8000-000000000000'] });
+    expect(inexistente.status).toBe(400);
+  });
+});

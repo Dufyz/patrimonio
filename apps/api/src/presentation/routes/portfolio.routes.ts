@@ -6,6 +6,7 @@ import {
   getStrategySchema,
   listPortfoliosSchema,
   putStrategySchema,
+  reorderPortfoliosSchema,
   updatePortfolioSchema,
 } from '@patrimonio/contracts';
 import { Router } from 'express';
@@ -30,6 +31,7 @@ export const portfolioRoutes = (deps: PortfolioDeps): Router => {
     validate(updatePortfolioSchema),
     controller.update,
   );
+  router.put('/portfolios/order', validate(reorderPortfoliosSchema), controller.reorder);
   router.post(
     '/portfolios/:portfolio_id/archive',
     validate(archivePortfolioSchema),

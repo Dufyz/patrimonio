@@ -8,6 +8,7 @@ import {
   listPortfoliosSchema,
   portfolioResourceSchema,
   putStrategySchema,
+  reorderPortfoliosSchema,
   strategyTargetResourceSchema,
   updatePortfolioSchema,
 } from '@patrimonio/contracts';
@@ -99,6 +100,23 @@ export const PORTFOLIO_ROUTE_DOCS: readonly RouteDoc[] = [
       },
       409: {
         description: 'O novo nome já é de outra carteira ativa.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'put',
+    path: '/portfolios/order',
+    tag: TAG,
+    summary: 'Reordenar as carteiras da barra lateral',
+    request: reorderPortfoliosSchema,
+    responses: {
+      200: {
+        description: 'A ordem foi gravada numa transação só.',
+        schema: z.object({ reordered: z.number(), message: z.string() }),
+      },
+      400: {
+        description: 'A lista repete um id ou cita uma carteira que não existe.',
         schema: errorResponseSchema,
       },
     },

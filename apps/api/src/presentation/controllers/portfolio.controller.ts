@@ -4,6 +4,7 @@ import type {
   getPortfolio,
   listPortfolios,
   putStrategy,
+  reorderPortfolios,
   setPortfolioArchived,
   updatePortfolio,
 } from '@patrimonio/application';
@@ -11,6 +12,7 @@ import type {
   CreatePortfolioBody,
   DeletePortfolioBody,
   PutStrategyBody,
+  ReorderPortfoliosBody,
   UpdatePortfolioBody,
 } from '@patrimonio/contracts';
 import type { RequestHandler } from 'express';
@@ -26,6 +28,7 @@ export type PortfolioDeps = {
     readonly listPortfolios: ReturnType<typeof listPortfolios>;
     readonly getPortfolio: ReturnType<typeof getPortfolio>;
     readonly putStrategy: ReturnType<typeof putStrategy>;
+    readonly reorderPortfolios: ReturnType<typeof reorderPortfolios>;
   };
 };
 
@@ -34,6 +37,7 @@ export type PortfolioController = {
   readonly update: RequestHandler;
   readonly archive: RequestHandler;
   readonly remove: RequestHandler;
+  readonly reorder: RequestHandler;
   readonly list: RequestHandler;
   readonly detail: RequestHandler;
   readonly getStrategy: RequestHandler;
@@ -99,6 +103,15 @@ export const createPortfolioController = (deps: PortfolioDeps): PortfolioControl
         transactions: body.transactions,
         destination_portfolio_id: body.destination_portfolio_id,
         origin_request_id: request.requestId,
+        ...(request.header('If-Match') === undefined
+          ? {}
+          : {
+              if_match: request
+                .header('If-Match')
+                ?.replace(/^W\//, '')
+                .replace(/"/g, '')
+                .trim(),
+            }),
       },
     );
 
@@ -108,6 +121,18 @@ export const createPortfolioController = (deps: PortfolioDeps): PortfolioControl
     }
 
     response.status(200).json({ result: result.value, message: 'Carteira excluída' });
+  },
+
+  reorder: async (request, response) => {
+    const body = request.body as ReorderPortfoliosBody;
+    const result = await deps.usecases.reorderPortfolios(body.ids);
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.status(200).json({ ...result.value, message: 'Ordem salva' });
   },
 
   list: async (request, response) => {

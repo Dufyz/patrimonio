@@ -74,6 +74,12 @@ export type PortfolioRepository = {
 
   readonly remove: (id: string) => Promise<Either<AppError, boolean>>;
 
+  /** Os `event_id` dos lançamentos da carteira que têm pernas financeiras. */
+  readonly legEventIds: (id: string) => Promise<Either<AppError, string[]>>;
+
+  /** Grava `sort_order` pela posição de cada id, numa transação só. */
+  readonly reorder: (ids: readonly string[]) => Promise<Either<AppError, number>>;
+
   readonly contentSummary: (id: string) => Promise<Either<AppError, PortfolioContent>>;
 
   /**

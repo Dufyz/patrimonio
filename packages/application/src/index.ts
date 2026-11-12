@@ -259,6 +259,8 @@ export type {
 } from './usecases/portfolio/updatePortfolio.usecase.js';
 export { setPortfolioArchived } from './usecases/portfolio/archivePortfolio.usecase.js';
 export type { ArchivePortfolioDeps } from './usecases/portfolio/archivePortfolio.usecase.js';
+export { reorderPortfolios } from './usecases/portfolio/reorderPortfolios.usecase.js';
+export type { ReorderPortfoliosDeps } from './usecases/portfolio/reorderPortfolios.usecase.js';
 export { deletePortfolio } from './usecases/portfolio/deletePortfolio.usecase.js';
 export type {
   DeletePortfolioDeps,
