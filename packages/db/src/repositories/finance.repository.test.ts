@@ -148,6 +148,39 @@ describe('repositório de Finanças', () => {
     });
   });
 
+  it('o fixture unificado carrega, lê de volta e sai por inteiro (LIV-16)', async () => {
+    await withScratchDatabase(async (connection) => {
+      await migrateDatabase(connection, { log: () => undefined });
+      const sql = createConnection({
+        connection,
+        poolSize: 2,
+        applicationName: 'patrimonio-test',
+      });
+      try {
+        await loadFinanceDemo(sql, 'unified_fixture');
+        const seed = readFinanceDemo('unified_fixture').snapshot;
+        const loaded = (await createFinanceRepository(sql).load()).value as ReturnType<
+          typeof withUuids
+        >;
+        expect(loaded.accounts).toHaveLength(3);
+        expect(loaded.cards).toHaveLength(3);
+        expect(loaded.entries).toHaveLength(seed.entries.length);
+        expect(loaded.movements.map((m) => m.kind)).toEqual(['aporte']);
+        expect(loaded.movements[0]?.event_id).not.toBeNull();
+        // Nenhuma categoria "Investimento": o aporte não é despesa de consumo.
+        expect(loaded.categories.some((c) => c.name === 'Investimento')).toBe(false);
+
+        await removeFinanceDemo(sql);
+        const [left] = await sql<
+          { n: string }[]
+        >`SELECT COUNT(*)::TEXT AS n FROM fin_entry`;
+        expect(left?.n).toBe('0');
+      } finally {
+        await closeDatabase(sql);
+      }
+    });
+  });
+
   it('a soma dos pagamentos é garantida pelo banco', async () => {
     await withScratchDatabase(async (connection) => {
       await migrateDatabase(connection, { log: () => undefined });

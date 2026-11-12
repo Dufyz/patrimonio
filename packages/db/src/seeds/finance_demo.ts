@@ -18,15 +18,19 @@ export type FinanceDemo = {
 };
 
 /** Compilado, o JSON continua em `src/seeds`: mesmo caminho que o calendário usa. */
-const demoPath = (): string => {
+const demoPath = (fixture: DemoFixture): string => {
   const here = dirname(fileURLToPath(import.meta.url));
+  const file = `${fixture}.json`;
   return here.includes(join('dist', 'seeds'))
-    ? join(here, '..', '..', 'src', 'seeds', 'finance_demo.json')
-    : join(here, 'finance_demo.json');
+    ? join(here, '..', '..', 'src', 'seeds', file)
+    : join(here, file);
 };
 
-export const readFinanceDemo = (): FinanceDemo =>
-  JSON.parse(readFileSync(demoPath(), 'utf8')) as FinanceDemo;
+/** `finance_demo`: a demonstração de outubro; `unified_fixture`: o fixture de 11/11 (LIV-16). */
+export type DemoFixture = 'finance_demo' | 'unified_fixture';
+
+export const readFinanceDemo = (fixture: DemoFixture = 'finance_demo'): FinanceDemo =>
+  JSON.parse(readFileSync(demoPath(fixture), 'utf8')) as FinanceDemo;
 
 const uid = (seedId: string): string => uuidv5(seedId, NAMESPACE);
 const maybe = (seedId: string | null): string | null =>
@@ -68,6 +72,7 @@ export const withUuids = (data: FinSnapshot): FinSnapshot => ({
     id: uid(r.id),
     account_id: uid(r.account_id),
     transfer_id: maybe(r.transfer_id),
+    event_id: maybe(r.event_id ?? null),
   })),
   card_items: data.card_items.map((r) => ({
     ...r,
@@ -127,8 +132,11 @@ const DEMO_TABLES: readonly [string, (data: FinSnapshot) => readonly { id: strin
  * Carrega a demonstração de Finanças com `is_demo = TRUE`. Repetível: o que já
  * existe com o mesmo id é atualizado, não duplicado.
  */
-export const loadFinanceDemo = async (sql: Sql): Promise<number> => {
-  const data = withUuids(readFinanceDemo().snapshot);
+export const loadFinanceDemo = async (
+  sql: Sql,
+  fixture: DemoFixture = 'finance_demo',
+): Promise<number> => {
+  const data = withUuids(readFinanceDemo(fixture).snapshot);
 
   await sql.begin(async (transaction) => {
     const tx = transaction as unknown as Sql;

@@ -1,0 +1,861 @@
+{
+ "reference_date": "2026-11-11",
+ "snapshot": {
+  "categories": [
+   {
+    "id": "moradia",
+    "name": "Moradia",
+    "kind": "despesa",
+    "color": "slate",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "saude",
+    "name": "Saúde",
+    "kind": "despesa",
+    "color": "rose",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "transporte",
+    "name": "Transporte",
+    "kind": "despesa",
+    "color": "blue",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "assinaturas",
+    "name": "Assinaturas",
+    "kind": "despesa",
+    "color": "brown",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "gasto-livre",
+    "name": "Gasto livre",
+    "kind": "despesa",
+    "color": "teal",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "mercado",
+    "name": "Mercado",
+    "kind": "despesa",
+    "color": "orange",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "restaurantes",
+    "name": "Restaurantes",
+    "kind": "despesa",
+    "color": "orange",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "eletronicos",
+    "name": "Eletrônicos",
+    "kind": "despesa",
+    "color": "green",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "lazer",
+    "name": "Lazer",
+    "kind": "despesa",
+    "color": "indigo",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "educacao",
+    "name": "Educação",
+    "kind": "despesa",
+    "color": "olive",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "viagem",
+    "name": "Viagem",
+    "kind": "despesa",
+    "color": "cyan",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "salario",
+    "name": "Salário",
+    "kind": "receita",
+    "color": "olive",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "freelas",
+    "name": "Freelas",
+    "kind": "receita",
+    "color": "cyan",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "reembolso",
+    "name": "Reembolso",
+    "kind": "receita",
+    "color": "gray",
+    "archived": false,
+    "version": 1
+   }
+  ],
+  "accounts": [
+   {
+    "id": "nubank-conta",
+    "name": "Nubank Conta",
+    "type": "corrente",
+    "institution": "Nubank",
+    "role": "Recebe freelas e paga contas do dia a dia",
+    "role_tag": "conta do dia a dia",
+    "opening_amount": "736.90",
+    "opening_date": "2026-11-01",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "itau",
+    "name": "Itaú Unibanco",
+    "type": "corrente",
+    "institution": "Itaú Unibanco",
+    "role": "Recebe o salário e paga as faturas",
+    "role_tag": "recebe salário e paga faturas",
+    "opening_amount": "1477.08",
+    "opening_date": "2026-11-01",
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "flash",
+    "name": "Flash LifeApps",
+    "type": "corrente",
+    "institution": "Flash",
+    "role": "Benefício alimentação",
+    "role_tag": "benefício",
+    "opening_amount": "0.00",
+    "opening_date": "2026-11-01",
+    "archived": false,
+    "version": 1
+   }
+  ],
+  "cards": [
+   {
+    "id": "nubank-mc",
+    "name": "Nubank Mastercard",
+    "last4": "4821",
+    "pay_account_id": "itau",
+    "limit_amount": "8000.00",
+    "closing_day": 21,
+    "due_day": 28,
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "itau-visa",
+    "name": "Itaú Visa",
+    "last4": "1093",
+    "pay_account_id": "itau",
+    "limit_amount": "6000.00",
+    "closing_day": 28,
+    "due_day": 5,
+    "archived": false,
+    "version": 1
+   },
+   {
+    "id": "c6-carbon",
+    "name": "C6 Carbon",
+    "last4": "7755",
+    "pay_account_id": "itau",
+    "limit_amount": "5000.00",
+    "closing_day": 3,
+    "due_day": 10,
+    "archived": false,
+    "version": 1
+   }
+  ],
+  "recurrings": [],
+  "skips": [],
+  "entries": [
+   {
+    "id": "r-salario",
+    "kind": "receita",
+    "description": "Salário",
+    "date": "2026-11-05",
+    "category_id": "salario",
+    "amount": "8000.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "conta",
+      "source_id": "itau",
+      "amount": "8000.00",
+      "invoice_month": null
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "r-freela",
+    "kind": "receita",
+    "description": "Freela",
+    "date": "2026-11-08",
+    "category_id": "freelas",
+    "amount": "720.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "conta",
+      "source_id": "nubank-conta",
+      "amount": "720.00",
+      "invoice_month": null
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "d-aluguel",
+    "kind": "despesa",
+    "description": "Aluguel",
+    "date": "2026-11-05",
+    "category_id": "moradia",
+    "amount": "1200.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "conta",
+      "source_id": "itau",
+      "amount": "1200.00",
+      "invoice_month": null
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "d-condominio",
+    "kind": "despesa",
+    "description": "Condomínio",
+    "date": "2026-11-06",
+    "category_id": "moradia",
+    "amount": "450.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "conta",
+      "source_id": "itau",
+      "amount": "450.00",
+      "invoice_month": null
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "d-energia",
+    "kind": "despesa",
+    "description": "Energia",
+    "date": "2026-11-07",
+    "category_id": "moradia",
+    "amount": "187.43",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "conta",
+      "source_id": "itau",
+      "amount": "187.43",
+      "invoice_month": null
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "d-internet",
+    "kind": "despesa",
+    "description": "Internet",
+    "date": "2026-11-07",
+    "category_id": "assinaturas",
+    "amount": "119.90",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "conta",
+      "source_id": "nubank-conta",
+      "amount": "119.90",
+      "invoice_month": null
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "d-academia",
+    "kind": "despesa",
+    "description": "Academia",
+    "date": "2026-11-10",
+    "category_id": "saude",
+    "amount": "129.90",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "conta",
+      "source_id": "nubank-conta",
+      "amount": "129.90",
+      "invoice_month": null
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "d-streaming",
+    "kind": "despesa",
+    "description": "Streaming",
+    "date": "2026-11-10",
+    "category_id": "assinaturas",
+    "amount": "55.90",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "conta",
+      "source_id": "nubank-conta",
+      "amount": "55.90",
+      "invoice_month": null
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "d-outros",
+    "kind": "despesa",
+    "description": "Gastos diversos",
+    "date": "2026-11-09",
+    "category_id": "gasto-livre",
+    "amount": "128.34",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "conta",
+      "source_id": "nubank-conta",
+      "amount": "128.34",
+      "invoice_month": null
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-mercado",
+    "kind": "despesa",
+    "description": "Mercado",
+    "date": "2026-11-03",
+    "category_id": "mercado",
+    "amount": "412.60",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "nubank-mc",
+      "amount": "412.60",
+      "invoice_month": "2026-11"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-restaurante",
+    "kind": "despesa",
+    "description": "Restaurante",
+    "date": "2026-11-09",
+    "category_id": "restaurantes",
+    "amount": "148.30",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "nubank-mc",
+      "amount": "148.30",
+      "invoice_month": "2026-11"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-farmacia",
+    "kind": "despesa",
+    "description": "Farmácia",
+    "date": "2026-11-02",
+    "category_id": "saude",
+    "amount": "96.40",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "itau-visa",
+      "amount": "96.40",
+      "invoice_month": "2026-12"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-pet",
+    "kind": "despesa",
+    "description": "Pet shop",
+    "date": "2026-11-05",
+    "category_id": "gasto-livre",
+    "amount": "266.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "itau-visa",
+      "amount": "266.00",
+      "invoice_month": "2026-12"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-transporte",
+    "kind": "despesa",
+    "description": "Transporte por app",
+    "date": "2026-11-06",
+    "category_id": "transporte",
+    "amount": "87.50",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "c6-carbon",
+      "amount": "87.50",
+      "invoice_month": "2026-12"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-cinema",
+    "kind": "despesa",
+    "description": "Cinema",
+    "date": "2026-11-08",
+    "category_id": "lazer",
+    "amount": "60.16",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "c6-carbon",
+      "amount": "60.16",
+      "invoice_month": "2026-12"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-eletronicos",
+    "kind": "despesa",
+    "description": "Acessórios",
+    "date": "2026-11-10",
+    "category_id": "eletronicos",
+    "amount": "200.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "c6-carbon",
+      "amount": "200.00",
+      "invoice_month": "2026-12"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-c6-nov",
+    "kind": "despesa",
+    "description": "Compra parcelada à vista",
+    "date": "2026-11-02",
+    "category_id": "gasto-livre",
+    "amount": "300.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "c6-carbon",
+      "amount": "300.00",
+      "invoice_month": "2026-11"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-combustivel",
+    "kind": "despesa",
+    "description": "Combustível",
+    "date": "2026-10-25",
+    "category_id": "transporte",
+    "amount": "300.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "nubank-mc",
+      "amount": "300.00",
+      "invoice_month": "2026-11"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-online",
+    "kind": "despesa",
+    "description": "Compras online",
+    "date": "2026-10-28",
+    "category_id": "gasto-livre",
+    "amount": "346.46",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "nubank-mc",
+      "amount": "346.46",
+      "invoice_month": "2026-11"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-livraria",
+    "kind": "despesa",
+    "description": "Livraria",
+    "date": "2026-10-30",
+    "category_id": "educacao",
+    "amount": "250.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "itau-visa",
+      "amount": "250.00",
+      "invoice_month": "2026-12"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-nu-out-a",
+    "kind": "despesa",
+    "description": "Supermercado",
+    "date": "2026-10-10",
+    "category_id": "mercado",
+    "amount": "600.95",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "nubank-mc",
+      "amount": "600.95",
+      "invoice_month": "2026-10"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-nu-out-b",
+    "kind": "despesa",
+    "description": "Eletrodoméstico",
+    "date": "2026-10-15",
+    "category_id": "eletronicos",
+    "amount": "500.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "nubank-mc",
+      "amount": "500.00",
+      "invoice_month": "2026-10"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-itau-out",
+    "kind": "despesa",
+    "description": "Viagem curta",
+    "date": "2026-10-12",
+    "category_id": "viagem",
+    "amount": "300.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "itau-visa",
+      "amount": "300.00",
+      "invoice_month": "2026-11"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-c6-out",
+    "kind": "despesa",
+    "description": "Compras do mês",
+    "date": "2026-10-20",
+    "category_id": "gasto-livre",
+    "amount": "400.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "c6-carbon",
+      "amount": "400.00",
+      "invoice_month": "2026-11"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-nu-set-a",
+    "kind": "despesa",
+    "description": "Compras de setembro",
+    "date": "2026-09-05",
+    "category_id": "gasto-livre",
+    "amount": "3000.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "nubank-mc",
+      "amount": "3000.00",
+      "invoice_month": "2026-09"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "c-nu-set-b",
+    "kind": "despesa",
+    "description": "Compras de setembro",
+    "date": "2026-09-15",
+    "category_id": "gasto-livre",
+    "amount": "2200.00",
+    "status": "lancada",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "cartao",
+      "source_id": "nubank-mc",
+      "amount": "2200.00",
+      "invoice_month": "2026-09"
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "p-adiantamento",
+    "kind": "receita",
+    "description": "Adiantamento",
+    "date": "2026-11-20",
+    "category_id": "reembolso",
+    "amount": "5000.00",
+    "status": "prevista",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "conta",
+      "source_id": "itau",
+      "amount": "5000.00",
+      "invoice_month": null
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "p-seguro",
+    "kind": "despesa",
+    "description": "Seguro",
+    "date": "2026-11-15",
+    "category_id": "saude",
+    "amount": "400.00",
+    "status": "prevista",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "conta",
+      "source_id": "itau",
+      "amount": "400.00",
+      "invoice_month": null
+     }
+    ],
+    "version": 1
+   },
+   {
+    "id": "p-escola",
+    "kind": "despesa",
+    "description": "Escola",
+    "date": "2026-11-18",
+    "category_id": "educacao",
+    "amount": "624.04",
+    "status": "prevista",
+    "recurring_id": null,
+    "installment": null,
+    "note": null,
+    "payments": [
+     {
+      "source_type": "conta",
+      "source_id": "nubank-conta",
+      "amount": "624.04",
+      "invoice_month": null
+     }
+    ],
+    "version": 1
+   }
+  ],
+  "movements": [
+   {
+    "id": "m-aporte",
+    "date": "2026-11-09",
+    "account_id": "itau",
+    "kind": "aporte",
+    "amount": "-2000.00",
+    "description": "Aporte em BOVA11",
+    "note": null,
+    "transfer_id": null,
+    "event_id": "ev-aporte"
+   }
+  ],
+  "card_items": [],
+  "invoice_payments": [
+   {
+    "id": "p-nu-set",
+    "card_id": "nubank-mc",
+    "invoice_month": "2026-09",
+    "account_id": "itau",
+    "date": "2026-11-04",
+    "amount": "5200.00",
+    "posted": true
+   }
+  ]
+ },
+ "investments": [
+  {
+   "id": "t-aporte",
+   "kind": "buy",
+   "date": "2026-11-09",
+   "portfolio_id": "p-investimentos",
+   "portfolio_name": "Investimentos",
+   "asset_id": "a-bova11",
+   "asset_name": "BOVA11",
+   "asset_class": "acoes-brasil",
+   "quantity": "15",
+   "unit_price": "133.3333",
+   "fees": "0.00",
+   "net_amount": "2000.00",
+   "payout_kind": null,
+   "event_ratio_from": null,
+   "event_ratio_to": null,
+   "event_id": "ev-aporte"
+  }
+ ],
+ "planned_aportes": [
+  {
+   "date": "2026-11-25",
+   "amount": "2000.00",
+   "account_id": "itau"
+  }
+ ],
+ "carteiras": {
+  "investimentos": "54718.83",
+  "emergencia": "140279.26"
+ }
+}
