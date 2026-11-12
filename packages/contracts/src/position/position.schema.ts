@@ -107,6 +107,22 @@ export const positionSummarySchema = z.object({
 
 export type PositionSummary = z.infer<typeof positionSummarySchema>;
 
+/**
+ * O total do recorte. Sem consolidação os valores são nulos, e não zero: "ainda
+ * não fechou" e "fechou com zero" são coisas diferentes (POS-08).
+ */
+export const positionTotalSchema = positionSummarySchema.extend({
+  value: decimalString.nullable(),
+  cost_basis: decimalString.nullable(),
+  open_result: decimalString.nullable(),
+  weight: decimalString.nullable(),
+});
+
+export type PositionTotal = z.infer<typeof positionTotalSchema>;
+
+/** `sem_consolidacao`: nenhuma carteira do recorte tem fechamento até hoje. */
+export const positionStatusSchema = z.enum(['consolidada', 'sem_consolidacao']);
+
 export const positionGroupSchema = z.object({
   key: z.string(),
   label: z.string(),
@@ -139,7 +155,8 @@ export const positionsResourceSchema = z.object({
   computed_at: z.string().nullable(),
   group_by: positionGroupBySchema,
   groups: z.array(positionGroupSchema),
-  total: positionSummarySchema,
+  status: positionStatusSchema,
+  total: positionTotalSchema,
   /**
    * O retorno da carteira: sai da série de cota, que é a única medida que aporte
    * e resgate não contaminam. Nulo quando a carteira não tem cota para comparar.

@@ -146,6 +146,7 @@ const cdb: PositionGroup = {
 };
 
 const resource = (overrides: Partial<PositionsResource> = {}): PositionsResource => ({
+  status: 'consolidada',
   as_of: '2026-10-06',
   computed_at: '2026-10-06T18:02:00.000Z',
   group_by: 'category',

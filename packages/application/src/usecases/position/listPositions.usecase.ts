@@ -135,12 +135,24 @@ export const listPositions = (deps: ListPositionsDeps) =>
       };
     });
 
+    const consolidated = view.header.as_of !== null;
+
     return {
+      status: consolidated ? ('consolidada' as const) : ('sem_consolidacao' as const),
       as_of: view.header.as_of,
       computed_at: view.header.computed_at,
       group_by: input.groupBy,
       groups,
-      total,
+      total: consolidated
+        ? total
+        : {
+            count: 0,
+            value: null,
+            cost_basis: null,
+            open_result: null,
+            open_result_ratio: null,
+            weight: null,
+          },
       day_change_ratio: view.header.day_change_ratio,
       return_12m_ratio: view.header.return_12m_ratio,
       payouts_12m: view.header.payouts_12m,

@@ -279,6 +279,8 @@ export {
   positionHealthSchema,
   positionResourceSchema,
   positionSummarySchema,
+  positionTotalSchema,
+  positionStatusSchema,
   positionUnitSchema,
   positionsResourceSchema,
 } from './position/position.schema.js';
@@ -287,6 +289,7 @@ export type {
   PositionGroupBy,
   PositionResource,
   PositionSummary,
+  PositionTotal,
   PositionsResource,
 } from './position/position.schema.js';
 export {

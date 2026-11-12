@@ -3,6 +3,7 @@ import type {
   PositionGroup,
   PositionResource,
   PositionSummary,
+  PositionTotal,
   PositionsResource,
 } from '@patrimonio/contracts';
 import type { DateOnly, PositionGroupBy } from '@patrimonio/domain';
@@ -195,12 +196,13 @@ export const positionLabel = (position: PositionResource): string =>
  * linhas só valeria sem aporte nem resgate no período, e a `api` não manda o
  * número justamente por isso — a tabela mostra traço, que é o que não há.
  */
-export const toSummary = (summary: PositionSummary): GroupSummary => ({
-  valor: summary.value,
-  custo: summary.cost_basis,
-  resultado: summary.open_result,
+/** Total nulo (sem consolidação) vira zero só na tabela, que nesse estado nem aparece. */
+export const toSummary = (summary: PositionTotal | PositionSummary): GroupSummary => ({
+  valor: summary.value ?? '0',
+  custo: summary.cost_basis ?? '0',
+  resultado: summary.open_result ?? '0',
   resultado_pct: summary.open_result_ratio,
-  peso: summary.weight,
+  peso: summary.weight ?? '0',
   contagem: String(summary.count),
 });
 
@@ -322,7 +324,7 @@ export const toTableGroups = (
  * A linha de números abaixo do título: quantas posições, quanto somam, o
  * resultado aberto e os proventos de doze meses.
  */
-export const positionsCountLabel = (total: PositionSummary): string =>
+export const positionsCountLabel = (total: { readonly count: number }): string =>
   total.count === 1 ? '1 posição' : `${total.count} posições`;
 
 /**

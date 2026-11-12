@@ -89,6 +89,7 @@ describe('GET /api/positions', () => {
     const body = positionsResourceSchema.parse(response.body);
 
     expect(body.as_of).toBe(hoje());
+    expect(body.status).toBe('consolidada');
     expect(body.group_by).toBe('class');
     expect(body.total.count).toBe(1);
     expect(body.total.value).toBe('18420.00');
@@ -137,6 +138,10 @@ describe('GET /api/positions', () => {
 
     expect(response.status).toBe(200);
     expect(body.as_of).toBeNull();
+    expect(body.status).toBe('sem_consolidacao');
+    // Nulo, e não zero: "ainda não fechou" não é "fechou com zero" (POS-08).
+    expect(body.total.value).toBeNull();
+    expect(body.total.open_result).toBeNull();
     expect(body.groups).toHaveLength(0);
     expect(body.payouts_12m).toBe('0');
   });

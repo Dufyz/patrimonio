@@ -225,6 +225,7 @@ describe('procedência do número', () => {
   const resource = (
     overrides: Partial<Parameters<typeof priceStamp>[0]> = {},
   ): Parameters<typeof priceStamp>[0] => ({
+    status: 'consolidada',
     as_of: '2026-10-06',
     computed_at: '2026-10-06T18:02:00.000Z',
     group_by: 'category',
