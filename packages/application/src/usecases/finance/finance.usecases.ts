@@ -96,6 +96,42 @@ export const financeUseCases = (deps: FinanceDeps) => ({
   /** Tudo que Finanças guarda, mais o "hoje" do servidor (fuso de São Paulo). */
   getSnapshot: () => runRead(deps, (data, today) => ({ today, ...data })),
 
+  /**
+   * LIV-02 · O livro unificado: Finanças e carteiras numa leitura de duas consultas
+   * (a foto de Finanças e as movimentações de carteira do período). Os totais saem
+   * das linhas já filtradas, então respeitam os filtros e não dependem da página.
+   */
+  getBook: (
+    period: Period,
+    filters: Omit<fin.BookFilters, 'range'>,
+    cursor: string | undefined,
+    limit: number,
+    group: fin.BookGroupBy | undefined,
+  ) =>
+    deps.unitOfWork.run<AppError, unknown>(async ({ finance, ledger }) => {
+      const loaded = await finance.load();
+      if (loaded.isFailure()) return loaded;
+      const range = resolveRange(period, deps.clock.today());
+      const investments = await ledger.bookRows(range);
+      if (investments.isFailure()) return investments;
+
+      const data = loaded.value;
+      const all = fin.bookRows(data, investments.value);
+      const rows = fin.filterBook(data, all, { ...filters, range });
+      const page = fin.paginateBook(rows, cursor, limit);
+      const names = new Map(
+        investments.value.map((row) => [row.portfolio_id, row.portfolio_name] as const),
+      );
+      return success({
+        range,
+        rows: page.rows,
+        next_cursor: page.next_cursor,
+        totals: fin.bookTotals(rows),
+        count: rows.length,
+        groups: group === undefined ? null : fin.groupBook(data, rows, group, names),
+      });
+    }),
+
   getOverview: (month?: string) =>
     runRead(deps, (data, today) =>
       fin.overview(data, month ?? fin.monthKey(today), today),

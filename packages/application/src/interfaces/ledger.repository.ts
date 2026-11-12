@@ -31,6 +31,15 @@ export type LedgerRepository = {
     assetId: string,
   ) => Promise<Either<AppError, LedgerRow[]>>;
 
+  /**
+   * LIV-02 · As movimentações de carteira de um intervalo, já com carteira, ativo
+   * e classe, numa consulta só: é a metade de carteira do livro unificado.
+   */
+  readonly bookRows: (range: {
+    readonly from: string;
+    readonly to: string;
+  }) => Promise<Either<AppError, finance.BookInvestmentRow[]>>;
+
   /** Os lançamentos de um ativo em todas as carteiras, para arquivar e excluir. */
   readonly entriesForAsset: (assetId: string) => Promise<Either<AppError, LedgerRow[]>>;
 

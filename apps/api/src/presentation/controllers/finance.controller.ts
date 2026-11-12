@@ -105,6 +105,7 @@ export type FinanceHandler =
   | 'setRecurringActive'
   | 'skipRecurring'
   | 'deleteRecurring'
+  | 'listBook'
   | 'listEntries'
   | 'exportEntries'
   | 'getEntry'
@@ -249,6 +250,31 @@ export const createFinanceController = (deps: FinanceRouteDeps): FinanceControll
     deleteRecurring: write((r) => uc.deleteRecurring(param(r, 'id'), meta(r))),
 
     // Lançamentos
+    listBook: read((r) => {
+      const query = q(r) as Query;
+      const list = (key: string) => query[key] as string[] | undefined;
+      return uc.getBook(
+        {
+          month: query['month'] as string | undefined,
+          from: query['from'] as string | undefined,
+          to: query['to'] as string | undefined,
+        },
+        {
+          kinds: list('tipo') as never,
+          situations: list('situacao') as never,
+          accounts: list('conta'),
+          cards: list('cartao'),
+          portfolios: list('carteira'),
+          assets: list('ativo'),
+          categories: list('categoria'),
+          classes: list('classe'),
+          q: query['q'] as string | undefined,
+        },
+        query['cursor'] as string | undefined,
+        query['limit'] as number,
+        query['groupBy'] as never,
+      );
+    }),
     listEntries: read((r) => {
       const {
         month,

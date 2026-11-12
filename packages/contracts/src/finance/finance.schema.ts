@@ -221,6 +221,40 @@ export const listEntriesSchema = z.object({
     limit: z.coerce.number().int().min(1).max(200).default(50),
   }),
 });
+const csvList = <T extends z.ZodTypeAny>(item: T) =>
+  z
+    .union([z.array(item), item.transform((value) => [value])])
+    .optional();
+export const LEDGER_KIND_VALUES = [
+  'RECEITA',
+  'DESPESA',
+  'TRANSFERENCIA',
+  'PAGAMENTO_FATURA',
+  'APORTE',
+  'RESGATE',
+  'PROVENTO',
+  'EVENTO',
+] as const;
+/** LIV-02 · O livro unificado: filtros, agrupamento e cursor. */
+export const listBookSchema = z.object({
+  query: z.object({
+    month: finMonth.optional(),
+    from: dateOnly.optional(),
+    to: dateOnly.optional(),
+    tipo: csvList(z.enum(LEDGER_KIND_VALUES)),
+    situacao: csvList(z.enum(['previsto', 'lancado'])),
+    conta: csvList(uuid),
+    cartao: csvList(uuid),
+    carteira: csvList(uuid),
+    ativo: csvList(uuid),
+    categoria: csvList(uuid),
+    classe: csvList(uuid),
+    q: z.string().trim().max(120).optional(),
+    groupBy: z.enum(['dia', 'tipo', 'conta_carteira']).optional(),
+    cursor: z.string().max(200).optional(),
+    limit: z.coerce.number().int().min(1).max(200).default(50),
+  }),
+});
 export const exportEntriesSchema = z.object({
   query: listEntriesSchema.shape.query.omit({ cursor: true, limit: true, group: true }),
 });

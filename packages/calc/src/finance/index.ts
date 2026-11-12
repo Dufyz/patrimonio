@@ -1,4 +1,5 @@
 export * from './accounts.js';
+export * from './book.js';
 export * from './cards.js';
 export * from './catalog.js';
 export * from './categories.js';

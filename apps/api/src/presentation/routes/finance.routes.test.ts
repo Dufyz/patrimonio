@@ -34,8 +34,7 @@ beforeEach(async () => {
   ]);
   ids = {};
   for (const c of categories.body.categories) ids[`cat:${c.name}`] = c.id;
-  for (const a of accounts.body.accounts)
-    ids[`acc:${a.account.name}`] = a.account.id;
+  for (const a of accounts.body.accounts) ids[`acc:${a.account.name}`] = a.account.id;
   for (const c of cards.body.cards) ids[`card:${c.card.name}`] = c.card.id;
 });
 
@@ -352,10 +351,11 @@ describe('contas, transferências e faturas', () => {
     const snap = await get('/snapshot');
     const entry = snap.body.entries.find(
       (e: { payments: { source_type: string; source_id: string }[]; status: string }) =>
-        e.status === 'lancada' &&
-        e.payments.some((p) => p.source_type === 'cartao'),
+        e.status === 'lancada' && e.payments.some((p) => p.source_type === 'cartao'),
     );
-    const part = entry.payments.find((p: { source_type: string }) => p.source_type === 'cartao');
+    const part = entry.payments.find(
+      (p: { source_type: string }) => p.source_type === 'cartao',
+    );
     const target = '2027-01';
     const moved = await send('post', `/entries/${entry.id}/invoice`, {
       invoice_month: target,
@@ -388,8 +388,7 @@ describe('contas, transferências e faturas', () => {
     const snap = await get('/snapshot');
     const entry = snap.body.entries.find(
       (e: { payments: { source_type: string; source_id: string }[]; status: string }) =>
-        e.status === 'lancada' &&
-        e.payments.some((p) => p.source_type === 'cartao'),
+        e.status === 'lancada' && e.payments.some((p) => p.source_type === 'cartao'),
     );
     const cardPart = entry.payments.find(
       (p: { source_type: string }) => p.source_type === 'cartao',
@@ -427,7 +426,6 @@ describe('recorrentes e rotina diária', () => {
     await send('post', '/jobs/sync');
     const second = await get('/entries?from=2026-01-01&to=2026-12-31&limit=200');
     expect(second.body.total).toBe(first.body.total);
-
   });
 
   it('pular um mês remove o previsto e a rotina não o recria', async () => {
@@ -470,6 +468,7 @@ describe('orçamento de consultas', () => {
   it.each([
     '/finance/overview?month=2026-10',
     '/finance/entries?month=2026-10',
+    '/finance/book?month=2026-10',
     '/finance/accounts',
     '/finance/cards',
     '/finance/categories',
@@ -502,5 +501,40 @@ describe('patrimônio e livre após faturas (LIV-09)', () => {
       Number(body.em_contas),
       2,
     );
+  });
+});
+
+describe('livro unificado (LIV-02)', () => {
+  it('os totais do mês batem com a Visão geral e não dependem da página', async () => {
+    const overview = await get('/overview?month=2026-10');
+    const full = await get('/book?month=2026-10&limit=200');
+    const small = await get('/book?month=2026-10&limit=3');
+    expect(full.status).toBe(200);
+    expect(full.body.totals.receitas).toBe(overview.body.receitas.amount);
+    expect(full.body.totals.despesas).toBe(overview.body.despesas.amount);
+    expect(small.body.rows).toHaveLength(3);
+    expect(small.body.totals).toEqual(full.body.totals);
+    expect(small.body.count).toBe(full.body.count);
+    expect(small.body.next_cursor).not.toBeNull();
+  });
+
+  it('filtra por tipo e agrupa por dia', async () => {
+    const res = await get('/book?month=2026-10&tipo=DESPESA&groupBy=dia&limit=200');
+    expect(res.status).toBe(200);
+    expect(res.body.rows.every((r: { kind: string }) => r.kind === 'DESPESA')).toBe(true);
+    const grouped = res.body.groups.reduce(
+      (sum: number, g: { count: number }) => sum + g.count,
+      0,
+    );
+    expect(grouped).toBe(res.body.count);
+  });
+
+  it('evento só aparece com o filtro de tipo Evento', async () => {
+    const res = await get('/book?month=2026-10&limit=200');
+    expect(res.body.rows.some((r: { kind: string }) => r.kind === 'EVENTO')).toBe(false);
+  });
+
+  it('recusa tipo desconhecido', async () => {
+    expect((await get('/book?tipo=COMPRA')).status).toBe(400);
   });
 });

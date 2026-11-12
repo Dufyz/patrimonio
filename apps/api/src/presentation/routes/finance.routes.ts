@@ -142,6 +142,7 @@ export const financeRoutes = (deps: FinanceRouteDeps): Router => {
     f.deleteRecurring,
   );
 
+  router.get('/finance/book', validate(c.listBookSchema), f.listBook);
   router.get('/finance/entries', validate(c.listEntriesSchema), f.listEntries);
   router.get('/finance/entries/export', validate(c.exportEntriesSchema), f.exportEntries);
   router.get('/finance/entries/:id', validate(c.getEntrySchema), f.getEntry);

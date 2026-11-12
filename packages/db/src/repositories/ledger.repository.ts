@@ -66,6 +66,45 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
     }
   },
 
+  bookRows: async (range) => {
+    try {
+      const rows = await sql<Row[]>`
+        SELECT t.id, t.kind, t.trade_date, t.portfolio_id, p.name AS portfolio_name,
+               t.asset_id, a.ticker AS asset_name, a.category_id AS asset_class,
+               t.quantity, t.unit_price, t.fees, t.net_amount, t.payout_kind,
+               t.event_ratio_from, t.event_ratio_to, t.event_id
+          FROM transaction t
+          JOIN portfolio p ON p.id = t.portfolio_id
+          JOIN asset a ON a.id = t.asset_id
+         WHERE t.trade_date BETWEEN ${range.from} AND ${range.to}
+         ORDER BY t.trade_date DESC, t.id DESC
+      `;
+
+      return success(
+        rows.map((row) => ({
+          id: asString(row, 'id'),
+          kind: asString(row, 'kind') as 'buy' | 'sell' | 'payout' | 'corporate_event',
+          date: asDateOnly(row, 'trade_date'),
+          portfolio_id: asString(row, 'portfolio_id'),
+          portfolio_name: asString(row, 'portfolio_name'),
+          asset_id: asString(row, 'asset_id'),
+          asset_name: asString(row, 'asset_name'),
+          asset_class: asStringOrNull(row, 'asset_class'),
+          quantity: asNumeric(row, 'quantity'),
+          unit_price: asNumeric(row, 'unit_price'),
+          fees: asNumeric(row, 'fees'),
+          net_amount: asNumeric(row, 'net_amount'),
+          payout_kind: asStringOrNull(row, 'payout_kind'),
+          event_ratio_from: asStringOrNull(row, 'event_ratio_from'),
+          event_ratio_to: asStringOrNull(row, 'event_ratio_to'),
+          event_id: asStringOrNull(row, 'event_id'),
+        })),
+      );
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
   entriesForAsset: async (assetId: string) => {
     try {
       const rows = await sql<Row[]>`
