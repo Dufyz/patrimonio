@@ -4,6 +4,7 @@ CREATE TABLE portfolio (
   id                   UUID PRIMARY KEY,
   name                 TEXT NOT NULL,
   benchmark            TEXT,
+  strategy_tolerance_pp NUMERIC(5, 2) NOT NULL DEFAULT 5.00,
   sort_order           INTEGER NOT NULL DEFAULT 0,
   recalc_status        recalc_status NOT NULL DEFAULT 'idle',
   recalc_from_date     DATE,
@@ -11,6 +12,7 @@ CREATE TABLE portfolio (
   recalc_updated_at    TIMESTAMP WITH TIME ZONE,
   archived_at          TIMESTAMP WITH TIME ZONE,
   is_demo              BOOLEAN NOT NULL DEFAULT FALSE,
+  CONSTRAINT portfolio_strategy_tolerance_range CHECK (strategy_tolerance_pp > 0 AND strategy_tolerance_pp <= 100),
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );

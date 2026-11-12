@@ -6,6 +6,7 @@ import type { Either } from '@patrimonio/shared';
 import { InvalidParameterError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
 import { ConflictError } from '../../errors/app-error.js';
+import { FinanceError } from '../../errors/finance-error.js';
 import type {
   PortfolioDraft,
   StrategyTargetWrite,
@@ -29,7 +30,7 @@ export type CreatePortfolioDeps = { readonly unitOfWork: UnitOfWork };
  */
 export const validateTargets = (
   targets: readonly StrategyTargetWrite[],
-): Either<InvalidParameterError, void> => {
+): Either<AppError, void> => {
   const duplicated = duplicatedCategories(targets);
 
   if (duplicated.length > 0) {
@@ -44,8 +45,16 @@ export const validateTargets = (
 
   if (!sum.closes) {
     return failure(
-      new InvalidParameterError(
-        `O alvo soma ${sum.total_pct}% e precisa somar 100%: faltam ${sum.missing_pp} pp`,
+      new FinanceError(
+        [
+          {
+            code: 'ESTRATEGIA_ALVO_INVALIDO',
+            message: `O alvo soma ${sum.total_pct}% e precisa somar 100%: faltam ${sum.missing_pp} pp`,
+            field: 'targets',
+            details: { total_pct: sum.total_pct, missing_pp: sum.missing_pp },
+          },
+        ],
+        400,
       ),
     );
   }

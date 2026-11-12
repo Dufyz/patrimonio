@@ -164,6 +164,47 @@ describe('estratégia', () => {
   });
 });
 
+describe('estratégia por carteira (EST-04)', () => {
+  it('soma diferente de 100 responde com o código ESTRATEGIA_ALVO_INVALIDO', async () => {
+    const acoes = await seedCategory(harness.sql, 'Ações');
+    const criada = await criar({ name: 'Longo prazo' });
+
+    const response = await request(harness.app)
+      .put(`/api/portfolios/${criada.body.portfolio.id}/strategy`)
+      .send({ targets: [{ category_id: acoes, target_pct: '96' }] });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe('ESTRATEGIA_ALVO_INVALIDO');
+    expect(response.body.message).toMatch(/faltam 4/);
+  });
+
+  it('a tolerância é por carteira, padrão 5,00, e aparece na leitura da estratégia', async () => {
+    const acoes = await seedCategory(harness.sql, 'Ações');
+    const a = await criar({ name: 'A' });
+    const b = await criar({ name: 'B' });
+    const alvo = [{ category_id: acoes, target_pct: '100' }];
+
+    const salvo = await request(harness.app)
+      .put(`/api/portfolios/${a.body.portfolio.id}/strategy`)
+      .send({ targets: alvo, tolerance_pp: '2.50' });
+    expect(salvo.status).toBe(200);
+
+    const lerA = await request(harness.app).get(
+      `/api/allocation?portfolio_id=${a.body.portfolio.id}`,
+    );
+    const lerB = await request(harness.app).get(
+      `/api/allocation?portfolio_id=${b.body.portfolio.id}`,
+    );
+    expect(lerA.body.rules.tolerance_pp).toBe('2.50');
+    expect(lerB.body.rules.tolerance_pp).toBe('5.00');
+
+    const invalida = await request(harness.app)
+      .put(`/api/portfolios/${a.body.portfolio.id}/strategy`)
+      .send({ targets: alvo, tolerance_pp: '0' });
+    expect(invalida.status).toBe(400);
+  });
+});
+
 describe('excluir carteira', () => {
   it('sem o nome digitado corretamente não exclui', async () => {
     const criada = await criar({ name: 'Curto prazo' });

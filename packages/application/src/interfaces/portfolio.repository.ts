@@ -117,6 +117,12 @@ export type PortfolioRepository = {
    * é o trigger diferido do banco — por isso apagar e regravar na mesma
    * transação é seguro.
    */
+  /** A tolerância do desvio da estratégia desta carteira, em pontos percentuais. */
+  readonly setTolerance: (
+    id: string,
+    tolerancePp: string,
+  ) => Promise<Either<AppError, void>>;
+
   readonly replaceTargets: (
     portfolioId: string,
     targets: readonly StrategyTargetWrite[],

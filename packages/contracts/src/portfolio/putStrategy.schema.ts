@@ -11,7 +11,17 @@ import { strategyTargetResourceSchema } from './portfolio.schema.js';
  */
 export const putStrategySchema = z.object({
   params: z.object({ portfolio_id: uuid }),
-  body: z.object({ targets: z.array(strategyTargetResourceSchema) }),
+  body: z.object({
+    targets: z.array(strategyTargetResourceSchema),
+    /** Pontos percentuais; ausente mantém a tolerância atual (padrão 5,00). */
+    tolerance_pp: z
+      .string()
+      .regex(/^\d{1,3}(\.\d{1,2})?$/)
+      .refine((value) => Number(value) > 0 && Number(value) <= 100, {
+        message: 'a tolerância fica entre 0 e 100 pontos percentuais',
+      })
+      .optional(),
+  }),
 });
 
 export const getStrategySchema = z.object({

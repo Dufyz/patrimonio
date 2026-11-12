@@ -22,6 +22,8 @@ export type AllocationPortfolioRow = {
   readonly name: string;
   readonly recalc_status: RecalcStatus;
   readonly benchmark: string | null;
+  /** A tolerância do desvio da estratégia, em pontos percentuais (padrão 5,00). */
+  readonly tolerance_pp: string;
   /** O dia em que o alvo foi salvo pela última vez. Nulo sem alvo. */
   readonly reviewed_on: DateOnly | null;
   /** O valor total da carteira no fechamento. Nulo quando nunca fechou. */

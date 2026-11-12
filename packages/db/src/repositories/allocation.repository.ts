@@ -51,6 +51,7 @@ const parsePortfolio = (row: Row): AllocationPortfolioRow => ({
   name: asString(row, 'name'),
   recalc_status: asEnum(row, 'recalc_status', RECALC_STATUSES),
   benchmark: asStringOrNull(row, 'benchmark'),
+  tolerance_pp: asString(row, 'tolerance_pp'),
   reviewed_on: asDateOnlyOrNull(row, 'reviewed_on'),
   total_value: asNumericOrNull(row, 'total_value'),
 });
@@ -89,6 +90,7 @@ export const createAllocationRepository = (sql: Connection): AllocationRepositor
                  p.name,
                  p.recalc_status,
                  p.benchmark,
+                 p.strategy_tolerance_pp::TEXT AS tolerance_pp,
                  (SELECT MAX(target.updated_at)::DATE
                     FROM strategy_target target
                    WHERE target.portfolio_id = p.id) AS reviewed_on,

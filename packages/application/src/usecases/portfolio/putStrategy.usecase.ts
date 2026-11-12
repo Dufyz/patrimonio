@@ -15,7 +15,11 @@ export type PutStrategyDeps = { readonly unitOfWork: UnitOfWork };
  * impossível trocar 35/25/40 por 30/30/40.
  */
 export const putStrategy = (deps: PutStrategyDeps) =>
-  either(async function* (portfolioId: string, targets: readonly StrategyTargetWrite[]) {
+  either(async function* (
+    portfolioId: string,
+    targets: readonly StrategyTargetWrite[],
+    tolerancePp?: string | undefined,
+  ) {
     yield* validateTargets(targets);
 
     return yield* await deps.unitOfWork.run<AppError, StrategyTarget[]>(
@@ -28,6 +32,14 @@ export const putStrategy = (deps: PutStrategyDeps) =>
 
         const grouped = await validateGroupTargets(repositories, targets);
         if (grouped.isFailure()) return grouped;
+
+        if (tolerancePp !== undefined) {
+          const tolerance = await repositories.portfolios.setTolerance(
+            portfolioId,
+            tolerancePp,
+          );
+          if (tolerance.isFailure()) return tolerance;
+        }
 
         const saved = await repositories.portfolios.replaceTargets(portfolioId, targets);
         if (saved.isFailure()) return saved;

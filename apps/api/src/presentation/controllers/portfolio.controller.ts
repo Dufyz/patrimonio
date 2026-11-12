@@ -183,6 +183,7 @@ export const createPortfolioController = (deps: PortfolioDeps): PortfolioControl
     const result = await deps.usecases.putStrategy(
       portfolioId(request.params['portfolio_id']),
       body.targets,
+      body.tolerance_pp,
     );
 
     if (result.isFailure()) {

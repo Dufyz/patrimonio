@@ -5,7 +5,7 @@ import type {
   CompositionNode,
   ContributionPlan,
 } from '@patrimonio/calc';
-import { TOLERANCE_PP, describeBenchmark } from '@patrimonio/domain';
+import { describeBenchmark } from '@patrimonio/domain';
 import type { DateOnly, RecalcStatus } from '@patrimonio/domain';
 import { either, failure } from '@patrimonio/shared';
 
@@ -210,7 +210,7 @@ export const getAllocation = (deps: GetAllocationDeps) =>
     ];
 
     const composition = composeAllocation(snapshot.categories.map(toLine), targets, {
-      tolerance_pp: TOLERANCE_PP,
+      tolerance_pp: portfolio.tolerance_pp,
     });
 
     const colors = new Map(
@@ -276,7 +276,7 @@ export const getAllocation = (deps: GetAllocationDeps) =>
         recalc_status: portfolio.recalc_status,
       },
       rules: {
-        tolerance_pp: TOLERANCE_PP,
+        tolerance_pp: portfolio.tolerance_pp,
         reviewed_on: portfolio.reviewed_on,
         benchmark: describeBenchmark(portfolio.benchmark),
       },

@@ -283,6 +283,15 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
    * Apagar e regravar na mesma transação é seguro porque o trigger que exige
    * soma 100 é diferido: ele roda no commit, com o alvo inteiro no lugar.
    */
+  setTolerance: async (id: string, tolerancePp: string) => {
+    try {
+      await sql`UPDATE portfolio SET strategy_tolerance_pp = ${tolerancePp}::NUMERIC WHERE id = ${id}`;
+      return success(undefined);
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
   replaceTargets: async (
     portfolioId: string,
     targets: readonly StrategyTargetWrite[],
