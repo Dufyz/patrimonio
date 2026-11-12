@@ -304,7 +304,19 @@ export const createTransactionController = (
 
     const result = await deps.usecases.updateTransaction(
       String(request.params['transaction_id']),
-      { ...body, origin_request_id: request.requestId },
+      {
+        ...body,
+        ...(request.header('If-Match') === undefined
+          ? {}
+          : {
+              if_match: request
+                .header('If-Match')
+                ?.replace(/^W\//, '')
+                .replace(/"/g, '')
+                .trim(),
+            }),
+        origin_request_id: request.requestId,
+      },
     );
 
     if (result.isFailure()) {

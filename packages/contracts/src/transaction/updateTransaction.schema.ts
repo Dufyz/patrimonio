@@ -19,6 +19,8 @@ export const updateTransactionSchema = z.object({
     unit_price: nonNegativeDecimal.optional(),
     fees: nonNegativeDecimal.optional(),
     tax_withheld: nonNegativeDecimal.optional(),
+    /** A conta de origem/destino; nulo é "Fora do app". */
+    account_id: uuid.nullable().optional(),
   }),
 });
 

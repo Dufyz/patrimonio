@@ -570,3 +570,106 @@ describe('excluir lançamento de carteira com as duas pernas (LIV-12)', () => {
     ).toBe(0);
   });
 });
+
+describe('editar lançamento de carteira com as duas pernas (LIV-12)', () => {
+  const editar = (id: string, body: Record<string, unknown>, ifMatch?: string) => {
+    const call = request(harness.app).patch(`/api/transactions/${id}`);
+    if (ifMatch !== undefined) call.set('If-Match', ifMatch);
+    return call.send(body);
+  };
+
+  it('editar o valor do aporte recalcula o saldo da conta e a posição', async () => {
+    const antes = await saldo();
+    const aporte = await aportar();
+    const id = aporte.body.transaction.id as string;
+
+    const response = await editar(
+      id,
+      { quantity: '20' },
+      aporte.body.transaction.updated_at,
+    );
+    expect(response.status).toBe(200);
+    // 20 × 100 + 5 de taxa
+    expect(await saldo()).toBeCloseTo(antes - 2005, 2);
+    const [leg] = await harness.sql<{ amount: string }[]>`
+      SELECT amount::TEXT FROM fin_movement WHERE kind = 'APORTE'`;
+    expect(leg?.amount).toBe('-2005.00');
+  });
+
+  it('trocar a origem para "Fora do app" apaga a perna e devolve o saldo', async () => {
+    const antes = await saldo();
+    const aporte = await aportar();
+    const response = await editar(
+      aporte.body.transaction.id,
+      { account_id: null },
+      aporte.body.transaction.updated_at,
+    );
+    expect(response.status).toBe(200);
+    expect(await saldo()).toBeCloseTo(antes, 2);
+    expect(
+      await contagem(`SELECT COUNT(*) AS n FROM fin_movement WHERE kind = 'APORTE'`),
+    ).toBe(0);
+  });
+
+  it('escolher uma conta onde não havia nenhuma cria a perna ligada', async () => {
+    const antes = await saldo();
+    const aporte = await aportar({ account_id: null });
+    const response = await editar(
+      aporte.body.transaction.id,
+      { account_id: conta },
+      aporte.body.transaction.updated_at,
+    );
+    expect(response.status).toBe(200);
+    expect(await saldo()).toBeCloseTo(antes - 1005, 2);
+    const [leg] = await harness.sql<{ event_id: string }[]>`
+      SELECT event_id FROM fin_movement WHERE kind = 'APORTE'`;
+    const [tx] = await harness.sql<{ event_id: string }[]>`
+      SELECT event_id FROM "transaction" WHERE kind = 'buy'`;
+    expect(leg?.event_id).toBe(tx?.event_id);
+  });
+
+  it('exige If-Match, e a versão velha devolve 409 com o estado atual', async () => {
+    const aporte = await aportar();
+    const id = aporte.body.transaction.id as string;
+
+    const sem = await editar(id, { quantity: '12' });
+    expect(sem.status).toBe(428);
+    expect(sem.body.code).toBe('IF_MATCH_OBRIGATORIO');
+
+    const primeira = await editar(
+      id,
+      { quantity: '12' },
+      aporte.body.transaction.updated_at,
+    );
+    expect(primeira.status).toBe(200);
+
+    const velha = await editar(
+      id,
+      { quantity: '13' },
+      aporte.body.transaction.updated_at,
+    );
+    expect(velha.status).toBe(409);
+    expect(velha.body.code).toBe('VERSAO_DIVERGENTE');
+    expect(velha.body.details.current).toBeDefined();
+  });
+
+  it('editar o resgate move a despesa ligada junto', async () => {
+    const compra = await aportar({ account_id: null, trade_date: '2026-10-10' });
+    ativo = compra.body.transaction.asset_id;
+    const [categoria] = await harness.sql<{ id: string }[]>`
+      SELECT id FROM fin_category WHERE kind = 'DESPESA' LIMIT 1`;
+    const venda = await resgatar({ linked_expense: { category_id: categoria?.id } });
+
+    const response = await editar(
+      venda.body.transaction.id,
+      { quantity: '5' },
+      venda.body.transaction.updated_at,
+    );
+    expect(response.status).toBe(200);
+    const [entry] = await harness.sql<{ amount: string }[]>`
+      SELECT amount::TEXT FROM fin_entry WHERE id = ${venda.body.expense_id}`;
+    const [leg] = await harness.sql<{ amount: string }[]>`
+      SELECT amount::TEXT FROM fin_movement WHERE kind = 'RESGATE'`;
+    expect(entry?.amount).toBe(leg?.amount);
+  });
+});

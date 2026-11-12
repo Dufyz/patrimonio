@@ -183,7 +183,10 @@ export const createApiUseCases = (deps: {
     assets: deps.repositories.assets,
     clock: deps.clock,
   }),
-  updateTransaction: updateTransaction({ unitOfWork: deps.unitOfWork }),
+  updateTransaction: updateTransaction({
+    unitOfWork: deps.unitOfWork,
+    clock: deps.clock,
+  }),
   previewUpdate: previewUpdate({ unitOfWork: deps.unitOfWork }),
   deleteTransaction: deleteTransaction({
     unitOfWork: deps.unitOfWork,

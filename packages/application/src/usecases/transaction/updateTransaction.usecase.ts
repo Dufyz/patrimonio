@@ -5,6 +5,7 @@ import type { Either } from '@patrimonio/shared';
 
 import { NotFoundError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
+import { FinanceError } from '../../errors/finance-error.js';
 import type { EnqueuedEvent } from '../../interfaces/outbox.repository.js';
 import type { TransactionPatch } from '../../interfaces/transaction.repository.js';
 import type {
@@ -12,6 +13,9 @@ import type {
   UnitOfWork,
 } from '../../interfaces/unit-of-work.js';
 import type { TransactionPreview } from '../../plans/transaction.plan.js';
+import { syncLegs } from '../ledger/legs.js';
+import { financeClock } from '../finance/clock.js';
+import type { Clock } from '../../interfaces/clock.js';
 import { portfolioLock, prepareTransaction } from './createTransaction.usecase.js';
 import type {
   CreateTransactionInput,
@@ -28,6 +32,10 @@ export type UpdateTransactionInput = {
   readonly unit_price?: string | undefined;
   readonly fees?: string | undefined;
   readonly tax_withheld?: string | undefined;
+  /** A conta de origem/destino; nulo é "Fora do app" (LIV-12). */
+  readonly account_id?: string | null | undefined;
+  /** O `updated_at` que a tela viu; obrigatório para lançamento com perna financeira. */
+  readonly if_match?: string | undefined;
   readonly origin_request_id?: string | undefined;
 };
 
@@ -37,7 +45,10 @@ export type UpdateTransactionResult = {
   readonly queued: readonly EnqueuedEvent[];
 };
 
-export type UpdateTransactionDeps = { readonly unitOfWork: UnitOfWork };
+export type UpdateTransactionDeps = {
+  readonly unitOfWork: UnitOfWork;
+  readonly clock?: Clock | undefined;
+};
 
 /** O lançamento gravado, mesclado com o que a edição mudou. */
 const merged = (
@@ -107,6 +118,47 @@ export const updateTransaction = (deps: UpdateTransactionDeps) =>
 
     return yield* await deps.unitOfWork.run<AppError, UpdateTransactionResult>(
       async (repositories) => {
+        // LIV-12: lançamento com duas pernas só muda com `If-Match`, e a
+        // divergência devolve 409 com o estado atual.
+        const fresh = await repositories.transactions.findById(id);
+        if (fresh.isFailure()) return fresh;
+        if (fresh.value === null) {
+          return failure(new NotFoundError(`Lançamento ${id} não encontrado`));
+        }
+        const hasLegs =
+          fresh.value.event_id !== undefined && fresh.value.event_id !== null;
+        if (hasLegs && input.if_match === undefined) {
+          return failure(
+            new FinanceError(
+              [
+                {
+                  code: 'IF_MATCH_OBRIGATORIO',
+                  message: 'Informe If-Match com a versão que você viu para editar.',
+                },
+              ],
+              428,
+            ),
+          );
+        }
+        if (
+          hasLegs &&
+          new Date(input.if_match ?? '').getTime() !==
+            new Date(fresh.value.updated_at).getTime()
+        ) {
+          return failure(
+            new FinanceError(
+              [
+                {
+                  code: 'VERSAO_DIVERGENTE',
+                  message: 'O lançamento mudou desde que você o abriu.',
+                  details: { current: fresh.value.updated_at },
+                },
+              ],
+              409,
+            ),
+          );
+        }
+
         const prepared = await prepareUpdate(repositories, current, input, {
           create: true,
         });
@@ -134,6 +186,37 @@ export const updateTransaction = (deps: UpdateTransactionDeps) =>
           return failure(new NotFoundError(`Lançamento ${id} não encontrado`));
         }
 
+        let transaction = updated.value;
+        if (hasLegs || input.account_id !== undefined) {
+          const asset =
+            row.asset_id === null || row.asset_id === undefined
+              ? null
+              : await repositories.assets.findById(row.asset_id);
+          const synced = await syncLegs(repositories, {
+            before: fresh.value,
+            after: updated.value,
+            account_id: input.account_id,
+            ticker:
+              asset !== null && asset.isSuccess() && asset.value !== null
+                ? asset.value.ticker
+                : 'carteira',
+            today: financeClock(
+              deps.clock ?? {
+                now: () => new Date(),
+                today: () => new Date().toISOString().slice(0, 10) as never,
+              },
+            ).today(),
+          });
+          if (synced.isFailure()) return synced;
+          if (synced.value.event_id !== (fresh.value.event_id ?? null)) {
+            const relinked = await repositories.transactions.update(id, {
+              event_id: synced.value.event_id,
+            });
+            if (relinked.isFailure()) return relinked;
+            if (relinked.value !== null) transaction = relinked.value;
+          }
+        }
+
         const fromDate = minDateOnly(row.trade_date, current.trade_date);
         const origin =
           input.origin_request_id === undefined
@@ -155,12 +238,12 @@ export const updateTransaction = (deps: UpdateTransactionDeps) =>
         if (enqueued.isFailure()) return enqueued;
 
         return success({
-          transaction: updated.value,
+          transaction,
           preview: prepared.value.plan.preview,
           queued: enqueued.value,
         });
       },
-      { lock: portfolioLock(current.portfolio_id) },
+      { locks: ['finance', portfolioLock(current.portfolio_id)] },
     );
   });
 
