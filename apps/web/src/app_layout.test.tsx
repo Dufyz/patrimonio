@@ -145,3 +145,51 @@ describe('NAV-004 · trocar de carteira e de área', () => {
     expect(globalThis.localStorage.getItem('patrimonio.last-scope')).toBe('longo-prazo');
   });
 });
+
+describe('NAV-007 e NAV-008 · busca e atalhos de área', () => {
+  beforeEach(() => {
+    globalThis.localStorage.clear();
+    globalThis.innerWidth = 1440;
+  });
+
+  it('G G, G F e G I levam a Geral, Finanças e Investimentos', async () => {
+    const user = await open('/geral');
+
+    await user.keyboard('gf');
+    await waitFor(() => expect(path()).toBe('/financas/visao-geral'));
+
+    await user.keyboard('gi');
+    await waitFor(() => expect(path()).toBe('/investimentos/todas/visao-geral'));
+
+    await user.keyboard('gg');
+    await waitFor(() => expect(path()).toBe('/geral'));
+  });
+
+  it('G F volta à última tela de Finanças', async () => {
+    globalThis.localStorage.setItem('patrimonio.last-path.financas', '/financas/contas');
+    const user = await open('/geral');
+
+    await user.keyboard('gf');
+
+    await waitFor(() => expect(path()).toBe('/financas/contas'));
+  });
+
+  it('em Geral, ⌘K abre o "Ir para" e leva à tela escolhida', async () => {
+    const user = await open('/geral');
+
+    await user.keyboard('{Meta>}k{/Meta}');
+    const campo = await screen.findByRole('searchbox', { name: 'Ir para' });
+    await user.type(campo, 'cartoes');
+    await user.click(screen.getByRole('button', { name: /Finanças › Cartões/u }));
+
+    await waitFor(() => expect(path()).toBe('/financas/cartoes'));
+  });
+
+  it('o botão de buscar da barra também abre o "Ir para" em Geral', async () => {
+    const user = await open('/geral');
+
+    await user.click(within(nav()).getByRole('button', { name: /Buscar/u }));
+
+    expect(await screen.findByRole('searchbox', { name: 'Ir para' })).toBeInTheDocument();
+  });
+});

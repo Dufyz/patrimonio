@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import { fetchMarketHealth } from './api/market.js';
 import { usePortfolios } from './components/portfolios_provider.js';
 import { ALL_PORTFOLIOS, AppShell } from './components/shell.js';
 import type { NavEntry, PortfolioEntry, ShellActive } from './components/shell.js';
+import { GoToPalette } from './components/goto_palette.js';
+import type { Destination } from './components/goto_palette.js';
 import { ShellSearchContext } from './components/shell_search.js';
+import { useShortcuts } from './components/shortcuts.js';
 import { financeRoutes } from './finance/lib/routes.js';
 import { screensForScope, screenInScope } from './lib/investment_screens.js';
 import {
@@ -106,7 +109,12 @@ export const AppLayout = (): React.ReactElement => {
     }),
     [],
   );
-  const openSearch = useCallback(() => searchRef.current?.(), []);
+  // Área sem busca própria (Geral) abre o "Ir para".
+  const [goToOpen, setGoToOpen] = useState(false);
+  const openSearch = useCallback(() => {
+    if (searchRef.current === null) setGoToOpen(true);
+    else searchRef.current();
+  }, []);
 
   // O escopo mostrado na barra: o da URL em Investimentos, o último nas demais.
   const scope =
@@ -175,6 +183,51 @@ export const AppLayout = (): React.ReactElement => {
           }
         : place;
 
+  // NAV-008 · `G G`, `G F` e `G I` valem em qualquer tela, e levam à última tela
+  // da área. A camada da casca é a mais antiga: as telas respondem antes dela.
+  const areaShortcuts = useMemo(
+    () => ({
+      go_geral: () => void navigate(routes.geral()),
+      go_financas: () =>
+        void navigate(readLastPath('financas') ?? financeRoutes.overview()),
+      go_investimentos: () =>
+        void navigate(readLastPath('investimentos') ?? routes.investments(scope)),
+      search: openSearch,
+    }),
+    [navigate, scope, openSearch],
+  );
+  useShortcuts(areaShortcuts);
+
+  const destinations = useMemo(
+    (): readonly Destination[] => [
+      { id: 'geral', label: 'Geral › Visão geral', path: routes.geral() },
+      ...FINANCE_ENTRIES.map((entry) => ({
+        id: `fin-${entry.id}`,
+        label: `Finanças › ${entry.label}`,
+        path: entry.path,
+      })),
+      ...screensForScope(true).map((screen) => ({
+        id: `inv-${screen.id}`,
+        label: `Investimentos › Todas as carteiras › ${screen.label}`,
+        path: routes.investments(ALL_SCOPE, screen.id),
+      })),
+      ...portfolios.flatMap((portfolio): Destination[] => {
+        const slug = slugs.get(portfolio.id);
+        return slug === undefined
+          ? []
+          : [
+              {
+                id: `cart-${portfolio.id}`,
+                label: `Investimentos › ${portfolio.name}`,
+                path: routes.investments(slug),
+              },
+            ];
+      }),
+      { id: 'config', label: 'Configurações', path: routes.settings() },
+    ],
+    [portfolios, slugs],
+  );
+
   return (
     <ShellSearchContext.Provider value={search}>
       <AppShell
@@ -191,6 +244,12 @@ export const AppLayout = (): React.ReactElement => {
       >
         <Outlet />
       </AppShell>
+      <GoToPalette
+        open={goToOpen}
+        destinations={destinations}
+        onGo={(path) => void navigate(path)}
+        onClose={() => setGoToOpen(false)}
+      />
     </ShellSearchContext.Provider>
   );
 };
