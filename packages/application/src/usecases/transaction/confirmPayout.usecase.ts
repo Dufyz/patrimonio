@@ -8,6 +8,9 @@ import type { AppError } from '../../errors/app-error.js';
 import type { Clock } from '../../interfaces/clock.js';
 import type { EnqueuedEvent } from '../../interfaces/outbox.repository.js';
 import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
+import type { AccountEffect } from '../ledger/contribution.usecase.js';
+import { creditProvento } from '../ledger/provento_leg.js';
+import { financeClock } from '../finance/clock.js';
 import { portfolioLock } from './createTransaction.usecase.js';
 
 export type ConfirmPayoutInput = {
@@ -22,6 +25,8 @@ export type ConfirmPayoutResult = {
   readonly expected_net_amount: string | null;
   readonly difference: string | null;
   readonly queued: EnqueuedEvent | null;
+  /** O crédito na conta de destino, quando o provento tem uma (LIV-05). */
+  readonly account: AccountEffect | null;
 };
 
 export type ConfirmPayoutDeps = {
@@ -74,6 +79,28 @@ export const confirmPayout = (deps: ConfirmPayoutDeps) =>
           return failure(new NotFoundError(`Lançamento ${id} não encontrado`));
         }
 
+        let account: AccountEffect | null = null;
+        if (found.account_id !== undefined && found.account_id !== null) {
+          const asset =
+            found.asset_id === null
+              ? null
+              : await repositories.assets.findById(found.asset_id);
+          const ticker =
+            asset !== null && asset.isSuccess() && asset.value !== null
+              ? asset.value.ticker
+              : 'carteira';
+          const credited = await creditProvento(repositories, {
+            account_id: found.account_id,
+            date: found.settlement_date,
+            amount: received,
+            ticker,
+            event_id: found.event_id ?? repositories.transactions.nextId(),
+            today: financeClock(deps.clock).today(),
+          });
+          if (credited.isFailure()) return credited;
+          account = credited.value;
+        }
+
         const enqueued = await repositories.outbox.enqueue([
           {
             stage: 'recalc',
@@ -94,8 +121,9 @@ export const confirmPayout = (deps: ConfirmPayoutDeps) =>
           expected_net_amount: diverged ? found.net_amount : null,
           difference: diverged ? moneyDifference(received, found.net_amount) : null,
           queued: enqueued.value[0] ?? null,
+          account,
         });
       },
-      { lock: portfolioLock(found.portfolio_id) },
+      { locks: ['finance', portfolioLock(found.portfolio_id)] },
     );
   });

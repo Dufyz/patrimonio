@@ -22,6 +22,9 @@ import { planTransaction } from '../../plans/transaction.plan.js';
 import type { TransactionPreview } from '../../plans/transaction.plan.js';
 import { loadPlanContext } from './context.js';
 import { portfolioLock } from './createTransaction.usecase.js';
+import { creditProvento } from '../ledger/provento_leg.js';
+import type { AccountEffect } from '../ledger/contribution.usecase.js';
+import { financeClock } from '../finance/clock.js';
 import { findReplay } from './idempotency.js';
 
 export type CreatePayoutInput = {
@@ -39,6 +42,8 @@ export type CreatePayoutInput = {
   /** Calculado para JCP quando não vem. */
   readonly tax_withheld?: string | undefined;
   readonly confirmed?: boolean | undefined;
+  /** A conta que recebe; nulo ou ausente é "Fora do app" (LIV-05). */
+  readonly account_id?: string | null | undefined;
   readonly idempotency_key?: string | undefined;
   readonly origin_request_id?: string | undefined;
 };
@@ -48,6 +53,8 @@ export type PayoutResult = {
   /** Nulo no replay: o preview é do estado em que o provento foi criado. */
   readonly preview: TransactionPreview | null;
   readonly queued: EnqueuedEvent | null;
+  /** O efeito na conta quando o provento já foi creditado (LIV-05). */
+  readonly account: AccountEffect | null;
   /** Quantidade na data-com, calculada pelos lançamentos. */
   readonly quantity_at_record_date: string;
   readonly replayed: boolean;
@@ -170,6 +177,7 @@ export const createPayout = (deps: CreatePayoutDeps) =>
             transaction: replay.value,
             preview: null,
             queued: null,
+            account: null,
             replayed: true,
             quantity_at_record_date: replay.value.quantity,
           });
@@ -195,6 +203,8 @@ export const createPayout = (deps: CreatePayoutDeps) =>
           input.confirmed === true ||
           (input.confirmed === undefined && input.payment_date <= deps.clock.today());
 
+        const eventId = repositories.transactions.nextId();
+
         const row: TransactionWrite = {
           kind: 'payout',
           trade_date: input.record_date,
@@ -211,6 +221,8 @@ export const createPayout = (deps: CreatePayoutDeps) =>
           payout_kind: input.payout_kind,
           record_date: input.record_date,
           confirmed_at: confirmed ? deps.clock.now().toISOString() : null,
+          account_id: input.account_id ?? null,
+          event_id: eventId,
           ...(input.idempotency_key === undefined
             ? {}
             : { idempotency_key: input.idempotency_key }),
@@ -238,18 +250,33 @@ export const createPayout = (deps: CreatePayoutDeps) =>
           },
         ];
 
+        let account: AccountEffect | null = null;
+        if (confirmed && input.account_id !== undefined && input.account_id !== null) {
+          const credited = await creditProvento(repositories, {
+            account_id: input.account_id,
+            date: input.payment_date,
+            amount: plan.amounts.net_amount,
+            ticker: prepared.value.asset_ticker,
+            event_id: eventId,
+            today: financeClock(deps.clock).today(),
+          });
+          if (credited.isFailure()) return credited;
+          account = credited.value;
+        }
+
         const enqueued = await repositories.outbox.enqueue(events);
         if (enqueued.isFailure()) return enqueued;
 
         return success({
           transaction,
           preview: plan.preview,
+          account,
           queued: enqueued.value[0] ?? null,
           quantity_at_record_date: quantity,
           replayed: false,
         });
       },
-      { lock: portfolioLock(input.portfolio_id) },
+      { locks: ['finance', portfolioLock(input.portfolio_id)] },
     );
   });
 

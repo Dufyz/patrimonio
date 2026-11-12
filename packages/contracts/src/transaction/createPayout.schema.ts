@@ -28,6 +28,8 @@ export const createPayoutSchema = z.object({
       tax_withheld: nonNegativeDecimal.optional(),
       /** Sem isso, o que já venceu entra confirmado e o futuro fica a receber. */
       confirmed: z.boolean().optional(),
+      /** A conta que recebe. Ausente ou nulo é "Fora do app" (LIV-05). */
+      account_id: uuid.nullable().optional(),
     })
     .refine(
       (body) => body.amount_per_share !== undefined || body.gross_amount !== undefined,

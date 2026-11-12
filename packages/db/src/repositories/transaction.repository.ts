@@ -133,6 +133,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
         event_ratio_to: row.event_ratio_to ?? null,
         idempotency_key: row.idempotency_key ?? null,
         event_id: row.event_id ?? null,
+        account_id: row.account_id ?? null,
       })),
     );
 
@@ -142,7 +143,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
           (id, kind, trade_date, settlement_date, portfolio_id, asset_id, institution_id,
            quantity, unit_price, fees, gross_amount, tax_withheld, net_amount,
            payout_kind, expected_net_amount, record_date, confirmed_at,
-           event_ratio_from, event_ratio_to, idempotency_key, maturity_date, event_id)
+           event_ratio_from, event_ratio_to, idempotency_key, maturity_date, event_id, account_id)
         SELECT (entry ->> 'id')::UUID,
                (entry ->> 'kind')::transaction_kind,
                (entry ->> 'trade_date')::DATE,
@@ -164,7 +165,8 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
                (entry ->> 'event_ratio_to')::NUMERIC,
                entry ->> 'idempotency_key',
                (entry ->> 'maturity_date')::DATE,
-               (entry ->> 'event_id')::UUID
+               (entry ->> 'event_id')::UUID,
+               (entry ->> 'account_id')::UUID
           -- text antes de jsonb: com o cast direto o driver infere o parâmetro
           -- como json e reencoda a string, que chega escalar.
           FROM JSONB_ARRAY_ELEMENTS(${payload}::TEXT::JSONB) AS entry

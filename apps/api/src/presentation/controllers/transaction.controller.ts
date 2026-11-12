@@ -137,6 +137,7 @@ export const createTransactionController = (
       transaction: result.value.transaction,
       preview: result.value.preview,
       quantity_at_record_date: result.value.quantity_at_record_date,
+      account: result.value.account,
       recalculation:
         result.value.queued === null
           ? null
@@ -170,6 +171,7 @@ export const createTransactionController = (
       transaction: result.value.transaction,
       expected_net_amount: result.value.expected_net_amount,
       difference: result.value.difference,
+      account: result.value.account,
       recalculation:
         result.value.queued === null
           ? null

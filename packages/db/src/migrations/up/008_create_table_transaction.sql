@@ -24,6 +24,7 @@ CREATE TABLE transaction (
   event_ratio_to    NUMERIC(20,8),
   idempotency_key   TEXT,
   event_id          UUID,
+  account_id        UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT transaction_payout_has_kind

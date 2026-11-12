@@ -37,6 +37,8 @@ export type TransactionWrite = {
   readonly idempotency_key?: string | null | undefined;
   /** Liga a perna de posição à perna financeira do mesmo lançamento (LIV-01). */
   readonly event_id?: string | null | undefined;
+  /** Provento: a conta que recebe (LIV-05). */
+  readonly account_id?: string | null | undefined;
 };
 
 export type TransactionPatch = Partial<Omit<TransactionWrite, 'id'>>;

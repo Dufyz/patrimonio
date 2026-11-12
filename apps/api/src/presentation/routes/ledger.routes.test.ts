@@ -274,3 +274,82 @@ describe('resgate: carteira → conta (LIV-04)', () => {
     expect(response.status).toBe(400);
   });
 });
+
+const provento = (body: Record<string, unknown> = {}) =>
+  request(harness.app)
+    .post('/api/transactions/payouts')
+    .send({
+      portfolio_id: carteira,
+      institution_id: corretora,
+      asset_id: ativo,
+      payout_kind: 'dividend',
+      record_date: '2026-10-15',
+      payment_date: '2026-10-20',
+      amount_per_share: '0.5',
+      account_id: conta,
+      ...body,
+    });
+
+describe('provento creditado na conta (LIV-05)', () => {
+  beforeEach(async () => {
+    const compra = await aportar({ account_id: null, trade_date: '2026-10-10' });
+    ativo = compra.body.transaction.asset_id;
+  });
+
+  it('credita o líquido na conta, ligado ao provento pelo event_id, e não vira receita', async () => {
+    const antes = await saldo();
+    const receitas = await contagem(
+      `SELECT COUNT(*) AS n FROM fin_entry WHERE kind = 'RECEITA'`,
+    );
+    const response = await provento();
+
+    expect(response.status).toBe(201);
+    expect(await saldo()).toBeCloseTo(antes + 5, 2);
+    expect(response.body.account.before).toBeDefined();
+    expect(
+      await contagem(`SELECT COUNT(*) AS n FROM fin_entry WHERE kind = 'RECEITA'`),
+    ).toBe(receitas);
+
+    const [leg] = await harness.sql<{ event_id: string; amount: string }[]>`
+      SELECT event_id, amount::TEXT FROM fin_movement WHERE kind = 'PROVENTO'`;
+    expect(leg?.amount).toBe('5.00');
+    expect(leg?.event_id).toBe(response.body.transaction.event_id);
+  });
+
+  it('"Fora do app" (sem conta) grava só a perna de posição', async () => {
+    const antes = await saldo();
+    const response = await provento({ account_id: null });
+    expect(response.status).toBe(201);
+    expect(response.body.account).toBeNull();
+    expect(await saldo()).toBeCloseTo(antes, 2);
+    expect(
+      await contagem(`SELECT COUNT(*) AS n FROM fin_movement WHERE kind = 'PROVENTO'`),
+    ).toBe(0);
+  });
+
+  it('o provento a receber só credita a conta quando é confirmado', async () => {
+    const antes = await saldo();
+    const response = await provento({ payment_date: '2026-11-05' });
+    expect(response.status).toBe(201);
+    expect(response.body.transaction.confirmed_at).toBeNull();
+    expect(await saldo()).toBeCloseTo(antes, 2);
+
+    const confirmado = await request(harness.app)
+      .post(`/api/transactions/${response.body.transaction.id}/confirm`)
+      .send({ net_amount: '4.50' });
+    expect(confirmado.status).toBe(200);
+    expect(confirmado.body.account).not.toBeNull();
+    expect(
+      await contagem(`SELECT COUNT(*) AS n FROM fin_movement WHERE kind = 'PROVENTO'`),
+    ).toBe(1);
+  });
+
+  it('recusa cartão como destino e não grava nada', async () => {
+    const response = await provento({ account_id: cartao });
+    expect(response.status).toBe(422);
+    expect(response.body.code).toBe('PROVENTO_DESTINO_CARTAO');
+    expect(
+      await contagem(`SELECT COUNT(*) AS n FROM "transaction" WHERE kind = 'payout'`),
+    ).toBe(0);
+  });
+});

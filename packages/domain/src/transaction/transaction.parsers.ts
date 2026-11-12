@@ -36,6 +36,8 @@ export const parseTransactionFromDB = (row: Row): Transaction => ({
   event_ratio_from: asNumericOrNull(row, 'event_ratio_from'),
   event_ratio_to: asNumericOrNull(row, 'event_ratio_to'),
   idempotency_key: asStringOrNull(row, 'idempotency_key'),
+  account_id: asStringOrNull(row, 'account_id'),
+  event_id: asStringOrNull(row, 'event_id'),
   created_at: asIsoString(row, 'created_at'),
   updated_at: asIsoString(row, 'updated_at'),
 });

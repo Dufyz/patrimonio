@@ -52,6 +52,10 @@ export type Transaction = {
   readonly event_ratio_from: string | null;
   readonly event_ratio_to: string | null;
   readonly idempotency_key: string | null;
+  /** Provento: a conta que recebe. Nulo é "Fora do app" (LIV-05). */
+  readonly account_id?: string | null | undefined;
+  /** Liga a perna de posição à perna financeira (LIV-01). */
+  readonly event_id?: string | null | undefined;
   readonly created_at: string;
   readonly updated_at: string;
 };
