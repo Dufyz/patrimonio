@@ -9,6 +9,7 @@ import {
   BackupToolMissingError,
   backupFileName,
   createEncryptedDump,
+  isManualBackup,
 } from '../infra/backup/dump.js';
 import { applyRetention } from '../infra/backup/retention.js';
 import { createBackupStorage } from '../infra/backup/storage.js';
@@ -35,6 +36,13 @@ export type BackupStageDeps = StageDeps & {
   readonly storage?: BackupStorage;
   readonly config?: BackupConfig;
   readonly dump?: typeof createEncryptedDump;
+  /** A versão do esquema que vai no nome do arquivo (número de migrations aplicadas). */
+  readonly schemaVersion?: () => Promise<string | undefined>;
+};
+
+export type BackupRun = {
+  /** "Fazer backup agora": mesma rotina, sem mexer na retenção dos diários. */
+  readonly manual?: boolean;
 };
 
 const storageFor = (deps: BackupStageDeps): BackupStorage | AppError => {
@@ -57,6 +65,7 @@ const storageFor = (deps: BackupStageDeps): BackupStorage | AppError => {
 export const runBackup = async (
   deps: BackupStageDeps,
   referenceDate: string,
+  run: BackupRun = {},
 ): Promise<Either<AppError, BackupReport>> => {
   const config: BackupConfig = deps.config ?? {
     enabled: environment.backup.enabled,
@@ -87,11 +96,38 @@ export const runBackup = async (
     });
     cleanup = dump.cleanup;
 
-    const name = backupFileName(referenceDate);
+    const schema = await deps.schemaVersion?.();
+    const manualAt =
+      run.manual === true
+        ? deps.clock.now().toISOString().slice(11, 16).replace(':', '')
+        : undefined;
+    const name = backupFileName(referenceDate, {
+      ...(schema === undefined ? {} : { schema }),
+      ...(manualAt === undefined ? {} : { manualAt }),
+    });
     await storage.upload(name, dump.path);
 
-    const existing = await storage.list();
-    const plan = applyRetention(existing, referenceDate);
+    // Verificação: o arquivo precisa estar no destino com o tamanho que saiu daqui.
+    // Se não estiver, o backup é dado como falho, o arquivo ruim sai e os
+    // anteriores ficam como estão — a retenção só roda sobre um backup verificado.
+    const stored = await storage.size(name);
+    if (stored !== dump.bytes) {
+      await storage.remove([name]);
+      return failure(
+        new ExternalServiceError(
+          `backup falhou na verificação: esperado ${dump.bytes} bytes, destino tem ${stored ?? 'nada'}`,
+        ),
+      );
+    }
+
+    // O manual não conta como diário, e a retenção não o apaga nem o considera.
+    const plan =
+      run.manual === true
+        ? { keep: [], remove: [] as string[] }
+        : applyRetention(
+            (await storage.list()).filter((entry) => !isManualBackup(entry.name)),
+            referenceDate,
+          );
     await storage.remove(plan.remove);
 
     deps.logger.info(
@@ -138,7 +174,7 @@ export const backupStage = (deps: BackupStageDeps): Worker<StageJobData> =>
             ? job.data['reference_date']
             : deps.clock.today();
 
-        return runBackup(deps, referenceDate);
+        return runBackup(deps, referenceDate, { manual: job.data['manual'] === true });
       },
       scheduledEvent: (stageDeps) => ({
         stage: 'backup',

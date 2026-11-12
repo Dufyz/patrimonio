@@ -65,7 +65,23 @@ const toolExists = async (tool: string): Promise<boolean> =>
     probe.on('error', () => resolve(false));
   });
 
-export const backupFileName = (date: DateOnly): string => `patrimonio-${date}.dump.age`;
+/**
+ * O nome carrega o dia e a versão do esquema (`s039`): quem restaura sabe, sem
+ * abrir o arquivo, se ele cabe no banco que tem. O backup manual leva `manual` no
+ * nome e a hora, e a retenção não o conta nem o apaga.
+ */
+export const backupFileName = (
+  date: DateOnly,
+  options: { readonly schema?: string; readonly manualAt?: string } = {},
+): string =>
+  [
+    'patrimonio',
+    date,
+    ...(options.manualAt === undefined ? [] : ['manual', options.manualAt]),
+    ...(options.schema === undefined ? [] : [`s${options.schema}`]),
+  ].join('-') + '.dump.age';
+
+export const isManualBackup = (name: string): boolean => name.includes('-manual-');
 
 export const createEncryptedDump = async (options: DumpOptions): Promise<DumpResult> => {
   for (const tool of ['pg_dump', 'age']) {

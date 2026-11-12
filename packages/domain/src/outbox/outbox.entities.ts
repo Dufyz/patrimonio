@@ -72,6 +72,6 @@ export const dedupeKey = {
   reset: (date: DateOnly): string => `reset:${date}`,
   close: (date: DateOnly): string => `close:${date}`,
   import: (importId: string): string => `import:${importId}`,
-  backup: (date: DateOnly): string => `backup:${date}`,
+  backup: (date: DateOnly): string => `backup:daily:${date}`,
   finance: (date: DateOnly): string => `finance:daily:${date}`,
 } as const;

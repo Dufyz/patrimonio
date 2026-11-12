@@ -1,3 +1,4 @@
+import { migrationStatus } from '@patrimonio/db';
 import { environment } from '@patrimonio/env';
 import { registerSchedules } from '@patrimonio/queue';
 
@@ -32,7 +33,13 @@ const workers = [
   marketStage(deps),
   closeStage(deps),
   importStage(deps),
-  backupStage(deps),
+  backupStage({
+    ...deps,
+    schemaVersion: async () => {
+      const status = await migrationStatus(environment.database.connection);
+      return String(status.applied.length).padStart(3, '0');
+    },
+  }),
   financeStage(deps),
 ];
 

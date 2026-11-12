@@ -10,7 +10,10 @@ import type { BackupStageDeps } from './backup.stage.js';
 
 const silent = pino({ level: 'silent' });
 
-const fakeStorage = (existing: readonly BackupEntry[]) => {
+const fakeStorage = (
+  existing: readonly BackupEntry[],
+  storedBytes: number | null = 1_234,
+) => {
   const uploaded: Array<{ name: string; path: string }> = [];
   const removed: string[] = [];
 
@@ -22,6 +25,7 @@ const fakeStorage = (existing: readonly BackupEntry[]) => {
     remove: async (names) => {
       removed.push(...names);
     },
+    size: async () => storedBytes,
   };
 
   return { storage, uploaded, removed };
@@ -106,6 +110,45 @@ describe('backup', () => {
     expect(report.removed).toBe(1);
   });
 
+  it('o nome do arquivo traz a versão do esquema (BKP-02)', async () => {
+    const { storage, uploaded } = fakeStorage([]);
+    unwrapSuccess(
+      await runBackup(
+        depsWith({ storage, schemaVersion: async () => '039' }),
+        '2026-10-06',
+      ),
+    );
+
+    expect(uploaded[0]?.name).toBe('patrimonio-2026-10-06-s039.dump.age');
+  });
+
+  it('falha na verificação marca o backup como falho, tira o arquivo ruim e mantém os anteriores', async () => {
+    const { storage, removed } = fakeStorage(
+      [
+        { name: 'patrimonio-2025-01-10.dump.age', date: '2025-01-10' },
+        { name: 'patrimonio-2026-10-05.dump.age', date: '2026-10-05' },
+      ],
+      999,
+    );
+
+    const error = unwrapFailure(await runBackup(depsWith({ storage }), '2026-10-06'));
+
+    expect(error.message).toMatch(/verificação/);
+    // Só o arquivo do dia sai; a retenção não rodou, então o antigo continua lá.
+    expect(removed).toEqual(['patrimonio-2026-10-06.dump.age']);
+  });
+
+  it('o backup manual não mexe na retenção e não conta como diário', async () => {
+    const { storage, uploaded, removed } = fakeStorage([
+      { name: 'patrimonio-2025-01-10.dump.age', date: '2025-01-10' },
+    ]);
+
+    unwrapSuccess(await runBackup(depsWith({ storage }), '2026-10-06', { manual: true }));
+
+    expect(uploaded[0]?.name).toBe('patrimonio-2026-10-06-manual-0300.dump.age');
+    expect(removed).toEqual([]);
+  });
+
   it('ferramenta ausente é falha definitiva: tentar de novo não instala o age', async () => {
     const { storage } = fakeStorage([]);
     const error = unwrapFailure(
@@ -134,6 +177,7 @@ describe('backup', () => {
             },
             list: async () => [],
             remove: async () => undefined,
+            size: async () => null,
           },
         }),
         '2026-10-06',
@@ -155,6 +199,7 @@ describe('backup', () => {
           },
           list: async () => [],
           remove: async () => undefined,
+          size: async () => null,
         },
         dump: async () => ({
           path: '/tmp/x.dump.age',

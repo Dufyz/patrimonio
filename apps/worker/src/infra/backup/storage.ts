@@ -16,6 +16,8 @@ export type BackupStorage = {
   readonly upload: (name: string, path: string) => Promise<void>;
   readonly list: () => Promise<BackupEntry[]>;
   readonly remove: (names: readonly string[]) => Promise<void>;
+  /** O tamanho do objeto no destino, ou nulo se ele não está lá. */
+  readonly size: (name: string) => Promise<number | null>;
 };
 
 const DATE_IN_NAME = /(\d{4}-\d{2}-\d{2})/;
@@ -43,6 +45,16 @@ export const createBackupStorage = (options: StorageOptions): BackupStorage => {
           `upload do backup falhou: ${response.status} ${await response.text()}`,
         );
       }
+    },
+
+    size: async (name) => {
+      const response = await fetch(objectUrl(name), { method: 'HEAD', headers });
+      if (response.status === 404 || response.status === 400) return null;
+      if (!response.ok) {
+        throw new Error(`verificação do backup falhou: ${response.status}`);
+      }
+      const length = Number(response.headers.get('content-length'));
+      return Number.isFinite(length) ? length : null;
     },
 
     list: async () => {
