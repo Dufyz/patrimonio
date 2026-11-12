@@ -102,6 +102,8 @@ export type MonthFlow = {
   readonly saldoPrevistoCents: Cents;
   /** Receitas do mês: lançadas mais previstas até o fim do mês. */
   readonly receitasCents: Cents;
+  /** Receitas ainda previstas até o fim do mês. */
+  readonly receitasPrevistasCents: Cents;
   /** Despesas já lançadas no mês. */
   readonly despesasRealizadasCents: Cents;
   /** Despesas ainda previstas até o fim do mês, sem as faturas. */
@@ -131,6 +133,9 @@ export const monthFlow = (data: FinanceData, today: IsoDate): MonthFlow => {
   );
   const investing = investmentCategoryIds(data);
   const previstas = planned.filter((entry) => entry.kind === 'despesa');
+  const receitasPrevistas = sum(
+    planned.filter((entry) => entry.kind === 'receita').map((entry) => entry.cents),
+  );
 
   const faturas = outlook.events.filter((event) => event.type === 'fatura');
   const summaries = data.cards.map((card) => cardSummary(data, card, today));
@@ -140,11 +145,8 @@ export const monthFlow = (data: FinanceData, today: IsoDate): MonthFlow => {
     today,
     monthEnd,
     saldoPrevistoCents: outlook.endCents,
-    receitasCents:
-      flows.receitas.cents +
-      sum(
-        planned.filter((entry) => entry.kind === 'receita').map((entry) => entry.cents),
-      ),
+    receitasCents: flows.receitas.cents + receitasPrevistas,
+    receitasPrevistasCents: receitasPrevistas,
     despesasRealizadasCents: flows.despesas.cents,
     despesasPrevistasCents: sum(previstas.map((entry) => entry.cents)),
     aportesPrevistosCents: sum(

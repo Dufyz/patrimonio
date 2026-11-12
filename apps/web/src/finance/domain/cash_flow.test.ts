@@ -52,6 +52,15 @@ describe('fluxo do mês (GER-004)', () => {
     );
   });
 
+  it('a conta fecha: em contas + receitas previstas − despesas previstas − faturas', () => {
+    expect(flow.saldoPrevistoCents).toBe(
+      flow.emContasCents +
+        flow.receitasPrevistasCents -
+        flow.despesasPrevistasCents -
+        flow.faturasAPagarCents,
+    );
+  });
+
   it('Em contas hoje e Faturas abertas são as posições de hoje', () => {
     expect(flow.emContasCents).toBe(startingBalance(data, TODAY));
     expect(flow.faturasAbertasCents).toBeGreaterThanOrEqual(0);

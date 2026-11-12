@@ -28,7 +28,6 @@ import { AssetScreen } from './views/asset.js';
 import { Gallery } from './views/gallery.js';
 import { OverviewScreen } from './views/overview.js';
 import { GoalsScreen } from './views/goals.js';
-import { GeralScreen } from './views/geral/geral_screen.js';
 import { GoalsOverviewScreen } from './views/goals_overview.js';
 import { PositionsScreen } from './views/positions.js';
 import { SettingsScreen } from './views/settings/index.js';
@@ -56,24 +55,35 @@ export const App = (): React.ReactElement => (
   </BrowserRouter>
 );
 
-const FinanceApp = lazy(() =>
-  import('./finance/finance_app.js').then((module) => ({ default: module.FinanceApp })),
+const FinanceHost = lazy(() =>
+  import('./finance/finance_app.js').then((module) => ({ default: module.FinanceHost })),
+);
+const FinanceRoutes = lazy(() =>
+  import('./finance/finance_app.js').then((module) => ({
+    default: module.FinanceRoutes,
+  })),
+);
+const GeralScreen = lazy(() =>
+  import('./views/geral/geral_screen.js').then((module) => ({
+    default: module.GeralScreen,
+  })),
 );
 
 const Workspace = (): React.ReactElement => (
   <Routes>
     <Route path="/galeria" element={<Gallery />} />
     <Route element={<AppLayout />}>
-      <Route path="/geral" element={<GeralScreen />} />
-      {/* Finanças tem as próprias telas, dentro da mesma casca. */}
+      {/* Geral e Finanças leem os mesmos dados de Finanças: um provedor só. */}
       <Route
-        path="/financas/*"
         element={
           <Suspense fallback={<FinanceLoading />}>
-            <FinanceApp />
+            <FinanceHost />
           </Suspense>
         }
-      />
+      >
+        <Route path="/geral" element={<GeralScreen />} />
+        <Route path="/financas/*" element={<FinanceRoutes />} />
+      </Route>
       {/* A página do ativo é uma tela dentro do escopo, e não uma tela da barra
           lateral: ela pertence ao papel, e o papel pertence à carteira. Por isso
           ela mora sob o escopo e mantém Posições destacada na navegação. */}

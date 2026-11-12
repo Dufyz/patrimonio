@@ -207,7 +207,7 @@ export const OverviewScreen = ({
 const periodSuffix = (period: Period): string =>
   period.kind === 'custom' ? 'no período' : PERIOD_LABELS[period.preset];
 
-const Evolution = ({
+export const Evolution = ({
   overview,
 }: {
   readonly overview: OverviewResource;
