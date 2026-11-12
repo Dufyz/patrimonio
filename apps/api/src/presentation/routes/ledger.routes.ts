@@ -1,4 +1,4 @@
-import { createContributionSchema } from '@patrimonio/contracts';
+import { createContributionSchema, createRedemptionSchema } from '@patrimonio/contracts';
 import { Router } from 'express';
 
 import type { LedgerDeps } from '../controllers/ledger.controller.js';
@@ -15,6 +15,8 @@ export const ledgerRoutes = (deps: LedgerDeps): Router => {
     validate(createContributionSchema),
     controller.contribute,
   );
+
+  router.post('/ledger/resgates', validate(createRedemptionSchema), controller.redeem);
 
   return router;
 };

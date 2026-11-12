@@ -144,8 +144,10 @@ export { createTransactionSchema } from './transaction/createTransaction.schema.
 export {
   contributionBodySchema,
   createContributionSchema,
+  createRedemptionSchema,
+  redemptionBodySchema,
 } from './ledger/contribution.schema.js';
-export type { ContributionBody } from './ledger/contribution.schema.js';
+export type { ContributionBody, RedemptionBody } from './ledger/contribution.schema.js';
 export type { CreateTransactionBody } from './transaction/createTransaction.schema.js';
 export { previewTransactionSchema } from './transaction/previewTransaction.schema.js';
 export type { PreviewTransactionBody } from './transaction/previewTransaction.schema.js';

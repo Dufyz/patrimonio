@@ -358,6 +358,12 @@ export type {
   ContributionInput,
   ContributionResult,
 } from './usecases/ledger/contribution.usecase.js';
+export { createRedemption } from './usecases/ledger/redemption.usecase.js';
+export type {
+  LinkedExpense,
+  RedemptionInput,
+  RedemptionResult,
+} from './usecases/ledger/redemption.usecase.js';
 export { IDEMPOTENCY_TTL_HOURS, findReplay } from './usecases/transaction/idempotency.js';
 export { interpretTransactionText } from './usecases/transaction/interpretText.js';
 export type {

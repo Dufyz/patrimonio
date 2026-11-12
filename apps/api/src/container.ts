@@ -6,6 +6,7 @@ import {
   createPayout,
   createTransaction,
   createContribution,
+  createRedemption,
   createFixedIncomeAsset,
   deleteAllData,
   exportData,
@@ -143,6 +144,10 @@ export const createApiUseCases = (deps: {
   previewCaixinhaRedemption: previewCaixinhaRedemption({ unitOfWork: deps.unitOfWork }),
   redeemCaixinha: redeemCaixinha({ unitOfWork: deps.unitOfWork }),
   createTransaction: createTransaction({ unitOfWork: deps.unitOfWork }),
+  createRedemption: createRedemption({
+    unitOfWork: deps.unitOfWork,
+    clock: deps.clock,
+  }),
   createContribution: createContribution({
     unitOfWork: deps.unitOfWork,
     clock: deps.clock,

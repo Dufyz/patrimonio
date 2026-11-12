@@ -142,6 +142,8 @@ export type FinEntry = {
   readonly note: string | null;
   readonly payments: readonly FinPayment[];
   readonly version: number;
+  /** Despesa ligada a um resgate (RN-U6): o mesmo `event_id` das duas pernas. */
+  readonly event_id?: string | null | undefined;
 };
 
 /** Movimentação fora de Lançamentos: nunca é receita nem despesa (RN-33). `amount` leva o sinal. */

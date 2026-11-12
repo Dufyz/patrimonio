@@ -129,6 +129,7 @@ export const parseSnapshot = (raw: Record<string, Row[]>): FinSnapshot => ({
     recurring_id: (r['recurring_id'] as string | null) ?? null,
     installment: installment(r),
     note: (r['note'] as string | null) ?? null,
+    event_id: (r['event_id'] as string | null) ?? null,
     payments: ((r['payments'] as Row[]) ?? []).map((p) => ({
       source_type: (p['source_type'] as string).toLowerCase() as 'conta' | 'cartao',
       source_id: p['source_id'] as string,
@@ -339,6 +340,7 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
           installment_total: r.installment?.total ?? null,
           installment_origin: r.installment?.origin ?? null,
           note: r.note,
+          event_id: r.event_id ?? null,
           version: r.version,
         }));
         const out = await sql`
@@ -347,7 +349,7 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
             category_id = EXCLUDED.category_id, amount = EXCLUDED.amount, status = EXCLUDED.status,
             recurring_id = EXCLUDED.recurring_id, installment_group_id = EXCLUDED.installment_group_id,
             installment_no = EXCLUDED.installment_no, installment_total = EXCLUDED.installment_total,
-            installment_origin = EXCLUDED.installment_origin, note = EXCLUDED.note, version = fin_entry.version + 1
+            installment_origin = EXCLUDED.installment_origin, note = EXCLUDED.note, event_id = EXCLUDED.event_id, version = fin_entry.version + 1
             WHERE fin_entry.version = EXCLUDED.version
           RETURNING id`;
         guard(rows.length, out.length);

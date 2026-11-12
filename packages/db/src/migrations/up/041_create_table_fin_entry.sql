@@ -12,6 +12,7 @@ CREATE TABLE fin_entry (
   installment_total    INTEGER,
   installment_origin   DATE,
   note                 TEXT,
+  event_id             UUID,
   version              INTEGER NOT NULL DEFAULT 1,
   is_demo              BOOLEAN NOT NULL DEFAULT FALSE,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -28,6 +29,7 @@ CREATE TABLE fin_entry (
 );
 
 CREATE INDEX fin_entry_date_idx ON fin_entry (date);
+CREATE INDEX fin_entry_event_idx ON fin_entry (event_id) WHERE event_id IS NOT NULL;
 CREATE INDEX fin_entry_category_date_idx ON fin_entry (category_id, date);
 CREATE INDEX fin_entry_recurring_date_idx ON fin_entry (recurring_id, date);
 CREATE INDEX fin_entry_installment_idx ON fin_entry (installment_group_id, installment_no);
