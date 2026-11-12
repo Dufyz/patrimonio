@@ -186,6 +186,21 @@ export type {
 } from './overview/summary.js';
 
 // ─── Objetivos ───────────────────────────────────────────────────────────────
+export {
+  PROJECTION_HORIZONS,
+  contributionOfMonth,
+  projectionMonthlyRate,
+  projectPortfolio,
+  projectTotal,
+} from './projection/projection.js';
+export type {
+  ProjectionHorizon,
+  ProjectionInput,
+  ProjectionKpis,
+  ProjectionPoint,
+  ProjectionResult,
+  ProjectionRule,
+} from './projection/projection.js';
 export { planGoals } from './goals/plan.js';
 export { summarizeGoals } from './goals/summary.js';
 export type {
