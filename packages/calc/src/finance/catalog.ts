@@ -5,6 +5,7 @@ import type {
   FinCategory,
   FinKind,
   FinRecurring,
+  FinRecurringKind,
   FinRecurringMode,
   FinSnapshot,
   FinSource,
@@ -288,9 +289,7 @@ export const accountUsage = (data: FinSnapshot, id: string): number =>
   ).length +
   data.cards.filter((card) => card.pay_account_id === id).length +
   data.invoice_payments.filter((payment) => payment.account_id === id).length +
-  data.movements.filter(
-    (movement) => movement.account_id === id,
-  ).length;
+  data.movements.filter((movement) => movement.account_id === id).length;
 
 export const setAccountArchived = (
   data: FinSnapshot,
@@ -505,8 +504,11 @@ export const removeCard = (data: FinSnapshot, id: string): Result<FinSnapshot> =
 
 export type RecurringInput = {
   readonly name: string;
-  readonly kind: FinKind;
-  readonly category_id: string;
+  readonly kind: FinRecurringKind;
+  readonly category_id?: string | null | undefined;
+  /** Só no aporte (LIV-11). */
+  readonly portfolio_id?: string | null | undefined;
+  readonly asset_id?: string | null | undefined;
   readonly source: FinSource;
   readonly second_source?: FinSource | null | undefined;
   readonly covers_up_to?: string | null | undefined;
@@ -526,19 +528,64 @@ export const validateRecurring = (
       rule('RECURRING_NAME_REQUIRED', 'Dê um nome ao recorrente.', { field: 'name' }),
     );
   }
-  const category = findCategory(data, input.category_id);
-  if (category === undefined) {
-    errors.push(
-      rule('RECURRING_CATEGORY_NOT_FOUND', 'Escolha uma categoria.', {
-        field: 'category_id',
-      }),
-    );
-  } else if (category.kind !== input.kind) {
-    errors.push(
-      rule('RECURRING_CATEGORY_KIND_MISMATCH', 'A categoria precisa ser do mesmo tipo.', {
-        field: 'category_id',
-      }),
-    );
+  if (input.kind === 'aporte') {
+    // RN-U8: aporte recorrente tem carteira, origem em conta e só modo manual,
+    // porque a quantidade depende do preço do dia.
+    if (input.portfolio_id == null) {
+      errors.push(
+        rule('RECURRING_APORTE_PORTFOLIO', 'Escolha a carteira do aporte.', {
+          field: 'portfolio_id',
+        }),
+      );
+    }
+    if (input.category_id != null) {
+      errors.push(
+        rule('RECURRING_APORTE_CATEGORY', 'Aporte não tem categoria.', {
+          field: 'category_id',
+        }),
+      );
+    }
+    if (input.source.type !== 'conta') {
+      errors.push(
+        rule('APORTE_ORIGEM_CARTAO', 'O aporte não pode ter origem em cartão.', {
+          field: 'source',
+        }),
+      );
+    }
+    if (input.mode !== 'manual') {
+      errors.push(
+        rule('RECURRING_APORTE_MODE', 'Aporte só existe no modo manual.', {
+          field: 'mode',
+        }),
+      );
+    }
+    if (input.second_source != null) {
+      errors.push(
+        rule('ENTRY_SPLIT_RECEITA', 'O aporte tem uma só origem.', {
+          field: 'second_source',
+        }),
+      );
+    }
+  } else {
+    const category =
+      input.category_id == null ? undefined : findCategory(data, input.category_id);
+    if (category === undefined) {
+      errors.push(
+        rule('RECURRING_CATEGORY_NOT_FOUND', 'Escolha uma categoria.', {
+          field: 'category_id',
+        }),
+      );
+    } else if (category.kind !== input.kind) {
+      errors.push(
+        rule(
+          'RECURRING_CATEGORY_KIND_MISMATCH',
+          'A categoria precisa ser do mesmo tipo.',
+          {
+            field: 'category_id',
+          },
+        ),
+      );
+    }
   }
   if (!isActiveSource(data, input.source)) {
     errors.push(
@@ -618,7 +665,9 @@ export const validateRecurring = (
 const recurringFields = (input: RecurringInput) => ({
   name: input.name.trim(),
   kind: input.kind,
-  category_id: input.category_id,
+  category_id: input.kind === 'aporte' ? null : (input.category_id ?? null),
+  portfolio_id: input.kind === 'aporte' ? (input.portfolio_id ?? null) : null,
+  asset_id: input.kind === 'aporte' ? (input.asset_id ?? null) : null,
   source: input.source,
   second_source: input.second_source ?? null,
   covers_up_to:

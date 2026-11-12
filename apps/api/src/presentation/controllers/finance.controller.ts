@@ -71,6 +71,7 @@ export type FinanceHandler =
   | 'snapshot'
   | 'overview'
   | 'wealth'
+  | 'forecast'
   | 'search'
   | 'listCategories'
   | 'categoryBreakdown'
@@ -138,6 +139,13 @@ export const createFinanceController = (deps: FinanceRouteDeps): FinanceControll
   return {
     snapshot: read(() => uc.getSnapshot()),
     overview: read((r) => uc.getOverview(q(r)['month'] as string | undefined)),
+    forecast: read((r) =>
+      uc.getForecast({
+        date: q(r)['date'] as string | undefined,
+        from: q(r)['from'] as string | undefined,
+        to: q(r)['to'] as string | undefined,
+      }),
+    ),
     // O valor das carteiras vem da última consolidação; sem nenhuma, o patrimônio é nulo.
     wealth: read(async () => {
       const portfolios = await deps.usecases.listPortfolios({ includeArchived: false });

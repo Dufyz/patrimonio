@@ -17,6 +17,8 @@ export const contributionBodySchema = z
     fees: nonNegativeDecimal.optional(),
     maturity_date: dateOnly.optional(),
     account_id: uuid.nullable(),
+    /** O recorrente de aporte que este lançamento cumpre (LIV-11). */
+    recurring_id: uuid.optional(),
   })
   .refine((body) => body.asset_id === undefined || body.asset === undefined, {
     message: 'informe o ativo pelo id ou pelos dados do cadastro, não os dois',

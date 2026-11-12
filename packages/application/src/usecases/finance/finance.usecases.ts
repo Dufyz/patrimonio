@@ -141,6 +141,44 @@ export const financeUseCases = (deps: FinanceDeps) => ({
    * LIV-09 · Patrimônio e Livre após faturas. `emCarteiras` é a soma das carteiras
    * na última consolidação (`null` quando nenhuma foi consolidada).
    */
+  /**
+   * LIV-10 · Saldo previsto em `date` e, com `from`/`to`, a série diária com o
+   * menor saldo. Uma função serve Visão geral, Contas e qualquer outra leitura.
+   */
+  getForecast: (query: {
+    date?: string | undefined;
+    from?: string | undefined;
+    to?: string | undefined;
+  }) =>
+    runRead(deps, (data, today) => {
+      const target = query.date ?? query.to ?? fin.endOfMonth(today);
+      const aportes: fin.PlannedAporte[] = [];
+      for (
+        let month = fin.monthKey(today);
+        month <= fin.monthKey(target);
+        month = fin.shiftMonthKey(month, 1)
+      ) {
+        for (const item of fin.plannedAportes(data, month)) {
+          aportes.push({
+            date: item.date,
+            amount: item.amount,
+            account_id: item.account_id,
+          });
+        }
+      }
+      return {
+        date: target,
+        balance: fin.projectedBalance(data, target, today, aportes),
+        planned_aportes: aportes.filter((a) => a.date <= target),
+        series: fin.forecastSeries(
+          data,
+          { from: query.from ?? fin.startOfMonth(today), to: target },
+          today,
+          aportes,
+        ),
+      };
+    }),
+
   getWealth: (emCarteiras: string | null) =>
     runRead(deps, (data, today) => fin.wealthSummary(data, today, emCarteiras)),
 
@@ -629,15 +667,8 @@ export const financeUseCases = (deps: FinanceDeps) => ({
     invoiceMonth: string,
     meta: WriteMeta = {},
   ) =>
-    run(
-      deps,
-      'invoice.move',
-      { origin, id, invoiceMonth },
-      meta,
-      (data) =>
-        lift(fin.moveToInvoice(data, origin, id, invoiceMonth), (next) =>
-          ok(next, { id }),
-        ),
+    run(deps, 'invoice.move', { origin, id, invoiceMonth }, meta, (data) =>
+      lift(fin.moveToInvoice(data, origin, id, invoiceMonth), (next) => ok(next, { id })),
     ),
 
   // ─── Rotina diária (worker e "sincronizar agora") ───────────────────────────

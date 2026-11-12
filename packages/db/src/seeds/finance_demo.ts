@@ -48,7 +48,7 @@ export const withUuids = (data: FinSnapshot): FinSnapshot => ({
   recurrings: data.recurrings.map((r) => ({
     ...r,
     id: uid(r.id),
-    category_id: uid(r.category_id),
+    category_id: r.category_id === null ? null : uid(r.category_id),
     source: { ...r.source, id: uid(r.source.id) },
     second_source:
       r.second_source === null

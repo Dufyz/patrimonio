@@ -673,3 +673,78 @@ describe('editar lançamento de carteira com as duas pernas (LIV-12)', () => {
     expect(entry?.amount).toBe(leg?.amount);
   });
 });
+
+describe('aporte recorrente e previstos de aporte (LIV-11)', () => {
+  const criar = (body: Record<string, unknown> = {}) =>
+    request(harness.app)
+      .post('/api/finance/recurrings')
+      .send({
+        name: 'Aporte mensal',
+        kind: 'aporte',
+        portfolio_id: carteira,
+        source: { type: 'conta', id: conta },
+        day: 28,
+        mode: 'manual',
+        amount: '500.00',
+        ...body,
+      });
+  const previsao = (date: string) =>
+    request(harness.app).get(`/api/finance/forecast?date=${date}`);
+
+  it('o recorrente de aporte não gera lançamento previsto, mas reduz o saldo previsto', async () => {
+    const sem = await previsao('2026-10-31');
+    const entradas = await contagem(`SELECT COUNT(*) AS n FROM fin_entry`);
+
+    const criado = await criar();
+    expect(criado.status).toBe(201);
+    expect(await contagem(`SELECT COUNT(*) AS n FROM fin_entry`)).toBe(entradas);
+
+    const com = await previsao('2026-10-31');
+    expect(Number(sem.body.balance) - Number(com.body.balance)).toBeCloseTo(500, 2);
+    expect(com.body.planned_aportes).toHaveLength(1);
+    // antes do dia 28 o previsto ainda não vence
+    const antes = await previsao('2026-10-27');
+    expect(antes.body.planned_aportes).toHaveLength(0);
+  });
+
+  it('o previsto de aporte não entra em Aportes do livro', async () => {
+    await criar();
+    const livro = await request(harness.app).get(
+      '/api/finance/book?month=2026-10&limit=200',
+    );
+    expect(livro.body.totals.aportes).toBe('0.00');
+  });
+
+  it('recusa origem em cartão e modo automático', async () => {
+    const cartaoOrigem = await criar({ source: { type: 'cartao', id: cartao } });
+    expect(cartaoOrigem.status).toBe(422);
+    expect(cartaoOrigem.body.code).toBe('APORTE_ORIGEM_CARTAO');
+
+    const automatico = await criar({ mode: 'automatico' });
+    expect(automatico.status).toBe(422);
+    expect(automatico.body.code).toBe('RECURRING_APORTE_MODE');
+  });
+
+  it('lançar o aporte com recurring_id faz o previsto do mês sumir', async () => {
+    const criado = await criar();
+    expect(criado.status).toBe(201);
+    const [linha] = await harness.sql<{ id: string }[]>`
+      SELECT id FROM fin_recurring WHERE kind = 'APORTE'`;
+    const recorrente = linha?.id;
+    expect(recorrente).toBeDefined();
+
+    const lancado = await aportar({ recurring_id: recorrente, trade_date: '2026-10-24' });
+    expect(lancado.status).toBe(201);
+
+    const depois = await previsao('2026-10-31');
+    expect(depois.body.planned_aportes).toHaveLength(0);
+  });
+
+  it('recurring_id inexistente é recusado', async () => {
+    const response = await aportar({
+      recurring_id: '00000000-0000-4000-8000-000000000009',
+    });
+    expect(response.status).toBe(404);
+    expect(await contagem(`SELECT COUNT(*) AS n FROM "transaction"`)).toBe(0);
+  });
+});

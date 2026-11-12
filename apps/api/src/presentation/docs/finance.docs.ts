@@ -42,6 +42,13 @@ const rows: readonly Entry[] = [
   ],
   [
     'get',
+    '/finance/forecast',
+    'Saldo previsto numa data (Em contas + previstos − aportes previstos − faturas) e a série com o menor saldo',
+    c.finForecastSchema,
+    { 200: READ },
+  ],
+  [
+    'get',
     '/finance/wealth',
     'Patrimônio total (Em carteiras + Em contas) e Livre após faturas, de uma leitura só',
     c.finWealthSchema,

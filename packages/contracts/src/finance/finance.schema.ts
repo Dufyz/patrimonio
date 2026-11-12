@@ -16,6 +16,7 @@ export const finMonth = z
   .string()
   .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'use o formato AAAA-MM');
 export const finKind = z.enum(['receita', 'despesa']);
+export const finRecurringKind = z.enum(['receita', 'despesa', 'aporte']);
 export const finSourceType = z.enum(['conta', 'cartao']);
 export const finEntryStatus = z.enum(['prevista', 'lancada']);
 export const finScope = z.enum(['esta', 'seguintes', 'todas']);
@@ -166,8 +167,11 @@ export const moveCardItemInvoiceSchema = written({ item_id: uuid }, moveInvoiceB
 const source = z.object({ type: finSourceType, id: uuid });
 export const recurringBody = z.object({
   name: text(80),
-  kind: finKind,
-  category_id: uuid,
+  kind: finRecurringKind,
+  /** Aporte não tem categoria (LIV-11). */
+  category_id: uuid.nullable().optional(),
+  portfolio_id: uuid.nullable().optional(),
+  asset_id: uuid.nullable().optional(),
   source,
   second_source: source.nullable().optional(),
   covers_up_to: positiveDecimal.nullable().optional(),
@@ -289,6 +293,14 @@ export const finOverviewSchema = z.object({
   query: z.object({ month: finMonth.optional() }).optional(),
 });
 /** LIV-09 · O patrimônio total e o livre após faturas, de uma leitura só. */
+/** LIV-10 · Saldo previsto numa data e a série do período. */
+export const finForecastSchema = z.object({
+  query: z.object({
+    date: dateOnly.optional(),
+    from: dateOnly.optional(),
+    to: dateOnly.optional(),
+  }),
+});
 export const finWealthSchema = z.object({ query: z.object({}).optional() });
 /** A foto inteira de Finanças, como o front a lê para montar as telas. */
 export const finSnapshotSchema = z.object({ query: z.object({}).optional() });

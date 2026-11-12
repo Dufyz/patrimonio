@@ -101,7 +101,9 @@ export const parseSnapshot = (raw: Record<string, Row[]>): FinSnapshot => ({
     id: r['id'] as string,
     name: r['name'] as string,
     kind: low(r['kind'] as string) as FinRecurring['kind'],
-    category_id: r['category_id'] as string,
+    category_id: (r['category_id'] as string | null) ?? null,
+    portfolio_id: (r['portfolio_id'] as string | null) ?? null,
+    asset_id: (r['asset_id'] as string | null) ?? null,
     source: source(r['source_type'], r['source_id']),
     second_source:
       r['second_source_id'] === null
@@ -296,6 +298,8 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
           name: r.name,
           kind: up(r.kind),
           category_id: r.category_id,
+          portfolio_id: r.portfolio_id ?? null,
+          asset_id: r.asset_id ?? null,
           source_type: up(r.source.type),
           source_id: r.source.id,
           split: r.second_source !== null,
@@ -311,6 +315,7 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
         const out = await sql`
           INSERT INTO fin_recurring ${sql(rows)}
           ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, kind = EXCLUDED.kind, category_id = EXCLUDED.category_id,
+            portfolio_id = EXCLUDED.portfolio_id, asset_id = EXCLUDED.asset_id,
             source_type = EXCLUDED.source_type, source_id = EXCLUDED.source_id, split = EXCLUDED.split,
             second_source_type = EXCLUDED.second_source_type, second_source_id = EXCLUDED.second_source_id,
             covers_up_to = EXCLUDED.covers_up_to, day = EXCLUDED.day, mode = EXCLUDED.mode, amount = EXCLUDED.amount,

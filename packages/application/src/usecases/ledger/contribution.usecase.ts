@@ -29,6 +29,8 @@ import type { EnqueuedEvent } from '../../interfaces/outbox.repository.js';
 export type ContributionInput = Omit<CreateTransactionInput, 'kind'> & {
   /** A conta de onde o dinheiro sai; `null` é "Fora do app". */
   readonly account_id: string | null;
+  /** O recorrente de aporte que este lançamento cumpre: o previsto do mês some (LIV-11). */
+  readonly recurring_id?: string | undefined;
   readonly preview?: boolean | undefined;
 };
 
@@ -125,6 +127,22 @@ export const createContribution = (deps: ContributionDeps) =>
           }
         }
 
+        if (input.recurring_id !== undefined) {
+          const loaded = await repositories.finance.load();
+          if (loaded.isFailure()) return loaded;
+          const recurring = loaded.value.recurrings.find(
+            (r) => r.id === input.recurring_id,
+          );
+          if (recurring === undefined || recurring.kind !== 'aporte') {
+            return rule(
+              'RECORRENTE_APORTE_NAO_ENCONTRADO',
+              'O aporte recorrente não existe.',
+              'recurring_id',
+              404,
+            );
+          }
+        }
+
         const prepared = await prepareTransaction(
           repositories,
           { ...input, kind: 'buy' },
@@ -196,6 +214,21 @@ export const createContribution = (deps: ContributionDeps) =>
 
         if (leg !== null) {
           const saved = await repositories.finance.persist(leg);
+          if (saved.isFailure()) return saved;
+        }
+
+        if (input.recurring_id !== undefined) {
+          // Lançado o aporte do mês, o previsto some: mesma chave do "pular mês".
+          const loaded = await repositories.finance.load();
+          if (loaded.isFailure()) return loaded;
+          const settled = fin.skipMonth(
+            loaded.value,
+            input.recurring_id,
+            fin.monthKey(input.trade_date),
+          );
+          const saved = await repositories.finance.persist(
+            fin.diffSnapshots(loaded.value, settled),
+          );
           if (saved.isFailure()) return saved;
         }
 

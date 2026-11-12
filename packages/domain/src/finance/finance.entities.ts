@@ -11,11 +11,11 @@
 export const FIN_KINDS = ['receita', 'despesa'] as const;
 export type FinKind = (typeof FIN_KINDS)[number];
 
-export const FIN_ACCOUNT_TYPES = [
-  'corrente',
-  'poupanca',
-  'carteira',
-] as const;
+/** O recorrente também pode ser Aporte (LIV-11): gera previsto de aporte, não lançamento. */
+export const FIN_RECURRING_KINDS = ['receita', 'despesa', 'aporte'] as const;
+export type FinRecurringKind = (typeof FIN_RECURRING_KINDS)[number];
+
+export const FIN_ACCOUNT_TYPES = ['corrente', 'poupanca', 'carteira'] as const;
 export type FinAccountType = (typeof FIN_ACCOUNT_TYPES)[number];
 
 export const FIN_SOURCE_TYPES = ['conta', 'cartao'] as const;
@@ -98,8 +98,12 @@ export type FinSource = { readonly type: FinSourceType; readonly id: string };
 export type FinRecurring = {
   readonly id: string;
   readonly name: string;
-  readonly kind: FinKind;
-  readonly category_id: string;
+  readonly kind: FinRecurringKind;
+  /** Nulo no aporte, que não tem categoria. */
+  readonly category_id: string | null;
+  /** Só no aporte: a carteira que recebe e o ativo, quando já definido. */
+  readonly portfolio_id?: string | null | undefined;
+  readonly asset_id?: string | null | undefined;
   readonly source: FinSource;
   readonly second_source: FinSource | null;
   /** Divisão: quanto a primeira origem cobre; a segunda paga o resto (RN-20, RN-21). */

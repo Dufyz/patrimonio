@@ -55,9 +55,59 @@ export const recurringPayments = (
       ];
 };
 
+/** O recorrente que gera lançamento previsto: o aporte gera só previsto de aporte (LIV-11). */
+type EntryRecurring = FinRecurring & {
+  readonly kind: FinEntry['kind'];
+  readonly category_id: string;
+};
+
+const generatesEntry = (recurring: FinRecurring): recurring is EntryRecurring =>
+  recurring.kind !== 'aporte' && recurring.category_id !== null;
+
+/**
+ * LIV-11 · Os aportes previstos do mês: um por recorrente de aporte ativo que
+ * não foi pulado nem já lançado (o lançamento do aporte grava o `skip` do mês).
+ * Entram no saldo previsto e em "aportes previstos", nunca em Aportes do Saldo
+ * do mês (RN-U9).
+ */
+export type PlannedAporteItem = {
+  readonly recurring_id: string;
+  readonly name: string;
+  readonly date: string;
+  readonly amount: string;
+  readonly portfolio_id: string;
+  readonly asset_id: string | null;
+  readonly account_id: string;
+};
+
+export const plannedAportes = (
+  data: FinSnapshot,
+  month: string,
+): readonly PlannedAporteItem[] => {
+  const skipped = new Set(data.skips.map((skip) => `${skip.recurring_id}:${skip.month}`));
+  return data.recurrings
+    .filter(
+      (recurring) =>
+        recurring.kind === 'aporte' &&
+        recurring.active &&
+        recurring.portfolio_id != null &&
+        !skipped.has(`${recurring.id}:${month}`),
+    )
+    .map((recurring) => ({
+      recurring_id: recurring.id,
+      name: recurring.name,
+      date: dateInMonth(`${month}-01`, recurring.day),
+      amount: recurring.amount,
+      portfolio_id: recurring.portfolio_id as string,
+      asset_id: recurring.asset_id ?? null,
+      account_id: recurring.source.id,
+    }))
+    .sort((a, b) => compareDates(a.date, b.date));
+};
+
 const plannedEntry = (
   data: FinSnapshot,
-  recurring: FinRecurring,
+  recurring: EntryRecurring,
   month: string,
   id: string,
 ): FinEntry => {
@@ -98,7 +148,8 @@ export const syncRecurring = (
 
   const generated = data.recurrings
     .filter(
-      (recurring) =>
+      (recurring): recurring is EntryRecurring =>
+        generatesEntry(recurring) &&
         recurring.active &&
         !have.has(recurring.id) &&
         !skipped.has(`${recurring.id}:${month}`),
@@ -138,7 +189,7 @@ export const refreshPending = (
 ): FinSnapshot => ({
   ...data,
   entries: data.entries.map((entry) => {
-    if (!isPendingOf(entry, recurring.id)) return entry;
+    if (!isPendingOf(entry, recurring.id) || !generatesEntry(recurring)) return entry;
     const date = dateInMonth(entry.date, recurring.day);
     return {
       ...entry,

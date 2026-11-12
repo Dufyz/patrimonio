@@ -51,7 +51,16 @@ const card = (c: FinSnapshot['cards'][number]): Card => ({
   dueDay: c.due_day,
 });
 
-const recurring = (r: FinSnapshot['recurrings'][number]): Recurring => ({
+type RawRecurring = FinSnapshot['recurrings'][number];
+type EntryRawRecurring = RawRecurring & {
+  kind: 'receita' | 'despesa';
+  category_id: string;
+};
+
+const isEntryRecurring = (r: RawRecurring): r is EntryRawRecurring =>
+  r.kind !== 'aporte' && r.category_id !== null;
+
+const recurring = (r: EntryRawRecurring): Recurring => ({
   id: r.id,
   name: r.name,
   kind: r.kind,
@@ -136,7 +145,8 @@ export const snapshotToData = (raw: FinSnapshot): FinanceData => ({
   })),
   accounts: raw.accounts.map(account),
   cards: raw.cards.filter((c) => !c.archived).map(card),
-  recurrings: raw.recurrings.map(recurring),
+  // O aporte recorrente (LIV-11) ganha tela própria em Recorrentes; aqui só entram os de lançamento.
+  recurrings: raw.recurrings.filter(isEntryRecurring).map(recurring),
   entries: raw.entries.map(entry),
   movements: raw.movements.map(movement),
   cardItems: raw.card_items.map(cardItem),
