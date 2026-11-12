@@ -224,7 +224,7 @@ export const PatrimonioPanel = ({
           ))}
           <Line
             label="Em carteiras"
-            to={routes.investments(ALL_SCOPE)}
+            to={routes.home('investimentos', ALL_SCOPE)}
             cents={investments}
             weight={investments === null ? undefined : sumOf(walletTenths)}
           />
@@ -237,8 +237,8 @@ export const PatrimonioPanel = ({
                 label={row.name}
                 to={
                   slug === undefined
-                    ? routes.investments(ALL_SCOPE)
-                    : routes.investments(slug)
+                    ? routes.home('investimentos', ALL_SCOPE)
+                    : routes.home('investimentos', slug)
                 }
                 cents={decimalToCents(row.value) ?? 0}
                 weight={walletTenths[index] ?? 0}
@@ -402,7 +402,7 @@ export const GeralView = ({
           title="Evolução dos investimentos"
           hint="últimos 12 meses · todas as carteiras"
           action={
-            <Link to={routes.investments(ALL_SCOPE)} className={LINK}>
+            <Link to={routes.home('investimentos', ALL_SCOPE)} className={LINK}>
               Investimentos →
             </Link>
           }
@@ -426,7 +426,7 @@ export const GeralView = ({
             hint="soma das carteiras"
             className="flex flex-col"
             action={
-              <Link to={routes.investments(ALL_SCOPE)} className={LINK}>
+              <Link to={routes.home('investimentos', ALL_SCOPE)} className={LINK}>
                 Investimentos →
               </Link>
             }
@@ -446,7 +446,7 @@ export const GeralView = ({
             title="Objetivos"
             className="flex flex-col"
             action={
-              <Link to={routes.investments(ALL_SCOPE, 'objetivos')} className={LINK}>
+              <Link to={routes.portfolio(ALL_SCOPE, 'objetivos')} className={LINK}>
                 Objetivos →
               </Link>
             }

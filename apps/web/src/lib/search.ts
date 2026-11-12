@@ -11,6 +11,7 @@ import {
   assetSlug,
   assetTitle,
 } from './asset_page.js';
+import { routes } from './routes.js';
 import { formatQuantity } from './format.js';
 import { formatDate } from './overview.js';
 import { readJson, writeJson } from './preferences.js';
@@ -762,16 +763,19 @@ export const targetPath = (
     case 'screen': {
       if (target.path !== undefined) return target.path;
       const path = context.screenPaths[target.screen];
-      return path === undefined ? null : `/investimentos/${context.scope}/${path}`;
+      return path === undefined ? null : routes.portfolio(context.scope, path);
     }
     case 'portfolio':
-      return `/investimentos/${context.scopeFor(target.portfolioId)}/${context.currentScreenPath}`;
+      return routes.portfolio(
+        context.scopeFor(target.portfolioId),
+        context.currentScreenPath,
+      );
     case 'asset':
-      return `/investimentos/${context.scope}/ativo/${target.slug}`;
+      return routes.asset(context.scope, target.slug);
     case 'transaction':
       return target.search === null || target.search === ''
-        ? `/investimentos/${context.scope}/movimentacoes`
-        : `/investimentos/${context.scope}/movimentacoes?${new URLSearchParams({
+        ? routes.portfolio(context.scope, 'movimentacoes')
+        : `${routes.portfolio(context.scope, 'movimentacoes')}?${new URLSearchParams({
             busca: target.search,
             periodo: 'inicio',
           }).toString()}`;

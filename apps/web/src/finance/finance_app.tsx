@@ -19,8 +19,8 @@ import {
 import type { FinanceStore } from './store/finance_store.js';
 import { setTodayOverride, todayFromSearch } from './lib/clock.js';
 
-/** FIN-001 · As rotas de Finanças, sob `/financas`. Cada tela chega por conta própria, com o esqueleto dela. */
-const OverviewScreen = lazy(() =>
+/** As telas de fluxo chegam por conta própria, com o esqueleto de cada uma. */
+export const FinanceOverview = lazy(() =>
   import('./screens/overview_screen.js').then((module) => ({
     default: module.OverviewScreen,
   })),
@@ -117,7 +117,11 @@ export const StatusGate = ({ children }: { readonly children: React.ReactNode })
           className="mx-6 mt-4 flex items-center justify-between gap-4 rounded-panel border border-negative/40 bg-panel px-4 py-2 text-[0.8125rem]"
         >
           <span>{status.error}</span>
-          <button type="button" className="cursor-pointer underline" onClick={store.dismissError}>
+          <button
+            type="button"
+            className="cursor-pointer underline"
+            onClick={store.dismissError}
+          >
             Dispensar
           </button>
         </div>
@@ -152,93 +156,86 @@ export const FinanceProviders = ({
   );
 };
 
-/** As telas de Finanças, que esperam os provedores acima. */
-export const FinanceRoutes = (): React.ReactElement => {
-  return (
-    <>
-      <Routes>
-        <Route path="/" element={<Navigate to="visao-geral" replace />} />
-        <Route
-          path="visao-geral"
-          element={
-            <Suspense fallback={<OverviewSkeleton />}>
-              <OverviewScreen />
-            </Suspense>
-          }
-        />
-        <Route
-          path="lancamentos"
-          element={
-            <Suspense
-              fallback={<TableScreenSkeleton label="Carregando Lançamentos" stats={4} />}
-            >
-              <EntriesScreen />
-            </Suspense>
-          }
-        />
-        <Route
-          path="contas"
-          element={
-            <Suspense
-              fallback={
-                <TableScreenSkeleton label="Carregando Contas" stats={3} rows={5} />
-              }
-            >
-              <AccountsScreen />
-            </Suspense>
-          }
-        />
-        <Route
-          path="contas/:id"
-          element={
-            <Suspense fallback={<DetailSkeleton label="Carregando extrato" />}>
-              <StatementScreen />
-            </Suspense>
-          }
-        />
-        <Route
-          path="cartoes"
-          element={
-            <Suspense
-              fallback={
-                <TableScreenSkeleton label="Carregando Cartões" stats={3} rows={5} />
-              }
-            >
-              <CardsScreen />
-            </Suspense>
-          }
-        />
-        <Route
-          path="cartoes/:id"
-          element={
-            <Suspense fallback={<DetailSkeleton label="Carregando fatura" />}>
-              <CardScreen />
-            </Suspense>
-          }
-        />
-        <Route
-          path="recorrentes"
-          element={
-            <Suspense
-              fallback={<TableScreenSkeleton label="Carregando Recorrentes" stats={3} />}
-            >
-              <RecurringsScreen />
-            </Suspense>
-          }
-        />
-        <Route
-          path="categorias"
-          element={
-            <Suspense fallback={<TableScreenSkeleton label="Carregando Categorias" />}>
-              <CategoriesScreen />
-            </Suspense>
-          }
-        />
-        <Route path="*" element={<Navigate to="/financas/visao-geral" replace />} />
-      </Routes>
-    </>
-  );
-};
+/**
+ * As telas de fluxo, com caminho absoluto (NAV-01), que esperam os provedores
+ * acima. A Visão geral é da raiz e vem de `FinanceOverview`.
+ */
+export const financeScreenRoutes = (
+  <>
+    <Route
+      path="/lancamentos"
+      element={
+        <Suspense
+          fallback={<TableScreenSkeleton label="Carregando Lançamentos" stats={4} />}
+        >
+          <EntriesScreen />
+        </Suspense>
+      }
+    />
+    <Route
+      path="/contas"
+      element={
+        <Suspense
+          fallback={<TableScreenSkeleton label="Carregando Contas" stats={3} rows={5} />}
+        >
+          <AccountsScreen />
+        </Suspense>
+      }
+    />
+    <Route
+      path="/contas/:id"
+      element={
+        <Suspense fallback={<DetailSkeleton label="Carregando extrato" />}>
+          <StatementScreen />
+        </Suspense>
+      }
+    />
+    <Route
+      path="/cartoes"
+      element={
+        <Suspense
+          fallback={<TableScreenSkeleton label="Carregando Cartões" stats={3} rows={5} />}
+        >
+          <CardsScreen />
+        </Suspense>
+      }
+    />
+    <Route
+      path="/cartoes/:id"
+      element={
+        <Suspense fallback={<DetailSkeleton label="Carregando fatura" />}>
+          <CardScreen />
+        </Suspense>
+      }
+    />
+    <Route
+      path="/recorrentes"
+      element={
+        <Suspense
+          fallback={<TableScreenSkeleton label="Carregando Recorrentes" stats={3} />}
+        >
+          <RecurringsScreen />
+        </Suspense>
+      }
+    />
+    <Route
+      path="/categorias"
+      element={
+        <Suspense fallback={<TableScreenSkeleton label="Carregando Categorias" />}>
+          <CategoriesScreen />
+        </Suspense>
+      }
+    />
+  </>
+);
+
+/** O módulo de Finanças sozinho, para os testes das telas. */
+export const FinanceRoutes = (): React.ReactElement => (
+  <Routes>
+    {financeScreenRoutes}
+    <Route path="*" element={<Navigate to="/lancamentos" replace />} />
+  </Routes>
+);
 
 export const FinanceApp = ({
   store,

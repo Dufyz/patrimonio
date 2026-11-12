@@ -84,7 +84,7 @@ export const GlobalSearch = ({
     // já filtrado por ele, com a carteira de cada linha.
     if (allPortfolios && target.kind === 'asset') {
       void navigate(
-        `${routes.investments(ALL_SCOPE, 'posicoes')}?${new URLSearchParams({ busca: target.slug }).toString()}`,
+        `${routes.portfolio(ALL_SCOPE, 'posicoes')}?${new URLSearchParams({ busca: target.slug }).toString()}`,
       );
       return;
     }

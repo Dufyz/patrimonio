@@ -97,8 +97,7 @@ describe('galeria do design system', () => {
     gallery();
 
     await user.keyboard('gv');
-    // Geral e Investimentos têm uma "Visão geral" cada: só a de Investimentos
-    // fica destacada, porque a galeria simula a carteira "Longo prazo".
+    // A barra tem uma só "Visão geral", e só ela fica destacada.
     const current = screen
       .getAllByRole('button', { name: /Visão geral/u })
       .filter((button) => button.hasAttribute('aria-current'));

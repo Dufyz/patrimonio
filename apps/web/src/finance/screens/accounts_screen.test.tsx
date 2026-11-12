@@ -20,7 +20,7 @@ const open = () => {
             <FinancePeriodProvider>
               <Routes>
                 <Route path="/contas" element={<AccountsScreen />} />
-                <Route path="/financas/contas/:id" element={<p>Extrato aberto</p>} />
+                <Route path="/contas/:id" element={<p>Extrato aberto</p>} />
               </Routes>
             </FinancePeriodProvider>
           </FinanceStoreProvider>
@@ -120,7 +120,7 @@ describe('Contas (FIN-401)', () => {
       open();
       expect(panel().getByRole('link', { name: 'Ver em Lançamentos' })).toHaveAttribute(
         'href',
-        '/financas/lancamentos',
+        '/lancamentos',
       );
       const rows = panel().getAllByRole('row').slice(1);
       expect(rows).toHaveLength(8);

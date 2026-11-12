@@ -27,14 +27,14 @@ describe('busca global (FIN-703)', () => {
 
   it('cada resultado leva à tela certa', () => {
     const [account] = find('carteira').filter((g) => g.id === 'contas');
-    expect(account?.items[0]?.to).toBe('/financas/contas/carteira');
+    expect(account?.items[0]?.to).toBe('/contas/carteira');
     const [card] = find('nubank mastercard').filter((g) => g.id === 'cartoes');
-    expect(card?.items[0]?.to).toBe('/financas/cartoes/nubank-master');
+    expect(card?.items[0]?.to).toBe('/cartoes/nubank-master');
   });
 
   it('o lançamento abre Lançamentos com a busca aplicada, sem o histórico', () => {
     const entries = find('spotify').find((g) => g.id === 'lancamentos');
-    expect(entries?.items[0]?.to).toContain('/financas/lancamentos?busca=Spotify');
+    expect(entries?.items[0]?.to).toContain('/lancamentos?busca=Spotify');
     expect(find('histórico').find((g) => g.id === 'lancamentos')).toBeUndefined();
   });
 

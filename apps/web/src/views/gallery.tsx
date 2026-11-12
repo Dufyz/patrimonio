@@ -300,9 +300,7 @@ const DATES = Array.from({ length: 13 }, (_, index) => {
 });
 
 const SCREENS = [
-  { id: 'visao-geral', label: 'Visão geral', icon: 'grid' },
   { id: 'posicoes', label: 'Posições', icon: 'list' },
-  { id: 'movimentacoes', label: 'Movimentações', icon: 'swap' },
   { id: 'estrategia', label: 'Estratégia', icon: 'target' },
   { id: 'objetivos', label: 'Objetivos', icon: 'flag' },
 ] as const;
@@ -393,17 +391,27 @@ export const Gallery = (): React.ReactElement => {
 
   return (
     <AppShell
-      geral={{ id: 'geral', label: 'Visão geral', icon: 'grid', path: '/geral' }}
-      finance={[]}
-      portfolios={PORTFOLIOS.map((entry) => ({
-        ...entry,
-        path: `/investimentos/${entry.id}/${screen}`,
-      }))}
-      screens={SCREENS.map((entry) => ({
-        ...entry,
-        path: `/investimentos/${scope}/${entry.id}`,
-      }))}
-      active={{ area: 'investimentos', scope, screen }}
+      groups={[
+        {
+          id: 'principal',
+          title: null,
+          entries: [{ id: 'visao-geral', label: 'Visão geral', icon: 'grid', path: '/' }],
+        },
+        {
+          id: 'carteiras',
+          title: 'Carteiras',
+          portfolios: PORTFOLIOS.map((entry) => ({
+            ...entry,
+            path: `/carteiras/${entry.id}/${screen}`,
+          })),
+          entries: SCREENS.map((entry) => ({
+            ...entry,
+            path: `/carteiras/${scope}/${entry.id}`,
+          })),
+        },
+      ]}
+      activeId={screen}
+      activePortfolio={scope}
       title="Design system"
       settingsPath="/configuracoes"
       onGo={(path) => {

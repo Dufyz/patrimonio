@@ -3,8 +3,6 @@
  * `/financas/cartoes/${id}` à mão.
  */
 
-export const FINANCE_ROOT = '/financas';
-
 export const FINANCE_SCREENS = [
   'visao-geral',
   'lancamentos',
@@ -17,27 +15,23 @@ export const FINANCE_SCREENS = [
 
 export type FinanceScreen = (typeof FINANCE_SCREENS)[number];
 
+const withSearch = (path: string, search?: string): string =>
+  search === undefined || search === '' ? path : `${path}?${search}`;
+
+/** NAV-01 · Telas planas, sem prefixo de área; a Visão geral é a raiz, no escopo Fluxo. */
 export const financeRoutes = {
-  home: (): string => `${FINANCE_ROOT}/visao-geral`,
-  overview: (): string => `${FINANCE_ROOT}/visao-geral`,
-  entries: (search?: string): string =>
-    `${FINANCE_ROOT}/lancamentos${search === undefined || search === '' ? '' : `?${search}`}`,
-  accounts: (): string => `${FINANCE_ROOT}/contas`,
+  home: (): string => '/?escopo=fluxo',
+  overview: (): string => '/?escopo=fluxo',
+  entries: (search?: string): string => withSearch('/lancamentos', search),
+  accounts: (): string => '/contas',
   account: (id: string, search?: string): string =>
-    `${FINANCE_ROOT}/contas/${encodeURIComponent(id)}${
-      search === undefined || search === '' ? '' : `?${search}`
-    }`,
-  cards: (): string => `${FINANCE_ROOT}/cartoes`,
+    withSearch(`/contas/${encodeURIComponent(id)}`, search),
+  cards: (): string => '/cartoes',
   card: (id: string, invoice?: string): string =>
-    `${FINANCE_ROOT}/cartoes/${encodeURIComponent(id)}${
-      invoice === undefined ? '' : `?fatura=${invoice}`
-    }`,
-  recurrings: (): string => `${FINANCE_ROOT}/recorrentes`,
-  categories: (): string => `${FINANCE_ROOT}/categorias`,
-  /** Configurações é global: mora na raiz, fora de qualquer área. */
+    `/cartoes/${encodeURIComponent(id)}${invoice === undefined ? '' : `?fatura=${invoice}`}`,
+  recurrings: (): string => '/recorrentes',
+  categories: (): string => '/categorias',
   settings: (): string => '/configuracoes',
-  /** A área de Investimentos, para o seletor de área. */
-  investments: (): string => '/investimentos/todas/visao-geral',
 } as const;
 
 /**
@@ -46,11 +40,10 @@ export const financeRoutes = {
  * Cartões.
  */
 export const screenForPath = (pathname: string): FinanceScreen => {
-  const parts = pathname.split('/').filter((part) => part !== '');
-  // Configurações está na raiz (`/configuracoes`); as demais telas, sob `/financas`.
-  if (parts[0] === 'configuracoes') return 'configuracoes';
-  const segment = parts[1];
-  return (FINANCE_SCREENS as readonly string[]).includes(segment ?? '')
-    ? (segment as FinanceScreen)
+  const first = pathname.split('/').filter((part) => part !== '')[0];
+  if (first === 'configuracoes') return 'configuracoes';
+  return (FINANCE_SCREENS as readonly string[]).includes(first ?? '') &&
+    first !== 'visao-geral'
+    ? (first as FinanceScreen)
     : 'visao-geral';
 };

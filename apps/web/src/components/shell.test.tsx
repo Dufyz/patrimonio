@@ -17,40 +17,70 @@ const portfolios = [
 ];
 
 const screens = [
+  { id: 'posicoes', label: 'Posições', icon: 'list', path: '/carteiras/longo/posicoes' },
   {
-    id: 'visao-geral',
-    label: 'Visão geral',
-    icon: 'grid',
-    path: '/investimentos/longo/visao-geral',
+    id: 'estrategia',
+    label: 'Estratégia',
+    icon: 'target',
+    path: '/carteiras/longo/estrategia',
   },
   {
-    id: 'posicoes',
-    label: 'Posições',
-    icon: 'list',
-    path: '/investimentos/longo/posicoes',
+    id: 'objetivos',
+    label: 'Objetivo',
+    icon: 'flag',
+    path: '/carteiras/longo/objetivos',
   },
   {
-    id: 'movimentacoes',
-    label: 'Movimentações',
-    icon: 'swap',
-    path: '/investimentos/longo/movimentacoes',
+    id: 'projecao',
+    label: 'Projeção',
+    icon: 'growth',
+    path: '/carteiras/longo/projecao',
   },
 ] as const;
 
-const finance = [
+const groups = [
   {
-    id: 'visao-geral',
-    label: 'Visão geral',
-    icon: 'grid',
-    path: '/financas/visao-geral',
+    id: 'principal',
+    title: null,
+    entries: [
+      { id: 'visao-geral', label: 'Visão geral', icon: 'grid', path: '/' },
+      { id: 'lancamentos', label: 'Lançamentos', icon: 'swap', path: '/lancamentos' },
+    ],
   },
   {
-    id: 'lancamentos',
-    label: 'Lançamentos',
-    icon: 'swap',
-    path: '/financas/lancamentos',
+    id: 'contas-e-cartoes',
+    title: 'Contas e cartões',
+    entries: [
+      { id: 'contas', label: 'Contas', icon: 'bank', path: '/contas' },
+      { id: 'cartoes', label: 'Cartões', icon: 'card', path: '/cartoes' },
+    ],
   },
-  { id: 'contas', label: 'Contas', icon: 'bank', path: '/financas/contas' },
+  {
+    id: 'carteiras',
+    title: 'Carteiras',
+    portfolios: [
+      { id: 'todas', label: 'Todas as carteiras', value: '466104.12' },
+      ...portfolios,
+    ].map((portfolio) => ({
+      ...portfolio,
+      path: `/carteiras/${portfolio.id}/posicoes`,
+    })),
+    entries: screens,
+  },
+  {
+    id: 'planejamento',
+    title: 'Planejamento',
+    entries: [
+      { id: 'recorrentes', label: 'Recorrentes', icon: 'repeat', path: '/recorrentes' },
+    ],
+  },
+  {
+    id: 'cadastros',
+    title: 'Cadastros',
+    entries: [
+      { id: 'categorias', label: 'Categorias', icon: 'tag', path: '/categorias' },
+    ],
+  },
 ] as const;
 
 const wrap = (node: React.ReactNode) =>
@@ -64,14 +94,9 @@ const shell = (props: Partial<React.ComponentProps<typeof AppShell>> = {}) => {
   const onGo = props.onGo ?? vi.fn();
   wrap(
     <AppShell
-      geral={{ id: 'geral', label: 'Visão geral', icon: 'grid', path: '/geral' }}
-      finance={finance}
-      portfolios={portfolios.map((portfolio) => ({
-        ...portfolio,
-        path: `/investimentos/${portfolio.id}/posicoes`,
-      }))}
-      screens={screens}
-      active={{ area: 'investimentos', scope: 'longo', screen: 'posicoes' }}
+      groups={groups}
+      activeId="posicoes"
+      activePortfolio="longo"
       title="Longo prazo"
       settingsPath="/configuracoes"
       onGo={onGo}
@@ -107,13 +132,25 @@ describe('casca única', () => {
     expect(screen.queryByRole('button', { name: /Trocar de área/u })).toBeNull();
   });
 
-  it('as três áreas ficam sempre à vista, na ordem', () => {
+  it('os grupos aparecem na ordem da especificação, sem seletor de áreas', () => {
     shell();
 
     const titles = within(nav())
       .getAllByRole('heading', { level: 3 })
       .map((heading) => heading.textContent);
-    expect(titles).toEqual(['Geral', 'Investimentos', 'Finanças']);
+    expect(titles).toEqual([
+      'Contas e cartões',
+      'Carteiras',
+      'Planejamento',
+      'Cadastros',
+    ]);
+    // Visão geral e Lançamentos abrem a barra, soltos, antes de qualquer grupo.
+    const labels = within(nav())
+      .getAllByRole('button')
+      .map((button) => button.getAttribute('title') ?? button.textContent);
+    expect(labels.indexOf('Visão geral')).toBeLessThan(labels.indexOf('Lançamentos'));
+    expect(labels.indexOf('Lançamentos')).toBeLessThan(labels.indexOf('Contas'));
+    expect(labels.at(-1)).toBe('Configurações');
   });
 
   it('a barra lateral mostra o valor de cada carteira', () => {
@@ -134,12 +171,13 @@ describe('casca única', () => {
     globalThis.localStorage.removeItem('patrimonio:sidebar-collapsed');
   });
 
-  it('o trilho mostra os ícones das três áreas e as siglas das carteiras', async () => {
+  it('o trilho mostra os ícones e as siglas das carteiras, TD para Todas', async () => {
     shell({ width: 1100 });
 
     const rail = nav();
     expect(within(rail).getByTitle('Contas')).toBeVisible();
     expect(within(rail).getByTitle('Entrada do imóvel')).toHaveTextContent('EN');
+    expect(within(rail).getByTitle('Todas as carteiras')).toHaveTextContent('TD');
     expect(within(rail).getByTitle('Configurações')).toBeVisible();
   });
 
@@ -149,18 +187,18 @@ describe('casca única', () => {
 
     await user.click(screen.getByRole('button', { name: /Entrada do imóvel/u }));
 
-    expect(onGo).toHaveBeenCalledWith('/investimentos/imovel/posicoes');
+    expect(onGo).toHaveBeenCalledWith('/carteiras/imovel/posicoes');
   });
 
-  it('clicar numa tela de Finanças e em Geral navega para elas', async () => {
+  it('clicar numa tela de fluxo e na Visão geral navega para elas', async () => {
     const user = userEvent.setup();
     const onGo = shell();
 
     await user.click(screen.getByRole('button', { name: 'Contas' }));
-    expect(onGo).toHaveBeenLastCalledWith('/financas/contas');
+    expect(onGo).toHaveBeenLastCalledWith('/contas');
 
     await user.click(within(nav()).getAllByRole('button', { name: /Visão geral/u })[0]!);
-    expect(onGo).toHaveBeenLastCalledWith('/geral');
+    expect(onGo).toHaveBeenLastCalledWith('/');
   });
 
   it('Configurações fica no pé e abre a tela global', async () => {
@@ -178,15 +216,15 @@ describe('casca única', () => {
     const current = within(nav())
       .getAllByRole('button')
       .filter((button) => button.hasAttribute('aria-current'));
-    // A carteira do escopo e a tela de Investimentos; nada em Geral ou Finanças.
+    // A carteira da URL e a tela de carteira; nada mais.
     expect(current.map((button) => button.getAttribute('title'))).toEqual([
       'Longo prazo',
       'Posições',
     ]);
   });
 
-  it('em Finanças nenhuma carteira fica destacada', () => {
-    shell({ active: { area: 'financas', screen: 'contas' } });
+  it('numa tela de fluxo nenhuma carteira fica destacada', () => {
+    shell({ activeId: 'contas', activePortfolio: null });
 
     const current = within(nav())
       .getAllByRole('button')
@@ -195,7 +233,7 @@ describe('casca única', () => {
   });
 
   it('em Configurações só ela fica destacada', () => {
-    shell({ active: { area: 'configuracoes' } });
+    shell({ activeId: 'configuracoes', activePortfolio: null });
 
     const current = within(nav())
       .getAllByRole('button')

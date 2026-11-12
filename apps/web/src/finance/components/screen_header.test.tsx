@@ -48,12 +48,12 @@ describe('cabeçalho padrão de tela', () => {
       <ScreenHeader
         title="Itaú Corrente"
         subtitle="x"
-        crumbs={[{ label: 'Contas', to: '/financas/contas' }, { label: 'Itaú Corrente' }]}
+        crumbs={[{ label: 'Contas', to: '/contas' }, { label: 'Itaú Corrente' }]}
       />,
     );
     expect(screen.getByRole('link', { name: 'Contas' })).toHaveAttribute(
       'href',
-      '/financas/contas',
+      '/contas',
     );
     expect(screen.queryByRole('link', { name: 'Itaú Corrente' })).toBeNull();
   });

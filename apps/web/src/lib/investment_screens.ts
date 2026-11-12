@@ -1,11 +1,16 @@
 import type { IconName } from '../components/icon.js';
 
 /**
- * NAV-003 · As telas de Investimentos.
+ * NAV-03 · As telas de carteira.
  *
- * Em "Todas as carteiras" existem as que somam carteiras: Visão geral, Posições,
- * Movimentações e Objetivos (o panorama, só leitura). Em uma carteira entram
- * também Estratégia e Objetivo (no singular). O identificador é o caminho.
+ * A barra lateral lista Posições, Estratégia, Objetivos e Projeção. Em "Todas as
+ * carteiras" a Estratégia não existe e Objetivos é o panorama, só leitura; em
+ * uma carteira entram a Estratégia e o Objetivo (no singular). O identificador é
+ * o caminho.
+ *
+ * Visão geral (escopo Investimentos da raiz) e Movimentações seguem roteáveis, mas
+ * fora da barra: a primeira vira o painel da Visão geral unificada e a segunda sai
+ * quando Lançamentos passar a ler o livro único.
  */
 
 export type InvestmentScreen = {
@@ -16,6 +21,8 @@ export type InvestmentScreen = {
   readonly icon: IconName;
   /** A tela também existe em "Todas as carteiras". */
   readonly consolidated: boolean;
+  /** Aparece na barra lateral. */
+  readonly sidebar: boolean;
   /** O identificador do atalho `G` + letra. */
   readonly shortcut: string;
 };
@@ -23,6 +30,7 @@ export type InvestmentScreen = {
 export const INVESTMENT_SCREENS: readonly InvestmentScreen[] = [
   {
     id: 'visao-geral',
+    sidebar: false,
     label: 'Visão geral',
     icon: 'grid',
     consolidated: true,
@@ -30,6 +38,7 @@ export const INVESTMENT_SCREENS: readonly InvestmentScreen[] = [
   },
   {
     id: 'posicoes',
+    sidebar: true,
     label: 'Posições',
     icon: 'list',
     consolidated: true,
@@ -37,6 +46,7 @@ export const INVESTMENT_SCREENS: readonly InvestmentScreen[] = [
   },
   {
     id: 'movimentacoes',
+    sidebar: false,
     label: 'Movimentações',
     icon: 'swap',
     consolidated: true,
@@ -44,6 +54,7 @@ export const INVESTMENT_SCREENS: readonly InvestmentScreen[] = [
   },
   {
     id: 'estrategia',
+    sidebar: true,
     label: 'Estratégia',
     icon: 'target',
     consolidated: false,
@@ -51,6 +62,7 @@ export const INVESTMENT_SCREENS: readonly InvestmentScreen[] = [
   },
   {
     id: 'objetivos',
+    sidebar: true,
     label: 'Objetivos',
     portfolioLabel: 'Objetivo',
     icon: 'flag',
@@ -59,6 +71,7 @@ export const INVESTMENT_SCREENS: readonly InvestmentScreen[] = [
   },
   {
     id: 'projecao',
+    sidebar: true,
     label: 'Projeção',
     icon: 'growth',
     consolidated: true,
@@ -66,8 +79,7 @@ export const INVESTMENT_SCREENS: readonly InvestmentScreen[] = [
   },
 ];
 
-/** As telas que existem no escopo, com o nome certo para ele. */
-export const screensForScope = (all: boolean): readonly InvestmentScreen[] =>
+const inScope = (all: boolean): readonly InvestmentScreen[] =>
   (all
     ? INVESTMENT_SCREENS.filter((screen) => screen.consolidated)
     : INVESTMENT_SCREENS
@@ -76,9 +88,17 @@ export const screensForScope = (all: boolean): readonly InvestmentScreen[] =>
     label: all ? screen.label : (screen.portfolioLabel ?? screen.label),
   }));
 
+/** As telas da barra lateral no escopo, com o nome certo para ele. */
+export const screensForScope = (all: boolean): readonly InvestmentScreen[] =>
+  inScope(all).filter((screen) => screen.sidebar);
+
+/** Todas as telas que a URL pode abrir no escopo, inclusive as fora da barra. */
+export const routableScreens = (all: boolean): readonly InvestmentScreen[] =>
+  inScope(all);
+
 /**
- * A tela do escopo que corresponde a outra: a página do ativo vale Posições, e
- * uma tela que não existe no escopo cai na Visão geral.
+ * NAV-04 · A tela do escopo que corresponde a outra: a página do ativo vale
+ * Posições, e uma tela que não existe no escopo cai na Visão geral do escopo.
  */
 export const screenInScope = (screenId: string, all: boolean): string => {
   const wanted = screenId === 'ativo' ? 'posicoes' : screenId;

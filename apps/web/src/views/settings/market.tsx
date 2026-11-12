@@ -71,7 +71,7 @@ const Failed = ({
 );
 
 const PositionsLink = ({ children }: { readonly children: React.ReactNode }) => {
-  const to = routes.investments(ALL_SCOPE, 'posicoes');
+  const to = routes.portfolio(ALL_SCOPE, 'posicoes');
   const className = 'text-accent hover:underline';
   // Sem roteador (uma pré-visualização isolada) o link vira âncora comum.
   return useInRouterContext() ? (

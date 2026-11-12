@@ -10,7 +10,7 @@ import { setTodayOverride } from '../lib/clock.js';
 import { createFinanceStore, FinanceStoreProvider } from '../store/finance_store.js';
 import { CardScreen } from './card_screen.js';
 
-const open = (path = '/financas/cartoes/nubank-master', today = '2026-10-24') => {
+const open = (path = '/cartoes/nubank-master', today = '2026-10-24') => {
   setTodayOverride(today);
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -19,8 +19,8 @@ const open = (path = '/financas/cartoes/nubank-master', today = '2026-10-24') =>
           <FinanceStoreProvider store={createFinanceStore(null)}>
             <FinancePeriodProvider>
               <Routes>
-                <Route path="/financas/cartoes/:id" element={<CardScreen />} />
-                <Route path="/financas/cartoes" element={<p>Lista de cartões</p>} />
+                <Route path="/cartoes/:id" element={<CardScreen />} />
+                <Route path="/cartoes" element={<p>Lista de cartões</p>} />
               </Routes>
             </FinancePeriodProvider>
           </FinanceStoreProvider>
@@ -81,7 +81,7 @@ describe('Fatura: cabeçalho e navegador de mês (FIN-504)', () => {
   });
 
   it('a fatura vem da URL e a paga mostra quando e com qual conta', () => {
-    open('/financas/cartoes/nubank-master?fatura=2026-10');
+    open('/cartoes/nubank-master?fatura=2026-10');
     expect(panel().getByText('paga')).toBeTruthy();
     expect(panel().getByText(/paga em 05\/10 · Nubank Conta/)).toBeTruthy();
   });
@@ -97,7 +97,7 @@ describe('Fatura: cabeçalho e navegador de mês (FIN-504)', () => {
   });
 
   it('cartão inexistente volta para a lista', () => {
-    open('/financas/cartoes/nao-existe');
+    open('/cartoes/nao-existe');
     expect(screen.getByText('Lista de cartões')).toBeTruthy();
   });
 });
@@ -161,7 +161,7 @@ describe('Extrato completo da fatura (FIN-505)', () => {
   });
 
   it('fatura paga é somente leitura', async () => {
-    open('/financas/cartoes/nubank-master?fatura=2026-10');
+    open('/cartoes/nubank-master?fatura=2026-10');
     await userEvent.click(statement().getAllByRole('button', { name: /Ações de/ })[0]!);
     expect(
       (await screen.findByRole('menuitem', { name: 'Excluir' })).getAttribute(
@@ -254,7 +254,7 @@ describe('Lançar crédito (FIN-508, CE-05)', () => {
   });
 
   it('fatura paga não tem a ação', () => {
-    open('/financas/cartoes/nubank-master?fatura=2026-10');
+    open('/cartoes/nubank-master?fatura=2026-10');
     expect(
       panel().queryByRole('button', { name: /^Lançar crédito(?:\s*⌘↵)?$/ }),
     ).toBeNull();
@@ -263,7 +263,7 @@ describe('Lançar crédito (FIN-508, CE-05)', () => {
 
 describe('Detalhe de qualquer cartão (FIN-509)', () => {
   it('Itaú Visa abre com a mesma estrutura, na fatura fechada', () => {
-    open('/financas/cartoes/itau-visa');
+    open('/cartoes/itau-visa');
     expect(screen.getByRole('heading', { level: 1, name: 'Itaú Visa' })).toBeTruthy();
     expect(panel().getByText('out/2026')).toBeTruthy();
     expect(panel().getByText('fechada')).toBeTruthy();
@@ -274,7 +274,7 @@ describe('Detalhe de qualquer cartão (FIN-509)', () => {
   });
 
   it('o mês na URL abre a fatura correta', () => {
-    open('/financas/cartoes/itau-mastercard?fatura=2026-10');
+    open('/cartoes/itau-mastercard?fatura=2026-10');
     expect(panel().getByText('out/2026')).toBeTruthy();
     expect(panel().getByLabelText('Total da fatura').textContent).toContain('R$ 540,00');
   });
@@ -310,7 +310,7 @@ describe('Compra parcelada (FIN-510, CE-07)', () => {
   });
 
   it('excluir pergunta o alcance e mostra o efeito nas faturas', async () => {
-    open('/financas/cartoes/nubank-master?fatura=2026-12');
+    open('/cartoes/nubank-master?fatura=2026-12');
     await userEvent.click(
       statement().getByRole('button', { name: 'Ações de Notebook Dell Inspiron' }),
     );
@@ -339,7 +339,7 @@ describe('Ciclo de vida (FIN-511)', () => {
   });
 
   it('a fechada vencida e sem pagamento mostra "venceu"', () => {
-    open('/financas/cartoes/itau-visa', '2026-10-31');
+    open('/cartoes/itau-visa', '2026-10-31');
     expect(panel().getByText('venceu')).toBeTruthy();
   });
 });
@@ -381,7 +381,7 @@ describe('Encargos (FIN-512)', () => {
   });
 
   it('fatura paga não oferece a ação', () => {
-    open('/financas/cartoes/nubank-master?fatura=2026-10');
+    open('/cartoes/nubank-master?fatura=2026-10');
     expect(
       statement().queryByRole('button', { name: /^Lançar encargo(?:\s*⌘↵)?$/ }),
     ).toBeNull();

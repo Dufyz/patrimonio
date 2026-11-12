@@ -20,7 +20,7 @@ const open = () => {
             <FinancePeriodProvider>
               <Routes>
                 <Route path="/visao-geral" element={<OverviewScreen />} />
-                <Route path="/financas/lancamentos" element={<p>Lançamentos aberto</p>} />
+                <Route path="/lancamentos" element={<p>Lançamentos aberto</p>} />
               </Routes>
             </FinancePeriodProvider>
           </FinanceStoreProvider>
@@ -80,7 +80,7 @@ describe('Saldo previsto (FVG-001, FVG-002)', () => {
     open();
     const link = within(panel()).getByText('Saídas previstas').closest('a');
     expect(link?.getAttribute('href')).toBe(
-      '/financas/lancamentos?tipo=despesa&situacao=prevista',
+      '/lancamentos?tipo=despesa&situacao=prevista',
     );
   });
 
@@ -170,7 +170,7 @@ describe('Despesas por categoria (FVG-003)', () => {
       within(panel())
         .getByRole('link', { name: /^Ver por categoria/u })
         .getAttribute('href'),
-    ).toBe('/financas/lancamentos?tipo=despesa&situacao=lancada');
+    ).toBe('/lancamentos?tipo=despesa&situacao=lancada');
   });
 });
 
@@ -190,7 +190,7 @@ describe('Próximos lançamentos (FVG-004)', () => {
   it('o link do cabeçalho diz o total real de previstos e leva a Lançamentos', () => {
     open();
     const link = within(panel()).getByRole('link', { name: /^Ver os \d+ previstos/u });
-    expect(link.getAttribute('href')).toBe('/financas/lancamentos?situacao=prevista');
+    expect(link.getAttribute('href')).toBe('/lancamentos?situacao=prevista');
   });
 });
 

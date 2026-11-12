@@ -13,14 +13,14 @@ import { StatementScreen } from './statement_screen.js';
 const open = (id = 'itau-corrente') => {
   setTodayOverride('2026-10-24');
   return render(
-    <MemoryRouter initialEntries={[`/financas/contas/${id}`]}>
+    <MemoryRouter initialEntries={[`/contas/${id}`]}>
       <PreferencesProvider>
         <ShortcutProvider>
           <FinanceStoreProvider store={createFinanceStore(null)}>
             <FinancePeriodProvider>
               <Routes>
-                <Route path="/financas/contas/:id" element={<StatementScreen />} />
-                <Route path="/financas/contas" element={<p>Lista de contas</p>} />
+                <Route path="/contas/:id" element={<StatementScreen />} />
+                <Route path="/contas" element={<p>Lista de contas</p>} />
               </Routes>
             </FinancePeriodProvider>
           </FinanceStoreProvider>
@@ -48,7 +48,7 @@ describe('Extrato: cabeçalho de saldo (FIN-405)', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Contas' })).toHaveAttribute(
       'href',
-      '/financas/contas',
+      '/contas',
     );
   });
 
@@ -204,7 +204,7 @@ describe('Extrato: tabela com saldo após (FIN-407)', () => {
     open();
     expect(
       screen.getByRole('link', { name: 'Ver em Lançamentos com filtro desta conta' }),
-    ).toHaveAttribute('href', '/financas/lancamentos?conta=itau-corrente');
+    ).toHaveAttribute('href', '/lancamentos?conta=itau-corrente');
   });
 
   it('período sem movimentação mostra o aviso', () => {

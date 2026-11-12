@@ -20,7 +20,7 @@ const open = () => {
             <FinancePeriodProvider>
               <Routes>
                 <Route path="/cartoes" element={<CardsScreen />} />
-                <Route path="/financas/cartoes/:id" element={<p>Fatura aberta</p>} />
+                <Route path="/cartoes/:id" element={<p>Fatura aberta</p>} />
               </Routes>
             </FinancePeriodProvider>
           </FinanceStoreProvider>

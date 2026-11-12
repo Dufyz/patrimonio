@@ -36,14 +36,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: 'hide_values', sequence: ['h'], label: 'Ocultar valores', scope: 'global' },
   { id: 'help', sequence: ['?'], label: 'Esta ajuda', scope: 'global' },
 
-  { id: 'go_geral', sequence: ['g', 'g'], label: 'Geral', scope: 'navigation' },
-  { id: 'go_financas', sequence: ['g', 'f'], label: 'Finanças', scope: 'navigation' },
-  {
-    id: 'go_investimentos',
-    sequence: ['g', 'i'],
-    label: 'Investimentos',
-    scope: 'navigation',
-  },
   { id: 'go_overview', sequence: ['g', 'v'], label: 'Visão geral', scope: 'navigation' },
   { id: 'go_positions', sequence: ['g', 'p'], label: 'Posições', scope: 'navigation' },
   {

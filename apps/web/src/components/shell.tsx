@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Compact } from './number.js';
 import { Icon } from './icon.js';
@@ -7,18 +7,17 @@ import { Kbd } from './primitives.js';
 import { browserStorage, readRaw, writeRaw } from '../lib/preferences.js';
 
 /**
- * NAV-002 · A casca única do app.
+ * NAV-02 · A casca única do app.
  *
- * Uma só barra lateral serve as três áreas. De cima para baixo: o nome
- * "Patrimônio" (só texto) e o botão de recolher; a busca; GERAL; INVESTIMENTOS
- * — com o seletor de carteiras e as telas do escopo escolhido —; FINANÇAS; e
- * Configurações no pé. As três áreas ficam sempre à vista: não existe seletor de
- * área para trocar de uma para a outra.
+ * Uma só barra lateral, sem seletor de áreas. De cima para baixo: o nome
+ * "Patrimônio" (só texto) e o botão de recolher; a busca; Visão geral e
+ * Lançamentos; Contas e cartões; Carteiras (o seletor e as telas do escopo);
+ * Planejamento; Cadastros; e Configurações no pé.
  *
- * A área, o escopo e a tela vivem na URL, e não em estado: voltar, avançar e
- * abrir em nova aba preservam a seleção. Trocar de carteira mantém a tela
- * atual, porque quem troca está comparando, não recomeçando — quem decide o
- * destino de cada item é `AppLayout`, que entrega aqui o caminho pronto.
+ * A tela, a carteira e o período vivem na URL, e não em estado: voltar, avançar e
+ * abrir em nova aba preservam a seleção. Trocar de carteira mantém a tela atual,
+ * porque quem troca está comparando, não recomeçando. Quem decide o destino de
+ * cada item é `AppLayout`, que entrega aqui o caminho pronto.
  */
 
 /** O identificador de "Todas as carteiras" na barra lateral e na paleta. */
@@ -38,20 +37,21 @@ export type PortfolioEntry = {
   readonly path: string;
 };
 
-/** Onde a pessoa está, para destacar um único item. */
-export type ShellActive =
-  | { readonly area: 'geral' }
-  | { readonly area: 'financas'; readonly screen: string }
-  | { readonly area: 'investimentos'; readonly scope: string; readonly screen: string }
-  | { readonly area: 'configuracoes' };
+/** Um bloco da barra lateral. Sem título, as entradas ficam soltas no topo. */
+export type NavGroup = {
+  readonly id: string;
+  readonly title: string | null;
+  readonly entries: readonly NavEntry[];
+  /** O seletor de carteiras, acima das telas do bloco. */
+  readonly portfolios?: readonly PortfolioEntry[];
+};
 
 export type AppShellProps = {
-  readonly geral: NavEntry;
-  readonly finance: readonly NavEntry[];
-  readonly portfolios: readonly PortfolioEntry[];
-  /** As telas de Investimentos do escopo atual (ou do último escopo usado). */
-  readonly screens: readonly NavEntry[];
-  readonly active: ShellActive;
+  readonly groups: readonly NavGroup[];
+  /** O item destacado: um só, e o das telas de detalhe é o da tela de origem. */
+  readonly activeId: string | null;
+  /** A carteira destacada no seletor (`todas` ou o identificador), quando há. */
+  readonly activePortfolio: string | null;
   /** O título da tela de agora, para a gaveta. */
   readonly title: string;
   readonly settingsPath: string;
@@ -77,11 +77,9 @@ const writeCollapsed = (value: boolean): void =>
   writeRaw(browserStorage(), COLLAPSED_KEY, value ? '1' : '0');
 
 export const AppShell = ({
-  geral,
-  finance,
-  portfolios,
-  screens,
-  active,
+  groups,
+  activeId,
+  activePortfolio,
   title,
   settingsPath,
   onGo,
@@ -106,17 +104,14 @@ export const AppShell = ({
   const width = forcedWidth ?? viewport;
   const asDrawer = width < DRAWER_BELOW;
   // A pessoa recolhe a barra quando quer; em janela estreita ela vira trilho
-  // sozinha. Na gaveta o recolhimento não se aplica. O estado vale para as três
-  // áreas, porque a barra é uma só.
+  // sozinha. Na gaveta o recolhimento não se aplica.
   const iconsOnly = !asDrawer && (collapsed || width < ICONS_BELOW);
 
   const sidebar = (
     <Sidebar
-      geral={geral}
-      finance={finance}
-      portfolios={portfolios}
-      screens={screens}
-      active={active}
+      groups={groups}
+      activeId={activeId}
+      activePortfolio={activePortfolio}
       settingsPath={settingsPath}
       iconsOnly={iconsOnly}
       demo={demo}
@@ -194,9 +189,9 @@ export const AppShell = ({
   );
 };
 
-/** `GL` para todas as carteiras, as duas primeiras letras nas demais. */
+/** `TD` para todas as carteiras, as duas primeiras letras nas demais (NAV-05). */
 const initials = (id: string, label: string): string =>
-  id === ALL_PORTFOLIOS ? 'GL' : label.slice(0, 2).toUpperCase();
+  id === ALL_PORTFOLIOS ? 'TD' : label.slice(0, 2).toUpperCase();
 
 const NAV_BASE =
   'flex w-full cursor-pointer items-center gap-2.5 rounded-control px-2.5 py-[7px] text-left text-[0.84375rem] outline-none focus-visible:ring-2 focus-visible:ring-focus/40';
@@ -255,11 +250,9 @@ const NavButton = ({
 );
 
 const Sidebar = ({
-  geral,
-  finance,
-  portfolios,
-  screens,
-  active,
+  groups,
+  activeId,
+  activePortfolio,
   settingsPath,
   iconsOnly,
   demo,
@@ -267,11 +260,9 @@ const Sidebar = ({
   onOpenSearch,
   onToggleCollapsed,
 }: {
-  readonly geral: NavEntry;
-  readonly finance: readonly NavEntry[];
-  readonly portfolios: readonly PortfolioEntry[];
-  readonly screens: readonly NavEntry[];
-  readonly active: ShellActive;
+  readonly groups: readonly NavGroup[];
+  readonly activeId: string | null;
+  readonly activePortfolio: string | null;
   readonly settingsPath: string;
   readonly iconsOnly: boolean;
   readonly demo: boolean;
@@ -279,8 +270,7 @@ const Sidebar = ({
   readonly onOpenSearch: () => void;
   readonly onToggleCollapsed?: (() => void) | undefined;
 }): React.ReactElement => {
-  const inInvestments = active.area === 'investimentos';
-  const settingsActive = active.area === 'configuracoes';
+  const settingsActive = activeId === 'configuracoes';
 
   return (
     <div
@@ -350,99 +340,79 @@ const Sidebar = ({
           iconsOnly ? 'items-center' : '-mx-1 px-1'
         }`}
       >
-        <section
-          aria-label="Geral"
-          className={iconsOnly ? 'flex flex-col items-center' : ''}
-        >
-          {iconsOnly ? null : <GroupTitle first>Geral</GroupTitle>}
-          <NavButton
-            entry={geral}
-            current={active.area === 'geral'}
-            iconsOnly={iconsOnly}
-            onGo={onGo}
-          />
-        </section>
+        {groups.map((group, index) => (
+          <section
+            key={group.id}
+            aria-label={group.title ?? 'Principal'}
+            className={iconsOnly ? 'flex flex-col items-center' : ''}
+          >
+            {group.title === null ? null : iconsOnly ? (
+              <Divider />
+            ) : (
+              <GroupTitle first={index === 0}>{group.title}</GroupTitle>
+            )}
 
-        <section
-          aria-label="Investimentos"
-          className={iconsOnly ? 'flex flex-col items-center' : ''}
-        >
-          {iconsOnly ? <Divider /> : <GroupTitle>Investimentos</GroupTitle>}
-          <ul className="flex flex-col gap-px">
-            {portfolios.map((portfolio) => {
-              const current =
-                active.area === 'investimentos' && active.scope === portfolio.id;
-              return (
-                <li key={portfolio.id}>
-                  <button
-                    type="button"
-                    aria-current={current ? 'true' : undefined}
-                    title={portfolio.label}
-                    className={`${iconsOnly ? RAIL_BASE : `${NAV_BASE} min-h-9 justify-between py-1.5`} ${
-                      current
-                        ? 'bg-accent-soft font-semibold text-ink'
-                        : 'text-ink hover:bg-panel-2'
-                    }`}
-                    onClick={() => onGo(portfolio.path)}
-                  >
-                    <span
-                      className={
-                        iconsOnly
-                          ? 'tabular text-[0.6875rem] font-semibold'
-                          : 'min-w-0 flex-1 truncate'
-                      }
-                    >
-                      {iconsOnly
-                        ? initials(portfolio.id, portfolio.label)
-                        : portfolio.label}
-                    </span>
-                    {iconsOnly ? null : (
-                      <span className="text-xs font-normal text-ink-3">
-                        <Compact value={portfolio.value} />
-                      </span>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+            {group.portfolios === undefined ? null : (
+              <>
+                <ul className="flex flex-col gap-px">
+                  {group.portfolios.map((portfolio) => {
+                    const current = activePortfolio === portfolio.id;
+                    return (
+                      <li key={portfolio.id}>
+                        <button
+                          type="button"
+                          aria-current={current ? 'true' : undefined}
+                          title={portfolio.label}
+                          className={`${iconsOnly ? RAIL_BASE : `${NAV_BASE} min-h-9 justify-between py-1.5`} ${
+                            current
+                              ? 'bg-accent-soft font-semibold text-ink'
+                              : 'text-ink hover:bg-panel-2'
+                          }`}
+                          onClick={() => onGo(portfolio.path)}
+                        >
+                          <span
+                            className={
+                              iconsOnly
+                                ? 'tabular text-[0.6875rem] font-semibold'
+                                : 'min-w-0 flex-1 truncate'
+                            }
+                          >
+                            {iconsOnly
+                              ? initials(portfolio.id, portfolio.label)
+                              : portfolio.label}
+                          </span>
+                          {iconsOnly ? null : (
+                            <span className="text-xs font-normal text-ink-3">
+                              <Compact value={portfolio.value} />
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {iconsOnly ? (
+                  <Divider />
+                ) : (
+                  <div className="mt-2 border-t border-line pt-2" />
+                )}
+              </>
+            )}
 
-          {iconsOnly ? <Divider /> : <div className="mt-2 border-t border-line pt-2" />}
-
-          <ul className="flex flex-col gap-0.5">
-            {screens.map((entry) => (
-              <Fragment key={entry.id}>
-                <li>
+            <ul className="flex flex-col gap-0.5">
+              {group.entries.map((entry) => (
+                <li key={entry.id}>
                   <NavButton
                     entry={entry}
-                    current={inInvestments && active.screen === entry.id}
+                    current={activeId === entry.id}
                     iconsOnly={iconsOnly}
                     onGo={onGo}
                   />
                 </li>
-              </Fragment>
-            ))}
-          </ul>
-        </section>
-
-        <section
-          aria-label="Finanças"
-          className={iconsOnly ? 'flex flex-col items-center' : ''}
-        >
-          {iconsOnly ? <Divider /> : <GroupTitle>Finanças</GroupTitle>}
-          <ul className="flex flex-col gap-0.5">
-            {finance.map((entry) => (
-              <li key={entry.id}>
-                <NavButton
-                  entry={entry}
-                  current={active.area === 'financas' && active.screen === entry.id}
-                  iconsOnly={iconsOnly}
-                  onGo={onGo}
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
+              ))}
+            </ul>
+          </section>
+        ))}
       </div>
 
       <div className="mt-2 border-t border-line pt-2">

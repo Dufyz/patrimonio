@@ -5,21 +5,15 @@ import { fetchMarketHealth } from './api/market.js';
 import { EntryProvider } from './components/entry_provider.js';
 import { usePortfolios } from './components/portfolios_provider.js';
 import { ALL_PORTFOLIOS, AppShell } from './components/shell.js';
-import type { NavEntry, PortfolioEntry, ShellActive } from './components/shell.js';
+import type { NavEntry, NavGroup, PortfolioEntry } from './components/shell.js';
 import { useShortcuts } from './components/shortcuts.js';
 import { FinanceProviders } from './finance/finance_app.js';
-import { financeRoutes } from './finance/lib/routes.js';
 import type { FinanceStore } from './finance/store/finance_store.js';
 import { GlobalSearch } from './global_search.js';
 import { screensForScope, screenInScope } from './lib/investment_screens.js';
-import {
-  readLastPath,
-  readLastScope,
-  writeLastArea,
-  writeLastPath,
-  writeLastScope,
-} from './lib/last_area.js';
-import { placeForPath, routes } from './lib/routes.js';
+import { readLastScope, writeLastScope } from './lib/last_scope.js';
+import { navIdForPlace, placeForPath, routes } from './lib/routes.js';
+import type { Place } from './lib/routes.js';
 import type { SearchScreen } from './lib/search.js';
 import { describeShortcut, SHORTCUTS } from './lib/shortcuts.js';
 import { ALL_SCOPE, portfolioIdForScope } from './lib/scope.js';
@@ -27,61 +21,70 @@ import { hasDemoData } from './lib/settings.js';
 import { useResource } from './lib/use_resource.js';
 
 /**
- * NAV-002 · A casca única, ligada à URL.
+ * NAV-02 · A casca única, ligada à URL.
  *
- * Decide, para cada item da barra lateral, o caminho de destino (NAV-004): trocar
- * de carteira mantém a tela quando ela existe no novo escopo e cai na Visão
- * geral quando não existe; tocar numa tela de Investimentos vindo de Geral ou
- * Finanças usa a última carteira. A barra em si não conhece rotas.
+ * Decide, para cada item da barra lateral, o caminho de destino (NAV-04): trocar
+ * de carteira mantém a tela quando ela existe no novo escopo e cai na Visão geral
+ * do escopo quando não existe; clicar numa carteira estando numa tela de fluxo
+ * abre a Visão geral de Investimentos dela. A barra em si não conhece rotas.
  */
 
-const FINANCE_ENTRIES: readonly NavEntry[] = [
-  {
+const FLOW_ENTRIES: Readonly<Record<string, NavEntry>> = {
+  overview: {
     id: 'visao-geral',
     label: 'Visão geral',
     icon: 'grid',
-    path: financeRoutes.overview(),
+    path: routes.home(),
   },
-  {
+  entries: {
     id: 'lancamentos',
     label: 'Lançamentos',
     icon: 'swap',
-    path: financeRoutes.entries(),
+    path: '/lancamentos',
   },
-  { id: 'contas', label: 'Contas', icon: 'bank', path: financeRoutes.accounts() },
-  { id: 'cartoes', label: 'Cartões', icon: 'card', path: financeRoutes.cards() },
-  {
+  accounts: { id: 'contas', label: 'Contas', icon: 'bank', path: '/contas' },
+  cards: { id: 'cartoes', label: 'Cartões', icon: 'card', path: '/cartoes' },
+  recurrings: {
     id: 'recorrentes',
     label: 'Recorrentes',
     icon: 'repeat',
-    path: financeRoutes.recurrings(),
+    path: '/recorrentes',
   },
-  {
-    id: 'categorias',
-    label: 'Categorias',
-    icon: 'tag',
-    path: financeRoutes.categories(),
-  },
-];
+  categories: { id: 'categorias', label: 'Categorias', icon: 'tag', path: '/categorias' },
+};
 
-const FINANCE_SCREEN_IDS: ReadonlySet<string> = new Set(
-  FINANCE_ENTRIES.map((entry) => entry.id),
-);
+/** A carteira que a URL de agora nomeia, ou nulo quando ela não nomeia nenhuma. */
+const scopeOfPlace = (place: Place): string | null => {
+  if (place.kind === 'portfolios') return place.scope;
+  if (place.kind === 'home' && place.scope === 'investimentos') return place.portfolio;
+  return null;
+};
 
 /** O título da tela de agora, para a gaveta. */
-const titleFor = (active: ShellActive, scopeLabel: string): string => {
-  switch (active.area) {
-    case 'geral':
-      return 'Geral';
-    case 'configuracoes':
-      return 'Configurações';
-    case 'financas':
-      return `Finanças · ${
-        FINANCE_ENTRIES.find((entry) => entry.id === active.screen)?.label ??
-        'Visão geral'
-      }`;
-    case 'investimentos':
+const titleFor = (place: Place, scopeLabel: string): string => {
+  switch (place.kind) {
+    case 'home':
+      return place.scope === 'investimentos'
+        ? `Visão geral · ${scopeLabel}`
+        : 'Visão geral';
+    case 'flow':
+      return (
+        FLOW_ENTRIES[
+          {
+            lancamentos: 'entries',
+            contas: 'accounts',
+            cartoes: 'cards',
+            recorrentes: 'recurrings',
+            categorias: 'categories',
+          }[place.screen]
+        ]?.label ?? 'Patrimônio'
+      );
+    case 'portfolios':
       return scopeLabel;
+    case 'settings':
+      return 'Configurações';
+    case 'unknown':
+      return 'Tela não encontrada';
   }
 };
 
@@ -94,15 +97,16 @@ export const AppLayout = ({
   const location = useLocation();
   const navigate = useNavigate();
   const { portfolios, values, total, slugs } = usePortfolios();
-  const place = useMemo(() => placeForPath(location.pathname), [location.pathname]);
+  const place = useMemo(
+    () => placeForPath(location.pathname, location.search),
+    [location.pathname, location.search],
+  );
 
-  // NAV-004 · a última tela de cada área e a última carteira, por aparelho.
+  // NAV-04 · a última carteira aberta, por aparelho.
+  const placeScope = scopeOfPlace(place);
   useEffect(() => {
-    if (place.area === 'configuracoes') return;
-    writeLastArea(place.area);
-    writeLastPath(place.area, location.pathname);
-    if (place.area === 'investimentos') writeLastScope(place.scope);
-  }, [place, location.pathname]);
+    if (placeScope !== null) writeLastScope(placeScope);
+  }, [placeScope]);
 
   const health = useResource((signal) => fetchMarketHealth(signal), []);
   const demo = health.state.kind === 'ready' && hasDemoData(health.state.value.demo);
@@ -113,9 +117,8 @@ export const AppLayout = ({
   const openSearch = useCallback(() => setSearchOpen(true), []);
   const toggleSearch = useCallback(() => setSearchOpen((open) => !open), []);
 
-  // O escopo mostrado na barra: o da URL em Investimentos, o último nas demais.
-  const scope =
-    place.area === 'investimentos' ? place.scope : (readLastScope() ?? ALL_SCOPE);
+  // O escopo das telas de carteira da barra: o da URL, ou o último usado.
+  const scope = placeScope ?? readLastScope() ?? ALL_SCOPE;
   const allPortfolios = scope === ALL_SCOPE;
   const scopeId = allPortfolios ? ALL_PORTFOLIOS : portfolioIdForScope(scope, slugs);
 
@@ -129,17 +132,24 @@ export const AppLayout = ({
         id: screen.id,
         label: screen.label,
         icon: screen.icon,
-        path: routes.investments(scope, screen.id),
+        path: routes.portfolio(scope, screen.id),
       })),
     [allPortfolios, scope],
   );
 
-  // Trocar de carteira mantém a tela; fora de Investimentos, usa a última usada.
-  const screenAfterSwitch = useMemo(() => {
-    if (place.area === 'investimentos') return place.screen;
-    const last = readLastPath('investimentos');
-    return last === null ? 'visao-geral' : (placeForPathScreen(last) ?? 'visao-geral');
-  }, [place]);
+  // Trocar de carteira mantém a tela (NAV-04): numa tela de carteira, a mesma tela
+  // no novo escopo (ou a Visão geral dele, se ela não existir lá); em qualquer
+  // outra, a Visão geral de Investimentos da carteira.
+  const pathForPortfolio = useCallback(
+    (target: string): string => {
+      const toAll = target === ALL_SCOPE;
+      if (place.kind === 'portfolios') {
+        return routes.portfolio(target, screenInScope(place.screen, toAll));
+      }
+      return routes.home('investimentos', target);
+    },
+    [place],
+  );
 
   const portfolioEntries = useMemo(
     (): readonly PortfolioEntry[] => [
@@ -147,7 +157,7 @@ export const AppLayout = ({
         id: ALL_PORTFOLIOS,
         label: 'Todas as carteiras',
         value: total,
-        path: routes.investments(ALL_SCOPE, screenInScope(screenAfterSwitch, true)),
+        path: pathForPortfolio(ALL_SCOPE),
       },
       ...portfolios.flatMap((portfolio): PortfolioEntry[] => {
         const slug = slugs.get(portfolio.id);
@@ -158,69 +168,93 @@ export const AppLayout = ({
                 id: portfolio.id,
                 label: portfolio.name,
                 value: values[portfolio.id] ?? null,
-                path: routes.investments(slug, screenInScope(screenAfterSwitch, false)),
+                path: pathForPortfolio(slug),
               },
             ];
       }),
     ],
-    [portfolios, slugs, total, values, screenAfterSwitch],
+    [portfolios, slugs, total, values, pathForPortfolio],
   );
 
-  const active: ShellActive =
-    place.area === 'investimentos'
-      ? {
-          area: 'investimentos',
-          scope: scopeId ?? '',
-          screen: place.screen === 'ativo' ? 'posicoes' : place.screen,
-        }
-      : place.area === 'financas'
-        ? {
-            area: 'financas',
-            screen: FINANCE_SCREEN_IDS.has(place.screen) ? place.screen : 'visao-geral',
-          }
-        : place;
+  const groups = useMemo(
+    (): readonly NavGroup[] => [
+      {
+        id: 'principal',
+        title: null,
+        entries: [FLOW_ENTRIES['overview'], FLOW_ENTRIES['entries']].filter(
+          (entry): entry is NavEntry => entry !== undefined,
+        ),
+      },
+      {
+        id: 'contas-e-cartoes',
+        title: 'Contas e cartões',
+        entries: [FLOW_ENTRIES['accounts'], FLOW_ENTRIES['cards']].filter(
+          (entry): entry is NavEntry => entry !== undefined,
+        ),
+      },
+      {
+        id: 'carteiras',
+        title: 'Carteiras',
+        portfolios: portfolioEntries,
+        entries: screens,
+      },
+      {
+        id: 'planejamento',
+        title: 'Planejamento',
+        entries: [FLOW_ENTRIES['recurrings']].filter(
+          (entry): entry is NavEntry => entry !== undefined,
+        ),
+      },
+      {
+        id: 'cadastros',
+        title: 'Cadastros',
+        entries: [FLOW_ENTRIES['categories']].filter(
+          (entry): entry is NavEntry => entry !== undefined,
+        ),
+      },
+    ],
+    [portfolioEntries, screens],
+  );
 
-  // NAV-008 · `G G`, `G F` e `G I` valem em qualquer tela, e levam à última tela
-  // da área. A camada da casca é a mais antiga: as telas respondem antes dela.
-  const areaShortcuts = useMemo(
+  // O seletor destaca a carteira da URL; fora de uma tela de carteira, nenhuma.
+  const activePortfolio = placeScope === null ? null : (scopeId ?? null);
+
+  // `G V` vale em qualquer tela. As demais letras de `G` são as das telas de
+  // carteira, ligadas pela própria tela. A camada da casca é a mais antiga: as
+  // telas respondem antes dela.
+  const globalShortcuts = useMemo(
     () => ({
-      go_geral: () => void navigate(routes.geral()),
-      go_financas: () =>
-        void navigate(readLastPath('financas') ?? financeRoutes.overview()),
-      go_investimentos: () =>
-        void navigate(readLastPath('investimentos') ?? routes.investments(scope)),
+      go_overview: () => void navigate(routes.home()),
       search: toggleSearch,
     }),
-    [navigate, scope, toggleSearch],
+    [navigate, toggleSearch],
   );
-  useShortcuts(areaShortcuts);
+  useShortcuts(globalShortcuts);
 
-  /**
-   * As telas de todas as áreas, como a paleta as lista, com o atalho que cada
-   * uma realmente tem. Configurações fecha a lista, como fecha a barra lateral.
-   */
+  /** As telas do app, como a paleta as lista, com o atalho que cada uma realmente tem. */
   const searchScreens = useMemo((): readonly SearchScreen[] => {
     const shortcutOf = (id: string): string | null => {
       const shortcut = SHORTCUTS.find((candidate) => candidate.id === id);
       return shortcut === undefined ? null : describeShortcut(shortcut);
     };
+    const flow = (entry: NavEntry | undefined): SearchScreen[] =>
+      entry === undefined
+        ? []
+        : [
+            {
+              id: `fluxo-${entry.id}`,
+              label: entry.label,
+              glyph: entry.icon,
+              shortcut: entry.id === 'visao-geral' ? shortcutOf('go_overview') : null,
+              module: entry.id === 'visao-geral' ? 'geral' : 'financas',
+              path: entry.path,
+            },
+          ];
     return [
-      {
-        id: 'geral',
-        label: 'Visão geral',
-        glyph: 'grid',
-        shortcut: shortcutOf('go_geral'),
-        module: 'geral',
-        path: routes.geral(),
-      },
-      ...FINANCE_ENTRIES.map((entry): SearchScreen => ({
-        id: `fin-${entry.id}`,
-        label: entry.label,
-        glyph: entry.icon,
-        shortcut: entry.id === 'visao-geral' ? shortcutOf('go_financas') : null,
-        module: 'financas',
-        path: entry.path,
-      })),
+      ...flow(FLOW_ENTRIES['overview']),
+      ...flow(FLOW_ENTRIES['entries']),
+      ...flow(FLOW_ENTRIES['accounts']),
+      ...flow(FLOW_ENTRIES['cards']),
       ...screensForScope(allPortfolios).map((screen): SearchScreen => ({
         id: screen.id,
         label: screen.label,
@@ -228,8 +262,10 @@ export const AppLayout = ({
         shortcut: shortcutOf(`go_${screen.shortcut}`),
         detail: scopeLabel,
         module: 'investimentos',
-        path: routes.investments(scope, screen.id),
+        path: routes.portfolio(scope, screen.id),
       })),
+      ...flow(FLOW_ENTRIES['recurrings']),
+      ...flow(FLOW_ENTRIES['categories']),
       {
         id: 'configuracoes',
         label: 'Configurações',
@@ -241,27 +277,20 @@ export const AppLayout = ({
     ];
   }, [allPortfolios, scope, scopeLabel]);
 
-  const inFinance = place.area === 'geral' || place.area === 'financas';
+  const inFinance = place.kind === 'home' || place.kind === 'flow';
   const currentScreen =
-    place.area === 'investimentos' && place.screen !== 'ativo'
+    place.kind === 'portfolios' && place.screen !== 'ativo'
       ? place.screen
-      : screenAfterSwitch;
+      : 'visao-geral';
 
   return (
     <FinanceProviders store={financeStore}>
       <EntryProvider scopePortfolioId={allPortfolios ? null : scopeId}>
         <AppShell
-          geral={{
-            id: 'geral',
-            label: 'Visão geral',
-            icon: 'grid',
-            path: routes.geral(),
-          }}
-          finance={FINANCE_ENTRIES}
-          portfolios={portfolioEntries}
-          screens={screens}
-          active={active}
-          title={titleFor(active, scopeLabel)}
+          groups={groups}
+          activeId={navIdForPlace(place)}
+          activePortfolio={activePortfolio}
+          title={titleFor(place, scopeLabel)}
           settingsPath={routes.settings()}
           onGo={(path) => void navigate(path)}
           onOpenSearch={openSearch}
@@ -282,10 +311,4 @@ export const AppLayout = ({
       </EntryProvider>
     </FinanceProviders>
   );
-};
-
-/** A tela de Investimentos de um caminho guardado, ou nulo se não for dela. */
-const placeForPathScreen = (path: string): string | null => {
-  const place = placeForPath(path);
-  return place.area === 'investimentos' ? place.screen : null;
 };

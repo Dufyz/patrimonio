@@ -59,8 +59,8 @@ const open = (path: string): void => {
                 <Route path="/cartoes/:id" element={<CardScreen />} />
                 <Route path="/recorrentes" element={<RecurringsScreen />} />
                 <Route path="/categorias" element={<CategoriesScreen />} />
-                <Route path="/financas/contas" element={<p>Contas aberta</p>} />
-                <Route path="/financas/cartoes" element={<p>Cartões aberta</p>} />
+                <Route path="/contas" element={<p>Contas aberta</p>} />
+                <Route path="/cartoes" element={<p>Cartões aberta</p>} />
               </Routes>
             </FinancePeriodProvider>
           </FinanceStoreProvider>
