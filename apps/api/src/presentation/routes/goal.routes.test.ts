@@ -150,6 +150,26 @@ describe('GET /api/goals', () => {
     expect(meta?.contributions.some((row) => row.kind === 'required')).toBe(true);
   });
 
+  it('"No ritmo" é o acumulado ter alcançado a marca de hoje; senão, "Abaixo do ritmo" (OBJ-04)', async () => {
+    await historia();
+    await objetivo(INDEPENDENCIA, 'Independência financeira', longo);
+
+    const meta = goalsSchema.parse((await objetivos()).body).goal;
+    expect(meta?.expected_pct).not.toBeNull();
+    const alcancou = Number(meta?.progress_pct) >= Number(meta?.expected_pct);
+    expect(meta?.status).toBe(alcancou ? 'on_track' : 'behind');
+
+    // Uma meta muito mais alta que a trajetória: o acumulado fica abaixo da marca.
+    await harness.sql`UPDATE goal SET target_amount = '9000000.00' WHERE id = ${INDEPENDENCIA}`;
+    const alta = goalsSchema.parse((await objetivos()).body).goal;
+    expect(
+      alta?.status ===
+        (Number(alta?.progress_pct) >= Number(alta?.expected_pct)
+          ? 'on_track'
+          : 'behind'),
+    ).toBe(true);
+  });
+
   it('a taxa do pedido troca a da premissa e marca a projeção como alterada', async () => {
     await historia();
     await objetivo(INDEPENDENCIA, 'Independência financeira', longo);

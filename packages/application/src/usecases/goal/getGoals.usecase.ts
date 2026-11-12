@@ -465,20 +465,30 @@ export const evaluate = (
       months: projection.months_remaining,
     });
 
+  const expectedPct =
+    row.start_date === null || row.start_value === null
+      ? null
+      : expectedProgress({
+          start_date: row.start_date,
+          start_value: row.start_value,
+          reference_date: reference,
+          target_amount: row.target_amount,
+          target_date: row.target_date,
+          annual_return_pct: outcome.rate.used_pct,
+        });
+
+  // OBJ-04: "No ritmo" é o acumulado ter alcançado a marca de hoje da
+  // trajetória planejada. Sem marca (objetivo sem ponto de partida), vale a
+  // projeção no ritmo atual.
+  const onTrack =
+    expectedPct === null
+      ? projection.on_track
+      : Number(base.progress_pct) >= Number(expectedPct);
+
   return {
     ...base,
-    expected_pct:
-      row.start_date === null || row.start_value === null
-        ? null
-        : expectedProgress({
-            start_date: row.start_date,
-            start_value: row.start_value,
-            reference_date: reference,
-            target_amount: row.target_amount,
-            target_date: row.target_date,
-            annual_return_pct: outcome.rate.used_pct,
-          }),
-    status: projection.on_track ? 'on_track' : 'behind',
+    expected_pct: expectedPct,
+    status: onTrack ? 'on_track' : 'behind',
     blocked: null,
     rate: outcome.rate,
     projection: {
