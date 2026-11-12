@@ -264,9 +264,10 @@ export const SaldoPrevistoPanel = ({
     <Panel
       title="Saldo previsto"
       action={
-        <span className="text-xs text-ink-3">
-          hoje, {formatDay(today, today)} · fim de {formatMonth(monthEnd).toLowerCase()}
-        </span>
+        <PanelHeaderAction
+          hint={`hoje, ${formatDay(today, today)} · fim de ${formatMonth(monthEnd).toLowerCase()}`}
+          more={{ to: financeRoutes.entries('situacao=prevista'), label: 'Previstos' }}
+        />
       }
       className="h-full"
     >
@@ -368,10 +369,13 @@ export const DespesasCategoriaPanel = ({
     <Panel
       title="Despesas por categoria"
       action={
-        <span className="text-xs text-ink-3">
-          {label}
-          {includesToday ? ' · até agora' : ''}
-        </span>
+        <PanelHeaderAction
+          hint={`${label}${includesToday ? ' · até agora' : ''}`}
+          more={{
+            to: financeRoutes.entries('tipo=despesa&situacao=lancada'),
+            label: 'Ver por categoria',
+          }}
+        />
       }
       className="h-full"
     >
@@ -425,14 +429,6 @@ export const DespesasCategoriaPanel = ({
               </tr>
             </tbody>
           </FinTable>
-          <footer className="px-4 py-3">
-            <Link
-              to={financeRoutes.entries(`tipo=despesa&situacao=lancada`)}
-              className={LINK}
-            >
-              Ver por categoria
-            </Link>
-          </footer>
         </>
       )}
     </Panel>
@@ -456,7 +452,7 @@ export const plannedAhead = (data: FinanceData, today: IsoDate): readonly Entry[
     );
 
 /** O texto do cabeçalho e, quando a tela pede, o link para a página do painel. */
-const PanelHeaderAction = ({
+export const PanelHeaderAction = ({
   hint,
   more,
 }: {
@@ -499,7 +495,17 @@ export const ProximosLancamentosPanel = ({
   return (
     <Panel
       title="Próximos lançamentos"
-      action={<PanelHeaderAction hint="o que ainda vai sair e entrar" more={more} />}
+      action={
+        <PanelHeaderAction
+          hint="o que ainda vai sair e entrar"
+          more={
+            more ?? {
+              to: financeRoutes.entries('situacao=prevista'),
+              label: `Ver os ${planned.length} previstos`,
+            }
+          }
+        />
+      }
       className="h-full"
     >
       {shown.length === 0 ? (
@@ -543,11 +549,6 @@ export const ProximosLancamentosPanel = ({
               <FillRow colSpan={4} />
             </tbody>
           </FinTable>
-          <footer className="px-4 py-3">
-            <Link to={financeRoutes.entries('situacao=prevista')} className={LINK}>
-              Ver os {planned.length} previstos
-            </Link>
-          </footer>
         </>
       )}
     </Panel>
@@ -578,7 +579,12 @@ export const FaturasAbertasPanel = ({
   return (
     <Panel
       title="Faturas abertas"
-      action={<PanelHeaderAction hint="% do limite usado" more={more} />}
+      action={
+        <PanelHeaderAction
+          hint="% do limite usado"
+          more={more ?? { to: financeRoutes.cards(), label: 'Cartões' }}
+        />
+      }
       className="flex-1"
     >
       {summaries.length === 0 ? (
@@ -679,7 +685,12 @@ export const ContasPanel = ({
   return (
     <Panel
       title="Contas"
-      action={<PanelHeaderAction hint="saldo de hoje" more={more} />}
+      action={
+        <PanelHeaderAction
+          hint="saldo de hoje"
+          more={more ?? { to: financeRoutes.accounts(), label: 'Contas' }}
+        />
+      }
       className="flex-1"
     >
       {overview.accounts.length === 0 ? (

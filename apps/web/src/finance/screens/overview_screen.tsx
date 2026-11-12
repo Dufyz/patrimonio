@@ -12,6 +12,7 @@ import {
   ContasPanel,
   DespesasCategoriaPanel,
   FaturasAbertasPanel,
+  PanelHeaderAction,
   ProximosLancamentosPanel,
   SaldoPrevistoPanel,
 } from '../components/overview_panels.js';
@@ -99,10 +100,10 @@ export const OverviewScreen = (): React.ReactElement => {
         <Panel
           title="Receitas × despesas"
           action={
-            <span className="text-xs text-ink-3">
-              últimos 12 meses
-              {future.length > 0 ? ` e os ${future.length} seguintes` : ''}
-            </span>
+            <PanelHeaderAction
+              hint={`últimos 12 meses${future.length > 0 ? ` e os ${future.length} seguintes` : ''}`}
+              more={{ to: financeRoutes.entries(), label: 'Lançamentos' }}
+            />
           }
         >
           <PanelBoundary title="o gráfico">

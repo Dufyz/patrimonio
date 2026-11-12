@@ -278,6 +278,25 @@ const showConsolidated = (opened: string[] = []) =>
       <OverviewView
         resource={ready(consolidated)}
         performance={readyPerf(consolidatedPerformance)}
+        portfolioReturns={{
+          state: {
+            kind: 'ready',
+            value: [
+              {
+                id: '0191e5a0-0000-7000-8000-00000000c001',
+                name: 'Longo prazo',
+                value: '15.92',
+              },
+              {
+                id: '0191e5a0-0000-7000-8000-00000000c002',
+                name: 'Reserva',
+                value: null,
+              },
+            ],
+          },
+          pending: false,
+          reload: () => {},
+        }}
         extraIds={[]}
         onExtraIdsChange={() => {}}
         period={DEFAULT_PERIOD}
@@ -327,16 +346,26 @@ describe('todas as carteiras', () => {
     expect(within(total).getByText('R$ 318.904,12')).toBeInTheDocument();
   });
 
-  it('mostra o retorno de cada carteira pela cota dela em barras, no ano quando não há 12 meses', () => {
+  it('mostra o retorno do período de cada carteira pela cota dela, com traço onde não há base', () => {
     showConsolidated();
 
-    const doze = screen.getByRole('region', { name: /Retorno × benchmarks/ });
-    const reserva = within(doze).getByText('Reserva').closest('li');
+    const painel = screen.getByRole('region', { name: /Retorno × benchmarks/ });
+    const reserva = within(painel).getByText('Reserva').closest('li');
 
     expect(reserva).not.toBeNull();
-    // Sem 12 meses de história, a carteira cai no ano, e o rótulo diz isso.
-    expect(within(reserva as HTMLElement).getByText(/YTD/)).toBeInTheDocument();
-    expect(within(doze).getAllByText('15,92%').length).toBeGreaterThan(0);
+    expect(within(reserva as HTMLElement).getByText('—')).toBeInTheDocument();
+    expect(within(painel).getAllByText('15,92%').length).toBeGreaterThan(0);
+    // O período escolhido no cabeçalho é o que o painel diz medir.
+    expect(within(painel).getByText(/12M · pela cota/)).toBeInTheDocument();
+  });
+
+  it('a barra da carteira e a do benchmark seguem o período da série, e não uma janela fixa', () => {
+    showConsolidated();
+
+    const painel = screen.getByRole('region', { name: /Retorno × benchmarks/ });
+    // Último ponto da série acumulada do período: 30,10% e 29,29%.
+    expect(within(painel).getByText('30,10%')).toBeInTheDocument();
+    expect(within(painel).getByText('29,29%')).toBeInTheDocument();
   });
 
   it('mantém o retorno contra benchmark e a alocação por classe, sem o alvo', () => {

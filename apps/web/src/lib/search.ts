@@ -48,6 +48,9 @@ export type SearchGroupId =
   | 'instruments'
   | 'transactions'
   | 'screens'
+  | 'screens_geral'
+  | 'screens_investimentos'
+  | 'screens_financas'
   | 'finance'
   | 'actions';
 
@@ -58,10 +61,24 @@ const CANONICAL_ORDER: readonly SearchGroupId[] = [
   'asset_actions',
   'instruments',
   'transactions',
+  'screens_geral',
+  'screens_investimentos',
+  'screens_financas',
   'screens',
   'finance',
   'actions',
 ];
+
+/** As telas se separam por módulo, na ordem da barra lateral. */
+export const SCREEN_GROUPS = [
+  'screens_geral',
+  'screens_investimentos',
+  'screens_financas',
+  'screens',
+] as const satisfies readonly SearchGroupId[];
+
+const isScreenGroup = (group: SearchGroupId): boolean =>
+  (SCREEN_GROUPS as readonly SearchGroupId[]).includes(group);
 
 export const GROUP_TITLES: Readonly<Record<SearchGroupId, string>> = {
   recent: 'Recentes',
@@ -71,6 +88,9 @@ export const GROUP_TITLES: Readonly<Record<SearchGroupId, string>> = {
   instruments: 'Papéis do mercado',
   transactions: 'Lançamentos',
   screens: 'Ir para',
+  screens_geral: 'Telas · Geral',
+  screens_investimentos: 'Telas · Investimentos',
+  screens_financas: 'Telas · Finanças',
   finance: 'Finanças',
   actions: 'Ações',
 };
@@ -152,7 +172,15 @@ export type SearchScreen = {
   readonly detail?: string;
   /** O endereço, para telas que não são do escopo de Investimentos. */
   readonly path?: string;
+  /** O módulo da tela: a lista "Ir para" se separa por ele. */
+  readonly module?: 'geral' | 'investimentos' | 'financas';
 };
+
+const SCREEN_GROUP_OF = {
+  geral: 'screens_geral',
+  investimentos: 'screens_investimentos',
+  financas: 'screens_financas',
+} as const;
 
 export type SearchPortfolio = { readonly id: string; readonly label: string };
 
@@ -236,7 +264,7 @@ export const localItems = (input: {
 }): readonly SearchItem[] => [
   ...input.screens.map((screen): SearchItem => ({
     id: `screen:${screen.id}`,
-    group: 'screens',
+    group: screen.module === undefined ? 'screens' : SCREEN_GROUP_OF[screen.module],
     glyph: screen.glyph,
     label: screen.label,
     detail: screen.detail ?? null,
@@ -555,6 +583,7 @@ const passesFilter = (group: SearchGroupId, filter: SearchFilter): boolean => {
   if (filter === 'assets') {
     return group === 'assets' || group === 'asset_actions' || group === 'instruments';
   }
+  if (filter === 'screens') return isScreenGroup(group);
   return group === filter;
 };
 
@@ -609,16 +638,18 @@ export const buildModel = (input: {
 
   if (query === '') {
     push('recent', input.recents);
-    push(
-      'screens',
-      input.local.filter((item) => item.group === 'screens'),
-    );
+    for (const group of SCREEN_GROUPS) {
+      push(
+        group,
+        input.local.filter((item) => item.group === group),
+      );
+    }
     push(
       'actions',
       input.local.filter((item) => item.group === 'actions'),
     );
   } else {
-    for (const group of ['screens', 'actions'] as const) {
+    for (const group of [...SCREEN_GROUPS, 'actions'] as const) {
       const scored = input.local
         .filter((item) => item.group === group)
         .map((item) => ({ item, score: scoreItem(item, query) }))

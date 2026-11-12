@@ -172,7 +172,9 @@ export const Row = ({
     {...(label === undefined ? {} : { 'aria-label': label })}
     aria-selected={selected ? true : undefined}
     className={cn(
-      'border-b border-line last:border-b-0',
+      // A borda fica em cima: a última linha de um card não termina em linha dupla
+      // com o total ou o rodapé que vem depois.
+      'border-t border-line first:border-t-0',
       onClick !== undefined && 'cursor-pointer hover:bg-panel-2',
       'focus-visible:bg-panel-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
       selected && 'bg-accent-soft hover:bg-accent-soft',

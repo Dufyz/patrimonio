@@ -210,7 +210,7 @@ export const AppLayout = ({
         label: 'Visão geral',
         glyph: 'grid',
         shortcut: shortcutOf('go_geral'),
-        detail: 'Geral',
+        module: 'geral',
         path: routes.geral(),
       },
       ...FINANCE_ENTRIES.map((entry): SearchScreen => ({
@@ -218,7 +218,7 @@ export const AppLayout = ({
         label: entry.label,
         glyph: entry.icon,
         shortcut: entry.id === 'visao-geral' ? shortcutOf('go_financas') : null,
-        detail: 'Finanças',
+        module: 'financas',
         path: entry.path,
       })),
       ...screensForScope(allPortfolios).map((screen): SearchScreen => ({
@@ -226,7 +226,8 @@ export const AppLayout = ({
         label: screen.label,
         glyph: screen.icon,
         shortcut: shortcutOf(`go_${screen.shortcut}`),
-        detail: `Investimentos · ${scopeLabel}`,
+        detail: scopeLabel,
+        module: 'investimentos',
         path: routes.investments(scope, screen.id),
       })),
       {
@@ -234,6 +235,7 @@ export const AppLayout = ({
         label: 'Configurações',
         glyph: 'settings',
         shortcut: null,
+        module: 'geral',
         path: routes.settings(),
       },
     ];

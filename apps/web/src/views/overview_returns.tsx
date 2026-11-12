@@ -119,17 +119,22 @@ const LineSwatch = ({
   />
 );
 
-/** A janela da prancha: 12 meses, e a carteira sem 12M cai no ano (YTD). */
-const MAIN = '12m';
-const FALLBACK = 'ytd';
-
 type Bar = {
   readonly id: string;
   readonly label: string;
   readonly color: string;
   readonly value: string | null;
-  /** O rótulo curto da janela quando a linha não usa a principal. */
-  readonly window?: string | undefined;
+};
+
+/** O retorno do período: o último ponto da série acumulada, que parte de 0% na base. */
+const lastOf = (values: readonly string[]): string | null =>
+  values.length < 2 ? null : (values[values.length - 1] ?? null);
+
+/** O retorno de uma carteira no período, pela cota dela. */
+export type PortfolioReturn = {
+  readonly id: string;
+  readonly name: string;
+  readonly value: string | null;
 };
 
 const BarRow = ({
@@ -148,9 +153,6 @@ const BarRow = ({
     <li className="grid grid-cols-[minmax(7rem,12rem)_1fr_5.5rem] items-center gap-4 text-[0.8125rem]">
       <span className="truncate text-ink-2" title={bar.label}>
         {bar.label}
-        {bar.window === undefined ? null : (
-          <span className="text-ink-3"> · {bar.window}</span>
-        )}
       </span>
       <span className="relative h-2.5 min-w-0 rounded-full bg-panel-2" aria-hidden="true">
         <span
@@ -169,61 +171,62 @@ const BarRow = ({
 };
 
 /**
- * IVG-005 · Retorno × benchmarks: uma barra por linha, na janela de 12 meses.
- * A carteira (ou todas) vem primeiro, depois o benchmark; em Todas entram as
- * carteiras, cada uma pela cota dela. Quem não tem 12 meses de história aparece
- * no ano (YTD), dito no rótulo. Os benchmarks escolhidos são etiquetas
- * removíveis, e "+ Benchmark" adiciona outro.
+ * IVG-005 · Retorno × benchmarks: uma barra por linha, no período escolhido no
+ * cabeçalho da tela. A carteira (ou todas) vem primeiro, depois os benchmarks;
+ * em Todas entram as carteiras, cada uma pela cota dela. Os benchmarks
+ * escolhidos são etiquetas removíveis, e "+ Benchmark" adiciona outro.
  */
 export const ReturnsBars = ({
   data,
   extraIds,
   onExtraIdsChange,
+  portfolios,
+  periodFrom,
 }: {
   readonly data: PerformanceResource;
   readonly extraIds: readonly string[];
   readonly onExtraIdsChange: (ids: readonly string[]) => void;
+  /** Em Todas as carteiras, o retorno de cada uma no mesmo período. */
+  readonly portfolios: readonly PortfolioReturn[] | null;
+  /** O início do período escolhido, para dizer quando ele passa do histórico. */
+  readonly periodFrom: DateOnly;
 }): React.ReactElement => {
-  const { benchmarks, scope, windows, breakdown } = data;
+  const { benchmarks, scope, chart } = data;
   const primary = benchmarks.selected.find((item) => item.id === benchmarks.primary_id);
   const extras = extraBenchmarks(benchmarks.selected, benchmarks.primary_id);
   const consolidated = scope.portfolio_id === null;
 
-  const mainColumn = windows.columns.findIndex((item) => item.key === MAIN);
-  const mainBase =
-    mainColumn < 0 ? null : (windows.columns[mainColumn]?.base_date ?? null);
-  const partial = scope.inception !== null && mainBase === null;
+  // O período é o do filtro da tela: cada barra é o último ponto da série
+  // acumulada que parte de 0% na base do período.
+  const hasHistory = chart.base_date !== null;
+  const partial =
+    scope.inception !== null && hasHistory && periodFrom < (scope.inception as DateOnly);
 
-  const bars: Bar[] = windows.rows
-    .filter((row) => row.kind !== 'difference')
-    .map((row) => ({
-      id: `${row.kind}:${row.benchmark ?? ''}`,
-      label: row.name,
-      color:
-        row.kind === 'portfolio'
-          ? 'var(--color-ink)'
-          : benchmarkColor(
-              Math.max(
-                0,
-                benchmarks.selected.findIndex((item) => item.id === row.benchmark),
-              ),
-            ),
-      value: mainColumn < 0 ? null : (row.values[mainColumn] ?? null),
-    }));
+  const bars: Bar[] = [
+    {
+      id: 'portfolio',
+      label: scope.name,
+      color: 'var(--color-ink)',
+      value: hasHistory ? lastOf(chart.portfolio) : null,
+    },
+    ...benchmarks.selected.map((item, index): Bar => {
+      const series = chart.benchmarks.find((one) => one.id === item.id);
+      return {
+        id: `benchmark:${item.id}`,
+        label: item.name,
+        color: benchmarkColor(index),
+        value: hasHistory && series !== undefined ? lastOf(series.values) : null,
+      };
+    }),
+  ];
 
-  if (consolidated) {
-    const main = breakdown.columns.findIndex((item) => item.key === MAIN);
-    const fallback = breakdown.columns.findIndex((item) => item.key === FALLBACK);
-    breakdown.portfolios.forEach((portfolio, index) => {
-      const full = main < 0 ? null : (portfolio.returns[main] ?? null);
-      const ytd = fallback < 0 ? null : (portfolio.returns[fallback] ?? null);
-      const usesYtd = full === null && ytd !== null;
+  if (consolidated && portfolios !== null) {
+    portfolios.forEach((portfolio, index) => {
       bars.push({
-        id: `carteira:${portfolio.portfolio_id}`,
+        id: `carteira:${portfolio.id}`,
         label: portfolio.name,
         color: colorForSeries(index),
-        value: usesYtd ? ytd : full,
-        window: usesYtd ? 'YTD' : undefined,
+        value: portfolio.value,
       });
     });
   }
@@ -235,8 +238,7 @@ export const ReturnsBars = ({
 
   const gapIds = new Set(benchmarks.gaps.map((gap) => gap.id));
   const missing = benchmarks.selected.filter(
-    (item) =>
-      !gapIds.has(item.id) && !windows.rows.some((row) => row.benchmark === item.id),
+    (item) => !gapIds.has(item.id) && !chart.benchmarks.some((one) => one.id === item.id),
   );
 
   return (
@@ -281,7 +283,7 @@ export const ReturnsBars = ({
           {partial ? (
             <p>
               Início dos lançamentos em {formatDate(scope.inception as DateOnly).slice(3)}
-              : o 12M cobre só parte da janela.
+              : o período escolhido cobre só parte da janela.
             </p>
           ) : null}
           {benchmarks.gaps.length === 0 ? null : (

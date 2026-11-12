@@ -188,7 +188,8 @@ describe('NAV-007 e NAV-008 · busca e atalhos de área', () => {
     await user.keyboard('{Meta>}k{/Meta}');
     const campo = await screen.findByRole('combobox', { name: /Buscar/u });
     await user.type(campo, 'cartoes');
-    await user.click(await screen.findByRole('option', { name: /Cartões.*Finanças/u }));
+    const telas = await screen.findByRole('region', { name: 'Telas · Finanças' });
+    await user.click(within(telas).getByRole('option', { name: /Cartões/u }));
 
     await waitFor(() => expect(path()).toBe('/financas/cartoes'));
   });

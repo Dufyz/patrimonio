@@ -5,6 +5,8 @@ import { Link, useNavigate } from 'react-router';
 
 import { fetchGoalsOverview } from '../../api/goals.js';
 import { fetchOverview } from '../../api/overview.js';
+import { usePortfolios } from '../../components/portfolios_provider.js';
+import { MoneyChange, PercentChange } from '../../components/number.js';
 import { KeepPrevious } from '../../components/pending.js';
 import { Panel } from '../../components/primitives.js';
 import { SkeletonChart, SkeletonRegion } from '../../components/skeleton.js';
@@ -19,18 +21,24 @@ import {
 import { useFinancePeriod } from '../../finance/components/period_provider.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
 import { PanelBoundary } from '../../finance/components/states.js';
+import { accountsOverview } from '../../finance/domain/accounts.js';
 import { accountsTotal, monthFlow } from '../../finance/domain/cash_flow.js';
 import { emptyEntryDraft } from '../../finance/domain/entry_ops.js';
 import type { FinanceData } from '../../finance/domain/types.js';
 import type { IsoDate } from '../../finance/lib/dates.js';
-import { formatMonth } from '../../finance/lib/format.js';
+import {
+  allocatePercentTenths,
+  formatMonth,
+  formatPercentTenths,
+} from '../../finance/lib/format.js';
 import { decimalToCents } from '../../finance/lib/money.js';
 import type { Cents } from '../../finance/lib/money.js';
+import { currentMonth } from '../../finance/lib/period.js';
 import { financeRoutes } from '../../finance/lib/routes.js';
 import { useFinanceData, useFinanceStore } from '../../finance/store/finance_store.js';
 import { commands } from '../../finance/store/commands.js';
 import { DEFAULT_PERIOD, resolvePeriod } from '../../lib/period.js';
-import { formatDate } from '../../lib/overview.js';
+import { formatDate, percentAsRatio } from '../../lib/overview.js';
 import { routes } from '../../lib/routes.js';
 import { ALL_SCOPE } from '../../lib/scope.js';
 import type { Resource } from '../../lib/use_resource.js';
@@ -60,15 +68,30 @@ const Line = ({
   cents,
   sign,
   strong = false,
+  indent = false,
+  weight,
 }: {
   readonly label: string;
   readonly to?: string | undefined;
   readonly cents: Cents | null;
   readonly sign?: '+' | '−' | undefined;
   readonly strong?: boolean;
+  /** Linha de detalhe: recuada e em tom suave, abaixo do total que ela compõe. */
+  readonly indent?: boolean;
+  /** Peso no patrimônio, em décimos de ponto; quando existe, a linha tem a coluna Peso. */
+  readonly weight?: number | undefined;
 }): React.ReactElement => (
-  <tr className={`border-t border-line ${strong ? 'bg-panel-2 font-semibold' : ''}`}>
-    <th scope="row" className="px-3 py-[var(--row-pad)] text-left font-[inherit]">
+  <tr
+    className={`border-t border-line ${strong ? 'bg-panel-2 font-semibold' : ''} ${
+      indent ? 'text-ink-2' : ''
+    }`}
+  >
+    <th
+      scope="row"
+      className={`py-[var(--row-pad)] pr-3 text-left font-[inherit] ${
+        indent ? 'pl-7 text-xs' : 'pl-3'
+      }`}
+    >
       {to === undefined ? (
         label
       ) : (
@@ -91,6 +114,11 @@ const Line = ({
         </>
       )}
     </td>
+    {weight === undefined ? null : (
+      <td className="tabular px-3 py-[var(--row-pad)] text-right text-ink-3">
+        {formatPercentTenths(weight)}
+      </td>
+    )}
   </tr>
 );
 
@@ -105,15 +133,43 @@ const Line = ({
 export const PatrimonioPanel = ({
   data,
   today,
-  investments,
+  overview,
 }: {
   readonly data: FinanceData;
   readonly today: IsoDate;
-  /** O valor de Todas as carteiras; nulo enquanto a leitura não chega. */
-  readonly investments: Cents | null;
+  /** A leitura de Todas as carteiras; nula enquanto não chega ou se falhou. */
+  readonly overview: OverviewResource | null;
 }): React.ReactElement => {
+  const { slugs } = usePortfolios();
   const inAccounts = useMemo(() => accountsTotal(data, today), [data, today]);
+  const accounts = useMemo(
+    () =>
+      accountsOverview(data, currentMonth(today), today).accounts.filter(
+        (row) => row.account.archived !== true,
+      ),
+    [data, today],
+  );
+
+  const investments =
+    overview === null
+      ? null
+      : overview.reference_date === null
+        ? 0
+        : (decimalToCents(overview.totals.value ?? '0') ?? 0);
   const total = investments === null ? null : inAccounts + investments;
+  const wallets = overview === null ? [] : overview.by_portfolio;
+
+  // Os pesos são sobre o patrimônio e somam 100% (RN-64): cada linha de detalhe
+  // recebe os seus décimos, e cada total é a soma das linhas dele.
+  const tenths = allocatePercentTenths([
+    ...accounts.map((row) => Math.max(0, row.balance)),
+    ...wallets.map((row) => Math.max(0, decimalToCents(row.value) ?? 0)),
+  ]);
+  const accountTenths = tenths.slice(0, accounts.length);
+  const walletTenths = tenths.slice(accounts.length);
+  const sumOf = (values: readonly number[]): number =>
+    values.reduce((acc, value) => acc + value, 0);
+  const month = overview?.totals.month ?? null;
 
   return (
     <Panel
@@ -121,26 +177,81 @@ export const PatrimonioPanel = ({
       action={<span className="text-xs text-ink-3">em {formatDate(today)}</span>}
       className="flex flex-col"
     >
-      <div className="px-4 pt-4 pb-2">
+      <div className="px-4 pt-4 pb-3">
         <p className="tabular text-[1.75rem] leading-9 font-semibold">
           {total === null ? <Muted>—</Muted> : <Amount cents={total} />}
         </p>
-        <p className="text-xs text-ink-3">em contas + em carteiras</p>
+        <p className="text-xs text-ink-3">
+          em contas + em carteiras
+          {month === null ? null : (
+            <>
+              {' · '}
+              <MoneyChange value={month.amount} />
+              {month.ratio === null ? null : (
+                <>
+                  {' ('}
+                  <PercentChange value={percentAsRatio(month.ratio)} decimals={2} />
+                  {')'}
+                </>
+              )}{' '}
+              em carteiras no mês
+            </>
+          )}
+        </p>
       </div>
       <FinTable caption="Composição do patrimônio" fill>
         <THead>
           <Th>Composição</Th>
           <Th align="right">Valor</Th>
+          <Th align="right">Peso</Th>
         </THead>
         <tbody>
-          <Line label="Em contas" to={financeRoutes.accounts()} cents={inAccounts} />
+          <Line
+            label="Em contas"
+            to={financeRoutes.accounts()}
+            cents={inAccounts}
+            weight={sumOf(accountTenths)}
+          />
+          {accounts.map((row, index) => (
+            <Line
+              key={row.account.id}
+              indent
+              label={row.account.name}
+              to={financeRoutes.account(row.account.id)}
+              cents={row.balance}
+              weight={accountTenths[index] ?? 0}
+            />
+          ))}
           <Line
             label="Em carteiras"
             to={routes.investments(ALL_SCOPE)}
             cents={investments}
+            weight={investments === null ? undefined : sumOf(walletTenths)}
           />
-          <FillRow colSpan={2} />
-          <Line label="Patrimônio" cents={total} strong />
+          {wallets.map((row, index) => {
+            const slug = slugs.get(row.portfolio_id);
+            return (
+              <Line
+                key={row.portfolio_id}
+                indent
+                label={row.name}
+                to={
+                  slug === undefined
+                    ? routes.investments(ALL_SCOPE)
+                    : routes.investments(slug)
+                }
+                cents={decimalToCents(row.value) ?? 0}
+                weight={walletTenths[index] ?? 0}
+              />
+            );
+          })}
+          <FillRow colSpan={3} />
+          <Line
+            label="Patrimônio"
+            cents={total}
+            strong
+            weight={total === null ? undefined : 1000}
+          />
         </tbody>
       </FinTable>
     </Panel>
@@ -268,15 +379,7 @@ export const GeralView = ({
   goals,
   onNewEntry,
 }: GeralViewProps): React.ReactElement => {
-  const navigate = useNavigate();
   const loaded = overview.state.kind === 'ready' ? overview.state.value : null;
-  const investments =
-    loaded === null
-      ? null
-      : loaded.reference_date === null
-        ? 0
-        : (decimalToCents(loaded.totals.value ?? '0') ?? 0);
-
   return (
     <>
       <ScreenHeader
@@ -288,7 +391,7 @@ export const GeralView = ({
         {/* Cards na mesma linha têm a mesma altura (grid com itens esticados). */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <PanelBoundary title="o patrimônio">
-            <PatrimonioPanel data={data} today={today} investments={investments} />
+            <PatrimonioPanel data={data} today={today} overview={loaded} />
           </PanelBoundary>
           <PanelBoundary title="o fluxo do mês">
             <FluxoDoMesPanel data={data} today={today} />
@@ -348,41 +451,20 @@ export const GeralView = ({
               </Link>
             }
           >
-            <GoalPanelBody
-              goals={goals}
-              portfolioId={null}
-              onOpenGoals={() =>
-                void navigate(routes.investments(ALL_SCOPE, 'objetivos'))
-              }
-            />
+            <GoalPanelBody goals={goals} portfolioId={null} />
           </Panel>
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <PanelBoundary title="os próximos lançamentos">
-            <ProximosLancamentosPanel
-              data={data}
-              today={today}
-              more={{
-                to: financeRoutes.entries('situacao=prevista'),
-                label: 'Lançamentos',
-              }}
-            />
+            <ProximosLancamentosPanel data={data} today={today} />
           </PanelBoundary>
           <div className="flex min-w-0 flex-col gap-4">
             <PanelBoundary title="as faturas abertas">
-              <FaturasAbertasPanel
-                data={data}
-                today={today}
-                more={{ to: financeRoutes.cards(), label: 'Cartões' }}
-              />
+              <FaturasAbertasPanel data={data} today={today} />
             </PanelBoundary>
             <PanelBoundary title="as contas">
-              <ContasPanel
-                data={data}
-                today={today}
-                more={{ to: financeRoutes.accounts(), label: 'Contas' }}
-              />
+              <ContasPanel data={data} today={today} />
             </PanelBoundary>
           </div>
         </div>

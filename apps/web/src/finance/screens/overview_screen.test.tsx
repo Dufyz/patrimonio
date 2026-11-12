@@ -168,7 +168,7 @@ describe('Despesas por categoria (FVG-003)', () => {
     open();
     expect(
       within(panel())
-        .getByRole('link', { name: 'Ver por categoria' })
+        .getByRole('link', { name: /^Ver por categoria/u })
         .getAttribute('href'),
     ).toBe('/financas/lancamentos?tipo=despesa&situacao=lancada');
   });
@@ -187,9 +187,9 @@ describe('Próximos lançamentos (FVG-004)', () => {
     ).toBeTruthy();
   });
 
-  it('o rodapé diz o total real de previstos e leva a Lançamentos', () => {
+  it('o link do cabeçalho diz o total real de previstos e leva a Lançamentos', () => {
     open();
-    const link = within(panel()).getByRole('link', { name: /^Ver os \d+ previstos$/u });
+    const link = within(panel()).getByRole('link', { name: /^Ver os \d+ previstos/u });
     expect(link.getAttribute('href')).toBe('/financas/lancamentos?situacao=prevista');
   });
 });
