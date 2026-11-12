@@ -125,7 +125,9 @@ const nextEvent = (stage: Stage, plan: ApplicablePlan): OutboxEventDraft | null 
         payload: { reference_date: plan.reference_date },
         ...origin,
       };
+    // `finance` é global e agendado: nenhuma transição o encadeia.
     case 'import':
+    case 'finance':
       return null;
   }
 };

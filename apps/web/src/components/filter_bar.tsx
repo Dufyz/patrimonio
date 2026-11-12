@@ -416,6 +416,8 @@ export type FilterBarProps = {
   readonly display?: DisplayConfig | undefined;
   /** Os botões depois de Exibição: exportar. */
   readonly actions?: React.ReactNode;
+  /** Controles antes de Filtrar, como o "Agrupar: Dia" de Lançamentos. */
+  readonly beforeFilter?: React.ReactNode;
   /** Controlado pela tela para o atalho `F`; ausente, a barra cuida sozinha. */
   readonly open?: boolean | undefined;
   readonly onOpenChange?: ((open: boolean) => void) | undefined;
@@ -428,6 +430,7 @@ export const FilterBar = ({
   fields,
   display,
   actions,
+  beforeFilter,
   open,
   onOpenChange,
   extraCount = 0,
@@ -450,6 +453,7 @@ export const FilterBar = ({
         {search}
 
         <div className="flex items-center gap-1.5">
+          {beforeFilter}
           <Popover open={filterOpen} onOpenChange={setFilterOpen}>
             <PopoverTrigger asChild>
               <button type="button" aria-label="Filtrar" className={TOOLBAR_BUTTON}>

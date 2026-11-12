@@ -38,6 +38,12 @@ const LINES: ReadonlyArray<[Stage, StageOutcome, boolean | undefined, Transition
   ['backup', 'succeeded', undefined, { recalc_status: 'idle', next: null }],
   ['backup', 'failed', true, { recalc_status: 'idle', next: 'backup' }],
   ['backup', 'failed', false, { recalc_status: 'idle', next: null }],
+
+  ['finance', 'requested', undefined, { recalc_status: 'idle', next: null }],
+  ['finance', 'started', undefined, { recalc_status: 'idle', next: null }],
+  ['finance', 'succeeded', undefined, { recalc_status: 'idle', next: null }],
+  ['finance', 'failed', true, { recalc_status: 'idle', next: 'finance' }],
+  ['finance', 'failed', false, { recalc_status: 'idle', next: null }],
 ];
 
 describe('transition', () => {

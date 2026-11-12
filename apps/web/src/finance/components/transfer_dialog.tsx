@@ -1,0 +1,122 @@
+import { useState } from 'react';
+
+import { Modal } from '../../components/overlay.js';
+import { FormShell } from '../../views/entry/form_shell.js';
+import { Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
+import {
+  emptyTransferDraft,
+  transferAccounts,
+  validateTransfer,
+} from '../domain/transfer_ops.js';
+import type { TransferDraft } from '../domain/transfer_ops.js';
+import type { FinanceData } from '../domain/types.js';
+
+/**
+ * FIN-403 · O modal de transferência. Aberto de uma conta (a tela de Contas, o
+ * menu `⋯` ou o Extrato), a origem já vem preenchida.
+ */
+export const TransferDialog = ({
+  data,
+  today,
+  fromId = '',
+  onSave,
+  onClose,
+}: {
+  readonly data: FinanceData;
+  readonly today: string;
+  readonly fromId?: string;
+  readonly onSave: (draft: TransferDraft) => void;
+  readonly onClose: () => void;
+}): React.ReactElement => {
+  const [draft, setDraft] = useState<TransferDraft>(() =>
+    emptyTransferDraft(today, fromId),
+  );
+  const [attempted, setAttempted] = useState(false);
+
+  const errors = validateTransfer(data, draft, today);
+  const shown = (field: keyof typeof errors): string | undefined =>
+    attempted ? errors[field] : undefined;
+  const set = (patch: Partial<TransferDraft>): void => setDraft({ ...draft, ...patch });
+  const options = transferAccounts(data).map((a) => ({ id: a.id, name: a.name }));
+
+  const save = (): void => {
+    setAttempted(true);
+    if (Object.keys(errors).length > 0) return;
+    onSave(draft);
+  };
+
+  return (
+    <Modal
+      open
+      guard
+      narrow
+      title="Transferir entre contas"
+      subtitle="Entre duas contas suas"
+      onClose={onClose}
+    >
+      <FormShell pending={false} onSave={save} onCancel={onClose} saveLabel="Transferir">
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="De" error={shown('fromId')}>
+            {(props) => (
+              <Select
+                {...props}
+                invalid={shown('fromId') !== undefined}
+                placeholder="Conta de origem"
+                options={options}
+                value={draft.fromId}
+                onChange={(event) => set({ fromId: event.target.value })}
+              />
+            )}
+          </Field>
+          <Field label="Para" error={shown('toId')}>
+            {(props) => (
+              <Select
+                {...props}
+                invalid={shown('toId') !== undefined}
+                placeholder="Conta de destino"
+                options={options}
+                value={draft.toId}
+                onChange={(event) => set({ toId: event.target.value })}
+              />
+            )}
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Valor" error={shown('value')}>
+            {(props) => (
+              <MoneyInput
+                {...props}
+                autoFocus={draft.fromId !== ''}
+                invalid={shown('value') !== undefined}
+                value={draft.value}
+                onChange={(event) => set({ value: event.target.value })}
+              />
+            )}
+          </Field>
+          <Field label="Data" error={shown('date')}>
+            {(props) => (
+              <Input
+                {...props}
+                type="date"
+                max={today}
+                invalid={shown('date') !== undefined}
+                value={draft.date}
+                onChange={(event) => set({ date: event.target.value })}
+              />
+            )}
+          </Field>
+        </div>
+        <Field label="Descrição (opcional)">
+          {(props) => (
+            <Input
+              {...props}
+              invalid={false}
+              value={draft.description}
+              onChange={(event) => set({ description: event.target.value })}
+            />
+          )}
+        </Field>
+      </FormShell>
+    </Modal>
+  );
+};

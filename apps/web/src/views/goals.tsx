@@ -23,18 +23,19 @@ import {
   arrivalText,
   barState,
   chartSeries,
-  decodeRate,
-  assumptionLabel,
   latenessOf,
   monthYearLabel,
-  normalizeRateInput,
   paceLabel,
   rowTone,
 } from '../lib/goals.js';
 import { formatCompact } from '../lib/format.js';
+import { decodeBudget } from '../lib/goals_overview.js';
 import { monthTicks, percentAsRatio } from '../lib/overview.js';
 import type { Resource } from '../lib/use_resource.js';
 import { useResource } from '../lib/use_resource.js';
+import { useGoalRates } from '../lib/goal_rates.js';
+import { BudgetForm } from './budget_form.js';
+import { RatesPanel, percentText } from './rates_panel.js';
 import { Icon } from '../components/icon.js';
 import { deleteGoal } from '../api/goals.js';
 import { GoalDialog } from './registers/goal_dialog.js';
@@ -55,8 +56,12 @@ export type GoalsViewProps = {
   readonly resource: Resource<GoalsResource>;
   readonly portfolioId: string;
   readonly scopeLabel: string;
+  /** A rentabilidade nominal ao ano da carteira, a da Projeção. Nulo usa a premissa. */
   readonly rate: string | null;
   readonly onRateChange: (rate: string | null) => void;
+  /** O aporte mensal simulado, o `aporte` da URL. Nulo não simula. */
+  readonly monthly: string | null;
+  readonly onMonthlyChange: (monthly: string | null) => void;
 };
 
 export type GoalsScreenProps = {
@@ -69,25 +74,30 @@ export const GoalsScreen = ({
   scopeLabel,
 }: GoalsScreenProps): React.ReactElement => {
   const [params, setParams] = useSearchParams();
-  const rate = decodeRate(params.get('taxa'));
-
-  const onRateChange = useCallback(
+  const monthly = decodeBudget(params.get('aporte'));
+  const onMonthlyChange = useCallback(
     (next: string | null) =>
       setParams(
         (current) => {
           const search = new URLSearchParams(current);
-          if (next === null) search.delete('taxa');
-          else search.set('taxa', next);
+          if (next === null) search.delete('aporte');
+          else search.set('aporte', next);
           return search;
         },
         { replace: true },
       ),
     [setParams],
   );
+  const { rates, setRate } = useGoalRates();
+  const rate = rates[portfolioId] ?? null;
+  const onRateChange = useCallback(
+    (next: string | null) => setRate(portfolioId, next),
+    [setRate, portfolioId],
+  );
 
   const resource = useResource(
-    (signal) => fetchGoals({ portfolioId, rate }, signal),
-    [portfolioId, rate],
+    (signal) => fetchGoals({ portfolioId, nominalRate: rate, monthly }, signal),
+    [portfolioId, rate, monthly],
   );
 
   return (
@@ -97,145 +107,116 @@ export const GoalsScreen = ({
       scopeLabel={scopeLabel}
       rate={rate}
       onRateChange={onRateChange}
+      monthly={monthly}
+      onMonthlyChange={onMonthlyChange}
     />
   );
 };
 
 /* -------------------------------------------------------------------------- */
 
-const RateControl = ({
-  goal,
-  override,
-  onChange,
-}: {
-  readonly goal: GoalResource;
-  readonly override: string | undefined;
-  readonly onChange: (rate: string | null) => void;
-}): React.ReactElement => {
-  const [draft, setDraft] = useState(override ?? '');
-  const parsed = normalizeRateInput(draft);
-  const invalid = draft.trim() !== '' && parsed === null;
-  const real = goal.rate?.basis !== 'nominal';
-
-  return (
-    <form
-      className="flex flex-wrap items-center gap-2 text-[0.8125rem]"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (parsed !== null) onChange(parsed);
-      }}
-    >
-      <label className="flex items-center gap-2 text-ink-2">
-        Taxa ao ano
-        <input
-          inputMode="decimal"
-          aria-invalid={invalid}
-          value={draft}
-          placeholder={goal.rate?.declared_pct ?? '6,00'}
-          onChange={(event) => setDraft(event.target.value)}
-          className="tabular h-control w-20 rounded-control border border-line bg-panel px-2 text-right"
-        />
-        %
-      </label>
-      <Button type="submit" disabled={parsed === null}>
-        Simular
-      </Button>
-      {override === undefined ? null : (
-        <Button
-          onClick={() => {
-            setDraft('');
-            onChange(null);
-          }}
-        >
-          Voltar à premissa
-        </Button>
-      )}
-      {invalid ? (
-        <span role="alert" className="text-negative">
-          Informe um número entre 0 e 100.
-        </span>
-      ) : (
-        <span className="text-ink-3">
-          {real ? 'taxa real, em reais de hoje' : 'taxa nominal'}
-        </span>
-      )}
-    </form>
-  );
-};
-
-const RateLine = ({
-  goal,
-}: {
-  readonly goal: GoalResource;
-}): React.ReactElement | null => {
-  const { rate } = goal;
-  if (rate === null) return null;
-
-  return (
-    <p className="text-[0.75rem] text-ink-3">
-      Projeção com {rate.used_pct}% ao ano ({rate.basis === 'real' ? 'real' : 'nominal'}
-      {rate.inflation_pct === null ? '' : `, IPCA 12M ${rate.inflation_pct}%`})
-      {rate.overridden ? (
-        <span className="text-attention">
-          {' '}
-          · alterada: a premissa guardada é {rate.declared_pct ?? '—'}%
-        </span>
-      ) : null}
-    </p>
-  );
-};
-
 const PILL =
   'rounded-[4px] bg-panel-2 px-2 py-0.5 text-[0.71875rem] font-medium text-ink-2';
 
+const TONE_CLASS = {
+  positive: 'text-positive',
+  attention: 'text-attention',
+  negative: 'text-negative',
+} as const;
+
+/**
+ * Uma linha por cenário de aporte, em colunas alinhadas à esquerda: em tela
+ * larga a data não se afasta do valor, e a linha escolhida se destaca inteira.
+ */
+export const scenarioRow = (selected: boolean): string =>
+  `flex w-full flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-line px-5 py-3 text-left last:border-b-0 sm:grid sm:grid-cols-[11rem_7rem_9rem_minmax(0,1fr)] ${
+    selected ? 'bg-accent-soft' : ''
+  }`;
+
+/** O miolo da linha: aporte, etiqueta, data de chegada e quanto isso é do prazo. */
+export const ScenarioCells = ({
+  monthly,
+  note,
+  arrival,
+  lateness,
+}: {
+  readonly monthly: string;
+  readonly note: string;
+  readonly arrival: string;
+  readonly lateness: {
+    readonly text: string;
+    readonly tone: keyof typeof TONE_CLASS;
+  } | null;
+}): React.ReactElement => (
+  <>
+    <span className="flex items-baseline gap-2">
+      <span className="tabular text-base font-semibold">
+        <Money value={monthly} decimals={0} />
+      </span>
+      <span className="text-xs text-ink-3">/ mês</span>
+    </span>
+    <span>{note === '' ? null : <span className={PILL}>{note}</span>}</span>
+    <span className="tabular text-base font-semibold">{arrival}</span>
+    <span className={`text-xs ${lateness === null ? '' : TONE_CLASS[lateness.tone]}`}>
+      {lateness === null ? '' : lateness.text}
+    </span>
+  </>
+);
+
 const ContributionTable = ({
   goal,
+  onSelect,
 }: {
   readonly goal: GoalResource;
-}): React.ReactElement => (
-  <ul aria-label="Aporte mensal e data de chegada" className="flex flex-col">
-    {goal.contributions.map((row) => {
-      const arrival = arrivalText(row.months_to_arrival, row.arrival_date);
-      const tone = rowTone(row);
-      const lateness = latenessOf(row.months_to_arrival, goal.months_remaining);
-      const note =
-        row.kind === 'current'
-          ? paceLabel(goal.pace.months_measured)
-          : KIND_LABEL[row.kind];
+  readonly onSelect: (monthly: string) => void;
+}): React.ReactElement => {
+  const simulating = goal.contributions.some((row) => row.selected);
 
-      return (
-        <li
-          key={`${row.kind}:${row.monthly_contribution}`}
-          className={`flex items-center justify-between gap-3 border-b border-line px-5 py-3 last:border-b-0 ${
-            row.kind === 'required' ? 'bg-accent-soft' : ''
-          }`}
-        >
-          <span className="flex items-baseline gap-2">
-            <span className="tabular text-base font-semibold">
-              <Money value={row.monthly_contribution} decimals={0} />
-            </span>
-            <span className="text-xs text-ink-3">/ mês</span>
-            {note === '' ? null : <span className={`ml-1 ${PILL}`}>{note}</span>}
-          </span>
-          <span className="flex flex-col items-end">
-            <span className="tabular text-base font-semibold">{arrival.text}</span>
-            <span
-              className={`text-xs ${
-                tone === 'negative' || lateness === null
-                  ? 'text-negative'
-                  : lateness.tone === 'positive'
-                    ? 'text-positive'
-                    : 'text-attention'
-              }`}
+  return (
+    <ul aria-label="Aporte mensal e data de chegada" className="flex flex-col">
+      {goal.contributions.map((row) => {
+        const arrival = arrivalText(row.months_to_arrival, row.arrival_date);
+        const tone = rowTone(row);
+        const lateness = latenessOf(row.months_to_arrival, goal.months_remaining);
+        const note =
+          row.kind === 'current'
+            ? paceLabel(goal.pace.months_measured)
+            : KIND_LABEL[row.kind];
+        const highlighted = simulating ? row.selected : row.kind === 'required';
+
+        return (
+          <li key={`${row.kind}:${row.monthly_contribution}`}>
+            <button
+              type="button"
+              aria-pressed={highlighted}
+              title={
+                row.kind === 'current'
+                  ? 'Simular mantendo o aporte atual da carteira'
+                  : 'Simular com este aporte'
+              }
+              onClick={() => onSelect(row.monthly_contribution)}
+              className={`${scenarioRow(highlighted)} cursor-pointer hover:bg-panel-2`}
             >
-              {lateness === null ? '' : lateness.text}
-            </span>
-          </span>
-        </li>
-      );
-    })}
-  </ul>
-);
+              <ScenarioCells
+                monthly={row.monthly_contribution}
+                note={note}
+                arrival={arrival.text}
+                lateness={
+                  lateness === null
+                    ? null
+                    : {
+                        text: lateness.text,
+                        tone: tone === 'negative' ? 'negative' : lateness.tone,
+                      }
+                }
+              />
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+};
 
 export const Fact = ({
   label,
@@ -338,16 +319,22 @@ const GoalTrack = ({ goal }: { readonly goal: GoalResource }): React.ReactElemen
 
 const GoalPanel = ({
   goal,
+  portfolioId,
   scopeLabel,
-  override,
+  rate,
   onRateChange,
+  monthly,
+  onMonthlyChange,
   onEdit,
 }: {
   readonly goal: GoalResource;
+  readonly portfolioId: string;
   readonly scopeLabel: string;
   readonly onEdit: () => void;
-  readonly override: string | undefined;
+  readonly rate: string | null;
   readonly onRateChange: (rate: string | null) => void;
+  readonly monthly: string | null;
+  readonly onMonthlyChange: (monthly: string | null) => void;
 }): React.ReactElement => {
   const series = chartSeries(goal).map((entry) =>
     entry.id === 'pace' ? { ...entry, area: true } : entry,
@@ -359,7 +346,6 @@ const GoalPanel = ({
     projection === null
       ? null
       : latenessOf(projection.months_to_arrival, goal.months_remaining);
-  const assumption = assumptionLabel(goal.rate?.assumption ?? null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -389,20 +375,31 @@ const GoalPanel = ({
 
         <p className="flex flex-wrap gap-x-5 gap-y-1 border-y border-line bg-panel-2 px-5 py-2.5 text-[0.8125rem]">
           <Fact label="Meta">
-            <Money value={goal.target_amount} decimals={0} />
+            <span
+              title={
+                goal.amount_in_today_brl
+                  ? 'Em reais de hoje.'
+                  : 'Em reais da data alvo, sem descontar a inflação.'
+              }
+            >
+              <Money value={goal.target_amount} decimals={0} />
+            </span>
           </Fact>
-          <span className="-ml-3.5 text-ink-2">
-            {goal.amount_in_today_brl ? 'em reais de hoje' : 'em reais da data alvo'}
-          </span>
           <Fact label="Prazo">{monthYearLabel(goal.target_date)}</Fact>
-          <Fact label="Premissa">{assumption ?? 'sem premissa'}</Fact>
-          <Fact label="Conta só">
+          <Fact label="Rentabilidade">
+            <span className="font-sans">
+              {goal.rate === null
+                ? 'sem rentabilidade'
+                : `${scopeLabel} ${percentText(goal.rate.nominal_pct)} ao ano`}
+            </span>
+          </Fact>
+          <Fact label="Carteira">
             <span className="font-sans">{scopeLabel}</span>
           </Fact>
         </p>
 
         <div
-          className={`grid ${projection === null ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-4'}`}
+          className={`grid ${projection === null ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-5'}`}
         >
           <Stat
             label="Acumulado"
@@ -436,6 +433,17 @@ const GoalPanel = ({
                 label="Aporte necessário"
                 value={<Money value={projection.required_monthly} decimals={0} />}
                 sub={`por mês até ${monthYearLabel(goal.target_date)}`}
+              />
+              <Stat
+                label="Você aporta hoje"
+                value={<Money value={goal.pace.monthly_contribution} decimals={0} />}
+                sub={
+                  goal.pace.months_measured === 0
+                    ? 'sem meses medidos'
+                    : `média mensal · ${goal.pace.months_measured} ${
+                        goal.pace.months_measured === 1 ? 'mês' : 'meses'
+                      }`
+                }
               />
               <Stat
                 label="No ritmo atual"
@@ -487,7 +495,7 @@ const GoalPanel = ({
       </section>
 
       {goal.chart !== null && goal.projection !== null ? (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_26.5rem]">
+        <div className="flex flex-col gap-4">
           <Panel
             title="Trajetória"
             action={
@@ -507,7 +515,7 @@ const GoalPanel = ({
                 endDot
                 endLabels
                 compactEndLabels
-                endLabelSeries={['pace']}
+                endLabelSeries={['pace', 'plan']}
                 ariaLabel={`Trajetória de ${goal.name}`}
                 xTickLabel={(date) => ticks.get(date) ?? ''}
                 tooltipDateLabel={(date) => monthYearLabel(date)}
@@ -530,6 +538,13 @@ const GoalPanel = ({
                       /mês
                     </>
                   ),
+                  plan:
+                    monthly === null ? null : (
+                      <>
+                        <Money value={monthly} decimals={0} />
+                        /mês
+                      </>
+                    ),
                 }}
                 height={260}
               />
@@ -554,29 +569,33 @@ const GoalPanel = ({
               <span className="text-xs text-ink-3">quando o objetivo é atingido</span>
             }
           >
-            <ContributionTable goal={goal} />
-            <div className="flex flex-col gap-2 border-t border-line px-5 py-3">
-              <RateControl
-                key={`${goal.id}:${override ?? ''}`}
-                goal={goal}
-                override={override}
-                onChange={onRateChange}
+            <ContributionTable goal={goal} onSelect={onMonthlyChange} />
+            <div className="border-t border-line px-5 py-4">
+              <BudgetForm
+                placeholder={Number(goal.projection.required_monthly).toLocaleString(
+                  'pt-BR',
+                )}
+                resetLabel="Voltar ao necessário"
+                onSimulate={onMonthlyChange}
+                onReset={() => onMonthlyChange(null)}
               />
-              <RateLine goal={goal} />
             </div>
           </Panel>
         </div>
-      ) : (
-        <div className="flex flex-col gap-1 rounded-panel border border-line bg-panel px-5 py-3 shadow-panel">
-          <RateControl
-            key={`${goal.id}:${override ?? ''}`}
-            goal={goal}
-            override={override}
-            onChange={onRateChange}
-          />
-          <RateLine goal={goal} />
-        </div>
-      )}
+      ) : null}
+
+      <RatesPanel
+        rows={[
+          {
+            id: portfolioId,
+            name: scopeLabel,
+            current_value: goal.current_value,
+            premise_pct: goal.rate?.premise_pct ?? null,
+          },
+        ]}
+        rates={rate === null ? {} : { [portfolioId]: rate }}
+        onChange={(_id, next) => onRateChange(next)}
+      />
     </div>
   );
 };
@@ -624,6 +643,8 @@ export const GoalsView = ({
   scopeLabel,
   rate,
   onRateChange,
+  monthly,
+  onMonthlyChange,
 }: GoalsViewProps): React.ReactElement => {
   const { state, pending, reload } = resource;
   const { hidden, toggleHidden } = usePreferences();
@@ -677,9 +698,12 @@ export const GoalsView = ({
         <KeepPrevious pending={pending} className="flex flex-col gap-4">
           <GoalPanel
             goal={data.goal}
+            portfolioId={portfolioId}
             scopeLabel={scopeLabel}
-            override={rate ?? undefined}
+            rate={rate}
             onRateChange={onRateChange}
+            monthly={monthly}
+            onMonthlyChange={onMonthlyChange}
             onEdit={() => setDialog('edit')}
           />
         </KeepPrevious>

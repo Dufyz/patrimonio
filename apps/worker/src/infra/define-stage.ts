@@ -5,6 +5,7 @@ import type {
   UnitOfWork,
   backfillAsset,
   closeDay,
+  financeUseCases,
   recalculatePortfolio,
   syncMarket,
   syncPriceHistory,
@@ -40,6 +41,8 @@ export type StageUseCases = {
   readonly syncPriceHistory?: ReturnType<typeof syncPriceHistory>;
   /** A sincronização até o D-1: incremental no agendamento, reset no botão. */
   readonly syncMarket: ReturnType<typeof syncMarket>;
+  /** A rotina diária de Finanças. */
+  readonly syncFinance: ReturnType<typeof financeUseCases>['syncDaily'];
 };
 
 export type StageDeps = {
@@ -59,7 +62,9 @@ export type StageDefinition<T> = {
    * O evento que o agendamento insere na outbox, quando o estágio tem job
    * repetível. Sem isso, um estágio agendado não teria o que pedir.
    */
-  readonly scheduledEvent?: (deps: StageDeps) => OutboxEventDraft | Promise<OutboxEventDraft>;
+  readonly scheduledEvent?: (
+    deps: StageDeps,
+  ) => OutboxEventDraft | Promise<OutboxEventDraft>;
 };
 
 /**

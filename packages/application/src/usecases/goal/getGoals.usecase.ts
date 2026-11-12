@@ -14,6 +14,8 @@ import {
   normalizeRate,
   parseReturnAssumption,
   projectGoal,
+  realRate,
+  toMoney,
 } from '@patrimonio/calc';
 import type { GoalInput } from '@patrimonio/calc';
 import type { DateOnly } from '@patrimonio/domain';
@@ -81,6 +83,18 @@ export type GetGoalsInput = {
   readonly on_date?: DateOnly | undefined;
   /** A taxa ao ano, no lugar da premissa guardada. */
   readonly rate?: string | undefined;
+  /**
+   * A rentabilidade nominal ao ano, como a "esperada" da Projeção: no lugar da
+   * premissa e sem pedir ao usuário que pense em IPCA. Vale sobre `rate`.
+   */
+  readonly nominal_rate?: string | undefined;
+  /** Um aporte mensal a simular: entra na tabela e no gráfico, sem gravar nada. */
+  readonly monthly?: string | undefined;
+};
+
+export type EvaluateOptions = {
+  readonly nominal?: string | undefined;
+  readonly monthly?: string | undefined;
 };
 
 export type GoalStatus = 'on_track' | 'behind' | 'overdue' | 'reached' | 'no_projection';
@@ -96,7 +110,12 @@ export type GoalRate = {
   readonly declared_pct: string | null;
   readonly overridden: boolean;
   readonly inflation_pct: string | null;
+  /** A premissa guardada como taxa nominal ao ano. Nulo sem IPCA para convertê-la. */
+  readonly premise_pct: string | null;
+  /** A taxa em uso como nominal ao ano. Nulo sem IPCA para convertê-la. */
+  readonly nominal_pct: string | null;
 };
+type BaseRate = Omit<GoalRate, 'premise_pct' | 'nominal_pct'>;
 
 export type GoalPace = {
   readonly monthly_contribution: string;
@@ -116,11 +135,15 @@ export type GoalChart = {
   readonly dates: readonly DateOnly[];
   readonly pace: readonly string[];
   readonly required: readonly string[];
+  /** Com o aporte simulado. Nulo sem simulação. */
+  readonly plan: readonly string[] | null;
 };
 
 export type GoalContributionRow = {
   readonly monthly_contribution: string;
-  readonly kind: 'current' | 'required' | 'option';
+  readonly kind: 'current' | 'required' | 'option' | 'custom';
+  /** Verdadeiro para o aporte simulado. */
+  readonly selected: boolean;
   readonly arrival_date: DateOnly | null;
   readonly months_to_arrival: number | null;
   readonly reaches_target_date: boolean;
@@ -215,11 +238,34 @@ type RateOutcome =
   | { readonly kind: 'rate'; readonly rate: GoalRate }
   | { readonly kind: 'blocked'; readonly block: GoalBlock; readonly rate: null };
 
-const rateOf = (
+type BaseOutcome =
+  | { readonly kind: 'rate'; readonly rate: BaseRate }
+  | { readonly kind: 'blocked'; readonly block: GoalBlock; readonly rate: null };
+
+/** Taxa real abaixo de zero não cabe numa premissa escrita: a simulação para em zero. */
+export const nonNegativeRate = (rate: string): string =>
+  rate.startsWith('-') ? '0.00' : rate;
+
+/**
+ * A premissa guardada como taxa nominal ao ano. `IPCA+x` e metas em reais de
+ * hoje guardam taxa real, que vira nominal pelo IPCA; taxa fixa em meta nominal
+ * já é nominal.
+ */
+export const premiseNominal = (row: GoalRow, inflation: string | null): string | null => {
+  const parsed = parseReturnAssumption(row.return_assumption);
+  if (parsed === null) return null;
+
+  const real = row.amount_in_today_brl || parsed.kind === 'ipca_plus';
+  if (!real) return parsed.rate_pct;
+
+  return inflation === null ? null : nominalRate(parsed.rate_pct, inflation);
+};
+
+const baseRateOf = (
   row: GoalRow,
   override: string | undefined,
   inflation: string | null,
-): RateOutcome => {
+): BaseOutcome => {
   const parsed = parseReturnAssumption(row.return_assumption);
 
   if (parsed === null && override === undefined) {
@@ -269,11 +315,65 @@ const rateOf = (
   };
 };
 
+const rateOf = (
+  row: GoalRow,
+  override: string | undefined,
+  inflation: string | null,
+  nominal: string | undefined,
+): RateOutcome => {
+  const premise = premiseNominal(row, inflation);
+  const complete = (rate: BaseRate): GoalRate => ({
+    ...rate,
+    premise_pct: premise,
+    nominal_pct:
+      rate.basis === 'nominal'
+        ? rate.used_pct
+        : inflation === null
+          ? null
+          : nominalRate(rate.used_pct, inflation),
+  });
+
+  if (nominal !== undefined) {
+    const typed = normalizeRate(nominal);
+    const parsed = parseReturnAssumption(row.return_assumption);
+    const common = {
+      assumption: row.return_assumption,
+      kind: parsed?.kind ?? 'fixed',
+      declared_pct: parsed === null ? null : parsed.rate_pct,
+      overridden:
+        premise === null || Number(typed).toFixed(2) !== Number(premise).toFixed(2),
+      inflation_pct: inflation,
+    } as const;
+
+    if (!row.amount_in_today_brl) {
+      return {
+        kind: 'rate',
+        rate: complete({ ...common, used_pct: typed, basis: 'nominal' }),
+      };
+    }
+    if (inflation === null) return { kind: 'blocked', block: 'no_inflation', rate: null };
+
+    return {
+      kind: 'rate',
+      rate: complete({
+        ...common,
+        used_pct: nonNegativeRate(realRate(typed, inflation)),
+        basis: 'real',
+      }),
+    };
+  }
+
+  const base = baseRateOf(row, override, inflation);
+
+  return base.kind === 'blocked' ? base : { kind: 'rate', rate: complete(base.rate) };
+};
+
 export const evaluate = (
   row: GoalRow,
   reference: DateOnly,
   override: string | undefined,
   inflation: string | null,
+  options: EvaluateOptions = {},
 ): GoalResult => {
   const standing = goalStanding(row.current_value, row.target_amount);
   const monthsRemaining = Math.max(monthsBetween(reference, row.target_date), 0);
@@ -311,7 +411,7 @@ export const evaluate = (
     contributions: [],
   });
 
-  const outcome = rateOf(row, override, inflation);
+  const outcome = rateOf(row, override, inflation, options.nominal);
   const rate = outcome.rate;
 
   // Quem já tem o valor e quem passou do prazo não projetam: não há o que
@@ -341,9 +441,20 @@ export const evaluate = (
     pace.monthly_contribution,
     projection.required_monthly,
   );
+  const entries: { amount: string; kind: GoalContributionRow['kind'] }[] = ladder.map(
+    (entry) => ({ amount: entry.amount, kind: entry.kind }),
+  );
+  const simulated = options.monthly === undefined ? null : toMoney(options.monthly);
+  if (
+    simulated !== null &&
+    !entries.some((entry) => toMoney(entry.amount) === simulated)
+  ) {
+    entries.push({ amount: simulated, kind: 'custom' });
+    entries.sort((left, right) => Number(left.amount) - Number(right.amount));
+  }
   const table = contributionTable(
     input,
-    ladder.map((entry) => entry.amount),
+    entries.map((entry) => entry.amount),
   );
 
   const trajectory = (monthly: string): readonly string[] =>
@@ -385,10 +496,12 @@ export const evaluate = (
       ),
       pace: trajectory(pace.monthly_contribution),
       required: trajectory(projection.required_monthly),
+      plan: simulated === null ? null : trajectory(simulated),
     },
     contributions: table.map((option, index) => ({
       monthly_contribution: option.monthly_contribution,
-      kind: ladder[index]?.kind ?? 'option',
+      kind: entries[index]?.kind ?? 'option',
+      selected: simulated !== null && option.monthly_contribution === simulated,
       arrival_date: option.arrival_date as DateOnly | null,
       months_to_arrival: option.months_to_arrival,
       reaches_target_date: option.reaches_target_date,
@@ -422,7 +535,10 @@ export const getGoals = (deps: GetGoalsDeps) =>
       goal:
         snapshot.goal === null
           ? null
-          : evaluate(snapshot.goal, reference, input.rate, inflation),
+          : evaluate(snapshot.goal, reference, input.rate, inflation, {
+              nominal: input.nominal_rate,
+              monthly: input.monthly,
+            }),
     };
 
     return result;

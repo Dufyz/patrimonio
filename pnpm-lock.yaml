@@ -245,6 +245,9 @@ importers:
 
   packages/calc:
     dependencies:
+      '@patrimonio/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@patrimonio/shared':
         specifier: workspace:*
         version: link:../shared

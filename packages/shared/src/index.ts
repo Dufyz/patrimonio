@@ -16,3 +16,5 @@ export {
 export type { Either } from './either.js';
 
 export { FORBIDDEN_LOG_KEYS, scrubLogRecord } from './logging/scrub.js';
+
+export { uuidV7 } from './uuid_v7.js';

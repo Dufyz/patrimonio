@@ -6,7 +6,7 @@ import { ALL_QUEUES, QUEUES, QUEUE_NAMES, SCHEDULE_TIMEZONE } from './queues.js'
 describe('declaração das filas', () => {
   it('as seis filas estão declaradas, uma por estágio', () => {
     expect(Object.keys(QUEUES).sort()).toEqual([...STAGES].sort());
-    expect(ALL_QUEUES).toHaveLength(5);
+    expect(ALL_QUEUES).toHaveLength(6);
   });
 
   it('a concorrência vem da declaração, não do processor', () => {
@@ -21,6 +21,7 @@ describe('declaração das filas', () => {
     expect(QUEUES.market.schedule).toEqual(['0 9 * * 1-5']);
     expect(QUEUES.close.schedule).toBeUndefined();
     expect(QUEUES.backup.schedule).toEqual(['0 3 * * *']);
+    expect(QUEUES.finance.schedule).toEqual(['5 0 * * *']);
   });
 
   it('recálculo e importação não têm agendamento: são sob demanda', () => {

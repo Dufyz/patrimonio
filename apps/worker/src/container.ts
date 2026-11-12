@@ -3,6 +3,8 @@ import {
   closeDay,
   collectMarketData,
   createDebouncePolicy,
+  financeClock,
+  financeUseCases,
   loadIndexHistory,
   loadPriceHistory,
   recalculatePortfolio,
@@ -24,6 +26,7 @@ import {
 import type { Sql } from '@patrimonio/db';
 import { toDateOnly } from '@patrimonio/domain';
 import { environment } from '@patrimonio/env';
+import { uuidV7 } from '@patrimonio/shared';
 import {
   closeQueues,
   closeRedisConnection,
@@ -49,6 +52,8 @@ export type WorkerUseCases = {
   readonly syncPriceHistory: ReturnType<typeof syncPriceHistory>;
   /** A sincronização até o D-1: incremental no agendamento, reset no botão. */
   readonly syncMarket: ReturnType<typeof syncMarket>;
+  /** A rotina diária de Finanças. */
+  readonly syncFinance: ReturnType<typeof financeUseCases>['syncDaily'];
 };
 
 export type WorkerContainer = {
@@ -122,6 +127,11 @@ export const createContainer = (): WorkerContainer => {
       closeDay: closeDay({ unitOfWork, clock: systemClock }),
       backfillAsset: backfillAssetUseCase,
       syncPriceHistory: syncPriceHistoryUseCase,
+      syncFinance: financeUseCases({
+        unitOfWork,
+        clock: financeClock(systemClock),
+        newId: () => uuidV7(),
+      }).syncDaily,
       syncMarket: syncMarket({
         unitOfWork,
         clock: systemClock,

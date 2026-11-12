@@ -290,3 +290,6 @@ export type { DietzFlow, DietzInput } from './performance/dietz.js';
 
 export { timeWeightedReturn, xirr } from './performance/asset_returns.js';
 export type { AssetDay, CashFlow } from './performance/asset_returns.js';
+
+// ─── Finanças ────────────────────────────────────────────────────────────────
+export * as finance from './finance/index.js';

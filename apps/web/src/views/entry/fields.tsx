@@ -2,7 +2,7 @@ import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from '
 
 import { Icon } from '../../components/icon.js';
 import type { EntryField, FieldErrors } from '../../lib/entry.js';
-import { maskMoney } from '../../lib/money_mask.js';
+import { maskMoney, maskPercent } from '../../lib/money_mask.js';
 
 /**
  * T-10 · As peças de formulário dos modais de lançamento.
@@ -108,6 +108,9 @@ export const Input = ({
 export const MoneyInput = ({
   maxDecimals = 2,
   mask = true,
+  maskText,
+  symbol = 'R$',
+  symbolSide = 'left',
   value,
   onChange,
   className,
@@ -119,8 +122,15 @@ export const MoneyInput = ({
   readonly maxDecimals?: number;
   /** Falso devolve o `Input` comum: o mesmo campo que às vezes é quantidade. */
   readonly mask?: boolean;
+  /** Outra máscara de texto no lugar da de dinheiro (a de porcentagem). */
+  readonly maskText?: (raw: string) => string;
+  /** O símbolo fora do valor: `R$` à esquerda, `%` à direita. */
+  readonly symbol?: string;
+  readonly symbolSide?: 'left' | 'right';
   readonly value: string;
 }): React.ReactElement => {
+  const apply = (raw: string): string =>
+    maskText === undefined ? maskMoney(raw, maxDecimals) : maskText(raw);
   const ref = useRef<HTMLInputElement>(null);
   const caret = useRef<number | null>(null);
 
@@ -130,7 +140,7 @@ export const MoneyInput = ({
     caret.current = null;
   });
 
-  const shown = mask ? maskMoney(value, maxDecimals) : value;
+  const shown = mask ? apply(value) : value;
 
   const input = (
     <Input
@@ -138,7 +148,7 @@ export const MoneyInput = ({
       inputMode="decimal"
       autoComplete="off"
       {...rest}
-      className={`${mask ? 'pl-9 ' : ''}${className ?? ''}`}
+      className={`${mask ? (symbolSide === 'left' ? 'pl-9 ' : 'pr-7 ') : ''}${className ?? ''}`}
       ref={ref}
       value={shown}
       onChange={(event) => {
@@ -150,7 +160,7 @@ export const MoneyInput = ({
             .slice(0, position)
             .replace(/[^\d,]/g, '').length;
 
-          const masked = maskMoney(element.value, maxDecimals);
+          const masked = apply(element.value);
           element.value = masked;
 
           let target = masked.length;
@@ -177,14 +187,24 @@ export const MoneyInput = ({
     <span className="relative block w-full">
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-sm text-ink-3"
+        className={`pointer-events-none absolute inset-y-0 flex items-center text-sm text-ink-3 ${symbolSide === 'left' ? 'left-2.5' : 'right-2.5'}`}
       >
-        R$
+        {symbol}
       </span>
       {input}
     </span>
   );
 };
+
+/** Porcentagem com até duas casas: `13,75` e o `%` fica fora do valor. */
+export const PercentInput = (
+  props: Omit<
+    React.ComponentProps<typeof MoneyInput>,
+    'maskText' | 'symbol' | 'symbolSide'
+  >,
+): React.ReactElement => (
+  <MoneyInput {...props} maskText={maskPercent} symbol="%" symbolSide="right" />
+);
 
 export const Select = ({
   invalid,

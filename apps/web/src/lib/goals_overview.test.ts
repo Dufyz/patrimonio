@@ -4,16 +4,8 @@ import {
   againstDeadline,
   decodeBudget,
   decodeCascade,
-  decodeDistribution,
-  decodePriority,
-  effectivePriority,
-  moveInOrder,
   parseBudgetInput,
 } from './goals_overview.js';
-
-const A = '0191e5a0-0000-7000-8000-00000000c001';
-const B = '0191e5a0-0000-7000-8000-00000000c002';
-const C = '0191e5a0-0000-7000-8000-00000000c003';
 
 describe('o aporte digitado', () => {
   it.each([
@@ -43,30 +35,9 @@ describe('o que a URL guarda', () => {
     expect(decodeBudget(null)).toBeNull();
   });
 
-  it('proporcional e cascata ligada são o padrão', () => {
-    expect(decodeDistribution(null)).toBe('proportional');
-    expect(decodeDistribution('lixo')).toBe('proportional');
-    expect(decodeDistribution('priority')).toBe('priority');
+  it('a cascata ligada é o padrão', () => {
     expect(decodeCascade(null)).toBe(true);
     expect(decodeCascade('0')).toBe(false);
-  });
-
-  it('a prioridade descarta o que não é id', () => {
-    expect(decodePriority(`${A},xx,${B}`)).toEqual([A, B]);
-    expect(decodePriority(null)).toEqual([]);
-  });
-});
-
-describe('a fila de prioridade', () => {
-  it('mantém a ordem guardada e põe as que faltam no fim, sem repetir nem inventar', () => {
-    expect(effectivePriority([B, 'fantasma', B], [A, B, C])).toEqual([B, A, C]);
-  });
-
-  it('sobe e desce uma posição, e não passa das pontas', () => {
-    expect(moveInOrder([A, B, C], B, -1)).toEqual([B, A, C]);
-    expect(moveInOrder([A, B, C], B, 1)).toEqual([A, C, B]);
-    expect(moveInOrder([A, B, C], A, -1)).toEqual([A, B, C]);
-    expect(moveInOrder([A, B, C], C, 1)).toEqual([A, B, C]);
   });
 });
 

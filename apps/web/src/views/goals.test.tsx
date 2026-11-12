@@ -1,5 +1,5 @@
 import type { GoalResource, GoalsResource } from '@patrimonio/contracts';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -43,6 +43,8 @@ const goal: GoalResource = {
     declared_pct: '6.00',
     overridden: false,
     inflation_pct: null,
+    premise_pct: '10.69',
+    nominal_pct: '10.69',
   },
   pace: { monthly_contribution: '2133.00', months_measured: 12 },
   projection: {
@@ -57,11 +59,13 @@ const goal: GoalResource = {
     dates: ['2026-09-30', '2040-01-31'],
     pace: ['318904.00', '1210000.00'],
     required: ['318904.00', '1500000.00'],
+    plan: null,
   },
   contributions: [
     {
       monthly_contribution: '2133.00',
       kind: 'current',
+      selected: false,
       arrival_date: '2043-03-31',
       months_to_arrival: 78,
       reaches_target_date: false,
@@ -69,6 +73,7 @@ const goal: GoalResource = {
     {
       monthly_contribution: '3950.00',
       kind: 'required',
+      selected: false,
       arrival_date: '2040-01-31',
       months_to_arrival: 160,
       reaches_target_date: true,
@@ -76,6 +81,7 @@ const goal: GoalResource = {
     {
       monthly_contribution: '5000.00',
       kind: 'option',
+      selected: false,
       arrival_date: '2039-04-30',
       months_to_arrival: 150,
       reaches_target_date: true,
@@ -94,6 +100,8 @@ const montar = (
   onRateChange = vi.fn(),
   rate: string | null = null,
   reload = vi.fn(),
+  monthly: string | null = null,
+  onMonthlyChange = vi.fn(),
 ) =>
   render(
     <PreferencesProvider storage={null}>
@@ -103,6 +111,8 @@ const montar = (
         scopeLabel="Longo prazo"
         rate={rate}
         onRateChange={onRateChange}
+        monthly={monthly}
+        onMonthlyChange={onMonthlyChange}
       />
     </PreferencesProvider>,
   );
@@ -114,11 +124,33 @@ describe('GoalsView', () => {
     vi.mocked(deleteGoal).mockReset();
   });
 
+  it('simula um aporte digitado e escolhido na tabela', async () => {
+    const onMonthlyChange = vi.fn();
+    montar(
+      { kind: 'ready', value: dados(goal) },
+      vi.fn(),
+      null,
+      vi.fn(),
+      null,
+      onMonthlyChange,
+    );
+
+    await userEvent.type(
+      screen.getByRole('textbox', { name: /Quanto posso aportar/ }),
+      '4.500',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Simular' }));
+    expect(onMonthlyChange).toHaveBeenCalledWith('4500');
+
+    await userEvent.click(screen.getAllByTitle('Simular com este aporte')[0]!);
+    expect(onMonthlyChange).toHaveBeenCalledWith('3950.00');
+  });
+
   it('declara a taxa usada e mostra a tabela de aportes com a chegada de cada um', () => {
     montar({ kind: 'ready', value: dados(goal) });
 
     expect(screen.getByRole('heading', { name: 'Objetivos' })).toBeTruthy();
-    expect(screen.getByText(/Projeção com 6.00% ao ano \(real\)/)).toBeTruthy();
+    expect(screen.getByText(/10,69% ao ano/)).toBeTruthy();
     expect(screen.getAllByText('mar/2043').length).toBeGreaterThan(0);
     expect(screen.getAllByText('jan/2040').length).toBeGreaterThan(0);
     expect(screen.getByText('necessário')).toBeTruthy();
@@ -139,36 +171,20 @@ describe('GoalsView', () => {
     const onRateChange = vi.fn();
     montar({ kind: 'ready', value: dados(goal) }, onRateChange);
 
-    await userEvent.type(screen.getByLabelText(/Taxa ao ano/), '4,5');
-    await userEvent.click(screen.getByRole('button', { name: 'Simular' }));
+    await userEvent.type(screen.getByLabelText(/Rentabilidade esperada/), '4,5');
 
-    expect(onRateChange).toHaveBeenCalledWith('4.5');
+    await waitFor(() => expect(onRateChange).toHaveBeenCalledWith('4.5'));
   });
 
   it('taxa inválida avisa e não simula', async () => {
     const onRateChange = vi.fn();
     montar({ kind: 'ready', value: dados(goal) }, onRateChange);
 
-    await userEvent.type(screen.getByLabelText(/Taxa ao ano/), '150');
+    await userEvent.type(screen.getByLabelText(/Rentabilidade esperada/), '150');
 
-    expect(screen.getByRole('alert').textContent).toMatch(/entre 0 e 100/);
-    expect(
-      (screen.getByRole('button', { name: 'Simular' }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    expect(screen.getByRole('alert').textContent).toMatch(/0 a 100/);
+    await new Promise((resolve) => setTimeout(resolve, 600));
     expect(onRateChange).not.toHaveBeenCalled();
-  });
-
-  it('taxa alterada diz qual era a premissa e oferece voltar a ela', async () => {
-    const onRateChange = vi.fn();
-    const alterado = {
-      ...goal,
-      rate: { ...goal.rate!, used_pct: '4.50', overridden: true },
-    };
-    montar({ kind: 'ready', value: dados(alterado) }, onRateChange, '4.5');
-
-    expect(screen.getByText(/a premissa guardada é 6.00%/)).toBeTruthy();
-    await userEvent.click(screen.getByRole('button', { name: 'Voltar à premissa' }));
-    expect(onRateChange).toHaveBeenCalledWith(null);
   });
 
   it('projeção bloqueada explica o motivo e não desenha gráfico nem tabela', () => {

@@ -18,6 +18,7 @@ import type { OutboxRepository } from './outbox.repository.js';
 import type { OverviewRepository } from './overview.repository.js';
 import type { AllocationRepository } from './allocation.repository.js';
 import type { GoalRepository } from './goal.repository.js';
+import type { FinanceRepository } from './finance.repository.js';
 import type { SettingsRepository } from './settings.repository.js';
 import type { PerformanceRepository } from './performance.repository.js';
 import type { PayoutDismissalRepository } from './payout_dismissal.repository.js';
@@ -74,6 +75,8 @@ export type TransactionalRepositories = {
   /** Só leitura: a tela de Configurações, numa consulta. */
   readonly settings: SettingsRepository;
   readonly market: MarketIngestionRepository;
+  /** Finanças pessoais: a foto inteira lida e a diferença gravada. */
+  readonly finance: FinanceRepository;
 };
 
 export type UnitOfWorkOptions = {

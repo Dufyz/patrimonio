@@ -8,6 +8,7 @@ import type { StageDeps } from '../infra/define-stage.js';
 import {
   backupStage,
   closeStage,
+  financeStage,
   importStage,
   marketStage,
   recalcStage,
@@ -25,13 +26,14 @@ const deps: StageDeps = {
   usecases: container.usecases,
 };
 
-// Os cinco estágios. Nenhum processor instancia dependência: recebe o container.
+// Os seis estágios. Nenhum processor instancia dependência: recebe o container.
 const workers = [
   recalcStage(deps),
   marketStage(deps),
   closeStage(deps),
   importStage(deps),
   backupStage(deps),
+  financeStage(deps),
 ];
 
 const scheduled = await registerSchedules(container.queues);

@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { cn } from '../lib/cn.js';
 import { colorForToken } from '../lib/tokens.js';
 import { Icon } from './icon.js';
@@ -26,29 +27,35 @@ export const Panel = ({
   readonly action?: React.ReactNode;
   readonly children: React.ReactNode;
   readonly className?: string | undefined;
-}): React.ReactElement => (
-  <section
-    className={cn(
-      'min-w-0 overflow-hidden rounded-panel border border-line bg-panel shadow-panel',
-      className,
-    )}
-  >
-    {title === undefined && action === undefined ? null : (
-      <header className="flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-        <div className="flex min-w-0 items-baseline gap-2">
-          {title === undefined ? null : (
-            <h2 className="truncate text-panel-title font-semibold">{title}</h2>
-          )}
-          {hint === undefined ? null : (
-            <span className="truncate text-xs text-ink-3">{hint}</span>
-          )}
-        </div>
-        {action}
-      </header>
-    )}
-    {children}
-  </section>
-);
+}): React.ReactElement => {
+  const titleId = useId();
+  return (
+    <section
+      {...(title === undefined ? {} : { 'aria-labelledby': titleId })}
+      className={cn(
+        'min-w-0 overflow-hidden rounded-panel border border-line bg-panel shadow-panel',
+        className,
+      )}
+    >
+      {title === undefined && action === undefined ? null : (
+        <header className="flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+          <div className="flex min-w-0 items-baseline gap-2">
+            {title === undefined ? null : (
+              <h2 id={titleId} className="truncate text-panel-title font-semibold">
+                {title}
+              </h2>
+            )}
+            {hint === undefined ? null : (
+              <span className="truncate text-xs text-ink-3">{hint}</span>
+            )}
+          </div>
+          {action}
+        </header>
+      )}
+      {children}
+    </section>
+  );
+};
 
 /** Rótulo em mono caixa alta, como as pranchas usam acima de cada bloco. */
 export const Label = ({

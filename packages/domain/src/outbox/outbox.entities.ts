@@ -17,6 +17,8 @@ export type OutboxPayloads = {
   readonly close: { readonly reference_date: DateOnly };
   readonly import: { readonly import_id: string };
   readonly backup: { readonly reference_date: DateOnly };
+  /** A rotina diária de Finanças: previstos, lançamento automático e créditos de benefício. */
+  readonly finance: { readonly reference_date: DateOnly };
 };
 
 export type OutboxPayload<S extends Stage = Stage> = OutboxPayloads[S];
@@ -71,4 +73,5 @@ export const dedupeKey = {
   close: (date: DateOnly): string => `close:${date}`,
   import: (importId: string): string => `import:${importId}`,
   backup: (date: DateOnly): string => `backup:${date}`,
+  finance: (date: DateOnly): string => `finance:daily:${date}`,
 } as const;

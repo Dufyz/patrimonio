@@ -52,5 +52,6 @@ export { loadBusinessDays } from './seeds/load_business_days.js';
 export { loadInstitutions } from './seeds/load_institutions.js';
 export { fetchInstitutionNames } from './seeds/fetch_institutions.js';
 export { removeDemoData } from './seeds/remove_demo.js';
+export { loadFinanceDemo, removeFinanceDemo } from './seeds/finance_demo.js';
 export type { RemovedDemo } from './seeds/remove_demo.js';
 export { calendarFromSeed } from './seeds/business_days.js';

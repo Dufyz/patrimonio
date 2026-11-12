@@ -1,7 +1,7 @@
 import type { Stage } from '@patrimonio/domain';
 
 /**
- * Cinco filas, uma por estágio. A concorrência é declarada aqui, não no código
+ * Seis filas, uma por estágio. A concorrência é declarada aqui, não no código
  * do processor: a do recálculo é 1 de propósito — a trava de carteira já
  * serializa, e paralelismo ali só produziria espera.
  */
@@ -11,6 +11,7 @@ export const QUEUE_NAMES = {
   close: 'close',
   import: 'import',
   backup: 'backup',
+  finance: 'finance',
 } as const satisfies Record<Stage, string>;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -38,6 +39,8 @@ export const QUEUES: Record<Stage, QueueDeclaration> = {
   import: { name: QUEUE_NAMES.import, concurrency: 1 },
   // Diário, 03:00.
   backup: { name: QUEUE_NAMES.backup, concurrency: 1, schedule: ['0 3 * * *'] },
+  // Diário, 00:05: gera os previstos do mês, lança os automáticos do dia e credita benefícios.
+  finance: { name: QUEUE_NAMES.finance, concurrency: 1, schedule: ['5 0 * * *'] },
 };
 
 export const ALL_QUEUES: readonly QueueDeclaration[] = Object.values(QUEUES);

@@ -1,6 +1,6 @@
 import type { GoalsOverviewResource } from '@patrimonio/contracts';
 import type { DateOnly } from '@patrimonio/domain';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { fetchGoalsOverview } from '../api/goals.js';
@@ -8,7 +8,7 @@ import { Icon } from '../components/icon.js';
 import { Money, Percent } from '../components/number.js';
 import { KeepPrevious } from '../components/pending.js';
 import { usePreferences } from '../components/preferences.js';
-import { Button, IconButton, Panel, Segmented } from '../components/primitives.js';
+import { Button, IconButton, Panel } from '../components/primitives.js';
 import { SeriesChart } from '../components/series_chart.js';
 import {
   SkeletonChart,
@@ -20,26 +20,23 @@ import {
 import { formatCompact } from '../lib/format.js';
 import { STATUS_LABEL, barState, latenessOf, monthYearLabel } from '../lib/goals.js';
 import {
-  DISTRIBUTION_OPTIONS,
   EXCLUSION_LABEL,
   SCENARIO_LABEL,
   againstDeadline,
   decodeBudget,
   decodeCascade,
-  decodeDistribution,
-  decodePriority,
-  effectivePriority,
-  moveInOrder,
   overviewBadge,
   overviewSeries,
-  parseBudgetInput,
   sortRows,
 } from '../lib/goals_overview.js';
-import type { Distribution } from '../lib/goals_overview.js';
+import type { Rates } from '../lib/goal_rates.js';
+import { useGoalRates } from '../lib/goal_rates.js';
 import { monthTicks, percentAsRatio } from '../lib/overview.js';
 import type { Resource } from '../lib/use_resource.js';
 import { useResource } from '../lib/use_resource.js';
-import { Fact, Stat } from './goals.js';
+import { BudgetForm } from './budget_form.js';
+import { RatesPanel, percentText } from './rates_panel.js';
+import { Fact, ScenarioCells, Stat, scenarioRow } from './goals.js';
 
 /**
  * T-07 · Objetivos em "Todas as carteiras" — a prancha `18C`.
@@ -50,25 +47,22 @@ import { Fact, Stat } from './goals.js';
  * clicar numa linha leva até lá.
  *
  * Nada aqui faz conta: somas, fatias, datas e o plano de aportes chegam
- * prontos da `api`. O orçamento, a distribuição, a cascata e a fila de
- * prioridade vivem na URL — são da sessão, nunca gravados.
+ * prontos da `api`. O orçamento e a cascata vivem na URL — são da sessão, nunca gravados.
  */
 type Overview = GoalsOverviewResource;
 type OverviewRow = Overview['portfolios'][number];
 
 export type GoalsOverviewChange = {
   readonly budget?: string | null;
-  readonly distribution?: Distribution;
   readonly cascade?: boolean;
-  readonly priority?: readonly string[] | null;
 };
 
 export type GoalsOverviewViewProps = {
   readonly resource: Resource<Overview>;
   readonly budget: string | null;
-  readonly distribution: Distribution;
   readonly cascade: boolean;
-  readonly priority: readonly string[];
+  readonly rates: Rates;
+  readonly onRateChange: (portfolioId: string, rate: string | null) => void;
   readonly onChange: (change: GoalsOverviewChange) => void;
   readonly onOpenPortfolio: (portfolioId: string) => void;
 };
@@ -83,9 +77,8 @@ export const GoalsOverviewScreen = ({
   const [params, setParams] = useSearchParams();
 
   const budget = decodeBudget(params.get('aporte'));
-  const distribution = decodeDistribution(params.get('distribuicao'));
   const cascade = decodeCascade(params.get('cascata'));
-  const priority = decodePriority(params.get('prioridade'));
+  const { rates, setRate } = useGoalRates();
 
   const onChange = useCallback(
     (change: GoalsOverviewChange) =>
@@ -97,22 +90,10 @@ export const GoalsOverviewScreen = ({
             if (change.budget === null) search.delete('aporte');
             else search.set('aporte', change.budget);
           }
-          if (change.distribution !== undefined) {
-            if (change.distribution === 'proportional') search.delete('distribuicao');
-            else search.set('distribuicao', change.distribution);
-          }
           if (change.cascade !== undefined) {
             if (change.cascade) search.delete('cascata');
             else search.set('cascata', '0');
           }
-          if (change.priority !== undefined) {
-            if (change.priority === null || change.priority.length === 0) {
-              search.delete('prioridade');
-            } else {
-              search.set('prioridade', change.priority.join(','));
-            }
-          }
-
           return search;
         },
         { replace: true },
@@ -125,22 +106,21 @@ export const GoalsOverviewScreen = ({
       fetchGoalsOverview(
         {
           budget,
-          distribution,
           cascade,
-          priority: distribution === 'priority' ? priority : [],
+          rates,
         },
         signal,
       ),
-    [budget, distribution, cascade, priority.join(',')],
+    [budget, cascade, JSON.stringify(rates)],
   );
 
   return (
     <GoalsOverviewView
       resource={resource}
       budget={budget}
-      distribution={distribution}
       cascade={cascade}
-      priority={priority}
+      rates={rates}
+      onRateChange={setRate}
       onChange={onChange}
       onOpenPortfolio={onOpenPortfolio}
     />
@@ -148,12 +128,6 @@ export const GoalsOverviewScreen = ({
 };
 
 /* -------------------------------------------------------------------------- */
-
-const TONE_TEXT = {
-  positive: 'text-positive',
-  attention: 'text-attention',
-  negative: 'text-negative',
-} as const;
 
 const Badge = ({
   tone,
@@ -224,9 +198,6 @@ const Summary = ({ data }: { readonly data: Overview }): React.ReactElement => {
     row.goal !== null && row.goal.counted ? [row.portfolio_name] : [],
   );
   const arrival = againstDeadline(totals.pace_months_vs_deadline);
-  const converted = data.portfolios.filter(
-    (row) => row.goal?.counted === true && row.goal.nominal_target_amount !== null,
-  ).length;
   const steps = totals.required_schedule;
   const gap = Number(totals.gap_monthly);
 
@@ -243,20 +214,26 @@ const Summary = ({ data }: { readonly data: Overview }): React.ReactElement => {
       </header>
 
       <p className="flex flex-wrap gap-x-5 gap-y-1 border-y border-line bg-panel-2 px-5 py-2.5 text-[0.8125rem]">
-        <Fact label="Meta somada">
-          <Money value={totals.target_amount} decimals={0} />
+        <Fact label="Meta">
+          <span title="Soma das metas em reais de hoje: as que são em reais da data alvo entram convertidas pelo IPCA 12M.">
+            <Money value={totals.target_amount} decimals={0} />
+          </span>
         </Fact>
-        <span className="-ml-3.5 text-ink-2">
-          em reais de hoje
-          {converted > 0 && totals.inflation_pct !== null
-            ? ` · ${converted === 1 ? 'uma meta' : `${converted} metas`} em reais da data alvo convertida${converted === 1 ? '' : 's'} pelo IPCA 12M (${totals.inflation_pct.replace('.', ',')}%)`
-            : ''}
-        </span>
-        <Fact label="Último prazo">{monthYearLabel(totals.last_target_date)}</Fact>
-        <Fact label="Objetivos">
-          {totals.counted} <span className="font-sans text-ink-2">, um por carteira</span>
+        <Fact label="Prazo">{monthYearLabel(totals.last_target_date)}</Fact>
+        <Fact label="Rentabilidade">
+          <span className="font-sans">
+            {data.portfolios
+              .flatMap((row) =>
+                row.goal !== null && row.goal.counted && row.goal.rate !== null
+                  ? [
+                      `${row.portfolio_name} ${percentText(row.goal.rate.used_pct)} ao ano`,
+                    ]
+                  : [],
+              )
+              .join(' · ')}
+          </span>
         </Fact>
-        <Fact label="Contas">
+        <Fact label="Carteiras">
           <span className="font-sans">{counted.join(' e ')}</span>
         </Fact>
       </p>
@@ -357,19 +334,13 @@ const Summary = ({ data }: { readonly data: Overview }): React.ReactElement => {
 
 const Simulator = ({
   data,
-  distribution,
   cascade,
   onChange,
 }: {
   readonly data: Overview;
-  readonly distribution: Distribution;
   readonly cascade: boolean;
   readonly onChange: (change: GoalsOverviewChange) => void;
 }): React.ReactElement => {
-  const [draft, setDraft] = useState('');
-  const parsed = parseBudgetInput(draft);
-  const invalid = draft.trim() !== '' && parsed === null;
-
   return (
     <Panel
       title="Se eu aportar por mês"
@@ -381,45 +352,30 @@ const Simulator = ({
       >
         {data.scenarios.map((scenario) => {
           const lateness = againstDeadline(scenario.months_vs_deadline);
-          const note = SCENARIO_LABEL[scenario.kind];
 
           return (
             <li key={`${scenario.kind}:${scenario.monthly}`}>
               <button
                 type="button"
                 aria-pressed={scenario.selected}
-                disabled={scenario.kind === 'current'}
                 title={
                   scenario.kind === 'current'
-                    ? 'O ritmo atual de cada carteira, sem mudar nada'
+                    ? 'Simular mantendo o aporte atual de cada carteira'
                     : 'Simular com este aporte'
                 }
                 onClick={() => onChange({ budget: scenario.monthly })}
-                className={`flex w-full items-center justify-between gap-3 border-b border-line px-5 py-3 text-left last:border-b-0 enabled:cursor-pointer enabled:hover:bg-panel-2 ${
-                  scenario.selected ? 'bg-accent-soft' : ''
-                }`}
+                className={`${scenarioRow(scenario.selected)} cursor-pointer hover:bg-panel-2`}
               >
-                <span className="flex items-baseline gap-2">
-                  <span className="tabular text-base font-semibold">
-                    <Money value={scenario.monthly} decimals={0} />
-                  </span>
-                  <span className="text-xs text-ink-3">/ mês</span>
-                  {note === '' ? null : (
-                    <span className="ml-1 rounded-[4px] bg-panel-2 px-2 py-0.5 text-[0.71875rem] font-medium text-ink-2">
-                      {note}
-                    </span>
-                  )}
-                </span>
-                <span className="flex flex-col items-end">
-                  <span className="tabular text-base font-semibold">
-                    {scenario.arrival_date === null
+                <ScenarioCells
+                  monthly={scenario.monthly}
+                  note={SCENARIO_LABEL[scenario.kind]}
+                  arrival={
+                    scenario.arrival_date === null
                       ? 'não chega'
-                      : monthYearLabel(scenario.arrival_date)}
-                  </span>
-                  <span className={`text-xs ${TONE_TEXT[lateness.tone]}`}>
-                    {lateness.text}
-                  </span>
-                </span>
+                      : monthYearLabel(scenario.arrival_date)
+                  }
+                  lateness={lateness}
+                />
               </button>
             </li>
           );
@@ -427,63 +383,27 @@ const Simulator = ({
       </ul>
 
       <div className="flex flex-col gap-3 border-t border-line px-5 py-4">
-        <form
-          className="flex flex-wrap items-center gap-2 text-[0.8125rem]"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (parsed !== null) onChange({ budget: parsed });
-          }}
-        >
-          <label className="flex items-center gap-2 text-ink-2">
-            Quanto posso aportar por mês
-            <span className="tabular flex h-control items-center gap-1 rounded-control border border-line bg-panel px-2">
-              R$
-              <input
-                inputMode="decimal"
-                aria-invalid={invalid}
-                value={draft}
-                placeholder={Number(data.plan.budget).toLocaleString('pt-BR')}
-                onChange={(event) => setDraft(event.target.value)}
-                className="w-24 bg-transparent text-right outline-none"
-              />
-            </span>
-          </label>
-          <Button type="submit" disabled={parsed === null}>
-            Simular
-          </Button>
-          {draft === '' ? null : (
-            <Button
-              onClick={() => {
-                setDraft('');
-                onChange({ budget: null });
-              }}
-            >
-              Voltar ao necessário
-            </Button>
-          )}
-          {invalid ? (
-            <span role="alert" className="text-negative">
-              Informe um valor maior que zero.
-            </span>
-          ) : null}
-        </form>
-
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Segmented
-            label="Como dividir o aporte"
-            options={DISTRIBUTION_OPTIONS}
-            value={distribution}
-            onChange={(next) => onChange({ distribution: next })}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <BudgetForm
+            placeholder={Number(data.plan.budget).toLocaleString('pt-BR')}
+            resetLabel="Voltar ao necessário"
+            onSimulate={(monthly) => onChange({ budget: monthly })}
+            onReset={() => onChange({ budget: null })}
           />
-          <label className="flex cursor-pointer items-center gap-2 text-[0.8125rem] text-ink-2">
-            <input
-              type="checkbox"
-              checked={cascade}
-              onChange={(event) => onChange({ cascade: event.target.checked })}
-              className="size-4 cursor-pointer accent-accent"
-            />
-            Reaproveitar o aporte de metas concluídas
-          </label>
+
+          <span aria-hidden="true" className="hidden h-6 w-px bg-line xl:block" />
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <label className="flex cursor-pointer items-center gap-2 text-[0.8125rem] text-ink-2">
+              <input
+                type="checkbox"
+                checked={cascade}
+                onChange={(event) => onChange({ cascade: event.target.checked })}
+                className="size-4 cursor-pointer accent-accent"
+              />
+              Reaproveitar o aporte de metas concluídas
+            </label>
+          </div>
         </div>
 
         <p className="text-[0.75rem] text-ink-3">
@@ -561,141 +481,6 @@ const Trajectory = ({ data }: { readonly data: Overview }): React.ReactElement |
   );
 };
 
-const countedRows = (rows: readonly OverviewRow[]): readonly OverviewRow[] =>
-  rows.filter((row) => row.goal !== null && row.goal.counted);
-
-const Split = ({
-  rows,
-}: {
-  readonly rows: readonly OverviewRow[];
-}): React.ReactElement => (
-  <Panel
-    title="Para onde vai o aporte"
-    action={<span className="text-xs text-ink-3">necessário × o que aporto hoje</span>}
-  >
-    <ul className="flex flex-col gap-3 px-5 py-4">
-      {countedRows(rows).map((row) => {
-        const goal = row.goal;
-        if (goal === null) return null;
-        const needed = Number(goal.required_share_pct ?? 0);
-        const current = Number(goal.current_share_pct ?? 0);
-
-        return (
-          <li key={row.portfolio_id} className="flex flex-col gap-1">
-            <span className="text-[0.8125rem] font-medium">{row.portfolio_name}</span>
-            {(
-              [
-                ['necessário', needed, goal.required_share_pct, 'bg-accent'],
-                ['hoje', current, goal.current_share_pct, 'bg-ink-3'],
-              ] as const
-            ).map(([label, width, pct, color]) => (
-              <span key={label} className="flex items-center gap-2 text-xs">
-                <span className="w-16 text-ink-3">{label}</span>
-                <span
-                  role="img"
-                  aria-label={`${label}: ${pct ?? '0'}%`}
-                  className="relative block h-2 flex-1 rounded-[4px] bg-panel-2"
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`absolute inset-y-0 left-0 rounded-[4px] ${color}`}
-                    style={{ width: `${Math.min(100, Math.max(0, width))}%` }}
-                  />
-                </span>
-                <span className="tabular w-12 text-right">
-                  <Percent value={percentAsRatio(pct)} decimals={0} />
-                </span>
-              </span>
-            ))}
-          </li>
-        );
-      })}
-    </ul>
-  </Panel>
-);
-
-const Timeline = ({ data }: { readonly data: Overview }): React.ReactElement | null => {
-  const horizon = Math.max((data.chart?.dates.length ?? 1) - 1, 1);
-  const rows = countedRows(data.portfolios);
-  if (rows.length === 0) return null;
-
-  const place = (months: number): number => Math.min(100, (months / horizon) * 100);
-
-  return (
-    <Panel
-      title="Prazo e chegada"
-      action={<span className="text-xs text-ink-3">no ritmo atual de cada carteira</span>}
-    >
-      <ul className="flex flex-col gap-3 px-5 py-4">
-        {rows.map((row) => {
-          const goal = row.goal;
-          if (goal === null) return null;
-
-          const deadline = place(goal.months_remaining);
-          const arrival =
-            goal.current_months_to_arrival === null
-              ? null
-              : place(goal.current_months_to_arrival);
-          const late = latenessOf(goal.current_months_to_arrival, goal.months_remaining);
-          const from = Math.min(deadline, arrival ?? 100);
-          const to = Math.max(deadline, arrival ?? 100);
-
-          return (
-            <li key={row.portfolio_id} className="flex flex-col gap-1">
-              <span className="flex items-baseline justify-between text-[0.8125rem]">
-                <span className="font-medium">{row.portfolio_name}</span>
-                <span className="tabular text-xs text-ink-3">
-                  prazo {monthYearLabel(goal.target_date)} ·{' '}
-                  {goal.current_arrival_date === null
-                    ? 'não chega'
-                    : `chega ${monthYearLabel(goal.current_arrival_date)}`}
-                </span>
-              </span>
-              <span
-                role="img"
-                aria-label={`${row.portfolio_name}: prazo ${monthYearLabel(
-                  goal.target_date,
-                )}, ${late === null ? 'não chega em 100 anos' : late.text}`}
-                className="relative block h-4"
-              >
-                <span
-                  aria-hidden="true"
-                  className="absolute top-1/2 right-0 left-0 h-px bg-line"
-                />
-                <span
-                  aria-hidden="true"
-                  className={`absolute top-1/2 h-1 -translate-y-1/2 rounded-[2px] ${
-                    late === null
-                      ? 'bg-negative'
-                      : late.tone === 'positive'
-                        ? 'bg-positive'
-                        : 'bg-attention'
-                  }`}
-                  style={{ left: `${from}%`, width: `${to - from}%` }}
-                />
-                <span
-                  aria-hidden="true"
-                  title="prazo"
-                  className="absolute top-0 h-4 w-0.5 bg-ink"
-                  style={{ left: `${deadline}%` }}
-                />
-                {arrival === null ? null : (
-                  <span
-                    aria-hidden="true"
-                    title="chegada no ritmo atual"
-                    className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent"
-                    style={{ left: `${arrival}%` }}
-                  />
-                )}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </Panel>
-  );
-};
-
 /* -------------------------------------------------------------------------- */
 /* A tabela                                                                    */
 
@@ -707,39 +492,28 @@ const Sub = ({
   <span className="block text-[0.71875rem] text-ink-3">{children}</span>
 );
 
-const TH = 'px-4 py-[9px] font-medium';
+const TH = 'px-4 py-3 font-medium';
+const TD = 'px-4 py-4 align-middle';
 
 const PortfolioTable = ({
   data,
-  distribution,
-  order,
-  priority,
-  onChange,
   onOpenPortfolio,
 }: {
   readonly data: Overview;
-  readonly distribution: Distribution;
-  readonly order: readonly string[];
-  readonly priority: readonly string[];
-  readonly onChange: (change: GoalsOverviewChange) => void;
   readonly onOpenPortfolio: (portfolioId: string) => void;
 }): React.ReactElement => {
-  const rows = sortRows(data.portfolios, distribution, priority);
+  const rows = sortRows(data.portfolios);
   const { totals } = data;
+  // Sem simulação o plano é o próprio aporte necessário: a coluna repetiria a anterior.
+  const showPlan = data.plan.budget !== totals.required_monthly;
 
   return (
     <Panel
       title="Por carteira"
-      action={
-        <span className="text-xs text-ink-3">
-          {distribution === 'priority'
-            ? 'na ordem de prioridade do aporte'
-            : 'mais atrasadas primeiro'}
-        </span>
-      }
+      action={<span className="text-xs text-ink-3">mais atrasadas primeiro</span>}
     >
       <div className="overflow-x-auto">
-        <table className="w-full min-w-240 border-collapse text-[0.8125rem]">
+        <table className="w-full min-w-264 border-collapse text-[0.8125rem]">
           <caption className="sr-only">
             O objetivo de cada carteira, o aporte necessário e quando ele chega
           </caption>
@@ -763,9 +537,11 @@ const PortfolioTable = ({
               <th scope="col" className={`${TH} text-right`}>
                 Aporte hoje
               </th>
-              <th scope="col" className={`${TH} text-right`}>
-                No plano
-              </th>
+              {showPlan ? (
+                <th scope="col" className={`${TH} text-right`}>
+                  No plano
+                </th>
+              ) : null}
               <th scope="col" className={`${TH} text-right`}>
                 Chega em
               </th>
@@ -780,17 +556,14 @@ const PortfolioTable = ({
 
               if (goal === null) {
                 return (
-                  <tr
-                    key={row.portfolio_id}
-                    className="h-(--row-height) border-t border-line text-ink-3"
-                  >
-                    <th scope="row" className="px-4 text-left font-normal">
+                  <tr key={row.portfolio_id} className="border-t border-line text-ink-3">
+                    <th scope="row" className="px-4 py-4 text-left font-normal">
                       <PortfolioLink row={row} onOpen={onOpenPortfolio} />
                     </th>
-                    <td colSpan={7} className="px-4">
+                    <td colSpan={showPlan ? 7 : 6} className={TD}>
                       Sem objetivo
                     </td>
-                    <td className="px-4">
+                    <td className={TD}>
                       <Button onClick={() => onOpenPortfolio(row.portfolio_id)}>
                         Definir objetivo
                       </Button>
@@ -804,47 +577,16 @@ const PortfolioTable = ({
                 goal.months_remaining,
               );
               const state = barState(goal.status);
-              const position = order.indexOf(row.portfolio_id);
 
               return (
                 <tr
                   key={row.portfolio_id}
-                  className={`h-(--row-height) border-t border-line ${
-                    goal.counted ? '' : 'text-ink-3'
-                  }`}
+                  className={`border-t border-line ${goal.counted ? '' : 'text-ink-3'}`}
                 >
-                  <th scope="row" className="px-4 text-left font-normal">
-                    <span className="flex items-center gap-1">
-                      {distribution === 'priority' && goal.counted ? (
-                        <span className="-ml-2 flex">
-                          <IconButton
-                            row
-                            label={`Subir a prioridade de ${row.portfolio_name}`}
-                            icon="arrow-up"
-                            disabled={position <= 0}
-                            onClick={() =>
-                              onChange({
-                                priority: moveInOrder(order, row.portfolio_id, -1),
-                              })
-                            }
-                          />
-                          <IconButton
-                            row
-                            label={`Descer a prioridade de ${row.portfolio_name}`}
-                            icon="arrow-down"
-                            disabled={position === order.length - 1}
-                            onClick={() =>
-                              onChange({
-                                priority: moveInOrder(order, row.portfolio_id, 1),
-                              })
-                            }
-                          />
-                        </span>
-                      ) : null}
-                      <PortfolioLink row={row} onOpen={onOpenPortfolio} />
-                    </span>
+                  <th scope="row" className="px-4 py-4 text-left font-normal">
+                    <PortfolioLink row={row} onOpen={onOpenPortfolio} />
                   </th>
-                  <td className="px-4">
+                  <td className={`${TD} min-w-64`}>
                     {goal.name}
                     <Sub>
                       <Money value={goal.target_amount} decimals={0} /> ·{' '}
@@ -857,7 +599,7 @@ const PortfolioTable = ({
                       </Sub>
                     )}
                   </td>
-                  <td className="px-4">
+                  <td className={TD}>
                     <span className="flex items-center gap-2">
                       <span className="w-24">
                         <Track
@@ -872,12 +614,12 @@ const PortfolioTable = ({
                       </span>
                     </span>
                   </td>
-                  <td className="px-4 text-right">
+                  <td className={`${TD} text-right`}>
                     <Money value={goal.remaining_brl} />
                   </td>
                   {goal.counted ? (
                     <>
-                      <td className="px-4 text-right">
+                      <td className={`${TD} text-right`}>
                         <strong className="font-semibold">
                           <Money value={goal.required_monthly} decimals={0} />
                         </strong>
@@ -889,7 +631,7 @@ const PortfolioTable = ({
                           do total
                         </Sub>
                       </td>
-                      <td className="px-4 text-right">
+                      <td className={`${TD} text-right`}>
                         <Money value={goal.current_monthly} decimals={0} />
                         <Sub>
                           <Percent
@@ -899,20 +641,22 @@ const PortfolioTable = ({
                           do total
                         </Sub>
                       </td>
-                      <td className="px-4 text-right">
-                        {goal.plan === null ? null : (
-                          <>
-                            <Money value={goal.plan.monthly} decimals={0} />
-                            <Sub>
-                              {goal.plan.arrival_date === null
-                                ? 'não chega'
-                                : monthYearLabel(goal.plan.arrival_date)}
-                            </Sub>
-                          </>
-                        )}
-                      </td>
-                      <td className="px-4 text-right">
-                        <span className="tabular">
+                      {showPlan ? (
+                        <td className={`${TD} text-right`}>
+                          {goal.plan === null ? null : (
+                            <>
+                              <Money value={goal.plan.monthly} decimals={0} />
+                              <Sub>
+                                {goal.plan.arrival_date === null
+                                  ? 'não chega'
+                                  : monthYearLabel(goal.plan.arrival_date)}
+                              </Sub>
+                            </>
+                          )}
+                        </td>
+                      ) : null}
+                      <td className={`${TD} text-right`}>
+                        <span className="tabular whitespace-nowrap">
                           {goal.current_arrival_date === null
                             ? 'não chega'
                             : goal.current_months_to_arrival === 0
@@ -933,13 +677,13 @@ const PortfolioTable = ({
                       </td>
                     </>
                   ) : (
-                    <td colSpan={4} className="px-4 text-right text-xs">
+                    <td colSpan={showPlan ? 4 : 3} className={`${TD} text-right text-xs`}>
                       {goal.excluded_reason === null
                         ? null
                         : EXCLUSION_LABEL[goal.excluded_reason]}
                     </td>
                   )}
-                  <td className="px-4">
+                  <td className={TD}>
                     <span className="flex items-center gap-1.5 whitespace-nowrap">
                       <span
                         aria-hidden="true"
@@ -959,29 +703,31 @@ const PortfolioTable = ({
             })}
           </tbody>
           <tfoot>
-            <tr className="h-(--row-height) border-t border-line bg-panel-2 font-semibold">
-              <th scope="row" colSpan={3} className="px-4 text-left font-semibold">
+            <tr className="border-t border-line bg-panel-2 font-semibold">
+              <th scope="row" colSpan={3} className="px-4 py-4 text-left font-semibold">
                 Total
               </th>
-              <td className="px-4 text-right">
+              <td className={`${TD} text-right`}>
                 <Money value={totals.remaining_brl} />
               </td>
-              <td className="px-4 text-right">
+              <td className={`${TD} text-right`}>
                 <Money value={totals.required_monthly} decimals={0} />
                 <Sub>100%</Sub>
               </td>
-              <td className="px-4 text-right">
+              <td className={`${TD} text-right`}>
                 <Money value={totals.current_monthly} decimals={0} />
                 <Sub>100%</Sub>
               </td>
-              <td className="px-4 text-right">
-                <Money value={data.plan.budget} decimals={0} />
-                <Sub>
-                  {data.plan.arrival_date === null
-                    ? 'não chega'
-                    : monthYearLabel(data.plan.arrival_date)}
-                </Sub>
-              </td>
+              {showPlan ? (
+                <td className={`${TD} text-right`}>
+                  <Money value={data.plan.budget} decimals={0} />
+                  <Sub>
+                    {data.plan.arrival_date === null
+                      ? 'não chega'
+                      : monthYearLabel(data.plan.arrival_date)}
+                  </Sub>
+                </td>
+              ) : null}
               <td colSpan={2} className="px-4" />
             </tr>
           </tfoot>
@@ -1050,9 +796,9 @@ const Failed = ({
 
 export const GoalsOverviewView = ({
   resource,
-  distribution,
   cascade,
-  priority,
+  rates,
+  onRateChange,
   onChange,
   onOpenPortfolio,
 }: GoalsOverviewViewProps): React.ReactElement => {
@@ -1075,13 +821,6 @@ export const GoalsOverviewView = ({
   if (state.kind === 'error') return <Failed error={state.error} onRetry={reload} />;
 
   const data = state.value;
-  const order = effectivePriority(
-    priority,
-    sortRows(data.portfolios, 'proportional', []).flatMap((row) =>
-      row.goal !== null && row.goal.counted ? [row.portfolio_id] : [],
-    ),
-  );
-
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -1106,15 +845,24 @@ export const GoalsOverviewView = ({
           {data.totals.counted > 0 ? (
             <>
               <Summary data={data} />
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_26.5rem]">
-                <Trajectory data={data} />
-                <Simulator
-                  data={data}
-                  distribution={distribution}
-                  cascade={cascade}
-                  onChange={onChange}
-                />
-              </div>
+              <Trajectory data={data} />
+              <Simulator data={data} cascade={cascade} onChange={onChange} />
+              <RatesPanel
+                rows={data.portfolios.flatMap((row) =>
+                  row.goal === null || row.goal.rate === null
+                    ? []
+                    : [
+                        {
+                          id: row.portfolio_id,
+                          name: row.portfolio_name,
+                          current_value: row.goal.current_value,
+                          premise_pct: row.goal.rate.premise_pct,
+                        },
+                      ],
+                )}
+                rates={rates}
+                onChange={onRateChange}
+              />
             </>
           ) : (
             <p
@@ -1125,20 +873,7 @@ export const GoalsOverviewView = ({
               projeção ficam fora. Veja o motivo de cada uma abaixo.
             </p>
           )}
-          <PortfolioTable
-            data={data}
-            distribution={distribution}
-            order={order}
-            priority={order}
-            onChange={onChange}
-            onOpenPortfolio={onOpenPortfolio}
-          />
-          {data.totals.counted > 0 ? (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <Split rows={data.portfolios} />
-              <Timeline data={data} />
-            </div>
-          ) : null}
+          <PortfolioTable data={data} onOpenPortfolio={onOpenPortfolio} />
         </KeepPrevious>
       )}
     </div>

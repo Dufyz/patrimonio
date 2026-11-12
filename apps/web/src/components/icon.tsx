@@ -151,6 +151,16 @@ const PATHS = {
   ),
   trash: <path d="M2.5 4h11 M6 4V2.5h4V4 M4 4l.7 9.5h6.6L12 4" />,
   undo: <path d="M5 3L2 6l3 3 M2 6h7.5a4 4 0 010 8H6" />,
+  card: (
+    <>
+      <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" />
+      <path d="M1.5 6.5h13 M4 10h2.5" />
+    </>
+  ),
+  repeat: <path d="M3 7V6a2 2 0 012-2h8l-2-2 M13 9v1a2 2 0 01-2 2H3l2 2" />,
+  download: (
+    <path d="M8 2.5V10 M5 7.5l3 2.5 3-2.5 M2.5 10v2.5a1 1 0 001 1h9a1 1 0 001-1V10" />
+  ),
   briefcase: (
     <>
       <path d="M2 5h12v8.5H2z M5.5 5V3h5v2" />

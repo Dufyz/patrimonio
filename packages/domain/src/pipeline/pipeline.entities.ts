@@ -1,5 +1,12 @@
 /** Os cinco estágios do pipeline, um por fila. */
-export const STAGES = ['recalc', 'market', 'close', 'import', 'backup'] as const;
+export const STAGES = [
+  'recalc',
+  'market',
+  'close',
+  'import',
+  'backup',
+  'finance',
+] as const;
 
 export type Stage = (typeof STAGES)[number];
 

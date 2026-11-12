@@ -1,0 +1,93 @@
+import { useState } from 'react';
+
+import { Modal } from '../../components/overlay.js';
+import { FormShell } from '../../views/entry/form_shell.js';
+import { Field, Input, MoneyInput } from '../../views/entry/fields.js';
+import {
+  draftOfAccount,
+  emptyAccountDraft,
+  validateAccount,
+} from '../domain/account_ops.js';
+import type { AccountDraft } from '../domain/account_ops.js';
+import type { Account, FinanceData } from '../domain/types.js';
+
+/** FIN-404 · O modal de conta, para criar e para editar. */
+export const AccountDialog = ({
+  data,
+  account,
+  onSave,
+  onClose,
+}: {
+  readonly data: FinanceData;
+  /** Ausente em "Nova conta". */
+  readonly account?: Account | undefined;
+  readonly onSave: (draft: AccountDraft) => void;
+  readonly onClose: () => void;
+}): React.ReactElement => {
+  const [draft, setDraft] = useState<AccountDraft>(() =>
+    account === undefined ? emptyAccountDraft() : draftOfAccount(account),
+  );
+  const [attempted, setAttempted] = useState(false);
+
+  const errors = validateAccount(data, draft, account?.id);
+  const shown = (field: keyof typeof errors): string | undefined =>
+    attempted ? errors[field] : undefined;
+  const set = (patch: Partial<AccountDraft>): void => setDraft({ ...draft, ...patch });
+
+  const save = (): void => {
+    setAttempted(true);
+    if (Object.keys(errors).length > 0) return;
+    onSave(draft);
+  };
+
+  return (
+    <Modal
+      open
+      guard
+      narrow
+      title={account === undefined ? 'Nova conta' : 'Editar conta'}
+      subtitle="Onde o dinheiro está: conta corrente, carteira, vale…"
+      onClose={onClose}
+    >
+      <FormShell
+        pending={false}
+        onSave={save}
+        onCancel={onClose}
+        saveLabel={account === undefined ? 'Criar conta' : 'Salvar'}
+      >
+        <Field label="Nome" error={shown('name')}>
+          {(props) => (
+            <Input
+              {...props}
+              autoFocus
+              invalid={shown('name') !== undefined}
+              value={draft.name}
+              onChange={(event) => set({ name: event.target.value })}
+            />
+          )}
+        </Field>
+        <Field label="Descrição do papel">
+          {(props) => (
+            <Input
+              {...props}
+              invalid={false}
+              placeholder="Recebe as receitas e paga as despesas"
+              value={draft.role}
+              onChange={(event) => set({ role: event.target.value })}
+            />
+          )}
+        </Field>
+        <Field label="Saldo inicial" error={shown('initial')}>
+          {(props) => (
+            <MoneyInput
+              {...props}
+              invalid={shown('initial') !== undefined}
+              value={draft.initial}
+              onChange={(event) => set({ initial: event.target.value })}
+            />
+          )}
+        </Field>
+      </FormShell>
+    </Modal>
+  );
+};

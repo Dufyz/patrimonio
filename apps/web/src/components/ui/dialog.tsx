@@ -1,4 +1,5 @@
 import { Dialog as DialogPrimitive } from 'radix-ui';
+import { useRef } from 'react';
 
 import { cn } from '../../lib/cn.js';
 import { Icon } from '../icon.js';
@@ -30,24 +31,43 @@ export const DialogOverlay = ({
 export const DialogContent = ({
   className,
   children,
+  onCloseAutoFocus,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>): React.ReactElement => (
-  <DialogPrimitive.Portal>
-    <DialogOverlay />
-    <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-8">
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
-        className={cn(
-          'pointer-events-auto flex max-h-full w-full flex-col overflow-hidden rounded-xl border border-line-2 bg-panel text-ink shadow-dialog outline-none',
-          className,
-        )}
-        {...props}
-      >
-        {children}
-      </DialogPrimitive.Content>
-    </div>
-  </DialogPrimitive.Portal>
-);
+}: React.ComponentProps<typeof DialogPrimitive.Content>): React.ReactElement => {
+  // O Radix só devolve o foco a um `Trigger`. Os modais abertos por estado (o botão
+  // "Cartão", o `N`) não têm um: quem abriu é o elemento que tinha o foco na hora.
+  const opener = useRef<HTMLElement | null>(null);
+  if (opener.current === null && typeof document !== 'undefined') {
+    const active = document.activeElement;
+    opener.current =
+      active instanceof HTMLElement && active !== document.body ? active : null;
+  }
+  return (
+    <DialogPrimitive.Portal>
+      <DialogOverlay />
+      <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-8">
+        <DialogPrimitive.Content
+          data-slot="dialog-content"
+          className={cn(
+            'pointer-events-auto flex max-h-full w-full flex-col overflow-hidden rounded-xl border border-line-2 bg-panel text-ink shadow-dialog outline-none',
+            className,
+          )}
+          onCloseAutoFocus={(event) => {
+            onCloseAutoFocus?.(event);
+            const target = opener.current;
+            if (!event.defaultPrevented && target?.isConnected === true) {
+              event.preventDefault();
+              target.focus();
+            }
+          }}
+          {...props}
+        >
+          {children}
+        </DialogPrimitive.Content>
+      </div>
+    </DialogPrimitive.Portal>
+  );
+};
 
 export const DialogHeader = ({
   className,

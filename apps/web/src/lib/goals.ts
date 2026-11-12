@@ -95,6 +95,7 @@ export const KIND_LABEL: Readonly<
 > = {
   current: 'média',
   required: 'necessário',
+  custom: 'seu valor',
   option: '',
 };
 
@@ -116,10 +117,6 @@ export const normalizeRateInput = (text: string): string | null => {
   return RATE_PATTERN.test(value) && Number(value) <= 100 ? value : null;
 };
 
-/** `taxa=6` → `'6'`. Ausente ou inválida volta nulo, e a premissa guardada vale. */
-export const decodeRate = (raw: string | null): string | null =>
-  raw !== null && RATE_PATTERN.test(raw) && Number(raw) <= 100 ? raw : null;
-
 /* -------------------------------------------------------------------------- */
 /* O gráfico                                                                   */
 
@@ -128,8 +125,8 @@ export const REQUIRED_COLOR = 'var(--color-ink-3)';
 
 export const chartSeries = (goal: GoalResource): readonly Series[] => {
   if (goal.chart === null) return [];
-  const { dates, pace, required } = goal.chart;
-  return [
+  const { dates, pace, required, plan } = goal.chart;
+  const series: Series[] = [
     {
       id: 'pace',
       label: 'No ritmo atual',
@@ -150,6 +147,20 @@ export const chartSeries = (goal: GoalResource): readonly Series[] => {
       })),
     },
   ];
+
+  if (plan !== null) {
+    series.push({
+      id: 'plan',
+      label: 'Com o aporte simulado',
+      color: 'var(--color-positive)',
+      points: dates.map((date, index) => ({
+        date: date as DateOnly,
+        value: plan[index] ?? null,
+      })),
+    });
+  }
+
+  return series;
 };
 
 /* -------------------------------------------------------------------------- */

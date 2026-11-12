@@ -58,7 +58,8 @@ export const GOAL_ROUTE_DOCS: readonly RouteDoc[] = [
           '`plan` distribui o orçamento pedido (`budget`, padrão o aporte necessário ' +
           'total) entre as carteiras — proporcional ao necessário ou por `priority` — e ' +
           '`cascade` reaproveita a parcela de uma meta que já fechou. É aporte futuro: o ' +
-          'dinheiro já investido numa carteira não migra para outra. `arrival_date` nulo é ' +
+          'dinheiro já investido numa carteira não migra para outra. `rates` simula a ' +
+          'rentabilidade de cada carteira no lugar da premissa, sem gravar. `arrival_date` nulo é ' +
           '"alguma meta não fecha em cem anos".',
         schema: goalsOverviewSchema,
       },

@@ -25,6 +25,7 @@ import { createMarketIngestionRepository } from './repositories/market_ingestion
 import { createOverviewRepository } from './repositories/overview.repository.js';
 import { createAllocationRepository } from './repositories/allocation.repository.js';
 import { createGoalRepository } from './repositories/goal.repository.js';
+import { createFinanceRepository } from './repositories/finance.repository.js';
 import { createSettingsRepository } from './repositories/settings.repository.js';
 import { createPerformanceRepository } from './repositories/performance.repository.js';
 import { createOutboxRepository } from './repositories/outbox.repository.js';
@@ -83,6 +84,7 @@ export const createRepositories = (
   goals: createGoalRepository(sql),
   settings: createSettingsRepository(sql),
   market: createMarketIngestionRepository(sql),
+  finance: createFinanceRepository(sql),
 });
 
 /**

@@ -477,3 +477,5 @@ export type {
   SettingsBackup,
   SettingsPortfolio,
 } from './settings/settings.schema.js';
+
+export * from './finance/finance.schema.js';

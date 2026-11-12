@@ -710,3 +710,21 @@ export type {
   RequestBackupInput,
   RequestBackupResult,
 } from './usecases/settings/requestBackup.usecase.js';
+
+// ─── Finanças ────────────────────────────────────────────────────────────────
+export { FinanceError, isFinanceError } from './errors/finance-error.js';
+export type { FinanceErrorItem } from './errors/finance-error.js';
+export type {
+  FinanceChanges,
+  FinanceRepository,
+  IdempotentRecord,
+} from './interfaces/finance.repository.js';
+export { financeUseCases } from './usecases/finance/finance.usecases.js';
+export type {
+  EntryInput,
+  FinanceUseCases,
+  Scope as FinanceScope,
+  WriteMeta,
+} from './usecases/finance/finance.usecases.js';
+export type { FinanceDeps, FinanceOutcome } from './usecases/finance/runner.js';
+export { financeClock } from './usecases/finance/clock.js';

@@ -64,10 +64,13 @@ import {
   updateAsset,
   updateTransaction,
   createDebouncePolicy,
+  financeClock,
+  financeUseCases,
   updatePortfolio,
 } from '@patrimonio/application';
 import type {
   Clock,
+  FinanceUseCases,
   InstrumentLookup,
   TransactionalRepositories,
   UnitOfWork,
@@ -88,6 +91,8 @@ import {
   createRedisConnection,
 } from '@patrimonio/queue';
 import type { Queues, RedisConnection } from '@patrimonio/queue';
+
+import { uuidV7 } from '@patrimonio/shared';
 
 import { systemClock } from './infra/config/clock.js';
 
@@ -258,6 +263,13 @@ export const createApiUseCases = (deps: {
     clock: deps.clock,
     backupEnabled: environment.backup.enabled,
   }),
+  // Finanças: cada escrita é uma função pura do motor sob uma transação com trava.
+  // O "hoje" é o de São Paulo, derivado do relógio injetado.
+  finance: financeUseCases({
+    unitOfWork: deps.unitOfWork,
+    clock: financeClock(deps.clock),
+    newId: () => uuidV7(deps.clock.now),
+  }) as FinanceUseCases,
 });
 
 export type ApiUseCases = ReturnType<typeof createApiUseCases>;

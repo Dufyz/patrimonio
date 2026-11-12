@@ -40,6 +40,7 @@ const goal = (overrides: Partial<RowGoal>): RowGoal => ({
   current_share_pct: '68.18',
   current_arrival_date: '2026-12-22',
   current_months_to_arrival: 2,
+  rate: { premise_pct: '10.69', used_pct: '10.69', overridden: false },
   plan: {
     monthly: '1062.00',
     share_pct: '13.57',
@@ -151,13 +152,15 @@ const montar = ({
   value = dados,
   onChange = vi.fn(),
   onOpenPortfolio = vi.fn(),
-  distribution = 'proportional',
+  rates = {},
+  onRateChange = vi.fn(),
   state,
 }: {
   readonly value?: GoalsOverviewResource;
   readonly onChange?: ReturnType<typeof vi.fn>;
   readonly onOpenPortfolio?: ReturnType<typeof vi.fn>;
-  readonly distribution?: 'proportional' | 'priority';
+  readonly rates?: Readonly<Record<string, string>>;
+  readonly onRateChange?: ReturnType<typeof vi.fn>;
   readonly state?: Resource<GoalsOverviewResource>['state'];
 } = {}) =>
   render(
@@ -169,9 +172,9 @@ const montar = ({
           reload: vi.fn(),
         }}
         budget={null}
-        distribution={distribution}
         cascade
-        priority={[]}
+        rates={rates}
+        onRateChange={onRateChange}
         onChange={onChange}
         onOpenPortfolio={onOpenPortfolio}
       />
@@ -201,7 +204,7 @@ describe('GoalsOverviewView', () => {
   it('a tabela traz a fatia de cada carteira no necessário e no que se aporta hoje', () => {
     montar();
 
-    const tabela = screen.getByRole('table');
+    const tabela = screen.getByRole('table', { name: /O objetivo de cada carteira/ });
     const investimentos = within(tabela)
       .getByText('Independência financeira')
       .closest('tr');
@@ -215,7 +218,9 @@ describe('GoalsOverviewView', () => {
   it('põe a carteira mais atrasada primeiro, e a sem objetivo por último', () => {
     montar();
 
-    const linhas = within(screen.getByRole('table'))
+    const linhas = within(
+      screen.getByRole('table', { name: /O objetivo de cada carteira/ }),
+    )
       .getAllByRole('row')
       .map((linha) => linha.textContent ?? '');
 
@@ -239,7 +244,9 @@ describe('GoalsOverviewView', () => {
     montar({ onOpenPortfolio });
 
     await userEvent.click(
-      within(screen.getByRole('table')).getByRole('button', { name: /Investimentos/ }),
+      within(
+        screen.getByRole('table', { name: /O objetivo de cada carteira/ }),
+      ).getByRole('button', { name: /Investimentos/ }),
     );
 
     expect(onOpenPortfolio).toHaveBeenCalledWith(INVESTIMENTOS);
@@ -263,7 +270,7 @@ describe('GoalsOverviewView', () => {
     const onChange = vi.fn();
     montar({ onChange });
 
-    const campo = screen.getByRole('textbox');
+    const campo = screen.getByRole('textbox', { name: /Quanto posso aportar/ });
     const simular = screen.getByRole('button', { name: 'Simular' }) as HTMLButtonElement;
 
     expect(simular.disabled).toBe(true);
@@ -279,29 +286,14 @@ describe('GoalsOverviewView', () => {
     expect(onChange).toHaveBeenCalledWith({ budget: '8500.50' });
   });
 
-  it('troca a distribuição e a cascata', async () => {
+  it('liga e desliga a cascata', async () => {
     const onChange = vi.fn();
     montar({ onChange });
-
-    await userEvent.click(screen.getByRole('radio', { name: 'Por prioridade' }));
-    expect(onChange).toHaveBeenCalledWith({ distribution: 'priority' });
 
     await userEvent.click(
       screen.getByRole('checkbox', { name: /Reaproveitar o aporte de metas concluídas/ }),
     );
     expect(onChange).toHaveBeenCalledWith({ cascade: false });
-  });
-
-  it('por prioridade, cada carteira com meta ganha setas para mudar a fila', async () => {
-    const onChange = vi.fn();
-    montar({ onChange, distribution: 'priority' });
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Subir a prioridade de Emergência' }),
-    );
-
-    expect(onChange).toHaveBeenCalledWith({ priority: [EMERGENCIA, INVESTIMENTOS] });
-    expect(screen.queryByRole('button', { name: /prioridade de Caixa/ })).toBeNull();
   });
 
   it('meta fora da soma continua na tabela, com o motivo', () => {
@@ -353,16 +345,12 @@ describe('GoalsOverviewView', () => {
       },
     });
 
-    const resumo = within(screen.getByRole('region', { name: 'Todos os objetivos' }));
-
+    expect(screen.getByTitle(/convertidas pelo IPCA 12M/)).toBeTruthy();
     expect(
-      resumo.getByText(
-        /uma meta em reais da data alvo convertida pelo IPCA 12M \(4,50%\)/,
-      ),
-    ).toBeTruthy();
-    expect(within(screen.getByRole('table')).getAllByRole('row')[1]?.textContent).toMatch(
-      /meta de R\$\s*400\.000/,
-    );
+      within(
+        screen.getByRole('table', { name: /O objetivo de cada carteira/ }),
+      ).getAllByRole('row')[1]?.textContent,
+    ).toMatch(/meta de R\$\s*400\.000/);
   });
 
   it('sem nenhum objetivo explica onde defini-los', () => {

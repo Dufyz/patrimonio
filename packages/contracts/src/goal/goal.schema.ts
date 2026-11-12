@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
+import {
+  dateOnly,
+  decimalString,
+  positiveDecimal,
+  uuid,
+} from '../support/primitives.schema.js';
 
 /**
  * T-07 · Onde o usuário diz quanto quer ter e quando, e a aplicação responde se
@@ -65,6 +70,10 @@ export const goalRateSchema = z.object({
   overridden: z.boolean(),
   /** O IPCA dos últimos doze meses, usado só em meta nominal com `IPCA+x`. */
   inflation_pct: decimalString.nullable(),
+  /** A premissa guardada como taxa nominal ao ano. Nulo sem IPCA para convertê-la. */
+  premise_pct: decimalString.nullable(),
+  /** A taxa em uso como nominal ao ano. Nulo sem IPCA para convertê-la. */
+  nominal_pct: decimalString.nullable(),
 });
 
 export const goalPaceSchema = z.object({
@@ -98,12 +107,16 @@ export const goalChartSchema = z.object({
   pace: z.array(decimalString),
   /** A trajetória que fecha a meta na data. */
   required: z.array(decimalString),
+  /** Com o aporte simulado (`monthly`). Nulo sem simulação. */
+  plan: z.array(decimalString).nullable(),
 });
 
 export const goalContributionRowSchema = z.object({
   monthly_contribution: decimalString,
-  /** `current` é o ritmo de hoje; `required` fecha a meta; `option` é redondo. */
-  kind: z.enum(['current', 'required', 'option']),
+  /** `current` é o ritmo de hoje; `required` fecha a meta; `option` é redondo; `custom` é o simulado. */
+  kind: z.enum(['current', 'required', 'option', 'custom']),
+  /** Verdadeiro para o aporte pedido em `monthly`. */
+  selected: z.boolean(),
   arrival_date: dateOnly.nullable(),
   months_to_arrival: z.number().int().nonnegative().nullable(),
   /** Verdadeiro quando esse aporte chega até a data alvo. */
@@ -170,6 +183,13 @@ export const getGoalsSchema = z.object({
     on_date: dateOnly.optional(),
     /** A taxa ao ano do objetivo, no lugar da premissa guardada. */
     rate: rateOverride.optional(),
+    /**
+     * A rentabilidade nominal ao ano no lugar da premissa, como a "esperada" da
+     * Projeção. Vale sobre `rate`.
+     */
+    nominal_rate: rateOverride.optional(),
+    /** Um aporte mensal a simular. */
+    monthly: positiveDecimal.optional(),
   }),
 });
 

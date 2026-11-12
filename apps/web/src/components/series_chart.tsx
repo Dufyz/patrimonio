@@ -42,6 +42,9 @@ import { useValuesHidden } from './preferences.js';
  * datas. A margem direita só cresce quando há rótulo de fim de linha.
  */
 const MARGIN = { top: 8, right: 12, bottom: 24, left: 0 } as const;
+/** A altura mínima entre dois rótulos finais, em px. */
+const END_LABEL_GAP = 14;
+
 const END_LABEL_MARGIN = 92;
 const DEFAULT_HEIGHT = 240;
 
@@ -194,6 +197,35 @@ export const SeriesChart = ({
 
   const x = linearScale([0, Math.max(1, dates.length - 1)], [0, plotWidth]);
   const y = linearScale(domain, [plotHeight, 0]);
+
+  // O rótulo final de uma série e o da meta caem juntos quando a série chega na
+  // meta: um sobe e o outro desce, em vez de um texto escrito por cima do outro.
+  const referenceY =
+    reference === undefined || Number.isNaN(Number(reference.value))
+      ? null
+      : y(Number(reference.value));
+  const labelledEnds = !endLabels
+    ? []
+    : reduced.flatMap((entry) => {
+        if (endLabelSeries !== undefined && !endLabelSeries.includes(entry.id)) return [];
+        const last = Number(entry.points.at(-1)?.value);
+
+        return Number.isNaN(last) ? [] : [y(last)];
+      });
+  const seriesNudge = (seriesY: number): number => {
+    if (!endLabels || referenceY === null) return 0;
+    if (Math.abs(seriesY - referenceY) >= END_LABEL_GAP) return 0;
+
+    return seriesY >= referenceY ? END_LABEL_GAP / 2 : -END_LABEL_GAP / 2;
+  };
+  const referenceNudge =
+    referenceY === null
+      ? 0
+      : 0 -
+        seriesNudge(
+          labelledEnds.find((end) => Math.abs(end - referenceY) < END_LABEL_GAP) ??
+            Number.POSITIVE_INFINITY,
+        );
   const baseline = y(Math.max(domain[0], Math.min(0, domain[1])));
 
   // Onde a história começa: o primeiro dia da série em ou depois do primeiro
@@ -402,7 +434,7 @@ export const SeriesChart = ({
                   x={endLabels ? plotWidth + 8 : plotWidth - 4}
                   y={
                     endLabels
-                      ? y(Number(reference.value))
+                      ? y(Number(reference.value)) + referenceNudge
                       : y(Number(reference.value)) + 14
                   }
                   dominantBaseline={endLabels ? 'middle' : undefined}
@@ -471,7 +503,7 @@ export const SeriesChart = ({
                     <text
                       key={`${entry.id}-end`}
                       x={plotWidth + 8}
-                      y={y(value)}
+                      y={y(value) + seriesNudge(y(value))}
                       dominantBaseline="middle"
                       className="tabular text-[0.71875rem] font-semibold"
                       fill={entry.dashed === true ? 'var(--color-ink-2)' : entry.color}
