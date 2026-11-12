@@ -2,18 +2,21 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Panel } from '../../components/primitives.js';
-import { CategoryBreakdown } from '../components/category_breakdown.js';
 import { FlowChart } from '../components/flow_chart.js';
 import { PanelBoundary } from '../components/states.js';
 import { FinanceWelcome } from '../components/finance_welcome.js';
 import { EntryDialog } from '../components/entry_dialog.js';
 import { PeriodControl } from '../components/period_control.js';
 import { useFinancePeriod } from '../components/period_provider.js';
-import { OverviewStrip } from '../components/overview_strip.js';
-import { ProjectionPanel } from '../components/projection_panel.js';
+import {
+  ContasPanel,
+  DespesasCategoriaPanel,
+  FaturasAbertasPanel,
+  ProximosLancamentosPanel,
+  SaldoPrevistoPanel,
+} from '../components/overview_panels.js';
 import { ScreenHeader } from '../components/screen_header.js';
-import { UpcomingPanel } from '../components/upcoming_panel.js';
-import { categoryBreakdown, monthResult, monthSeries } from '../domain/overview.js';
+import { monthResult, monthSeries } from '../domain/overview.js';
 import { projectedMonths } from '../domain/projection.js';
 import { emptyEntryDraft } from '../domain/entry_ops.js';
 import { formatMonth } from '../lib/format.js';
@@ -39,7 +42,6 @@ export const OverviewScreen = (): React.ReactElement => {
   const { range, setRange, today } = useFinancePeriod();
   const result = monthResult(data, range, today);
   const series = monthSeries(data, range, today);
-  const breakdown = categoryBreakdown(data, range);
   const current = series[series.length - 1];
   const future = useMemo(
     () =>
@@ -72,12 +74,28 @@ export const OverviewScreen = (): React.ReactElement => {
         primary={{ label: PRIMARY_LABELS.entries, onClick: () => setCreating(true) }}
       />
       <div className="flex flex-col gap-4">
-        <PanelBoundary title="o resultado do período">
-          <OverviewStrip result={result} range={range} today={today} />
-        </PanelBoundary>
-        <PanelBoundary title="a projeção de saldo">
-          <ProjectionPanel data={data} today={today} />
-        </PanelBoundary>
+        {/* Cards na mesma linha têm a mesma altura (grid com itens esticados). */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <PanelBoundary title="o saldo previsto">
+            <SaldoPrevistoPanel data={data} today={today} />
+          </PanelBoundary>
+          <PanelBoundary title="as despesas por categoria">
+            <DespesasCategoriaPanel data={data} range={range} today={today} />
+          </PanelBoundary>
+        </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <PanelBoundary title="os próximos lançamentos">
+            <ProximosLancamentosPanel data={data} today={today} />
+          </PanelBoundary>
+          <div className="flex min-w-0 flex-col gap-4">
+            <PanelBoundary title="as faturas abertas">
+              <FaturasAbertasPanel data={data} today={today} />
+            </PanelBoundary>
+            <PanelBoundary title="as contas">
+              <ContasPanel data={data} today={today} />
+            </PanelBoundary>
+          </div>
+        </div>
         <Panel
           title="Receitas × despesas"
           action={
@@ -91,17 +109,6 @@ export const OverviewScreen = (): React.ReactElement => {
             <FlowChart points={series} projected={future} />
           </PanelBoundary>
         </Panel>
-        <PanelBoundary title="os próximos 30 dias">
-          <UpcomingPanel data={data} today={today} />
-        </PanelBoundary>
-        <PanelBoundary title="as despesas por categoria">
-          <CategoryBreakdown
-            breakdown={breakdown}
-            categories={data.categories}
-            range={range}
-            today={today}
-          />
-        </PanelBoundary>
       </div>
 
       {creating ? (

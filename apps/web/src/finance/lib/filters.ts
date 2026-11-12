@@ -18,6 +18,21 @@ export type FilterState = Readonly<Record<string, readonly string[]>>;
 
 export const EMPTY_FILTERS: FilterState = {};
 
+const FILTER_PARAMS = ['tipo', 'categoria', 'conta', 'situacao'] as const;
+
+/**
+ * NAV-010 · Os filtros que a URL pede (`?tipo=`, `?categoria=`, `?conta=`,
+ * `?situacao=`, valores separados por vírgula). Parâmetro ausente não filtra.
+ */
+export const filtersFromParams = (params: URLSearchParams): FilterState => {
+  const filters: Record<string, readonly string[]> = {};
+  for (const id of FILTER_PARAMS) {
+    const values = (params.get(id) ?? '').split(',').filter((value) => value !== '');
+    if (values.length > 0) filters[id] = values;
+  }
+  return Object.keys(filters).length === 0 ? EMPTY_FILTERS : filters;
+};
+
 export const toggleFilterValue = (
   state: FilterState,
   field: string,
