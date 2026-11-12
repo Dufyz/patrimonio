@@ -117,7 +117,7 @@ export const StatusGate = ({ children }: { readonly children: React.ReactNode })
           className="mx-6 mt-4 flex items-center justify-between gap-4 rounded-panel border border-negative/40 bg-panel px-4 py-2 text-[0.8125rem]"
         >
           <span>{status.error}</span>
-          <button type="button" className="underline" onClick={store.dismissError}>
+          <button type="button" className="cursor-pointer underline" onClick={store.dismissError}>
             Dispensar
           </button>
         </div>
