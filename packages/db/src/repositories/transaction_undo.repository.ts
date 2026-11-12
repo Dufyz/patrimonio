@@ -9,7 +9,7 @@ import {
   asString,
   parseTransactionFromDB,
 } from '@patrimonio/domain';
-import type { Row } from '@patrimonio/domain';
+import type { FinEntry, FinMovement, Row } from '@patrimonio/domain';
 import { failure, success } from '@patrimonio/shared';
 import { v7 as uuidv7 } from 'uuid';
 
@@ -18,13 +18,18 @@ import type { Connection } from '../postgresql.js';
 
 const parseUndoFromDB = (row: Row): TransactionUndo => {
   const payload = row['payload'];
-  const rows = (typeof payload === 'string' ? JSON.parse(payload) : payload) as Row[];
+  const parsed = typeof payload === 'string' ? JSON.parse(payload) : payload;
+  // O formato antigo era só a lista de linhas; o novo leva as pernas junto.
+  const rows = (Array.isArray(parsed) ? parsed : parsed.transactions) as Row[];
+  const legs = (Array.isArray(parsed) ? undefined : parsed.legs) as
+    { movements: FinMovement[]; entries: FinEntry[] } | undefined;
 
   return {
     id: asString(row, 'id'),
     transaction_id: asString(row, 'transaction_id'),
     portfolio_id: asString(row, 'portfolio_id'),
     transactions: rows.map((entry) => parseTransactionFromDB(entry)),
+    legs: { movements: legs?.movements ?? [], entries: legs?.entries ?? [] },
     from_date: asDateOnly(row, 'from_date'),
     expires_at: asIsoString(row, 'expires_at'),
     created_at: asIsoString(row, 'created_at'),
@@ -40,7 +45,7 @@ export const createTransactionUndoRepository = (
         INSERT INTO transaction_undo
           (id, transaction_id, portfolio_id, payload, from_date, expires_at)
         VALUES (${uuidv7()}, ${draft.transaction_id}, ${draft.portfolio_id},
-                ${JSON.stringify(draft.transactions)}::TEXT::JSONB,
+                ${JSON.stringify({ transactions: draft.transactions, legs: draft.legs ?? null })}::TEXT::JSONB,
                 ${draft.from_date}, ${draft.expires_at})
         RETURNING *
       `;

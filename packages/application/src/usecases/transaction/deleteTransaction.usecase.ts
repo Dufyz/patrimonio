@@ -1,9 +1,16 @@
+import { finance as fin, ledgerEffects } from '@patrimonio/calc';
 import { dedupeKey } from '@patrimonio/domain';
-import type { OutboxEventDraft, Transaction } from '@patrimonio/domain';
+import type {
+  FinEntry,
+  FinMovement,
+  OutboxEventDraft,
+  Transaction,
+} from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
 
 import { ConflictError, NotFoundError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
+import { FinanceError } from '../../errors/finance-error.js';
 import type { Clock } from '../../interfaces/clock.js';
 import type { EnqueuedEvent } from '../../interfaces/outbox.repository.js';
 import type { TransactionWrite } from '../../interfaces/transaction.repository.js';
@@ -13,6 +20,17 @@ import type { DeletionPreview } from '../../plans/transaction.plan.js';
 import { loadPlanContext } from './context.js';
 import type { ContextAsset } from './context.js';
 import { portfolioLock } from './createTransaction.usecase.js';
+
+/** O que fazer com a despesa ligada ao resgate quando ele é excluído (RN-U6). */
+export type LinkedExpenseChoice = 'excluir' | 'manter';
+
+export type DeleteContext = {
+  readonly origin_request_id?: string | undefined;
+  readonly linked_expense?: LinkedExpenseChoice | undefined;
+};
+
+const rule = (code: string, message: string, field: string, status = 422) =>
+  failure(new FinanceError([{ code, message, field }], status));
 
 export type DeleteTransactionResult = {
   readonly deleted: readonly Transaction[];
@@ -51,6 +69,8 @@ const asWrite = (transaction: Transaction): TransactionWrite => ({
   event_ratio_from: transaction.event_ratio_from,
   event_ratio_to: transaction.event_ratio_to,
   idempotency_key: transaction.idempotency_key,
+  event_id: transaction.event_id ?? null,
+  account_id: transaction.account_id ?? null,
 });
 
 const recalcEvents = (
@@ -81,10 +101,7 @@ const recalcEvents = (
  * eventos de recálculo.
  */
 export const deleteTransaction = (deps: DeleteTransactionDeps) =>
-  either(async function* (
-    id: string,
-    context: { readonly origin_request_id?: string | undefined } = {},
-  ) {
+  either(async function* (id: string, context: DeleteContext = {}) {
     const current = yield* await deps.unitOfWork.run<AppError, Transaction>(
       async (repositories) => {
         const found = await repositories.transactions.findById(id);
@@ -122,7 +139,69 @@ export const deleteTransaction = (deps: DeleteTransactionDeps) =>
         });
         if (planContext.isFailure()) return planContext;
 
+        // LIV-12: excluir não pode deixar a posição negativa em dia nenhum. O
+        // primeiro dia afetado é o da primeira venda que passa a faltar quantidade.
+        const remaining = planContext.value.asset_entries.filter(
+          (entry) => entry.id !== current.id,
+        );
+        const wasOversold = [
+          ...ledgerEffects(planContext.value.asset_entries).values(),
+        ].some((effect) => effect.oversold);
+        if (!wasOversold) {
+          const effects = ledgerEffects(remaining);
+          const first = remaining.find(
+            (entry) => entry.id !== undefined && effects.get(entry.id)?.oversold === true,
+          );
+          if (first !== undefined) {
+            return rule(
+              'POSICAO_NEGATIVA',
+              `Excluir deixaria a posição negativa a partir de ${first.trade_date}.`,
+              'trade_date',
+            );
+          }
+        }
+
         const impact = planDeletion(planContext.value, [current]);
+
+        // As pernas financeiras saem na mesma transação (LIV-12, RN-U6).
+        let legs: { movements: FinMovement[]; entries: FinEntry[] } = {
+          movements: [],
+          entries: [],
+        };
+        if (current.event_id !== undefined && current.event_id !== null) {
+          const loaded = await repositories.finance.load();
+          if (loaded.isFailure()) return loaded;
+          const before = loaded.value;
+          const eventId = current.event_id;
+          const movements = before.movements.filter((m) => m.event_id === eventId);
+          const linked = before.entries.filter((e) => e.event_id === eventId);
+
+          if (linked.length > 0 && context.linked_expense === undefined) {
+            return rule(
+              'DESPESA_LIGADA_DECISAO',
+              'Este resgate gerou uma despesa. Escolha excluir ou manter a despesa.',
+              'linked_expense',
+              409,
+            );
+          }
+
+          const dropEntries = context.linked_expense === 'excluir' ? linked : [];
+          const after = {
+            ...before,
+            movements: before.movements.filter((m) => m.event_id !== eventId),
+            entries: before.entries
+              .filter((e) => !dropEntries.some((d) => d.id === e.id))
+              // A despesa mantida deixa de apontar para o resgate que sumiu.
+              .map((e) => (e.event_id === eventId ? { ...e, event_id: null } : e)),
+          };
+          if (movements.length > 0 || linked.length > 0) {
+            const saved = await repositories.finance.persist(
+              fin.diffSnapshots(before, after),
+            );
+            if (saved.isFailure()) return saved;
+          }
+          legs = { movements, entries: linked };
+        }
 
         const removed = await repositories.transactions.remove(id);
         if (removed.isFailure()) return removed;
@@ -140,6 +219,7 @@ export const deleteTransaction = (deps: DeleteTransactionDeps) =>
           transaction_id: id,
           portfolio_id: current.portfolio_id,
           transactions: deleted,
+          legs,
           from_date: deleted.reduce(
             (earliest, transaction) =>
               transaction.trade_date < earliest ? transaction.trade_date : earliest,
@@ -162,7 +242,7 @@ export const deleteTransaction = (deps: DeleteTransactionDeps) =>
           queued: enqueued.value,
         });
       },
-      { lock: portfolioLock(current.portfolio_id) },
+      { locks: ['finance', portfolioLock(current.portfolio_id)] },
     );
   });
 
@@ -201,6 +281,32 @@ export const undoDeletion = (deps: DeleteTransactionDeps) =>
         );
         if (restored.isFailure()) return restored;
 
+        const stored = undo.value;
+        if (stored.legs.movements.length > 0 || stored.legs.entries.length > 0) {
+          const loaded = await repositories.finance.load();
+          if (loaded.isFailure()) return loaded;
+          const before = loaded.value;
+          const after = {
+            ...before,
+            movements: [
+              ...before.movements.filter(
+                (m) => !stored.legs.movements.some((l) => l.id === m.id),
+              ),
+              ...stored.legs.movements,
+            ],
+            entries: [
+              ...before.entries.filter(
+                (e) => !stored.legs.entries.some((l) => l.id === e.id),
+              ),
+              ...stored.legs.entries,
+            ],
+          };
+          const saved = await repositories.finance.persist(
+            fin.diffSnapshots(before, after),
+          );
+          if (saved.isFailure()) return saved;
+        }
+
         const removed = await repositories.transactionUndos.remove(undoId);
         if (removed.isFailure()) return removed;
 
@@ -211,5 +317,6 @@ export const undoDeletion = (deps: DeleteTransactionDeps) =>
 
         return success({ restored: restored.value, queued: enqueued.value });
       },
+      { lock: 'finance' },
     );
   });

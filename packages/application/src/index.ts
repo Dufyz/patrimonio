@@ -182,6 +182,7 @@ export type {
 } from './interfaces/corporate_event.repository.js';
 export type {
   TransactionUndo,
+  UndoLegs,
   TransactionUndoDraft,
   TransactionUndoRepository,
 } from './interfaces/transaction_undo.repository.js';
@@ -348,8 +349,10 @@ export {
   undoDeletion,
 } from './usecases/transaction/deleteTransaction.usecase.js';
 export type {
+  DeleteContext,
   DeleteTransactionDeps,
   DeleteTransactionResult,
+  LinkedExpenseChoice,
   UndoResult,
 } from './usecases/transaction/deleteTransaction.usecase.js';
 export { createContribution } from './usecases/ledger/contribution.usecase.js';

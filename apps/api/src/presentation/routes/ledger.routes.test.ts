@@ -479,3 +479,94 @@ describe('invariante da cota: a origem não muda o fluxo de capital (LIV-14)', (
     expect(b).toEqual(a);
   });
 });
+
+describe('excluir lançamento de carteira com as duas pernas (LIV-12)', () => {
+  const excluir = (id: string, query = '') =>
+    request(harness.app).delete(`/api/transactions/${id}${query}`);
+
+  it('excluir um aporte devolve o valor à conta e tira a quantidade, e o desfazer restaura tudo', async () => {
+    const antes = await saldo();
+    const aporte = await aportar();
+    expect(await saldo()).toBeCloseTo(antes - 1005, 2);
+
+    const removido = await excluir(aporte.body.transaction.id);
+    expect(removido.status).toBe(200);
+    expect(await saldo()).toBeCloseTo(antes, 2);
+    expect(
+      await contagem(`SELECT COUNT(*) AS n FROM "transaction" WHERE kind = 'buy'`),
+    ).toBe(0);
+    expect(
+      await contagem(`SELECT COUNT(*) AS n FROM fin_movement WHERE kind = 'APORTE'`),
+    ).toBe(0);
+
+    const desfeito = await request(harness.app).post(
+      `/api/transactions/undo/${removido.body.undo.undo_id}`,
+    );
+    expect(desfeito.status).toBe(200);
+    expect(await saldo()).toBeCloseTo(antes - 1005, 2);
+    const [leg] = await harness.sql<{ event_id: string }[]>`
+      SELECT event_id FROM fin_movement WHERE kind = 'APORTE'`;
+    const [tx] = await harness.sql<{ event_id: string }[]>`
+      SELECT event_id FROM "transaction" WHERE kind = 'buy'`;
+    expect(leg?.event_id).toBe(tx?.event_id);
+  });
+
+  it('recusa excluir um aporte que deixaria a posição negativa, com a data do primeiro dia afetado', async () => {
+    const compra = await aportar({ account_id: null, trade_date: '2026-10-10' });
+    ativo = compra.body.transaction.asset_id;
+    const venda = await resgatar({ trade_date: '2026-10-12' });
+    expect(venda.status).toBe(201);
+
+    const response = await excluir(compra.body.transaction.id);
+    expect(response.status).toBe(422);
+    expect(response.body.code).toBe('POSICAO_NEGATIVA');
+    expect(response.body.message).toMatch(/2026-10-12/);
+    expect(
+      await contagem(`SELECT COUNT(*) AS n FROM "transaction" WHERE kind = 'buy'`),
+    ).toBe(1);
+  });
+
+  it('excluir resgate com despesa ligada pergunta pelo outro lançamento', async () => {
+    const compra = await aportar({ account_id: null, trade_date: '2026-10-10' });
+    ativo = compra.body.transaction.asset_id;
+    const [categoria] = await harness.sql<{ id: string }[]>`
+      SELECT id FROM fin_category WHERE kind = 'DESPESA' LIMIT 1`;
+    const antes = await saldo();
+    const venda = await resgatar({
+      linked_expense: { category_id: categoria?.id, description: 'Viagem' },
+    });
+    const id = venda.body.transaction.id as string;
+
+    const semEscolha = await excluir(id);
+    expect(semEscolha.status).toBe(409);
+    expect(semEscolha.body.code).toBe('DESPESA_LIGADA_DECISAO');
+
+    const manter = await excluir(id, '?despesa_ligada=manter');
+    expect(manter.status).toBe(200);
+    expect(
+      await contagem(
+        `SELECT COUNT(*) AS n FROM fin_entry WHERE id = '${venda.body.expense_id}'`,
+      ),
+    ).toBe(1);
+    // o resgate saiu, a despesa ficou: o saldo cai pela despesa
+    expect(await saldo()).toBeCloseTo(antes - 438, 2);
+  });
+
+  it('excluir o resgate junto da despesa devolve o saldo ao que era', async () => {
+    const compra = await aportar({ account_id: null, trade_date: '2026-10-10' });
+    ativo = compra.body.transaction.asset_id;
+    const [categoria] = await harness.sql<{ id: string }[]>`
+      SELECT id FROM fin_category WHERE kind = 'DESPESA' LIMIT 1`;
+    const antes = await saldo();
+    const venda = await resgatar({ linked_expense: { category_id: categoria?.id } });
+
+    const response = await excluir(venda.body.transaction.id, '?despesa_ligada=excluir');
+    expect(response.status).toBe(200);
+    expect(await saldo()).toBeCloseTo(antes, 2);
+    expect(
+      await contagem(
+        `SELECT COUNT(*) AS n FROM fin_entry WHERE id = '${venda.body.expense_id}'`,
+      ),
+    ).toBe(0);
+  });
+});

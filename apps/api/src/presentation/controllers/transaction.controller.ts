@@ -344,7 +344,12 @@ export const createTransactionController = (
   remove: async (request, response) => {
     const result = await deps.usecases.deleteTransaction(
       String(request.params['transaction_id']),
-      { origin_request_id: request.requestId },
+      {
+        origin_request_id: request.requestId,
+        linked_expense: validatedQuery<
+          { despesa_ligada?: 'excluir' | 'manter' } | undefined
+        >(request)?.despesa_ligada,
+      },
     );
 
     if (result.isFailure()) {

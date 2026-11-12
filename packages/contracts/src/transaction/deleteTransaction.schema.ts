@@ -4,6 +4,10 @@ import { decimalString, uuid } from '../support/primitives.schema.js';
 
 export const deleteTransactionSchema = z.object({
   params: z.object({ transaction_id: uuid }),
+  /** RN-U6: o resgate com despesa ligada pergunta o que fazer com ela. */
+  query: z
+    .object({ despesa_ligada: z.enum(['excluir', 'manter']).optional() })
+    .optional(),
 });
 
 /** O desfazer vale por alguns segundos, e o token é o que o aviso carrega. */
