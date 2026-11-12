@@ -20,6 +20,7 @@ import { ALLOCATION_ROUTE_DOCS } from './allocation.docs.js';
 import { GOAL_ROUTE_DOCS } from './goal.docs.js';
 import { SETTINGS_ROUTE_DOCS } from './settings.docs.js';
 import { FINANCE_ROUTE_DOCS } from './finance.docs.js';
+import { LEDGER_ROUTE_DOCS } from './ledger.docs.js';
 import { PERFORMANCE_ROUTE_DOCS } from './performance.docs.js';
 import { TRANSACTION_ROUTE_DOCS } from './transaction.docs.js';
 import { INSTITUTION_ROUTE_DOCS } from './institution.docs.js';
@@ -81,6 +82,7 @@ export const ROUTE_DOCS: readonly RouteDoc[] = [
   ...STATEMENT_ROUTE_DOCS,
   ...SEARCH_ROUTE_DOCS,
   ...TRANSACTION_ROUTE_DOCS,
+  ...LEDGER_ROUTE_DOCS,
   ...CORPORATE_EVENT_ROUTE_DOCS,
   ...MARKET_ROUTE_DOCS,
   ...POSITION_ROUTE_DOCS,

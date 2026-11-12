@@ -87,6 +87,12 @@ export type UnitOfWorkOptions = {
    * trava de sessão não sobreviveria a ele.
    */
   readonly lock?: string;
+  /**
+   * Mais de uma trava na mesma transação (LIV-13): a escrita de duas pernas toma a
+   * de Finanças e a da carteira. São tomadas em ordem alfabética, para duas
+   * operações que pedem o mesmo par nunca esperarem uma pela outra em ordem inversa.
+   */
+  readonly locks?: readonly string[];
 };
 
 /**

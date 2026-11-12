@@ -77,7 +77,7 @@ describe('fixture unificado (LIV-16)', () => {
     );
     const aportesPrevistos = fixture.planned_aportes.reduce(
       (sum, a) => sum.plus(a.amount),
-      dec(0),
+      dec('0'),
     );
     // Faturas que vencem até 30/11: fechadas a pagar e a aberta do Nubank (vence dia 28).
     const w = wealthSummary(data, TODAY, emCarteiras);

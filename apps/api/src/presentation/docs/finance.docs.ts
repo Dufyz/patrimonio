@@ -42,6 +42,20 @@ const rows: readonly Entry[] = [
   ],
   [
     'get',
+    '/finance/wealth',
+    'Patrimônio total (Em carteiras + Em contas) e Livre após faturas, de uma leitura só',
+    c.finWealthSchema,
+    { 200: READ },
+  ],
+  [
+    'get',
+    '/finance/book',
+    'Livro unificado: Finanças e carteiras com filtros por tipo, situação, conta, carteira, ativo e classe; totais independem da página',
+    c.listBookSchema,
+    { 200: READ },
+  ],
+  [
+    'get',
     '/finance/overview',
     'Visão geral do mês: indicadores, 12 meses, vencimentos e pendências',
     c.finOverviewSchema,

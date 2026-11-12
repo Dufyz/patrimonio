@@ -352,6 +352,12 @@ export type {
   DeleteTransactionResult,
   UndoResult,
 } from './usecases/transaction/deleteTransaction.usecase.js';
+export { createContribution } from './usecases/ledger/contribution.usecase.js';
+export type {
+  AccountEffect,
+  ContributionInput,
+  ContributionResult,
+} from './usecases/ledger/contribution.usecase.js';
 export { IDEMPOTENCY_TTL_HOURS, findReplay } from './usecases/transaction/idempotency.js';
 export { interpretTransactionText } from './usecases/transaction/interpretText.js';
 export type {

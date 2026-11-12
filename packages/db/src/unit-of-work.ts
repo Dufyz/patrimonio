@@ -115,8 +115,14 @@ export const createUnitOfWork = (
   ): Promise<Either<F | ReturnType<typeof getRepositoryError>, S>> => {
     try {
       const value = await sql.begin(async (tx) => {
-        if (options?.lock !== undefined) {
-          await tx`SELECT PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(${options.lock}, 0))`;
+        const wanted = [
+          ...new Set([
+            ...(options?.lock === undefined ? [] : [options.lock]),
+            ...(options?.locks ?? []),
+          ]),
+        ].sort();
+        for (const name of wanted) {
+          await tx`SELECT PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(${name}, 0))`;
         }
 
         const result = await work(createRepositories(tx, repositoryOptions));

@@ -141,6 +141,11 @@ export type {
   TransactionWritable,
 } from './transaction/transaction.schema.js';
 export { createTransactionSchema } from './transaction/createTransaction.schema.js';
+export {
+  contributionBodySchema,
+  createContributionSchema,
+} from './ledger/contribution.schema.js';
+export type { ContributionBody } from './ledger/contribution.schema.js';
 export type { CreateTransactionBody } from './transaction/createTransaction.schema.js';
 export { previewTransactionSchema } from './transaction/previewTransaction.schema.js';
 export type { PreviewTransactionBody } from './transaction/previewTransaction.schema.js';
