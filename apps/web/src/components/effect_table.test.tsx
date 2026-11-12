@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { EffectTable } from './effect_table.js';
 
-describe('EffectTable (Finanças · Modais)', () => {
+describe('EffectTable (CMP-09)', () => {
   it('mostra antes → depois só das linhas que mudam', () => {
     render(
       <EffectTable
@@ -13,7 +13,7 @@ describe('EffectTable (Finanças · Modais)', () => {
         ]}
       />,
     );
-    const group = within(screen.getByRole('group', { name: 'Efeito' }));
+    const group = within(screen.getByRole('table', { name: 'Efeito' }));
     expect(group.getByText('Fatura de out/2026')).toBeTruthy();
     expect(group.getByText('R$ 2.183,17')).toBeTruthy();
     expect(group.getByText('R$ 3.482,17')).toBeTruthy();

@@ -24,7 +24,7 @@ import type {
   FieldErrors,
 } from '../../lib/entry.js';
 import { formatShortDate } from '../../lib/positions.js';
-import { EffectPanel } from './effect_table.js';
+import { EffectPanel } from '../../components/effect_table.js';
 import { Callout, Field, Input, MoneyInput, Select, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
 import { EntrySummary } from './wizard.js';

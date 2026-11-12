@@ -5,7 +5,7 @@ import { FormShell } from '../../views/entry/form_shell.js';
 import { Callout, Field, Input } from '../../views/entry/fields.js';
 import { accountLabel } from '../domain/accounts.js';
 import { findCard, invoiceTotal } from '../domain/cards.js';
-import { EffectTable } from './effect_table.js';
+import { EffectTable } from '../../components/effect_table.js';
 import { payInvoiceEffect } from '../domain/effects.js';
 import { payInvoiceDateError } from '../domain/invoice_ops.js';
 import type { FinanceData } from '../domain/types.js';

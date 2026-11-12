@@ -17,7 +17,7 @@ import type {
 import { formatShortDate } from '../../lib/positions.js';
 import type { AssetSearch, PickedAsset } from './asset_picker.js';
 import { AssetPicker } from './asset_picker.js';
-import { EffectPanel } from './effect_table.js';
+import { EffectPanel } from '../../components/effect_table.js';
 import { Callout, Field, Input, MoneyInput, Select, useVisibleErrors } from './fields.js';
 import { FormShell } from './form_shell.js';
 import { BackButton } from './wizard.js';

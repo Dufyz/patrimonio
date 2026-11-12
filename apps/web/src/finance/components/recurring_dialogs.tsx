@@ -5,7 +5,7 @@ import { Modal } from '../../components/overlay.js';
 import { FormShell } from '../../views/entry/form_shell.js';
 import { Checkbox } from '../../components/ui/checkbox.js';
 import { Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
-import { EffectTable } from './effect_table.js';
+import { EffectTable } from '../../components/effect_table.js';
 import { effectMonthLabel, recurringEffect } from '../domain/effects.js';
 import { formatBRL, parseMoneyInput } from '../lib/format.js';
 import { draftOf, validateRecurring } from '../domain/recurring.js';

@@ -5,7 +5,7 @@ import { Button, Segmented } from '../../components/primitives.js';
 import { Callout } from '../../views/entry/fields.js';
 import type { EffectRow } from '../domain/effects.js';
 import type { InstallmentScope } from '../domain/installment_ops.js';
-import { EffectTable } from './effect_table.js';
+import { EffectTable } from '../../components/effect_table.js';
 
 /**
  * FIN-510 · Excluir ou editar uma compra parcelada: "só esta parcela, esta e as

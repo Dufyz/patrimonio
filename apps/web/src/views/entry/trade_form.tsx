@@ -18,7 +18,7 @@ import type {
 } from '../../lib/entry.js';
 import type { AssetSearch, PickedAsset } from './asset_picker.js';
 import { AssetPicker } from './asset_picker.js';
-import { EffectPanel } from './effect_table.js';
+import { EffectPanel } from '../../components/effect_table.js';
 import {
   Field,
   Input,

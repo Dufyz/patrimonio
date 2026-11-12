@@ -1,17 +1,19 @@
-import {
-  Money,
-  MoneyChange,
-  Percent,
-  Points,
-  Quantity,
-} from '../../components/number.js';
-import { Label } from '../../components/primitives.js';
-import type { EffectRow, EffectUnit } from '../../lib/entry.js';
-import { percentAsRatio } from '../../lib/overview.js';
-import type { PreviewState } from './hooks.js';
-import { previewValue } from './hooks.js';
+import type { EffectRow as FinanceEffectRow } from '../finance/domain/effects.js';
+import { formatBRL } from '../finance/lib/format.js';
+import type { EffectRow, EffectUnit } from '../lib/entry.js';
+import { percentAsRatio } from '../lib/overview.js';
+import type { PreviewState } from '../views/entry/hooks.js';
+import { previewValue } from '../views/entry/hooks.js';
+import { Money, MoneyChange, Percent, Points, Quantity } from './number.js';
+import { Label } from './primitives.js';
 
 /**
+ * CMP-09 · Bloco "Efeito": antes → depois. Único componente do app: atende os
+ * modais de lançamento do fluxo (linhas em centavos) e os de carteira (linhas
+ * que o preview da `api` devolveu).
+ *
+ * Antes era um por área; o teste de convenções falha se surgir outro.
+ *
  * T-10 · "Efeito na posição": antes → depois.
  *
  * É a razão de os modais existirem. A tabela só desenha o que o preview da
@@ -89,39 +91,72 @@ const Row = ({ row }: { readonly row: EffectRow }): React.ReactElement => {
   );
 };
 
+export type AnyEffectRow = EffectRow | FinanceEffectRow;
+
+const isFinanceRow = (row: AnyEffectRow): row is FinanceEffectRow => !('kind' in row);
+
+const FinanceRow = ({ row }: { readonly row: FinanceEffectRow }): React.ReactElement => (
+  <tr className="border-t border-line">
+    <th scope="row" className="px-3 py-2 text-left font-normal">
+      {row.label}
+      {row.hint === undefined ? null : (
+        <span className="ml-1.5 text-xs text-ink-3">{row.hint}</span>
+      )}
+    </th>
+    <td className="tabular px-3 py-2 text-right text-ink-3">{formatBRL(row.before)}</td>
+    <td className="tabular px-3 py-2 text-right font-semibold">
+      <span aria-hidden="true" className="mr-1.5 text-ink-3">
+        →
+      </span>
+      <span className="sr-only">para </span>
+      {formatBRL(row.after)}
+    </td>
+  </tr>
+);
+
 export const EffectTable = ({
-  title = 'Efeito na posição',
+  title = 'Efeito',
   rows,
-  busy,
+  busy = false,
 }: {
   readonly title?: string;
-  readonly rows: readonly EffectRow[];
-  readonly busy: boolean;
-}): React.ReactElement => (
-  <table
-    aria-busy={busy}
-    className={`w-full overflow-hidden rounded-control border border-line text-sm transition-opacity ${
-      busy ? 'opacity-60' : ''
-    }`}
-  >
-    <caption className="sr-only">{title}</caption>
-    <thead className="bg-panel-2">
-      <tr>
-        <th scope="col" className="px-3 py-1.5 text-left font-normal">
-          <Label>{title}</Label>
-        </th>
-        <th scope="col" colSpan={2} className="px-3 py-1.5 text-right font-normal">
-          <Label>Antes → depois</Label>
-        </th>
-      </tr>
-    </thead>
-    <tbody>
-      {rows.map((row) => (
-        <Row key={row.id} row={row} />
-      ))}
-    </tbody>
-  </table>
-);
+  readonly rows: readonly AnyEffectRow[];
+  readonly busy?: boolean;
+}): React.ReactElement | null => {
+  // Linhas do fluxo que não mudam somem: o bloco não repete o óbvio, e sem
+  // nenhuma mudança o bloco inteiro some.
+  const shown = rows.filter((row) => !isFinanceRow(row) || row.before !== row.after);
+  if (shown.length === 0) return null;
+  return (
+    <table
+      aria-busy={busy}
+      className={`w-full overflow-hidden rounded-control border border-line text-sm transition-opacity ${
+        busy ? 'opacity-60' : ''
+      }`}
+    >
+      <caption className="sr-only">{title}</caption>
+      <thead className="bg-panel-2">
+        <tr>
+          <th scope="col" className="px-3 py-1.5 text-left font-normal">
+            <Label>{title}</Label>
+          </th>
+          <th scope="col" colSpan={2} className="px-3 py-1.5 text-right font-normal">
+            <Label>Antes → depois</Label>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {shown.map((row) =>
+          isFinanceRow(row) ? (
+            <FinanceRow key={`${row.label}-${row.hint ?? ''}`} row={row} />
+          ) : (
+            <Row key={row.id} row={row} />
+          ),
+        )}
+      </tbody>
+    </table>
+  );
+};
 
 /**
  * O que a área do efeito diz em cada estado do preview. Formulário incompleto
@@ -135,7 +170,7 @@ export const EffectPanel = <T,>({
   title,
 }: {
   readonly state: PreviewState<T>;
-  readonly rows: (value: T) => readonly EffectRow[];
+  readonly rows: (value: T) => readonly AnyEffectRow[];
   readonly idle: string;
   readonly title?: string;
 }): React.ReactElement => {

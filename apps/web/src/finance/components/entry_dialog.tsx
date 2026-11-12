@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Modal } from '../../components/overlay.js';
 import { FormShell } from '../../views/entry/form_shell.js';
 import { Checkbox } from '../../components/ui/checkbox.js';
-import { EffectTable } from './effect_table.js';
+import { EffectTable } from '../../components/effect_table.js';
 import { entryEffect, launchEffect } from '../domain/effects.js';
 import { Segmented } from '../../components/primitives.js';
 import { Callout, Field, Input, MoneyInput, Select } from '../../views/entry/fields.js';
