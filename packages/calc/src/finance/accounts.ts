@@ -47,6 +47,9 @@ const ORIGIN_TAG: Readonly<Record<FinMovementKind, string>> = {
   transferencia_entrada: 'transferência',
   transferencia_saida: 'transferência',
   ajuste: 'ajuste',
+  aporte: 'aporte',
+  resgate: 'resgate',
+  provento: 'provento',
 };
 
 const MONTHS = [

@@ -5,7 +5,7 @@ UPDATE fin_movement SET kind = 'AJUSTE' WHERE kind = 'CREDITO';
 DROP INDEX IF EXISTS fin_movement_credit_month_idx;
 ALTER TABLE fin_movement DROP CONSTRAINT fin_movement_kind_valid;
 ALTER TABLE fin_movement ADD CONSTRAINT fin_movement_kind_valid
-  CHECK (kind IN ('TRANSFERENCIA_ENTRADA', 'TRANSFERENCIA_SAIDA', 'AJUSTE'));
+  CHECK (kind IN ('TRANSFERENCIA_ENTRADA', 'TRANSFERENCIA_SAIDA', 'AJUSTE', 'APORTE', 'RESGATE', 'PROVENTO'));
 
 ALTER TABLE fin_account DROP CONSTRAINT fin_account_credit_together;
 ALTER TABLE fin_account DROP CONSTRAINT fin_account_credit_day_valid;

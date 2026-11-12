@@ -91,6 +91,63 @@ describe('repositório de Finanças', () => {
     });
   });
 
+  it('perna financeira de aporte, resgate e provento guarda o event_id (LIV-01)', async () => {
+    await withScratchDatabase(async (connection) => {
+      await migrateDatabase(connection, { log: () => undefined });
+      const sql = createConnection({
+        connection,
+        poolSize: 2,
+        applicationName: 'patrimonio-test',
+      });
+      try {
+        await loadFinanceDemo(sql);
+        const repository = createFinanceRepository(sql);
+        const before = (await repository.load()).value as ReturnType<typeof withUuids>;
+        const account = before.accounts[0];
+        if (account === undefined) throw new Error('sem conta');
+        const eventId = '00000000-0000-4000-8000-000000000a01';
+        const legs = [
+          { kind: 'aporte', amount: '-500.00' },
+          { kind: 'resgate', amount: '300.00' },
+          { kind: 'provento', amount: '12.34' },
+        ].map((leg, index) => ({
+          id: `00000000-0000-4000-8000-0000000000b${index}`,
+          date: '2026-11-10',
+          account_id: account.id,
+          kind: leg.kind,
+          amount: leg.amount,
+          description: leg.kind,
+          note: null,
+          transfer_id: null,
+          event_id: eventId,
+        }));
+        const change = (rows: readonly unknown[]) => ({
+          upserts: rows,
+          deletes: [] as string[],
+        });
+        const empty = change([]);
+        const written = await repository.persist({
+          categories: empty,
+          accounts: empty,
+          cards: empty,
+          recurrings: empty,
+          skips: empty,
+          entries: empty,
+          movements: change(legs),
+          card_items: empty,
+          invoice_payments: empty,
+        } as unknown as Parameters<typeof repository.persist>[0]);
+        if (written.isFailure()) throw new Error(JSON.stringify(written.value));
+
+        const after = (await repository.load()).value as typeof before;
+        const read = after.movements.filter((m) => m.event_id === eventId);
+        expect(read.map((m) => m.kind).sort()).toEqual(['aporte', 'provento', 'resgate']);
+      } finally {
+        await closeDatabase(sql);
+      }
+    });
+  });
+
   it('a soma dos pagamentos é garantida pelo banco', async () => {
     await withScratchDatabase(async (connection) => {
       await migrateDatabase(connection, { log: () => undefined });

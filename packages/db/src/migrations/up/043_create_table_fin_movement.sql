@@ -7,6 +7,7 @@ CREATE TABLE fin_movement (
   description TEXT NOT NULL,
   note        TEXT,
   transfer_id UUID,
+  event_id    UUID,
   is_demo     BOOLEAN NOT NULL DEFAULT FALSE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -18,6 +19,7 @@ CREATE TABLE fin_movement (
 );
 
 CREATE INDEX fin_movement_account_date_idx ON fin_movement (account_id, date);
+CREATE INDEX fin_movement_event_idx ON fin_movement (event_id) WHERE event_id IS NOT NULL;
 CREATE INDEX fin_movement_transfer_idx ON fin_movement (transfer_id) WHERE transfer_id IS NOT NULL;
 
 -- Um crédito por benefício e mês: a rotina diária pode repetir sem duplicar.

@@ -146,6 +146,7 @@ export const parseSnapshot = (raw: Record<string, Row[]>): FinSnapshot => ({
     description: r['description'] as string,
     note: (r['note'] as string | null) ?? null,
     transfer_id: (r['transfer_id'] as string | null) ?? null,
+    event_id: (r['event_id'] as string | null) ?? null,
   })),
   card_items: (raw['card_items'] ?? []).map((r): FinCardItem => ({
     id: r['id'] as string,
@@ -381,12 +382,13 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
           description: r.description,
           note: r.note,
           transfer_id: r.transfer_id,
+          event_id: r.event_id ?? null,
         }));
         await sql`
           INSERT INTO fin_movement ${sql(rows)}
           ON CONFLICT (id) DO UPDATE SET date = EXCLUDED.date, account_id = EXCLUDED.account_id, kind = EXCLUDED.kind,
             amount = EXCLUDED.amount, description = EXCLUDED.description, note = EXCLUDED.note,
-            transfer_id = EXCLUDED.transfer_id`;
+            transfer_id = EXCLUDED.transfer_id, event_id = EXCLUDED.event_id`;
       }
 
       for (const chunk of split(changes.card_items.upserts)) {

@@ -28,10 +28,18 @@ export type FinEntryStatus = (typeof FIN_ENTRY_STATUSES)[number];
 export const FIN_RECURRING_MODES = ['manual', 'automatico'] as const;
 export type FinRecurringMode = (typeof FIN_RECURRING_MODES)[number];
 
+/**
+ * Perna financeira de um lançamento do livro único (LIV-01). `aporte`, `resgate` e
+ * `provento` são o dinheiro que entra ou sai da conta quando o lançamento tem
+ * perna de posição; ligam-se a ela pelo `event_id`.
+ */
 export const FIN_MOVEMENT_KINDS = [
   'transferencia_entrada',
   'transferencia_saida',
   'ajuste',
+  'aporte',
+  'resgate',
+  'provento',
 ] as const;
 export type FinMovementKind = (typeof FIN_MOVEMENT_KINDS)[number];
 
@@ -146,6 +154,8 @@ export type FinMovement = {
   readonly description: string;
   readonly note: string | null;
   readonly transfer_id: string | null;
+  /** Liga as pernas que nasceram juntas (perna financeira e perna de posição). */
+  readonly event_id?: string | null | undefined;
 };
 
 /** Item que só existe na fatura (RN-46). `amount` é sempre positivo; o tipo diz se soma ou abate. */

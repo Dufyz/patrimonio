@@ -23,6 +23,7 @@ CREATE TABLE transaction (
   event_ratio_from  NUMERIC(20,8),
   event_ratio_to    NUMERIC(20,8),
   idempotency_key   TEXT,
+  event_id          UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT transaction_payout_has_kind
@@ -47,6 +48,7 @@ CREATE INDEX transaction_asset_trade_date_idx
 CREATE INDEX transaction_pending_payout_idx
   ON transaction (portfolio_id, settlement_date)
   WHERE kind = 'payout' AND confirmed_at IS NULL;
+CREATE INDEX transaction_event_idx ON transaction (event_id) WHERE event_id IS NOT NULL;
 CREATE UNIQUE INDEX transaction_idempotency_idx
   ON transaction (idempotency_key) WHERE idempotency_key IS NOT NULL;
 
