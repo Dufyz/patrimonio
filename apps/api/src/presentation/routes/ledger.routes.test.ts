@@ -405,3 +405,57 @@ describe('evento no livro (LIV-06)', () => {
     expect(new Set(eventos)).toEqual(new Set(['EVENTO']));
   });
 });
+
+describe('preview unificado: o efeito é o que a gravação grava (LIV-07)', () => {
+  beforeEach(async () => {
+    const compra = await aportar({ account_id: null, trade_date: '2026-10-10' });
+    ativo = compra.body.transaction.asset_id;
+  });
+
+  it('aporte: conta e posição do preview são os da gravação', async () => {
+    const preview = await aportar({ asset: undefined, asset_id: ativo }, '?preview=true');
+    const gravado = await aportar({ asset: undefined, asset_id: ativo });
+    expect(preview.status).toBe(200);
+    expect(gravado.status).toBe(201);
+    expect(gravado.body.account).toEqual(preview.body.account);
+    expect(gravado.body.position).toEqual(preview.body.position);
+    expect(gravado.body.amount).toBe(preview.body.amount);
+  });
+
+  it('resgate: conta e posição do preview são os da gravação', async () => {
+    const preview = await resgatar({}, '?preview=true');
+    const gravado = await resgatar();
+    expect(gravado.body.account).toEqual(preview.body.account);
+    expect(gravado.body.position).toEqual(preview.body.position);
+    expect(gravado.body.amount).toBe(preview.body.amount);
+  });
+
+  it('provento: o efeito na conta do preview é o da gravação', async () => {
+    const corpo = {
+      portfolio_id: carteira,
+      institution_id: corretora,
+      asset_id: ativo,
+      payout_kind: 'dividend',
+      record_date: '2026-10-15',
+      payment_date: '2026-10-20',
+      amount_per_share: '0.5',
+      account_id: conta,
+    };
+    const preview = await request(harness.app)
+      .post('/api/transactions/payouts/preview')
+      .send(corpo);
+    const gravado = await provento();
+    expect(preview.status).toBe(200);
+    expect(gravado.body.account).toEqual(preview.body.account);
+  });
+
+  it('o preview recusa com o mesmo código da gravação', async () => {
+    const cartaoPreview = await aportar({ account_id: cartao }, '?preview=true');
+    expect(cartaoPreview.status).toBe(422);
+    expect(cartaoPreview.body.code).toBe('APORTE_ORIGEM_CARTAO');
+
+    const acima = await resgatar({ quantity: '11' }, '?preview=true');
+    expect(acima.status).toBe(422);
+    expect(acima.body.code).toBe('RESGATE_ACIMA_DA_POSICAO');
+  });
+});

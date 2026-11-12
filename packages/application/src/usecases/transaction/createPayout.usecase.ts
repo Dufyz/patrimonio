@@ -22,7 +22,7 @@ import { planTransaction } from '../../plans/transaction.plan.js';
 import type { TransactionPreview } from '../../plans/transaction.plan.js';
 import { loadPlanContext } from './context.js';
 import { portfolioLock } from './createTransaction.usecase.js';
-import { creditProvento } from '../ledger/provento_leg.js';
+import { creditProvento, planProvento } from '../ledger/provento_leg.js';
 import type { AccountEffect } from '../ledger/contribution.usecase.js';
 import { financeClock } from '../finance/clock.js';
 import { findReplay } from './idempotency.js';
@@ -288,6 +288,8 @@ export type PreviewPayoutResult = {
   readonly gross_amount: string;
   readonly tax_withheld: string;
   readonly net_amount: string;
+  /** O efeito na conta quando o provento já cairia nela (LIV-07). */
+  readonly account: AccountEffect | null;
 };
 
 /**
@@ -295,7 +297,7 @@ export type PreviewPayoutResult = {
  * IR retido que o modal mostra são os que `createPayout` vai gravar.
  */
 export const previewPayout = (
-  deps: Pick<CreatePayoutDeps, 'unitOfWork' | 'jcpWithholdingPct'>,
+  deps: Pick<CreatePayoutDeps, 'unitOfWork' | 'jcpWithholdingPct' | 'clock'>,
 ) =>
   either(async function* (input: CreatePayoutInput) {
     return yield* await deps.unitOfWork.run<AppError, PreviewPayoutResult>(
@@ -305,7 +307,25 @@ export const previewPayout = (
 
         const value = prepared.value;
 
+        const credited =
+          input.confirmed === true ||
+          (input.confirmed === undefined && input.payment_date <= deps.clock.today());
+        let account: AccountEffect | null = null;
+        if (credited && input.account_id !== undefined && input.account_id !== null) {
+          const planned = await planProvento(repositories, {
+            account_id: input.account_id,
+            date: input.payment_date,
+            amount: value.plan.amounts.net_amount,
+            ticker: value.asset_ticker,
+            event_id: repositories.transactions.nextId(),
+            today: financeClock(deps.clock).today(),
+          });
+          if (planned.isFailure()) return planned;
+          account = planned.value.effect;
+        }
+
         return success({
+          account,
           preview: value.plan.preview,
           quantity_at_record_date: value.quantity,
           unit_price: value.unit_price,

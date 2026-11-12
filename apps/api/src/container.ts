@@ -161,6 +161,7 @@ export const createApiUseCases = (deps: {
   }),
   previewPayout: previewPayout({
     unitOfWork: deps.unitOfWork,
+    clock: deps.clock,
     jcpWithholdingPct: String(environment.tax.jcpWithholdingPct),
   }),
   previewTransaction: previewTransaction({ unitOfWork: deps.unitOfWork }),

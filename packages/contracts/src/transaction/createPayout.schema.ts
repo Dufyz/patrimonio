@@ -58,6 +58,10 @@ export const payoutPreviewSchema = z.object({
   gross_amount: decimalString,
   tax_withheld: decimalString,
   net_amount: decimalString,
+  account: z
+    .object({ account_id: uuid, before: decimalString, after: decimalString })
+    .nullable()
+    .optional(),
 });
 
 export type PayoutPreviewResource = z.infer<typeof payoutPreviewSchema>;

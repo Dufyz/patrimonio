@@ -1,4 +1,5 @@
 import { finance as fin } from '@patrimonio/calc';
+import type { FinSnapshot } from '@patrimonio/domain';
 import { failure, success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
 
@@ -19,15 +20,21 @@ export type ProventoLegInput = {
   readonly today: string;
 };
 
+export type ProventoPlan = {
+  readonly before: FinSnapshot;
+  readonly after: FinSnapshot;
+  readonly effect: AccountEffect;
+};
+
 /**
- * LIV-05 · A perna financeira do provento: o líquido creditado na conta, ligado
- * à perna de posição pelo `event_id`. Valida a conta de destino, grava na mesma
- * transação de quem chama e devolve o efeito antes → depois.
+ * LIV-05/LIV-07 · A perna financeira do provento em memória: valida a conta de
+ * destino e devolve o antes → depois sem gravar. O preview e a gravação passam
+ * por aqui, e por isso o que o modal mostra é o que fica.
  */
-export const creditProvento = async (
+export const planProvento = async (
   repositories: TransactionalRepositories,
   input: ProventoLegInput,
-): Promise<Either<AppError, AccountEffect>> => {
+): Promise<Either<AppError, ProventoPlan>> => {
   const loaded = await repositories.finance.load();
   if (loaded.isFailure()) return loaded;
   const before = loaded.value;
@@ -75,12 +82,31 @@ export const creditProvento = async (
     ],
   };
 
-  const saved = await repositories.finance.persist(fin.diffSnapshots(before, after));
+  return success({
+    before,
+    after,
+    effect: {
+      account_id: input.account_id,
+      before: fin.money(
+        fin.accountBalance(before, input.account_id, input.today as never),
+      ),
+      after: fin.money(fin.accountBalance(after, input.account_id, input.today as never)),
+    },
+  });
+};
+
+/** Grava a perna planejada na transação de quem chama e devolve o efeito. */
+export const creditProvento = async (
+  repositories: TransactionalRepositories,
+  input: ProventoLegInput,
+): Promise<Either<AppError, AccountEffect>> => {
+  const planned = await planProvento(repositories, input);
+  if (planned.isFailure()) return planned;
+
+  const saved = await repositories.finance.persist(
+    fin.diffSnapshots(planned.value.before, planned.value.after),
+  );
   if (saved.isFailure()) return saved;
 
-  return success({
-    account_id: input.account_id,
-    before: fin.money(fin.accountBalance(before, input.account_id, input.today as never)),
-    after: fin.money(fin.accountBalance(after, input.account_id, input.today as never)),
-  });
+  return success(planned.value.effect);
 };
