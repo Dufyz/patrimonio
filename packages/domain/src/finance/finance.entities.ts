@@ -56,12 +56,17 @@ export const FIN_CHARGE_SUBTYPES = ['juros', 'multa', 'iof', 'anuidade'] as cons
 export type FinCardItemSubtype =
   (typeof FIN_CREDIT_SUBTYPES)[number] | (typeof FIN_CHARGE_SUBTYPES)[number];
 
+export const FIN_CATEGORY_NATURES = ['fixa', 'livre'] as const;
+export type FinCategoryNature = (typeof FIN_CATEGORY_NATURES)[number];
+
 export type FinCategory = {
   readonly id: string;
   readonly name: string;
   readonly kind: FinKind;
   /** Identificador da paleta (`violet`), nunca um hexadecimal. */
   readonly color: string;
+  /** Só despesa: fixa ou livre (CAT-04). Receita não tem natureza. */
+  readonly nature?: FinCategoryNature | null | undefined;
   readonly archived: boolean;
   readonly version: number;
 };

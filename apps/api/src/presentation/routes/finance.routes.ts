@@ -46,6 +46,11 @@ export const financeRoutes = (deps: FinanceRouteDeps): Router => {
     validate(c.archiveFinCategorySchema),
     f.archiveCategory,
   );
+  router.post(
+    '/finance/categories/:id/delete',
+    validate(c.deleteFinCategoryMovingSchema),
+    f.deleteCategoryMoving,
+  );
   router.delete(
     '/finance/categories/:id',
     validate(c.deleteFinCategorySchema),

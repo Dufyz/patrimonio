@@ -71,6 +71,10 @@ export const parseSnapshot = (raw: Record<string, Row[]>): FinSnapshot => ({
     name: r['name'] as string,
     kind: low(r['kind'] as string) as FinCategory['kind'],
     color: r['color'] as string,
+    nature:
+      r['nature'] === null || r['nature'] === undefined
+        ? null
+        : (low(r['nature'] as string) as 'fixa' | 'livre'),
     archived: r['archived'] as boolean,
     version: r['version'] as number,
   })),
@@ -223,7 +227,8 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
       await del('fin_recurring', changes.recurrings.deletes);
       await del('fin_card', changes.cards.deletes);
       await del('fin_account', changes.accounts.deletes);
-      await del('fin_category', changes.categories.deletes);
+      // A categoria sai por último: a exclusão com destino (CAT-04) regrava antes
+      // os lançamentos e recorrentes que apontavam para ela.
 
       const guard = (expected: number, touched: number): void => {
         if (touched !== expected) throw new VersionConflict();
@@ -235,13 +240,14 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
           name: r.name,
           kind: up(r.kind),
           color: r.color,
+          nature: up(r.nature ?? null),
           archived: r.archived,
           version: r.version,
         }));
         const out = await sql`
           INSERT INTO fin_category ${sql(rows)}
           ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, kind = EXCLUDED.kind, color = EXCLUDED.color,
-            archived = EXCLUDED.archived, version = fin_category.version + 1
+            nature = EXCLUDED.nature, archived = EXCLUDED.archived, version = fin_category.version + 1
             WHERE fin_category.version = EXCLUDED.version
           RETURNING id`;
         guard(rows.length, out.length);
@@ -444,6 +450,8 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
           ON CONFLICT (id) DO UPDATE SET account_id = EXCLUDED.account_id, date = EXCLUDED.date,
             amount = EXCLUDED.amount, posted = EXCLUDED.posted`;
       }
+
+      await del('fin_category', changes.categories.deletes);
 
       return success(undefined);
     } catch (error) {

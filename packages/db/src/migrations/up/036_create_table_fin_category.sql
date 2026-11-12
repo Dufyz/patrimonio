@@ -3,12 +3,16 @@ CREATE TABLE fin_category (
   name       TEXT NOT NULL,
   kind       TEXT NOT NULL,
   color      TEXT NOT NULL,
+  nature     TEXT,
   archived   BOOLEAN NOT NULL DEFAULT FALSE,
   version    INTEGER NOT NULL DEFAULT 1,
   is_demo    BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT fin_category_kind_valid CHECK (kind IN ('RECEITA', 'DESPESA')),
+  CONSTRAINT fin_category_nature_valid CHECK (
+    nature IS NULL OR (kind = 'DESPESA' AND nature IN ('FIXA', 'LIVRE'))
+  ),
   CONSTRAINT fin_category_name_not_blank CHECK (BTRIM(name) <> '')
 );
 

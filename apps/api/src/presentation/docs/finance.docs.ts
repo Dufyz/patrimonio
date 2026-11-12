@@ -112,6 +112,13 @@ const rows: readonly Entry[] = [
     { 200: WROTE, 404: MISSING },
   ],
   [
+    'post',
+    '/finance/categories/:id/delete',
+    'Excluir categoria movendo lançamentos e recorrentes para `move_to`, numa transação (`If-Match`)',
+    c.deleteFinCategoryMovingSchema,
+    { 200: WROTE, 404: MISSING, 409: CONFLICT, 422: RULE },
+  ],
+  [
     'delete',
     '/finance/categories/:id',
     'Excluir categoria sem uso',

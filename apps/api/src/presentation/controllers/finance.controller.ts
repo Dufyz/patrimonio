@@ -79,6 +79,7 @@ export type FinanceHandler =
   | 'updateCategory'
   | 'archiveCategory'
   | 'deleteCategory'
+  | 'deleteCategoryMoving'
   | 'listAccounts'
   | 'statement'
   | 'createAccount'
@@ -178,6 +179,13 @@ export const createFinanceController = (deps: FinanceRouteDeps): FinanceControll
       ),
     ),
     deleteCategory: write((r) => uc.deleteCategory(param(r, 'id'), meta(r))),
+    deleteCategoryMoving: write((r) =>
+      uc.deleteCategoryMoving(
+        param(r, 'id'),
+        body<{ move_to: string }>(r).move_to,
+        meta(r),
+      ),
+    ),
 
     // Contas
     listAccounts: read((r) =>
@@ -236,10 +244,20 @@ export const createFinanceController = (deps: FinanceRouteDeps): FinanceControll
     createCardItem: write((r) => uc.addCardItem(param(r, 'id'), body(r), meta(r))),
     deleteCardItem: write((r) => uc.deleteCardItem(param(r, 'item_id'), meta(r))),
     moveEntryInvoice: write((r) =>
-      uc.moveToInvoice('entry', param(r, 'id'), body<{ invoice_month: string }>(r).invoice_month, meta(r)),
+      uc.moveToInvoice(
+        'entry',
+        param(r, 'id'),
+        body<{ invoice_month: string }>(r).invoice_month,
+        meta(r),
+      ),
     ),
     moveCardItemInvoice: write((r) =>
-      uc.moveToInvoice('item', param(r, 'item_id'), body<{ invoice_month: string }>(r).invoice_month, meta(r)),
+      uc.moveToInvoice(
+        'item',
+        param(r, 'item_id'),
+        body<{ invoice_month: string }>(r).invoice_month,
+        meta(r),
+      ),
     ),
 
     // Recorrentes

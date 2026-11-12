@@ -42,6 +42,8 @@ export const categoryBody = z.object({
   name: text(60),
   kind: finKind,
   color: z.string().regex(/^[a-z][a-z0-9-]{1,30}$/, 'use o nome de uma cor da paleta'),
+  /** Só despesa: `fixa` ou `livre` (CAT-04). */
+  nature: z.enum(['fixa', 'livre']).nullable().optional(),
 });
 export const listFinCategoriesSchema = z.object({
   query: z.object({ include_archived: flag }).optional(),
@@ -54,6 +56,11 @@ export const updateFinCategorySchema = written({ id: uuid }, categoryBody);
 export const archiveSchema = z.object({ archived: z.boolean() });
 export const archiveFinCategorySchema = written({ id: uuid }, archiveSchema);
 export const deleteFinCategorySchema = written({ id: uuid });
+/** CAT-04 · Excluir com destino: move lançamentos e recorrentes e remove, numa transação. */
+export const deleteFinCategoryMovingSchema = written(
+  { id: uuid },
+  z.object({ move_to: uuid }),
+);
 export const categoryBreakdownSchema = z.object({
   query: z.object({ kind: finKind.default('despesa'), from: dateOnly, to: dateOnly }),
 });
@@ -226,9 +233,7 @@ export const listEntriesSchema = z.object({
   }),
 });
 const csvList = <T extends z.ZodTypeAny>(item: T) =>
-  z
-    .union([z.array(item), item.transform((value) => [value])])
-    .optional();
+  z.union([z.array(item), item.transform((value) => [value])]).optional();
 export const LEDGER_KIND_VALUES = [
   'RECEITA',
   'DESPESA',

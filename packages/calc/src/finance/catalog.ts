@@ -5,6 +5,7 @@ import type {
   FinCategory,
   FinKind,
   FinRecurring,
+  FinCategoryNature,
   FinRecurringKind,
   FinRecurringMode,
   FinSnapshot,
@@ -47,7 +48,14 @@ export type CategoryInput = {
   readonly name: string;
   readonly kind: FinKind;
   readonly color: string;
+  readonly nature?: FinCategoryNature | null | undefined;
 };
+
+/** Receita não tem natureza; despesa pode ser fixa ou livre (CAT-04). */
+const natureError = (input: CategoryInput): FinRuleError | undefined =>
+  input.nature != null && input.kind !== 'despesa'
+    ? rule('CATEGORY_NATURE_INVALID', 'Só despesa tem natureza.', { field: 'nature' })
+    : undefined;
 
 const nameTaken = (data: FinSnapshot, input: CategoryInput, exceptId?: string): boolean =>
   data.categories.some(
@@ -80,11 +88,14 @@ export const createCategory = (
       }),
     ]);
   }
+  const invalidNature = natureError(input);
+  if (invalidNature !== undefined) return failure([invalidNature]);
   const category: FinCategory = {
     id: newId(),
     name: input.name.trim(),
     kind: input.kind,
     color: input.color,
+    nature: input.kind === 'despesa' ? (input.nature ?? null) : null,
     archived: false,
     version: 1,
   };
@@ -116,6 +127,8 @@ export const updateCategory = (
       }),
     ]);
   }
+  const invalidNature = natureError(input);
+  if (invalidNature !== undefined) return failure([invalidNature]);
   if (input.kind !== current.kind && categoryUsage(data, id) > 0) {
     return failure([
       rule('CATEGORY_IN_USE', 'O tipo de uma categoria com lançamentos não muda.', {
@@ -128,7 +141,13 @@ export const updateCategory = (
     ...data,
     categories: data.categories.map((category) =>
       category.id === id
-        ? { ...category, name: input.name.trim(), kind: input.kind, color: input.color }
+        ? {
+            ...category,
+            name: input.name.trim(),
+            kind: input.kind,
+            color: input.color,
+            nature: input.kind === 'despesa' ? (input.nature ?? null) : null,
+          }
         : category,
     ),
   });
@@ -169,6 +188,49 @@ export const removeCategory = (data: FinSnapshot, id: string): Result<FinSnapsho
   return success({
     ...data,
     categories: data.categories.filter((category) => category.id !== id),
+  });
+};
+
+/**
+ * CAT-04 · Excluir com destino: lançamentos, recorrentes e itens de fatura vão
+ * para a categoria de destino e a categoria sai, tudo no mesmo snapshot — quem
+ * persiste o faz numa transação só, e falha desfaz tudo.
+ */
+export const removeCategoryMoving = (
+  data: FinSnapshot,
+  id: string,
+  moveTo: string,
+): Result<FinSnapshot> => {
+  const source = findCategory(data, id);
+  if (source === undefined) {
+    return failure([notFound('CATEGORY_NOT_FOUND', 'Categoria não encontrada.')]);
+  }
+  const target = findCategory(data, moveTo);
+  if (target === undefined || moveTo === id) {
+    return failure([
+      rule('CATEGORY_NOT_FOUND', 'Escolha outra categoria como destino.', {
+        field: 'move_to',
+        status: target === undefined ? 404 : 422,
+      }),
+    ]);
+  }
+  if (target.kind !== source.kind) {
+    return failure([
+      rule('CATEGORY_KIND_MISMATCH', 'O destino precisa ser do mesmo tipo.', {
+        field: 'move_to',
+      }),
+    ]);
+  }
+  const retarget = <T extends { readonly category_id: string | null }>(row: T): T =>
+    row.category_id === id ? { ...row, category_id: moveTo } : row;
+  return success({
+    ...data,
+    categories: data.categories.filter((category) => category.id !== id),
+    entries: data.entries.map(retarget),
+    recurrings: data.recurrings.map(retarget),
+    card_items: data.card_items.map((item) =>
+      item.category_id === id ? { ...item, category_id: moveTo } : item,
+    ),
   });
 };
 

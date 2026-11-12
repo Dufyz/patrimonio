@@ -327,6 +327,20 @@ export const financeUseCases = (deps: FinanceDeps) => ({
       { version: byId('categories')(id) },
     ),
 
+  /** CAT-04 · Excluir com destino, numa transação só. */
+  deleteCategoryMoving: (id: string, moveTo: string, meta: WriteMeta = {}) =>
+    run(
+      deps,
+      'category.delete_moving',
+      { id, move_to: moveTo },
+      meta,
+      (data) =>
+        lift(fin.removeCategoryMoving(data, id, moveTo), (next) =>
+          ok(next, { id, move_to: moveTo }),
+        ),
+      { version: byId('categories')(id) },
+    ),
+
   // ─── Contas ─────────────────────────────────────────────────────────────────
   createAccount: (input: fin.AccountInput, meta: WriteMeta = {}) =>
     run(

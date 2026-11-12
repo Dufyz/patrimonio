@@ -419,6 +419,70 @@ describe('contas, transferências e faturas', () => {
   });
 });
 
+describe('categorias: natureza e exclusão atômica (CAT-04)', () => {
+  const usos = async (id: string) => {
+    const [row] = await harness.sql<{ n: string }[]>`
+      SELECT (
+        (SELECT COUNT(*) FROM fin_entry WHERE category_id = ${id}) +
+        (SELECT COUNT(*) FROM fin_recurring WHERE category_id = ${id})
+      )::TEXT AS n`;
+    return Number(row?.n);
+  };
+
+  it('excluir com move_to reatribui lançamentos e recorrentes e remove a categoria', async () => {
+    const origem = ids['cat:Mercado'] as string;
+    const destino = ids['cat:Restaurantes'] ?? ids['cat:Lazer'];
+    expect(destino).toBeDefined();
+    const antes = await usos(origem);
+    const destinoAntes = await usos(destino as string);
+    expect(antes).toBeGreaterThan(0);
+
+    const response = await send('post', `/categories/${origem}/delete`, {
+      move_to: destino,
+    });
+    expect(response.status).toBe(200);
+    expect(await usos(destino as string)).toBe(destinoAntes + antes);
+    const restantes = await harness.sql`SELECT id FROM fin_category WHERE id = ${origem}`;
+    expect(restantes).toHaveLength(0);
+  });
+
+  it('destino de outro tipo é recusado e nada muda', async () => {
+    const origem = ids['cat:Mercado'] as string;
+    const receita = Object.entries(ids).find(([k]) => k === 'cat:Salário')?.[1];
+    expect(receita).toBeDefined();
+    const antes = await usos(origem);
+
+    const response = await send('post', `/categories/${origem}/delete`, {
+      move_to: receita,
+    });
+    expect(response.status).toBe(422);
+    expect(response.body.code).toBe('CATEGORY_KIND_MISMATCH');
+    expect(await usos(origem)).toBe(antes);
+  });
+
+  it('natureza só existe em despesa', async () => {
+    const despesa = await send('post', '/categories', {
+      name: 'Aluguel',
+      kind: 'despesa',
+      color: 'violet',
+      nature: 'fixa',
+    });
+    expect(despesa.status).toBe(201);
+    const [row] = await harness.sql<{ nature: string }[]>`
+      SELECT nature FROM fin_category WHERE name = 'Aluguel'`;
+    expect(row?.nature).toBe('FIXA');
+
+    const receita = await send('post', '/categories', {
+      name: 'Bônus',
+      kind: 'receita',
+      color: 'green',
+      nature: 'livre',
+    });
+    expect(receita.status).toBe(422);
+    expect(receita.body.code).toBe('CATEGORY_NATURE_INVALID');
+  });
+});
+
 describe('recorrentes e rotina diária', () => {
   it('a rotina é idempotente: rodar duas vezes não duplica previstos', async () => {
     await send('post', '/jobs/sync');
