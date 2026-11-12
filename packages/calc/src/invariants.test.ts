@@ -307,6 +307,54 @@ describe('série de cota', () => {
     );
   });
 
+  it('LIV-14 · qualquer sequência de aportes, de conta ou de fora do app, não move o valor da cota', () => {
+    const aporte = fc.record({
+      amount: fc.integer({ min: 1, max: 50_000 }),
+      origin: fc.constantFrom('conta', 'fora'),
+    });
+
+    fc.assert(
+      fc.property(
+        quotaSeries,
+        fc.array(aporte, { minLength: 1, maxLength: 10 }),
+        (days, aportes) => {
+          const head = buildQuotaSeries(days);
+          const last = head.at(-1);
+          if (last === undefined || last.quota_count === '0.000000000000') return;
+
+          // A origem só vive na perna financeira: o motor da carteira recebe o
+          // mesmo fluxo de capital, de onde quer que o dinheiro tenha saído.
+          const run = (origin: (index: number) => string) => {
+            let total = new Decimal(last.total_value);
+            const flows = aportes.map((a, index) => {
+              total = total.plus(a.amount);
+              void origin(index);
+              return {
+                position_date: dateFrom(days.length + index),
+                total_value: total.toFixed(2),
+                net_flow: new Decimal(a.amount).toFixed(2),
+                payouts: '0.00',
+              };
+            });
+            return buildQuotaSeries(flows, { previous: seedFrom(last) });
+          };
+
+          const withOrigins = run((index) => aportes[index]?.origin ?? 'fora');
+          const allOutside = run(() => 'fora');
+          const allAccount = run(() => 'conta');
+          expect(withOrigins).toEqual(allOutside);
+          expect(withOrigins).toEqual(allAccount);
+
+          for (const day of withOrigins) {
+            const drift = new Decimal(day.quota_value).minus(last.quota_value).abs();
+            expect(drift.lessThan('0.000000001')).toBe(true);
+          }
+        },
+      ),
+      { numRuns: RUNS },
+    );
+  });
+
   it('recalcular um pedaço produz a mesma série que recalcular do zero', () => {
     fc.assert(
       fc.property(quotaSeries, fc.nat(), (days, cut) => {

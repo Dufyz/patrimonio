@@ -459,3 +459,23 @@ describe('preview unificado: o efeito é o que a gravação grava (LIV-07)', () 
     expect(acima.body.code).toBe('RESGATE_ACIMA_DA_POSICAO');
   });
 });
+
+describe('invariante da cota: a origem não muda o fluxo de capital (LIV-14)', () => {
+  it('o aporte de conta e o de fora do app gravam a mesma linha de posição', async () => {
+    const colunas = `kind, trade_date, quantity, unit_price, fees, gross_amount, net_amount`;
+    const deConta = await aportar({ account_id: conta });
+    expect(deConta.status).toBe(201);
+    const [a] = await harness.sql.unsafe<Record<string, string>[]>(
+      `SELECT ${colunas} FROM "transaction" WHERE kind = 'buy'`,
+    );
+    await harness.sql`DELETE FROM "transaction"`;
+
+    const deFora = await aportar({ account_id: null });
+    expect(deFora.status).toBe(201);
+    const [b] = await harness.sql.unsafe<Record<string, string>[]>(
+      `SELECT ${colunas} FROM "transaction" WHERE kind = 'buy'`,
+    );
+
+    expect(b).toEqual(a);
+  });
+});
