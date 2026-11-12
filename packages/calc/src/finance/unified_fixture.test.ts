@@ -8,6 +8,7 @@ import { bookRows, bookTotals, filterBook } from './book.js';
 import type { BookInvestmentRow } from './book.js';
 import { monthCascade, wealthSummary } from './wealth.js';
 import { dec, money } from './money.js';
+import { forecastSeries, projectedBalance } from './forecast.js';
 import { overview } from './overview.js';
 
 /** LIV-16 · O fixture de 11/11/2026 (§2.3): os números da especificação, de ponta a ponta. */
@@ -88,6 +89,29 @@ describe('fixture unificado (LIV-16)', () => {
       .minus(aportesPrevistos)
       .minus(faturasAte30);
     expect(money(previsto)).toBe('130.16');
+  });
+
+  it('projectedBalance reproduz o saldo previsto em 30/11 = 130,16 (LIV-10)', () => {
+    expect(projectedBalance(data, '2026-11-30', TODAY, fixture.planned_aportes)).toBe(
+      '130.16',
+    );
+  });
+
+  it('a série traz realizado, previsto e o menor saldo com a data (LIV-10)', () => {
+    const series = forecastSeries(
+      data,
+      { from: '2026-11-01', to: '2026-11-30' },
+      TODAY,
+      fixture.planned_aportes,
+    );
+    expect(series.points).toHaveLength(30);
+    expect(series.points.filter((p) => !p.forecast)).toHaveLength(11);
+    expect(series.points.at(-1)?.balance).toBe('130.16');
+    expect(series.at_end).toBe('130.16');
+    const min = series.points.reduce((a, b) =>
+      Number(b.balance) < Number(a.balance) ? b : a,
+    );
+    expect(series.lowest).toEqual({ date: min.date, balance: min.balance });
   });
 
   it('não existe a categoria "Investimento" (LIV-15)', () => {

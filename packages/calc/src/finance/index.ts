@@ -13,6 +13,7 @@ export * from './invoice_ops.js';
 export * from './ledger.js';
 export * from './lookup.js';
 export * from './money.js';
+export * from './forecast.js';
 export * from './overview.js';
 export * from './recurring.js';
 export * from './search.js';
