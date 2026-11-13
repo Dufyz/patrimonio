@@ -22,7 +22,7 @@ export const FinanceOverview = lazy(() =>
   })),
 );
 const RecurringsScreen = lazy(() =>
-  import('./screens/recurrings_screen.js').then((module) => ({
+  import('../views/recurrings/recurrings_screen.js').then((module) => ({
     default: module.RecurringsScreen,
   })),
 );
