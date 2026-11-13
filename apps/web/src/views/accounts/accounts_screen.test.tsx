@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -60,5 +61,44 @@ describe('AccountsScreen', () => {
     expect(screen.getAllByText(/1\.462,51/).length).toBeGreaterThan(0);
     expect(screen.getByText('Roxinho')).toBeTruthy();
     expect(screen.getByText('○ Não')).toBeTruthy();
+  });
+
+  it('clicar no cabeçalho ordena, o segundo clique inverte e o terceiro volta à ordem da tela (CMP-03)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify(body), { status: 200 })),
+    );
+    render(
+      <MemoryRouter>
+        <PreferencesProvider>
+          <AccountsScreen />
+        </PreferencesProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText('Nubank Conta')).toBeTruthy());
+
+    const names = (): string[] =>
+      within(screen.getAllByRole('table')[0] as HTMLElement)
+        .getAllByRole('rowheader')
+        .map((cell) => cell.textContent?.replace('Papel', '') ?? '')
+        .filter((name) => name !== 'Total em contas');
+    const header = (): HTMLElement =>
+      screen.getByRole('columnheader', { name: /Saldo hoje/ });
+    const click = () => userEvent.click(within(header()).getByRole('button'));
+
+    expect(names()).toEqual(['Nubank Conta', 'Itaú Unibanco', 'Flash LifeApps']);
+    expect(header().getAttribute('aria-sort')).toBe('none');
+
+    await click();
+    expect(header().getAttribute('aria-sort')).toBe('ascending');
+    expect(names()).toEqual(['Flash LifeApps', 'Itaú Unibanco', 'Nubank Conta']);
+
+    await click();
+    expect(header().getAttribute('aria-sort')).toBe('descending');
+    expect(names()).toEqual(['Nubank Conta', 'Itaú Unibanco', 'Flash LifeApps']);
+
+    await click();
+    expect(header().getAttribute('aria-sort')).toBe('none');
+    expect(names()).toEqual(['Nubank Conta', 'Itaú Unibanco', 'Flash LifeApps']);
   });
 });

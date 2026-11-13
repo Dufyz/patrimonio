@@ -1,4 +1,6 @@
 import { cn } from '../../lib/cn.js';
+import { ariaSort } from '../../lib/table_sort.js';
+import type { SortState } from '../../lib/table_sort.js';
 
 /**
  * FIN-004 · Os componentes únicos de tabela de Finanças.
@@ -84,6 +86,53 @@ export const Th = ({
     {children}
   </th>
 );
+
+/**
+ * CMP-03 · Cabeçalho que ordena: o botão traz o indicador e o `aria-sort` diz o
+ * sentido à tecnologia assistiva. O estado é de quem usa (`lib/table_sort`).
+ */
+export const SortTh = ({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  align = 'left',
+  className,
+}: {
+  readonly label: string;
+  readonly sortKey: string;
+  readonly sort: SortState;
+  readonly onSort: (key: string) => void;
+  readonly align?: Align;
+  readonly className?: string | undefined;
+}): React.ReactElement => {
+  const active = sort !== null && sort.key === sortKey;
+  return (
+    <th
+      scope="col"
+      aria-sort={ariaSort(sort, sortKey)}
+      className={cn(
+        'tabular px-3 py-2.5 text-label font-normal tracking-[0.08em] text-ink-3 uppercase',
+        ALIGN[align],
+        className,
+      )}
+    >
+      <button
+        type="button"
+        className={cn(
+          'inline-flex cursor-pointer items-center gap-1 uppercase hover:text-ink',
+          active && 'text-ink',
+        )}
+        onClick={() => onSort(sortKey)}
+      >
+        {label}
+        <span aria-hidden="true" className="w-2 text-[0.625rem]">
+          {active ? (sort.dir === 'asc' ? '▲' : '▼') : ''}
+        </span>
+      </button>
+    </th>
+  );
+};
 
 export const Td = ({
   align = 'left',

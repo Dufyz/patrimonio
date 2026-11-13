@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { setAccountArchived } from '../../api/account_write.js';
@@ -7,11 +7,15 @@ import { ApiError } from '../../api/client.js';
 import type { AccountRowResource, AccountsResource } from '../../api/accounts.js';
 import { usePreferences } from '../../components/preferences.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
+import { SortTh } from '../../finance/components/fin_table.js';
 import { EmptyPanel, PanelError } from '../../finance/components/states.js';
 import { TableScreenSkeleton } from '../../finance/components/screen_skeletons.js';
 import { financeRoutes } from '../../finance/lib/routes.js';
 import { AlertModal } from '../../components/overlay.js';
 import { formatMoney } from '../../lib/format.js';
+import { nextSort, sortRows } from '../../lib/table_sort.js';
+import type { SortState } from '../../lib/table_sort.js';
+import { toCents } from '../../lib/projection_view.js';
 import { needsExplicitConfirm } from '../../lib/account_form.js';
 import { newAttemptKey } from '../../lib/entry.js';
 import { NewEntryModal } from '../ledger/new_entry_modal.js';
@@ -37,6 +41,18 @@ export const AccountsScreen = (): React.ReactElement => {
   const [archiving, setArchiving] = useState<AccountRowResource | null>(null);
   const [force, setForce] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortState>(null);
+  const onSort = (key: string): void => setSort((current) => nextSort(current, key));
+  const rows = useMemo(
+    () =>
+      sortRows(data?.accounts ?? [], sort, {
+        conta: (row) => row.account.name,
+        instituicao: (row) => row.account.institution,
+        saldo: (row) => toCents(row.balance),
+        previsto: (row) => toCents(row.projected_month_end),
+      }),
+    [data, sort],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -103,27 +119,47 @@ export const AccountsScreen = (): React.ReactElement => {
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-label text-ink-3 uppercase">
-            <th scope="col">Conta</th>
-            <th scope="col" className="max-md:hidden">
-              Instituição
-            </th>
+            <SortTh
+              label="Conta"
+              sortKey="conta"
+              sort={sort}
+              onSort={onSort}
+              className="px-0"
+            />
+            <SortTh
+              label="Instituição"
+              sortKey="instituicao"
+              sort={sort}
+              onSort={onSort}
+              className="px-0 max-md:hidden"
+            />
             <th scope="col" className="max-lg:hidden">
               Cartões
             </th>
             <th scope="col">No patrimônio</th>
-            <th scope="col" className="text-right">
-              Saldo hoje
-            </th>
-            <th scope="col" className="text-right max-sm:hidden">
-              Previsto em fim de mês
-            </th>
+            <SortTh
+              label="Saldo hoje"
+              sortKey="saldo"
+              sort={sort}
+              onSort={onSort}
+              align="right"
+              className="px-0"
+            />
+            <SortTh
+              label="Previsto em fim de mês"
+              sortKey="previsto"
+              sort={sort}
+              onSort={onSort}
+              align="right"
+              className="px-0 max-sm:hidden"
+            />
             <th scope="col">
               <span className="sr-only">Ações</span>
             </th>
           </tr>
         </thead>
         <tbody>
-          {data.accounts.map((row) => (
+          {rows.map((row) => (
             <tr
               key={row.account.id}
               tabIndex={0}
