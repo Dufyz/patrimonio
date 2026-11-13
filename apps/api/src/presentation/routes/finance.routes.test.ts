@@ -568,6 +568,27 @@ describe('patrimônio e livre após faturas (LIV-09)', () => {
   });
 });
 
+describe('cartões: dívida por cartão (CRT-01)', () => {
+  it('a soma por cartão fecha com abertas e fechadas a pagar do patrimônio', async () => {
+    const res = await get('/cards');
+    expect(res.status).toBe(200);
+    const sum = (key: 'abertas' | 'fechadas_a_pagar'): number =>
+      res.body.cards.reduce(
+        (acc: number, c: { debt: Record<string, string> }) => acc + Number(c.debt[key]),
+        0,
+      );
+    expect(sum('abertas')).toBeCloseTo(Number(res.body.wealth.abertas), 2);
+    expect(sum('fechadas_a_pagar')).toBeCloseTo(
+      Number(res.body.wealth.fechadas_a_pagar),
+      2,
+    );
+    expect(Number(res.body.wealth.total_devido)).toBeCloseTo(
+      Number(res.body.wealth.abertas) + Number(res.body.wealth.fechadas_a_pagar),
+      2,
+    );
+  });
+});
+
 describe('livro unificado (LIV-02)', () => {
   it('os totais do mês batem com a Visão geral e não dependem da página', async () => {
     const overview = await get('/overview?month=2026-10');

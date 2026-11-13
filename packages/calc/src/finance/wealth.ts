@@ -1,10 +1,11 @@
-import type { FinSnapshot } from '@patrimonio/domain';
+import type { FinCard, FinSnapshot } from '@patrimonio/domain';
 import type { Decimal } from 'decimal.js';
 
 import { totalInAccounts } from './accounts.js';
 import {
   activeCards,
   cardInvoiceKeys,
+  invoiceDue,
   invoiceRemaining,
   invoiceStatus,
 } from './cards.js';
@@ -112,6 +113,32 @@ export const invoiceDebt = (data: FinSnapshot, today: string): InvoiceDebt => {
     }
   }
   return { abertas: money(total(open)), fechadas_a_pagar: money(total(closed)) };
+};
+
+export type CardDebt = InvoiceDebt & {
+  /** O vencimento mais próximo entre as faturas aberta e fechadas a pagar do cartão. */
+  readonly next_due: string | null;
+};
+
+/** CRT-01 · O mesmo critério de `invoiceDebt`, para um cartão só. */
+export const cardDebt = (data: FinSnapshot, card: FinCard, today: string): CardDebt => {
+  const open: Decimal[] = [];
+  const closed: Decimal[] = [];
+  const dues: string[] = [];
+  for (const key of cardInvoiceKeys(data, card, today)) {
+    const remaining = invoiceRemaining(data, card, key);
+    if (remaining.lte(0)) continue;
+    const status = invoiceStatus(data, card, key, today);
+    if (status === 'aberta') open.push(remaining);
+    else if (status === 'fechada' || status === 'parcial') closed.push(remaining);
+    else continue;
+    dues.push(invoiceDue(card, key));
+  }
+  return {
+    abertas: money(total(open)),
+    fechadas_a_pagar: money(total(closed)),
+    next_due: dues.sort()[0] ?? null,
+  };
 };
 
 export type WealthSummary = Wealth & FreeAfterInvoices & InvoiceDebt;

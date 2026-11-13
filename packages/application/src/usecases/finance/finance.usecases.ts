@@ -259,7 +259,13 @@ export const financeUseCases = (deps: FinanceDeps) => ({
 
   getCards: () =>
     runRead(deps, (data, today) => ({
-      cards: fin.activeCards(data).map((card) => fin.cardSummary(data, card, today)),
+      cards: fin.activeCards(data).map((card) => ({
+        ...fin.cardSummary(data, card, today),
+        debt: fin.cardDebt(data, card, today),
+      })),
+      /** CRT-01/02 · Os mesmos números de Livre após faturas que Visão geral e Contas leem. */
+      wealth: fin.wealthSummary(data, today, null),
+      as_of: today,
       upcoming: fin.upcomingInvoices(data, today),
       open_total: fin.money(fin.openInvoicesTotal(data, today)),
       archived: data.cards.filter((card) => card.archived),
