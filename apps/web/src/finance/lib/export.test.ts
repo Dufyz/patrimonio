@@ -37,7 +37,16 @@ describe('tabela exportada', () => {
     );
   });
 
-  it('vírgula, aspas e quebra de linha vão entre aspas', () => {
-    expect(toCsv([['a,b', 'c"d', 'e\nf', 'g']])).toBe('"a,b","c""d","e\nf",g');
+  it('o separador é ponto e vírgula; ele, aspas e quebra de linha vão entre aspas', () => {
+    expect(toCsv([['a;b', 'c"d', 'e\nf', 'g,h']])).toBe('"a;b";"c""d";"e\nf";g,h');
+  });
+
+  it('a soma da coluna de valor do arquivo é a do total exibido (CMP-11)', () => {
+    const csv = toCsv([['valor'], ['10.50'], ['-3.25'], ['100.00']]);
+    const soma = csv
+      .split('\r\n')
+      .slice(1)
+      .reduce((total, line) => total + Number(line), 0);
+    expect(soma).toBeCloseTo(107.25, 2);
   });
 });
