@@ -97,4 +97,49 @@ describe('NewEntryModal', () => {
     );
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
   });
+
+  it('transferência grava em /transfers sem categoria', async () => {
+    const calls: { url: string; init: RequestInit | undefined }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url, init });
+        return new Response(
+          JSON.stringify(url.includes('categories') ? categories : effect),
+          {
+            status: 200,
+          },
+        );
+      }),
+    );
+    const onSaved = vi.fn();
+    render(
+      <PreferencesProvider>
+        <NewEntryModal
+          today="2026-11-13"
+          accounts={[
+            { id: 'a1', name: 'Nubank' },
+            { id: 'a2', name: 'Itaú' },
+          ]}
+          context={{ accountId: 'a1' }}
+          initialKind="TRANSFERENCIA"
+          onSaved={onSaved}
+          onClose={() => undefined}
+        />
+      </PreferencesProvider>,
+    );
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '300' } });
+    fireEvent.change(screen.getByLabelText('Para'), { target: { value: 'a2' } });
+    fireEvent.click(screen.getByRole('button', { name: /Lançar/ }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    const post = calls.find(
+      (c) => c.init?.method === 'POST' && !c.url.includes('preview'),
+    );
+    expect(post?.url).toBe('/api/finance/transfers');
+    expect(JSON.parse(String(post?.init?.body))).toMatchObject({
+      from_account_id: 'a1',
+      to_account_id: 'a2',
+      amount: '300',
+    });
+  });
 });

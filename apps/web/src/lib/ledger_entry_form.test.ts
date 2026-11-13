@@ -6,7 +6,7 @@ import {
   isValid,
   newDraft,
   switchKind,
-  toBody,
+  toRequest,
   validateDraft,
 } from './ledger_entry_form.js';
 
@@ -50,7 +50,7 @@ describe('ledger_entry_form', () => {
   });
 
   it('monta o corpo com ponto decimal e pagamento pela conta', () => {
-    expect(toBody(filled)).toMatchObject({
+    expect(toRequest(filled).body).toMatchObject({
       kind: 'despesa',
       amount: '12.50',
       payments: [{ source_type: 'conta', source_id: 'a1' }],
@@ -64,5 +64,19 @@ describe('ledger_entry_form', () => {
       warnings: [],
     });
     expect(rows).toEqual([{ label: 'Saldo · Nubank', before: 10000, after: 8750 }]);
+  });
+
+  it('transferência: origem e destino distintos, sem categoria, vai para /transfers', () => {
+    const t = {
+      ...switchKind(filled, 'TRANSFERENCIA'),
+      description: '',
+      toAccountId: 'a2',
+    };
+    expect(isValid(validateDraft(t, TODAY))).toBe(true);
+    expect(validateDraft({ ...t, toAccountId: 'a1' }, TODAY).toAccountId).toBeDefined();
+    expect(toRequest(t)).toMatchObject({
+      path: '/api/finance/transfers',
+      body: { from_account_id: 'a1', to_account_id: 'a2', amount: '12.50', note: null },
+    });
   });
 });

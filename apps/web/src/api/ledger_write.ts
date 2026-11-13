@@ -1,5 +1,4 @@
-import type { EntryBody } from '@patrimonio/contracts';
-
+import type { EntryRequest } from '../lib/ledger_entry_form.js';
 import { request } from './client.js';
 
 /**
@@ -27,19 +26,19 @@ type Parsed<T> = { readonly parse: (value: unknown) => T };
 const as = <T>(): Parsed<T> => ({ parse: (value) => value as T });
 
 export const previewEntry = (
-  body: EntryBody,
+  req: EntryRequest,
   signal?: AbortSignal,
 ): Promise<{ readonly effect: EffectResource }> =>
-  request('/api/finance/entries?preview=true', as<{ effect: EffectResource }>(), {
+  request(`${req.path}?preview=true`, as<{ effect: EffectResource }>(), {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify(req.body),
     ...(signal === undefined ? {} : { signal }),
   });
 
-export const saveEntry = (body: EntryBody, idempotencyKey: string): Promise<unknown> =>
-  request('/api/finance/entries', as<unknown>(), {
+export const saveEntry = (req: EntryRequest, idempotencyKey: string): Promise<unknown> =>
+  request(req.path, as<unknown>(), {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify(req.body),
     headers: { 'Idempotency-Key': idempotencyKey },
   });
 

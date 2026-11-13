@@ -14,7 +14,7 @@ import {
   MODAL_KINDS,
   newDraft,
   switchKind,
-  toBody,
+  toRequest,
   validateDraft,
 } from '../../lib/ledger_entry_form.js';
 import type { Draft, DraftContext, ModalKind } from '../../lib/ledger_entry_form.js';
@@ -63,11 +63,12 @@ export const NewEntryModal = ({
     attempted ? errors[field] : undefined;
   const set = (patch: Partial<Draft>): void => setDraft((d) => ({ ...d, ...patch }));
 
-  const body = useMemo(() => (valid ? toBody(draft) : null), [valid, draft]);
+  const body = useMemo(() => (valid ? toRequest(draft) : null), [valid, draft]);
   const preview = usePreview(body === null ? null : JSON.stringify(body), (signal) =>
     previewEntry(body as NonNullable<typeof body>, signal),
   );
 
+  const transfer = draft.kind === 'TRANSFERENCIA';
   const options = categories
     .filter((c) => c.kind === (draft.kind === 'RECEITA' ? 'receita' : 'despesa'))
     .map((c) => ({ id: c.id, name: c.name }));
@@ -115,7 +116,10 @@ export const NewEntryModal = ({
             label: MODAL_KIND_LABEL[kind],
           }))}
         />
-        <Field label="Descrição" error={shown('description')}>
+        <Field
+          label={transfer ? 'Descrição (opcional)' : 'Descrição'}
+          error={shown('description')}
+        >
           {(props) => (
             <Input
               {...props}
@@ -152,32 +156,49 @@ export const NewEntryModal = ({
         </div>
         <div className="grid grid-cols-2 gap-4">
           <Field
-            label={draft.kind === 'RECEITA' ? 'Conta de destino' : 'Conta'}
+            label={
+              transfer ? 'De' : draft.kind === 'RECEITA' ? 'Conta de destino' : 'Conta'
+            }
             error={shown('accountId')}
           >
             {(props) => (
               <Select
                 {...props}
                 invalid={shown('accountId') !== undefined}
-                placeholder="Escolha a conta"
+                placeholder={transfer ? 'Conta de origem' : 'Escolha a conta'}
                 options={accounts}
                 value={draft.accountId}
                 onChange={(e) => set({ accountId: e.target.value })}
               />
             )}
           </Field>
-          <Field label="Categoria" error={shown('categoryId')}>
-            {(props) => (
-              <Select
-                {...props}
-                invalid={shown('categoryId') !== undefined}
-                placeholder="Escolha a categoria"
-                options={options}
-                value={draft.categoryId}
-                onChange={(e) => set({ categoryId: e.target.value })}
-              />
-            )}
-          </Field>
+          {transfer ? (
+            <Field label="Para" error={shown('toAccountId')}>
+              {(props) => (
+                <Select
+                  {...props}
+                  invalid={shown('toAccountId') !== undefined}
+                  placeholder="Conta de destino"
+                  options={accounts}
+                  value={draft.toAccountId}
+                  onChange={(e) => set({ toAccountId: e.target.value })}
+                />
+              )}
+            </Field>
+          ) : (
+            <Field label="Categoria" error={shown('categoryId')}>
+              {(props) => (
+                <Select
+                  {...props}
+                  invalid={shown('categoryId') !== undefined}
+                  placeholder="Escolha a categoria"
+                  options={options}
+                  value={draft.categoryId}
+                  onChange={(e) => set({ categoryId: e.target.value })}
+                />
+              )}
+            </Field>
+          )}
         </div>
         {effect === null ? null : (
           <EffectTable rows={effectRows(effect)} busy={preview.status === 'loading'} />
