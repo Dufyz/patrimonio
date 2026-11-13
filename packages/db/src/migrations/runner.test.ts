@@ -338,3 +338,63 @@ describe('o schema do projeto', () => {
     expect(Number(functions?.total)).toBe(0);
   });
 });
+
+/**
+ * QUA-07 · `up` → `down` → `up`. O schema que volta tem de ser o mesmo que saiu:
+ * é o que garante que cada `down` desfaz exatamente o que o `up` fez, e que o
+ * banco pode ser recriado a qualquer momento.
+ */
+describe('up → down → up (QUA-07)', () => {
+  let scratch: ScratchDatabase;
+  let sql: Sql;
+
+  beforeAll(async () => {
+    scratch = await createScratchDatabase();
+    sql = createConnection({
+      connection: scratch.connection,
+      poolSize: 2,
+      applicationName: 'patrimonio-test-roundtrip',
+    });
+  });
+
+  afterAll(async () => {
+    await closeDatabase(sql);
+    await scratch.drop();
+  });
+
+  const signature = async (): Promise<string[]> => {
+    const columns = await sql<{ line: string }[]>`
+      SELECT c.relname || '.' || a.attname || ':' || format_type(a.atttypid, a.atttypmod)
+             || CASE WHEN a.attnotnull THEN ' NOT NULL' ELSE '' END AS line
+        FROM pg_attribute a
+        JOIN pg_class c ON c.oid = a.attrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'public'
+         AND c.relkind IN ('r', 'p')
+         AND a.attnum > 0
+         AND NOT a.attisdropped
+         AND c.relname NOT LIKE '%\_20__'
+         AND c.relname <> 'schema_migrations'
+       ORDER BY 1
+    `;
+    const indexes = await sql<{ line: string }[]>`
+      SELECT indexname AS line FROM pg_indexes
+       WHERE schemaname = 'public' AND tablename <> 'schema_migrations' ORDER BY 1
+    `;
+
+    return [...columns.map((r) => r.line), ...indexes.map((r) => `idx:${r.line}`)];
+  };
+
+  it('desfazer tudo e aplicar de novo devolve o mesmo schema', async () => {
+    await runMigrations(scratch.connection);
+    const before = await signature();
+    expect(before.length).toBeGreaterThan(200);
+
+    const applied = (await migrationStatus(scratch.connection)).applied.length;
+    await rollbackMigrations(scratch.connection, applied);
+    expect(await signature()).toEqual([]);
+
+    await runMigrations(scratch.connection);
+    expect(await signature()).toEqual(before);
+  });
+});
