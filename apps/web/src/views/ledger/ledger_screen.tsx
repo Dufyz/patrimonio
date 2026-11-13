@@ -3,7 +3,9 @@ import { useSearchParams } from 'react-router';
 
 import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
 
-import { fetchAccountNames, fetchBook } from '../../api/book.js';
+import { fetchAccountNames, fetchBook, fetchCategoryOptions } from '../../api/book.js';
+import type { CategoryOption } from '../../api/book.js';
+import { CategoryCell } from './category_cell.js';
 import { EmptyPanel, PanelError } from '../../finance/components/states.js';
 import { TableScreenSkeleton } from '../../finance/components/screen_skeletons.js';
 import { downloadCsv } from '../../finance/lib/csv.js';
@@ -140,7 +142,14 @@ export const LedgerScreen = (): React.ReactElement => {
     setSingle({ row, action });
   };
   const [reload, setReload] = useState(0);
+  const [categories, setCategories] = useState<readonly CategoryOption[]>([]);
   const today = new Date().toISOString().slice(0, 10);
+
+  useEffect(() => {
+    fetchCategoryOptions()
+      .then(setCategories)
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     fetchAccountNames()
@@ -408,6 +417,9 @@ export const LedgerScreen = (): React.ReactElement => {
             <th scope="col" className="max-md:hidden">
               Tipo
             </th>
+            <th scope="col" className="max-lg:hidden">
+              Categoria
+            </th>
             <th scope="col" className="max-xl:hidden">
               Detalhe
             </th>
@@ -420,7 +432,7 @@ export const LedgerScreen = (): React.ReactElement => {
         {planned.rows.length === 0 ? null : (
           <tbody data-section="previstos">
             <tr>
-              <th scope="rowgroup" colSpan={7} className="pt-3 text-left text-ink-2">
+              <th scope="rowgroup" colSpan={8} className="pt-3 text-left text-ink-2">
                 Próximos dias · previstos{' '}
                 <span className="font-normal text-ink-3">
                   {planned.counter} · não entram nos totais do mês
@@ -440,6 +452,13 @@ export const LedgerScreen = (): React.ReactElement => {
                   </td>
                   <td>{row.description}</td>
                   <td className="max-md:hidden">{KIND_LABEL[row.kind]}</td>
+                  <td className="max-lg:hidden">
+                    <CategoryCell
+                      row={row}
+                      categories={categories}
+                      onSaved={() => setReload((n) => n + 1)}
+                    />
+                  </td>
                   <td className="text-ink-3 max-xl:hidden">{detail(row)}</td>
                   <td className="tabular text-right">
                     {row.amount === null ? '—' : money(row.amount, signOf(row.kind))}
@@ -463,7 +482,7 @@ export const LedgerScreen = (): React.ReactElement => {
         {sections.map((section) => (
           <tbody key={section.key}>
             <tr>
-              <th scope="rowgroup" colSpan={7} className="pt-3 text-left text-ink-2">
+              <th scope="rowgroup" colSpan={8} className="pt-3 text-left text-ink-2">
                 {section.label}
                 {grouping === 'dia' ? null : (
                   <span className="ml-2 font-normal text-ink-3">
@@ -518,6 +537,13 @@ export const LedgerScreen = (): React.ReactElement => {
                 </td>
                 <td>{row.description}</td>
                 <td className="max-md:hidden">{KIND_LABEL[row.kind]}</td>
+                <td className="max-lg:hidden">
+                  <CategoryCell
+                    row={row}
+                    categories={categories}
+                    onSaved={() => setReload((n) => n + 1)}
+                  />
+                </td>
                 <td className="text-ink-3 max-xl:hidden">{detail(row)}</td>
                 <td className="tabular text-right">
                   {row.amount === null ? '—' : money(row.amount, signOf(row.kind))}

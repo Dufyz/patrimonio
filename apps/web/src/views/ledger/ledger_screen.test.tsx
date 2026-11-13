@@ -263,4 +263,54 @@ describe('LedgerScreen', () => {
     });
     expect(posted[0]?.key).toBeTruthy();
   });
+
+  it('LAN-07: clicar na categoria de uma receita lançada abre o seletor e salva na hora', async () => {
+    const puts: { url: string; body: string }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (String(url).includes('/api/finance/categories')) {
+          return new Response(
+            JSON.stringify({
+              categories: [
+                { id: 'c1', name: 'Receita fixa', kind: 'receita' },
+                { id: 'c2', name: 'Mercado', kind: 'despesa' },
+                { id: 'c3', name: 'Extras', kind: 'receita' },
+              ],
+            }),
+            { status: 200 },
+          );
+        }
+        if (init?.method === 'PUT') {
+          puts.push({ url: String(url), body: String(init.body) });
+          return new Response('{}', { status: 200 });
+        }
+        const [first, ...rest] = book.rows;
+        const withEntry = {
+          ...first,
+          entry: {
+            kind: 'receita',
+            description: 'Salário',
+            date: '2026-11-11',
+            category_id: 'c1',
+            amount: '5000',
+            payments: [{ source_type: 'conta', source_id: 'a' }],
+          },
+          category_id: 'c1',
+        };
+        return new Response(JSON.stringify({ ...book, rows: [withEntry, ...rest] }), {
+          status: 200,
+        });
+      }),
+    );
+    wrap();
+    await waitFor(() => expect(screen.getByText('Salário')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /Categoria de Salário/ }));
+    fireEvent.change(screen.getByLabelText('Nova categoria de Salário'), {
+      target: { value: 'c3' },
+    });
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]?.url).toBe('/api/finance/entries/1');
+    expect(JSON.parse(puts[0]?.body ?? '{}')).toMatchObject({ category_id: 'c3' });
+  });
 });
