@@ -83,6 +83,7 @@ const View = ({
       overview={overview}
       goals={goalsEmpty}
       onNewEntry={onNewEntry}
+      onLaunched={() => {}}
     />
   );
 };
@@ -406,5 +407,16 @@ describe('Visão geral de Geral (GER)', () => {
     await userEvent.click(screen.getByRole('button', { name: /Lançamento/ }));
 
     expect(onNewEntry).toHaveBeenCalledTimes(1);
+  });
+
+  it('VGR-15 · cada próximo lançamento tem Lançar, que abre o modal com o valor editável', async () => {
+    open(ready(overviewOf('300000.00')));
+    const painel = screen.getByRole('region', { name: 'Próximos lançamentos' });
+
+    const [first] = within(painel).getAllByRole('button', { name: /^Lançar / });
+    await userEvent.click(first as HTMLElement);
+
+    expect(await screen.findByLabelText('Valor real')).toBeTruthy();
+    expect(screen.getByLabelText('Data')).toBeTruthy();
   });
 });

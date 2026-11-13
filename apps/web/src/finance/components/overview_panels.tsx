@@ -21,6 +21,7 @@ import type { Cents } from '../lib/money.js';
 import { formatRange, isWholeMonth } from '../lib/period.js';
 import type { DateRange } from '../lib/period.js';
 import { financeRoutes } from '../lib/routes.js';
+import { LaunchPlannedDialog } from '../../views/ledger/launch_planned.js';
 import { Amount } from './amount.js';
 import { CategoryMarker, FillRow, FinTable, Row, Td, Th, THead } from './fin_table.js';
 import { formatPercentValue } from './limit_bar.js';
@@ -476,11 +477,15 @@ export const ProximosLancamentosPanel = ({
   data,
   today,
   more,
+  onLaunched,
 }: {
   readonly data: FinanceData;
   readonly today: IsoDate;
   readonly more?: PanelMore | undefined;
+  /** VGR-15 · Com isto, cada linha tem "Lançar" (abre o modal de LAN-06). */
+  readonly onLaunched?: (() => void) | undefined;
 }): React.ReactElement => {
+  const [launching, setLaunching] = useState<Entry | null>(null);
   const planned = useMemo(() => plannedAhead(data, today), [data, today]);
   const shown = planned.slice(0, NEXT_ENTRIES);
   const sourceName = (entry: Entry): string => {
@@ -518,6 +523,7 @@ export const ProximosLancamentosPanel = ({
               <Th>Descrição</Th>
               <Th>Conta ou cartão</Th>
               <Th align="right">Valor</Th>
+              {onLaunched === undefined ? null : <Th align="right">Ação</Th>}
             </THead>
             <tbody>
               {shown.map((entry) => {
@@ -543,13 +549,42 @@ export const ProximosLancamentosPanel = ({
                         variant="flow"
                       />
                     </Td>
+                    {onLaunched === undefined ? null : (
+                      <Td className="text-right">
+                        <button
+                          type="button"
+                          className="cursor-pointer text-accent hover:underline"
+                          aria-label={`Lançar ${entry.description}`}
+                          onClick={() => setLaunching(entry)}
+                        >
+                          Lançar
+                        </button>
+                      </Td>
+                    )}
                   </Row>
                 );
               })}
-              <FillRow colSpan={4} />
+              <FillRow colSpan={onLaunched === undefined ? 4 : 5} />
             </tbody>
           </FinTable>
         </>
+      )}
+      {onLaunched === undefined ? null : (
+        <LaunchPlannedDialog
+          planned={
+            launching === null
+              ? null
+              : {
+                  id: launching.id,
+                  description: launching.description,
+                  date: launching.date,
+                  cents: String(launching.cents),
+                }
+          }
+          today={today}
+          onClose={() => setLaunching(null)}
+          onDone={onLaunched}
+        />
       )}
     </Panel>
   );

@@ -590,6 +590,8 @@ export type GeralViewProps = {
   readonly overview: Resource<OverviewResource>;
   readonly goals: Resource<GoalsOverviewResource>;
   readonly onNewEntry: () => void;
+  /** Depois de lançar um previsto, a tela relê Finanças. */
+  readonly onLaunched?: () => void;
 };
 
 const InvestmentsLoading = (): React.ReactElement => (
@@ -682,6 +684,7 @@ export const GeralView = ({
   overview,
   goals,
   onNewEntry,
+  onLaunched,
 }: GeralViewProps): React.ReactElement => {
   const loaded = overview.state.kind === 'ready' ? overview.state.value : null;
   const navigate = useNavigate();
@@ -797,7 +800,7 @@ export const GeralView = ({
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <PanelBoundary title="os próximos lançamentos">
-            <ProximosLancamentosPanel data={data} today={today} />
+            <ProximosLancamentosPanel data={data} today={today} onLaunched={onLaunched} />
           </PanelBoundary>
           <div className="flex min-w-0 flex-col gap-4">
             <PanelBoundary title="as faturas abertas">
@@ -840,6 +843,7 @@ export const GeralScreen = (): React.ReactElement => {
         overview={overview}
         goals={goals}
         onNewEntry={() => setCreating(true)}
+        onLaunched={() => store.start()}
       />
       {creating ? (
         <EntryDialog
