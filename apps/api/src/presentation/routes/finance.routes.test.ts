@@ -65,8 +65,8 @@ describe('visão geral (CE-01 a CE-03)', () => {
     const response = await get('/overview?month=2026-10');
     expect(response.status).toBe(200);
     expect(response.body.receitas.amount).toBe('16350.00');
-    expect(response.body.despesas.amount).toBe('9478.10');
-    expect(response.body.saldo).toBe('6871.90');
+    expect(response.body.despesas.amount).toBe('15104.37');
+    expect(response.body.saldo).toBe('1245.63');
     expect(response.body.em_contas.amount).toBe('12583.85');
     expect(response.body.faturas_abertas).toBe('5422.27');
     expect(response.body.months).toHaveLength(12);
@@ -176,7 +176,7 @@ describe('lançamentos', () => {
 
     const overview = await get('/overview?month=2026-10');
     const expected =
-      Number(target.kind === 'despesa' ? '9478.10' : '16350.00') + Number(target.amount);
+      Number(target.kind === 'despesa' ? '15104.37' : '16350.00') + Number(target.amount);
     expect(
       Number(overview.body[target.kind === 'despesa' ? 'despesas' : 'receitas'].amount),
     ).toBeCloseTo(expected, 2);
@@ -196,14 +196,14 @@ describe('lançamentos', () => {
     expect(preview.body.preview).toBe(true);
 
     const before = await get('/overview?month=2026-10');
-    expect(before.body.despesas.amount).toBe('9478.10');
+    expect(before.body.despesas.amount).toBe('15104.37');
 
     const applied = await send('post', '/entries', body);
     expect(applied.status).toBe(201);
     expect(applied.body.effect).toEqual(preview.body.effect);
 
     const after = await get('/overview?month=2026-10');
-    expect(after.body.despesas.amount).toBe('9490.60');
+    expect(after.body.despesas.amount).toBe('15116.87');
   });
 
   it('exporta CSV com ponto e vírgula, vírgula decimal e BOM', async () => {
@@ -644,7 +644,7 @@ describe('fatura: estorno e fatura paga (CRT-07)', () => {
       subtype: 'estorno',
       invoice_month: month,
       description: `Estorno: ${purchase.description}`,
-      amount: purchase.amount,
+      amount: '1.00',
       reverses_id: purchase.id,
     });
     expect(credit.status).toBe(201);

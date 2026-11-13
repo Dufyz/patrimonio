@@ -4625,6 +4625,623 @@
           }
         ],
         "version": 1
+      },
+      {
+        "id": "i-nu-ago",
+        "kind": "despesa",
+        "description": "Compras do período",
+        "date": "2026-07-15",
+        "category_id": "gasto-livre",
+        "amount": "2740.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "2740.00",
+            "invoice_month": "2026-08"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-nu-set",
+        "kind": "despesa",
+        "description": "Compras do período",
+        "date": "2026-08-12",
+        "category_id": "gasto-livre",
+        "amount": "1712.40",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "1712.40",
+            "invoice_month": "2026-09"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-nu-out",
+        "kind": "despesa",
+        "description": "Compras do período",
+        "date": "2026-09-10",
+        "category_id": "gasto-livre",
+        "amount": "884.17",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "884.17",
+            "invoice_month": "2026-10"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-notebook-1",
+        "kind": "despesa",
+        "description": "Notebook Dell Inspiron",
+        "date": "2026-08-22",
+        "category_id": "eletronicos",
+        "amount": "1299.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": {
+          "group_id": "g-1",
+          "no": 1,
+          "total": 6,
+          "origin": "2026-08-22"
+        },
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "1299.00",
+            "invoice_month": "2026-09"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-notebook-2",
+        "kind": "despesa",
+        "description": "Notebook Dell Inspiron",
+        "date": "2026-09-22",
+        "category_id": "eletronicos",
+        "amount": "1299.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": {
+          "group_id": "g-1",
+          "no": 2,
+          "total": 6,
+          "origin": "2026-08-22"
+        },
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "1299.00",
+            "invoice_month": "2026-10"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-notebook-3",
+        "kind": "despesa",
+        "description": "Notebook Dell Inspiron",
+        "date": "2026-10-22",
+        "category_id": "eletronicos",
+        "amount": "1299.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": {
+          "group_id": "g-1",
+          "no": 3,
+          "total": 6,
+          "origin": "2026-08-22"
+        },
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "1299.00",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-notebook-4",
+        "kind": "despesa",
+        "description": "Notebook Dell Inspiron",
+        "date": "2026-11-22",
+        "category_id": "eletronicos",
+        "amount": "1299.00",
+        "status": "prevista",
+        "recurring_id": null,
+        "installment": {
+          "group_id": "g-1",
+          "no": 4,
+          "total": 6,
+          "origin": "2026-08-22"
+        },
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "1299.00",
+            "invoice_month": "2026-12"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-notebook-5",
+        "kind": "despesa",
+        "description": "Notebook Dell Inspiron",
+        "date": "2026-12-22",
+        "category_id": "eletronicos",
+        "amount": "1299.00",
+        "status": "prevista",
+        "recurring_id": null,
+        "installment": {
+          "group_id": "g-1",
+          "no": 5,
+          "total": 6,
+          "origin": "2026-08-22"
+        },
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "1299.00",
+            "invoice_month": "2027-01"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-notebook-6",
+        "kind": "despesa",
+        "description": "Notebook Dell Inspiron",
+        "date": "2027-01-22",
+        "category_id": "eletronicos",
+        "amount": "1299.00",
+        "status": "prevista",
+        "recurring_id": null,
+        "installment": {
+          "group_id": "g-1",
+          "no": 6,
+          "total": 6,
+          "origin": "2026-08-22"
+        },
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "1299.00",
+            "invoice_month": "2027-02"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-nu-uber",
+        "kind": "despesa",
+        "description": "Uber",
+        "date": "2026-10-27",
+        "category_id": "transporte",
+        "amount": "38.90",
+        "status": "prevista",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "38.90",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-nu-pao",
+        "kind": "despesa",
+        "description": "Mercado · Pão de Açúcar",
+        "date": "2026-10-24",
+        "category_id": "mercado",
+        "amount": "612.40",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "612.40",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-nu-fasano",
+        "kind": "despesa",
+        "description": "Restaurante · Fasano",
+        "date": "2026-10-22",
+        "category_id": "restaurantes",
+        "amount": "890.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "890.00",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-nu-ifood",
+        "kind": "despesa",
+        "description": "iFood",
+        "date": "2026-10-19",
+        "category_id": "restaurantes",
+        "amount": "84.80",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "84.80",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-nu-carrefour",
+        "kind": "despesa",
+        "description": "Mercado · Carrefour",
+        "date": "2026-10-15",
+        "category_id": "mercado",
+        "amount": "190.87",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "190.87",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-nu-google",
+        "kind": "despesa",
+        "description": "Google One",
+        "date": "2026-10-14",
+        "category_id": "assinaturas",
+        "amount": "21.90",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "21.90",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-nu-farmacia",
+        "kind": "despesa",
+        "description": "Farmácia",
+        "date": "2026-10-12",
+        "category_id": "saude",
+        "amount": "189.90",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "189.90",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-nu-amazon",
+        "kind": "despesa",
+        "description": "Amazon · Fone de ouvido",
+        "date": "2026-10-10",
+        "category_id": "eletronicos",
+        "amount": "189.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "189.00",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-nu-shell",
+        "kind": "despesa",
+        "description": "Posto Shell",
+        "date": "2026-10-05",
+        "category_id": "transporte",
+        "amount": "174.40",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "nubank-master",
+            "amount": "174.40",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-visa-set",
+        "kind": "despesa",
+        "description": "Compras do período",
+        "date": "2026-09-10",
+        "category_id": "gasto-livre",
+        "amount": "1502.45",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "itau-visa",
+            "amount": "1502.45",
+            "invoice_month": "2026-09"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-geladeira-3",
+        "kind": "despesa",
+        "description": "Geladeira Brastemp",
+        "date": "2026-10-15",
+        "category_id": "moradia",
+        "amount": "606.11",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": {
+          "group_id": "g-2",
+          "no": 3,
+          "total": 6,
+          "origin": "2026-08-15"
+        },
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "itau-visa",
+            "amount": "606.11",
+            "invoice_month": "2026-10"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-geladeira-4",
+        "kind": "despesa",
+        "description": "Geladeira Brastemp",
+        "date": "2026-11-15",
+        "category_id": "moradia",
+        "amount": "606.11",
+        "status": "prevista",
+        "recurring_id": null,
+        "installment": {
+          "group_id": "g-2",
+          "no": 4,
+          "total": 6,
+          "origin": "2026-08-15"
+        },
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "itau-visa",
+            "amount": "606.11",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-geladeira-5",
+        "kind": "despesa",
+        "description": "Geladeira Brastemp",
+        "date": "2026-12-15",
+        "category_id": "moradia",
+        "amount": "606.11",
+        "status": "prevista",
+        "recurring_id": null,
+        "installment": {
+          "group_id": "g-2",
+          "no": 5,
+          "total": 6,
+          "origin": "2026-08-15"
+        },
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "itau-visa",
+            "amount": "606.11",
+            "invoice_month": "2026-12"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-geladeira-6",
+        "kind": "despesa",
+        "description": "Geladeira Brastemp",
+        "date": "2027-01-15",
+        "category_id": "moradia",
+        "amount": "606.11",
+        "status": "prevista",
+        "recurring_id": null,
+        "installment": {
+          "group_id": "g-2",
+          "no": 6,
+          "total": 6,
+          "origin": "2026-08-15"
+        },
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "itau-visa",
+            "amount": "606.11",
+            "invoice_month": "2027-01"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-visa-posto",
+        "kind": "despesa",
+        "description": "Posto Ipiranga",
+        "date": "2026-10-12",
+        "category_id": "transporte",
+        "amount": "420.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "itau-visa",
+            "amount": "420.00",
+            "invoice_month": "2026-10"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-visa-farmacia",
+        "kind": "despesa",
+        "description": "Farmácia Pague Menos",
+        "date": "2026-10-18",
+        "category_id": "saude",
+        "amount": "214.19",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "itau-visa",
+            "amount": "214.19",
+            "invoice_month": "2026-10"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-visa-livraria",
+        "kind": "despesa",
+        "description": "Livraria Cultura",
+        "date": "2026-10-24",
+        "category_id": "educacao",
+        "amount": "193.70",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "itau-visa",
+            "amount": "193.70",
+            "invoice_month": "2026-11"
+          }
+        ],
+        "version": 1
+      },
+      {
+        "id": "i-master-out",
+        "kind": "despesa",
+        "description": "Compras do período",
+        "date": "2026-10-05",
+        "category_id": "gasto-livre",
+        "amount": "540.00",
+        "status": "lancada",
+        "recurring_id": null,
+        "installment": null,
+        "note": null,
+        "payments": [
+          {
+            "source_type": "cartao",
+            "source_id": "itau-mastercard",
+            "amount": "540.00",
+            "invoice_month": "2026-10"
+          }
+        ],
+        "version": 1
       }
     ],
     "movements": [
@@ -4671,270 +5288,6 @@
     ],
     "card_items": [
       {
-        "id": "i-nu-ago",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-07-15",
-        "invoice_month": "2026-08",
-        "description": "Compras do período",
-        "category_id": null,
-        "amount": "2740.00",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-nu-set",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-08-12",
-        "invoice_month": "2026-09",
-        "description": "Compras do período",
-        "category_id": null,
-        "amount": "1712.40",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-nu-out",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-09-10",
-        "invoice_month": "2026-10",
-        "description": "Compras do período",
-        "category_id": null,
-        "amount": "884.17",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-notebook-1",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-08-22",
-        "invoice_month": "2026-09",
-        "description": "Notebook Dell Inspiron",
-        "category_id": "eletronicos",
-        "amount": "1299.00",
-        "installment": {
-          "group_id": "g-1",
-          "no": 1,
-          "total": 6,
-          "origin": "2026-08-22"
-        },
-        "version": 1
-      },
-      {
-        "id": "i-notebook-2",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-09-22",
-        "invoice_month": "2026-10",
-        "description": "Notebook Dell Inspiron",
-        "category_id": "eletronicos",
-        "amount": "1299.00",
-        "installment": {
-          "group_id": "g-1",
-          "no": 2,
-          "total": 6,
-          "origin": "2026-08-22"
-        },
-        "version": 1
-      },
-      {
-        "id": "i-notebook-3",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-22",
-        "invoice_month": "2026-11",
-        "description": "Notebook Dell Inspiron",
-        "category_id": "eletronicos",
-        "amount": "1299.00",
-        "installment": {
-          "group_id": "g-1",
-          "no": 3,
-          "total": 6,
-          "origin": "2026-08-22"
-        },
-        "version": 1
-      },
-      {
-        "id": "i-notebook-4",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-11-22",
-        "invoice_month": "2026-12",
-        "description": "Notebook Dell Inspiron",
-        "category_id": "eletronicos",
-        "amount": "1299.00",
-        "installment": {
-          "group_id": "g-1",
-          "no": 4,
-          "total": 6,
-          "origin": "2026-08-22"
-        },
-        "version": 1
-      },
-      {
-        "id": "i-notebook-5",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-12-22",
-        "invoice_month": "2027-01",
-        "description": "Notebook Dell Inspiron",
-        "category_id": "eletronicos",
-        "amount": "1299.00",
-        "installment": {
-          "group_id": "g-1",
-          "no": 5,
-          "total": 6,
-          "origin": "2026-08-22"
-        },
-        "version": 1
-      },
-      {
-        "id": "i-notebook-6",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2027-01-22",
-        "invoice_month": "2027-02",
-        "description": "Notebook Dell Inspiron",
-        "category_id": "eletronicos",
-        "amount": "1299.00",
-        "installment": {
-          "group_id": "g-1",
-          "no": 6,
-          "total": 6,
-          "origin": "2026-08-22"
-        },
-        "version": 1
-      },
-      {
-        "id": "i-nu-uber",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-27",
-        "invoice_month": "2026-11",
-        "description": "Uber",
-        "category_id": "transporte",
-        "amount": "38.90",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-nu-pao",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-24",
-        "invoice_month": "2026-11",
-        "description": "Mercado · Pão de Açúcar",
-        "category_id": "mercado",
-        "amount": "612.40",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-nu-fasano",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-22",
-        "invoice_month": "2026-11",
-        "description": "Restaurante · Fasano",
-        "category_id": "restaurantes",
-        "amount": "890.00",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-nu-ifood",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-19",
-        "invoice_month": "2026-11",
-        "description": "iFood",
-        "category_id": "restaurantes",
-        "amount": "84.80",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-nu-carrefour",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-15",
-        "invoice_month": "2026-11",
-        "description": "Mercado · Carrefour",
-        "category_id": "mercado",
-        "amount": "190.87",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-nu-google",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-14",
-        "invoice_month": "2026-11",
-        "description": "Google One",
-        "category_id": "assinaturas",
-        "amount": "21.90",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-nu-farmacia",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-12",
-        "invoice_month": "2026-11",
-        "description": "Farmácia",
-        "category_id": "saude",
-        "amount": "189.90",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-nu-amazon",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-10",
-        "invoice_month": "2026-11",
-        "description": "Amazon · Fone de ouvido",
-        "category_id": "eletronicos",
-        "amount": "189.00",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-nu-shell",
-        "card_id": "nubank-master",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-05",
-        "invoice_month": "2026-11",
-        "description": "Posto Shell",
-        "category_id": "transporte",
-        "amount": "174.40",
-        "installment": null,
-        "version": 1
-      },
-      {
         "id": "i-nu-devolucao",
         "card_id": "nubank-master",
         "kind": "credito",
@@ -4957,143 +5310,6 @@
         "description": "Cupom iFood",
         "category_id": "restaurantes",
         "amount": "20.00",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-visa-set",
-        "card_id": "itau-visa",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-09-10",
-        "invoice_month": "2026-09",
-        "description": "Compras do período",
-        "category_id": null,
-        "amount": "1502.45",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-geladeira-3",
-        "card_id": "itau-visa",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-15",
-        "invoice_month": "2026-10",
-        "description": "Geladeira Brastemp",
-        "category_id": "moradia",
-        "amount": "606.11",
-        "installment": {
-          "group_id": "g-2",
-          "no": 3,
-          "total": 6,
-          "origin": "2026-08-15"
-        },
-        "version": 1
-      },
-      {
-        "id": "i-geladeira-4",
-        "card_id": "itau-visa",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-11-15",
-        "invoice_month": "2026-11",
-        "description": "Geladeira Brastemp",
-        "category_id": "moradia",
-        "amount": "606.11",
-        "installment": {
-          "group_id": "g-2",
-          "no": 4,
-          "total": 6,
-          "origin": "2026-08-15"
-        },
-        "version": 1
-      },
-      {
-        "id": "i-geladeira-5",
-        "card_id": "itau-visa",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-12-15",
-        "invoice_month": "2026-12",
-        "description": "Geladeira Brastemp",
-        "category_id": "moradia",
-        "amount": "606.11",
-        "installment": {
-          "group_id": "g-2",
-          "no": 5,
-          "total": 6,
-          "origin": "2026-08-15"
-        },
-        "version": 1
-      },
-      {
-        "id": "i-geladeira-6",
-        "card_id": "itau-visa",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2027-01-15",
-        "invoice_month": "2027-01",
-        "description": "Geladeira Brastemp",
-        "category_id": "moradia",
-        "amount": "606.11",
-        "installment": {
-          "group_id": "g-2",
-          "no": 6,
-          "total": 6,
-          "origin": "2026-08-15"
-        },
-        "version": 1
-      },
-      {
-        "id": "i-visa-posto",
-        "card_id": "itau-visa",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-12",
-        "invoice_month": "2026-10",
-        "description": "Posto Ipiranga",
-        "category_id": "transporte",
-        "amount": "420.00",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-visa-farmacia",
-        "card_id": "itau-visa",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-18",
-        "invoice_month": "2026-10",
-        "description": "Farmácia Pague Menos",
-        "category_id": "saude",
-        "amount": "214.19",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-visa-livraria",
-        "card_id": "itau-visa",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-24",
-        "invoice_month": "2026-11",
-        "description": "Livraria Cultura",
-        "category_id": "educacao",
-        "amount": "193.70",
-        "installment": null,
-        "version": 1
-      },
-      {
-        "id": "i-master-out",
-        "card_id": "itau-mastercard",
-        "kind": "compra",
-        "subtype": null,
-        "purchase_date": "2026-10-05",
-        "invoice_month": "2026-10",
-        "description": "Compras do período",
-        "category_id": null,
-        "amount": "540.00",
         "installment": null,
         "version": 1
       }

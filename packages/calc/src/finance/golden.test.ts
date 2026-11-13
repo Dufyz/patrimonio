@@ -23,8 +23,8 @@ describe('golden · semente de demonstração', () => {
 
   it('indicadores do mês', () => {
     expect(view.receitas.amount).toBe('16350.00');
-    expect(view.despesas.amount).toBe('9478.10');
-    expect(view.saldo).toBe('6871.90');
+    expect(view.despesas.amount).toBe('15104.37');
+    expect(view.saldo).toBe('1245.63');
   });
 
   it('em contas e faturas abertas', () => {

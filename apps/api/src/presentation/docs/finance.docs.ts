@@ -197,6 +197,13 @@ const rows: readonly Entry[] = [
   ],
   [
     'get',
+    '/finance/cards/:id',
+    'Um cartão: faturas por mês, parcelamentos e pagamentos previstos',
+    c.cardDetailSchema,
+    { 200: READ, 404: MISSING },
+  ],
+  [
+    'get',
     '/finance/cards/:id/invoices/:month',
     'Fatura: linhas por bloco, totais, pagamentos',
     c.invoiceSchema,
