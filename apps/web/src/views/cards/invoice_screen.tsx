@@ -20,6 +20,7 @@ import {
   reversalMonth,
   reversalRequest,
 } from '../../lib/invoice_actions.js';
+import { NewEntryModal } from '../ledger/new_entry_modal.js';
 import { InvoiceItemModal } from './invoice_item_modal.js';
 import { usePreferences } from '../../components/preferences.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
@@ -65,6 +66,7 @@ export const InvoiceScreen = (): React.ReactElement => {
     | null
   >(null);
   const [moveTo, setMoveTo] = useState('');
+  const [entering, setEntering] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
@@ -151,6 +153,9 @@ export const InvoiceScreen = (): React.ReactElement => {
     <div className="flex flex-col gap-4">
       <ScreenHeader
         title={`Fatura ${monthLabel(month)}`}
+        primary={
+          locked ? undefined : { label: 'Lançamento', onClick: () => setEntering(true) }
+        }
         crumbs={[
           { label: 'Cartões', to: '/cartoes-novo' },
           { label: card.name, to: `/cartoes-novo/${card.id}` },
@@ -295,6 +300,11 @@ export const InvoiceScreen = (): React.ReactElement => {
           Exportar
         </button>
       </div>
+      {data.lines.length === 0 && (
+        <p className="text-sm text-ink-3">
+          Esta fatura ainda não tem nenhuma movimentação.
+        </p>
+      )}
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-label text-ink-3 uppercase">
@@ -353,7 +363,9 @@ export const InvoiceScreen = (): React.ReactElement => {
                           </span>
                         )}
                         {l.forecast && (
-                          <span className="ml-1 text-xs text-ink-3">prevista</span>
+                          <span className="ml-1 text-xs text-ink-3 max-sm:hidden">
+                            prevista
+                          </span>
                         )}
                       </td>
                       <td className="max-md:hidden">
@@ -421,6 +433,16 @@ export const InvoiceScreen = (): React.ReactElement => {
           )}
         </tfoot>
       </table>
+      {entering && (
+        <NewEntryModal
+          today={data.summary.closing}
+          accounts={[...names].map(([aid, name]) => ({ id: aid, name }))}
+          context={{ cardId: card.id }}
+          initialKind="DESPESA"
+          onSaved={() => setReload((n) => n + 1)}
+          onClose={() => setEntering(false)}
+        />
+      )}
       {(dialog?.kind === 'credito' || dialog?.kind === 'encargo') && (
         <InvoiceItemModal
           cardId={card.id}

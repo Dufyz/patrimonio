@@ -133,3 +133,43 @@ describe('CardsScreen · CRT-08', () => {
     expect(screen.getAllByText('Dia de 1 a 31.')).toHaveLength(2);
   });
 });
+
+describe('CardsScreen · CRT-10/11', () => {
+  it('pagar fatura já paga mostra o erro e recarrega a lista', async () => {
+    let cardsCalls = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST')
+          return new Response(
+            JSON.stringify({ code: 'INVOICE_ALREADY_PAID', message: 'Fatura já paga.' }),
+            { status: 409 },
+          );
+        if (url.endsWith('/api/finance/cards')) cardsCalls += 1;
+        const payload = url.includes('/accounts')
+          ? { accounts: [{ account: { id: 'a1', name: 'Itaú Unibanco' } }] }
+          : url.includes('/categories') || url.includes('institutions')
+            ? { categories: [], institutions: [] }
+            : url.includes('/cards/')
+              ? { cards: [] }
+              : body;
+        return new Response(JSON.stringify(payload), { status: 200 });
+      }),
+    );
+    render(
+      <MemoryRouter>
+        <PreferencesProvider>
+          <CardsScreen />
+        </PreferencesProvider>
+      </MemoryRouter>,
+    );
+    await screen.findByText('Itaú Unibanco paga 2 cartões');
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Pagar fatura' })[0] as HTMLElement,
+    );
+    await screen.findByText('Novo lançamento');
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '10,00' } });
+    fireEvent.click(screen.getByRole('button', { name: /Lançar/ }));
+    await vi.waitFor(() => expect(cardsCalls).toBeGreaterThan(1));
+  });
+});

@@ -48,6 +48,7 @@ export const NewEntryModal = ({
   initialKind,
   onSaved,
   onClose,
+  onConflict,
 }: {
   readonly today: string;
   readonly accounts: readonly { readonly id: string; readonly name: string }[];
@@ -55,6 +56,8 @@ export const NewEntryModal = ({
   readonly initialKind?: ModalKind;
   readonly onSaved: () => void;
   readonly onClose: () => void;
+  /** CRT-10 · Pagar fatura que já mudou: mostra o erro e pede para quem abriu recarregar. */
+  readonly onConflict?: (() => void) | undefined;
 }): React.ReactElement => {
   const [draft, setDraft] = useState<Draft>(() => newDraft(today, context, initialKind));
   const [categories, setCategories] = useState<readonly CategoryOption[]>([]);
@@ -138,6 +141,8 @@ export const NewEntryModal = ({
     } catch (error) {
       // Falha de rede ou da api mantém o formulário como está.
       setFailure(error instanceof ApiError ? error.message : 'Não foi possível salvar.');
+      if (error instanceof ApiError && (error.status === 409 || error.status === 422))
+        onConflict?.();
     } finally {
       setPending(false);
     }

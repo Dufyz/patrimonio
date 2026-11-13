@@ -130,10 +130,10 @@ export const CardsScreen = (): React.ReactElement => {
               <th scope="col" className="text-right">
                 Fechada a pagar
               </th>
-              <th scope="col" className="max-lg:hidden">
+              <th scope="col" className="max-md:hidden">
                 Vence
               </th>
-              <th scope="col" className="max-md:hidden">
+              <th scope="col" className="max-lg:hidden">
                 Limite usado
               </th>
               <th scope="col">
@@ -191,7 +191,7 @@ export const CardsScreen = (): React.ReactElement => {
                       <td className="tabular text-right">
                         {money(row.debt.fechadas_a_pagar)}
                       </td>
-                      <td className="max-lg:hidden">
+                      <td className="max-md:hidden">
                         {row.debt.next_due === null || days === null ? (
                           '—'
                         ) : (
@@ -203,7 +203,7 @@ export const CardsScreen = (): React.ReactElement => {
                           </>
                         )}
                       </td>
-                      <td className="max-md:hidden">
+                      <td className="max-lg:hidden">
                         <div
                           role="progressbar"
                           aria-label={`Limite usado de ${row.card.name}`}
@@ -246,8 +246,8 @@ export const CardsScreen = (): React.ReactElement => {
               </th>
               <td className="tabular text-right">{money(w.abertas)}</td>
               <td className="tabular text-right">{money(w.fechadas_a_pagar)}</td>
-              <td className="max-lg:hidden" />
-              <td className="tabular text-right max-md:hidden" colSpan={2}>
+              <td className="max-md:hidden" />
+              <td className="tabular text-right" colSpan={2}>
                 {money(w.total_devido)}
               </td>
             </tr>
@@ -309,6 +309,7 @@ export const CardsScreen = (): React.ReactElement => {
           initialKind="PAGAMENTO_FATURA"
           onSaved={() => setReload((n) => n + 1)}
           onClose={() => setPaying(null)}
+          onConflict={() => setReload((n) => n + 1)}
         />
       )}
     </div>
