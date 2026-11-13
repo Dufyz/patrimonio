@@ -76,7 +76,8 @@ describe('NewEntryModal', () => {
 
   it('recusa data futura inline e não grava', async () => {
     const fetchMock = vi.fn(
-      async () => new Response(JSON.stringify(categories), { status: 200 }),
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify(categories), { status: 200 }),
     );
     vi.stubGlobal('fetch', fetchMock);
     render(
@@ -94,10 +95,6 @@ describe('NewEntryModal', () => {
     await waitFor(() =>
       expect(screen.getByText(/Data futura não é lançamento/)).toBeTruthy(),
     );
-    expect(
-      fetchMock.mock.calls.some(
-        ([, init]) => (init as RequestInit | undefined)?.method === 'POST',
-      ),
-    ).toBe(false);
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
   });
 });
