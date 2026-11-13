@@ -18,6 +18,7 @@ import type { OutboxRepository } from './outbox.repository.js';
 import type { OverviewRepository } from './overview.repository.js';
 import type { AllocationRepository } from './allocation.repository.js';
 import type { GoalRepository } from './goal.repository.js';
+import type { ProjectionPlanRepository } from './projection_plan.repository.js';
 import type { FinanceRepository } from './finance.repository.js';
 import type { SettingsRepository } from './settings.repository.js';
 import type { PerformanceRepository } from './performance.repository.js';
@@ -72,6 +73,7 @@ export type TransactionalRepositories = {
   readonly allocation: AllocationRepository;
   /** A tela de Objetivos lê numa consulta; criar, editar e excluir o objetivo escrevem. */
   readonly goals: GoalRepository;
+  readonly projectionPlans: ProjectionPlanRepository;
   /** Só leitura: a tela de Configurações, numa consulta. */
   readonly settings: SettingsRepository;
   readonly market: MarketIngestionRepository;

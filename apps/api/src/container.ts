@@ -32,6 +32,8 @@ import {
   getAllocation,
   deleteGoal,
   getGoals,
+  getProjection,
+  putProjectionPlan,
   getGoalsOverview,
   previewGoal,
   putGoal,
@@ -263,6 +265,12 @@ export const createApiUseCases = (deps: {
   putGoal: putGoal({ unitOfWork: deps.unitOfWork, clock: deps.clock }),
   deleteGoal: deleteGoal({ unitOfWork: deps.unitOfWork }),
   previewGoal: previewGoal({ goals: deps.repositories.goals, clock: deps.clock }),
+  // A Projeção lê fora da transação; trocar o plano é transação.
+  getProjection: getProjection({
+    projectionPlans: deps.repositories.projectionPlans,
+    clock: deps.clock,
+  }),
+  putProjectionPlan: putProjectionPlan({ unitOfWork: deps.unitOfWork }),
   // T-08 lê fora da transação: o cadastro todo é uma consulta de leitura. O que é
   // do ambiente — janela do desfazer, alíquota do JCP, backup ligado — entra
   // aqui, e a tela o mostra como leitura.

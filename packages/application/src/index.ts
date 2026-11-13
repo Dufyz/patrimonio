@@ -745,3 +745,22 @@ export type {
 } from './usecases/finance/finance.usecases.js';
 export type { FinanceDeps, FinanceOutcome } from './usecases/finance/runner.js';
 export { financeClock } from './usecases/finance/clock.js';
+
+export type {
+  ProjectionPlanRepository,
+  ProjectionPlanRow,
+  ProjectionPlanWrite,
+  ProjectionRuleRow,
+} from './interfaces/projection_plan.repository.js';
+export {
+  DEFAULT_HORIZON as DEFAULT_PROJECTION_HORIZON,
+  getProjection,
+  putProjectionPlan,
+} from './usecases/projection/projection.usecase.js';
+export type {
+  GetProjectionDeps,
+  GetProjectionInput,
+  ProjectionPortfolio,
+  ProjectionResource,
+  PutProjectionPlanDeps,
+} from './usecases/projection/projection.usecase.js';

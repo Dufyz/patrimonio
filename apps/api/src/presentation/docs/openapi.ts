@@ -18,6 +18,7 @@ import { MARKET_ROUTE_DOCS } from './market.docs.js';
 import { OVERVIEW_ROUTE_DOCS } from './overview.docs.js';
 import { ALLOCATION_ROUTE_DOCS } from './allocation.docs.js';
 import { GOAL_ROUTE_DOCS } from './goal.docs.js';
+import { PROJECTION_ROUTE_DOCS } from './projection.docs.js';
 import { SETTINGS_ROUTE_DOCS } from './settings.docs.js';
 import { FINANCE_ROUTE_DOCS } from './finance.docs.js';
 import { LEDGER_ROUTE_DOCS } from './ledger.docs.js';
@@ -90,6 +91,7 @@ export const ROUTE_DOCS: readonly RouteDoc[] = [
   ...PERFORMANCE_ROUTE_DOCS,
   ...ALLOCATION_ROUTE_DOCS,
   ...GOAL_ROUTE_DOCS,
+  ...PROJECTION_ROUTE_DOCS,
   ...SETTINGS_ROUTE_DOCS,
   ...FINANCE_ROUTE_DOCS,
 ];

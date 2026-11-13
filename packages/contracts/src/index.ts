@@ -491,3 +491,15 @@ export type {
 } from './settings/settings.schema.js';
 
 export * from './finance/finance.schema.js';
+
+export {
+  getProjectionSchema,
+  projectionRuleSchema,
+  projectionSchema,
+  putProjectionPlanResponseSchema,
+  putProjectionPlanSchema,
+} from './projection/projection.schema.js';
+export type {
+  ProjectionResource,
+  PutProjectionPlanBody,
+} from './projection/projection.schema.js';
