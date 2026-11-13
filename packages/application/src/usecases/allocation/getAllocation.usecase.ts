@@ -73,6 +73,7 @@ export type AllocationRules = {
   readonly tolerance_pp: string;
   readonly reviewed_on: DateOnly | null;
   readonly benchmark: { readonly value: string; readonly name: string } | null;
+  readonly version: string;
 };
 
 export type AllocationResult = {
@@ -279,6 +280,7 @@ export const getAllocation = (deps: GetAllocationDeps) =>
         tolerance_pp: portfolio.tolerance_pp,
         reviewed_on: portfolio.reviewed_on,
         benchmark: describeBenchmark(portfolio.benchmark),
+        version: portfolio.version,
       },
       strategy_defined: strategyDefined,
       composition: arrange(composition, snapshot.categories),

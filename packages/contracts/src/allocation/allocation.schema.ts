@@ -28,6 +28,8 @@ export const allocationRulesSchema = z.object({
   /** O dia em que a estratégia foi salva pela última vez. Nulo sem estratégia. */
   reviewed_on: dateOnly.nullable(),
   benchmark: z.object({ value: z.string(), name: z.string() }).nullable(),
+  /** A versão que a tela viu; volta em `If-Match` ao salvar a estratégia. */
+  version: z.string(),
 });
 
 export const allocationPortfolioSchema = z.object({

@@ -53,6 +53,7 @@ const allocation = (overrides: Partial<AllocationResource> = {}): AllocationReso
     tolerance_pp: '3.00',
     reviewed_on: '2026-07-09',
     benchmark: { value: 'IPCA+6', name: 'IPCA + 6%' },
+    version: '2026-07-09T12:00:00.000Z',
   },
   strategy_defined: true,
   composition: {
@@ -462,5 +463,47 @@ describe('a tela como a rota a monta', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('EST-03/05 · gravação com If-Match e conflito', () => {
+  it('envia a versão vista em If-Match e mostra o conflito 409 junto do formulário', async () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url: String(url), ...(init === undefined ? {} : { init }) });
+        if (init?.method === 'PUT') {
+          return new Response(JSON.stringify({ message: 'A estratégia mudou' }), {
+            status: 409,
+          });
+        }
+        return new Response(
+          JSON.stringify(allocation()).replaceAll(
+            '"rv"',
+            '"019b0000-0000-7000-8000-0000000000b1"',
+          ),
+          { status: 200 },
+        );
+      }),
+    );
+    render(
+      <PreferencesProvider storage={null}>
+        <StrategyScreen portfolioId="0191e5a0-0000-7000-8000-00000000c001" />
+      </PreferencesProvider>,
+    );
+    await screen.findByRole('textbox', { name: /Renda variável/ });
+    await retype('Renda variável', '30,5');
+    await retype('Caixa', '69,5');
+    await userEvent.click(screen.getByRole('button', { name: /^Salvar/ }));
+
+    expect(
+      await screen.findByText(/A estratégia mudou desde que você a abriu/),
+    ).toBeInTheDocument();
+    const put = calls.find((c) => c.init?.method === 'PUT');
+    const headers = put?.init?.headers as Record<string, string>;
+    expect(headers['If-Match']).toBe('"2026-07-09T12:00:00.000Z"');
+    expect(headers['Idempotency-Key']).toBeTruthy();
+    vi.unstubAllGlobals();
   });
 });

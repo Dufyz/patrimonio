@@ -3,6 +3,7 @@ import { either, failure, success } from '@patrimonio/shared';
 
 import { NotFoundError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
+import { FinanceError } from '../../errors/finance-error.js';
 import type { StrategyTargetWrite } from '../../interfaces/portfolio.repository.js';
 import type { UnitOfWork } from '../../interfaces/unit-of-work.js';
 import { validateGroupTargets, validateTargets } from './createPortfolio.usecase.js';
@@ -19,6 +20,8 @@ export const putStrategy = (deps: PutStrategyDeps) =>
     portfolioId: string,
     targets: readonly StrategyTargetWrite[],
     tolerancePp?: string | undefined,
+    /** `updated_at` da carteira que a tela viu (EST-03.4); ausente não confere. */
+    ifMatch?: string | undefined,
   ) {
     yield* validateTargets(targets);
 
@@ -28,6 +31,24 @@ export const putStrategy = (deps: PutStrategyDeps) =>
         if (portfolio.isFailure()) return portfolio;
         if (portfolio.value === null) {
           return failure(new NotFoundError(`Carteira ${portfolioId} não encontrada`));
+        }
+
+        if (
+          ifMatch !== undefined &&
+          new Date(ifMatch).getTime() !== new Date(portfolio.value.updated_at).getTime()
+        ) {
+          return failure(
+            new FinanceError(
+              [
+                {
+                  code: 'VERSAO_DIVERGENTE',
+                  message: 'A estratégia mudou desde que você a abriu.',
+                  details: { current: portfolio.value.updated_at },
+                },
+              ],
+              409,
+            ),
+          );
         }
 
         const grouped = await validateGroupTargets(repositories, targets);
@@ -43,6 +64,9 @@ export const putStrategy = (deps: PutStrategyDeps) =>
 
         const saved = await repositories.portfolios.replaceTargets(portfolioId, targets);
         if (saved.isFailure()) return saved;
+
+        const touched = await repositories.portfolios.touch(portfolioId);
+        if (touched.isFailure()) return touched;
 
         return success(saved.value);
       },

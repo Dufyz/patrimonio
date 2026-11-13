@@ -184,6 +184,7 @@ export const createPortfolioController = (deps: PortfolioDeps): PortfolioControl
       portfolioId(request.params['portfolio_id']),
       body.targets,
       body.tolerance_pp,
+      request.header('If-Match')?.replace(/^W\//, '').replace(/"/g, '').trim(),
     );
 
     if (result.isFailure()) {

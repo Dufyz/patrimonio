@@ -26,6 +26,8 @@ export type AllocationPortfolioRow = {
   readonly tolerance_pp: string;
   /** O dia em que o alvo foi salvo pela última vez. Nulo sem alvo. */
   readonly reviewed_on: DateOnly | null;
+  /** `updated_at` da carteira: a versão que `PUT /strategy` confere no `If-Match`. */
+  readonly version: string;
   /** O valor total da carteira no fechamento. Nulo quando nunca fechou. */
   readonly total_value: string | null;
 };

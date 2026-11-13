@@ -6,6 +6,7 @@ import type {
 import { useEffect, useMemo, useState } from 'react';
 
 import { fetchAllocation, putStrategy } from '../api/allocation.js';
+import { ApiError } from '../api/client.js';
 import { Money, MoneyChange, Percent, Points } from '../components/number.js';
 import { Modal } from '../components/overlay.js';
 import { KeepPrevious } from '../components/pending.js';
@@ -94,7 +95,22 @@ const LoadedStrategy = ({
     <StrategyView
       resource={resource}
       onSave={async (body) => {
-        await putStrategy(portfolioId, body);
+        const version =
+          resource.state.kind === 'ready'
+            ? resource.state.value.rules.version
+            : undefined;
+        try {
+          await putStrategy(portfolioId, body, version);
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 409) {
+            // EST-05: o conflito aparece junto do formulário, com o estado atual do servidor.
+            resource.reload();
+            throw new Error(
+              'A estratégia mudou desde que você a abriu. Mostrando o estado atual: confira os alvos e salve de novo.',
+            );
+          }
+          throw error;
+        }
         resource.reload();
       }}
       onPlan={async (amount) =>

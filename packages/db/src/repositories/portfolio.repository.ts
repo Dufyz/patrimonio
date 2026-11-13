@@ -292,6 +292,15 @@ export const createPortfolioRepository = (sql: Connection): PortfolioRepository 
     }
   },
 
+  touch: async (id: string) => {
+    try {
+      await sql`UPDATE portfolio SET updated_at = NOW() WHERE id = ${id}`;
+      return success(undefined);
+    } catch (error) {
+      return failure(getRepositoryError(error));
+    }
+  },
+
   replaceTargets: async (
     portfolioId: string,
     targets: readonly StrategyTargetWrite[],

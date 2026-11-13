@@ -205,6 +205,35 @@ describe('estratégia por carteira (EST-04)', () => {
   });
 });
 
+describe('estratégia com If-Match (EST-03)', () => {
+  it('a versão lida vale uma vez: gravar com ela passa e a mesma versão depois dá 409', async () => {
+    const acoes = await seedCategory(harness.sql, 'Ações');
+    const criada = await criar({ name: 'Longo prazo' });
+    const id = criada.body.portfolio.id;
+    const alvo = [{ category_id: acoes, target_pct: '100' }];
+
+    const lida = await request(harness.app).get(`/api/allocation?portfolio_id=${id}`);
+    const version = lida.body.rules.version as string;
+    expect(typeof version).toBe('string');
+
+    const primeira = await request(harness.app)
+      .put(`/api/portfolios/${id}/strategy`)
+      .set('If-Match', `"${version}"`)
+      .send({ targets: alvo });
+    expect(primeira.status).toBe(200);
+
+    const segunda = await request(harness.app)
+      .put(`/api/portfolios/${id}/strategy`)
+      .set('If-Match', `"${version}"`)
+      .send({ targets: alvo });
+    expect(segunda.status).toBe(409);
+    expect(segunda.body.code).toBe('VERSAO_DIVERGENTE');
+
+    const nova = await request(harness.app).get(`/api/allocation?portfolio_id=${id}`);
+    expect(nova.body.rules.version).not.toBe(version);
+  });
+});
+
 describe('excluir carteira', () => {
   it('sem o nome digitado corretamente não exclui', async () => {
     const criada = await criar({ name: 'Curto prazo' });

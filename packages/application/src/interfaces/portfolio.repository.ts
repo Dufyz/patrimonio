@@ -123,6 +123,9 @@ export type PortfolioRepository = {
     tolerancePp: string,
   ) => Promise<Either<AppError, void>>;
 
+  /** Marca a carteira como alterada: é a versão que a estratégia confere no `If-Match`. */
+  readonly touch: (id: string) => Promise<Either<AppError, void>>;
+
   readonly replaceTargets: (
     portfolioId: string,
     targets: readonly StrategyTargetWrite[],

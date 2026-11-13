@@ -8,6 +8,7 @@ import type {
 } from '@patrimonio/application';
 import {
   asDateOnlyOrNull,
+  asIsoString,
   asEnum,
   asInteger,
   asIntegerOrNull,
@@ -53,6 +54,7 @@ const parsePortfolio = (row: Row): AllocationPortfolioRow => ({
   benchmark: asStringOrNull(row, 'benchmark'),
   tolerance_pp: asString(row, 'tolerance_pp'),
   reviewed_on: asDateOnlyOrNull(row, 'reviewed_on'),
+  version: asIsoString(row, 'version'),
   total_value: asNumericOrNull(row, 'total_value'),
 });
 
@@ -91,6 +93,7 @@ export const createAllocationRepository = (sql: Connection): AllocationRepositor
                  p.recalc_status,
                  p.benchmark,
                  p.strategy_tolerance_pp::TEXT AS tolerance_pp,
+                 p.updated_at AS version,
                  (SELECT MAX(target.updated_at)::DATE
                     FROM strategy_target target
                    WHERE target.portfolio_id = p.id) AS reviewed_on,

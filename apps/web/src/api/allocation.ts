@@ -45,12 +45,17 @@ const key = (): string => globalThis.crypto.randomUUID();
 export const putStrategy = async (
   portfolioId: string,
   body: PutStrategyBody,
+  /** `rules.version` que a tela viu: o servidor recusa com 409 se a estratégia mudou. */
+  ifMatch?: string,
 ): Promise<void> => {
   const parsed = putStrategySchema.shape.body.parse(body);
 
   await request(`/api/portfolios/${portfolioId}/strategy`, anyObject, {
     method: 'PUT',
-    headers: { 'Idempotency-Key': key() },
+    headers: {
+      'Idempotency-Key': key(),
+      ...(ifMatch === undefined ? {} : { 'If-Match': `"${ifMatch}"` }),
+    },
     body: JSON.stringify(parsed),
   });
 };
