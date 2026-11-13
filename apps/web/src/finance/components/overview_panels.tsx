@@ -267,7 +267,7 @@ export const SaldoPrevistoPanel = ({
       action={
         <PanelHeaderAction
           hint={`hoje, ${formatDay(today, today)} · fim de ${formatMonth(monthEnd).toLowerCase()}`}
-          more={{ to: financeRoutes.entries('situacao=prevista'), label: 'Previstos' }}
+          more={{ to: financeRoutes.entries('situacao=previsto'), label: 'Previstos' }}
         />
       }
       className="h-full"
@@ -307,7 +307,7 @@ export const SaldoPrevistoPanel = ({
             max={max}
             tone="positive"
             sign="+"
-            to={financeRoutes.entries('tipo=receita&situacao=prevista')}
+            to={financeRoutes.entries('tipo=RECEITA&situacao=previsto')}
           />
           <BarRow
             label="Saídas previstas"
@@ -315,7 +315,7 @@ export const SaldoPrevistoPanel = ({
             max={max}
             tone="negative"
             sign="−"
-            to={financeRoutes.entries('tipo=despesa&situacao=prevista')}
+            to={financeRoutes.entries('tipo=DESPESA&situacao=previsto')}
           />
         </div>
 
@@ -373,7 +373,7 @@ export const DespesasCategoriaPanel = ({
         <PanelHeaderAction
           hint={`${label}${includesToday ? ' · até agora' : ''}`}
           more={{
-            to: financeRoutes.entries('tipo=despesa&situacao=lancada'),
+            to: financeRoutes.entries('tipo=DESPESA&situacao=lancado'),
             label: 'Ver por categoria',
           }}
         />
@@ -505,7 +505,7 @@ export const ProximosLancamentosPanel = ({
           hint="o que ainda vai sair e entrar"
           more={
             more ?? {
-              to: financeRoutes.entries('situacao=prevista'),
+              to: financeRoutes.entries('situacao=previsto'),
               label: `Ver os ${planned.length} previstos`,
             }
           }

@@ -186,7 +186,7 @@ describe('Próximos lançamentos (FVG-004)', () => {
   it('o link do cabeçalho diz o total real de previstos e leva a Lançamentos', () => {
     open();
     const link = within(panel()).getByRole('link', { name: /^Ver os \d+ previstos/u });
-    expect(link.getAttribute('href')).toBe('/lancamentos?situacao=prevista');
+    expect(link.getAttribute('href')).toBe('/lancamentos?situacao=previsto');
   });
 });
 
