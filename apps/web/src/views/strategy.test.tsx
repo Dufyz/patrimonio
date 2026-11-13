@@ -1,4 +1,5 @@
 import type { AllocationResource } from '@patrimonio/contracts';
+import axe from 'axe-core';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -505,5 +506,29 @@ describe('EST-03/05 · gravação com If-Match e conflito', () => {
     expect(headers['If-Match']).toBe('"2026-07-09T12:00:00.000Z"');
     expect(headers['Idempotency-Key']).toBeTruthy();
     vi.unstubAllGlobals();
+  });
+});
+
+describe('EST-07 · acessibilidade da Estratégia nos dois temas', () => {
+  it.each(['light', 'dark'])('sem violação AA (tema %s)', async (theme) => {
+    document.documentElement.dataset['theme'] = theme;
+    const { container } = render(
+      <PreferencesProvider storage={null}>
+        <StrategyView
+          resource={ready(allocation())}
+          onSave={vi.fn()}
+          onPlan={vi.fn().mockResolvedValue(null)}
+        />
+      </PreferencesProvider>,
+    );
+    const result = await axe.run(container, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+      rules: { 'color-contrast': { enabled: false }, region: { enabled: false } },
+    });
+    expect(
+      result.violations.map(
+        (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,
+      ),
+    ).toEqual([]);
   });
 });
