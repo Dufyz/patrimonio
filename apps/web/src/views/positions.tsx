@@ -123,6 +123,12 @@ export const PositionsScreen = ({
   const search = params.get('busca') ?? '';
   const rawCategory = params.get('classe');
   const rawInstitution = params.get('instituicao');
+  const rawSituation = params.get('situacao');
+  const situations = useMemo(() => listFromParam(rawSituation), [rawSituation]);
+  const withoutQuote = situations.includes('sem_cotacao');
+  const wantsClosed = situations.includes('encerrada');
+  // Encerrada sozinha esconde as abertas; sem filtro de situação, as encerradas ficam de fora.
+  const onlyClosed = wantsClosed && situations.length === 1;
   const categoryIds = useMemo(() => listFromParam(rawCategory), [rawCategory]);
   const institutionIds = useMemo(() => listFromParam(rawInstitution), [rawInstitution]);
 
@@ -186,6 +192,7 @@ export const PositionsScreen = ({
         search,
         categoryIds,
         institutionIds,
+        withoutQuote,
       },
       controller.signal,
     )
@@ -218,6 +225,7 @@ export const PositionsScreen = ({
     search,
     categoryIds,
     institutionIds,
+    withoutQuote,
     reloads,
     entry.version,
   ]);
@@ -245,7 +253,7 @@ export const PositionsScreen = ({
         .map((facet) => facet.label),
     );
     const visible =
-      institutionIds.length > 0
+      !wantsClosed || withoutQuote || institutionIds.length > 0
         ? []
         : closed.filter(
             (item) =>
@@ -253,13 +261,22 @@ export const PositionsScreen = ({
           );
 
     return withClosedRows(
-      toTableGroups(resource.groups),
+      onlyClosed ? [] : toTableGroups(resource.groups),
       visible.map((item) => closedAsRow(item, portfolioId)),
       resource.group_by,
     );
-  }, [resource, closed, categoryIds, institutionIds, portfolioId]);
+  }, [
+    resource,
+    closed,
+    categoryIds,
+    institutionIds,
+    portfolioId,
+    wantsClosed,
+    withoutQuote,
+    onlyClosed,
+  ]);
 
-  const total = resource === null ? null : toSummary(resource.total);
+  const total = resource === null || onlyClosed ? null : toSummary(resource.total);
   const stamp = resource === null ? null : priceStamp(resource);
   const hasCaveat =
     resource !== null &&
@@ -301,8 +318,20 @@ export const PositionsScreen = ({
               selected: institutionIds,
               onChange: (ids) => update({ instituicao: listToParam(ids) }),
             },
+            {
+              id: 'situacao',
+              label: 'Situação',
+              icon: 'tag',
+              options: [
+                { id: 'aberta', label: 'Aberta' },
+                { id: 'encerrada', label: 'Encerrada' },
+                { id: 'sem_cotacao', label: 'Sem cotação do dia' },
+              ],
+              selected: situations,
+              onChange: (ids) => update({ situacao: listToParam(ids) }),
+            },
           ],
-    [resource, categoryIds, institutionIds, update],
+    [resource, categoryIds, institutionIds, situations, update],
   );
 
   const sortOptions = tableColumns

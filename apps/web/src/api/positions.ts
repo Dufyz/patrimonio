@@ -22,6 +22,7 @@ export type PositionsRequest = {
   /** Qualquer uma delas; vazio não filtra. */
   readonly categoryIds: readonly string[];
   readonly institutionIds: readonly string[];
+  readonly withoutQuote?: boolean;
 };
 
 export const positionsQuery = (input: PositionsRequest): URLSearchParams => {
@@ -32,6 +33,7 @@ export const positionsQuery = (input: PositionsRequest): URLSearchParams => {
   if (input.search.trim() !== '') params.set('search', input.search.trim());
   if (input.categoryIds.length > 0)
     params.set('category_id', input.categoryIds.join(','));
+  if (input.withoutQuote === true) params.set('price_status', 'sem_cotacao');
   if (input.institutionIds.length > 0) {
     params.set('institution_id', input.institutionIds.join(','));
   }

@@ -27,6 +27,8 @@ export type ListPositionsInput = {
   readonly search: string | null;
   readonly categoryIds: readonly string[];
   readonly institutionIds: readonly string[];
+  /** Só as posições sem cotação do dia; ausente não filtra. */
+  readonly withoutQuote?: boolean;
 };
 
 export type ListPositionsDeps = {
@@ -98,6 +100,7 @@ export const listPositions = (deps: ListPositionsDeps) =>
       search: input.search,
       categoryIds: input.categoryIds,
       institutionIds: input.institutionIds,
+      withoutQuote: input.withoutQuote === true,
     });
 
     const subtotals = new Map<string, Summary>();

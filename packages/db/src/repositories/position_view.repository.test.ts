@@ -346,6 +346,24 @@ describe('filtros', () => {
     );
   });
 
+  it('"sem cotação do dia" recorta só as posições defasadas ou ausentes', async () => {
+    const todas = unwrapSuccess(await open({}));
+    const sem = unwrapSuccess(await open({ withoutQuote: true }));
+
+    expect(sem.rows.length).toBeLessThanOrEqual(todas.rows.length);
+    expect(
+      sem.rows.every(
+        (row) => row.price_health === 'stale' || row.price_health === 'missing',
+      ),
+    ).toBe(true);
+    const esperadas = todas.rows.filter(
+      (row) => row.price_health === 'stale' || row.price_health === 'missing',
+    );
+    expect(sem.rows.map((row) => row.ticker).toSorted()).toEqual(
+      esperadas.map((row) => row.ticker).toSorted(),
+    );
+  });
+
   it('o peso é recalculado sobre o recorte filtrado, e volta a somar um', async () => {
     const view = unwrapSuccess(await open({ categoryIds: [ACOES] }));
     const soma = view.rows.reduce((amount, row) => amount + Number(row.weight), 0);

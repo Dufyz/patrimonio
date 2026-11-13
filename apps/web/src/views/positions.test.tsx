@@ -466,6 +466,22 @@ describe('tela de Posições', () => {
     await waitFor(() => expect(tableCalls().at(-1)).toContain('institution_id='));
   });
 
+  it('Situação = sem cotação do dia vai para a api, e o padrão não pede encerradas', async () => {
+    const user = userEvent.setup();
+    show();
+
+    await screen.findByText('ITUB4');
+    expect(tableCalls()[0]).not.toContain('price_status=');
+    await user.click(screen.getByRole('button', { name: 'Filtrar' }));
+    await user.click(screen.getByRole('menuitem', { name: /Situação/ }));
+    const list = screen.getByRole('group', { name: 'Situação' });
+    await user.click(within(list).getByRole('checkbox', { name: /Sem cotação do dia/ }));
+
+    await waitFor(() =>
+      expect(tableCalls().at(-1)).toContain('price_status=sem_cotacao'),
+    );
+  });
+
   it('a busca espera a digitação parar antes de virar pedido', async () => {
     const user = userEvent.setup();
     show();

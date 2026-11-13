@@ -272,6 +272,11 @@ export const createPositionViewRepository = (sql: Connection): PositionViewRepos
         SELECT *
           FROM searched f
          WHERE ${categoryMatch} AND ${institutionMatch}
+           AND ${
+             filter.withoutQuote === true
+               ? sql`f.price_source_kind IN ('stale', 'missing')`
+               : sql`TRUE`
+           }
       ),
       grouped AS (
         SELECT f.*,

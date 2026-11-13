@@ -35,6 +35,8 @@ export type PositionViewFilter = {
   readonly categoryIds: readonly string[];
   /** Qualquer uma delas; `sem-instituicao` é a ausência. Vazio não filtra. */
   readonly institutionIds: readonly string[];
+  /** Só as sem cotação do dia (`stale` ou `missing`). */
+  readonly withoutQuote?: boolean;
 };
 
 export type PositionViewRow = {

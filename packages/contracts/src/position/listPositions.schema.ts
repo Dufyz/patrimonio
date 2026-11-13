@@ -24,6 +24,8 @@ export const listPositionsSchema = z.object({
     category_id: z.string().trim().max(600).optional(),
     /** Uma ou mais instituições, separadas por vírgula; `sem-instituicao` vale como acima. */
     institution_id: z.string().trim().max(600).optional(),
+    /** `sem_cotacao` recorta as posições sem cotação do dia (defasada ou ausente). */
+    price_status: z.enum(['sem_cotacao']).optional(),
   }),
 });
 

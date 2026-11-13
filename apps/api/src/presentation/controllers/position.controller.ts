@@ -44,6 +44,7 @@ export const createPositionController = (deps: PositionDeps): PositionController
       search: query.search === undefined || query.search === '' ? null : query.search,
       categoryIds: splitList(query.category_id),
       institutionIds: splitList(query.institution_id),
+      withoutQuote: query.price_status === 'sem_cotacao',
     });
 
     if (result.isFailure()) {
