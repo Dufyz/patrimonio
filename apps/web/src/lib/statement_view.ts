@@ -8,7 +8,7 @@ import type {
  */
 const SCALE = 8;
 
-const scaled = (value: string): bigint => {
+export const scaled = (value: string): bigint => {
   const negative = value.startsWith('-');
   const [int = '0', frac = ''] = value.replace(/^[+-]/, '').split('.');
   const out = BigInt(int + frac.padEnd(SCALE, '0').slice(0, SCALE));
@@ -54,7 +54,7 @@ export const compareMoney = (a: string, b: string): number => {
   return x < y ? -1 : x > y ? 1 : 0;
 };
 
-const unscaled = (value: bigint): string => {
+export const unscaled = (value: bigint): string => {
   const negative = value < 0n;
   const abs = (negative ? -value : value).toString().padStart(SCALE + 1, '0');
   const int = abs.slice(0, -SCALE);
