@@ -279,6 +279,39 @@ describe('LedgerScreen', () => {
     expect(screen.getByText(/1\.200,00/)).toBeTruthy();
   });
 
+  it('LAN-07: previsto de recorrência tem Pular este mês, que pula o mês dela e relê', async () => {
+    const posted: { url: string; body: string }[] = [];
+    const recurring = {
+      ...book,
+      rows: [
+        {
+          ...book.rows[1],
+          entry: { kind: 'despesa', recurring_id: 'rec1', payments: [] },
+        },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posted.push({ url: String(url), body: String(init.body) });
+          return new Response('{}', { status: 200 });
+        }
+        return new Response(JSON.stringify(recurring), { status: 200 });
+      }),
+    );
+    wrap();
+    await waitFor(() => expect(screen.getByText('Aluguel')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pular este mês' }));
+
+    await waitFor(() =>
+      expect(posted).toEqual([
+        { url: '/api/finance/recurrings/rec1/skip', body: '{"month":"2020-01"}' },
+      ]),
+    );
+  });
+
   it('LAN-06: Lançar abre o modal com valor editável e confirma com data, valor e Idempotency-Key', async () => {
     const posted: { url: string; body: string; key: string | null }[] = [];
     vi.stubGlobal(

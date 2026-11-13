@@ -12,6 +12,7 @@ import {
   deletePath,
   moveBody,
   recategorizeBody,
+  skippable,
 } from './ledger_batch.js';
 
 const row = (over: Partial<BookRowResource>): BookRowResource => ({
@@ -170,5 +171,23 @@ describe('LAN-07.3 · efeito de excluir', () => {
     expect(deleteEffect(card, balances)).toEqual([]);
     expect(deleteEffect(row({ situation: 'previsto' }), balances)).toEqual([]);
     expect(deleteEffect(row({}), new Map())).toEqual([]);
+  });
+});
+
+describe('LAN-07.4 · pular este mês', () => {
+  const planned = (recurring: unknown) =>
+    row({
+      situation: 'previsto',
+      date: '2026-12-05',
+      entry: { ...row({}).entry, recurring_id: recurring },
+    });
+
+  it('previsto de recorrência pula o mês dela', () => {
+    expect(skippable(planned('rec1'))).toEqual({ recurringId: 'rec1', month: '2026-12' });
+  });
+
+  it('previsto avulso e lançado não têm o que pular', () => {
+    expect(skippable(planned(null))).toBeNull();
+    expect(skippable(row({}))).toBeNull();
   });
 });

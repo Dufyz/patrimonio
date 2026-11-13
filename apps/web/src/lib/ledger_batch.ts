@@ -177,3 +177,17 @@ export const deleteEffect = (
 
   return [{ label: `Saldo de ${account.name}`, before, after }];
 };
+
+/**
+ * LAN-07.4 · "Pular este mês" só existe para previsto que nasce de uma
+ * recorrência: pular é desligar aquele mês dela, não apagar um lançamento.
+ */
+export const skippable = (
+  row: BookRowResource,
+): { readonly recurringId: string; readonly month: string } | null => {
+  if (row.situation !== 'previsto' || row.entry === null) return null;
+  const id = (row.entry as { recurring_id?: unknown }).recurring_id;
+  return typeof id === 'string' && id !== ''
+    ? { recurringId: id, month: row.date.slice(0, 7) }
+    : null;
+};

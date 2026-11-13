@@ -5,6 +5,7 @@ import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
 
 import { fetchAccountNames, fetchBook, fetchCategoryOptions } from '../../api/book.js';
 import type { CategoryOption } from '../../api/book.js';
+import { skipRecurringMonth } from '../../api/recurrings.js';
 import { CategoryCell } from './category_cell.js';
 import { EmptyPanel, PanelError } from '../../finance/components/states.js';
 import { TableScreenSkeleton } from '../../finance/components/screen_skeletons.js';
@@ -50,6 +51,7 @@ import {
   canMove,
   canMoveInvoice,
   isEntryRow,
+  skippable,
 } from '../../lib/ledger_batch.js';
 import type { EditableEntry } from '../../lib/ledger_entry_form.js';
 import { NewEntryModal } from './new_entry_modal.js';
@@ -141,6 +143,19 @@ export const LedgerScreen = (): React.ReactElement => {
   const shortcuts = useMemo(() => ({ filter: () => searchBox.current?.focus() }), []);
   useShortcuts(shortcuts);
   const [launching, setLaunching] = useState<BookRowResource | null>(null);
+  const skip = async (row: BookRowResource): Promise<void> => {
+    const target = skippable(row);
+    if (target === null) return;
+    try {
+      await skipRecurringMonth(
+        target.recurringId,
+        target.month,
+        globalThis.crypto.randomUUID(),
+      );
+    } finally {
+      setReload((n) => n + 1);
+    }
+  };
   const [cardAction, setCardAction] = useState<{
     readonly row: BookRowResource;
     readonly action: CardRowAction;
@@ -517,6 +532,15 @@ export const LedgerScreen = (): React.ReactElement => {
                         onClick={() => setLaunching(row)}
                       >
                         Lançar
+                      </button>
+                    )}
+                    {skippable(row) === null ? null : (
+                      <button
+                        type="button"
+                        className="ml-2 cursor-pointer text-ink-3"
+                        onClick={() => void skip(row)}
+                      >
+                        Pular este mês
                       </button>
                     )}
                   </td>
