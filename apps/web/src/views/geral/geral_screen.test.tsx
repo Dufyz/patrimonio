@@ -128,6 +128,69 @@ describe('Visão geral de Geral (GER)', () => {
     }
   });
 
+  it('VGR-03 · a cascata do mês vem do livro do servidor e cada valor leva aos Lançamentos filtrados', async () => {
+    const totals = {
+      receitas: '8720.00',
+      despesas: '3842.43',
+      aportes: '2000.00',
+      saldo_do_mes: '2877.57',
+      previsto: { receitas: '100.00', despesas: '40.00', aportes: '10.00' },
+      a_lancar: 0,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input).includes('/finance/book')
+          ? new Response(
+              JSON.stringify({
+                range: { from: '2026-10-01', to: '2026-10-31' },
+                rows: [],
+                next_cursor: null,
+                totals,
+                count: 0,
+                groups: null,
+              }),
+              { status: 200 },
+            )
+          : new Response(
+              JSON.stringify({
+                cards: [],
+                upcoming: [],
+                open_total: '0.00',
+                as_of: HOJE,
+                wealth: {
+                  em_contas: '0.00',
+                  abertas: '0.00',
+                  fechadas_a_pagar: '0.00',
+                  total_devido: '0.00',
+                  livre: '0.00',
+                  falta: '0.00',
+                },
+              }),
+              { status: 200 },
+            ),
+      ),
+    );
+    open(ready(overviewOf('300000.00')));
+
+    const painel = screen.getByRole('region', { name: 'Fluxo do mês' });
+    const tabela = await within(painel).findByRole('table', { name: 'Cascata do mês' });
+    const saldo = within(tabela).getByRole('row', {
+      name: /Saldo do mês$|= Saldo do mês/,
+    });
+    expect(within(saldo).getByText('R$ 2.877,57')).toBeInTheDocument();
+    expect(within(saldo).getByText('R$ 50,00')).toBeInTheDocument();
+    const aportes = within(tabela).getByRole('row', { name: /Aportes/ });
+    const links = within(aportes).getAllByRole('link');
+    expect(links[0]?.getAttribute('href')).toBe(
+      '/lancamentos?tipo=APORTE&situacao=lancado',
+    );
+    expect(links[1]?.getAttribute('href')).toBe(
+      '/lancamentos?tipo=APORTE&situacao=previsto',
+    );
+    vi.unstubAllGlobals();
+  });
+
   it('Livre após faturas vem do servidor, diz quanto falta e que faturas não descontam do patrimônio', async () => {
     vi.stubGlobal(
       'fetch',

@@ -3,6 +3,7 @@ import type { DateOnly } from '@patrimonio/domain';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
+import { fetchBook } from '../../api/book.js';
 import { fetchCardsOverview } from '../../api/cards_overview.js';
 import { fetchGoalsOverview } from '../../api/goals.js';
 import { fetchOverview } from '../../api/overview.js';
@@ -296,6 +297,105 @@ const LivreAposFaturas = (): React.ReactElement | null => {
   );
 };
 
+/**
+ * VGR-03 · A cascata do mês, lida do livro do servidor (RN-U1): Receitas −
+ * Despesas − Aportes = Saldo do mês, em Lançado e Previsto. Provento e resgate
+ * não entram. Cada valor leva aos Lançamentos já filtrados.
+ */
+const CascataDoMes = ({ month }: { readonly month: string }): React.ReactElement => {
+  const book = useResource((signal) => fetchBook({ month, limit: 1 }, signal), [month]);
+  const state = book.state;
+  if (state.kind === 'loading') {
+    return (
+      <p className="border-t border-line px-4 py-3 text-xs text-ink-3">
+        Carregando a cascata do mês…
+      </p>
+    );
+  }
+  if (state.kind !== 'ready') {
+    return (
+      <p role="alert" className="border-t border-line px-4 py-3 text-xs text-negative">
+        Não foi possível carregar a cascata do mês.
+      </p>
+    );
+  }
+  const { totals } = state.value;
+  const cents = (value: string): Cents => (decimalToCents(value) ?? 0) as Cents;
+  const saldoPrevisto =
+    cents(totals.previsto.receitas) -
+    cents(totals.previsto.despesas) -
+    cents(totals.previsto.aportes);
+  const link = (tipo: string, situacao: string): string =>
+    financeRoutes.entries(`tipo=${tipo}&situacao=${situacao}`);
+  const rows = [
+    {
+      label: 'Receitas',
+      tipo: 'RECEITA',
+      sign: '+',
+      posted: totals.receitas,
+      planned: totals.previsto.receitas,
+    },
+    {
+      label: 'Despesas',
+      tipo: 'DESPESA',
+      sign: '−',
+      posted: totals.despesas,
+      planned: totals.previsto.despesas,
+    },
+    {
+      label: 'Aportes',
+      tipo: 'APORTE',
+      sign: '−',
+      posted: totals.aportes,
+      planned: totals.previsto.aportes,
+    },
+  ];
+  return (
+    <div className="border-t border-line">
+      <FinTable caption="Cascata do mês">
+        <THead>
+          <Th>Saldo do mês</Th>
+          <Th align="right">Lançado</Th>
+          <Th align="right">Previsto</Th>
+        </THead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.tipo} className="border-t border-line">
+              <th
+                scope="row"
+                className="py-[var(--row-pad)] pl-3 text-left font-[inherit]"
+              >
+                {row.sign} {row.label}
+              </th>
+              <td className="tabular py-[var(--row-pad)] pr-3 text-right">
+                <Link to={link(row.tipo, 'lancado')} className={LINK}>
+                  <Amount cents={cents(row.posted)} />
+                </Link>
+              </td>
+              <td className="tabular py-[var(--row-pad)] pr-3 text-right text-ink-2">
+                <Link to={link(row.tipo, 'previsto')} className={LINK}>
+                  <Amount cents={cents(row.planned)} />
+                </Link>
+              </td>
+            </tr>
+          ))}
+          <tr className="border-t border-line bg-panel-2 font-semibold">
+            <th scope="row" className="py-[var(--row-pad)] pl-3 text-left font-[inherit]">
+              = Saldo do mês
+            </th>
+            <td className="tabular py-[var(--row-pad)] pr-3 text-right">
+              <Amount cents={cents(totals.saldo_do_mes)} />
+            </td>
+            <td className="tabular py-[var(--row-pad)] pr-3 text-right text-ink-2">
+              <Amount cents={saldoPrevisto as Cents} />
+            </td>
+          </tr>
+        </tbody>
+      </FinTable>
+    </div>
+  );
+};
+
 /* -------------------------------------------------------------------------- */
 /* GER-004 · Fluxo do mês                                                     */
 
@@ -347,26 +447,7 @@ export const FluxoDoMesPanel = ({
           />
         </tbody>
       </FinTable>
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-1 border-t border-line px-4 py-3 text-[0.8125rem] sm:grid-cols-3">
-        <div>
-          <dt className="text-xs text-ink-3">Receitas do mês</dt>
-          <dd className="tabular">
-            <Amount cents={flow.receitasCents} />
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-ink-3">Despesas lançadas</dt>
-          <dd className="tabular">
-            <Amount cents={flow.despesasRealizadasCents} />
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-ink-3">Aportes previstos</dt>
-          <dd className="tabular">
-            <Amount cents={flow.aportesPrevistosCents} />
-          </dd>
-        </div>
-      </dl>
+      <CascataDoMes month={today.slice(0, 7)} />
     </Panel>
   );
 };
