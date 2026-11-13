@@ -30,8 +30,11 @@ import { DataTable } from '../components/table.js';
 import { assetSlug } from '../lib/asset_page.js';
 import { CSV_BOM, listFromParam, listToParam } from '../lib/statement.js';
 import type { AssetNaming } from '../lib/asset_page.js';
+import { readGrouping, writeGrouping } from '../lib/view_preferences.js';
+import type { GroupByParam } from '../lib/positions.js';
 import {
   DEFAULT_GROUP_BY,
+  GROUP_BY_PARAMS,
   effectiveGroupBy,
   groupByOptions,
   isGroupByParam,
@@ -105,8 +108,12 @@ export const PositionsScreen = ({
 
   const allPortfolios = portfolioId === null;
   const rawGroupBy = params.get('agrupar');
+  // CMP-13: sem `?agrupar=` na URL, vale o último agrupamento escolhido neste aparelho.
+  const [remembered, setRemembered] = useState<GroupByParam>(() =>
+    readGrouping<GroupByParam>('posicoes', GROUP_BY_PARAMS, DEFAULT_GROUP_BY),
+  );
   const groupByParam = effectiveGroupBy(
-    isGroupByParam(rawGroupBy) ? rawGroupBy : DEFAULT_GROUP_BY,
+    isGroupByParam(rawGroupBy) ? rawGroupBy : remembered,
     allPortfolios,
   );
   const search = params.get('busca') ?? '';
@@ -387,8 +394,12 @@ export const PositionsScreen = ({
                 label: 'Agrupar por',
                 value: groupByParam,
                 options: groupByOptions(allPortfolios),
-                onChange: (value) =>
-                  update({ agrupar: value === DEFAULT_GROUP_BY ? null : value }),
+                onChange: (value) => {
+                  // O escolhido vira o padrão deste aparelho, e a URL fica limpa.
+                  writeGrouping('posicoes', value);
+                  if (isGroupByParam(value)) setRemembered(value);
+                  update({ agrupar: value === DEFAULT_GROUP_BY ? null : value });
+                },
               },
               sortBy: {
                 label: 'Ordenar por',
