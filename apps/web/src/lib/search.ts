@@ -255,7 +255,6 @@ const SCREEN_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
     'ipca',
   ],
   posicoes: ['carteira', 'ativos', 'papeis', 'investimentos'],
-  movimentacoes: ['extrato', 'lancamentos', 'transacoes', 'historico', 'operacoes'],
   estrategia: ['alocacao', 'alvo', 'rebalanceamento', 'distribuicao'],
   objetivos: ['metas', 'aposentadoria', 'sonhos'],
   projecao: ['futuro', 'aportes', 'simulacao', 'plano', 'rentabilidade', 'reserva'],
@@ -838,11 +837,8 @@ export const targetPath = (
       return routes.asset(context.scope, target.slug);
     case 'transaction':
       return target.search === null || target.search === ''
-        ? routes.portfolio(context.scope, 'movimentacoes')
-        : `${routes.portfolio(context.scope, 'movimentacoes')}?${new URLSearchParams({
-            busca: target.search,
-            periodo: 'inicio',
-          }).toString()}`;
+        ? '/lancamentos'
+        : `/lancamentos?${new URLSearchParams({ q: target.search }).toString()}`;
     case 'path':
       return target.path;
     case 'instrument':

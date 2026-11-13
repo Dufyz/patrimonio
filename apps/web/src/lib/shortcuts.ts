@@ -38,12 +38,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
 
   { id: 'go_overview', sequence: ['g', 'v'], label: 'Visão geral', scope: 'navigation' },
   { id: 'go_positions', sequence: ['g', 'p'], label: 'Posições', scope: 'navigation' },
-  {
-    id: 'go_transactions',
-    sequence: ['g', 'm'],
-    label: 'Movimentações',
-    scope: 'navigation',
-  },
   { id: 'go_entries', sequence: ['g', 'l'], label: 'Lançamentos', scope: 'navigation' },
   { id: 'go_accounts', sequence: ['g', 'c'], label: 'Contas', scope: 'navigation' },
   { id: 'go_cards', sequence: ['g', 'a'], label: 'Cartões', scope: 'navigation' },

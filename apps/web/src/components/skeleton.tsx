@@ -157,7 +157,7 @@ export const SkeletonChart = ({
 
 /**
  * A tela inteira: título, uma faixa de totais e uma tabela. Serve de padrão para
- * as telas cuja forma é "totais + tabela" (Posições, Movimentações).
+ * as telas cuja forma é "totais + tabela" (Posições, Lançamentos).
  */
 export const ScreenSkeleton = ({
   label,

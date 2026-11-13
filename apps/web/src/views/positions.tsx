@@ -97,7 +97,7 @@ export type PositionsScreenProps = {
    * da linha: em Todas as carteiras a mesma ação abre o papel na carteira certa.
    */
   readonly onOpenAsset: (slug: string, portfolioId: string | null) => void;
-  /** Abre Movimentações filtrada por este ativo, em todo o período. */
+  /** Abre Lançamentos filtrado por este ativo. */
   readonly onOpenStatement?: ((search: string) => void) | undefined;
 };
 

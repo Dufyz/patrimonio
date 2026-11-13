@@ -97,7 +97,7 @@ export type AssetScreenProps = {
   readonly portfolioId: string;
   readonly scopeLabel: string;
   readonly onBack: () => void;
-  /** Abre Movimentações filtrada por este ativo, em todo o período. */
+  /** Abre Lançamentos filtrado por este ativo. */
   readonly onOpenStatement?: ((search: string) => void) | undefined;
 };
 
@@ -1520,8 +1520,8 @@ const percentText = (ratio: string): string => {
 
 /**
  * O histórico do ativo: cada lançamento em uma linha, com filtro por tipo e as
- * mesmas ações de Movimentações — editar, duplicar e excluir (com desfazer).
- * A auditoria em lote e a coluna "Efeito" continuam sendo de Movimentações
+ * mesmas ações de Lançamentos — editar, duplicar e excluir (com desfazer).
+ * A auditoria em lote e a coluna "Efeito" continuam sendo de Lançamentos
  * (T-04), que o menu do ativo abre já filtrada por ele.
  */
 const HistoryPanel = ({

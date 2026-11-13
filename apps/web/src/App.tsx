@@ -24,6 +24,7 @@ import { ShortcutProvider, useShortcuts } from './components/shortcuts.js';
 import { routableScreens, screensForScope } from './lib/investment_screens.js';
 import { homePath, homeScopeSearch, readDisplay } from './lib/display_preferences.js';
 import { placeForPath, routes } from './lib/routes.js';
+import { financeRoutes } from './finance/lib/routes.js';
 import { ALL_SCOPE, portfolioIdForScope, scopeForPortfolioId } from './lib/scope.js';
 import { FinanceLoading } from './finance/components/states.js';
 import {
@@ -40,7 +41,6 @@ import { GoalsOverviewScreen } from './views/goals_overview.js';
 import { PositionsScreen } from './views/positions.js';
 import { ProjectionScreen } from './views/projection_screen.js';
 import { SettingsScreen } from './views/settings/index.js';
-import { StatementScreen } from './views/statement.js';
 import { StrategyScreen } from './views/strategy.js';
 
 /**
@@ -226,14 +226,12 @@ const Workbench = ({ home = false }: { readonly home?: boolean }): React.ReactEl
    * meses: quem pergunta pelos lançamentos de um ativo quer o histórico dele.
    */
   const openStatement = (search: string): void => {
-    void navigate(
-      `${routes.portfolio(scope, 'movimentacoes')}?${new URLSearchParams({ busca: search, periodo: 'inicio' }).toString()}`,
-    );
+    void navigate(financeRoutes.entries(new URLSearchParams({ q: search }).toString()));
   };
 
   /**
    * Abre a página do ativo na carteira da linha. Em "Todas as carteiras" cada
-   * linha de Posições e de Movimentações sabe a sua; a que não sabe (posição
+   * linha de Posições sabe a sua; a que não sabe (posição
    * encerrada, que soma carteiras) não abre.
    */
   const openAssetIn = (slug: string, rowPortfolioId: string | null): void => {
@@ -310,12 +308,15 @@ const Workbench = ({ home = false }: { readonly home?: boolean }): React.ReactEl
           onOpenAsset={openAssetIn}
           onOpenStatement={openStatement}
         />
-      ) : current?.id === 'movimentacoes' ? (
-        <StatementScreen
-          portfolioId={portfolioId}
-          scopeLabel={scopeLabel}
-          portfolios={portfolios}
-          onOpenAsset={openAssetIn}
+      ) : screen === 'movimentacoes' ? (
+        // LAN-21 · O endereço antigo vira o livro único, com o recorte que dá.
+        <Navigate
+          replace
+          to={financeRoutes.entries(
+            portfolioId === null
+              ? ''
+              : new URLSearchParams({ carteira: portfolioId }).toString(),
+          )}
         />
       ) : current?.id === 'estrategia' ? (
         portfolioId === null ? null : (

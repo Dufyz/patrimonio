@@ -1,6 +1,6 @@
 /**
  * A pastilha do tipo de lançamento (prancha 03): Compra em azul, Venda em
- * âmbar, Provento em verde, o resto neutro. É a mesma em Movimentações e no
+ * âmbar, Provento em verde, o resto neutro. É a mesma em Lançamentos e no
  * Histórico do ativo.
  */
 const PILL: Readonly<Record<string, string>> = {

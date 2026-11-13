@@ -564,22 +564,22 @@ describe('destinos', () => {
     );
   });
 
-  it('abre o lançamento no extrato inteiro filtrado pelo ativo', () => {
+  it('abre o lançamento em Lançamentos filtrado pelo ativo', () => {
     expect(
       targetPath({ kind: 'transaction', transactionId: 't', search: 'ITUB4' }, context),
-    ).toBe('/carteiras/longo-prazo/movimentacoes?busca=ITUB4&periodo=inicio');
+    ).toBe('/lancamentos?q=ITUB4');
   });
 
   it('codifica o que a pessoa não escreveu em URL', () => {
     expect(
       targetPath({ kind: 'transaction', transactionId: 't', search: 'A&B C' }, context),
-    ).toBe('/carteiras/longo-prazo/movimentacoes?busca=A%26B+C&periodo=inicio');
+    ).toBe('/lancamentos?q=A%26B+C');
   });
 
-  it('abre o extrato sem filtro quando o lançamento não tem ativo', () => {
+  it('abre Lançamentos sem filtro quando o lançamento não tem ativo', () => {
     expect(
       targetPath({ kind: 'transaction', transactionId: 't', search: null }, context),
-    ).toBe('/carteiras/longo-prazo/movimentacoes');
+    ).toBe('/lancamentos');
   });
 
   it('não leva a lugar nenhum uma ação cuja tela ainda não existe', () => {

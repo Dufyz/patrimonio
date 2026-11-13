@@ -8,9 +8,9 @@ import type { IconName } from '../components/icon.js';
  * uma carteira entram a Estratégia e o Objetivo (no singular). O identificador é
  * o caminho.
  *
- * Visão geral (escopo Investimentos da raiz) e Movimentações seguem roteáveis, mas
- * fora da barra: a primeira vira o painel da Visão geral unificada e a segunda sai
- * quando Lançamentos passar a ler o livro único.
+ * Visão geral (escopo Investimentos da raiz) segue roteável, mas fora da barra:
+ * vira o painel da Visão geral unificada. O endereço antigo de Movimentações
+ * redireciona para Lançamentos (LAN-21).
  */
 
 export type InvestmentScreen = {
@@ -43,14 +43,6 @@ export const INVESTMENT_SCREENS: readonly InvestmentScreen[] = [
     icon: 'list',
     consolidated: true,
     shortcut: 'positions',
-  },
-  {
-    id: 'movimentacoes',
-    sidebar: false,
-    label: 'Movimentações',
-    icon: 'swap',
-    consolidated: true,
-    shortcut: 'transactions',
   },
   {
     id: 'estrategia',

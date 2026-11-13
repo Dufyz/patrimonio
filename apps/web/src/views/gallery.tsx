@@ -344,7 +344,6 @@ export const Gallery = (): React.ReactElement => {
       () => ({
         go_overview: () => setScreen('visao-geral'),
         go_positions: () => setScreen('posicoes'),
-        go_transactions: () => setScreen('movimentacoes'),
         go_strategy: () => setScreen('estrategia'),
         go_goals: () => setScreen('objetivos'),
         new_transaction: openHelp,
