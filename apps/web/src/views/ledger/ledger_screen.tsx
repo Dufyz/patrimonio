@@ -42,7 +42,8 @@ import { totalLink } from '../../lib/total_links.js';
 import { LaunchPlannedDialog } from './launch_planned.js';
 import { BatchActions, BatchDialog } from './batch_actions.js';
 import type { BatchAction } from './batch_actions.js';
-import { canDelete, canMove } from '../../lib/ledger_batch.js';
+import { canDelete, canMove, isEntryRow } from '../../lib/ledger_batch.js';
+import type { EditableEntry } from '../../lib/ledger_entry_form.js';
 import { NewEntryModal } from './new_entry_modal.js';
 import { readGrouping, writeGrouping } from '../../lib/view_preferences.js';
 import { usePreferences } from '../../components/preferences.js';
@@ -132,6 +133,7 @@ export const LedgerScreen = (): React.ReactElement => {
   const shortcuts = useMemo(() => ({ filter: () => searchBox.current?.focus() }), []);
   useShortcuts(shortcuts);
   const [launching, setLaunching] = useState<BookRowResource | null>(null);
+  const [editRow, setEditRow] = useState<BookRowResource | null>(null);
   const [menuRow, setMenuRow] = useState<string | null>(null);
   const [single, setSingle] = useState<{
     readonly row: BookRowResource;
@@ -254,6 +256,15 @@ export const LedgerScreen = (): React.ReactElement => {
           onClose={() => setCreating(false)}
         />
       ) : null}
+      {editRow === null || editRow.entry === null ? null : (
+        <NewEntryModal
+          today={today}
+          accounts={[...accounts].map(([id, name]) => ({ id, name }))}
+          editing={{ id: editRow.id, entry: editRow.entry as unknown as EditableEntry }}
+          onSaved={() => setReload((n) => n + 1)}
+          onClose={() => setEditRow(null)}
+        />
+      )}
       <StatStrip
         label="Resumo do período"
         cells={[
@@ -568,6 +579,23 @@ export const LedgerScreen = (): React.ReactElement => {
                         if (e.key === 'Escape') setMenuRow(null);
                       }}
                     >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="cursor-pointer px-3 py-1.5 text-left disabled:cursor-not-allowed disabled:text-ink-3"
+                        disabled={!isEntryRow(row)}
+                        title={
+                          isEntryRow(row)
+                            ? undefined
+                            : 'Este tipo se corrige excluindo e lançando de novo.'
+                        }
+                        onClick={() => {
+                          setMenuRow(null);
+                          setEditRow(row);
+                        }}
+                      >
+                        Editar
+                      </button>
                       <button
                         type="button"
                         role="menuitem"

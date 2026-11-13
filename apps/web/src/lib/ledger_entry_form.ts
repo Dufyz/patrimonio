@@ -499,3 +499,26 @@ export const previewRows = (
         pair('cost_basis', 'Custo da posição', 'money', response.position.cost_basis),
       ]),
 ];
+
+/** O corpo de uma receita ou despesa lançada, como o livro o devolve em `entry`. */
+export type EditableEntry = {
+  readonly kind: string;
+  readonly description: string;
+  readonly date: string;
+  readonly category_id: string;
+  readonly amount: string;
+  readonly payments: readonly {
+    readonly source_type: string;
+    readonly source_id: string;
+  }[];
+};
+
+/** LAN-07 · O rascunho de edição: o tipo e os campos do lançamento que já existe. */
+export const draftFromEntry = (today: string, entry: EditableEntry): Draft => ({
+  ...newDraft(today, {}, entry.kind === 'receita' ? 'RECEITA' : 'DESPESA'),
+  description: entry.description,
+  date: entry.date,
+  amount: entry.amount,
+  categoryId: entry.category_id,
+  accountId: entry.payments[0]?.source_id ?? '',
+});

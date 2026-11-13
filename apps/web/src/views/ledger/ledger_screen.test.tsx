@@ -313,4 +313,52 @@ describe('LedgerScreen', () => {
     expect(puts[0]?.url).toBe('/api/finance/entries/1');
     expect(JSON.parse(puts[0]?.body ?? '{}')).toMatchObject({ category_id: 'c3' });
   });
+
+  it('LAN-07: Editar abre o formulário do tipo preenchido e salva com PUT', async () => {
+    const puts: { url: string; body: string }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (String(url).includes('/api/finance/categories')) {
+          return new Response(
+            JSON.stringify({
+              categories: [{ id: 'c1', name: 'Receita fixa', kind: 'receita' }],
+            }),
+            { status: 200 },
+          );
+        }
+        if (init?.method === 'PUT') {
+          puts.push({ url: String(url), body: String(init.body) });
+          return new Response('{}', { status: 200 });
+        }
+        const [first, ...rest] = book.rows;
+        const withEntry = {
+          ...first,
+          entry: {
+            kind: 'receita',
+            description: 'Salário',
+            date: '2026-11-11',
+            category_id: 'c1',
+            amount: '5000.00',
+            payments: [{ source_type: 'conta', source_id: 'a' }],
+          },
+          category_id: 'c1',
+        };
+        return new Response(JSON.stringify({ ...book, rows: [withEntry, ...rest] }), {
+          status: 200,
+        });
+      }),
+    );
+    wrap();
+    await waitFor(() => expect(screen.getByText('Salário')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Ações de Salário' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Editar' }));
+    expect(await screen.findByText('Editar lançamento')).toBeTruthy();
+    expect((screen.getByDisplayValue('Salário') as HTMLInputElement).value).toBe(
+      'Salário',
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Salvar/ }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]?.url).toBe('/api/finance/entries/1');
+  });
 });

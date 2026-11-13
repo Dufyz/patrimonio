@@ -13,8 +13,10 @@ import { usePortfolios } from '../../components/portfolios_provider.js';
 import { EffectTable } from '../../components/effect_table.js';
 import { Modal } from '../../components/overlay.js';
 import { Segmented } from '../../components/primitives.js';
+import { putFinanceEntry } from '../../api/book.js';
 import { newAttemptKey } from '../../lib/entry.js';
 import {
+  draftFromEntry,
   isAssetEvent,
   isInvestment,
   previewRows,
@@ -26,7 +28,12 @@ import {
   toRequest,
   validateDraft,
 } from '../../lib/ledger_entry_form.js';
-import type { Draft, DraftContext, ModalKind } from '../../lib/ledger_entry_form.js';
+import type {
+  Draft,
+  DraftContext,
+  EditableEntry,
+  ModalKind,
+} from '../../lib/ledger_entry_form.js';
 import { Field, Input, Select } from '../entry/fields.js';
 import { FormShell } from '../entry/form_shell.js';
 import { usePreview } from '../entry/hooks.js';
@@ -49,6 +56,7 @@ export const NewEntryModal = ({
   onSaved,
   onClose,
   onConflict,
+  editing,
 }: {
   readonly today: string;
   readonly accounts: readonly { readonly id: string; readonly name: string }[];
@@ -58,8 +66,14 @@ export const NewEntryModal = ({
   readonly onClose: () => void;
   /** CRT-10 · Pagar fatura que já mudou: mostra o erro e pede para quem abriu recarregar. */
   readonly onConflict?: (() => void) | undefined;
+  /** LAN-07 · Editar receita ou despesa lançada: abre o formulário do tipo preenchido. */
+  readonly editing?: { readonly id: string; readonly entry: EditableEntry } | undefined;
 }): React.ReactElement => {
-  const [draft, setDraft] = useState<Draft>(() => newDraft(today, context, initialKind));
+  const [draft, setDraft] = useState<Draft>(() =>
+    editing === undefined
+      ? newDraft(today, context, initialKind)
+      : draftFromEntry(today, editing.entry),
+  );
   const [categories, setCategories] = useState<readonly CategoryOption[]>([]);
   const [cards, setCards] = useState<readonly CardOption[]>([]);
   const [institutions, setInstitutions] = useState<
@@ -95,8 +109,9 @@ export const NewEntryModal = ({
   const set = (patch: Partial<Draft>): void => setDraft((d) => ({ ...d, ...patch }));
 
   const body = useMemo(() => (valid ? toRequest(draft) : null), [valid, draft]);
-  const preview = usePreview(body === null ? null : JSON.stringify(body), (signal) =>
-    previewEntry(body as NonNullable<typeof body>, signal),
+  const preview = usePreview(
+    body === null || editing !== undefined ? null : JSON.stringify(body),
+    (signal) => previewEntry(body as NonNullable<typeof body>, signal),
   );
 
   const transfer = draft.kind === 'TRANSFERENCIA';
@@ -123,9 +138,10 @@ export const NewEntryModal = ({
     setPending(true);
     setFailure(null);
     try {
-      await saveEntry(body, newAttemptKey());
+      if (editing === undefined) await saveEntry(body, newAttemptKey());
+      else await putFinanceEntry(editing.id, body.body as Record<string, unknown>);
       onSaved();
-      if (again) {
+      if (again && editing === undefined) {
         setDraft((d) => ({
           ...newDraft(
             today,
@@ -155,24 +171,32 @@ export const NewEntryModal = ({
     .map((c) => ({ id: c.id, name: c.name }));
 
   return (
-    <Modal open guard narrow title="Novo lançamento" onClose={onClose}>
+    <Modal
+      open
+      guard
+      narrow
+      title={editing === undefined ? 'Novo lançamento' : 'Editar lançamento'}
+      onClose={onClose}
+    >
       <FormShell
         pending={pending}
         error={failure}
-        saveLabel="Lançar"
+        saveLabel={editing === undefined ? 'Lançar' : 'Salvar'}
         onSave={() => void submit(false)}
-        onSaveAgain={() => void submit(true)}
+        {...(editing === undefined ? { onSaveAgain: () => void submit(true) } : {})}
         onCancel={onClose}
       >
-        <Segmented
-          label="Tipo"
-          value={draft.kind}
-          onChange={(kind) => setDraft((d) => switchKind(d, kind))}
-          options={MODAL_KINDS.map((kind) => ({
-            value: kind,
-            label: MODAL_KIND_LABEL[kind],
-          }))}
-        />
+        {editing !== undefined ? null : (
+          <Segmented
+            label="Tipo"
+            value={draft.kind}
+            onChange={(kind) => setDraft((d) => switchKind(d, kind))}
+            options={MODAL_KINDS.map((kind) => ({
+              value: kind,
+              label: MODAL_KIND_LABEL[kind],
+            }))}
+          />
+        )}
         {isAssetEvent(draft.kind) ? (
           <AssetEventFields
             draft={draft}
