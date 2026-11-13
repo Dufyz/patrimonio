@@ -121,3 +121,27 @@ export const fetchCategoryOptions = async (
   );
   return (body.categories ?? []).filter((c) => c.archived !== true);
 };
+
+/** LAN-07 · Mover um lançamento de cartão para a fatura de outro mês (`AAAA-MM`). */
+export const moveEntryInvoice = (id: string, invoiceMonth: string): Promise<unknown> =>
+  request(`/api/finance/entries/${id}/invoice`, accept, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': globalThis.crypto.randomUUID() },
+    body: JSON.stringify({ invoice_month: invoiceMonth }),
+  });
+
+/** LAN-07 · Estornar: um crédito `estorno` na fatura do cartão, ligado ao lançamento. */
+export const reverseCardEntry = (
+  cardId: string,
+  body: {
+    readonly invoice_month: string;
+    readonly description: string;
+    readonly amount: string;
+    readonly reverses_id: string;
+  },
+): Promise<unknown> =>
+  request(`/api/finance/cards/${cardId}/items`, accept, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': globalThis.crypto.randomUUID() },
+    body: JSON.stringify({ kind: 'credito', subtype: 'estorno', ...body }),
+  });

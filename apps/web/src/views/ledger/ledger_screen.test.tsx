@@ -392,4 +392,47 @@ describe('LedgerScreen', () => {
     ).toBeTruthy();
     await waitFor(() => expect(urls.some((u) => u.includes('categoria=c1'))).toBe(true));
   });
+
+  it('LAN-07: Estornar uma despesa de cartão cria o crédito de estorno ligado a ela', async () => {
+    const posted: { url: string; body: string }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posted.push({ url: String(url), body: String(init.body) });
+          return new Response('{}', { status: 200 });
+        }
+        const compra = {
+          ...book.rows[1],
+          id: 'k9',
+          situation: 'lancado',
+          date: '2026-11-05',
+          description: 'Mercado',
+          entry: {
+            kind: 'despesa',
+            description: 'Mercado',
+            date: '2026-11-05',
+            category_id: 'c',
+            amount: '1500.00',
+            payments: [{ source_type: 'cartao', source_id: 'card1' }],
+          },
+        };
+        return new Response(JSON.stringify({ ...book, rows: [compra] }), { status: 200 });
+      }),
+    );
+    wrap();
+    await waitFor(() => expect(screen.getByText('Mercado')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Ações de Mercado' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Estornar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Estornar' }));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]?.url).toBe('/api/finance/cards/card1/items');
+    expect(JSON.parse(posted[0]?.body ?? '{}')).toMatchObject({
+      kind: 'credito',
+      subtype: 'estorno',
+      amount: '1500.00',
+      reverses_id: 'k9',
+      invoice_month: '2026-11',
+    });
+  });
 });

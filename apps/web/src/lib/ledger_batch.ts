@@ -116,3 +116,36 @@ export const moveBody = (
     payments: entry.payments.map((p) => ({ ...p, source_id: accountId })),
   });
 };
+
+/** O cartão de uma despesa paga só no cartão; `null` se paga em conta ou dividida. */
+export const cardOf = (row: BookRowResource): string | null => {
+  if (!isEntryRow(row) || row.kind !== 'DESPESA') return null;
+  const payments = entryOf(row).payments;
+  const [only] = payments;
+  return payments.length === 1 && only?.source_type === 'cartao' ? only.source_id : null;
+};
+
+/** LAN-07 · Mover de fatura e Estornar valem para despesa lançada no cartão. */
+export const canMoveInvoice = (row: BookRowResource): boolean =>
+  row.situation === 'lancado' && cardOf(row) !== null;
+
+/** O corpo do estorno: a fatura do mês da compra, pelo valor todo, ligado à origem. */
+export const reversalBody = (
+  row: BookRowResource,
+): {
+  readonly cardId: string;
+  readonly invoice_month: string;
+  readonly description: string;
+  readonly amount: string;
+  readonly reverses_id: string;
+} | null => {
+  const cardId = cardOf(row);
+  if (cardId === null) return null;
+  return {
+    cardId,
+    invoice_month: row.date.slice(0, 7),
+    description: `Estorno: ${row.description}`.slice(0, 120),
+    amount: entryOf(row).amount,
+    reverses_id: row.id,
+  };
+};

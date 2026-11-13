@@ -40,10 +40,17 @@ import {
 import type { LedgerFilters } from '../../lib/ledger_filters.js';
 import { totalLink } from '../../lib/total_links.js';
 import { usePortfolios } from '../../components/portfolios_provider.js';
+import { CardRowDialog } from './card_row_dialog.js';
+import type { CardRowAction } from './card_row_dialog.js';
 import { LaunchPlannedDialog } from './launch_planned.js';
 import { BatchActions, BatchDialog } from './batch_actions.js';
 import type { BatchAction } from './batch_actions.js';
-import { canDelete, canMove, isEntryRow } from '../../lib/ledger_batch.js';
+import {
+  canDelete,
+  canMove,
+  canMoveInvoice,
+  isEntryRow,
+} from '../../lib/ledger_batch.js';
 import type { EditableEntry } from '../../lib/ledger_entry_form.js';
 import { NewEntryModal } from './new_entry_modal.js';
 import { readGrouping, writeGrouping } from '../../lib/view_preferences.js';
@@ -134,6 +141,10 @@ export const LedgerScreen = (): React.ReactElement => {
   const shortcuts = useMemo(() => ({ filter: () => searchBox.current?.focus() }), []);
   useShortcuts(shortcuts);
   const [launching, setLaunching] = useState<BookRowResource | null>(null);
+  const [cardAction, setCardAction] = useState<{
+    readonly row: BookRowResource;
+    readonly action: CardRowAction;
+  } | null>(null);
   const [editRow, setEditRow] = useState<BookRowResource | null>(null);
   const [menuRow, setMenuRow] = useState<string | null>(null);
   const [single, setSingle] = useState<{
@@ -620,6 +631,32 @@ export const LedgerScreen = (): React.ReactElement => {
                       >
                         Editar
                       </button>
+                      {canMoveInvoice(row) ? (
+                        <>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="cursor-pointer px-3 py-1.5 text-left"
+                            onClick={() => {
+                              setMenuRow(null);
+                              setCardAction({ row, action: 'move_invoice' });
+                            }}
+                          >
+                            Mover de fatura
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="cursor-pointer px-3 py-1.5 text-left"
+                            onClick={() => {
+                              setMenuRow(null);
+                              setCardAction({ row, action: 'reverse' });
+                            }}
+                          >
+                            Estornar
+                          </button>
+                        </>
+                      ) : null}
                       <button
                         type="button"
                         role="menuitem"
@@ -669,6 +706,13 @@ export const LedgerScreen = (): React.ReactElement => {
         }
         today={today}
         onClose={() => setLaunching(null)}
+        onDone={() => setReload((n) => n + 1)}
+      />
+      <CardRowDialog
+        row={cardAction?.row ?? null}
+        action={cardAction?.action ?? null}
+        hidden={hidden}
+        onClose={() => setCardAction(null)}
         onDone={() => setReload((n) => n + 1)}
       />
       <BatchDialog

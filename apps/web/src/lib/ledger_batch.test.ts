@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   batchTotal,
+  canMoveInvoice,
+  cardOf,
+  reversalBody,
   canDelete,
   canMove,
   deletePath,
@@ -86,5 +89,53 @@ describe('LAN-08 · lote', () => {
     });
     expect(canMove(card)).toBe(false);
     expect(canMove(row({}))).toBe(true);
+  });
+});
+
+describe('LAN-07 · cartão', () => {
+  const card = {
+    id: 'e1',
+    kind: 'DESPESA',
+    situation: 'lancado',
+    date: '2026-11-05',
+    description: 'Mercado',
+    amount: '120.50',
+    entry: {
+      kind: 'despesa',
+      description: 'Mercado',
+      date: '2026-11-05',
+      category_id: 'c',
+      amount: '120.50',
+      payments: [{ source_type: 'cartao', source_id: 'k1' }],
+    },
+  } as never;
+  const account = {
+    ...(card as object),
+    entry: {
+      kind: 'despesa',
+      description: 'Mercado',
+      date: '2026-11-05',
+      category_id: 'c',
+      amount: '120.50',
+      payments: [{ source_type: 'conta', source_id: 'a1' }],
+    },
+  } as never;
+
+  it('só despesa lançada no cartão se move de fatura e se estorna', () => {
+    expect(cardOf(card)).toBe('k1');
+    expect(canMoveInvoice(card)).toBe(true);
+    expect(cardOf(account)).toBeNull();
+    expect(canMoveInvoice(account)).toBe(false);
+  });
+
+  it('o estorno leva o valor todo, o mês da compra e o vínculo', () => {
+    expect(reversalBody(card)).toEqual({
+      cardId: 'k1',
+      invoice_month: '2026-11',
+      description: 'Estorno: Mercado',
+      amount: '120.50',
+      reverses_id: 'e1',
+    });
+    expect(reversalBody(account)).toBeNull();
   });
 });
