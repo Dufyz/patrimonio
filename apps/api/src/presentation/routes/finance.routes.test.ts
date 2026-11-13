@@ -528,6 +528,18 @@ describe('busca e consistência (RN-70)', () => {
   });
 });
 
+describe('uso das categorias no período (CAT-01)', () => {
+  it('o total lançado de despesas é o mesmo da visão geral e o previsto não entra no lançado', async () => {
+    const overview = await get('/overview?month=2026-10');
+    const usage = await get('/categories/usage?from=2026-10-01&to=2026-10-31');
+    expect(usage.status).toBe(200);
+    expect(usage.body.totals.despesa.posted).toBe(overview.body.despesas.amount);
+    const rows: { posted: string; planned: string }[] = usage.body.rows;
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((r) => Number(r.posted) >= 0 && Number(r.planned) >= 0)).toBe(true);
+  });
+});
+
 describe('orçamento de consultas', () => {
   it.each([
     '/finance/overview?month=2026-10',

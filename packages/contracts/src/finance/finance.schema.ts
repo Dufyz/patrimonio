@@ -61,6 +61,10 @@ export const deleteFinCategoryMovingSchema = written(
   { id: uuid },
   z.object({ move_to: uuid }),
 );
+/** CAT-01 · Uso de cada categoria no período: lançado e previsto. */
+export const categoryUsageSchema = z.object({
+  query: z.object({ from: dateOnly, to: dateOnly }),
+});
 export const categoryBreakdownSchema = z.object({
   query: z.object({ kind: finKind.default('despesa'), from: dateOnly, to: dateOnly }),
 });

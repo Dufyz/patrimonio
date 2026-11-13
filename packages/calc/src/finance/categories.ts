@@ -103,3 +103,60 @@ export const monthlyEntryCounts = (
   }
   return counts;
 };
+
+export type CategoryPeriodUsageRow = {
+  readonly category_id: string;
+  readonly posted: string;
+  readonly planned: string;
+  /** Lançamentos, lançados e previstos, em qualquer data: decide se o tipo ainda muda. */
+  readonly entries_total: number;
+};
+
+export type CategoryPeriodUsage = {
+  readonly range: DateRange;
+  readonly rows: readonly CategoryPeriodUsageRow[];
+  /** Total lançado por tipo no período: o mesmo de Despesas na cascata (RN-U16). */
+  readonly totals: {
+    readonly receita: { readonly posted: string; readonly planned: string };
+    readonly despesa: { readonly posted: string; readonly planned: string };
+  };
+};
+
+/**
+ * CAT-01 · O uso de cada categoria no período: lançado e previsto, sem misturar
+ * (previsto não entra em lançado). Aporte não é categoria e não aparece. Toda
+ * categoria do cadastro vem na resposta, também as sem uso (zeradas).
+ */
+export const categoryPeriodUsage = (data: FinSnapshot, range: DateRange): CategoryPeriodUsage => {
+  const pool = ledgerPool(data);
+  const within = pool.filter((entry) => isDateInRange(entry.date, range));
+  const sum = (categoryId: string, posted: boolean) =>
+    total(
+      within
+        .filter((e) => e.category_id === categoryId && isPosted(e) === posted)
+        .map((e) => dec(e.amount)),
+    );
+
+  const rows = data.categories.map((category) => ({
+    category_id: category.id,
+    posted: money(sum(category.id, true)),
+    planned: money(sum(category.id, false)),
+    entries_total: pool.filter((e) => e.category_id === category.id).length,
+  }));
+
+  const byKind = (kind: FinKind, posted: boolean) =>
+    money(
+      total(
+        within.filter((e) => e.kind === kind && isPosted(e) === posted).map((e) => dec(e.amount)),
+      ),
+    );
+
+  return {
+    range,
+    rows,
+    totals: {
+      receita: { posted: byKind('receita', true), planned: byKind('receita', false) },
+      despesa: { posted: byKind('despesa', true), planned: byKind('despesa', false) },
+    },
+  };
+};

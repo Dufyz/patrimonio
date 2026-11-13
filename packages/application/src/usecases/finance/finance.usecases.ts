@@ -310,6 +310,9 @@ export const financeUseCases = (deps: FinanceDeps) => ({
   getCategoryBreakdown: (kind: 'receita' | 'despesa', range: fin.DateRange) =>
     runRead(deps, (data) => fin.categoryBreakdown(data, kind, range)),
 
+  getCategoryUsage: (range: fin.DateRange) =>
+    runRead(deps, (data) => fin.categoryPeriodUsage(data, range)),
+
   listFinanceCategories: (includeArchived: boolean) =>
     runRead(deps, (data) =>
       data.categories.filter((category) => includeArchived || !category.archived),

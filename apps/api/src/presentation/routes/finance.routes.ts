@@ -31,6 +31,11 @@ export const financeRoutes = (deps: FinanceRouteDeps): Router => {
     validate(c.categoryBreakdownSchema),
     f.categoryBreakdown,
   );
+  router.get(
+    '/finance/categories/usage',
+    validate(c.categoryUsageSchema),
+    f.categoryUsage,
+  );
   router.post(
     '/finance/categories',
     validate(c.createFinCategorySchema),

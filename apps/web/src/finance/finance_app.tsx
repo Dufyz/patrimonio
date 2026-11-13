@@ -27,7 +27,7 @@ const RecurringsScreen = lazy(() =>
   })),
 );
 const CategoriesScreen = lazy(() =>
-  import('./screens/categories_screen.js').then((module) => ({
+  import('../views/categories/categories_screen.js').then((module) => ({
     default: module.CategoriesScreen,
   })),
 );

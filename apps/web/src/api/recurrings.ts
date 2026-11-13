@@ -81,6 +81,7 @@ export type FinanceCategoryResource = {
   readonly name: string;
   readonly kind: 'receita' | 'despesa';
   readonly color: string;
+  readonly nature?: 'fixa' | 'livre' | null | undefined;
   readonly archived: boolean;
 };
 

@@ -85,6 +85,13 @@ const rows: readonly Entry[] = [
   ['get', '/finance/categories', 'Categorias', c.listFinCategoriesSchema, { 200: READ }],
   [
     'get',
+    '/finance/categories/usage',
+    'Uso de cada categoria no período: lançado e previsto',
+    c.categoryUsageSchema,
+    { 200: READ },
+  ],
+  [
+    'get',
     '/finance/categories/breakdown',
     'Participação por categoria no período, com comparação',
     c.categoryBreakdownSchema,

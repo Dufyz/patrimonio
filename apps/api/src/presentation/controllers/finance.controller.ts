@@ -75,6 +75,7 @@ export type FinanceHandler =
   | 'search'
   | 'listCategories'
   | 'categoryBreakdown'
+  | 'categoryUsage'
   | 'createCategory'
   | 'updateCategory'
   | 'archiveCategory'
@@ -163,6 +164,9 @@ export const createFinanceController = (deps: FinanceRouteDeps): FinanceControll
     listCategories: read(
       (r) => uc.listFinanceCategories(q(r)['include_archived'] === true),
       (categories) => ({ categories }),
+    ),
+    categoryUsage: read((r) =>
+      uc.getCategoryUsage({ from: q(r)['from'] as string, to: q(r)['to'] as string }),
     ),
     categoryBreakdown: read((r) =>
       uc.getCategoryBreakdown(q(r)['kind'] as 'receita' | 'despesa', {
