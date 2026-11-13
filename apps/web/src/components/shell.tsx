@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Compact } from './number.js';
 import { Icon } from './icon.js';
@@ -69,6 +69,9 @@ export const DRAWER_BELOW = 1000;
 /** Entre isto e a gaveta, a barra lateral mostra só ícones. */
 export const ICONS_BELOW = 1240;
 
+/** Abaixo disto o app é só consulta: os botões de lançamento somem (NAV-05). */
+export const READ_ONLY_BELOW = 640;
+
 const COLLAPSED_KEY = 'patrimonio:sidebar-collapsed';
 
 const readCollapsed = (): boolean => readRaw(browserStorage(), COLLAPSED_KEY) === '1';
@@ -93,6 +96,51 @@ export const AppShell = ({
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(readCollapsed);
+  const drawerButton = useRef<HTMLButtonElement>(null);
+  const drawerNav = useRef<HTMLElement>(null);
+  const wasOpen = useRef(false);
+
+  // NAV-05: a gaveta prende o foco, fecha com Esc e devolve o foco ao botão.
+  useEffect(() => {
+    if (drawerOpen) {
+      wasOpen.current = true;
+      const first = drawerNav.current?.querySelector<HTMLElement>(
+        'button, a[href], input, [tabindex]:not([tabindex="-1"])',
+      );
+      first?.focus();
+
+      const onKey = (event: KeyboardEvent): void => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          setDrawerOpen(false);
+          return;
+        }
+        if (event.key !== 'Tab') return;
+        const items = [
+          ...(drawerNav.current?.querySelectorAll<HTMLElement>(
+            'button, a[href], input, [tabindex]:not([tabindex="-1"])',
+          ) ?? []),
+        ];
+        const head = items[0];
+        const tail = items[items.length - 1];
+        if (head === undefined || tail === undefined) return;
+        if (event.shiftKey && document.activeElement === head) {
+          event.preventDefault();
+          tail.focus();
+        } else if (!event.shiftKey && document.activeElement === tail) {
+          event.preventDefault();
+          head.focus();
+        }
+      };
+      document.addEventListener('keydown', onKey);
+      return () => document.removeEventListener('keydown', onKey);
+    }
+    if (wasOpen.current) {
+      wasOpen.current = false;
+      drawerButton.current?.focus();
+    }
+    return undefined;
+  }, [drawerOpen]);
 
   useEffect(() => {
     if (forcedWidth !== undefined) return;
@@ -134,7 +182,10 @@ export const AppShell = ({
   );
 
   return (
-    <div className="flex min-h-dvh bg-bg">
+    <div
+      className="flex min-h-dvh bg-bg"
+      data-consulta={width < READ_ONLY_BELOW ? 'true' : 'false'}
+    >
       {/* NAV-14 · o primeiro foco do Tab: pula a barra e vai direto à tela. */}
       <a
         href="#conteudo"
@@ -146,6 +197,7 @@ export const AppShell = ({
         drawerOpen ? (
           <div className="fixed inset-0 z-40 flex">
             <nav
+              ref={drawerNav}
               aria-label="Navegação"
               className="h-dvh w-64 border-r border-line bg-panel"
             >
@@ -179,6 +231,7 @@ export const AppShell = ({
         {asDrawer ? (
           <div className="flex items-center gap-2 border-b border-line bg-panel px-4 py-2">
             <button
+              ref={drawerButton}
               type="button"
               aria-label="Abrir a barra lateral"
               aria-expanded={drawerOpen}

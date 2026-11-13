@@ -275,6 +275,51 @@ describe('casca única', () => {
   });
 });
 
+describe('gaveta e janela estreita (NAV-05)', () => {
+  it('a gaveta leva o foco para dentro, fecha com Esc e devolve o foco ao botão', async () => {
+    const user = userEvent.setup();
+    shell({ width: 820 });
+
+    const opener = screen.getByRole('button', { name: 'Abrir a barra lateral' });
+    await user.click(opener);
+    expect(screen.getByRole('navigation')).toContainElement(
+      document.activeElement as HTMLElement,
+    );
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+  });
+
+  it('o Tab não escapa da gaveta', async () => {
+    const user = userEvent.setup();
+    shell({ width: 820 });
+    await user.click(screen.getByRole('button', { name: 'Abrir a barra lateral' }));
+
+    for (let index = 0; index < 40; index += 1) await user.tab();
+
+    expect(screen.getByRole('navigation')).toContainElement(
+      document.activeElement as HTMLElement,
+    );
+  });
+
+  it('abaixo de 640 px o app é só consulta; acima, não', () => {
+    shell({ width: 600 });
+    expect(document.querySelector('[data-consulta]')).toHaveAttribute(
+      'data-consulta',
+      'true',
+    );
+  });
+
+  it('em janela larga o lançamento fica disponível', () => {
+    shell({ width: 1440 });
+    expect(document.querySelector('[data-consulta]')).toHaveAttribute(
+      'data-consulta',
+      'false',
+    );
+  });
+});
+
 describe('sobreposições', () => {
   const items = [
     { id: 'lancar', label: 'Lançar compra ou venda', shortcut: 'L', onSelect: vi.fn() },

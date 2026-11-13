@@ -385,3 +385,8 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* NAV-05 · abaixo de 640 px o app oferece só consulta. */
+[data-consulta='true'] [data-launch] {
+  display: none;
+}
