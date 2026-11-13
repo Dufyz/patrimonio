@@ -96,6 +96,36 @@ describe('LedgerScreen', () => {
     expect(screen.getByRole('button', { name: 'Lançar' })).toBeTruthy();
   });
 
+  it('NAV-12: cada célula da faixa é um link "abrir lista" que filtra a própria tabela', async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify(book), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <MemoryRouter initialEntries={['/lancamentos?mes=2026-10']}>
+        <PreferencesProvider>
+          <LedgerScreen />
+        </PreferencesProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText('Salário')).toBeTruthy());
+    const href = (name: string): string =>
+      screen.getByRole('link', { name: `abrir lista: ${name}` }).getAttribute('href') ??
+      '';
+    expect(href('Receitas')).toBe(
+      '/lancamentos?tipo=RECEITA&situacao=lancado&mes=2026-10',
+    );
+    expect(href('Despesas')).toBe(
+      '/lancamentos?tipo=DESPESA&situacao=lancado&mes=2026-10',
+    );
+    expect(href('Aportes')).toBe('/lancamentos?tipo=APORTE&situacao=lancado&mes=2026-10');
+    expect(href('A lançar')).toBe('/lancamentos?situacao=previsto&mes=2026-10');
+    // O período da URL é o que a tela pede ao livro.
+    expect(fetchMock.mock.calls.some((c) => JSON.stringify(c).includes('2026-10'))).toBe(
+      true,
+    );
+  });
+
   const wrap = (): void => {
     render(
       <MemoryRouter initialEntries={['/lancamentos']}>

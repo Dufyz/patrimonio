@@ -36,6 +36,7 @@ import {
   EMPTY_FILTERS,
 } from '../../lib/ledger_filters.js';
 import type { LedgerFilters } from '../../lib/ledger_filters.js';
+import { totalLink } from '../../lib/total_links.js';
 import { NewEntryModal } from './new_entry_modal.js';
 import { readGrouping, writeGrouping } from '../../lib/view_preferences.js';
 import { usePreferences } from '../../components/preferences.js';
@@ -100,15 +101,22 @@ const currentMonth = (): string => new Date().toISOString().slice(0, 7);
 
 export const LedgerScreen = (): React.ReactElement => {
   const { hidden } = usePreferences();
-  const [month] = useState(currentMonth);
   const [params, setParams] = useSearchParams();
+  const wantedMonth = params.get('mes');
+  const month =
+    wantedMonth !== null && /^\d{4}-\d{2}$/.test(wantedMonth)
+      ? wantedMonth
+      : currentMonth();
   const filters = filtersFromParams(params);
   const filterKey = params.toString();
   const setFilters = (next: LedgerFilters): void =>
     setParams(filtersToParams(next, params), { replace: true });
-  const [grouping, setGrouping] = useState<Grouping>(() =>
-    readGrouping('lancamentos', GROUPINGS, 'dia'),
-  );
+  const [grouping, setGrouping] = useState<Grouping>(() => {
+    const wanted = params.get('agrupar');
+    return (GROUPINGS as readonly string[]).includes(wanted ?? '')
+      ? (wanted as Grouping)
+      : readGrouping('lancamentos', GROUPINGS, 'dia');
+  });
   const [book, setBook] = useState<BookResponse | null>(null);
   const [failed, setFailed] = useState(false);
   const [accounts, setAccounts] = useState<ReadonlyMap<string, string>>(new Map());
@@ -226,9 +234,24 @@ export const LedgerScreen = (): React.ReactElement => {
       <StatStrip
         label="Resumo do período"
         cells={[
-          { id: 'receitas', label: 'Receitas', value: money(totals.receitas, '+') },
-          { id: 'despesas', label: 'Despesas', value: money(totals.despesas, '-') },
-          { id: 'aportes', label: 'Aportes', value: money(totals.aportes, '-') },
+          {
+            id: 'receitas',
+            label: 'Receitas',
+            value: money(totals.receitas, '+'),
+            to: totalLink({ kind: 'receitas', month }),
+          },
+          {
+            id: 'despesas',
+            label: 'Despesas',
+            value: money(totals.despesas, '-'),
+            to: totalLink({ kind: 'despesas', month }),
+          },
+          {
+            id: 'aportes',
+            label: 'Aportes',
+            value: money(totals.aportes, '-'),
+            to: totalLink({ kind: 'aportes', month }),
+          },
           {
             id: 'saldo',
             label: 'Saldo do mês',
@@ -238,6 +261,7 @@ export const LedgerScreen = (): React.ReactElement => {
             id: 'a-lancar',
             label: 'A lançar',
             value: String(totals.a_lancar),
+            to: totalLink({ kind: 'a_lancar', month }),
             caption: `${totals.a_lancar} previstos até ${book.range.to.slice(8)}/${book.range.to.slice(5, 7)}`,
           },
         ]}

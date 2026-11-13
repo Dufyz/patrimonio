@@ -1,4 +1,7 @@
+import { Link } from 'react-router';
+
 import { cn } from '../../lib/cn.js';
+import { TOTAL_LINK_LABEL } from '../../lib/total_links.js';
 
 /**
  * FIN-004 · A faixa de indicadores: poucas células, cada uma com rótulo em caixa
@@ -10,6 +13,8 @@ export type StatCell = {
   readonly label: string;
   readonly value: React.ReactNode;
   readonly caption?: React.ReactNode;
+  /** NAV-12: destino do número, montado por `totalLink`. */
+  readonly to?: string;
 };
 
 export const StatStrip = ({
@@ -43,7 +48,17 @@ export const StatStrip = ({
             {cell.label}
           </dt>
           <dd className="tabular text-screen-title leading-none font-semibold tracking-[-0.02em]">
-            {cell.value}
+            {cell.to === undefined ? (
+              cell.value
+            ) : (
+              <Link
+                to={cell.to}
+                aria-label={`${TOTAL_LINK_LABEL}: ${cell.label}`}
+                className="cursor-pointer text-inherit no-underline hover:underline"
+              >
+                {cell.value}
+              </Link>
+            )}
           </dd>
           {cell.caption === undefined ? null : (
             <dd className="text-[0.8125rem] text-ink-3">{cell.caption}</dd>
