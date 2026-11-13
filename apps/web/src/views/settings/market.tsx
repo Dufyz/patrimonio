@@ -2,12 +2,14 @@ import type { MarketHealth } from '@patrimonio/contracts';
 import { useEffect, useState } from 'react';
 
 import { refreshMarket } from '../../api/market.js';
+import { AlertModal } from '../../components/overlay.js';
 import { Button } from '../../components/primitives.js';
 import { SkeletonRegion, SkeletonTable } from '../../components/skeleton.js';
 import type { Resource } from '../../lib/use_resource.js';
 import {
   DEMO_REMOVE_COMMAND,
   SOURCE_STATUS,
+  auxiliaryFailures,
   currentDataRows,
   dataSummary,
   demoSummary,
@@ -100,6 +102,7 @@ const MarketBody = ({
 }): React.ReactElement => {
   const summary = dataSummary(health);
   const rows = currentDataRows(health);
+  const auxiliary = auxiliaryFailures(health);
   const missing = health.missing_prices;
   const shown = missing.slice(0, 3);
   const loadedAt = referenceLoadedAt(health);
@@ -116,6 +119,17 @@ const MarketBody = ({
           <code className="tabular">{DEMO_REMOVE_COMMAND}</code>.
         </p>
       ) : null}
+
+      {auxiliary.length === 0 ? null : (
+        <p
+          role="note"
+          className="rounded-panel border border-line bg-attention-soft px-4 py-2.5 text-[0.8125rem]"
+        >
+          <strong className="font-semibold">Aviso</strong>: a coleta de IBOV/IFIX falhou (
+          {auxiliary[0]?.last_run?.error ?? 'sem mensagem'}). Os preços das suas posições
+          não dependem dela; só a comparação com o índice fica defasada.
+        </p>
+      )}
 
       <SettingsPanel
         title={
@@ -338,7 +352,10 @@ export const MarketSection = ({
     }
   }, [waiting, state]);
 
+  const [confirming, setConfirming] = useState(false);
+
   const refresh = (): void => {
+    setConfirming(false);
     setRefreshing(true);
     setNote(null);
     const since = Date.now();
@@ -386,10 +403,20 @@ export const MarketSection = ({
           health={state.value}
           refreshing={refreshing || waiting !== null}
           waiting={waiting !== null}
-          onRefresh={refresh}
+          onRefresh={() => setConfirming(true)}
           onManual={setManual}
         />
       )}
+      <AlertModal
+        open={confirming}
+        title="Atualizar tudo agora?"
+        message="Recoletar o histórico pode demorar alguns minutos. Pode repetir sem medo: pedidos repetidos se somam ao que já está na fila."
+        cancelLabel="Cancelar"
+        confirmLabel="Atualizar agora"
+        danger={false}
+        onCancel={() => setConfirming(false)}
+        onConfirm={refresh}
+      />
       <ManualPriceDialog
         position={manual}
         defaultDate={

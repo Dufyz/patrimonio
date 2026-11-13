@@ -312,10 +312,23 @@ export type DataRow = {
  * app deixou de usar não aparece: só a última execução de cada tipo conta, e uma
  * linha antiga fica atrás da nova.
  */
+/** IBOV e IFIX são só referência de comparação: a falha deles avisa e não derruba o estado. */
+const AUXILIARY_SOURCE = 'cotacoes';
+
+export const auxiliaryFailures = (health: MarketHealth): readonly SourceHealth[] =>
+  health.sources.filter(
+    (source) => source.source === AUXILIARY_SOURCE && source.status === 'failing',
+  );
+
 export const currentDataRows = (health: MarketHealth): readonly DataRow[] =>
   DATA_KINDS.map(([kind, label]) => {
     const latest = health.sources
-      .filter((source) => source.kind === kind && source.last_run !== null)
+      .filter(
+        (source) =>
+          source.kind === kind &&
+          source.last_run !== null &&
+          source.source !== AUXILIARY_SOURCE,
+      )
       .sort(
         (a, b) =>
           Date.parse(b.last_run?.finished_at ?? '') -
@@ -356,9 +369,11 @@ export const dataSummary = (health: MarketHealth): DataSummary => {
     };
   }
 
-  const stale = rows.some(
-    (row) => row.health?.status === 'stale' || (row.health?.coverage.missing ?? 0) > 0,
-  );
+  const stale =
+    auxiliaryFailures(health).length > 0 ||
+    rows.some(
+      (row) => row.health?.status === 'stale' || (row.health?.coverage.missing ?? 0) > 0,
+    );
 
   return {
     tone: stale ? 'attention' : 'ok',

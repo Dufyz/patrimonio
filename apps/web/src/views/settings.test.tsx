@@ -424,9 +424,51 @@ describe('SettingsView', () => {
     expect(screen.getAllByRole('button', { name: /Atualizar/ })).toHaveLength(1);
     await userEvent.click(screen.getByRole('button', { name: /Atualizar agora/ }));
 
+    // MER-03: confirmação curta antes de recoletar o histórico.
+    const dialog = screen.getByRole('dialog', { name: 'Atualizar tudo agora?' });
+    expect(within(dialog).getByText(/pode demorar/)).toBeTruthy();
+    expect(api.refreshMarket).not.toHaveBeenCalled();
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Atualizar agora' }),
+    );
+
     expect(api.refreshMarket).toHaveBeenCalledTimes(1);
     expect(api.refreshMarket).toHaveBeenCalledWith();
     expect((await screen.findByRole('status')).textContent).toMatch(/Atualização pedida/);
+  });
+
+  it('falha do IBOV/IFIX avisa, mas não torna o estado geral "falhando" (MER-01)', () => {
+    const cotacoes = health.sources.find((source) => source.source === 'cotacoes');
+    const base = cotacoes ?? health.sources[0]!;
+    montar({
+      section: 'dados-de-mercado',
+      market: {
+        kind: 'ready',
+        value: {
+          ...health,
+          sources: [
+            ...health.sources.filter((source) => source.source !== 'cotacoes'),
+            {
+              ...base,
+              source: 'cotacoes',
+              kind: 'indices',
+              status: 'failing',
+              last_run: {
+                ...(base.last_run ?? health.recent_failures[0]!),
+                ok: false,
+                error: 'IFIX fora do ar',
+                finished_at: '2026-10-20T13:00:00Z',
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(screen.getByRole('note', { name: '' }).textContent).toMatch(
+      /IBOV\/IFIX falhou/,
+    );
+    expect(screen.queryByText(/dados? falhando/)).toBeNull();
   });
 
   it('exibição troca o tema e a densidade sem recarregar', async () => {
