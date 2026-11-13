@@ -80,4 +80,48 @@ describe('cabeçalho padrão de tela', () => {
     expect(screen.getByText('01/10 – 31/10')).toBeVisible();
     expect(screen.getByRole('button', { name: /^Transferir(?:\s*⌘↵)?$/ })).toBeVisible();
   });
+
+  it('o selo mostra os previstos pendentes e some quando não há nenhum (NAV-07)', () => {
+    const { rerender } = wrap(
+      <ScreenHeader
+        title="Lançamentos"
+        subtitle="x"
+        primary={{ label: 'Lançamento', onClick: () => {}, pending: 3 }}
+      />,
+    );
+    expect(screen.getByRole('status', { name: '3 previstos pendentes' })).toBeVisible();
+
+    rerender(
+      <MemoryRouter>
+        <PreferencesProvider storage={null}>
+          <ShortcutProvider>
+            <ScreenHeader
+              title="Lançamentos"
+              subtitle="x"
+              primary={{ label: 'Lançamento', onClick: () => {}, pending: 0 }}
+            />
+          </ShortcutProvider>
+        </PreferencesProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('o botão de lançamento é marcado para sumir no modo só consulta', () => {
+    wrap(
+      <ScreenHeader
+        title="Lançamentos"
+        subtitle="x"
+        primary={{ label: 'Lançamento', onClick: () => {} }}
+      />,
+    );
+    expect(
+      screen.getByRole('button', { name: /Lançamento/ }).closest('[data-launch]'),
+    ).not.toBeNull();
+  });
+
+  it('telas sem lançamento, como Configurações, omitem o botão', () => {
+    wrap(<ScreenHeader title="Configurações" subtitle="x" />);
+    expect(screen.queryByRole('button', { name: /Lançamento/ })).not.toBeInTheDocument();
+  });
 });

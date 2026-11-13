@@ -25,6 +25,8 @@ export type PrimaryAction = {
   readonly label: string;
   readonly onClick: () => void;
   readonly disabled?: boolean;
+  /** Previstos pendentes (data até hoje): vira o selo ao lado do botão (NAV-07). */
+  readonly pending?: number | undefined;
 };
 
 export const ScreenHeader = ({
@@ -93,15 +95,26 @@ export const ScreenHeader = ({
           onClick={toggleHidden}
         />
         {primary === undefined ? null : (
-          <Button
-            variant="primary"
-            icon="plus"
-            shortcut="N"
-            disabled={primary.disabled === true}
-            onClick={primary.onClick}
-          >
-            {primary.label}
-          </Button>
+          <span className="relative inline-flex" data-launch>
+            <Button
+              variant="primary"
+              icon="plus"
+              shortcut="N"
+              disabled={primary.disabled === true}
+              onClick={primary.onClick}
+            >
+              {primary.label}
+            </Button>
+            {primary.pending === undefined || primary.pending <= 0 ? null : (
+              <span
+                role="status"
+                aria-label={`${primary.pending} previstos pendentes`}
+                className="tabular absolute -top-1.5 -right-1.5 inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-attention px-1 text-[0.6875rem] leading-[1.125rem] font-semibold text-accent-ink"
+              >
+                {primary.pending > 99 ? '99+' : primary.pending}
+              </span>
+            )}
+          </span>
         )}
       </div>
     </header>
