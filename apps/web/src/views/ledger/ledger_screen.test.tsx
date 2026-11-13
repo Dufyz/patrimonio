@@ -95,4 +95,49 @@ describe('LedgerScreen', () => {
     expect(screen.getByText('venceu em 05/01')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Lançar' })).toBeTruthy();
   });
+
+  const wrap = (): void => {
+    render(
+      <MemoryRouter initialEntries={['/livro']}>
+        <PreferencesProvider>
+          <LedgerScreen />
+        </PreferencesProvider>
+      </MemoryRouter>,
+    );
+  };
+
+  it('vazio sem filtros oferece Novo lançamento', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ ...book, rows: [], count: 0 }), { status: 200 }),
+      ),
+    );
+    wrap();
+    await waitFor(() =>
+      expect(screen.getByText('Nenhum lançamento no período')).toBeTruthy(),
+    );
+    expect(screen.getByRole('button', { name: 'Novo lançamento' })).toBeTruthy();
+  });
+
+  it('erro mostra Tentar novamente e recarrega', async () => {
+    let calls = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (String(url).includes('/book')) {
+          calls += 1;
+          return calls === 1
+            ? new Response('{}', { status: 500 })
+            : new Response(JSON.stringify(book), { status: 200 });
+        }
+        return new Response('{}', { status: 200 });
+      }),
+    );
+    wrap();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+    await waitFor(() => expect(screen.getByText('Salário')).toBeTruthy());
+  });
 });

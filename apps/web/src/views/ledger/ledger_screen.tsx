@@ -4,6 +4,8 @@ import { useSearchParams } from 'react-router';
 import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
 
 import { confirmPlanned, fetchAccountNames, fetchBook } from '../../api/book.js';
+import { EmptyPanel, PanelError } from '../../finance/components/states.js';
+import { TableScreenSkeleton } from '../../finance/components/screen_skeletons.js';
 import { downloadCsv } from '../../finance/lib/csv.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
 import { StatStrip } from '../../finance/components/stat_strip.js';
@@ -146,8 +148,20 @@ export const LedgerScreen = (): React.ReactElement => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  if (failed) return <p role="alert">Não foi possível carregar os lançamentos.</p>;
-  if (book === null) return <p role="status">Carregando…</p>;
+  if (failed) {
+    return (
+      <PanelError
+        title="Não foi possível carregar os lançamentos"
+        onRetry={() => {
+          setFailed(false);
+          setReload((n) => n + 1);
+        }}
+      />
+    );
+  }
+  if (book === null) {
+    return <TableScreenSkeleton label="Carregando lançamentos" stats={5} columns={6} />;
+  }
 
   const money = (value: string, sign: '+' | '-' | ''): string => {
     const text = formatMoney(value, { hidden }).text;
@@ -340,14 +354,19 @@ export const LedgerScreen = (): React.ReactElement => {
         </ul>
       ) : null}
       {rows.length === 0 ? (
-        <p>
-          Nenhum lançamento encontrado.{' '}
-          {hasFilters(filters) ? (
-            <button type="button" onClick={() => setFilters(EMPTY_FILTERS)}>
-              Limpar filtros
-            </button>
-          ) : null}
-        </p>
+        hasFilters(filters) ? (
+          <EmptyPanel
+            message="Nenhum lançamento encontrado com esses filtros."
+            actionLabel="Limpar filtros"
+            onAction={() => setFilters(EMPTY_FILTERS)}
+          />
+        ) : (
+          <EmptyPanel
+            message="Nenhum lançamento no período"
+            actionLabel="Novo lançamento"
+            onAction={() => setCreating(true)}
+          />
+        )
       ) : null}
       <table className="w-full text-sm">
         <thead>
