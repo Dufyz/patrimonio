@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { MemoryRouter } from 'react-router';
+
 import { PreferencesProvider } from '../../components/preferences.js';
 import { LedgerScreen } from './ledger_screen.js';
 
@@ -71,12 +73,18 @@ describe('LedgerScreen', () => {
       vi.fn(async () => new Response(JSON.stringify(book), { status: 200 })),
     );
     render(
-      <PreferencesProvider>
-        <LedgerScreen />
-      </PreferencesProvider>,
+      <MemoryRouter initialEntries={['/livro?q=zzz']}>
+        <PreferencesProvider>
+          <LedgerScreen />
+        </PreferencesProvider>
+      </MemoryRouter>,
     );
     await waitFor(() => expect(screen.getByText('Salário')).toBeTruthy());
     expect(screen.getByText('Quarta, 11/11')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /Remover filtro Busca: zzz/ }),
+    ).toBeTruthy();
+    expect(screen.getByRole('search')).toBeTruthy();
     expect(screen.getByText('Saldo do mês')).toBeTruthy();
     expect(screen.getByText('2 previstos até 30/11')).toBeTruthy();
     expect(screen.getByText(/Próximos dias · previstos/)).toBeTruthy();

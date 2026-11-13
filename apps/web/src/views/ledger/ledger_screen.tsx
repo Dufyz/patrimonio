@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
 
@@ -14,6 +15,15 @@ import {
   visibleRows,
   signOf,
 } from '../../lib/ledger_book.js';
+import {
+  chipsOf,
+  filtersFromParams,
+  filtersToParams,
+  hasFilters,
+  removeChip,
+  EMPTY_FILTERS,
+} from '../../lib/ledger_filters.js';
+import type { LedgerFilters } from '../../lib/ledger_filters.js';
 import { usePreferences } from '../../components/preferences.js';
 
 /**
@@ -33,11 +43,55 @@ const KIND_LABEL: Readonly<Record<BookRowResource['kind'], string>> = {
   EVENTO: 'Evento',
 };
 
+const SITUATION_LABEL: Readonly<Record<string, string>> = {
+  lancado: 'Lançado',
+  previsto: 'Previsto',
+};
+
+const FilterGroup = ({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  readonly label: string;
+  readonly options: readonly (readonly [string, string])[];
+  readonly value: readonly string[];
+  readonly onChange: (next: readonly string[]) => void;
+}): React.ReactElement => (
+  <details className="relative">
+    <summary className="cursor-pointer rounded-field border border-line px-3 py-1.5">
+      {label}
+      {value.length === 0 ? '' : ` (${value.length})`}
+    </summary>
+    <fieldset className="absolute z-10 mt-1 rounded-field border border-line bg-panel p-2">
+      <legend className="sr-only">{label}</legend>
+      {options.map(([id, text]) => (
+        <label key={id} className="flex items-center gap-2 whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={value.includes(id)}
+            onChange={(e) =>
+              onChange(e.target.checked ? [...value, id] : value.filter((v) => v !== id))
+            }
+          />
+          {text}
+        </label>
+      ))}
+    </fieldset>
+  </details>
+);
+
 const currentMonth = (): string => new Date().toISOString().slice(0, 7);
 
 export const LedgerScreen = (): React.ReactElement => {
   const { hidden } = usePreferences();
   const [month] = useState(currentMonth);
+  const [params, setParams] = useSearchParams();
+  const filters = filtersFromParams(params);
+  const filterKey = params.toString();
+  const setFilters = (next: LedgerFilters): void =>
+    setParams(filtersToParams(next, params), { replace: true });
   const [book, setBook] = useState<BookResponse | null>(null);
   const [failed, setFailed] = useState(false);
   const [accounts, setAccounts] = useState<ReadonlyMap<string, string>>(new Map());
@@ -52,13 +106,16 @@ export const LedgerScreen = (): React.ReactElement => {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchBook({ month, limit: 200 }, controller.signal)
+    fetchBook(
+      { month, limit: 200, ...filtersFromParams(new URLSearchParams(filterKey)) },
+      controller.signal,
+    )
       .then(setBook)
       .catch(() => {
         if (!controller.signal.aborted) setFailed(true);
       });
     return () => controller.abort();
-  }, [month, reload]);
+  }, [month, reload, filterKey]);
 
   if (failed) return <p role="alert">Não foi possível carregar os lançamentos.</p>;
   if (book === null) return <p role="status">Carregando…</p>;
@@ -68,7 +125,7 @@ export const LedgerScreen = (): React.ReactElement => {
     return sign === '-' ? `${MINUS}${text}` : sign === '+' ? `+${text}` : text;
   };
   const { totals } = book;
-  const rows = visibleRows(book.rows, []);
+  const rows = visibleRows(book.rows, filters.tipo);
   const planned = plannedSection(rows, today);
   const detail = (row: BookRowResource): string | null =>
     detailOf(row, {
@@ -99,6 +156,63 @@ export const LedgerScreen = (): React.ReactElement => {
           },
         ]}
       />
+      <div role="search" className="flex flex-wrap items-center gap-2">
+        <input
+          type="search"
+          aria-label="Buscar lançamento"
+          placeholder="Buscar lançamento"
+          value={filters.q}
+          onChange={(e) => setFilters({ ...filters, q: e.target.value })}
+          className="rounded-field border border-line bg-field px-3 py-1.5"
+        />
+        <FilterGroup
+          label="Tipo"
+          options={Object.entries(KIND_LABEL)}
+          value={filters.tipo}
+          onChange={(tipo) => setFilters({ ...filters, tipo })}
+        />
+        <FilterGroup
+          label="Situação"
+          options={[
+            ['lancado', 'Lançado'],
+            ['previsto', 'Previsto'],
+          ]}
+          value={filters.situacao}
+          onChange={(situacao) => setFilters({ ...filters, situacao })}
+        />
+      </div>
+      {hasFilters(filters) ? (
+        <ul aria-label="Filtros ativos" className="flex flex-wrap gap-2">
+          {chipsOf(
+            filters,
+            (_key, value) =>
+              KIND_LABEL[value as keyof typeof KIND_LABEL] ??
+              SITUATION_LABEL[value] ??
+              value,
+          ).map((chip) => (
+            <li key={`${chip.key}:${chip.value}`}>
+              <button
+                type="button"
+                aria-label={`Remover filtro ${chip.label}`}
+                onClick={() => setFilters(removeChip(filters, chip))}
+                className="rounded-full border border-line px-2 py-0.5 text-xs"
+              >
+                {chip.label} ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {rows.length === 0 ? (
+        <p>
+          Nenhum lançamento encontrado.{' '}
+          {hasFilters(filters) ? (
+            <button type="button" onClick={() => setFilters(EMPTY_FILTERS)}>
+              Limpar filtros
+            </button>
+          ) : null}
+        </p>
+      ) : null}
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-label text-ink-3 uppercase">
