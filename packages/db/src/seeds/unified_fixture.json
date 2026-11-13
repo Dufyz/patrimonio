@@ -126,7 +126,8 @@
     "opening_amount": "736.90",
     "opening_date": "2026-11-01",
     "archived": false,
-    "version": 1
+    "version": 1,
+    "in_wealth": true
    },
    {
     "id": "itau",
@@ -138,7 +139,8 @@
     "opening_amount": "1477.08",
     "opening_date": "2026-11-01",
     "archived": false,
-    "version": 1
+    "version": 1,
+    "in_wealth": true
    },
    {
     "id": "flash",
@@ -150,7 +152,8 @@
     "opening_amount": "0.00",
     "opening_date": "2026-11-01",
     "archived": false,
-    "version": 1
+    "version": 1,
+    "in_wealth": true
    }
   ],
   "cards": [

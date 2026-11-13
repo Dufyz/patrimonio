@@ -292,7 +292,7 @@ export const accountsOverview = (
           .map((c) => c.name),
       };
     });
-  const counted = rows.filter((row) => !row.account.archived);
+  const counted = rows.filter((row) => !row.account.archived && row.account.in_wealth);
   return {
     accounts: rows,
     total_balance: money(total(counted.map((row) => dec(row.balance)))),
@@ -304,7 +304,7 @@ export const accountsOverview = (
 export const totalInAccounts = (data: FinSnapshot, today: string): Decimal =>
   total(
     data.accounts
-      .filter((account) => !account.archived)
+      .filter((account) => !account.archived && account.in_wealth)
       .map((account) => accountBalance(data, account.id, today)),
   );
 
@@ -341,7 +341,7 @@ export const dailyTotalInAccounts = (
   today: string,
 ): readonly DailyBalance[] => {
   const series = data.accounts
-    .filter((account) => !account.archived)
+    .filter((account) => !account.archived && account.in_wealth)
     .map((account) => dailyBalances(data, account.id, range, today));
   const first = series[0] ?? [];
   return first.map((point, index) => ({

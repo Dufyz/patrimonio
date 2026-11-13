@@ -134,7 +134,8 @@
         "opening_amount": "2133.55",
         "opening_date": "2026-10-01",
         "archived": false,
-        "version": 1
+        "version": 1,
+        "in_wealth": true
       },
       {
         "id": "nubank-conta",
@@ -146,7 +147,8 @@
         "opening_amount": "7766.00",
         "opening_date": "2026-10-01",
         "archived": false,
-        "version": 1
+        "version": 1,
+        "in_wealth": true
       },
       {
         "id": "carteira",
@@ -158,7 +160,8 @@
         "opening_amount": "300.00",
         "opening_date": "2026-10-01",
         "archived": false,
-        "version": 1
+        "version": 1,
+        "in_wealth": true
       },
       {
         "id": "vale-alimentacao",
@@ -169,8 +172,9 @@
         "role_tag": "mercado e restaurantes",
         "opening_amount": "612.40",
         "opening_date": "2026-10-01",
-                "archived": false,
-        "version": 1
+        "archived": false,
+        "version": 1,
+        "in_wealth": true
       },
       {
         "id": "flex",
@@ -181,8 +185,9 @@
         "role_tag": "conta de luz e recorrentes",
         "opening_amount": "348.30",
         "opening_date": "2026-10-01",
-                "archived": false,
-        "version": 1
+        "archived": false,
+        "version": 1,
+        "in_wealth": true
       }
     ],
     "cards": [

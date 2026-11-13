@@ -10,6 +10,25 @@ import { NotFoundError } from '../../errors/app-error.js';
 
 type RuleResult<T> = Either<readonly fin.FinRuleError[], T>;
 
+/** Os aportes previstos de hoje até `target`, por mês, como a série e o saldo previsto os leem. */
+const plannedAportesUntil = (
+  data: FinSnapshot,
+  today: string,
+  target: string,
+): fin.PlannedAporte[] => {
+  const aportes: fin.PlannedAporte[] = [];
+  for (
+    let month = fin.monthKey(today);
+    month <= fin.monthKey(target);
+    month = fin.shiftMonthKey(month, 1)
+  ) {
+    for (const item of fin.plannedAportes(data, month)) {
+      aportes.push({ date: item.date, amount: item.amount, account_id: item.account_id });
+    }
+  }
+  return aportes;
+};
+
 /** Opções comuns das escritas: preview, chave de idempotência e If-Match. */
 export type WriteMeta = {
   readonly preview?: boolean | undefined;
@@ -152,20 +171,7 @@ export const financeUseCases = (deps: FinanceDeps) => ({
   }) =>
     runRead(deps, (data, today) => {
       const target = query.date ?? query.to ?? fin.endOfMonth(today);
-      const aportes: fin.PlannedAporte[] = [];
-      for (
-        let month = fin.monthKey(today);
-        month <= fin.monthKey(target);
-        month = fin.shiftMonthKey(month, 1)
-      ) {
-        for (const item of fin.plannedAportes(data, month)) {
-          aportes.push({
-            date: item.date,
-            amount: item.amount,
-            account_id: item.account_id,
-          });
-        }
-      }
+      const aportes = plannedAportesUntil(data, today, target);
       return {
         date: target,
         balance: fin.projectedBalance(data, target, today, aportes),
@@ -217,7 +223,30 @@ export const financeUseCases = (deps: FinanceDeps) => ({
   getAccounts: (period: Period, showArchived: boolean) =>
     runRead(deps, (data, today) => {
       const range = resolveRange(period, today);
-      return { range, ...fin.accountsOverview(data, range, today, showArchived) };
+      const overview = fin.accountsOverview(data, range, today, showArchived);
+      // CTA-01 · o previsto de fim de mês, por conta, pela mesma função do total (RN-U16).
+      const target = fin.endOfMonth(today);
+      const aportes = plannedAportesUntil(data, today, target);
+      const accounts = overview.accounts.map((row) => ({
+        ...row,
+        projected_month_end: fin.projectedBalance(
+          data,
+          target,
+          today,
+          aportes,
+          row.account.id,
+        ),
+      }));
+      const counted = accounts.filter((r) => !r.account.archived && r.account.in_wealth);
+      return {
+        range,
+        ...overview,
+        accounts,
+        projected_total: fin.money(
+          fin.total(counted.map((r) => fin.dec(r.projected_month_end))),
+        ),
+        as_of: today,
+      };
     }),
 
   getStatement: (accountId: string, period: Period) =>

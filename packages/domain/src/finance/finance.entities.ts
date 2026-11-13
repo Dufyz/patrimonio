@@ -82,6 +82,8 @@ export type FinAccount = {
   readonly opening_amount: string;
   /** Movimentações anteriores a esta data não entram no saldo. */
   readonly opening_date: string;
+  /** "No patrimônio": só estas contas somam em Em contas e no patrimônio. */
+  readonly in_wealth: boolean;
   readonly archived: boolean;
   readonly version: number;
 };

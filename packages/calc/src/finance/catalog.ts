@@ -244,6 +244,8 @@ export type AccountInput = {
   readonly role_tag?: string | null | undefined;
   readonly opening_amount: string;
   readonly opening_date: string;
+  /** "No patrimônio"; ausente mantém o valor da conta (nova conta: ligada). */
+  readonly in_wealth?: boolean | undefined;
 };
 
 export const validateAccount = (
@@ -307,6 +309,7 @@ export const createAccount = (
   const account: FinAccount = {
     id: newId(),
     ...accountFields(input),
+    in_wealth: input.in_wealth ?? true,
     archived: false,
     version: 1,
   };
@@ -334,7 +337,13 @@ export const updateAccount = (
   return success({
     ...data,
     accounts: data.accounts.map((account) =>
-      account.id === id ? { ...account, ...accountFields(input) } : account,
+      account.id === id
+        ? {
+            ...account,
+            ...accountFields(input),
+            ...(input.in_wealth === undefined ? {} : { in_wealth: input.in_wealth }),
+          }
+        : account,
     ),
   });
 };

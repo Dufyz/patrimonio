@@ -10,6 +10,8 @@ CREATE TABLE fin_account (
   credit_amount  NUMERIC(18,2),
   credit_day     INTEGER,
   credits_from   DATE,
+  /** A marca "no patrimônio": conta sem ela não soma em Em contas (RN-U2). */
+  in_wealth      BOOLEAN NOT NULL DEFAULT TRUE,
   archived       BOOLEAN NOT NULL DEFAULT FALSE,
   version        INTEGER NOT NULL DEFAULT 1,
   is_demo        BOOLEAN NOT NULL DEFAULT FALSE,

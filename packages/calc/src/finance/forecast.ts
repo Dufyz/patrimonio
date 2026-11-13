@@ -1,6 +1,6 @@
 import type { FinSnapshot } from '@patrimonio/domain';
 
-import { dailyTotalInAccounts, totalInAccounts } from './accounts.js';
+import { accountBalance, dailyTotalInAccounts, totalInAccounts } from './accounts.js';
 import type { DailyBalance } from './accounts.js';
 import { activeCards, cardInvoiceKeys, invoiceDue, invoiceRemaining } from './cards.js';
 import { addDays, compareDates } from './dates.js';
@@ -28,53 +28,77 @@ export type PlannedAporte = {
   readonly account_id: string | null;
 };
 
-const fromAccounts = (entry: {
-  readonly payments: readonly { readonly source_type: string; readonly amount: string }[];
-  readonly amount: string;
-}) =>
+const fromAccounts = (
+  entry: {
+    readonly payments: readonly {
+      readonly source_type: string;
+      readonly source_id: string;
+      readonly amount: string;
+    }[];
+    readonly amount: string;
+  },
+  accountId?: string,
+) =>
   entry.payments.length === 0
-    ? dec(entry.amount)
+    ? accountId === undefined
+      ? dec(entry.amount)
+      : dec('0')
     : total(
         entry.payments
-          .filter((payment) => payment.source_type === 'conta')
+          .filter(
+            (payment) =>
+              payment.source_type === 'conta' &&
+              (accountId === undefined || payment.source_id === accountId),
+          )
           .map((payment) => dec(payment.amount)),
       );
 
-/** O saldo previsto em contas ao fim de `upTo`. */
+/**
+ * O saldo previsto ao fim de `upTo`: de todas as contas com "no patrimônio" ou,
+ * com `accountId`, só da conta (CTA-01). Mesma fórmula nos dois casos.
+ */
 export const projectedBalance = (
   data: FinSnapshot,
   upTo: string,
   today: string,
   aportes: readonly PlannedAporte[] = [],
+  accountId?: string,
 ): string => {
   const planned = ledgerPool(data).filter(
     (entry) => entry.status === 'prevista' && compareDates(entry.date, upTo) <= 0,
   );
   const receitas = total(
-    planned.filter((e) => e.kind === 'receita').map((e) => fromAccounts(e)),
+    planned.filter((e) => e.kind === 'receita').map((e) => fromAccounts(e, accountId)),
   );
   const despesas = total(
-    planned.filter((e) => e.kind === 'despesa').map((e) => fromAccounts(e)),
+    planned.filter((e) => e.kind === 'despesa').map((e) => fromAccounts(e, accountId)),
   );
   const aportesPrevistos = total(
     aportes
-      .filter((a) => a.account_id !== null && compareDates(a.date, upTo) <= 0)
+      .filter(
+        (a) =>
+          a.account_id !== null &&
+          (accountId === undefined || a.account_id === accountId) &&
+          compareDates(a.date, upTo) <= 0,
+      )
       .map((a) => dec(a.amount)),
   );
   const faturas = total(
-    activeCards(data).flatMap((card) =>
-      cardInvoiceKeys(data, card, today)
-        .filter((key) => compareDates(invoiceDue(card, key), upTo) <= 0)
-        .map((key) => invoiceRemaining(data, card, key)),
-    ),
+    activeCards(data)
+      .filter((card) => accountId === undefined || card.pay_account_id === accountId)
+      .flatMap((card) =>
+        cardInvoiceKeys(data, card, today)
+          .filter((key) => compareDates(invoiceDue(card, key), upTo) <= 0)
+          .map((key) => invoiceRemaining(data, card, key)),
+      ),
   );
 
+  const base =
+    accountId === undefined
+      ? totalInAccounts(data, today)
+      : dec(accountBalance(data, accountId, today));
   return money(
-    totalInAccounts(data, today)
-      .plus(receitas)
-      .minus(despesas)
-      .minus(aportesPrevistos)
-      .minus(faturas),
+    base.plus(receitas).minus(despesas).minus(aportesPrevistos).minus(faturas),
   );
 };
 

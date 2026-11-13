@@ -602,3 +602,40 @@ describe('livro unificado (LIV-02)', () => {
     expect((await get('/book?tipo=COMPRA')).status).toBe(400);
   });
 });
+
+describe('contas: no patrimônio e previsto de fim de mês (CTA-01, CTA-05)', () => {
+  it('cada conta traz o previsto de fim de mês e o total fecha com a mesma função da Visão geral', async () => {
+    const accounts = await get('/accounts');
+    const overview = await get('/overview?month=2026-10');
+    expect(accounts.status).toBe(200);
+    for (const row of accounts.body.accounts) {
+      expect(typeof row.projected_month_end).toBe('string');
+      expect(typeof row.account.in_wealth).toBe('boolean');
+    }
+    expect(accounts.body.as_of).toBe('2026-10-24');
+    expect(accounts.body.total_balance).toBe(overview.body.em_contas.amount);
+  });
+
+  it('desligar "no patrimônio" tira a conta de Em contas, sem tirar da lista', async () => {
+    const before = await get('/accounts');
+    const nubank = before.body.accounts.find(
+      (a: { account: { name: string } }) => a.account.name === 'Nubank Conta',
+    );
+    const body = {
+      name: nubank.account.name,
+      type: nubank.account.type,
+      institution: nubank.account.institution,
+      role: nubank.account.role,
+      role_tag: null,
+      opening_amount: nubank.account.opening_amount,
+      opening_date: nubank.account.opening_date,
+      in_wealth: false,
+    };
+    const updated = await send('put', `/accounts/${nubank.account.id}`, body);
+    expect(updated.status, JSON.stringify(updated.body)).toBe(200);
+    const after = await get('/accounts');
+    expect(after.body.accounts).toHaveLength(before.body.accounts.length);
+    const dropped = Number(before.body.total_balance) - Number(after.body.total_balance);
+    expect(dropped).toBeCloseTo(Number(nubank.balance), 2);
+  });
+});

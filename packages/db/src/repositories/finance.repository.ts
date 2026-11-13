@@ -87,6 +87,7 @@ export const parseSnapshot = (raw: Record<string, Row[]>): FinSnapshot => ({
     role_tag: (r['role_tag'] as string | null) ?? null,
     opening_amount: r['opening_amount'] as string,
     opening_date: r['opening_date'] as string,
+    in_wealth: r['in_wealth'] as boolean,
     archived: r['archived'] as boolean,
     version: r['version'] as number,
   })),
@@ -263,6 +264,7 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
           role_tag: r.role_tag,
           opening_amount: r.opening_amount,
           opening_date: r.opening_date,
+          in_wealth: r.in_wealth,
           archived: r.archived,
           version: r.version,
         }));
@@ -270,7 +272,8 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
           INSERT INTO fin_account ${sql(rows)}
           ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, type = EXCLUDED.type, institution = EXCLUDED.institution,
             role = EXCLUDED.role, role_tag = EXCLUDED.role_tag, opening_amount = EXCLUDED.opening_amount,
-            opening_date = EXCLUDED.opening_date, archived = EXCLUDED.archived, version = fin_account.version + 1
+            opening_date = EXCLUDED.opening_date, in_wealth = EXCLUDED.in_wealth,
+            archived = EXCLUDED.archived, version = fin_account.version + 1
             WHERE fin_account.version = EXCLUDED.version
           RETURNING id`;
         guard(rows.length, out.length);

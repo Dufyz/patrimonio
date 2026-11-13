@@ -74,6 +74,7 @@ export const accountBody = z.object({
   role_tag: z.string().trim().max(30).nullable().optional(),
   opening_amount: nonNegativeDecimal,
   opening_date: dateOnly,
+  in_wealth: z.boolean().optional(),
 });
 export const listAccountsSchema = z.object({
   query: z.object({ month: finMonth.optional(), include_archived: flag }).optional(),
