@@ -294,7 +294,7 @@ export const LedgerScreen = (): React.ReactElement => {
               exportRows(rows, (k) => KIND_LABEL[k as keyof typeof KIND_LABEL] ?? k),
             )
           }
-          className="rounded-field border border-line px-3 py-1.5"
+          className="cursor-pointer rounded-field border border-line px-3 py-1.5"
         >
           Exportar
         </button>
@@ -331,7 +331,11 @@ export const LedgerScreen = (): React.ReactElement => {
             Mover de conta
           </button>
           <button type="button">Excluir</button>
-          <button type="button" onClick={() => setSelected(new Set())}>
+          <button
+            type="button"
+            className="cursor-pointer"
+            onClick={() => setSelected(new Set())}
+          >
             Limpar seleção
           </button>
         </div>
@@ -350,7 +354,7 @@ export const LedgerScreen = (): React.ReactElement => {
                 type="button"
                 aria-label={`Remover filtro ${chip.label}`}
                 onClick={() => setFilters(removeChip(filters, chip))}
-                className="rounded-full border border-line px-2 py-0.5 text-xs"
+                className="cursor-pointer rounded-full border border-line px-2 py-0.5 text-xs"
               >
                 {chip.label} ×
               </button>
@@ -438,6 +442,7 @@ export const LedgerScreen = (): React.ReactElement => {
                     {row.entry === null ? null : (
                       <button
                         type="button"
+                        className="cursor-pointer"
                         onClick={() => {
                           void confirmPlanned(row.id).then(() => setReload((n) => n + 1));
                         }}

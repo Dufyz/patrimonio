@@ -92,9 +92,9 @@ export const AccountsScreen = (): React.ReactElement => {
               key={row.account.id}
               tabIndex={0}
               className="cursor-pointer hover:bg-panel-2"
-              onClick={() => navigate(financeRoutes.account(row.account.id))}
+              onClick={() => navigate(`/contas-novo/${row.account.id}`)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') navigate(financeRoutes.account(row.account.id));
+                if (e.key === 'Enter') navigate(`/contas-novo/${row.account.id}`);
               }}
             >
               <th scope="row" className="text-left font-normal">

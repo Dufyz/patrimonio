@@ -1,4 +1,5 @@
 import { AccountsScreen } from './views/accounts/accounts_screen.js';
+import { AccountStatementScreen } from './views/accounts/statement_screen.js';
 import { LedgerScreen } from './views/ledger/ledger_screen.js';
 import { lazy, Suspense, useMemo } from 'react';
 import {
@@ -95,6 +96,7 @@ const Workspace = (): React.ReactElement => (
       {/* Configurações vale para o app inteiro. */}
       <Route path="/livro" element={<LedgerScreen />} />
       <Route path="/contas-novo" element={<AccountsScreen />} />
+      <Route path="/contas-novo/:id" element={<AccountStatementScreen />} />
       <Route path="/configuracoes" element={<SettingsScreen />} />
       <Route path="*" element={<NotFound />} />
     </Route>
