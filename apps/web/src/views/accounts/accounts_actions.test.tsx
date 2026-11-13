@@ -98,3 +98,24 @@ describe('Contas · CTA-05/06', () => {
     void confirm;
   });
 });
+
+describe('Contas · CTA-07/08', () => {
+  it('vazio oferece Nova conta', async () => {
+    mount([]);
+    expect(
+      await screen.findByText('Você ainda não cadastrou nenhuma conta.'),
+    ).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /Nova conta/ }).length).toBeGreaterThan(
+      1,
+    );
+  });
+
+  it('setas percorrem as linhas', async () => {
+    mount([row('a1', 'Itaú', '10.00'), row('a2', 'Nubank', '5.00')]);
+    await screen.findByText('Nubank', { selector: 'th' });
+    const rows = screen.getAllByRole('row').filter((r) => r.tabIndex === 0);
+    rows[0]?.focus();
+    fireEvent.keyDown(rows[0] as HTMLElement, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(rows[1]);
+  });
+});

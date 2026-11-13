@@ -7,7 +7,7 @@ import { ApiError } from '../../api/client.js';
 import type { AccountRowResource, AccountsResource } from '../../api/accounts.js';
 import { usePreferences } from '../../components/preferences.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
-import { PanelError } from '../../finance/components/states.js';
+import { EmptyPanel, PanelError } from '../../finance/components/states.js';
 import { TableScreenSkeleton } from '../../finance/components/screen_skeletons.js';
 import { financeRoutes } from '../../finance/lib/routes.js';
 import { AlertModal } from '../../components/overlay.js';
@@ -89,6 +89,17 @@ export const AccountsScreen = (): React.ReactElement => {
         />
         Mostrar arquivadas
       </label>
+      {data.accounts.length === 0 && (
+        <EmptyPanel
+          message={
+            archived
+              ? 'Nenhuma conta arquivada.'
+              : 'Você ainda não cadastrou nenhuma conta.'
+          }
+          actionLabel="Nova conta"
+          onAction={() => setModal('nova')}
+        />
+      )}
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-label text-ink-3 uppercase">
@@ -103,7 +114,7 @@ export const AccountsScreen = (): React.ReactElement => {
             <th scope="col" className="text-right">
               Saldo hoje
             </th>
-            <th scope="col" className="text-right">
+            <th scope="col" className="text-right max-sm:hidden">
               Previsto em fim de mês
             </th>
             <th scope="col">
@@ -120,6 +131,16 @@ export const AccountsScreen = (): React.ReactElement => {
               onClick={() => navigate(`/contas-novo/${row.account.id}`)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') navigate(`/contas-novo/${row.account.id}`);
+                const sibling =
+                  e.key === 'ArrowDown'
+                    ? e.currentTarget.nextElementSibling
+                    : e.key === 'ArrowUp'
+                      ? e.currentTarget.previousElementSibling
+                      : null;
+                if (sibling instanceof HTMLElement) {
+                  e.preventDefault();
+                  sibling.focus();
+                }
               }}
             >
               <th scope="row" className="text-left font-normal">
@@ -132,7 +153,9 @@ export const AccountsScreen = (): React.ReactElement => {
               </td>
               <td>{row.account.in_wealth ? '● Sim' : '○ Não'}</td>
               <td className="tabular text-right">{money(row.balance)}</td>
-              <td className="tabular text-right">{money(row.projected_month_end)}</td>
+              <td className="tabular text-right max-sm:hidden">
+                {money(row.projected_month_end)}
+              </td>
               <td
                 className="text-right whitespace-nowrap"
                 onClick={(e) => e.stopPropagation()}
@@ -178,7 +201,9 @@ export const AccountsScreen = (): React.ReactElement => {
             </th>
             <td />
             <td className="tabular text-right">{money(data.total_balance)}</td>
-            <td className="tabular text-right">{money(data.projected_total)}</td>
+            <td className="tabular text-right max-sm:hidden">
+              {money(data.projected_total)}
+            </td>
           </tr>
         </tfoot>
       </table>

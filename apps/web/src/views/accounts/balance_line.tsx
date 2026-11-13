@@ -70,17 +70,17 @@ export const BalanceLine = ({
       >
         <defs>
           <linearGradient id={gradient} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0" stopColor="var(--accent)" stopOpacity="0.25" />
-            <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
+            <stop offset="0" stopColor="var(--color-accent)" stopOpacity="0.25" />
+            <stop offset="1" stopColor="var(--color-accent)" stopOpacity="0" />
           </linearGradient>
         </defs>
         <path d={area} fill={`url(#${gradient})`} />
-        <path d={real} fill="none" stroke="var(--accent)" strokeWidth="2" />
+        <path d={real} fill="none" stroke="var(--color-accent)" strokeWidth="2" />
         {projected !== '' && (
           <path
             d={projected}
             fill="none"
-            stroke="var(--accent)"
+            stroke="var(--color-accent)"
             strokeWidth="2"
             strokeDasharray="5 4"
             data-testid="projected"
@@ -92,14 +92,14 @@ export const BalanceLine = ({
               cx={x(lowIndex)}
               cy={y(Number(low.balance))}
               r="4"
-              fill="var(--negative)"
+              fill="var(--color-negative)"
             />
             <text
               x={x(lowIndex)}
               y={y(Number(low.balance)) - 8}
               textAnchor="middle"
               fontSize="11"
-              fill="var(--ink-2)"
+              fill="var(--color-ink-2)"
             >
               {`${format(low.balance)} · ${dayMonth(low.date)}`}
             </text>
@@ -110,10 +110,10 @@ export const BalanceLine = ({
             cx={x(hover)}
             cy={y(Number(shown.balance))}
             r="3.5"
-            fill="var(--accent)"
+            fill="var(--color-accent)"
           />
         )}
-        <text x={PAD.left} y={H - 6} fontSize="11" fill="var(--ink-3)">
+        <text x={PAD.left} y={H - 6} fontSize="11" fill="var(--color-ink-3)">
           {dayMonth(points[0]?.date ?? '')}
         </text>
         <text
@@ -121,7 +121,7 @@ export const BalanceLine = ({
           y={H - 6}
           fontSize="11"
           textAnchor="end"
-          fill="var(--ink-3)"
+          fill="var(--color-ink-3)"
         >
           {dayMonth(points[points.length - 1]?.date ?? '')}
         </text>
