@@ -105,7 +105,7 @@ const Workspace = (): React.ReactElement => (
       <Route path="/cartoes/:id/faturas/:month" element={<InvoiceScreen />} />
       <Route path="/contas" element={<AccountsScreen />} />
       <Route path="/contas/:id" element={<AccountStatementScreen />} />
-      <Route path="/configuracoes" element={<SettingsScreen />} />
+      <Route path="/configuracoes/:section?" element={<SettingsScreen />} />
       <Route path="*" element={<NotFound />} />
     </Route>
   </Routes>

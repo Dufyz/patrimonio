@@ -8,6 +8,8 @@ import {
   missingPricesText,
   portfolioHold,
   sectionFromParam,
+  SECTIONS,
+  settingsPath,
 } from './settings.js';
 
 const backup = (overrides: Partial<SettingsBackup>): SettingsBackup => ({
@@ -20,7 +22,8 @@ const backup = (overrides: Partial<SettingsBackup>): SettingsBackup => ({
 
 describe('a seção pedida pela URL', () => {
   it('uma seção conhecida abre ela; qualquer outra abre a primeira', () => {
-    expect(sectionFromParam('backup')).toBe('backup');
+    expect(sectionFromParam('dados-e-backup')).toBe('dados-e-backup');
+    expect(sectionFromParam('contas-e-cartoes')).toBe('contas-e-cartoes');
     expect(sectionFromParam('inexistente')).toBe('exibicao');
     expect(sectionFromParam(null)).toBe('exibicao');
   });
@@ -104,5 +107,19 @@ describe('a instalação vazia', () => {
     expect(
       isEmptyInstallation({ portfolios: [{ id: 'p' }] } as unknown as Settings),
     ).toBe(false);
+  });
+});
+
+describe('rotas das subtelas (CFG-01)', () => {
+  it('o menu segue a ordem pedida e cada subtela tem a sua rota', () => {
+    expect(SECTIONS.map((s) => s.label)).toEqual([
+      'Exibição',
+      'Contas e cartões',
+      'Carteiras',
+      'Dados de mercado',
+      'Dados e backup',
+    ]);
+    expect(settingsPath('exibicao')).toBe('/configuracoes');
+    expect(settingsPath('dados-de-mercado')).toBe('/configuracoes/dados-de-mercado');
   });
 });

@@ -191,7 +191,7 @@ export const BackupSection = ({
 
   return (
     <SettingsSection
-      id="backup"
+      id="dados-e-backup"
       title="Dados e backup"
       description="Os dados são seus e ficam exportáveis a qualquer momento, em formatos abertos."
     >

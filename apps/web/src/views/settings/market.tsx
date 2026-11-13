@@ -367,7 +367,7 @@ export const MarketSection = ({
 
   return (
     <SettingsSection
-      id="mercado"
+      id="dados-de-mercado"
       title="Dados de mercado"
       description="Os dados chegam sozinhos: todo dia útil às 9h e sempre que o app volta a ligar, até o último pregão (D-1). 'Atualizar agora' refaz tudo na hora. Proventos e eventos não têm fonte: são lançados à mão."
     >

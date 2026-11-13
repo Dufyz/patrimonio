@@ -3,6 +3,8 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { SectionId } from '../lib/settings.js';
+
 import { PreferencesProvider } from '../components/preferences.js';
 import type { Resource, ResourceState } from '../lib/use_resource.js';
 import { SettingsView } from './settings/index.js';
@@ -153,6 +155,7 @@ const montar = (
     readonly settings?: ResourceState<Settings>;
     readonly market?: ResourceState<MarketHealth>;
     readonly reload?: () => void;
+    readonly section?: SectionId;
   } = {},
 ) =>
   render(
@@ -163,7 +166,7 @@ const montar = (
           options.reload,
         )}
         market={resource(options.market ?? { kind: 'ready', value: health })}
-        section="carteiras"
+        section={options.section ?? 'carteiras'}
         onSection={vi.fn()}
       />
     </PreferencesProvider>,
@@ -176,19 +179,25 @@ beforeEach(() => {
 });
 
 describe('SettingsView', () => {
-  it('desenha as quatro seções, na ordem da prancha', () => {
-    montar();
+  it('o menu lista as cinco subtelas na ordem pedida e só a atual é desenhada', () => {
+    montar({ section: 'exibicao' });
 
-    const titles = screen
-      .getAllByRole('heading', { level: 2 })
-      .map((heading) => heading.textContent);
-
-    expect(titles).toEqual([
+    const menu = within(
+      screen.getByRole('navigation', { name: 'Seções de configuração' }),
+    );
+    expect(menu.getAllByRole('button').map((b) => b.textContent)).toEqual([
       'Exibição',
+      'Contas e cartões',
       'Carteiras',
       'Dados de mercado',
       'Dados e backup',
     ]);
+    expect(
+      menu.getByRole('button', { name: 'Exibição' }).getAttribute('aria-current'),
+    ).toBe('true');
+    expect(
+      screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent),
+    ).toEqual(['Exibição']);
   });
 
   it('a carteira mostra o conteúdo que será excluído com ela, sem benchmark nem objetivo', () => {
@@ -289,6 +298,7 @@ describe('SettingsView', () => {
     } as MarketHealth['sources'][number];
 
     montar({
+      section: 'dados-de-mercado',
       market: { kind: 'ready', value: { ...health, sources: [base, failing] } },
     });
 
@@ -308,7 +318,7 @@ describe('SettingsView', () => {
   });
 
   it('a referência é uma linha só, com contagens e aviso do que ainda vai carregar', () => {
-    montar();
+    montar({ section: 'dados-de-mercado' });
 
     expect(screen.getByText(/312 instituições/)).toBeTruthy();
     expect(screen.getByText(/1840 papéis listados/)).toBeTruthy();
@@ -319,13 +329,14 @@ describe('SettingsView', () => {
   });
 
   it('sem dado de demonstração, não há aviso', () => {
-    montar();
+    montar({ section: 'dados-de-mercado' });
 
     expect(screen.queryByText('Dados de demonstração')).toBeNull();
   });
 
   it('com dado de demonstração, o aviso diz o quê e como remover', () => {
     montar({
+      section: 'dados-de-mercado',
       market: {
         kind: 'ready',
         value: { ...health, demo: { portfolios: 4, assets: 37, institutions: 8 } },
@@ -338,7 +349,10 @@ describe('SettingsView', () => {
   });
 
   it('a leitura de mercado que falha não vira "nenhuma fonte": mostra o erro e deixa tentar de novo', () => {
-    montar({ market: { kind: 'error', error: new Error('api fora do ar') } });
+    montar({
+      section: 'dados-de-mercado',
+      market: { kind: 'error', error: new Error('api fora do ar') },
+    });
 
     expect(screen.getByRole('alert').textContent).toMatch(/api fora do ar/);
     expect(screen.queryByText('Nenhuma fonte registrou coleta ainda.')).toBeNull();
@@ -350,7 +364,7 @@ describe('SettingsView', () => {
       already_queued: false,
       requested_at: '2026-10-20T13:51:07.000Z',
     });
-    montar();
+    montar({ section: 'dados-de-mercado' });
 
     expect(screen.getAllByRole('button', { name: /Atualizar/ })).toHaveLength(1);
     await userEvent.click(screen.getByRole('button', { name: /Atualizar agora/ }));
@@ -361,7 +375,7 @@ describe('SettingsView', () => {
   });
 
   it('exibição troca o tema e a densidade sem recarregar', async () => {
-    montar();
+    montar({ section: 'exibicao' });
 
     await userEvent.click(screen.getByRole('radio', { name: 'Escuro' }));
     expect(
@@ -378,7 +392,7 @@ describe('SettingsView', () => {
   it('o backup mostra o último, pede um novo e diz que foi pedido', async () => {
     api.runBackup.mockResolvedValue({ job_id: 'j', already_queued: false });
     const reload = vi.fn();
-    montar({ reload });
+    montar({ reload, section: 'dados-e-backup' });
 
     expect(screen.getByText('Último backup em 08/10 03:01')).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'Fazer backup agora' }));
@@ -390,6 +404,7 @@ describe('SettingsView', () => {
 
   it('backup desligado na instalação não oferece um botão que promete o que não vai existir', () => {
     montar({
+      section: 'dados-e-backup',
       settings: {
         kind: 'ready',
         value: { ...settings, backup: { ...settings.backup, enabled: false } },
@@ -407,6 +422,7 @@ describe('SettingsView', () => {
 
   it('a falha do backup vem com a mensagem do erro', () => {
     montar({
+      section: 'dados-e-backup',
       settings: {
         kind: 'ready',
         value: {
@@ -426,7 +442,7 @@ describe('SettingsView', () => {
   });
 
   it('importar, exportar e apagar estão de pé', () => {
-    montar();
+    montar({ section: 'dados-e-backup' });
 
     for (const name of [
       'Importar arquivo',
@@ -443,7 +459,7 @@ describe('SettingsView', () => {
 
   it('apagar tudo só libera o botão com a frase inteira', async () => {
     const user = userEvent.setup();
-    montar();
+    montar({ section: 'dados-e-backup' });
 
     await user.click(screen.getByRole('button', { name: 'Apagar dados' }));
     const confirm = screen.getByRole('button', { name: 'Apagar tudo' });

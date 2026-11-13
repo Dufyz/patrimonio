@@ -1,6 +1,6 @@
 import type { MarketHealth, Settings } from '@patrimonio/contracts';
-import { useCallback, useEffect } from 'react';
-import { useSearchParams } from 'react-router';
+import { useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router';
 
 import { fetchMarketHealth } from '../../api/market.js';
 import { fetchSettings } from '../../api/settings.js';
@@ -14,18 +14,19 @@ import {
   SkeletonTable,
 } from '../../components/skeleton.js';
 import {
-  DEFAULT_SECTION,
   isEmptyInstallation,
   marketSummary,
   SECTIONS,
   sectionFromParam,
 } from '../../lib/settings.js';
+import { settingsPath } from '../../lib/settings.js';
 import type { SectionId } from '../../lib/settings.js';
 import type { Resource } from '../../lib/use_resource.js';
 import { useResource } from '../../lib/use_resource.js';
 import { MarketSection } from './market.js';
 import { BackupSection, DisplaySection } from './preferences.js';
 import { PortfoliosSection } from './registers.js';
+import { AccountsCardsSection } from './accounts_cards.js';
 
 /**
  * T-08 · Configurações — a prancha `11 · Configurações`.
@@ -49,24 +50,16 @@ export type SettingsViewProps = {
 };
 
 export const SettingsScreen = (): React.ReactElement => {
-  const [params, setParams] = useSearchParams();
-  const section = sectionFromParam(params.get('secao'));
+  const { section: param } = useParams();
+  const navigate = useNavigate();
+  const section = sectionFromParam(param);
 
   const settings = useResource((signal) => fetchSettings(signal), []);
   const market = useResource((signal) => fetchMarketHealth(signal), []);
 
   const onSection = useCallback(
-    (next: SectionId) =>
-      setParams(
-        (current) => {
-          const search = new URLSearchParams(current);
-          if (next === DEFAULT_SECTION) search.delete('secao');
-          else search.set('secao', next);
-          return search;
-        },
-        { replace: true },
-      ),
-    [setParams],
+    (next: SectionId) => void navigate(settingsPath(next)),
+    [navigate],
   );
 
   return (
@@ -177,18 +170,6 @@ export const SettingsView = ({
 }: SettingsViewProps): React.ReactElement => {
   const { state, pending, reload } = resource;
 
-  // A seção da URL é onde a tela abre: a âncora existe só depois de os painéis
-  // serem desenhados, então o salto espera a leitura terminar.
-  const ready = state.kind === 'ready';
-  useEffect(() => {
-    if (!ready) return;
-    const element = globalThis.document.getElementById(`secao-${section}`);
-    // jsdom não implementa `scrollIntoView`; no navegador ele existe sempre.
-    if (typeof element?.scrollIntoView === 'function') {
-      element.scrollIntoView({ block: 'start' });
-    }
-  }, [ready, section]);
-
   if (state.kind === 'loading') {
     return (
       <SkeletonRegion
@@ -219,7 +200,7 @@ export const SettingsView = ({
   if (market.state.kind === 'ready') {
     const summary = marketSummary(market.state.value);
     if (summary.warnings > 0 || market.state.value.missing_prices.length > 0) {
-      attention.add('mercado');
+      attention.add('dados-de-mercado');
     }
   }
 
@@ -241,10 +222,15 @@ export const SettingsView = ({
               configurações já está abaixo.
             </p>
           ) : null}
-          <DisplaySection />
-          <PortfoliosSection settings={settings} onChanged={reload} />
-          <MarketSection resource={market} />
-          <BackupSection settings={settings} onChanged={reload} />
+          {section === 'exibicao' ? <DisplaySection /> : null}
+          {section === 'contas-e-cartoes' ? <AccountsCardsSection /> : null}
+          {section === 'carteiras' ? (
+            <PortfoliosSection settings={settings} onChanged={reload} />
+          ) : null}
+          {section === 'dados-de-mercado' ? <MarketSection resource={market} /> : null}
+          {section === 'dados-e-backup' ? (
+            <BackupSection settings={settings} onChanged={reload} />
+          ) : null}
         </KeepPrevious>
       </div>
     </div>

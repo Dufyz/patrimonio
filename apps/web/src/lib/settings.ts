@@ -15,19 +15,25 @@ export const SECTIONS = [
     icon: 'eye',
   },
   {
+    id: 'contas-e-cartoes',
+    group: 'Cadastros',
+    label: 'Contas e cartões',
+    icon: 'bank',
+  },
+  {
     id: 'carteiras',
-    group: 'Espaço',
+    group: 'Cadastros',
     label: 'Carteiras',
     icon: 'archive',
   },
   {
-    id: 'mercado',
+    id: 'dados-de-mercado',
     group: 'Dados',
     label: 'Dados de mercado',
     icon: 'swap',
   },
   {
-    id: 'backup',
+    id: 'dados-e-backup',
     group: 'Dados',
     label: 'Dados e backup',
     icon: 'arrow-right',
@@ -38,12 +44,16 @@ export type SectionId = (typeof SECTIONS)[number]['id'];
 
 export const DEFAULT_SECTION: SectionId = 'exibicao';
 
-export const isSectionId = (value: string | null): value is SectionId =>
+export const isSectionId = (value: string | null | undefined): value is SectionId =>
   SECTIONS.some((section) => section.id === value);
 
-/** A seção que a URL pede, ou a primeira. `?secao=` inválido não quebra a tela. */
-export const sectionFromParam = (value: string | null): SectionId =>
+/** A subtela que a rota pede, ou Exibição. Um caminho inválido não quebra a tela. */
+export const sectionFromParam = (value: string | null | undefined): SectionId =>
   isSectionId(value) ? value : DEFAULT_SECTION;
+
+/** CFG-01 · `/configuracoes/<subtela>`; Exibição, a primeira, é a raiz. */
+export const settingsPath = (section: SectionId): string =>
+  section === DEFAULT_SECTION ? '/configuracoes' : `/configuracoes/${section}`;
 
 export const plural = (count: number, one: string, many: string): string =>
   `${count} ${count === 1 ? one : many}`;
