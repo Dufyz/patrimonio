@@ -78,7 +78,7 @@ export const Th = ({
   <th
     scope="col"
     className={cn(
-      'tabular px-3 py-2.5 text-label font-normal tracking-[0.08em] text-ink-3 uppercase',
+      'tabular sticky top-0 z-10 bg-panel px-3 py-2.5 text-label font-normal tracking-[0.08em] text-ink-3 uppercase',
       ALIGN[align],
       className,
     )}
@@ -112,7 +112,7 @@ export const SortTh = ({
       scope="col"
       aria-sort={ariaSort(sort, sortKey)}
       className={cn(
-        'tabular px-3 py-2.5 text-label font-normal tracking-[0.08em] text-ink-3 uppercase',
+        'tabular sticky top-0 z-10 bg-panel px-3 py-2.5 text-label font-normal tracking-[0.08em] text-ink-3 uppercase',
         ALIGN[align],
         className,
       )}

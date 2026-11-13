@@ -1,11 +1,12 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 
 import { fetchAccountNames } from '../../api/book.js';
 import { fetchCardsOverview } from '../../api/cards_overview.js';
 import type { CardsResource } from '../../api/cards_overview.js';
 import { usePreferences } from '../../components/preferences.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
+import { totalLink } from '../../lib/total_links.js';
 import { StatStrip } from '../../finance/components/stat_strip.js';
 import { EmptyPanel, PanelError } from '../../finance/components/states.js';
 import { TableScreenSkeleton } from '../../finance/components/screen_skeletons.js';
@@ -98,21 +99,29 @@ export const CardsScreen = (): React.ReactElement => {
           </label>
         }
       />
-      <Link to="/contas" aria-label="Ir para Contas" className="block no-underline">
-        <StatStrip
-          label="Livre após faturas"
-          cells={[
-            { id: 'contas', label: 'Em contas', value: money(w.em_contas) },
-            { id: 'devido', label: 'Total devido', value: money(w.total_devido) },
-            {
-              id: 'livre',
-              label: 'Livre após faturas',
-              value: money(w.livre),
-              caption: Number(w.falta) > 0 ? `faltam ${money(w.falta)}` : undefined,
-            },
-          ]}
-        />
-      </Link>
+      <StatStrip
+        label="Livre após faturas"
+        cells={[
+          {
+            id: 'contas',
+            label: 'Em contas',
+            value: money(w.em_contas),
+            to: totalLink({ kind: 'contas' }),
+          },
+          {
+            id: 'devido',
+            label: 'Total devido',
+            value: money(w.total_devido),
+            to: totalLink({ kind: 'faturas' }),
+          },
+          {
+            id: 'livre',
+            label: 'Livre após faturas',
+            value: money(w.livre),
+            caption: Number(w.falta) > 0 ? `faltam ${money(w.falta)}` : undefined,
+          },
+        ]}
+      />
       {data.cards.length === 0 ? (
         <EmptyPanel
           message="Você ainda não cadastrou nenhum cartão."
