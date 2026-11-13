@@ -95,6 +95,7 @@ export type FinanceHandler =
   | 'archiveCard'
   | 'deleteCard'
   | 'invoice'
+  | 'cardDetail'
   | 'payInvoice'
   | 'deleteInvoicePayment'
   | 'createCardItem'
@@ -227,6 +228,14 @@ export const createFinanceController = (deps: FinanceRouteDeps): FinanceControll
       uc.archiveCard(param(r, 'id'), body<{ archived: boolean }>(r).archived, meta(r)),
     ),
     deleteCard: write((r) => uc.deleteCard(param(r, 'id'), meta(r))),
+    cardDetail: (async (request, response) => {
+      const result = await uc.getCard(param(request, 'id'));
+      send(request, response, result, (value) =>
+        value === null
+          ? notFound(request, response, 'Cartão')
+          : void response.status(200).json(value),
+      );
+    }) as RequestHandler,
     invoice: (async (request, response) => {
       const result = await uc.getInvoice(param(request, 'id'), param(request, 'month'));
       send(request, response, result, (value) =>

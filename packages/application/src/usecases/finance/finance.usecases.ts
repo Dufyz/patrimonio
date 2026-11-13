@@ -271,6 +271,19 @@ export const financeUseCases = (deps: FinanceDeps) => ({
       archived: data.cards.filter((card) => card.archived),
     })),
 
+  /** CRT-03 · O cartão: dívida, faturas por mês, parcelamentos e pagamentos previstos. */
+  getCard: (cardId: string) =>
+    runRead(deps, (data, today) => {
+      const card = pick(data.cards, cardId);
+      if (card === undefined) return null;
+      return {
+        summary: fin.cardSummary(data, card, today),
+        debt: fin.cardDebt(data, card, today),
+        as_of: today,
+        ...fin.cardDetail(data, card, today),
+      };
+    }),
+
   getInvoice: (cardId: string, month: string) =>
     runRead(deps, (data, today) => {
       const card = pick(data.cards, cardId);

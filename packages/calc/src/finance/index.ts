@@ -1,6 +1,7 @@
 export * from './accounts.js';
 export * from './book.js';
 export * from './cards.js';
+export * from './cards_detail.js';
 export * from './catalog.js';
 export * from './categories.js';
 export * from './changes.js';

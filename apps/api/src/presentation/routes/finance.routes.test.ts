@@ -589,6 +589,25 @@ describe('cartões: dívida por cartão (CRT-01)', () => {
   });
 });
 
+describe('um cartão (CRT-03)', () => {
+  it('traz faturas por mês, parcelamentos e pagamentos previstos coerentes', async () => {
+    const list = await get('/cards');
+    const id = list.body.cards[0].card.id as string;
+    const res = await get(`/cards/${id}`);
+    expect(res.status).toBe(200);
+    const months: string[] = res.body.invoices.map((i: { month: string }) => i.month);
+    expect(months).toEqual([...months].sort().reverse());
+    for (const p of res.body.planned_payments) {
+      expect(Number(p.amount)).toBeGreaterThan(0);
+      expect(p.account_id).toBe(list.body.cards[0].card.pay_account_id);
+    }
+    for (const plan of res.body.installments) {
+      expect(plan.current).toBeLessThan(plan.total);
+    }
+    expect((await get('/cards/00000000-0000-4000-8000-000000000000')).status).toBe(404);
+  });
+});
+
 describe('livro unificado (LIV-02)', () => {
   it('os totais do mês batem com a Visão geral e não dependem da página', async () => {
     const overview = await get('/overview?month=2026-10');

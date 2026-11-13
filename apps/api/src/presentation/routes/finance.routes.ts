@@ -85,6 +85,7 @@ export const financeRoutes = (deps: FinanceRouteDeps): Router => {
   );
 
   router.get('/finance/cards', validate(c.listCardsSchema), f.listCards);
+  router.get('/finance/cards/:id', validate(c.cardDetailSchema), f.cardDetail);
   router.get('/finance/cards/:id/invoices/:month', validate(c.invoiceSchema), f.invoice);
   router.post(
     '/finance/cards/:id/invoices/:month/payments',

@@ -132,6 +132,7 @@ export const createCardSchema = z.object({
 export const updateCardSchema = written({ id: uuid }, cardBody);
 export const archiveCardSchema = written({ id: uuid }, archiveSchema);
 export const deleteCardSchema = written({ id: uuid });
+export const cardDetailSchema = z.object({ params: idParam('id') });
 export const invoiceSchema = z.object({
   params: z.object({ id: uuid, month: finMonth }),
 });

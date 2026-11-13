@@ -72,3 +72,29 @@ const MONTHS = [
 /** "2026-11" → "nov/2026". */
 export const monthLabel = (key: string): string =>
   `${MONTHS[Number(key.slice(5, 7)) - 1] ?? key.slice(5, 7)}/${key.slice(0, 4)}`;
+
+const STATUS_LABEL: Readonly<Record<string, string>> = {
+  prevista: 'Prevista',
+  aberta: 'Aberta',
+  fechada: 'Fechada',
+  parcial: 'Parcialmente paga',
+  paga: 'Paga',
+};
+
+/** A situação como aparece na lista; "Venceu" ganha destaque quando passou do vencimento. */
+export const invoiceStatusLabel = (status: string, overdue: boolean): string =>
+  overdue ? 'Venceu' : (STATUS_LABEL[status] ?? status);
+
+/** "dd/mm" de uma data ISO. */
+export const shortDate = (iso: string): string => `${iso.slice(8)}/${iso.slice(5, 7)}`;
+
+/** "paga em dd/mm · Itaú Unibanco", pelo último pagamento. */
+export const paidNote = (
+  payments: readonly { readonly date: string; readonly account_id: string }[],
+  accountName: (id: string) => string,
+): string | null => {
+  const last = [...payments].sort((a, b) => a.date.localeCompare(b.date)).pop();
+  return last === undefined
+    ? null
+    : `paga em ${shortDate(last.date)} · ${accountName(last.account_id)}`;
+};
