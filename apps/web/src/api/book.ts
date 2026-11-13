@@ -58,3 +58,18 @@ export const confirmPlanned = (entryId: string): Promise<unknown> =>
       body: '{}',
     },
   );
+
+/** Nomes das contas, para a coluna Detalhe dizer "de Nubank Conta". */
+export const fetchAccountNames = async (
+  signal?: AbortSignal,
+): Promise<ReadonlyMap<string, string>> => {
+  const body = await request(
+    '/api/finance/accounts',
+    {
+      parse: (v: unknown) =>
+        v as { accounts?: readonly { account: { id: string; name: string } }[] },
+    },
+    signal === undefined ? {} : { signal },
+  );
+  return new Map((body.accounts ?? []).map((row) => [row.account.id, row.account.name]));
+};

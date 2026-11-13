@@ -119,3 +119,42 @@ export const plannedSection = (
 /** "venceu em dd/mm" para o previsto cuja data já passou. */
 export const overdueNote = (date: string, today: string): string | null =>
   date < today ? `venceu em ${date.slice(8)}/${date.slice(5, 7)}` : null;
+
+/** LAN-03 · Eventos só aparecem com o filtro Tipo = Evento. */
+export const visibleRows = (
+  rows: readonly BookRowResource[],
+  tipos: readonly string[],
+): readonly BookRowResource[] =>
+  tipos.includes('EVENTO') ? rows : rows.filter((r) => r.kind !== 'EVENTO');
+
+export type DetailFormat = {
+  readonly money: (value: string) => string;
+  readonly quantity: (value: string) => string;
+  /** Nome da conta pelo id; nulo quando não se conhece. */
+  readonly accountName: (id: string) => string | null;
+};
+
+const isZero = (value: string | null): boolean =>
+  value === null || /^[+-]?0+(\.0+)?$/.test(value);
+
+/**
+ * "80 × R$ 32,40 + taxas R$ 0,80 · de Nubank Conta" — ou "· Fora do app".
+ * Resgate e provento dizem "para"; provento não tem quantidade. Linha que não é
+ * de carteira não tem detalhe.
+ */
+export const detailOf = (row: BookRowResource, fmt: DetailFormat): string | null => {
+  if (row.portfolio_id === null) return null;
+  if (row.kind === 'EVENTO') return null;
+  const parts: string[] = [];
+  if (row.quantity !== null && row.unit_price !== null) {
+    parts.push(`${fmt.quantity(row.quantity)} × ${fmt.money(row.unit_price)}`);
+  }
+  if (!isZero(row.fees)) parts.push(`+ taxas ${fmt.money(row.fees ?? '0')}`);
+  const head = parts.join(' ');
+  const preposition = row.kind === 'APORTE' ? 'de' : 'para';
+  const where =
+    row.account_id === null
+      ? 'Fora do app'
+      : `${preposition} ${fmt.accountName(row.account_id) ?? 'conta'}`;
+  return head === '' ? where : `${head} · ${where}`;
+};

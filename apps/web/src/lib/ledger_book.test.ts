@@ -5,6 +5,8 @@ import type { BookRowResource } from '@patrimonio/contracts';
 import {
   balanceOf,
   dayLabel,
+  detailOf,
+  visibleRows,
   overdueNote,
   plannedSection,
   postedBalance,
@@ -83,5 +85,32 @@ describe('ledger_book', () => {
     expect(p.counter).toBe('2 previstos · 1 vencido');
     expect(overdueNote('2026-11-05', '2026-11-12')).toBe('venceu em 05/11');
     expect(overdueNote('2026-11-20', '2026-11-12')).toBeNull();
+  });
+
+  const fmt = {
+    money: (v: string) => `R$ ${v}`,
+    quantity: (v: string) => v,
+    accountName: (id: string) => (id === 'a' ? 'Nubank Conta' : null),
+  };
+
+  it('detalhe do aporte com origem em conta ou fora do app', () => {
+    const base = row({
+      kind: 'APORTE',
+      portfolio_id: 'p',
+      quantity: '80',
+      unit_price: '32.40',
+      fees: '0.80',
+    });
+    expect(detailOf(base, fmt)).toBe('80 × R$ 32.40 + taxas R$ 0.80 · de Nubank Conta');
+    expect(detailOf({ ...base, account_id: null }, fmt)).toBe(
+      '80 × R$ 32.40 + taxas R$ 0.80 · Fora do app',
+    );
+    expect(detailOf(row({}), fmt)).toBeNull();
+  });
+
+  it('eventos só com o filtro Tipo = Evento', () => {
+    const rows = [row({ id: '1' }), row({ id: '2', kind: 'EVENTO' })];
+    expect(visibleRows(rows, [])).toHaveLength(1);
+    expect(visibleRows(rows, ['EVENTO'])).toHaveLength(2);
   });
 });

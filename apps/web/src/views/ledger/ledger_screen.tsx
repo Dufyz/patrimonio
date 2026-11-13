@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react';
 
 import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
 
-import { confirmPlanned, fetchBook } from '../../api/book.js';
+import { confirmPlanned, fetchAccountNames, fetchBook } from '../../api/book.js';
 import { StatStrip } from '../../finance/components/stat_strip.js';
-import { formatMoney, MINUS } from '../../lib/format.js';
+import { formatMoney, formatQuantity, MINUS } from '../../lib/format.js';
 import {
   dayLabel,
   overdueNote,
   plannedSection,
+  detailOf,
   sectionsByDay,
+  visibleRows,
   signOf,
 } from '../../lib/ledger_book.js';
 import { usePreferences } from '../../components/preferences.js';
@@ -38,8 +40,15 @@ export const LedgerScreen = (): React.ReactElement => {
   const [month] = useState(currentMonth);
   const [book, setBook] = useState<BookResponse | null>(null);
   const [failed, setFailed] = useState(false);
+  const [accounts, setAccounts] = useState<ReadonlyMap<string, string>>(new Map());
   const [reload, setReload] = useState(0);
   const today = new Date().toISOString().slice(0, 10);
+
+  useEffect(() => {
+    fetchAccountNames()
+      .then(setAccounts)
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -59,7 +68,14 @@ export const LedgerScreen = (): React.ReactElement => {
     return sign === '-' ? `${MINUS}${text}` : sign === '+' ? `+${text}` : text;
   };
   const { totals } = book;
-  const planned = plannedSection(book.rows, today);
+  const rows = visibleRows(book.rows, []);
+  const planned = plannedSection(rows, today);
+  const detail = (row: BookRowResource): string | null =>
+    detailOf(row, {
+      money: (v) => formatMoney(v, { hidden }).text,
+      quantity: (v) => formatQuantity(v).text,
+      accountName: (id) => accounts.get(id) ?? null,
+    });
 
   return (
     <div className="flex flex-col gap-4">
@@ -89,6 +105,7 @@ export const LedgerScreen = (): React.ReactElement => {
             <th scope="col">Data</th>
             <th scope="col">Descrição</th>
             <th scope="col">Tipo</th>
+            <th scope="col">Detalhe</th>
             <th scope="col" className="text-right">
               Valor
             </th>
@@ -98,7 +115,7 @@ export const LedgerScreen = (): React.ReactElement => {
         {planned.rows.length === 0 ? null : (
           <tbody data-section="previstos">
             <tr>
-              <th scope="rowgroup" colSpan={5} className="pt-3 text-left text-ink-2">
+              <th scope="rowgroup" colSpan={6} className="pt-3 text-left text-ink-2">
                 Próximos dias · previstos{' '}
                 <span className="font-normal text-ink-3">
                   {planned.counter} · não entram nos totais do mês
@@ -117,6 +134,7 @@ export const LedgerScreen = (): React.ReactElement => {
                   </td>
                   <td>{row.description}</td>
                   <td>{KIND_LABEL[row.kind]}</td>
+                  <td className="text-ink-3">{detail(row)}</td>
                   <td className="tabular text-right">
                     {row.amount === null ? '—' : money(row.amount, signOf(row.kind))}
                   </td>
@@ -137,29 +155,28 @@ export const LedgerScreen = (): React.ReactElement => {
             })}
           </tbody>
         )}
-        {sectionsByDay(book.rows.filter((r) => r.situation === 'lancado')).map(
-          (section) => (
-            <tbody key={section.date}>
-              <tr>
-                <th scope="rowgroup" colSpan={5} className="pt-3 text-left text-ink-2">
-                  {dayLabel(section.date)}
-                </th>
+        {sectionsByDay(rows.filter((r) => r.situation === 'lancado')).map((section) => (
+          <tbody key={section.date}>
+            <tr>
+              <th scope="rowgroup" colSpan={6} className="pt-3 text-left text-ink-2">
+                {dayLabel(section.date)}
+              </th>
+            </tr>
+            {section.rows.map((row) => (
+              <tr key={row.id} data-situation={row.situation}>
+                <td className="tabular">
+                  {row.date.slice(8)}/{row.date.slice(5, 7)}
+                </td>
+                <td>{row.description}</td>
+                <td>{KIND_LABEL[row.kind]}</td>
+                <td className="text-ink-3">{detail(row)}</td>
+                <td className="tabular text-right">
+                  {row.amount === null ? '—' : money(row.amount, signOf(row.kind))}
+                </td>
               </tr>
-              {section.rows.map((row) => (
-                <tr key={row.id} data-situation={row.situation}>
-                  <td className="tabular">
-                    {row.date.slice(8)}/{row.date.slice(5, 7)}
-                  </td>
-                  <td>{row.description}</td>
-                  <td>{KIND_LABEL[row.kind]}</td>
-                  <td className="tabular text-right">
-                    {row.amount === null ? '—' : money(row.amount, signOf(row.kind))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          ),
-        )}
+            ))}
+          </tbody>
+        ))}
       </table>
     </div>
   );
