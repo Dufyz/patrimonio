@@ -13,3 +13,4 @@ dump.rdb
 
 # T-11: relatório de consultas por rota, gerado a cada execução da suíte da api
 apps/api/reports/
+apps/web/visual/diff/
