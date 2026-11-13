@@ -1,6 +1,6 @@
 import type { GoalsOverviewResource, OverviewResource } from '@patrimonio/contracts';
 import type { DateOnly } from '@patrimonio/domain';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import { fetchBook } from '../../api/book.js';
@@ -9,6 +9,7 @@ import { fetchCardsOverview } from '../../api/cards_overview.js';
 import { fetchGoalsOverview } from '../../api/goals.js';
 import { fetchOverview } from '../../api/overview.js';
 import { HomeScopeControl } from '../../components/home_scope_control.js';
+import { useShortcuts } from '../../components/shortcuts.js';
 import { usePortfolios } from '../../components/portfolios_provider.js';
 import {
   Money,
@@ -693,6 +694,10 @@ export const GeralView = ({
     const target = scopeForPortfolioId(id, slugs);
     if (target !== null) void navigate(routes.home('investimentos', target));
   };
+  // VGR-15.2: em Tudo e Fluxo o `N` abre despesa, como o botão; em Investimentos
+  // vale o `N` global, que abre aporte.
+  const shortcuts = useMemo(() => ({ new_transaction: onNewEntry }), [onNewEntry]);
+  useShortcuts(shortcuts);
   return (
     <>
       <ScreenHeader
@@ -826,6 +831,7 @@ export const GeralScreen = (): React.ReactElement => {
   const { today } = useFinancePeriod();
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
+  const openCreating = useCallback(() => setCreating(true), []);
 
   const range = resolvePeriod(DEFAULT_PERIOD, today as DateOnly, null);
   const overview = useResource(
@@ -842,7 +848,7 @@ export const GeralScreen = (): React.ReactElement => {
         today={today}
         overview={overview}
         goals={goals}
-        onNewEntry={() => setCreating(true)}
+        onNewEntry={openCreating}
         onLaunched={() => store.start()}
       />
       {creating ? (

@@ -409,6 +409,15 @@ describe('Visão geral de Geral (GER)', () => {
     expect(onNewEntry).toHaveBeenCalledTimes(1);
   });
 
+  it('VGR-15 · N abre o novo lançamento, como o botão', async () => {
+    const onNewEntry = vi.fn();
+    open(ready(overviewOf('300000.00')), onNewEntry);
+
+    await userEvent.keyboard('n');
+
+    expect(onNewEntry).toHaveBeenCalledTimes(1);
+  });
+
   it('VGR-15 · cada próximo lançamento tem Lançar, que abre o modal com o valor editável', async () => {
     open(ready(overviewOf('300000.00')));
     const painel = screen.getByRole('region', { name: 'Próximos lançamentos' });
