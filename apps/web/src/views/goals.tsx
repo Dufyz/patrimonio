@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router';
 import { fetchGoals } from '../api/goals.js';
 import { Money, Percent } from '../components/number.js';
 import { KeepPrevious } from '../components/pending.js';
+import { ProgressRing } from '../components/progress_ring.js';
 import { usePreferences } from '../components/preferences.js';
 import {
   SkeletonChart,
@@ -369,22 +370,19 @@ const GoalPanel = ({
         <header className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
           <div className="flex min-w-0 items-center gap-3">
             <h2 className="truncate text-[1.125rem] font-semibold">{goal.name}</h2>
-            <span
-              className={`rounded-[4px] px-2 py-0.5 text-[0.71875rem] font-medium ${
-                goal.status === 'reached' || goal.status === 'on_track'
-                  ? 'bg-positive-soft text-positive'
-                  : goal.status === 'no_projection'
-                    ? 'bg-panel-2 text-ink-2'
-                    : 'bg-attention-soft text-attention'
-              }`}
-            >
-              {STATUS_LABEL[goal.status]}
-            </span>
           </div>
           <Button icon="pencil" onClick={onEdit}>
             Editar
           </Button>
         </header>
+
+        <div className="flex justify-start px-5 pb-3">
+          <ProgressRing
+            status={goal.status}
+            progressPct={goal.progress_pct}
+            expectedPct={goal.expected_pct}
+          />
+        </div>
 
         <p className="flex flex-wrap gap-x-5 gap-y-1 border-y border-line bg-panel-2 px-5 py-2.5 text-[0.8125rem]">
           <Fact label="Meta">
