@@ -10,7 +10,18 @@ import { Button, Segmented } from '../../components/primitives.js';
 import { csvFiles, exportName, saveFile, zipStore } from '../../lib/export_files.js';
 import type { Density, ThemePreference } from '../../lib/theme.js';
 import { backupSummary } from '../../lib/settings.js';
-import { Callout, Field, Input } from '../entry/fields.js';
+import {
+  DATE_FORMATS,
+  DEFAULT_PERIODS,
+  HOME_SCOPES,
+  HOME_SCREENS,
+  WEEK_STARTS,
+  readDisplay,
+  writeDisplay,
+} from '../../lib/display_preferences.js';
+import type { DisplayPreferences } from '../../lib/display_preferences.js';
+import { SHORTCUTS, describeShortcut, groupShortcuts } from '../../lib/shortcuts.js';
+import { Callout, Field, Input, Select } from '../entry/fields.js';
 import { DeleteDialog } from '../registers/delete_dialog.js';
 import { ImportDialog } from './import_dialog.js';
 import {
@@ -71,8 +82,24 @@ const DENSITY_OPTIONS = [
   { value: 'compact', label: 'Compacta' },
 ] as const satisfies readonly { value: Density; label: string }[];
 
+const SCOPE_NAMES: Readonly<Record<string, string>> = {
+  global: 'Geral',
+  navigation: 'Navegação',
+  row: 'Na linha',
+  form: 'Formulários',
+  overlay: 'Janelas',
+};
+
 export const DisplaySection = (): React.ReactElement => {
   const { theme, setTheme, density, setDensity, hidden, setHidden } = usePreferences();
+  const [display, setDisplay] = useState<DisplayPreferences>(() => readDisplay());
+  const choose = <K extends keyof DisplayPreferences>(
+    name: K,
+    value: DisplayPreferences[K],
+  ): void => {
+    writeDisplay(name, value);
+    setDisplay((current) => ({ ...current, [name]: value }));
+  };
 
   return (
     <SettingsSection
@@ -110,6 +137,94 @@ export const DisplaySection = (): React.ReactElement => {
             onChange={setHidden}
           />
         </Row>
+        <Row title="Tela inicial" hint="Onde o app abre ao entrar pela raiz.">
+          <div className="w-44">
+            <Select
+              aria-label="Tela inicial"
+              invalid={false}
+              options={HOME_SCREENS.map((item) => ({ id: item.value, name: item.label }))}
+              value={display.homeScreen}
+              onChange={(event) =>
+                choose(
+                  'homeScreen',
+                  event.target.value as DisplayPreferences['homeScreen'],
+                )
+              }
+            />
+          </div>
+        </Row>
+        <Row title="Escopo padrão" hint="O que a Visão geral resume ao abrir.">
+          <Segmented
+            label="Escopo padrão"
+            options={HOME_SCOPES}
+            value={display.homeScope}
+            onChange={(value) => choose('homeScope', value)}
+          />
+        </Row>
+        <Row
+          title="Período padrão"
+          hint="O intervalo com que as telas de Finanças abrem."
+        >
+          <div className="w-44">
+            <Select
+              aria-label="Período padrão"
+              invalid={false}
+              options={DEFAULT_PERIODS.map((item) => ({
+                id: item.value,
+                name: item.label,
+              }))}
+              value={display.defaultPeriod}
+              onChange={(event) =>
+                choose(
+                  'defaultPeriod',
+                  event.target.value as DisplayPreferences['defaultPeriod'],
+                )
+              }
+            />
+          </div>
+        </Row>
+        <Row title="Formato de data" hint="Como as datas completas são escritas.">
+          <Segmented
+            label="Formato de data"
+            options={DATE_FORMATS}
+            value={display.dateFormat}
+            onChange={(value) => choose('dateFormat', value)}
+          />
+        </Row>
+        <Row title="Primeiro dia da semana" hint="Usado nos calendários.">
+          <Segmented
+            label="Primeiro dia da semana"
+            options={WEEK_STARTS}
+            value={display.weekStart}
+            onChange={(value) => choose('weekStart', value)}
+          />
+        </Row>
+      </SettingsPanel>
+      <SettingsPanel>
+        <div className="px-4 py-3" aria-label="Atalhos de teclado">
+          <div className="text-[0.8125rem] font-medium">Atalhos de teclado</div>
+          <div className="mb-2 text-[0.8125rem] text-ink-3">
+            Só leitura. Aperte ? em qualquer tela para ver esta lista.
+          </div>
+          <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+            {groupShortcuts(SHORTCUTS).map((group) => (
+              <div key={group.scope}>
+                <dt className="text-[0.75rem] font-medium text-ink-3 uppercase">
+                  {SCOPE_NAMES[group.scope] ?? group.scope}
+                </dt>
+                {group.items.map((item) => (
+                  <dd
+                    key={item.id}
+                    className="flex justify-between gap-3 text-[0.8125rem]"
+                  >
+                    <span>{item.label}</span>
+                    <kbd className="font-mono text-ink-2">{describeShortcut(item)}</kbd>
+                  </dd>
+                ))}
+              </div>
+            ))}
+          </dl>
+        </div>
       </SettingsPanel>
     </SettingsSection>
   );

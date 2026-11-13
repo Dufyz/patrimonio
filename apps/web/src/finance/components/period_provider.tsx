@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useState } from 'react';
 
 import { today as clockToday } from '../lib/clock.js';
-import { currentMonth } from '../lib/period.js';
+import { defaultRange, readDisplay } from '../../lib/display_preferences.js';
 import type { DateRange } from '../lib/period.js';
 
 /**
@@ -9,8 +9,7 @@ import type { DateRange } from '../lib/period.js';
  *
  * Visão geral e Lançamentos leem o mesmo intervalo, então escolher um período
  * numa tela e abrir a outra mantém a escolha. O padrão é o mês corrente. O
- * período não persiste entre sessões (FIN-007): ao abrir, é sempre o mês
- * corrente.
+ * período não persiste entre sessões (FIN-007): ao abrir, vale o padrão.
  */
 
 type PeriodValue = {
@@ -29,7 +28,7 @@ export const FinancePeriodProvider = ({
   readonly initial?: DateRange | undefined;
 }): React.ReactElement => {
   const [range, setRange] = useState<DateRange>(
-    () => initial ?? currentMonth(clockToday()),
+    () => initial ?? defaultRange(readDisplay().defaultPeriod, clockToday()),
   );
   const value = useMemo<PeriodValue>(
     () => ({ range, setRange, today: clockToday() }),

@@ -22,6 +22,7 @@ import { SkeletonRegion, SkeletonTable } from './components/skeleton.js';
 import { WelcomeScreen } from './views/welcome.js';
 import { ShortcutProvider, useShortcuts } from './components/shortcuts.js';
 import { routableScreens, screensForScope } from './lib/investment_screens.js';
+import { homePath, homeScopeSearch, readDisplay } from './lib/display_preferences.js';
 import { placeForPath, routes } from './lib/routes.js';
 import { ALL_SCOPE, portfolioIdForScope, scopeForPortfolioId } from './lib/scope.js';
 import { FinanceLoading } from './finance/components/states.js';
@@ -128,11 +129,32 @@ const NotFound = (): React.ReactElement => (
 );
 
 /**
+ * CFG-02 · Uma vez por sessão, quem abre a raiz sem escolher escopo cai na tela
+ * inicial e no escopo que escolheu em Exibição. Depois disso `/` é só `/`:
+ * voltar à Visão geral pelo menu não é jogado de novo para outra tela.
+ */
+const startRedirect = (search: string): string | null => {
+  try {
+    if (window.sessionStorage.getItem('patrimonio.started') === '1') return null;
+    window.sessionStorage.setItem('patrimonio.started', '1');
+  } catch {
+    return null;
+  }
+  if (search !== '') return null;
+  const display = readDisplay();
+  if (display.homeScreen !== 'visao-geral') return homePath(display.homeScreen);
+  const scoped = homeScopeSearch(display.homeScope);
+  return scoped === '' ? null : `/${scoped}`;
+};
+
+/**
  * NAV-01 · A Visão geral. O escopo da consulta escolhe o painel: `tudo` é o
  * resumo dos dois lados, `fluxo` o de Finanças e `investimentos` o das carteiras.
  */
 const Home = (): React.ReactElement => {
   const { search } = useLocation();
+  const redirect = startRedirect(search);
+  if (redirect !== null) return <Navigate to={redirect} replace />;
   const place = placeForPath('/', search);
   if (place.kind !== 'home' || place.scope === 'tudo') {
     return (
