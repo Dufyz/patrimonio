@@ -602,4 +602,22 @@ describe('tela de Posições', () => {
     // O peso continua: é o que sobra para ler em lugar público.
     expect(screen.getAllByText('5,8%').length).toBeGreaterThan(0);
   });
+
+  it('POS-08 · sem consolidação diz isso e mostra traço, não zero', async () => {
+    const base = resource();
+    answerWith({
+      ...base,
+      status: 'sem_consolidacao',
+      total: {
+        ...base.total,
+        value: null,
+        cost_basis: null,
+        open_result: null,
+        weight: null,
+      },
+    });
+    show();
+
+    expect(await screen.findByText(/Sem consolidação: nenhuma carteira/)).toBeTruthy();
+  });
 });

@@ -276,7 +276,9 @@ export const PositionsScreen = ({
     onlyClosed,
   ]);
 
-  const total = resource === null || onlyClosed ? null : toSummary(resource.total);
+  const unconsolidated = resource?.status === 'sem_consolidacao';
+  const total =
+    resource === null || onlyClosed || unconsolidated ? null : toSummary(resource.total);
   const stamp = resource === null ? null : priceStamp(resource);
   const hasCaveat =
     resource !== null &&
@@ -412,6 +414,15 @@ export const PositionsScreen = ({
           </div>
         </dl>
       )}
+      {unconsolidated ? (
+        <p
+          role="status"
+          className="rounded-control border border-line bg-panel-2 px-3 py-2 text-[0.8125rem] text-ink-2"
+        >
+          Sem consolidação: nenhuma carteira deste recorte fechou até hoje. Os valores
+          aparecem como — e não como zero.
+        </p>
+      ) : null}
 
       {
         <Panel>
