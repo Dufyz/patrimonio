@@ -19,6 +19,7 @@ import {
   payerTitle,
 } from '../../lib/cards_view.js';
 import { formatMoney } from '../../lib/format.js';
+import { CardModal } from './card_modal.js';
 import { NewEntryModal } from '../ledger/new_entry_modal.js';
 
 /**
@@ -35,6 +36,7 @@ export const CardsScreen = (): React.ReactElement => {
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
   const [paying, setPaying] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -73,6 +75,7 @@ export const CardsScreen = (): React.ReactElement => {
     <div className="flex flex-col gap-4">
       <ScreenHeader
         title="Cartões"
+        primary={{ label: 'Novo cartão', onClick: () => setCreating(true) }}
         subtitle={`Faturas abertas ${money(w.abertas)}${due === null ? '' : ` · próximo vencimento ${dayMonth(due)}`}`}
         extra={
           <label className="text-sm">
@@ -111,7 +114,11 @@ export const CardsScreen = (): React.ReactElement => {
         />
       </Link>
       {data.cards.length === 0 ? (
-        <EmptyPanel message="Você ainda não cadastrou nenhum cartão." />
+        <EmptyPanel
+          message="Você ainda não cadastrou nenhum cartão."
+          actionLabel="Novo cartão"
+          onAction={() => setCreating(true)}
+        />
       ) : (
         <table className="w-full text-sm">
           <thead>
@@ -285,6 +292,14 @@ export const CardsScreen = (): React.ReactElement => {
             </tbody>
           </table>
         </section>
+      )}
+      {creating && (
+        <CardModal
+          accounts={[...names].map(([id, name]) => ({ id, name }))}
+          existingNames={data.cards.map((c) => c.card.name)}
+          onSaved={() => setReload((n) => n + 1)}
+          onClose={() => setCreating(false)}
+        />
       )}
       {paying !== null && (
         <NewEntryModal

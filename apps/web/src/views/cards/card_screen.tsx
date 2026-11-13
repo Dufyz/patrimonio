@@ -4,6 +4,11 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { fetchAccountNames } from '../../api/book.js';
 import { fetchCardDetail } from '../../api/card_detail.js';
 import type { CardDetailResource } from '../../api/card_detail.js';
+import { setCardArchived } from '../../api/card_write.js';
+import { ApiError } from '../../api/client.js';
+import { AlertModal } from '../../components/overlay.js';
+import { newAttemptKey } from '../../lib/entry.js';
+import { CardModal } from './card_modal.js';
 import { usePreferences } from '../../components/preferences.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
 import { PanelError } from '../../finance/components/states.js';
@@ -28,6 +33,9 @@ export const CardScreen = (): React.ReactElement => {
   const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
+  const [editing, setEditing] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -67,26 +75,96 @@ export const CardScreen = (): React.ReactElement => {
         crumbs={[{ label: 'Cartões', to: '/cartoes-novo' }, { label: card.name }]}
         subtitle={`final ${card.last4} · paga pela ${accountName(card.pay_account_id)} · limite ${money(card.limit_amount)} · usado ${data.summary.used_percent}% · disponível ${money(data.summary.available)}`}
         extra={
-          <label className="text-sm">
-            <span className="sr-only">Cartão</span>
-            <select
-              aria-label="Cartão"
-              className="cursor-pointer rounded-field border border-line px-2 py-1.5"
-              value={card.id}
-              onChange={(e) =>
-                navigate(
-                  e.target.value === ''
-                    ? '/cartoes-novo'
-                    : `/cartoes-novo/${e.target.value}`,
-                )
-              }
+          <>
+            <button
+              type="button"
+              className="cursor-pointer rounded-field border border-line px-3 py-1.5 text-sm"
+              onClick={() => setEditing(true)}
             >
-              <option value="">Cartão: Todos</option>
-              <option value={card.id}>Cartão: {card.name}</option>
-            </select>
-          </label>
+              Editar cartão
+            </button>
+            <button
+              type="button"
+              className="cursor-pointer rounded-field border border-line px-3 py-1.5 text-sm"
+              onClick={() => {
+                setArchiveError(null);
+                setArchiving(true);
+              }}
+            >
+              Arquivar
+            </button>
+            <label className="text-sm">
+              <span className="sr-only">Cartão</span>
+              <select
+                aria-label="Cartão"
+                className="cursor-pointer rounded-field border border-line px-2 py-1.5"
+                value={card.id}
+                onChange={(e) =>
+                  navigate(
+                    e.target.value === ''
+                      ? '/cartoes-novo'
+                      : `/cartoes-novo/${e.target.value}`,
+                  )
+                }
+              >
+                <option value="">Cartão: Todos</option>
+                <option value={card.id}>Cartão: {card.name}</option>
+              </select>
+            </label>
+          </>
         }
       />
+
+      {editing && (
+        <CardModal
+          editing={{
+            id: card.id,
+            draft: {
+              name: card.name,
+              last4: card.last4,
+              limit: card.limit_amount.replace('.', ','),
+              closingDay: String(card.closing_day),
+              dueDay: String(card.due_day),
+              payAccountId: card.pay_account_id,
+            },
+          }}
+          accounts={[...names].map(([aid, name]) => ({ id: aid, name }))}
+          existingNames={[]}
+          onSaved={() => setReload((n) => n + 1)}
+          onClose={() => setEditing(false)}
+        />
+      )}
+      {archiving && (
+        <AlertModal
+          open
+          title={`Arquivar ${card.name}?`}
+          message={
+            <>
+              O cartão sai das listas e das opções de origem; as faturas antigas continuam
+              disponíveis.
+              {archiveError !== null && (
+                <span role="alert" className="mt-2 block text-negative">
+                  {archiveError}
+                </span>
+              )}
+            </>
+          }
+          cancelLabel="Cancelar"
+          confirmLabel="Arquivar"
+          onCancel={() => setArchiving(false)}
+          onConfirm={() => {
+            void setCardArchived(card.id, true, newAttemptKey())
+              .then(() => navigate('/cartoes-novo'))
+              .catch((error: unknown) =>
+                setArchiveError(
+                  error instanceof ApiError
+                    ? error.message
+                    : 'Não foi possível arquivar.',
+                ),
+              );
+          }}
+        />
+      )}
 
       <section aria-label="Faturas" className="flex flex-col gap-2">
         <h2 className="text-label text-ink-3 uppercase">Faturas</h2>

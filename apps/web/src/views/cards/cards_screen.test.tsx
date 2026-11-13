@@ -115,3 +115,21 @@ describe('CardsScreen · CRT-01/02', () => {
     expect(await screen.findByText('Novo lançamento')).toBeTruthy();
   });
 });
+
+describe('CardsScreen · CRT-08', () => {
+  it('Novo cartão valida e envia o pedido', async () => {
+    mount();
+    await screen.findByText('Itaú Unibanco paga 2 cartões');
+    fireEvent.click(screen.getByRole('button', { name: /Novo cartão/ }));
+    fireEvent.change(await screen.findByLabelText('Nome'), {
+      target: { value: 'nubank' },
+    });
+    fireEvent.change(screen.getByLabelText('Limite'), { target: { value: '5.000,00' } });
+    fireEvent.change(screen.getByLabelText('Dia de fechamento'), {
+      target: { value: '40' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Criar cartão/ }));
+    expect(await screen.findByText('Já existe um cartão com esse nome.')).toBeTruthy();
+    expect(screen.getAllByText('Dia de 1 a 31.')).toHaveLength(2);
+  });
+});

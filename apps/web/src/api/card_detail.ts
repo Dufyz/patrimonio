@@ -27,6 +27,8 @@ export type CardDetailResource = {
       readonly last4: string;
       readonly pay_account_id: string;
       readonly limit_amount: string;
+      readonly closing_day: number;
+      readonly due_day: number;
     };
     readonly used: string;
     readonly used_percent: number;

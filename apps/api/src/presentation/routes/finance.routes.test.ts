@@ -695,6 +695,31 @@ describe('pagar fatura: efeito em Livre após faturas (CRT-06)', () => {
   });
 });
 
+describe('cartão: alterar fechamento (CRT-08)', () => {
+  it('compras já gravadas mantêm a fatura; só as futuras seguem o novo fechamento', async () => {
+    const list = await get('/cards');
+    const row = list.body.cards[0];
+    const id = row.card.id as string;
+    const snapshot = async () => {
+      const d = await get(`/cards/${id}`);
+      return JSON.stringify(
+        d.body.invoices.map((i: { month: string; total: string }) => [i.month, i.total]),
+      );
+    };
+    const before = await snapshot();
+    const res = await send('put', `/cards/${id}`, {
+      name: row.card.name,
+      last4: row.card.last4,
+      pay_account_id: row.card.pay_account_id,
+      limit_amount: row.card.limit_amount,
+      closing_day: row.card.closing_day === 20 ? 10 : 20,
+      due_day: row.card.due_day,
+    });
+    expect(res.status).toBe(200);
+    expect(await snapshot()).toBe(before);
+  });
+});
+
 describe('livro unificado (LIV-02)', () => {
   it('os totais do mês batem com a Visão geral e não dependem da página', async () => {
     const overview = await get('/overview?month=2026-10');
