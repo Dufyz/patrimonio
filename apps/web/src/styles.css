@@ -68,6 +68,9 @@
   --color-positive-soft: #e7f5ed;
   --color-negative-soft: #fdecee;
   --color-attention-soft: #fff5e5;
+  /* Azul é previsto e seleção (TEM-03). */
+  --color-planned: #2e63d8;
+  --color-planned-soft: #eaf0fc;
 
   /* Tipos de lançamento: fundo claro e texto escuro, sem competir com as categorias. */
   --color-type-buy: #eaf0fc;
@@ -194,6 +197,8 @@
   --color-positive-soft: rgb(76 183 130 / 0.12);
   --color-negative-soft: rgb(229 100 111 / 0.11);
   --color-attention-soft: rgb(217 162 75 / 0.11);
+  --color-planned: #6f8fe6;
+  --color-planned-soft: #1c2640;
 
   --color-type-buy: rgb(135 144 234 / 0.15);
   --color-type-buy-ink: #b7bcf3;

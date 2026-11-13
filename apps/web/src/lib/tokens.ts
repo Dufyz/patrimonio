@@ -54,11 +54,24 @@ export const BENCHMARK_COLOR = 'var(--color-series-benchmark)';
 export const colorForSeries = (index: number): string =>
   SERIES_COLORS[index % SERIES_COLORS.length] ?? SERIES_COLORS[0];
 
+/**
+ * A cor de série de uma carteira: a posição dela na ordem de Configurações
+ * (TEM-03). Carteira e cor andam juntas em toda tela porque a ordem é uma só.
+ */
+export const colorForPortfolio = (
+  portfolioId: string,
+  orderedPortfolioIds: readonly string[],
+): string => {
+  const index = orderedPortfolioIds.indexOf(portfolioId);
+  return colorForSeries(index === -1 ? SERIES_COLORS.length - 1 : index);
+};
+
 /** Papéis semânticos usados fora de classe e série. */
 export const SEMANTIC_COLORS = {
   positive: 'var(--color-positive)',
   negative: 'var(--color-negative)',
   attention: 'var(--color-attention)',
+  planned: 'var(--color-planned)',
   accent: 'var(--color-accent)',
   ink: 'var(--color-ink)',
   ink2: 'var(--color-ink-2)',
