@@ -1,5 +1,7 @@
 import type { DateOnly } from '../support/date_only.js';
 
+import type { EtfExposure } from './exposure.js';
+
 /**
  * Uma só tabela para ativo listado e título cadastrado à mão. A diferença está
  * em `origin` e nas colunas de renda fixa, nulas no ativo listado.
@@ -42,6 +44,8 @@ export type Asset = {
   readonly name: string;
   readonly origin: AssetOrigin;
   readonly b3_type: B3Type | null;
+  /** O que o ETF expõe; só o ETF tem. Define a classe dele (EST-02). */
+  readonly etf_exposure: EtfExposure | null;
   readonly category_id: string | null;
   readonly sector: string | null;
   readonly price_source: PriceSource;

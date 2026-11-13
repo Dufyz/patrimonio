@@ -13,6 +13,7 @@ import { dateOnly, decimalString, uuid } from '../support/primitives.schema.js';
 import {
   assetOriginSchema,
   b3TypeSchema,
+  etfExposureSchema,
   indexerSchema,
   liquidityKindSchema,
   priceSourceSchema,
@@ -50,6 +51,7 @@ export const assetPageIdentitySchema = z.object({
   name: z.string(),
   origin: assetOriginSchema,
   b3_type: b3TypeSchema.nullable(),
+  etf_exposure: etfExposureSchema.nullable(),
   sector: z.string().nullable(),
   price_source: priceSourceSchema,
   category_id: uuid.nullable(),

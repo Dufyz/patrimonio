@@ -20,6 +20,7 @@ import {
   TAX_REGIMES,
 } from './asset.entities.js';
 import type { Asset } from './asset.entities.js';
+import { ETF_EXPOSURES } from './exposure.js';
 
 export const parseAssetFromDB = (row: Row): Asset => ({
   id: asString(row, 'id'),
@@ -27,6 +28,7 @@ export const parseAssetFromDB = (row: Row): Asset => ({
   name: asString(row, 'name'),
   origin: asEnum(row, 'origin', ASSET_ORIGINS),
   b3_type: asEnumOrNull(row, 'b3_type', B3_TYPES),
+  etf_exposure: asEnumOrNull(row, 'etf_exposure', ETF_EXPOSURES),
   category_id: asStringOrNull(row, 'category_id'),
   sector: asStringOrNull(row, 'sector'),
   price_source: asEnum(row, 'price_source', PRICE_SOURCES),

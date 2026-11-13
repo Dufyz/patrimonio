@@ -19,7 +19,13 @@ export const EXPOSURE_CLASSES = [
 export type ExposureClass = (typeof EXPOSURE_CLASSES)[number];
 
 /** O que o ETF expõe: define a classe dele. `null` é "ainda não definido". */
-export type EtfExposure = 'acoes_brasil' | 'acoes_exterior' | 'renda_fixa' | 'fiis';
+export const ETF_EXPOSURES = [
+  'acoes_brasil',
+  'acoes_exterior',
+  'renda_fixa',
+  'fiis',
+] as const;
+export type EtfExposure = (typeof ETF_EXPOSURES)[number];
 
 export const EXPOSURE_LABEL: Readonly<Record<ExposureClass, string>> = {
   acoes_brasil: 'Ações Brasil',

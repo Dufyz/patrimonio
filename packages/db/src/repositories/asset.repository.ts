@@ -99,6 +99,7 @@ export const createAssetRepository = (sql: Connection): AssetRepository => ({
       name: draft.name,
       origin: draft.origin,
       b3_type: draft.b3_type,
+      etf_exposure: draft.etf_exposure,
       category_id: draft.category_id,
       sector: draft.sector,
       price_source: draft.price_source,

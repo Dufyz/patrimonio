@@ -4,6 +4,7 @@ import type {
   ComputedPriceKind,
   CorporateEventKind,
   DateOnly,
+  EtfExposure,
   Indexer,
   LiquidityKind,
   PayoutKind,
@@ -52,6 +53,7 @@ export type AssetPageIdentityRow = {
   readonly name: string;
   readonly origin: AssetOrigin;
   readonly b3_type: B3Type | null;
+  readonly etf_exposure: EtfExposure | null;
   readonly sector: string | null;
   readonly price_source: PriceSource;
   readonly category_id: string | null;

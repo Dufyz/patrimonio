@@ -208,6 +208,7 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
                    a.name,
                    a.origin,
                    a.b3_type,
+                   a.etf_exposure,
                    a.sector,
                    a.price_source,
                    a.category_id,

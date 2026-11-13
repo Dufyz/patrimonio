@@ -46,6 +46,7 @@ const resource = (overrides: Partial<AssetPageResource> = {}): AssetPageResource
     name: 'Itaú Unibanco PN',
     origin: 'market',
     b3_type: 'stock',
+    etf_exposure: null,
     sector: 'Bancos',
     price_source: 'auto',
     category_id: 'cccc1111-1111-4111-8111-111111111111',

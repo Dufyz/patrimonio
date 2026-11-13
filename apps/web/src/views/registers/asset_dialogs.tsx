@@ -3,6 +3,8 @@ import type {
   CategoryResource,
   InstitutionResource,
 } from '@patrimonio/contracts';
+import { ETF_EXPOSURES, EXPOSURE_LABEL } from '@patrimonio/domain';
+import type { EtfExposure } from '@patrimonio/domain';
 import { useEffect, useMemo, useState } from 'react';
 
 import { fetchInstitutions } from '../../api/institutions.js';
@@ -74,6 +76,7 @@ export const AssetDialog = ({
   const [name, setName] = useState(asset.name);
   const [sector, setSector] = useState(asset.sector ?? '');
   const [category, setCategory] = useState(asset.category_id ?? '');
+  const [exposure, setExposure] = useState<EtfExposure | ''>(asset.etf_exposure ?? '');
   const [categories, setCategories] = useState<readonly CategoryResource[]>([]);
   const [attempted, setAttempted] = useState(false);
 
@@ -220,6 +223,9 @@ export const AssetDialog = ({
         name: name.trim(),
         sector: sector.trim() === '' ? null : sector.trim(),
         category_id: category === '' ? null : category,
+        ...(asset.b3_type === 'etf'
+          ? { etf_exposure: exposure === '' ? null : exposure }
+          : {}),
         ...curvePatch(),
       }),
     () => onSaved(ticker.trim().toUpperCase()),
@@ -320,6 +326,27 @@ export const AssetDialog = ({
             )}
           </Field>
         </div>
+
+        {asset.b3_type === 'etf' ? (
+          <Field
+            label="O que o ETF expõe"
+            hint="define a classe dele em Estratégia e Posições; sem isso cai em Outros"
+          >
+            {(control) => (
+              <Select
+                {...control}
+                invalid={false}
+                value={exposure}
+                placeholder="Não definido"
+                options={ETF_EXPOSURES.map((value) => ({
+                  id: value,
+                  name: EXPOSURE_LABEL[value],
+                }))}
+                onChange={(event) => setExposure(event.target.value as EtfExposure | '')}
+              />
+            )}
+          </Field>
+        ) : null}
 
         {categoryChanged ? (
           <Callout tone="warning">

@@ -1,6 +1,7 @@
 import {
   ASSET_ORIGINS,
   B3_TYPES,
+  ETF_EXPOSURES,
   INDEXERS,
   LIQUIDITY_KINDS,
   PRICE_SOURCES,
@@ -19,6 +20,7 @@ import {
 
 export const assetOriginSchema = z.enum(ASSET_ORIGINS);
 export const b3TypeSchema = z.enum(B3_TYPES);
+export const etfExposureSchema = z.enum(ETF_EXPOSURES);
 export const indexerSchema = z.enum(INDEXERS);
 export const liquidityKindSchema = z.enum(LIQUIDITY_KINDS);
 export const priceSourceSchema = z.enum(PRICE_SOURCES);
@@ -31,6 +33,7 @@ export const assetResourceSchema = z.object({
   name: z.string(),
   origin: assetOriginSchema,
   b3_type: b3TypeSchema.nullable(),
+  etf_exposure: etfExposureSchema.nullable(),
   category_id: uuid.nullable(),
   sector: z.string().nullable(),
   price_source: priceSourceSchema,
@@ -106,6 +109,7 @@ export const assetWritableSchema = z.object({
   tax_regime: taxRegimeSchema.nullable().optional(),
   redemption_rule: redemptionRuleSchema.nullable().optional(),
   lot_term_months: z.number().int().positive().nullable().optional(),
+  etf_exposure: etfExposureSchema.nullable().optional(),
 });
 
 export type AssetResource = z.infer<typeof assetResourceSchema>;

@@ -3,6 +3,7 @@ import type {
   AssetOrigin,
   B3Type,
   DateOnly,
+  EtfExposure,
   Indexer,
   LiquidityKind,
   PriceSource,
@@ -30,6 +31,7 @@ export type AssetWrite = {
   readonly tax_regime?: TaxRegime | null | undefined;
   readonly redemption_rule?: RedemptionRule | null | undefined;
   readonly lot_term_months?: number | null | undefined;
+  readonly etf_exposure?: EtfExposure | null | undefined;
 };
 
 export type AssetDraft = AssetWrite & {

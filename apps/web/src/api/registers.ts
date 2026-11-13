@@ -1,4 +1,5 @@
 import type { AssetResource, CategoryResource } from '@patrimonio/contracts';
+import type { EtfExposure } from '@patrimonio/domain';
 
 import { request } from './client.js';
 import type { Parser } from './client.js';
@@ -118,6 +119,7 @@ export type AssetPatch = {
   readonly tax_regime?: FixedIncomeBody['tax_regime'] | null;
   readonly redemption_rule?: FixedIncomeBody['redemption_rule'] | null;
   readonly lot_term_months?: number | null;
+  readonly etf_exposure?: EtfExposure | null;
 };
 
 export const updateAsset = (id: string, body: AssetPatch): Promise<unknown> =>
