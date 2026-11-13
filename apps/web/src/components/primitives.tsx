@@ -242,12 +242,30 @@ export const Segmented = <T extends string>({
     role="radiogroup"
     aria-label={label}
     className="inline-flex h-control items-stretch self-start overflow-hidden rounded-control border border-line-2 bg-panel"
+    onKeyDown={(event) => {
+      // Setas alternam a opção (radiogroup): VGR-17.
+      const step =
+        event.key === 'ArrowRight' || event.key === 'ArrowDown'
+          ? 1
+          : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+            ? -1
+            : 0;
+      if (step === 0 || options.length === 0) return;
+      event.preventDefault();
+      const at = options.findIndex((option) => option.value === value);
+      const next = options[(at + step + options.length) % options.length];
+      if (next === undefined) return;
+      onChange(next.value);
+      const radios = event.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]');
+      radios[options.indexOf(next)]?.focus();
+    }}
   >
-    {options.map((option) => (
+    {options.map((option, index) => (
       <button
         key={option.value}
         type="button"
         role="radio"
+        tabIndex={option.value === value || (value === null && index === 0) ? 0 : -1}
         aria-checked={option.value === value}
         {...(option.title === undefined ? {} : { title: option.title })}
         className={`tabular cursor-pointer border-r border-line-2 px-[11px] text-xs font-medium whitespace-nowrap last:border-r-0 ${

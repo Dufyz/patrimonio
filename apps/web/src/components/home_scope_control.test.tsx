@@ -29,4 +29,26 @@ describe('HomeScopeControl', () => {
     await user.click(screen.getByRole('radio', { name: 'Tudo' }));
     expect(screen.getByTestId('where').textContent).toBe('/');
   });
+
+  it('VGR-17 · setas alternam o escopo e só a opção ativa entra na ordem do Tab', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <PortfoliosProvider>
+          <HomeScopeControl scope="tudo" />
+          <Where />
+        </PortfoliosProvider>
+      </MemoryRouter>,
+    );
+
+    const tudo = screen.getByRole('radio', { name: 'Tudo' });
+    expect(tudo.getAttribute('tabindex')).toBe('0');
+    expect(screen.getByRole('radio', { name: 'Fluxo' }).getAttribute('tabindex')).toBe(
+      '-1',
+    );
+
+    tudo.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByTestId('where').textContent).toBe('/?escopo=fluxo');
+  });
 });
