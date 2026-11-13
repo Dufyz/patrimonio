@@ -372,7 +372,7 @@ describe('GoalsOverviewView', () => {
     montar({ state: { kind: 'error', error: new Error('sem rede') } });
 
     expect(screen.getByRole('alert').textContent).toMatch(/sem rede/);
-    expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeTruthy();
   });
 
   it('carregando, anuncia o carregamento', () => {

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { deleteGoal, previewGoal, putGoal } from '../api/goals.js';
 import { PreferencesProvider } from '../components/preferences.js';
+import { ShortcutProvider } from '../components/shortcuts.js';
 import type { Resource } from '../lib/use_resource.js';
 import { GoalsView } from './goals.js';
 
@@ -161,7 +162,7 @@ describe('GoalsView', () => {
   it('com objetivo definido não há como criar outro, e editar está disponível', () => {
     montar({ kind: 'ready', value: dados(goal) });
 
-    expect(screen.queryByRole('button', { name: 'Novo objetivo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Definir objetivo' })).toBeNull();
     expect(
       (screen.getByRole('button', { name: 'Editar' }) as HTMLButtonElement).disabled,
     ).toBe(false);
@@ -234,18 +235,43 @@ describe('GoalsView', () => {
     expect(screen.getByRole('status').textContent).toMatch(/prazo de jan\/2040 passou/);
   });
 
+  it('OBJ-06: N sem objetivo abre "Definir objetivo", e com objetivo não faz nada aqui', async () => {
+    const view = (value: GoalsResource) => (
+      <PreferencesProvider storage={null}>
+        <ShortcutProvider>
+          <GoalsView
+            resource={{
+              state: { kind: 'ready', value },
+              pending: false,
+              reload: vi.fn(),
+            }}
+            portfolioId={LONGO}
+            scopeLabel="Longo prazo"
+            rate={null}
+            onRateChange={vi.fn()}
+            monthly={null}
+            onMonthlyChange={vi.fn()}
+          />
+        </ShortcutProvider>
+      </PreferencesProvider>
+    );
+    render(view(dados(null)));
+    await userEvent.keyboard('n');
+    expect(screen.getByRole('heading', { name: 'Novo objetivo' })).toBeTruthy();
+  });
+
   it('sem objetivo, vazio explicado; com erro, alerta e nova tentativa', () => {
     const { unmount } = montar({ kind: 'ready', value: dados(null) });
-    expect(screen.getByText('Nenhum objetivo ainda')).toBeTruthy();
+    expect(screen.getByText('Esta carteira não tem objetivo.')).toBeTruthy();
     expect(
-      (screen.getByRole('button', { name: 'Novo objetivo' }) as HTMLButtonElement)
+      (screen.getByRole('button', { name: 'Definir objetivo' }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
     unmount();
 
     montar({ kind: 'error', error: new Error('api fora do ar') });
     expect(screen.getByRole('alert').textContent).toMatch(/api fora do ar/);
-    expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeTruthy();
   });
 
   describe('o modal do objetivo', () => {
@@ -310,7 +336,7 @@ describe('GoalsView', () => {
     it('Novo objetivo abre vazio, aponta o que falta e não grava', async () => {
       montar({ kind: 'ready', value: dados(null) });
 
-      await userEvent.click(screen.getByRole('button', { name: 'Novo objetivo' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Definir objetivo' }));
       expect(screen.getByRole('heading', { name: 'Novo objetivo' })).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Excluir' })).toBeNull();
 

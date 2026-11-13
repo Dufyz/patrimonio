@@ -1,6 +1,6 @@
 import type { GoalResource, GoalsResource } from '@patrimonio/contracts';
 import type { DateOnly } from '@patrimonio/domain';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { fetchGoals } from '../api/goals.js';
@@ -8,6 +8,7 @@ import { Money, Percent } from '../components/number.js';
 import { KeepPrevious } from '../components/pending.js';
 import { ProgressRing } from '../components/progress_ring.js';
 import { usePreferences } from '../components/preferences.js';
+import { useShortcuts } from '../components/shortcuts.js';
 import {
   SkeletonChart,
   SkeletonHeader,
@@ -611,13 +612,24 @@ const GoalPanel = ({
   );
 };
 
-const Empty = ({ scope }: { readonly scope: string }): React.ReactElement => (
+const Empty = ({
+  scope,
+  onDefine,
+}: {
+  readonly scope: string;
+  readonly onDefine: () => void;
+}): React.ReactElement => (
   <section className="rounded-panel border border-line bg-panel p-8 text-center">
-    <h2 className="text-panel-title font-semibold">Nenhum objetivo ainda</h2>
+    <h2 className="text-panel-title font-semibold">Esta carteira não tem objetivo.</h2>
     <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
       {scope} não tem objetivo de valor e prazo. Cada carteira tem um só: ele diz quanto
       você quer ter e quando, e esta tela responde se o ritmo atual chega lá.
     </p>
+    <div className="mt-4 flex justify-center">
+      <Button variant="primary" icon="plus" onClick={onDefine}>
+        Definir objetivo
+      </Button>
+    </div>
   </section>
 );
 
@@ -643,7 +655,7 @@ const Failed = ({
       className="mt-4 h-control cursor-pointer rounded-control border border-line px-3 text-[0.8125rem] hover:bg-panel-2"
       onClick={onRetry}
     >
-      Tentar de novo
+      Tentar novamente
     </button>
   </section>
 );
@@ -660,6 +672,14 @@ export const GoalsView = ({
   const { state, pending, reload } = resource;
   const { hidden, toggleHidden } = usePreferences();
   const [dialog, setDialog] = useState<'edit' | 'delete' | null>(null);
+
+  // OBJ-06: `N` sem objetivo abre "Definir objetivo", e não o novo lançamento.
+  const empty = state.kind === 'ready' && state.value.goal === null;
+  const shortcuts = useMemo(
+    () => (empty ? { new_transaction: () => setDialog('edit') } : {}),
+    [empty],
+  );
+  useShortcuts(shortcuts);
 
   if (state.kind === 'loading') {
     return (
@@ -695,16 +715,11 @@ export const GoalsView = ({
           >
             <Icon name={hidden ? 'eye-off' : 'eye'} />
           </IconButton>
-          {data.goal === null ? (
-            <Button variant="primary" icon="plus" onClick={() => setDialog('edit')}>
-              Novo objetivo
-            </Button>
-          ) : null}
         </div>
       </header>
 
       {data.goal === null ? (
-        <Empty scope={data.scope.name} />
+        <Empty scope={data.scope.name} onDefine={() => setDialog('edit')} />
       ) : (
         <KeepPrevious pending={pending} className="flex flex-col gap-4">
           <GoalPanel
