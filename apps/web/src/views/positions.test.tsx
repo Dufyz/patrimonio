@@ -323,10 +323,11 @@ describe('tela de Posições', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Ações de ITUB4' }));
 
-    expect(
-      screen.getByRole('menuitem', { name: /Lançar compra ou venda/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Lançar aporte/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /Definir preço/ })).toBeInTheDocument();
+    for (const name of [/Lançar resgate/, /Lançar provento/, /Lançar evento/]) {
+      expect(screen.getByRole('menuitem', { name })).toBeInTheDocument();
+    }
   });
 
   it('o menu da linha abre a página do ativo, pelo apelido dele', async () => {

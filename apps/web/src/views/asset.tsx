@@ -329,7 +329,32 @@ export const AssetScreen = ({
                 label={`Ações de ${title}`}
                 items={[
                   {
+                    id: 'buy',
+                    label: 'Lançar aporte',
+                    icon: <Icon name="plus" />,
+                    onSelect: () => entry.openEntry(entryFor('buy')),
+                  },
+                  {
+                    id: 'sell',
+                    label: 'Lançar resgate',
+                    icon: <Icon name="swap" />,
+                    onSelect: () => entry.openEntry(entryFor('sell')),
+                  },
+                  {
+                    id: 'payout',
+                    label: 'Lançar provento',
+                    icon: <Icon name="coin" />,
+                    onSelect: () => entry.openEntry(entryFor('payout')),
+                  },
+                  {
+                    id: 'event',
+                    label: 'Lançar evento',
+                    icon: <Icon name="tag" />,
+                    onSelect: () => entry.openEntry(entryFor('event')),
+                  },
+                  {
                     id: 'edit',
+                    separatorBefore: true,
                     label: 'Editar ativo',
                     icon: <Icon name="pencil" />,
                     onSelect: () => setDialog('edit'),

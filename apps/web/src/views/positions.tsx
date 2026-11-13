@@ -814,17 +814,29 @@ const RowMenu = ({
     label={`Ações de ${positionTitle(position)}`}
     items={[
       {
-        id: 'buy_sell',
-        label: 'Lançar compra ou venda',
+        id: 'buy',
+        label: 'Lançar aporte',
         icon: <Icon name="plus" />,
         shortcut: 'L',
         onSelect: () => onEntry({ tab: 'buy', ...seedOf(position) }),
+      },
+      {
+        id: 'sell',
+        label: 'Lançar resgate',
+        icon: <Icon name="swap" />,
+        onSelect: () => onEntry({ tab: 'sell', ...seedOf(position) }),
       },
       {
         id: 'payout',
         label: 'Lançar provento',
         icon: <Icon name="coin" />,
         onSelect: () => onEntry({ tab: 'payout', ...seedOf(position) }),
+      },
+      {
+        id: 'event',
+        label: 'Lançar evento',
+        icon: <Icon name="tag" />,
+        onSelect: () => onEntry({ tab: 'event', ...seedOf(position) }),
       },
       {
         id: 'open_asset',
