@@ -1,3 +1,4 @@
+import axe from 'axe-core';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -161,5 +162,18 @@ describe('Projeção', () => {
 
     const bar = screen.getByRole('region', { name: 'Salvar plano' });
     expect(within(bar).getByRole('button', { name: 'Salvar' })).toBeDisabled();
+  });
+});
+
+describe('PRJ-09 · acessibilidade da Projeção nos dois temas', () => {
+  it.each(['light', 'dark'])('sem violação AA (tema %s)', async (theme) => {
+    document.documentElement.dataset['theme'] = theme;
+    const { container } = show();
+    await screen.findByText('Projeção · Todas as carteiras');
+    const found = await axe.run(container, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+      rules: { 'color-contrast': { enabled: false }, region: { enabled: false } },
+    });
+    expect(found.violations.map((v) => v.id)).toEqual([]);
   });
 });

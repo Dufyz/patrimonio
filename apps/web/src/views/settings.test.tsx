@@ -1,4 +1,5 @@
 import type { MarketHealth, Settings } from '@patrimonio/contracts';
+import axe from 'axe-core';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -667,4 +668,27 @@ describe('SettingsView', () => {
     await user.keyboard('{ArrowUp}');
     expect(document.activeElement).toBe(buttons[0]);
   });
+
+  it.each(['light', 'dark'])(
+    'CFG-08 · sem violação AA nas subtelas (tema %s)',
+    async (theme) => {
+      document.documentElement.dataset['theme'] = theme;
+      const sections: SectionId[] = [
+        'exibicao',
+        'contas-e-cartoes',
+        'carteiras',
+        'dados-de-mercado',
+        'dados-e-backup',
+      ];
+      for (const section of sections) {
+        const { container, unmount } = montar({ section });
+        const found = await axe.run(container, {
+          runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+          rules: { 'color-contrast': { enabled: false }, region: { enabled: false } },
+        });
+        expect(found.violations.map((v) => `${section}: ${v.id}`)).toEqual([]);
+        unmount();
+      }
+    },
+  );
 });
