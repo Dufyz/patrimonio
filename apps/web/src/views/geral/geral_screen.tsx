@@ -3,6 +3,7 @@ import type { DateOnly } from '@patrimonio/domain';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
+import { fetchCardsOverview } from '../../api/cards_overview.js';
 import { fetchGoalsOverview } from '../../api/goals.js';
 import { fetchOverview } from '../../api/overview.js';
 import { HomeScopeControl } from '../../components/home_scope_control.js';
@@ -255,7 +256,43 @@ export const PatrimonioPanel = ({
           />
         </tbody>
       </FinTable>
+      <LivreAposFaturas />
     </Panel>
+  );
+};
+
+/**
+ * VGR-02 · Quanto está livre depois de pagar as faturas (RN-U3). Faturas não
+ * descontam do Patrimônio; esta linha é a conta de caixa. Quando o livre é zero
+ * por falta, o painel diz quanto falta. Lido do servidor: nenhuma conta aqui.
+ */
+const LivreAposFaturas = (): React.ReactElement | null => {
+  const cards = useResource((signal) => fetchCardsOverview(signal), []);
+  if (cards.state.kind !== 'ready') return null;
+
+  const { livre, falta } = cards.state.value.wealth;
+  const lacking = decimalToCents(falta) ?? 0;
+
+  return (
+    <div className="flex flex-col gap-0.5 border-t border-line px-4 py-3 text-[0.8125rem]">
+      <p className="flex flex-wrap items-baseline justify-between gap-2">
+        <Link
+          to={financeRoutes.cards()}
+          className="font-semibold hover:text-accent hover:underline"
+        >
+          Livre após faturas
+        </Link>
+        <span className="tabular font-semibold">
+          <Amount cents={decimalToCents(livre) ?? 0} />
+        </span>
+      </p>
+      {lacking > 0 ? (
+        <p role="status" className="text-xs text-negative">
+          faltam <Amount cents={lacking} /> para pagar as faturas
+        </p>
+      ) : null}
+      <p className="text-xs text-ink-3">Faturas não descontam do Patrimônio.</p>
+    </div>
   );
 };
 

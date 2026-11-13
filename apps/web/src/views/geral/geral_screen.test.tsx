@@ -1,5 +1,5 @@
 import type { GoalsOverviewResource, OverviewResource } from '@patrimonio/contracts';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
@@ -126,6 +126,43 @@ describe('Visão geral de Geral (GER)', () => {
     ]) {
       expect(screen.getByRole('region', { name })).toBeInTheDocument();
     }
+  });
+
+  it('Livre após faturas vem do servidor, diz quanto falta e que faturas não descontam do patrimônio', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              cards: [],
+              upcoming: [],
+              open_total: '0.00',
+              as_of: HOJE,
+              wealth: {
+                em_contas: '1462.51',
+                abertas: '3000.00',
+                fechadas_a_pagar: '1268.37',
+                total_devido: '4268.37',
+                livre: '0.00',
+                falta: '2805.86',
+              },
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    open(ready(overviewOf('300000.00')));
+
+    const painel = screen.getByRole('region', { name: 'Patrimônio' });
+    await waitFor(() =>
+      expect(within(painel).getByText('Livre após faturas')).toBeInTheDocument(),
+    );
+    expect(within(painel).getByRole('status').textContent).toMatch(/2\.805,86/);
+    expect(
+      within(painel).getByText(/Faturas não descontam do Patrimônio/),
+    ).toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 
   it('o patrimônio soma o que está em contas e o que está em carteiras, sem subtrair faturas', () => {
