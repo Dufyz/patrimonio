@@ -149,4 +149,49 @@ describe('ledger_entry_form', () => {
       linked_expense: { category_id: 'c1', description: 'Reserva' },
     });
   });
+
+  it('provento: valor bruto, data-com padrão = pagamento, vai para /payouts com preview próprio', () => {
+    const provento = {
+      ...aporte,
+      kind: 'PROVENTO' as const,
+      amount: '120,50',
+      payoutKind: 'jcp',
+    };
+    expect(isValid(validateDraft(provento, TODAY))).toBe(true);
+    const req = toRequest(provento);
+    expect(req.path).toBe('/api/transactions/payouts');
+    expect(req.preview?.path).toBe('/api/transactions/payouts/preview');
+    expect(req.body).toMatchObject({
+      payout_kind: 'jcp',
+      gross_amount: '120.50',
+      record_date: TODAY,
+      payment_date: TODAY,
+      account_id: 'a1',
+    });
+  });
+
+  it('evento: fator precisa combinar com o tipo e o pedido confirma depois', () => {
+    const evento = {
+      ...aporte,
+      kind: 'EVENTO' as const,
+      eventKind: 'split',
+      ratioFrom: '1',
+      ratioTo: '2',
+    };
+    expect(isValid(validateDraft(evento, TODAY))).toBe(true);
+    expect(validateDraft({ ...evento, ratioTo: '1' }, TODAY).ratioTo).toBeDefined();
+    expect(
+      validateDraft(
+        { ...evento, eventKind: 'reverse_split', ratioFrom: '1', ratioTo: '2' },
+        TODAY,
+      ).ratioTo,
+    ).toBeDefined();
+    const req = toRequest(evento);
+    expect(req.path).toBe('/api/corporate-events');
+    expect(req.confirmEvent).toBe(true);
+    expect(req.preview?.body).toMatchObject({
+      kind: 'corporate_event',
+      event_kind: 'split',
+    });
+  });
 });

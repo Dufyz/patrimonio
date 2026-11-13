@@ -15,6 +15,7 @@ import { Modal } from '../../components/overlay.js';
 import { Segmented } from '../../components/primitives.js';
 import { newAttemptKey } from '../../lib/entry.js';
 import {
+  isAssetEvent,
   isInvestment,
   previewRows,
   isValid,
@@ -29,6 +30,7 @@ import type { Draft, DraftContext, ModalKind } from '../../lib/ledger_entry_form
 import { Field, Input, Select } from '../entry/fields.js';
 import { FormShell } from '../entry/form_shell.js';
 import { usePreview } from '../entry/hooks.js';
+import { AssetEventFields } from './asset_event_fields.js';
 import { InvestmentFields } from './investment_fields.js';
 
 /**
@@ -166,7 +168,17 @@ export const NewEntryModal = ({
             label: MODAL_KIND_LABEL[kind],
           }))}
         />
-        {inv ? (
+        {isAssetEvent(draft.kind) ? (
+          <AssetEventFields
+            draft={draft}
+            set={set}
+            errors={errors}
+            attempted={attempted}
+            accounts={accounts}
+            portfolios={portfolios.map((p) => ({ id: p.id, name: p.name }))}
+            institutions={institutions}
+          />
+        ) : inv ? (
           <InvestmentFields
             draft={draft}
             set={set}

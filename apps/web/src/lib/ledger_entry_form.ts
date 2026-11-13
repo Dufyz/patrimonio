@@ -1,10 +1,3 @@
-import type {
-  ContributionBody,
-  EntryBody,
-  RedemptionBody,
-  TransferBody,
-} from '@patrimonio/contracts';
-
 import type { EffectResource, PreviewResponse } from '../api/ledger_write.js';
 import type { EffectRow } from '../finance/domain/effects.js';
 import type { EffectRow as PairRow } from './entry.js';
@@ -25,6 +18,8 @@ export const MODAL_KINDS = [
   'PAGAMENTO_FATURA',
   'APORTE',
   'RESGATE',
+  'PROVENTO',
+  'EVENTO',
 ] as const;
 export type ModalKind = (typeof MODAL_KINDS)[number];
 
@@ -35,6 +30,8 @@ export const MODAL_KIND_LABEL: Readonly<Record<ModalKind, string>> = {
   PAGAMENTO_FATURA: 'Pagamento de fatura',
   APORTE: 'Aporte',
   RESGATE: 'Resgate',
+  PROVENTO: 'Provento',
+  EVENTO: 'Evento',
 };
 
 /** Origem "Fora do app" no aporte e destino "Fora do app" no resgate. */
@@ -61,6 +58,14 @@ export type Draft = {
   readonly fees: string;
   /** Resgate: gerar a despesa ligada (RN-U6). */
   readonly linkExpense: boolean;
+  /** Provento: dividendo, JCP, juros; data-com e IR retido. */
+  readonly payoutKind: string;
+  readonly recordDate: string;
+  readonly tax: string;
+  /** Evento: desdobramento, grupamento ou bonificação, e o fator. */
+  readonly eventKind: string;
+  readonly ratioFrom: string;
+  readonly ratioTo: string;
 };
 
 export type DraftContext = {
@@ -100,6 +105,12 @@ export const newDraft = (
   unitPrice: '',
   fees: '',
   linkExpense: false,
+  payoutKind: 'dividend',
+  recordDate: '',
+  tax: '',
+  eventKind: 'split',
+  ratioFrom: '1',
+  ratioTo: '2',
 });
 
 export const switchKind = (draft: Draft, kind: ModalKind): Draft =>
@@ -135,6 +146,55 @@ const nonNegative = (value: string): boolean => {
 
 export const isInvestment = (kind: ModalKind): boolean =>
   kind === 'APORTE' || kind === 'RESGATE';
+
+/** Provento e evento: ativo com posição, sem quantidade nem preço digitados. */
+export const isAssetEvent = (kind: ModalKind): boolean =>
+  kind === 'PROVENTO' || kind === 'EVENTO';
+
+export const PAYOUT_KIND_LABEL: Readonly<Record<string, string>> = {
+  dividend: 'Dividendo',
+  jcp: 'JCP',
+  interest: 'Juros',
+  income: 'Rendimento',
+};
+
+export const EVENT_KIND_LABEL: Readonly<Record<string, string>> = {
+  split: 'Desdobramento',
+  reverse_split: 'Grupamento',
+  bonus: 'Bonificação',
+};
+
+/** LAN-16/17 · Validação de provento e de evento. */
+const validateAssetEvent = (draft: Draft): DraftErrors => {
+  const errors: DraftErrors = {};
+  if (draft.asset === null || draft.asset.id === null) {
+    errors.asset = 'Escolha um ativo da lista.';
+  }
+  if (draft.kind === 'EVENTO') {
+    const from = draft.ratioFrom.replace(',', '.');
+    const to = draft.ratioTo.replace(',', '.');
+    if (!positive(from)) errors.ratioFrom = 'Informe o fator.';
+    if (!positive(to)) errors.ratioTo = 'Informe o fator.';
+    if (errors.ratioFrom === undefined && errors.ratioTo === undefined) {
+      const cmp = compareDecimal(to, from);
+      if (draft.eventKind === 'reverse_split' ? cmp >= 0 : cmp <= 0) {
+        errors.ratioTo =
+          'O fator não combina com o tipo: grupamento reduz a quantidade; desdobramento e bonificação aumentam.';
+      }
+    }
+    if (draft.date === '') errors.date = 'Informe a data.';
+    return errors;
+  }
+  if (draft.portfolioId === '') errors.portfolioId = 'Escolha a carteira.';
+  if (draft.institutionId === '') errors.institutionId = 'Escolha a instituição.';
+  if (!positive(draft.amount)) errors.amount = 'Informe um valor maior que zero.';
+  if (draft.tax.trim() !== '' && !nonNegative(draft.tax)) {
+    errors.tax = 'O IR retido não pode ser negativo.';
+  }
+  if (draft.date === '') errors.date = 'Informe a data.';
+  if (draft.accountId === '') errors.accountId = 'Escolha a conta que recebe.';
+  return errors;
+};
 
 /** LAN-14/15 · Aporte e resgate: carteira, ativo da lista, quantidade, preço, taxas, conta. */
 const validateInvestment = (draft: Draft, today: string): DraftErrors => {
@@ -174,6 +234,7 @@ const validateInvestment = (draft: Draft, today: string): DraftErrors => {
 
 export const validateDraft = (draft: Draft, today: string): DraftErrors => {
   if (isInvestment(draft.kind)) return validateInvestment(draft, today);
+  if (isAssetEvent(draft.kind)) return validateAssetEvent(draft);
   const errors: DraftErrors = {};
   const transfer = draft.kind === 'TRANSFERENCIA';
   const payment = draft.kind === 'PAGAMENTO_FATURA';
@@ -209,12 +270,14 @@ export const isValid = (errors: DraftErrors): boolean => Object.keys(errors).len
 
 const decimal = (value: string): string => value.trim().replace(',', '.');
 
-export type EntryRequest =
-  | { readonly path: '/api/ledger/aportes'; readonly body: ContributionBody }
-  | { readonly path: '/api/ledger/resgates'; readonly body: RedemptionBody }
-  | { readonly path: '/api/finance/entries'; readonly body: EntryBody }
-  | { readonly path: '/api/finance/transfers'; readonly body: TransferBody }
-  | { readonly path: string; readonly body: InvoicePaymentBody };
+export type EntryRequest = {
+  readonly path: string;
+  readonly body: unknown;
+  /** Quando o preview vai a outro endereço ou com outro corpo. */
+  readonly preview?: { readonly path: string; readonly body: unknown };
+  /** Evento: registrar não aplica; a gravação confirma em seguida. */
+  readonly confirmEvent?: true;
+};
 
 export type InvoicePaymentBody = {
   readonly account_id: string;
@@ -233,31 +296,69 @@ const investmentBase = (draft: Draft) => ({
   account_id: draft.accountId === OUTSIDE ? null : draft.accountId,
 });
 
+const toAssetEventRequest = (draft: Draft): EntryRequest => {
+  if (draft.kind === 'EVENTO') {
+    const common = {
+      asset_id: draft.asset?.id ?? '',
+      record_date: draft.date,
+      ratio_from: decimal(draft.ratioFrom),
+      ratio_to: decimal(draft.ratioTo),
+    };
+    return {
+      path: '/api/corporate-events',
+      body: { ...common, kind: draft.eventKind },
+      preview: {
+        path: '/api/transactions/preview',
+        body: { ...common, kind: 'corporate_event', event_kind: draft.eventKind },
+      },
+      confirmEvent: true,
+    };
+  }
+  const body = {
+    portfolio_id: draft.portfolioId,
+    institution_id: draft.institutionId,
+    asset_id: draft.asset?.id ?? '',
+    payout_kind: draft.payoutKind,
+    record_date: draft.recordDate === '' ? draft.date : draft.recordDate,
+    payment_date: draft.date,
+    gross_amount: decimal(draft.amount),
+    ...(draft.tax.trim() === '' ? {} : { tax_withheld: decimal(draft.tax) }),
+    account_id: draft.accountId === OUTSIDE ? null : draft.accountId,
+  };
+  return {
+    path: '/api/transactions/payouts',
+    body,
+    preview: { path: '/api/transactions/payouts/preview', body },
+  };
+};
+
 export const toRequest = (draft: Draft): EntryRequest =>
-  draft.kind === 'APORTE'
-    ? {
-        path: '/api/ledger/aportes',
-        body: { ...investmentBase(draft), asset_id: draft.asset?.id ?? '' },
-      }
-    : draft.kind === 'RESGATE'
+  isAssetEvent(draft.kind)
+    ? toAssetEventRequest(draft)
+    : draft.kind === 'APORTE'
       ? {
-          path: '/api/ledger/resgates',
-          body: {
-            ...investmentBase(draft),
-            asset_id: draft.asset?.id ?? '',
-            ...(draft.linkExpense
-              ? {
-                  linked_expense: {
-                    category_id: draft.categoryId,
-                    ...(draft.description.trim() === ''
-                      ? {}
-                      : { description: draft.description.trim() }),
-                  },
-                }
-              : {}),
-          },
+          path: '/api/ledger/aportes',
+          body: { ...investmentBase(draft), asset_id: draft.asset?.id ?? '' },
         }
-      : toFinanceRequest(draft);
+      : draft.kind === 'RESGATE'
+        ? {
+            path: '/api/ledger/resgates',
+            body: {
+              ...investmentBase(draft),
+              asset_id: draft.asset?.id ?? '',
+              ...(draft.linkExpense
+                ? {
+                    linked_expense: {
+                      category_id: draft.categoryId,
+                      ...(draft.description.trim() === ''
+                        ? {}
+                        : { description: draft.description.trim() }),
+                    },
+                  }
+                : {}),
+            },
+          }
+        : toFinanceRequest(draft);
 
 const toFinanceRequest = (draft: Draft): EntryRequest =>
   draft.kind === 'PAGAMENTO_FATURA'
@@ -356,6 +457,23 @@ export const previewRows = (
           before: cents(response.account.before),
           after: cents(response.account.after),
         },
+      ]),
+  ...(response.portfolios ?? []).flatMap((p) => [
+    pair('quantity', `Quantidade · ${p.portfolio_name}`, 'quantity', p.quantity),
+    pair('avg_price', `Preço médio · ${p.portfolio_name}`, 'money', p.avg_price),
+    pair('cost_basis', `Custo total · ${p.portfolio_name}`, 'money', p.cost_basis),
+  ]),
+  ...(response.net_amount === undefined
+    ? []
+    : [
+        pair('gross', 'Valor bruto', 'money', {
+          before: '0',
+          after: response.gross_amount ?? response.net_amount,
+        }),
+        pair('net', 'Valor líquido na conta', 'money', {
+          before: '0',
+          after: response.net_amount,
+        }),
       ]),
   ...(response.position === null || response.position === undefined
     ? []

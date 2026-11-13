@@ -35,6 +35,16 @@ type BeforeAfter = { readonly before: string; readonly after: string };
 
 /** O que o preview devolve: o efeito de Finanças ou o de aporte/resgate (conta e posição). */
 export type PreviewResponse = {
+  /** Provento: o que a api calculou na data-com. */
+  readonly gross_amount?: string;
+  readonly net_amount?: string;
+  /** Evento: o efeito por carteira. */
+  readonly portfolios?: readonly {
+    readonly portfolio_name: string;
+    readonly quantity: { readonly before: string; readonly after: string };
+    readonly avg_price: { readonly before: string; readonly after: string };
+    readonly cost_basis: { readonly before: string; readonly after: string };
+  }[];
   readonly effect?: EffectResource;
   readonly account?: {
     readonly account_id: string;
@@ -52,18 +62,35 @@ export const previewEntry = (
   req: EntryRequest,
   signal?: AbortSignal,
 ): Promise<PreviewResponse> =>
-  request(`${req.path}?preview=true`, as<PreviewResponse>(), {
-    method: 'POST',
-    body: JSON.stringify(req.body),
-    ...(signal === undefined ? {} : { signal }),
-  });
+  request(
+    req.preview === undefined ? `${req.path}?preview=true` : req.preview.path,
+    as<PreviewResponse>(),
+    {
+      method: 'POST',
+      body: JSON.stringify(req.preview?.body ?? req.body),
+      ...(signal === undefined ? {} : { signal }),
+    },
+  );
 
-export const saveEntry = (req: EntryRequest, idempotencyKey: string): Promise<unknown> =>
-  request(req.path, as<unknown>(), {
+export const saveEntry = async (
+  req: EntryRequest,
+  idempotencyKey: string,
+): Promise<unknown> => {
+  const saved = await request(req.path, as<{ event?: { id?: string } }>(), {
     method: 'POST',
     body: JSON.stringify(req.body),
     headers: { 'Idempotency-Key': idempotencyKey },
   });
+  // Registrar um evento não o aplica: confirmar é o que ajusta a posição.
+  const eventId = saved.event?.id;
+  if (req.confirmEvent === true && eventId !== undefined) {
+    await request(`/api/corporate-events/${eventId}/confirm`, as<unknown>(), {
+      method: 'POST',
+      body: '{}',
+    });
+  }
+  return saved;
+};
 
 export type CategoryOption = {
   readonly id: string;
