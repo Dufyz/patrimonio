@@ -211,3 +211,5 @@ export { parseListedInstrumentFromDB } from './instrument/instrument.parsers.js'
 
 // ─── Finanças ────────────────────────────────────────────────────────────────
 export * from './finance/index.js';
+export { EXPOSURE_CLASSES, EXPOSURE_LABEL, exposureClassOf } from './asset/exposure.js';
+export type { EtfExposure, ExposureClass } from './asset/exposure.js';
