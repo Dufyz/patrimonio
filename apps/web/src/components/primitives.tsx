@@ -337,9 +337,18 @@ export const Chip = ({
  * Ponto de saúde do preço, na frente do número. A cor sozinha não basta — a
  * dica diz o mesmo em palavras, e é ela que aparece para quem usa teclado.
  */
+/** POS-03: o texto do ponto laranja, igual no `title` e no leitor de tela. */
+export const staleDescription = (priceDate: string | null): string => {
+  const [, month = '', day = ''] = (priceDate ?? '').split('-');
+  return priceDate === null || month === ''
+    ? 'sem cotação do dia; usando o último preço'
+    : `sem cotação do dia; usando preço de ${day}/${month}`;
+};
+
 export const PriceHealthDot = ({
   kind,
   showFresh = false,
+  priceDate = null,
 }: {
   readonly kind: 'fresh' | 'stale' | 'manual' | 'missing';
   /**
@@ -348,6 +357,8 @@ export const PriceHealthDot = ({
    * legenda, ganha — senão a legenda não explica o estado normal.
    */
   readonly showFresh?: boolean;
+  /** `AAAA-MM-DD` do último preço conhecido; entra no texto do ponto atrasado. */
+  readonly priceDate?: string | null;
 }): React.ReactElement | null => {
   if (kind === 'fresh' && !showFresh) return null;
 
@@ -367,7 +378,7 @@ export const PriceHealthDot = ({
       ? 'sem preço · usa o custo'
       : kind === 'manual'
         ? 'preço definido à mão'
-        : 'preço atrasado ou de fonte alternativa';
+        : staleDescription(priceDate);
 
   return (
     <span

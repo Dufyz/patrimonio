@@ -589,6 +589,11 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
     cell: (row) => (
       <span className="flex min-w-0 items-center gap-2 font-semibold" title={row.name}>
         <span className="truncate">{positionTitle(row)}</span>
+        {row.closed === true ? null : (
+          <span className="shrink-0">
+            <PriceHealthDot kind={row.price_health} priceDate={row.price_date} />
+          </span>
+        )}
         {row.closed === true ? (
           <span className="shrink-0 rounded-sm bg-accent-soft px-1.5 py-px text-[0.6875rem] font-medium text-accent">
             Fechado
@@ -653,7 +658,6 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
         <span className="text-ink-3">—</span>
       ) : (
         <span className="whitespace-nowrap">
-          <PriceHealthDot kind={row.price_health} />
           <Money value={row.price} bare />
         </span>
       ),
@@ -833,7 +837,7 @@ const RowMenu = ({
       },
       {
         id: 'manual_price',
-        label: 'Definir preço manual',
+        label: 'Definir preço',
         icon: <Icon name="pencil" />,
         onSelect: () => onManualPrice(position),
       },

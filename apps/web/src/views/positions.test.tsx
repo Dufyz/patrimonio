@@ -326,9 +326,7 @@ describe('tela de Posições', () => {
     expect(
       screen.getByRole('menuitem', { name: /Lançar compra ou venda/ }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('menuitem', { name: /Definir preço manual/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Definir preço/ })).toBeInTheDocument();
   });
 
   it('o menu da linha abre a página do ativo, pelo apelido dele', async () => {
@@ -368,7 +366,7 @@ describe('tela de Posições', () => {
     show();
 
     await user.click(await screen.findByRole('button', { name: 'Ações de ITUB4' }));
-    await user.click(screen.getByRole('menuitem', { name: /Definir preço manual/ }));
+    await user.click(screen.getByRole('menuitem', { name: /Definir preço/ }));
 
     const campo = screen.getByRole('textbox', { name: 'Preço' });
     // O campo abre com o preço de hoje já em vírgula, e não em ponto.
@@ -390,7 +388,7 @@ describe('tela de Posições', () => {
     show();
 
     await user.click(await screen.findByRole('button', { name: 'Ações de ITUB4' }));
-    await user.click(screen.getByRole('menuitem', { name: /Definir preço manual/ }));
+    await user.click(screen.getByRole('menuitem', { name: /Definir preço/ }));
 
     const campo = screen.getByRole('textbox', { name: 'Preço' });
     await user.clear(campo);
@@ -480,6 +478,34 @@ describe('tela de Posições', () => {
     await waitFor(() =>
       expect(tableCalls().at(-1)).toContain('price_status=sem_cotacao'),
     );
+  });
+
+  it('ativo sem cotação do dia ganha ponto ao lado do nome, dizendo qual preço usa', async () => {
+    const base = resource();
+    const [first, ...others] = base.groups;
+    if (first === undefined) throw new Error('fixture sem grupo');
+    const [row, ...rest] = first.positions;
+    if (row === undefined) throw new Error('fixture sem linha');
+    answerWith({
+      ...base,
+      groups: [
+        {
+          ...first,
+          positions: [
+            { ...row, price_health: 'stale', price_date: '2026-10-02' },
+            ...rest,
+          ],
+        },
+        ...others,
+      ],
+    });
+    show();
+
+    await screen.findByText('ITUB4');
+    expect(
+      screen.getAllByRole('img', { name: 'sem cotação do dia; usando preço de 02/10' })
+        .length,
+    ).toBeGreaterThan(0);
   });
 
   it('a busca espera a digitação parar antes de virar pedido', async () => {

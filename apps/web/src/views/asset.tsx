@@ -307,7 +307,10 @@ export const AssetScreen = ({
                     <span aria-hidden="true">·</span>
                     <span className="flex items-center gap-1">
                       {resource.price.price_health === null ? null : (
-                        <PriceHealthDot kind={resource.price.price_health} />
+                        <PriceHealthDot
+                          kind={resource.price.price_health}
+                          priceDate={resource.price.price_date}
+                        />
                       )}
                       {stamp}
                     </span>
@@ -333,7 +336,7 @@ export const AssetScreen = ({
                   },
                   {
                     id: 'manual_price',
-                    label: 'Definir preço manual',
+                    label: 'Definir preço',
                     icon: <Icon name="tag" />,
                     onSelect: () => setManualPriceOpen(true),
                   },
