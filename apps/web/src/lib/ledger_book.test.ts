@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { BookRowResource } from '@patrimonio/contracts';
 
 import {
+  assetTarget,
   sectionTotals,
   balanceOf,
   dayLabel,
@@ -167,5 +168,27 @@ describe('LAN-05 · sectionTotals', () => {
         row('TRANSFERENCIA', 'lancado', '300'),
       ]),
     ).toEqual({ in: 5000n, out: 1200n, planned: 1 });
+  });
+});
+
+describe('LAN-03.5 · ativo da linha de investimento', () => {
+  const aporte = row({
+    kind: 'APORTE',
+    description: 'Aporte em ITUB4',
+    asset_id: 'as1',
+    portfolio_id: 'p1',
+  });
+  const slugs = new Map([['p1', 'longo-prazo']]);
+
+  it('com carteira filtrada abre a página do ativo naquela carteira', () => {
+    expect(assetTarget(aporte, ['p1'], slugs)).toBe('/carteiras/longo-prazo/ativos/as1');
+  });
+
+  it('em Todas abre Posições filtrada pelo código', () => {
+    expect(assetTarget(aporte, [], slugs)).toBe('/carteiras/todas/posicoes?busca=ITUB4');
+  });
+
+  it('linha sem ativo não tem link', () => {
+    expect(assetTarget(row({}), ['p1'], slugs)).toBeNull();
   });
 });

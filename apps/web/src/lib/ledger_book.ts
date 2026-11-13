@@ -1,4 +1,6 @@
 import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
+import { ALL_SCOPE } from './scope.js';
+import { routes } from './routes.js';
 
 /**
  * LAN-01 · O que a tela Lançamentos decide sobre as linhas do livro.
@@ -278,4 +280,27 @@ export const sectionTotals = (
     else if (sign === '-') outflow += BigInt(row.amount);
   }
   return { in: inflow, out: outflow, planned };
+};
+
+/**
+ * LAN-03.5 · Para onde leva o ativo de uma linha de investimento: com carteira
+ * filtrada, a página do ativo naquela carteira; em Todas, Posições filtrada
+ * pelo código. O livro nomeia o ativo pelo código, sempre a última palavra da
+ * descrição ("Aporte em ITUB4").
+ */
+export const assetTarget = (
+  row: BookRowResource,
+  portfolioFilter: readonly string[],
+  slugs: ReadonlyMap<string, string>,
+): string | null => {
+  if (row.asset_id === null || row.portfolio_id === null) return null;
+
+  const slug = slugs.get(row.portfolio_id);
+  if (portfolioFilter.length > 0 && slug !== undefined) {
+    return routes.asset(slug, row.asset_id);
+  }
+
+  const ticker = row.description.split(' ').at(-1) ?? '';
+  const search = new URLSearchParams({ busca: ticker }).toString();
+  return `${routes.portfolio(ALL_SCOPE, 'posicoes')}?${search}`;
 };

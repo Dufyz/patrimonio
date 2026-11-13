@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
 
@@ -21,6 +21,7 @@ import {
   GROUPING_LABEL,
   GROUPINGS,
   plannedSection,
+  assetTarget,
   sectionsOfGroups,
   sectionTotals,
   detailOf,
@@ -172,7 +173,7 @@ export const LedgerScreen = (): React.ReactElement => {
     setSingle({ row, action });
   };
   const [reload, setReload] = useState(0);
-  const { portfolios: portfolioList } = usePortfolios();
+  const { portfolios: portfolioList, slugs } = usePortfolios();
   const [categories, setCategories] = useState<readonly CategoryOption[]>([]);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -606,7 +607,18 @@ export const LedgerScreen = (): React.ReactElement => {
                 <td className="tabular">
                   {row.date.slice(8)}/{row.date.slice(5, 7)}
                 </td>
-                <td>{row.description}</td>
+                <td>
+                  {assetTarget(row, filters.carteira, slugs) === null ? (
+                    row.description
+                  ) : (
+                    <Link
+                      to={assetTarget(row, filters.carteira, slugs) as string}
+                      className="cursor-pointer hover:underline"
+                    >
+                      {row.description}
+                    </Link>
+                  )}
+                </td>
                 <td className="max-md:hidden">{KIND_LABEL[row.kind]}</td>
                 <td className="max-lg:hidden">
                   <CategoryCell
