@@ -264,6 +264,62 @@ export const listBookSchema = z.object({
     limit: z.coerce.number().int().min(1).max(200).default(50),
   }),
 });
+/** LIV-02 · A resposta do livro: linhas, totais que fecham com a faixa e grupos. */
+const bookTotalsSchema = z.object({
+  receitas: z.string(),
+  despesas: z.string(),
+  aportes: z.string(),
+  saldo_do_mes: z.string(),
+  previsto: z.object({
+    receitas: z.string(),
+    despesas: z.string(),
+    aportes: z.string(),
+  }),
+  a_lancar: z.number().int().nonnegative(),
+});
+
+export const bookRowSchema = z.object({
+  id: z.string(),
+  kind: z.enum(LEDGER_KIND_VALUES),
+  date: z.string(),
+  situation: z.enum(['previsto', 'lancado']),
+  description: z.string(),
+  amount: z.string().nullable(),
+  account_id: z.string().nullable(),
+  to_account_id: z.string().nullable(),
+  card_id: z.string().nullable(),
+  category_id: z.string().nullable(),
+  portfolio_id: z.string().nullable(),
+  asset_id: z.string().nullable(),
+  asset_class: z.string().nullable(),
+  quantity: z.string().nullable(),
+  unit_price: z.string().nullable(),
+  fees: z.string().nullable(),
+  entry: z.object({}).passthrough().nullable(),
+  event_id: z.string().nullable(),
+});
+
+export const bookResponseSchema = z.object({
+  range: z.object({ from: z.string(), to: z.string() }),
+  rows: z.array(bookRowSchema),
+  next_cursor: z.string().nullable(),
+  totals: bookTotalsSchema,
+  count: z.number().int().nonnegative(),
+  groups: z
+    .array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        totals: bookTotalsSchema,
+        count: z.number().int().nonnegative(),
+        rows: z.array(bookRowSchema),
+      }),
+    )
+    .nullable(),
+});
+
+export type BookRowResource = z.infer<typeof bookRowSchema>;
+export type BookResponse = z.infer<typeof bookResponseSchema>;
 export const exportEntriesSchema = z.object({
   query: listEntriesSchema.shape.query.omit({ cursor: true, limit: true, group: true }),
 });

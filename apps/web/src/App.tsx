@@ -1,3 +1,4 @@
+import { LedgerScreen } from './views/ledger/ledger_screen.js';
 import { lazy, Suspense, useMemo } from 'react';
 import {
   Link,
@@ -91,6 +92,7 @@ const Workspace = (): React.ReactElement => (
         element={<Navigate to={routes.portfolio(ALL_SCOPE)} replace />}
       />
       {/* Configurações vale para o app inteiro. */}
+      <Route path="/livro" element={<LedgerScreen />} />
       <Route path="/configuracoes" element={<SettingsScreen />} />
       <Route path="*" element={<NotFound />} />
     </Route>
