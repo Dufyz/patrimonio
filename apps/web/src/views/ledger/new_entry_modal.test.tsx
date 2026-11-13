@@ -142,4 +142,54 @@ describe('NewEntryModal', () => {
       amount: '300',
     });
   });
+
+  it('pagamento de fatura: escolher o cartão preenche conta e valor', async () => {
+    const calls: { url: string; init: RequestInit | undefined }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url, init });
+        const body = url.includes('categories')
+          ? categories
+          : url.endsWith('/cards')
+            ? {
+                cards: [
+                  {
+                    card: { id: 'k1', name: 'Nubank Roxinho', pay_account_id: 'a1' },
+                    invoice: { month: '2026-11', status: 'fechada', remaining: '450.10' },
+                  },
+                  {
+                    card: { id: 'k2', name: 'Paga', pay_account_id: 'a1' },
+                    invoice: { month: '2026-11', status: 'paga', remaining: '0' },
+                  },
+                ],
+              }
+            : effect;
+        return new Response(JSON.stringify(body), { status: 200 });
+      }),
+    );
+    const onSaved = vi.fn();
+    render(
+      <PreferencesProvider>
+        <NewEntryModal
+          today="2026-11-13"
+          accounts={[{ id: 'a1', name: 'Nubank' }]}
+          context={{ invoice: true }}
+          onSaved={onSaved}
+          onClose={() => undefined}
+        />
+      </PreferencesProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText('Cartão').querySelectorAll('option').length).toBe(2),
+    );
+    fireEvent.change(screen.getByLabelText('Cartão'), { target: { value: 'k1' } });
+    expect((screen.getByLabelText('Valor') as HTMLInputElement).value).toBe('450.10');
+    fireEvent.click(screen.getByRole('button', { name: /Lançar/ }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    const post = calls.find(
+      (c) => c.init?.method === 'POST' && !c.url.includes('preview'),
+    );
+    expect(post?.url).toBe('/api/finance/cards/k1/invoices/2026-11/payments');
+  });
 });

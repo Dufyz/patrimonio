@@ -79,4 +79,21 @@ describe('ledger_entry_form', () => {
       body: { from_account_id: 'a1', to_account_id: 'a2', amount: '12.50', note: null },
     });
   });
+
+  it('pagamento de fatura: cartão obrigatório, vai para /invoices/:mês/payments', () => {
+    const base = { ...switchKind(filled, 'PAGAMENTO_FATURA'), description: '' };
+    expect(validateDraft(base, TODAY).cardId).toBeDefined();
+    const pay = {
+      ...base,
+      cardId: 'k1',
+      month: '2026-11',
+      accountId: 'a1',
+      amount: '450,10',
+    };
+    expect(isValid(validateDraft(pay, TODAY))).toBe(true);
+    expect(toRequest(pay)).toEqual({
+      path: '/api/finance/cards/k1/invoices/2026-11/payments',
+      body: { account_id: 'a1', date: TODAY, amount: '450.10' },
+    });
+  });
 });

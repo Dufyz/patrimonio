@@ -12,6 +12,12 @@ export type EffectResource = {
     readonly before: string;
     readonly after: string;
   }[];
+  readonly invoices?: readonly {
+    readonly name: string;
+    readonly month: string;
+    readonly before: string;
+    readonly after: string;
+  }[];
   readonly months: readonly {
     readonly month: string;
     readonly receitas_before: string;
@@ -58,3 +64,36 @@ export const fetchCategories = async (
       signal === undefined ? {} : { signal },
     )
   ).categories;
+
+export type CardOption = {
+  readonly id: string;
+  readonly name: string;
+  readonly payAccountId: string;
+  /** A fatura vigente: o mês, a situação e o que falta pagar. */
+  readonly month: string;
+  readonly status: 'prevista' | 'aberta' | 'fechada' | 'parcial' | 'paga';
+  readonly remaining: string;
+};
+
+export const fetchCards = async (
+  signal?: AbortSignal,
+): Promise<readonly CardOption[]> => {
+  const body = await request(
+    '/api/finance/cards',
+    as<{
+      cards: readonly {
+        card: { id: string; name: string; pay_account_id: string };
+        invoice: { month: string; status: CardOption['status']; remaining: string };
+      }[];
+    }>(),
+    signal === undefined ? {} : { signal },
+  );
+  return body.cards.map((c) => ({
+    id: c.card.id,
+    name: c.card.name,
+    payAccountId: c.card.pay_account_id,
+    month: c.invoice.month,
+    status: c.invoice.status,
+    remaining: c.invoice.remaining,
+  }));
+};

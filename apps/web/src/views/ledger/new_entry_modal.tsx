@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { ApiError } from '../../api/client.js';
-import { fetchCategories, previewEntry, saveEntry } from '../../api/ledger_write.js';
-import type { CategoryOption } from '../../api/ledger_write.js';
+import {
+  fetchCards,
+  fetchCategories,
+  previewEntry,
+  saveEntry,
+} from '../../api/ledger_write.js';
+import type { CardOption, CategoryOption } from '../../api/ledger_write.js';
 import { EffectTable } from '../../components/effect_table.js';
 import { Modal } from '../../components/overlay.js';
 import { Segmented } from '../../components/primitives.js';
@@ -47,9 +52,16 @@ export const NewEntryModal = ({
 }): React.ReactElement => {
   const [draft, setDraft] = useState<Draft>(() => newDraft(today, context, initialKind));
   const [categories, setCategories] = useState<readonly CategoryOption[]>([]);
+  const [cards, setCards] = useState<readonly CardOption[]>([]);
   const [attempted, setAttempted] = useState(false);
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchCards()
+      .then(setCards)
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     fetchCategories()
@@ -69,6 +81,19 @@ export const NewEntryModal = ({
   );
 
   const transfer = draft.kind === 'TRANSFERENCIA';
+  const payment = draft.kind === 'PAGAMENTO_FATURA';
+  // Fatura paga não tem o que pagar; prevista ainda não pode ser paga.
+  const payable = cards.filter((c) => c.status !== 'paga' && c.status !== 'prevista');
+  const pickCard = (id: string): void => {
+    const card = cards.find((c) => c.id === id);
+    setDraft((d) => ({
+      ...d,
+      cardId: id,
+      month: card?.month ?? '',
+      accountId: card?.payAccountId ?? d.accountId,
+      amount: card?.remaining ?? d.amount,
+    }));
+  };
   const options = categories
     .filter((c) => c.kind === (draft.kind === 'RECEITA' ? 'receita' : 'despesa'))
     .map((c) => ({ id: c.id, name: c.name }));
@@ -116,19 +141,34 @@ export const NewEntryModal = ({
             label: MODAL_KIND_LABEL[kind],
           }))}
         />
-        <Field
-          label={transfer ? 'Descrição (opcional)' : 'Descrição'}
-          error={shown('description')}
-        >
-          {(props) => (
-            <Input
-              {...props}
-              invalid={shown('description') !== undefined}
-              value={draft.description}
-              onChange={(e) => set({ description: e.target.value })}
-            />
-          )}
-        </Field>
+        {payment ? (
+          <Field label="Cartão" error={shown('cardId')}>
+            {(props) => (
+              <Select
+                {...props}
+                invalid={shown('cardId') !== undefined}
+                placeholder="Escolha o cartão"
+                options={payable}
+                value={draft.cardId}
+                onChange={(e) => pickCard(e.target.value)}
+              />
+            )}
+          </Field>
+        ) : (
+          <Field
+            label={transfer ? 'Descrição (opcional)' : 'Descrição'}
+            error={shown('description')}
+          >
+            {(props) => (
+              <Input
+                {...props}
+                invalid={shown('description') !== undefined}
+                value={draft.description}
+                onChange={(e) => set({ description: e.target.value })}
+              />
+            )}
+          </Field>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <Field label="Data" error={shown('date')}>
             {(props) => (
@@ -185,7 +225,7 @@ export const NewEntryModal = ({
                 />
               )}
             </Field>
-          ) : (
+          ) : payment ? null : (
             <Field label="Categoria" error={shown('categoryId')}>
               {(props) => (
                 <Select

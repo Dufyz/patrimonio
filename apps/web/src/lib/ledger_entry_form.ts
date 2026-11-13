@@ -11,13 +11,19 @@ import { parseDecimal } from './decimal.js';
  * Trocar de tipo mantém os campos compatíveis (data, valor, conta, descrição) e
  * descarta só a categoria, que é de um tipo.
  */
-export const MODAL_KINDS = ['RECEITA', 'DESPESA', 'TRANSFERENCIA'] as const;
+export const MODAL_KINDS = [
+  'RECEITA',
+  'DESPESA',
+  'TRANSFERENCIA',
+  'PAGAMENTO_FATURA',
+] as const;
 export type ModalKind = (typeof MODAL_KINDS)[number];
 
 export const MODAL_KIND_LABEL: Readonly<Record<ModalKind, string>> = {
   RECEITA: 'Receita',
   DESPESA: 'Despesa',
   TRANSFERENCIA: 'Transferência',
+  PAGAMENTO_FATURA: 'Pagamento de fatura',
 };
 
 export type Draft = {
@@ -28,6 +34,9 @@ export type Draft = {
   readonly accountId: string;
   /** Só transferência: a conta de destino. */
   readonly toAccountId: string;
+  /** Só pagamento de fatura: o cartão e o mês da fatura. */
+  readonly cardId: string;
+  readonly month: string;
   readonly categoryId: string;
 };
 
@@ -40,7 +49,8 @@ export type DraftContext = {
 };
 
 /** O tipo inicial vem do contexto: fatura → pagamento; ativo → aporte; resto → despesa. */
-export const initialKind = (_context: DraftContext): ModalKind => 'DESPESA';
+export const initialKind = (context: DraftContext): ModalKind =>
+  context.invoice === true ? 'PAGAMENTO_FATURA' : 'DESPESA';
 
 export const newDraft = (
   today: string,
@@ -53,11 +63,15 @@ export const newDraft = (
   amount: '',
   accountId: context.accountId ?? '',
   toAccountId: '',
+  cardId: context.cardId ?? '',
+  month: '',
   categoryId: '',
 });
 
 export const switchKind = (draft: Draft, kind: ModalKind): Draft =>
-  kind === draft.kind ? draft : { ...draft, kind, categoryId: '', toAccountId: '' };
+  kind === draft.kind
+    ? draft
+    : { ...draft, kind, categoryId: '', toAccountId: '', cardId: '', month: '' };
 
 export type DraftErrors = Partial<Record<keyof Draft, string>>;
 
@@ -68,7 +82,8 @@ export const FUTURE_DATE_MESSAGE =
 export const validateDraft = (draft: Draft, today: string): DraftErrors => {
   const errors: DraftErrors = {};
   const transfer = draft.kind === 'TRANSFERENCIA';
-  if (!transfer && draft.description.trim() === '') {
+  const payment = draft.kind === 'PAGAMENTO_FATURA';
+  if (!transfer && !payment && draft.description.trim() === '') {
     errors.description = 'Informe a descrição.';
   }
   if (draft.date === '') errors.date = 'Informe a data.';
@@ -89,6 +104,9 @@ export const validateDraft = (draft: Draft, today: string): DraftErrors => {
     else if (draft.toAccountId === draft.accountId) {
       errors.toAccountId = 'Origem e destino precisam ser contas diferentes.';
     }
+  } else if (payment) {
+    if (draft.cardId === '') errors.cardId = 'Escolha o cartão.';
+    else if (draft.month === '') errors.cardId = 'Esse cartão não tem fatura a pagar.';
   } else if (draft.categoryId === '') errors.categoryId = 'Escolha a categoria.';
   return errors;
 };
@@ -99,33 +117,49 @@ const decimal = (value: string): string => value.trim().replace(',', '.');
 
 export type EntryRequest =
   | { readonly path: '/api/finance/entries'; readonly body: EntryBody }
-  | { readonly path: '/api/finance/transfers'; readonly body: TransferBody };
+  | { readonly path: '/api/finance/transfers'; readonly body: TransferBody }
+  | { readonly path: string; readonly body: InvoicePaymentBody };
+
+export type InvoicePaymentBody = {
+  readonly account_id: string;
+  readonly date: string;
+  readonly amount: string;
+};
 
 /** Vírgula decimal digitada vira o ponto que o contrato pede. */
 export const toRequest = (draft: Draft): EntryRequest =>
-  draft.kind === 'TRANSFERENCIA'
+  draft.kind === 'PAGAMENTO_FATURA'
     ? {
-        path: '/api/finance/transfers',
+        path: `/api/finance/cards/${draft.cardId}/invoices/${draft.month}/payments`,
         body: {
-          from_account_id: draft.accountId,
-          to_account_id: draft.toAccountId,
-          amount: decimal(draft.amount),
+          account_id: draft.accountId,
           date: draft.date,
-          note: draft.description.trim() === '' ? null : draft.description.trim(),
+          amount: decimal(draft.amount),
         },
       }
-    : {
-        path: '/api/finance/entries',
-        body: {
-          kind: draft.kind === 'RECEITA' ? 'receita' : 'despesa',
-          description: draft.description.trim(),
-          date: draft.date,
-          category_id: draft.categoryId,
-          amount: decimal(draft.amount),
-          payments: [{ source_type: 'conta', source_id: draft.accountId }],
-          status: 'lancada',
-        },
-      };
+    : draft.kind === 'TRANSFERENCIA'
+      ? {
+          path: '/api/finance/transfers',
+          body: {
+            from_account_id: draft.accountId,
+            to_account_id: draft.toAccountId,
+            amount: decimal(draft.amount),
+            date: draft.date,
+            note: draft.description.trim() === '' ? null : draft.description.trim(),
+          },
+        }
+      : {
+          path: '/api/finance/entries',
+          body: {
+            kind: draft.kind === 'RECEITA' ? 'receita' : 'despesa',
+            description: draft.description.trim(),
+            date: draft.date,
+            category_id: draft.categoryId,
+            amount: decimal(draft.amount),
+            payments: [{ source_type: 'conta', source_id: draft.accountId }],
+            status: 'lancada',
+          },
+        };
 
 const cents = (value: string): number => {
   const parts = parseDecimal(value);
@@ -141,6 +175,11 @@ export const effectRows = (effect: EffectResource): readonly EffectRow[] => [
     label: `Saldo · ${a.name}`,
     before: cents(a.before),
     after: cents(a.after),
+  })),
+  ...(effect.invoices ?? []).map((i) => ({
+    label: `Fatura · ${i.name} ${i.month}`,
+    before: cents(i.before),
+    after: cents(i.after),
   })),
   ...effect.months.flatMap((m) => [
     {
