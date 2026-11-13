@@ -651,4 +651,20 @@ describe('SettingsView', () => {
     expect(screen.getByRole('alert').textContent).toMatch(/api fora do ar/);
     expect(screen.queryByRole('heading', { name: 'Carteiras' })).toBeNull();
   });
+
+  it('CFG-07 · o menu tem versão em seletor e as setas percorrem os itens', async () => {
+    const user = userEvent.setup();
+    montar({ section: 'dados-e-backup' });
+
+    const select = screen.getByRole('combobox', { name: 'Seção de configuração' });
+    expect((select as HTMLSelectElement).value).toBe('dados-e-backup');
+
+    const menu = screen.getByRole('navigation', { name: 'Seções de configuração' });
+    const buttons = within(menu).getAllByRole('button');
+    buttons[0]?.focus();
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(buttons[1]);
+    await user.keyboard('{ArrowUp}');
+    expect(document.activeElement).toBe(buttons[0]);
+  });
 });

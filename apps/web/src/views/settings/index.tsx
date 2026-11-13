@@ -120,8 +120,41 @@ const SectionNav = ({
         <h1 className="text-screen-title leading-7 font-semibold">Configurações</h1>
         <p className="text-xs text-ink-3">Valem para o app inteiro</p>
       </header>
+      {/* CFG-07 · Abaixo de 1.000 px o menu vira um seletor no topo. */}
+      <select
+        aria-label="Seção de configuração"
+        value={section}
+        onChange={(e) => onSection(e.target.value as SectionId)}
+        className="h-control w-full rounded-control border border-line bg-field px-3 text-sm lg:hidden"
+      >
+        {groups.map((group) => (
+          <optgroup key={group} label={group}>
+            {SECTIONS.filter((item) => item.group === group).map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
       {groups.map((group) => (
-        <div key={group}>
+        <div
+          key={group}
+          className="max-lg:hidden"
+          onKeyDown={(event) => {
+            // Setas percorrem o menu interno, de cima a baixo, entre os grupos.
+            if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+            const items = [
+              ...(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+                'ul button',
+              ) ?? []),
+            ];
+            const at = items.indexOf(document.activeElement as HTMLButtonElement);
+            if (at === -1) return;
+            event.preventDefault();
+            items[at + (event.key === 'ArrowDown' ? 1 : -1)]?.focus();
+          }}
+        >
           <p className="mb-1 px-3 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
             {group}
           </p>
