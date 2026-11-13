@@ -5,6 +5,7 @@ import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
 
 import { confirmPlanned, fetchAccountNames, fetchBook } from '../../api/book.js';
 import { downloadCsv } from '../../finance/lib/csv.js';
+import { ScreenHeader } from '../../finance/components/screen_header.js';
 import { StatStrip } from '../../finance/components/stat_strip.js';
 import { formatMoney, formatQuantity, MINUS } from '../../lib/format.js';
 import type { Grouping, GroupSection } from '../../lib/ledger_book.js';
@@ -32,6 +33,7 @@ import {
   EMPTY_FILTERS,
 } from '../../lib/ledger_filters.js';
 import type { LedgerFilters } from '../../lib/ledger_filters.js';
+import { NewEntryModal } from './new_entry_modal.js';
 import { readGrouping, writeGrouping } from '../../lib/view_preferences.js';
 import { usePreferences } from '../../components/preferences.js';
 
@@ -108,6 +110,7 @@ export const LedgerScreen = (): React.ReactElement => {
   const [failed, setFailed] = useState(false);
   const [accounts, setAccounts] = useState<ReadonlyMap<string, string>>(new Map());
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [creating, setCreating] = useState(false);
   const [reload, setReload] = useState(0);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -185,7 +188,23 @@ export const LedgerScreen = (): React.ReactElement => {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-screen-title font-semibold">Lançamentos</h1>
+      <ScreenHeader
+        title="Lançamentos"
+        subtitle={`${book.count} ${book.count === 1 ? 'lançamento' : 'lançamentos'} no período`}
+        primary={{
+          label: 'Lançamento',
+          onClick: () => setCreating(true),
+          pending: planned.rows.filter((r) => r.date <= today).length,
+        }}
+      />
+      {creating ? (
+        <NewEntryModal
+          today={today}
+          accounts={[...accounts].map(([id, name]) => ({ id, name }))}
+          onSaved={() => setReload((n) => n + 1)}
+          onClose={() => setCreating(false)}
+        />
+      ) : null}
       <StatStrip
         label="Resumo do período"
         cells={[
