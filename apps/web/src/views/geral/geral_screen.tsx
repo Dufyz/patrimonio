@@ -10,9 +10,14 @@ import { fetchGoalsOverview } from '../../api/goals.js';
 import { fetchOverview } from '../../api/overview.js';
 import { HomeScopeControl } from '../../components/home_scope_control.js';
 import { usePortfolios } from '../../components/portfolios_provider.js';
-import { MoneyChange, PercentChange } from '../../components/number.js';
+import {
+  Money,
+  MoneyChange,
+  PercentChange,
+  PrincipalMoney,
+} from '../../components/number.js';
 import { KeepPrevious } from '../../components/pending.js';
-import { Panel } from '../../components/primitives.js';
+import { Label, Panel } from '../../components/primitives.js';
 import { SeriesChart } from '../../components/series_chart.js';
 import { SkeletonChart, SkeletonRegion } from '../../components/skeleton.js';
 import { Amount } from '../../finance/components/amount.js';
@@ -44,7 +49,7 @@ import { financeRoutes } from '../../finance/lib/routes.js';
 import { useFinanceData, useFinanceStore } from '../../finance/store/finance_store.js';
 import { commands } from '../../finance/store/commands.js';
 import { DEFAULT_PERIOD, resolvePeriod } from '../../lib/period.js';
-import { formatDate, percentAsRatio } from '../../lib/overview.js';
+import { formatDate, monthLabel, percentAsRatio } from '../../lib/overview.js';
 import { routes } from '../../lib/routes.js';
 import { ALL_SCOPE } from '../../lib/scope.js';
 import type { Resource } from '../../lib/use_resource.js';
@@ -612,6 +617,62 @@ const InvestmentsFailed = ({
   </p>
 );
 
+/**
+ * VGR-05 · O cabeçalho da evolução: o patrimônio das carteiras, a variação do
+ * mês da última consolidação e os três totais do período. O valor é o mesmo
+ * de Em carteiras e de Posições (RN-U16).
+ */
+const EvolutionHeader = ({
+  overview,
+}: {
+  readonly overview: OverviewResource;
+}): React.ReactElement | null => {
+  if (overview.reference_date === null) return null;
+  const month = overview.totals.month;
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+      <div className="flex flex-col gap-1">
+        <Label>Patrimônio · {overview.scope.name}</Label>
+        <PrincipalMoney value={overview.totals.value} />
+        {month === null ? null : (
+          <p className="flex flex-wrap items-baseline gap-2 text-[0.8125rem]">
+            <span className="flex items-baseline gap-2 font-semibold">
+              <MoneyChange value={month.amount} />
+              <span aria-hidden="true" className="font-normal text-ink-3">
+                ·
+              </span>
+              <PercentChange value={percentAsRatio(month.ratio)} />
+            </span>
+            <span className="text-xs text-ink-3">
+              em {monthLabel(overview.reference_date as DateOnly)}
+            </span>
+          </p>
+        )}
+      </div>
+      <dl className="flex flex-wrap gap-x-6 gap-y-1 text-[0.8125rem]">
+        <div>
+          <dt className="text-xs text-ink-3">Rentabilidade 12M</dt>
+          <dd className="tabular">
+            <PercentChange value={percentAsRatio(overview.period.return_pct)} />
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-3">Aportes 12M</dt>
+          <dd className="tabular">
+            <Money value={overview.period.contributions} />
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-3">Rendimento 12M</dt>
+          <dd className="tabular">
+            <MoneyChange value={overview.period.income} />
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+};
+
 export const GeralView = ({
   data,
   today,
@@ -658,7 +719,8 @@ export const GeralView = ({
           ) : overview.state.kind === 'error' ? (
             <InvestmentsFailed error={overview.state.error} onRetry={overview.reload} />
           ) : (
-            <KeepPrevious pending={overview.pending} className="p-4">
+            <KeepPrevious pending={overview.pending} className="flex flex-col gap-4 p-4">
+              <EvolutionHeader overview={overview.state.value} />
               <Evolution overview={overview.state.value} />
             </KeepPrevious>
           )}

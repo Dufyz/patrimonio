@@ -304,6 +304,34 @@ describe('Visão geral de Geral (GER)', () => {
     vi.unstubAllGlobals();
   });
 
+  it('VGR-05 · a evolução mostra o patrimônio das carteiras, a variação do mês e os totais', () => {
+    const base = overviewOf('194998.09');
+    open(
+      ready({
+        ...base,
+        totals: {
+          value: '194998.09',
+          day: null,
+          month: { amount: '1200.00', ratio: '0.62' },
+        },
+        period: {
+          ...base.period,
+          return_pct: '8.5',
+          contributions: '24000.00',
+          income: '9000.00',
+        },
+      } as OverviewResource),
+    );
+    const painel = screen.getByRole('region', { name: 'Evolução dos investimentos' });
+    expect(
+      within(painel).getByText(/Patrimônio · Todas as carteiras/),
+    ).toBeInTheDocument();
+    expect(within(painel).getByText(/194\.998,09/)).toBeInTheDocument();
+    expect(within(painel).getByText('Aportes 12M')).toBeInTheDocument();
+    expect(within(painel).getByText('Rendimento 12M')).toBeInTheDocument();
+    expect(within(painel).getByText(/em outubro/i)).toBeInTheDocument();
+  });
+
   it('investimentos que falham dizem o que houve e não viram patrimônio zero', () => {
     open({
       state: { kind: 'error', error: new Error('api fora do ar') },
