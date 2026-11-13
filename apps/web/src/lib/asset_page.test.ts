@@ -269,7 +269,7 @@ describe('o estado em que a tela abre', () => {
 
 describe('a ressalva de procedência', () => {
   it('diz de onde o preço veio e de que dia ele é', () => {
-    expect(priceStamp(resource())).toBe('B3 06/10');
+    expect(priceStamp(resource())).toBe('preço D-1 de 06/10');
   });
 
   it('o preço manual e o papel sem preço se identificam', () => {

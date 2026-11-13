@@ -309,9 +309,9 @@ describe('o cabeçalho', () => {
 
     expect(await screen.findByRole('heading', { name: 'ITUB4' })).toBeInTheDocument();
     expect(screen.getByText('Itaú Unibanco PN')).toBeInTheDocument();
-    expect(screen.getByText('R$ 36,84')).toBeInTheDocument();
+    expect(screen.getAllByText('R$ 36,84').length).toBeGreaterThan(0);
     expect(screen.getAllByText(signed('+0,82%')).length).toBeGreaterThan(0);
-    expect(screen.getByText(/B3 06\/10/)).toBeInTheDocument();
+    expect(screen.getByText(/preço D-1 de 06\/10/)).toBeInTheDocument();
   });
 
   it('as pastilhas dizem categoria, setor e onde está custodiado', async () => {
@@ -334,7 +334,7 @@ describe('o cabeçalho', () => {
 });
 
 describe('a posição', () => {
-  it('a faixa de números traz as quatro células e a linha de apoio da prancha', async () => {
+  it('a faixa de ação traz Quantidade, Preço médio, Preço D-1, Valor, Resultado e Proventos (POS-04)', async () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 
@@ -342,21 +342,27 @@ describe('a posição', () => {
     const dentro = within(faixa);
 
     const labels = [
-      'Valor atualizado',
-      'Valor investido',
+      'Quantidade',
+      'Preço médio',
+      'Preço D-1',
+      'Valor',
       'Resultado',
+      'Proventos recebidos',
       'Peso na carteira',
       'Rentabilidade (TWR)',
       'Rentabilidade (TIR)',
-      'Proventos recebidos',
     ];
     for (const label of labels) expect(dentro.getByText(label)).toBeInTheDocument();
     expect(faixa.querySelectorAll('dt')).toHaveLength(labels.length);
 
     expect(dentro.getByText('R$ 14.550,00')).toBeInTheDocument();
     expect(dentro.getByText('R$ 18.420,00')).toBeInTheDocument();
-    expect(dentro.getByText(/preço médio/)).toHaveTextContent('R$ 29,10');
-    expect(dentro.getByText(/ações ×/)).toHaveTextContent('500');
+    expect(
+      dentro.getByText('Preço médio').parentElement?.parentElement,
+    ).toHaveTextContent('R$ 29,10');
+    expect(dentro.getByText('Quantidade').parentElement?.parentElement).toHaveTextContent(
+      '500 ações',
+    );
     expect(dentro.getAllByText(signed('+23,1%')).length).toBeGreaterThan(0);
     expect(dentro.getAllByText(signed('+18,4%')).length).toBeGreaterThan(0);
     expect(dentro.getByText('5,8%')).toBeInTheDocument();

@@ -250,7 +250,7 @@ export const priceStamp = (resource: AssetPageResource): string | null => {
         ? 'sem preço · usa o custo'
         : resource.asset.b3_type === null
           ? 'na curva'
-          : 'B3';
+          : 'preço D-1 de';
 
   return `${source} ${formatShortDate(resource.price.price_date)}`;
 };

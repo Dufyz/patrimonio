@@ -773,7 +773,7 @@ const KpiStrip = ({
             { label: 'IR', value: <Money value={lots.tax_due} /> },
           ]),
     ];
-  } else {
+  } else if (position.unit === 'curve') {
     const noun = QUANTITY_NOUNS[resource.asset.b3_type ?? ''] ?? 'un.';
     cells = [
       {
@@ -836,6 +836,69 @@ const KpiStrip = ({
         value: <Money value={lifetime.payouts_received} />,
       },
     ];
+  } else {
+    const noun = QUANTITY_NOUNS[resource.asset.b3_type ?? ''] ?? 'un.';
+    cells = [
+      {
+        label: 'Quantidade',
+        value:
+          position.quantity === null ? (
+            '—'
+          ) : (
+            <>
+              <Quantity value={position.quantity} decimals={0} /> {noun}
+            </>
+          ),
+        sub: portfolioName,
+      },
+      {
+        label: 'Preço médio',
+        value: position.avg_price === null ? '—' : <Money value={position.avg_price} />,
+        sub: (
+          <>
+            investido <Money value={position.cost_basis} />
+          </>
+        ),
+      },
+      {
+        label: 'Preço D-1',
+        value:
+          resource.price.value === null ? '—' : <Money value={resource.price.value} />,
+        sub:
+          resource.price.price_date === null
+            ? null
+            : formatShortDate(resource.price.price_date),
+      },
+      {
+        label: 'Valor',
+        value: <Money value={position.value} />,
+        sub: null,
+      },
+      {
+        label: 'Resultado',
+        value: <MoneyChange value={position.open_result} />,
+        sub: <PercentChange value={position.open_result_ratio} decimals={2} />,
+      },
+      {
+        label: 'Proventos recebidos',
+        value: <Money value={lifetime.payouts_received} />,
+        sub: null,
+      },
+    ];
+    facts = [
+      {
+        label: 'Peso na carteira',
+        value: <Percent value={position.weight} decimals={1} />,
+      },
+      {
+        label: 'Rentabilidade (TWR)',
+        value: <PercentChange value={lifetime.twr_ratio} decimals={1} />,
+      },
+      {
+        label: 'Rentabilidade (TIR)',
+        value: <PercentChange value={lifetime.xirr_ratio} decimals={1} />,
+      },
+    ];
   }
 
   return (
@@ -847,7 +910,9 @@ const KpiStrip = ({
         <p className="px-5 py-3 text-[0.8125rem] text-ink-3">{note}</p>
       )}
       {cells.length === 0 ? null : (
-        <dl className="grid grid-cols-2 lg:grid-cols-4">
+        <dl
+          className={`grid grid-cols-2 ${cells.length === 6 ? 'lg:grid-cols-6' : 'lg:grid-cols-4'}`}
+        >
           {cells.map((cell, index) => (
             <div
               key={cell.label}
