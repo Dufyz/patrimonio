@@ -36,6 +36,12 @@ import {
 } from '../../lib/ledger_filters.js';
 import type { LedgerFilters } from '../../lib/ledger_filters.js';
 import { totalLink } from '../../lib/total_links.js';
+import { AlertModal } from '../../components/overlay.js';
+import {
+  centsToDecimal,
+  parseAmountInput,
+  suggestedDate,
+} from '../../lib/planned_confirm.js';
 import { BatchActions, BatchDialog } from './batch_actions.js';
 import type { BatchAction } from './batch_actions.js';
 import { canDelete, canMove } from '../../lib/ledger_batch.js';
@@ -127,6 +133,35 @@ export const LedgerScreen = (): React.ReactElement => {
   const searchBox = useRef<HTMLInputElement>(null);
   const shortcuts = useMemo(() => ({ filter: () => searchBox.current?.focus() }), []);
   useShortcuts(shortcuts);
+  const [launching, setLaunching] = useState<BookRowResource | null>(null);
+  const [launchDate, setLaunchDate] = useState('');
+  const [launchAmount, setLaunchAmount] = useState('');
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [launchBusy, setLaunchBusy] = useState(false);
+  const submitLaunch = (): void => {
+    if (launching === null) return;
+    const amount = parseAmountInput(launchAmount);
+    if (amount === null || !/^\d{4}-\d{2}-\d{2}$/.test(launchDate)) {
+      setLaunchError('Informe uma data e um valor maiores que zero.');
+      return;
+    }
+    if (launchDate > today) {
+      setLaunchError('Data futura não vira lançado: deixe como previsto.');
+      return;
+    }
+    setLaunchBusy(true);
+    confirmPlanned(launching.id, { date: launchDate, amount })
+      .then(() => {
+        setLaunching(null);
+        setReload((n) => n + 1);
+      })
+      .catch((error: unknown) =>
+        setLaunchError(
+          error instanceof Error ? error.message : 'Não foi possível lançar',
+        ),
+      )
+      .finally(() => setLaunchBusy(false));
+  };
   const [menuRow, setMenuRow] = useState<string | null>(null);
   const [single, setSingle] = useState<{
     readonly row: BookRowResource;
@@ -447,7 +482,12 @@ export const LedgerScreen = (): React.ReactElement => {
                         type="button"
                         className="cursor-pointer"
                         onClick={() => {
-                          void confirmPlanned(row.id).then(() => setReload((n) => n + 1));
+                          setLaunchDate(suggestedDate(row.date, today));
+                          setLaunchAmount(
+                            row.amount === null ? '' : centsToDecimal(row.amount),
+                          );
+                          setLaunchError(null);
+                          setLaunching(row);
                         }}
                       >
                         Lançar
@@ -563,6 +603,45 @@ export const LedgerScreen = (): React.ReactElement => {
           </tbody>
         ))}
       </table>
+      <AlertModal
+        open={launching !== null}
+        title={`Lançar ${launching?.description ?? ''}`}
+        message={
+          <span className="flex flex-col gap-3">
+            <label className="flex flex-col gap-1">
+              Data
+              <input
+                type="date"
+                value={launchDate}
+                max={today}
+                onChange={(e) => setLaunchDate(e.target.value)}
+                className="rounded-field border border-line bg-field px-2 py-1.5"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              Valor real
+              <input
+                inputMode="decimal"
+                value={launchAmount}
+                onChange={(e) => setLaunchAmount(e.target.value)}
+                className="rounded-field border border-line bg-field px-2 py-1.5"
+              />
+            </label>
+            <span className="text-ink-3">O valor cadastrado do recorrente não muda.</span>
+            {launchError === null ? null : (
+              <span role="alert" className="text-negative">
+                {launchError}
+              </span>
+            )}
+          </span>
+        }
+        cancelLabel="Cancelar"
+        confirmLabel="Lançar"
+        danger={false}
+        pending={launchBusy}
+        onCancel={() => setLaunching(null)}
+        onConfirm={submitLaunch}
+      />
       <BatchDialog
         action={single?.action ?? null}
         chosen={single === null ? [] : [single.row]}

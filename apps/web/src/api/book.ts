@@ -48,14 +48,22 @@ export const fetchBook = (
     signal === undefined ? {} : { signal },
   );
 
-/** LAN-02 · "Lançar" um previsto: confirma o lançamento na data e valor previstos. */
-export const confirmPlanned = (entryId: string): Promise<unknown> =>
+/**
+ * LAN-02/LAN-06 · "Lançar" um previsto, com data e valor reais opcionais.
+ * Sem corpo, confirma na data e valor previstos. Cada tentativa leva uma
+ * `Idempotency-Key` nova: confirmar duas vezes a mesma não duplica efeito.
+ */
+export const confirmPlanned = (
+  entryId: string,
+  actual: { readonly date?: string; readonly amount?: string } = {},
+): Promise<unknown> =>
   request(
     `/api/finance/entries/${entryId}/confirm`,
     { parse: (v: unknown) => v },
     {
       method: 'POST',
-      body: '{}',
+      body: JSON.stringify(actual),
+      headers: { 'Idempotency-Key': globalThis.crypto.randomUUID() },
     },
   );
 

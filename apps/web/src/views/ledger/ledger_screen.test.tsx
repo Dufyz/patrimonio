@@ -229,4 +229,38 @@ describe('LedgerScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Excluir' }));
     await waitFor(() => expect(calls).toEqual(['/api/finance/entries/1']));
   });
+
+  it('LAN-06: Lançar abre o modal com valor editável e confirma com data, valor e Idempotency-Key', async () => {
+    const posted: { url: string; body: string; key: string | null }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posted.push({
+            url: String(url),
+            body: String(init.body),
+            key: new Headers(init.headers).get('Idempotency-Key'),
+          });
+          return new Response('{}', { status: 200 });
+        }
+        return new Response(JSON.stringify(book), { status: 200 });
+      }),
+    );
+    wrap();
+    await waitFor(() => expect(screen.getByText('Aluguel')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Lançar' }));
+    const amount = screen.getByLabelText('Valor real') as HTMLInputElement;
+    expect(amount.value).toBe('15.00');
+    fireEvent.change(amount, { target: { value: '16,50' } });
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Lançar' }).at(-1) as HTMLElement,
+    );
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]?.url).toBe('/api/finance/entries/2/confirm');
+    expect(JSON.parse(posted[0]?.body ?? '{}')).toEqual({
+      date: '2020-01-05',
+      amount: '16.50',
+    });
+    expect(posted[0]?.key).toBeTruthy();
+  });
 });
