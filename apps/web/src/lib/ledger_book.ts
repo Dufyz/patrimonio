@@ -259,3 +259,23 @@ export const exportRows = (
     r.fees ?? '',
   ]),
 ];
+
+/** LAN-05 · Entradas, saídas e previstos de uma seção; só o lançado soma. */
+export const sectionTotals = (
+  rows: readonly BookRowResource[],
+): { readonly in: bigint; readonly out: bigint; readonly planned: number } => {
+  let inflow = 0n;
+  let outflow = 0n;
+  let planned = 0;
+  for (const row of rows) {
+    if (row.situation !== 'lancado') {
+      planned += 1;
+      continue;
+    }
+    if (row.amount === null) continue;
+    const sign = signOf(row.kind);
+    if (sign === '+') inflow += BigInt(row.amount);
+    else if (sign === '-') outflow += BigInt(row.amount);
+  }
+  return { in: inflow, out: outflow, planned };
+};

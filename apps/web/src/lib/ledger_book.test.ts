@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { BookRowResource } from '@patrimonio/contracts';
 
 import {
+  sectionTotals,
   balanceOf,
   dayLabel,
   batchOnlyDelete,
@@ -151,5 +152,20 @@ describe('ledger_book', () => {
     expect(out[2]?.[4]).toBe('20');
     expect(batchOnlyDelete(rows)).toBe(false);
     expect(batchOnlyDelete([row({ kind: 'APORTE' })])).toBe(true);
+  });
+});
+
+describe('LAN-05 · sectionTotals', () => {
+  it('só o lançado soma; previsto só conta', () => {
+    const row = (kind: string, situation: string, amount: string | null): never =>
+      ({ kind, situation, amount }) as never;
+    expect(
+      sectionTotals([
+        row('RECEITA', 'lancado', '5000'),
+        row('DESPESA', 'lancado', '1200'),
+        row('DESPESA', 'previsto', '999'),
+        row('TRANSFERENCIA', 'lancado', '300'),
+      ]),
+    ).toEqual({ in: 5000n, out: 1200n, planned: 1 });
   });
 });

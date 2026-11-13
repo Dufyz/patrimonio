@@ -19,6 +19,7 @@ import {
   GROUPINGS,
   plannedSection,
   sectionsOfGroups,
+  sectionTotals,
   detailOf,
   exportRows,
   selectable,
@@ -505,7 +506,21 @@ export const LedgerScreen = (): React.ReactElement => {
               <th scope="rowgroup" colSpan={7} className="pt-3 text-left text-ink-2">
                 {section.label}
                 {grouping === 'dia' ? null : (
-                  <span className="ml-2 font-normal text-ink-3">{section.count}</span>
+                  <span className="ml-2 font-normal text-ink-3">
+                    {section.count} · entradas{' '}
+                    {
+                      formatMoney(sectionTotals(section.rows).in.toString(), { hidden })
+                        .text
+                    }{' '}
+                    · saídas{' '}
+                    {
+                      formatMoney(sectionTotals(section.rows).out.toString(), { hidden })
+                        .text
+                    }
+                    {sectionTotals(section.rows).planned === 0
+                      ? ''
+                      : ` · ${sectionTotals(section.rows).planned} previstos`}
+                  </span>
                 )}
               </th>
             </tr>
