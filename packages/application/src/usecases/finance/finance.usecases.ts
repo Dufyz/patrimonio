@@ -292,6 +292,7 @@ export const financeUseCases = (deps: FinanceDeps) => ({
       return {
         card,
         summary: fin.invoiceSummary(data, card, month, today),
+        period: fin.invoicePeriod(card, month),
         lines,
         totals: fin.invoiceTotals(lines),
         payments: data.invoice_payments.filter(

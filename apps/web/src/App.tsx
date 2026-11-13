@@ -1,3 +1,4 @@
+import { InvoiceScreen } from './views/cards/invoice_screen.js';
 import { CardScreen } from './views/cards/card_screen.js';
 import { CardsScreen } from './views/cards/cards_screen.js';
 import { AccountsScreen } from './views/accounts/accounts_screen.js';
@@ -99,6 +100,7 @@ const Workspace = (): React.ReactElement => (
       <Route path="/livro" element={<LedgerScreen />} />
       <Route path="/cartoes-novo" element={<CardsScreen />} />
       <Route path="/cartoes-novo/:id" element={<CardScreen />} />
+      <Route path="/cartoes-novo/:id/faturas/:month" element={<InvoiceScreen />} />
       <Route path="/contas-novo" element={<AccountsScreen />} />
       <Route path="/contas-novo/:id" element={<AccountStatementScreen />} />
       <Route path="/configuracoes" element={<SettingsScreen />} />
