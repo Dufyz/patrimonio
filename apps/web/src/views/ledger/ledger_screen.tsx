@@ -39,6 +39,7 @@ import {
 } from '../../lib/ledger_filters.js';
 import type { LedgerFilters } from '../../lib/ledger_filters.js';
 import { totalLink } from '../../lib/total_links.js';
+import { usePortfolios } from '../../components/portfolios_provider.js';
 import { LaunchPlannedDialog } from './launch_planned.js';
 import { BatchActions, BatchDialog } from './batch_actions.js';
 import type { BatchAction } from './batch_actions.js';
@@ -144,6 +145,7 @@ export const LedgerScreen = (): React.ReactElement => {
     setSingle({ row, action });
   };
   const [reload, setReload] = useState(0);
+  const { portfolios: portfolioList } = usePortfolios();
   const [categories, setCategories] = useState<readonly CategoryOption[]>([]);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -311,6 +313,24 @@ export const LedgerScreen = (): React.ReactElement => {
           className="rounded-field border border-line bg-field px-3 py-1.5"
         />
         <FilterGroup
+          label="Categoria"
+          options={categories.map((c) => [c.id, c.name] as const)}
+          value={filters.categoria}
+          onChange={(categoria) => setFilters({ ...filters, categoria })}
+        />
+        <FilterGroup
+          label="Conta"
+          options={[...accounts].map(([id, name]) => [id, name] as const)}
+          value={filters.conta}
+          onChange={(conta) => setFilters({ ...filters, conta })}
+        />
+        <FilterGroup
+          label="Carteira"
+          options={portfolioList.map((p) => [p.id, p.name] as const)}
+          value={filters.carteira}
+          onChange={(carteira) => setFilters({ ...filters, carteira })}
+        />
+        <FilterGroup
           label="Tipo"
           options={Object.entries(KIND_LABEL)}
           value={filters.tipo}
@@ -368,12 +388,16 @@ export const LedgerScreen = (): React.ReactElement => {
       ) : null}
       {hasFilters(filters) ? (
         <ul aria-label="Filtros ativos" className="flex flex-wrap gap-2">
-          {chipsOf(
-            filters,
-            (_key, value) =>
-              KIND_LABEL[value as keyof typeof KIND_LABEL] ??
-              SITUATION_LABEL[value] ??
-              value,
+          {chipsOf(filters, (key, value) =>
+            key === 'categoria'
+              ? (categories.find((c) => c.id === value)?.name ?? value)
+              : key === 'conta'
+                ? (accounts.get(value) ?? value)
+                : key === 'carteira'
+                  ? (portfolioList.find((p) => p.id === value)?.name ?? value)
+                  : (KIND_LABEL[value as keyof typeof KIND_LABEL] ??
+                    SITUATION_LABEL[value] ??
+                    value),
           ).map((chip) => (
             <li key={`${chip.key}:${chip.value}`}>
               <button

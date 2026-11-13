@@ -361,4 +361,35 @@ describe('LedgerScreen', () => {
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0]?.url).toBe('/api/finance/entries/1');
   });
+
+  it('LAN-04: a barra tem categoria, conta, carteira, tipo e situação; filtrar vira chip e vai ao livro', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(String(url));
+        if (String(url).includes('/api/finance/categories')) {
+          return new Response(
+            JSON.stringify({
+              categories: [{ id: 'c1', name: 'Receita fixa', kind: 'receita' }],
+            }),
+            { status: 200 },
+          );
+        }
+        return new Response(JSON.stringify(book), { status: 200 });
+      }),
+    );
+    wrap();
+    await waitFor(() => expect(screen.getByText('Salário')).toBeTruthy());
+    const search = screen.getByRole('search');
+    const labels = Array.from(search.querySelectorAll('summary')).map((n) =>
+      n.textContent?.replace(/\s*\(\d+\)/, ''),
+    );
+    expect(labels).toEqual(['Categoria', 'Conta', 'Carteira', 'Tipo', 'Situação']);
+    fireEvent.click(screen.getByLabelText('Receita fixa'));
+    expect(
+      await screen.findByRole('button', { name: 'Remover filtro Receita fixa' }),
+    ).toBeTruthy();
+    await waitFor(() => expect(urls.some((u) => u.includes('categoria=c1'))).toBe(true));
+  });
 });
