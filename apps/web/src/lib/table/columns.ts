@@ -14,7 +14,7 @@ import { readJson, writeJson } from '../preferences.js';
  * definida. A tabela ocupa 100% da largura em qualquer uma delas.
  */
 
-export const WIDTH_TIERS = [1400, 1100, 1000, 600] as const;
+export const WIDTH_TIERS = [1400, 1300, 1200, 1100, 1000, 600] as const;
 
 export type WidthTier = (typeof WIDTH_TIERS)[number];
 

@@ -68,6 +68,12 @@ export type DataTableProps<Row> = {
    * Linha desabilitada: esmaecida, sem abrir nem menu, e sempre no fim do grupo.
    * É a posição encerrada, que aparece na tabela mas não se opera.
    */
+  /** Um atalho no cabeçalho do grupo, como "Filtrar" por classe. */
+  readonly groupAction?:
+    | ((
+        group: TableGroup<Row>,
+      ) => { readonly label: string; readonly onSelect: () => void } | null)
+    | undefined;
   readonly isRowDisabled?: ((row: Row) => boolean) | undefined;
   /** Largura imposta, para teste e para a comparação visual. */
   readonly width?: number | undefined;
@@ -104,6 +110,7 @@ export const DataTable = <Row,>({
   renderExpansion,
   emptyState,
   isRowDisabled,
+  groupAction,
   width: forcedWidth,
   columnPreference = EMPTY_COLUMN_PREFERENCE,
   sort: controlledSort,
@@ -297,35 +304,49 @@ export const DataTable = <Row,>({
                       )}`}
                     >
                       {index === 0 ? (
-                        <button
-                          type="button"
-                          className="flex cursor-pointer items-center gap-2 whitespace-nowrap"
-                          aria-expanded={!entry.collapsed}
-                          onClick={() =>
-                            setState((current) => ({
-                              ...current,
-                              collapsedGroups: toggle(
-                                current.collapsedGroups,
-                                entry.group.key,
-                              ),
-                            }))
-                          }
-                        >
-                          <span aria-hidden="true" className="text-ink-3">
-                            <Icon
-                              name={entry.collapsed ? 'chevron-right' : 'chevron-down'}
+                        <div className="flex items-center">
+                          <button
+                            type="button"
+                            className="flex cursor-pointer items-center gap-2 whitespace-nowrap"
+                            aria-expanded={!entry.collapsed}
+                            onClick={() =>
+                              setState((current) => ({
+                                ...current,
+                                collapsedGroups: toggle(
+                                  current.collapsedGroups,
+                                  entry.group.key,
+                                ),
+                              }))
+                            }
+                          >
+                            <span aria-hidden="true" className="text-ink-3">
+                              <Icon
+                                name={entry.collapsed ? 'chevron-right' : 'chevron-down'}
+                              />
+                            </span>
+                            <span
+                              aria-hidden="true"
+                              className="size-2 rounded-xs"
+                              style={{
+                                backgroundColor: colorForToken(entry.group.colorToken),
+                              }}
                             />
-                          </span>
-                          <span
-                            aria-hidden="true"
-                            className="size-2 rounded-xs"
-                            style={{
-                              backgroundColor: colorForToken(entry.group.colorToken),
-                            }}
-                          />
-                          {entry.group.label}
-                          <span className="font-normal text-ink-3">{entry.count}</span>
-                        </button>
+                            {entry.group.label}
+                            <span className="font-normal text-ink-3">{entry.count}</span>
+                          </button>
+                          {(() => {
+                            const action = groupAction?.(entry.group) ?? null;
+                            return action === null ? null : (
+                              <button
+                                type="button"
+                                className="ml-2 cursor-pointer text-xs font-normal text-accent underline"
+                                onClick={action.onSelect}
+                              >
+                                {action.label}
+                              </button>
+                            );
+                          })()}
+                        </div>
                       ) : (
                         column.summary?.(entry.group.summary)
                       )}

@@ -76,10 +76,14 @@ import type { Sort } from '../lib/table/model.js';
 
 const SCREEN = 'posicoes';
 
+/** "2026-11-11" → "11/11/2026". */
+const consolidationDate = (iso: string): string =>
+  `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+
 /** O tipo e a instituição vêm ocultos: a linha do ativo é de uma linha só. */
 const DEFAULT_COLUMN_PREFERENCE: ColumnPreference = {
   ...EMPTY_COLUMN_PREFERENCE,
-  hidden: ['tipo'],
+  hidden: [],
 };
 
 /** O que ainda não existe, e qual história o entrega. */
@@ -262,7 +266,10 @@ export const PositionsScreen = ({
     resource.price_health.fresh < resource.total.count &&
     resource.total.count > 0;
 
-  const tableColumns = columnsFor(allPortfolios && groupByParam !== 'carteira');
+  const tableColumns = columnsFor(
+    allPortfolios && groupByParam !== 'carteira',
+    resource?.as_of ?? null,
+  );
 
   const filterFields = useMemo<readonly FilterField[]>(
     () =>
@@ -318,7 +325,10 @@ export const PositionsScreen = ({
         <div className="flex flex-col gap-0.5">
           <h1 className="text-screen-title leading-7 font-semibold">Posições</h1>
           <p className="text-xs text-ink-3">
-            {scopeLabel} · posições abertas hoje, com as encerradas ao fim de cada grupo
+            {scopeLabel} ·{' '}
+            {resource?.as_of == null
+              ? 'carteira ainda não consolidada'
+              : `consolidação de ${consolidationDate(resource.as_of)}`}
           </p>
         </div>
 
@@ -445,6 +455,14 @@ export const PositionsScreen = ({
                   rowId={positionId}
                   rowLabel={positionLabel}
                   isRowDisabled={(row) => row.closed === true}
+                  groupAction={(group) =>
+                    groupByParam === 'categoria' && group.key !== ''
+                      ? {
+                          label: 'Filtrar',
+                          onSelect: () => update({ classe: listToParam([group.key]) }),
+                        }
+                      : null
+                  }
                   columnPreference={columnPreference}
                   sort={sort}
                   onSortChange={setSort}
@@ -551,18 +569,24 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
     ),
   },
   {
-    id: 'tipo',
-    header: 'Tipo · instituição',
+    id: 'classe',
+    header: 'Classe',
+    hideBelow: 1100,
+    sortable: true,
+    sortValue: (row) => row.category_name ?? '',
+    cell: (row) => (
+      <span className="block truncate text-ink-2">{row.category_name ?? '—'}</span>
+    ),
+  },
+  {
+    id: 'instituicao',
+    header: 'Instituição',
     hideBelow: 1400,
+    sortable: true,
+    sortValue: (row) => row.institution_name ?? '',
     cell: (row) => (
       <span className="block truncate text-ink-2">
-        {row.closed === true
-          ? [row.category_name, 'Posição encerrada']
-              .filter((part): part is string => part !== null)
-              .join(' · ')
-          : [row.category_name, row.institution_name ?? 'Sem instituição']
-              .filter((part): part is string => part !== null)
-              .join(' · ')}
+        {row.closed === true ? '—' : (row.institution_name ?? 'Sem instituição')}
       </span>
     ),
   },
@@ -579,7 +603,7 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
     id: 'preco_medio',
     header: 'Preço médio',
     numeric: true,
-    hideBelow: 1400,
+    hideBelow: 1200,
     // Na curva não há preço médio: o título vale o que a marcação diz na data,
     // e a palavra é mais honesta que um traço, que leria como ausência de dado.
     cell: (row) =>
@@ -607,7 +631,7 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
   },
   {
     id: 'valor',
-    header: 'Atualizado',
+    header: 'Valor',
     numeric: true,
     essential: true,
     sortable: true,
@@ -632,44 +656,53 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
     hideBelow: 1000,
     sortable: true,
     sortValue: (row) => row.weight,
-    cell: (row) => <Percent value={row.weight} decimals={1} />,
+    cell: (row) => (
+      <span className="flex items-center justify-end gap-2">
+        <span
+          aria-hidden="true"
+          className="h-1.5 w-12 overflow-hidden rounded-full bg-panel-2 max-lg:hidden"
+        >
+          <span
+            className="block h-full rounded-full bg-accent"
+            style={{ width: `${Math.min(100, Math.max(0, Number(row.weight ?? 0)))}%` }}
+          />
+        </span>
+        <Percent value={row.weight} decimals={1} />
+      </span>
+    ),
     summary: (summary) => <Percent value={summary['peso'] ?? null} decimals={1} />,
   },
   {
     id: 'resultado',
-    header: 'P&L',
+    header: 'Resultado (R$)',
     numeric: true,
-    hideBelow: 1100,
+    essential: true,
     sortable: true,
     sortValue: (row) => row.open_result,
-    cell: (row) => (
-      <span className="flex items-baseline justify-end gap-2">
-        <MoneyChange value={row.open_result} />
-        <span aria-hidden="true" className="text-ink-3">
-          ·
-        </span>
-        <PercentChange value={row.open_result_ratio} decimals={1} />
-      </span>
-    ),
+    cell: (row) => <MoneyChange value={row.open_result} />,
+    summary: (summary) => <MoneyChange value={summary['resultado'] ?? null} />,
+  },
+  {
+    id: 'resultado_pct',
+    header: 'Resultado (%)',
+    numeric: true,
+    hideBelow: 1000,
+    sortable: true,
+    sortValue: (row) => row.open_result_ratio,
+    cell: (row) => <PercentChange value={row.open_result_ratio} decimals={1} />,
     summary: (summary) => (
-      <span className="flex items-baseline justify-end gap-2">
-        <MoneyChange value={summary['resultado'] ?? null} />
-        <span aria-hidden="true" className="text-ink-3">
-          ·
-        </span>
-        <PercentChange value={summary['resultado_pct'] ?? null} decimals={1} />
-      </span>
+      <PercentChange value={summary['resultado_pct'] ?? null} decimals={1} />
     ),
   },
 ];
 
-const CLOSED_VISIBLE = new Set(['valor', 'investido', 'resultado']);
+const CLOSED_VISIBLE = new Set(['valor', 'investido', 'resultado', 'resultado_pct']);
 
 /** Em Todas as carteiras, a coluna que diz de qual carteira é cada linha. */
 const PORTFOLIO_COLUMN: TableColumn<PositionRow> = {
   id: 'carteira',
   header: 'Carteira',
-  hideBelow: 1000,
+  hideBelow: 1300,
   sortable: true,
   sortValue: (row) => row.portfolio_name,
   cell: (row) =>
@@ -699,8 +732,22 @@ const WITH_PORTFOLIO: readonly TableColumn<PositionRow>[] = [
   ...CLOSED_COLUMNS.slice(1),
 ];
 
-const columnsFor = (withPortfolio: boolean): readonly TableColumn<PositionRow>[] =>
-  withPortfolio ? WITH_PORTFOLIO : CLOSED_COLUMNS;
+const columnsFor = (
+  withPortfolio: boolean,
+  consolidatedAt: string | null,
+): readonly TableColumn<PositionRow>[] =>
+  (withPortfolio ? WITH_PORTFOLIO : CLOSED_COLUMNS).map((column) =>
+    column.id === 'valor' && consolidatedAt !== null && column.summary !== undefined
+      ? {
+          ...column,
+          summary: (summary) => (
+            <span title={`Consolidação de ${consolidationDate(consolidatedAt)}`}>
+              {column.summary?.(summary)}
+            </span>
+          ),
+        }
+      : column,
+  );
 
 /* -------------------------------------------------------------------------- */
 
