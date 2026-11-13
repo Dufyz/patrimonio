@@ -77,4 +77,34 @@ describe('tema claro e escuro de Finanças', () => {
     expect(categoryColor('inexistente')).toBe('var(--color-cat-gray)');
     expect(categoryColor(null)).toBe('var(--color-cat-gray)');
   });
+
+  it('QUA-03 · todo texto de tokens atinge 4,5:1 sobre fundo, painel e painel-2 nos dois temas', () => {
+    const texts = [
+      'ink',
+      'ink-2',
+      'ink-3',
+      'accent',
+      'positive',
+      'negative',
+      'attention',
+    ];
+    const grounds = ['bg', 'panel', 'panel-2'];
+    const failures: string[] = [];
+    for (const [theme, block] of [
+      ['claro', lightBlock],
+      ['escuro', darkBlock],
+    ] as const) {
+      for (const text of texts) {
+        for (const ground of grounds) {
+          const a = tokenIn(block, text);
+          const b = tokenIn(block, ground);
+          if (a === null || b === null) continue;
+          const ratio = contrast(a, b);
+          if (ratio < 4.5)
+            failures.push(`${theme}: ${text} sobre ${ground} = ${ratio.toFixed(2)}`);
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+  });
 });
