@@ -37,7 +37,7 @@ import { OverviewScreen } from './views/overview.js';
 import { GoalsScreen } from './views/goals.js';
 import { GoalsOverviewScreen } from './views/goals_overview.js';
 import { PositionsScreen } from './views/positions.js';
-import { ProjectionScreen } from './views/projection.js';
+import { ProjectionScreen } from './views/projection_screen.js';
 import { SettingsScreen } from './views/settings/index.js';
 import { StatementScreen } from './views/statement.js';
 import { StrategyScreen } from './views/strategy.js';
@@ -163,7 +163,7 @@ const Workbench = ({ home = false }: { readonly home?: boolean }): React.ReactEl
   const asset = home ? undefined : params['asset'];
   const navigate = useNavigate();
 
-  const { portfolios, values, slugs, loaded, failed, reload } = usePortfolios();
+  const { portfolios, slugs, loaded, failed, reload } = usePortfolios();
 
   const allPortfolios = scope === ALL_SCOPE;
   const portfolioId = allPortfolios ? null : portfolioIdForScope(scope, slugs);
@@ -309,11 +309,7 @@ const Workbench = ({ home = false }: { readonly home?: boolean }): React.ReactEl
           <GoalsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
         )
       ) : current?.id === 'projecao' ? (
-        <ProjectionScreen
-          portfolios={portfolios}
-          portfolioId={portfolioId}
-          values={values}
-        />
+        <ProjectionScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
       ) : null}
     </>
   );
