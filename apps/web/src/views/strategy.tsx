@@ -123,19 +123,79 @@ const LoadedStrategy = ({
 /* -------------------------------------------------------------------------- */
 /* Regras                                                                      */
 
+const TOLERANCE_PATTERN = /^\d{1,3}([.,]\d{1,2})?$/;
+
+/** `3,5` → `3.50`; nulo se não está entre 0 (exclusive) e 100. */
+export const toleranceBody = (text: string): string | null => {
+  const trimmed = text.trim();
+  if (!TOLERANCE_PATTERN.test(trimmed)) return null;
+  const value = Number(trimmed.replace(',', '.'));
+  if (!(value > 0 && value <= 100)) return null;
+  return value.toFixed(2);
+};
+
 const Rules = ({
   rules,
+  onSaveTolerance,
 }: {
   readonly rules: AllocationResource['rules'];
+  /** EST-03.3: grava a tolerância mantendo os alvos salvos. */
+  readonly onSaveTolerance: (tolerancePp: string) => Promise<void>;
 }): React.ReactElement => {
-  const tolerance = inputText(fromPercent(rules.tolerance_pp));
+  const saved = inputText(fromPercent(rules.tolerance_pp));
+  const [text, setText] = useState(saved);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const body = toleranceBody(text);
+  const dirty = text.trim() !== saved;
+
+  const save = async (): Promise<void> => {
+    if (body === null || busy) return;
+    setBusy(true);
+    setFailure(null);
+    try {
+      await onSaveTolerance(body);
+    } catch (error) {
+      setFailure(error instanceof Error ? error.message : 'Não foi possível salvar');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <Panel title="Regras da estratégia">
       <div className="grid grid-cols-1 md:grid-cols-2">
         <div className="flex flex-col gap-1 border-line p-4">
           <Label>Tolerância</Label>
-          <span className="tabular text-base font-semibold">{`± ${tolerance} pp`}</span>
+          <span className="flex items-center gap-2">
+            <span aria-hidden="true">±</span>
+            <input
+              aria-label="Tolerância em pontos percentuais"
+              inputMode="decimal"
+              value={text}
+              aria-invalid={body === null}
+              onChange={(event) => setText(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') void save();
+              }}
+              className="tabular w-20 rounded-field border border-line bg-field px-2 py-1 text-right text-base font-semibold"
+            />
+            <span>pp</span>
+            {dirty ? (
+              <Button
+                variant="primary"
+                disabled={body === null || busy}
+                onClick={() => void save()}
+              >
+                Salvar tolerância
+              </Button>
+            ) : null}
+          </span>
+          {failure === null ? null : (
+            <p role="alert" className="text-[0.8125rem] text-negative">
+              {failure}
+            </p>
+          )}
           <p className="text-[0.8125rem] text-ink-2">
             Acima disso a classe entra em Requer atenção.
           </p>
@@ -897,7 +957,13 @@ export const StrategyView = ({
         </div>
       </header>
 
-      <Rules rules={value.rules} />
+      <Rules
+        key={value.rules.tolerance_pp}
+        rules={value.rules}
+        onSaveTolerance={(tolerance) =>
+          onSave({ ...buildBody(rows, EMPTY_DRAFT), tolerance_pp: tolerance })
+        }
+      />
 
       {value.reference_date === null ? (
         <section className="rounded-panel border border-line bg-panel p-8 text-center">

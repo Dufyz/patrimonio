@@ -139,8 +139,34 @@ describe('as regras', () => {
   it('mostra a tolerância e o benchmark', () => {
     show(allocation());
 
-    expect(screen.getByText('± 3 pp')).toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', { name: 'Tolerância em pontos percentuais' }),
+    ).toHaveValue('3');
     expect(screen.getByText('IPCA + 6%')).toBeInTheDocument();
+  });
+
+  it('EST-03.3: editar a tolerância grava com os alvos salvos e recusa valor fora de 0–100', async () => {
+    const { onSave } = show(allocation());
+    const campo = screen.getByRole('textbox', {
+      name: 'Tolerância em pontos percentuais',
+    });
+
+    await userEvent.clear(campo);
+    await userEvent.type(campo, '0');
+    expect(campo).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('button', { name: 'Salvar tolerância' })).toBeDisabled();
+
+    await userEvent.clear(campo);
+    await userEvent.type(campo, '2,5');
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar tolerância' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const body = onSave.mock.calls[0]?.[0] as {
+      targets: unknown[];
+      tolerance_pp: string;
+    };
+    expect(body.tolerance_pp).toBe('2.50');
+    expect(body.targets.length).toBeGreaterThan(0);
   });
 });
 
