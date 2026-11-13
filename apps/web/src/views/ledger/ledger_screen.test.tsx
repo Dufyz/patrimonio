@@ -207,4 +207,26 @@ describe('LedgerScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Excluir', hidden: false }));
     await waitFor(() => expect(calls).toEqual(['/api/finance/entries/1']));
   });
+
+  it('LAN-07: menu ⋯ da linha lançada exclui com confirmação; previsto não tem menu', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          calls.push(String(url));
+          return new Response(null, { status: 204 });
+        }
+        return new Response(JSON.stringify(book), { status: 200 });
+      }),
+    );
+    wrap();
+    await waitFor(() => expect(screen.getByText('Salário')).toBeTruthy());
+    expect(screen.queryByRole('button', { name: 'Ações de Aluguel' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Ações de Salário' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Excluir' }));
+    expect(screen.getByText(/1 lançamento · valor total/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    await waitFor(() => expect(calls).toEqual(['/api/finance/entries/1']));
+  });
 });

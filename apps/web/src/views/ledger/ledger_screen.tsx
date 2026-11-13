@@ -36,7 +36,9 @@ import {
 } from '../../lib/ledger_filters.js';
 import type { LedgerFilters } from '../../lib/ledger_filters.js';
 import { totalLink } from '../../lib/total_links.js';
-import { BatchActions } from './batch_actions.js';
+import { BatchActions, BatchDialog } from './batch_actions.js';
+import type { BatchAction } from './batch_actions.js';
+import { canDelete, canMove } from '../../lib/ledger_batch.js';
 import { NewEntryModal } from './new_entry_modal.js';
 import { readGrouping, writeGrouping } from '../../lib/view_preferences.js';
 import { usePreferences } from '../../components/preferences.js';
@@ -125,6 +127,15 @@ export const LedgerScreen = (): React.ReactElement => {
   const searchBox = useRef<HTMLInputElement>(null);
   const shortcuts = useMemo(() => ({ filter: () => searchBox.current?.focus() }), []);
   useShortcuts(shortcuts);
+  const [menuRow, setMenuRow] = useState<string | null>(null);
+  const [single, setSingle] = useState<{
+    readonly row: BookRowResource;
+    readonly action: BatchAction;
+  } | null>(null);
+  const openSingle = (row: BookRowResource, action: BatchAction): void => {
+    setMenuRow(null);
+    setSingle({ row, action });
+  };
   const [reload, setReload] = useState(0);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -496,11 +507,70 @@ export const LedgerScreen = (): React.ReactElement => {
                 <td className="tabular text-right">
                   {row.amount === null ? '—' : money(row.amount, signOf(row.kind))}
                 </td>
+                <td className="relative">
+                  <button
+                    type="button"
+                    aria-label={`Ações de ${row.description}`}
+                    aria-haspopup="menu"
+                    aria-expanded={menuRow === row.id}
+                    className="cursor-pointer px-2"
+                    onClick={() => setMenuRow(menuRow === row.id ? null : row.id)}
+                  >
+                    ⋯
+                  </button>
+                  {menuRow === row.id ? (
+                    <div
+                      role="menu"
+                      aria-label={`Menu de ${row.description}`}
+                      className="absolute right-0 z-10 flex min-w-40 flex-col rounded-field border border-line bg-surface py-1 shadow-lg"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') setMenuRow(null);
+                      }}
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="cursor-pointer px-3 py-1.5 text-left disabled:cursor-not-allowed disabled:text-ink-3"
+                        disabled={!canMove(row)}
+                        title={
+                          canMove(row)
+                            ? undefined
+                            : 'Só despesa ou receita paga em conta muda de conta.'
+                        }
+                        onClick={() => openSingle(row, 'move')}
+                      >
+                        Mover de conta
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="cursor-pointer px-3 py-1.5 text-left text-negative disabled:cursor-not-allowed disabled:text-ink-3"
+                        disabled={!canDelete(row)}
+                        title={
+                          canDelete(row)
+                            ? undefined
+                            : 'Pagamento de fatura sai pela fatura.'
+                        }
+                        onClick={() => openSingle(row, 'delete')}
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  ) : null}
+                </td>
               </tr>
             ))}
           </tbody>
         ))}
       </table>
+      <BatchDialog
+        action={single?.action ?? null}
+        chosen={single === null ? [] : [single.row]}
+        accounts={accounts}
+        hidden={hidden}
+        onClose={() => setSingle(null)}
+        onDone={() => setReload((n) => n + 1)}
+      />
     </div>
   );
 };
