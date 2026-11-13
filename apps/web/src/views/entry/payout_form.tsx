@@ -42,6 +42,8 @@ export type PayoutSeed = {
   readonly portfolioId: string | null;
   readonly institutionId: string | null;
   readonly date: string;
+  /** Total bruto já digitado (NAV-10: `provento 80 divo11`). */
+  readonly amount?: string;
 };
 
 /** Os rótulos desta aba, como a prancha 13B os escreve. */
@@ -78,8 +80,10 @@ export const PayoutFormView = ({
   const [payoutKind, setPayoutKind] = useState<PayoutKind>('dividend');
   const [recordDate, setRecordDate] = useState(seed.date);
   const [paymentDate, setPaymentDate] = useState(seed.date);
-  const [mode, setMode] = useState<PayoutEntryMode>('per_share');
-  const [amount, setAmount] = useState('');
+  const [mode, setMode] = useState<PayoutEntryMode>(
+    seed.amount === undefined ? 'per_share' : 'gross',
+  );
+  const [amount, setAmount] = useState(seed.amount ?? '');
   const [tax, setTax] = useState('');
   const [portfolioId, setPortfolioId] = useState(seed.portfolioId);
   const [institutionId, setInstitutionId] = useState(seed.institutionId);

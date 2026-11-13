@@ -144,7 +144,11 @@ export type SearchTarget =
       /** O título do ativo, como a tela o escreve. */
       readonly title?: string;
       /** NAV-10 · Os campos que o texto digitado já preenche; o modal abre sem salvar. */
-      readonly seed?: { readonly quantity?: string; readonly price?: string };
+      readonly seed?: {
+        readonly quantity?: string;
+        readonly price?: string;
+        readonly amount?: string;
+      };
     };
 
 export type SearchItem = {
@@ -636,11 +640,11 @@ export const quickEntryItem = (
       : entry.verb === 'sell'
         ? 'sell_asset'
         : 'payout_asset';
-  // O provento recebe valor, não quantidade: o modal dele pede o valor, e a
-  // quantidade e o preço só preenchem compra e venda.
+  // O provento recebe o valor total (modo "Total bruto"); a quantidade e o preço
+  // só preenchem compra e venda.
   const seed =
     entry.verb === 'payout'
-      ? {}
+      ? { amount: entry.amount }
       : {
           quantity: entry.amount,
           ...(entry.price === null ? {} : { price: entry.price }),

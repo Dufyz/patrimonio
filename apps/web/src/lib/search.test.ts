@@ -17,6 +17,7 @@ import {
   holdingLabel,
   instrumentItems,
   localItems,
+  quickEntryItem,
   moveActive,
   nextFilter,
   normalize,
@@ -673,6 +674,28 @@ describe('papéis do mercado', () => {
           screenPaths: {},
           scopeFor: () => 'longo',
         },
+      ),
+    ).toBeNull();
+  });
+});
+
+describe('NAV-10 · provento por texto', () => {
+  it('provento leva o total bruto ao modal; ativo desconhecido não gera ação', () => {
+    const item = quickEntryItem(
+      { verb: 'payout', amount: '80', ticker: 'ITUB4', price: null },
+      [itub4],
+      all,
+    );
+    expect(item?.target).toMatchObject({
+      kind: 'action',
+      action: 'payout_asset',
+      seed: { amount: '80' },
+    });
+    expect(
+      quickEntryItem(
+        { verb: 'payout', amount: '80', ticker: 'XXXX9', price: null },
+        [itub4],
+        all,
       ),
     ).toBeNull();
   });

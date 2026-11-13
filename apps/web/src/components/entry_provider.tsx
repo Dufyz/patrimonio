@@ -55,7 +55,10 @@ export type OpenEntryRequest = {
   readonly tab?: EntryTab;
   readonly asset?: PickedAsset | null;
   readonly portfolioId?: string | null;
-  readonly seed?: Pick<TradeSeed, 'quantity' | 'price' | 'fees'>;
+  readonly seed?: Pick<TradeSeed, 'quantity' | 'price' | 'fees'> & {
+    /** Provento: o total bruto digitado na busca (NAV-10). */
+    readonly amount?: string;
+  };
 };
 
 export type EntryStep = 'pick' | 'fill';
@@ -469,7 +472,15 @@ export const EntryForms = ({
       ) : tab === 'payout' ? (
         <PayoutFormView
           reference={reference}
-          seed={{ asset, portfolioId, institutionId, date: today }}
+          seed={{
+            asset,
+            portfolioId,
+            institutionId,
+            date: today,
+            ...(request.seed?.amount === undefined
+              ? {}
+              : { amount: request.seed.amount }),
+          }}
           {...searchProps}
           wizard={wizard}
           onSaved={onSaved}
