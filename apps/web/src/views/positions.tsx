@@ -147,8 +147,16 @@ export const PositionsScreen = ({
   const [sort, setSort] = useState<Sort | null>(null);
   const entry = useEntry();
 
-  // `F` abre a lista de campos, como o botão Filtrar promete.
-  const shortcuts = useMemo(() => ({ filter: () => setFilterOpen(true) }), []);
+  // `F` abre a lista de campos, como o botão Filtrar promete. `N` lança já na
+  // carteira do escopo (POS-07.2); em Todas, a carteira se escolhe no modal.
+  const openEntry = entry.openEntry;
+  const shortcuts = useMemo(
+    () => ({
+      filter: () => setFilterOpen(true),
+      new_transaction: () => openEntry({ tab: 'buy', portfolioId }),
+    }),
+    [openEntry, portfolioId],
+  );
   useShortcuts(shortcuts);
 
   // O padrão nunca é escrito na URL: `/posicoes` é o recorte sem filtro, e não
@@ -375,7 +383,7 @@ export const PositionsScreen = ({
             variant="primary"
             icon="plus"
             shortcut="N"
-            onClick={() => entry.openEntry()}
+            onClick={() => entry.openEntry({ tab: 'buy', portfolioId })}
           >
             Lançamento
           </Button>

@@ -12,6 +12,15 @@ import { PreferencesProvider } from '../components/preferences.js';
 import { ShortcutProvider } from '../components/shortcuts.js';
 import { PositionsScreen } from './positions.js';
 
+const entry = vi.hoisted(() => ({
+  openEntry: vi.fn(),
+  openEdit: vi.fn(),
+  openConfirmPayout: vi.fn(),
+  version: 0,
+}));
+
+vi.mock('../components/entry_provider.js', () => ({ useEntry: () => entry }));
+
 /**
  * T-02 · A tela contra a prancha 05.
  *
@@ -261,7 +270,10 @@ beforeEach(() => {
   answerWith(resource());
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  entry.openEntry.mockClear();
+});
 
 describe('tela de Posições', () => {
   it('o cabeçalho responde à pergunta da tela antes de qualquer tabela', async () => {
@@ -601,6 +613,18 @@ describe('tela de Posições', () => {
     expect(screen.queryByText('R$ 318.904,12')).toBeNull();
     // O peso continua: é o que sobra para ler em lugar público.
     expect(screen.getAllByText('5,8%').length).toBeGreaterThan(0);
+  });
+
+  it('POS-07 · N e o botão Lançamento abrem o modal já na carteira do escopo', async () => {
+    show();
+    await screen.findByText('28 posições');
+
+    await userEvent.keyboard('n');
+    expect(entry.openEntry).toHaveBeenLastCalledWith({ tab: 'buy', portfolioId: 'p1' });
+
+    await userEvent.click(screen.getByRole('button', { name: /^Lançamento/ }));
+    expect(entry.openEntry).toHaveBeenLastCalledWith({ tab: 'buy', portfolioId: 'p1' });
+    expect(entry.openEntry).toHaveBeenCalledTimes(2);
   });
 
   it('POS-08 · sem consolidação diz isso e mostra traço, não zero', async () => {
