@@ -41,7 +41,7 @@ export const DespesasCategoriaServerPanel = ({
           hint={label}
           more={{
             to: financeRoutes.entries(
-              `tipo=DESPESA&situacao=lancado&from=${range.from}&to=${range.to}`,
+              `tipo=DESPESA&situacao=lancado&mes=${range.from.slice(0, 7)}`,
             ),
             label: 'Ver por categoria',
           }}
