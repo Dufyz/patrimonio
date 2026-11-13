@@ -6,6 +6,7 @@ import {
   balanceOf,
   dayLabel,
   detailOf,
+  sectionsOfGroups,
   visibleRows,
   overdueNote,
   plannedSection,
@@ -112,5 +113,29 @@ describe('ledger_book', () => {
     const rows = [row({ id: '1' }), row({ id: '2', kind: 'EVENTO' })];
     expect(visibleRows(rows, [])).toHaveLength(1);
     expect(visibleRows(rows, ['EVENTO'])).toHaveLength(2);
+  });
+
+  it('agrupa por tipo na ordem da RN-U1, previstos primeiro, contando previstos', () => {
+    const totals = {} as never;
+    const groups = [
+      {
+        key: 'DESPESA',
+        label: 'DESPESA',
+        totals,
+        count: 2,
+        rows: [row({ id: 'l' }), row({ id: 'p', situation: 'previsto' })],
+      },
+      {
+        key: 'RECEITA',
+        label: 'RECEITA',
+        totals,
+        count: 1,
+        rows: [row({ id: 'r', kind: 'RECEITA' })],
+      },
+    ];
+    const s = sectionsOfGroups(groups, 'tipo', (k) => k, []);
+    expect(s.map((g) => g.key)).toEqual(['RECEITA', 'DESPESA']);
+    expect(s[1]?.rows.map((r) => r.id)).toEqual(['p', 'l']);
+    expect(s[1]?.count).toBe(2);
   });
 });

@@ -6,10 +6,14 @@ import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
 import { confirmPlanned, fetchAccountNames, fetchBook } from '../../api/book.js';
 import { StatStrip } from '../../finance/components/stat_strip.js';
 import { formatMoney, formatQuantity, MINUS } from '../../lib/format.js';
+import type { Grouping, GroupSection } from '../../lib/ledger_book.js';
 import {
   dayLabel,
   overdueNote,
+  GROUPING_LABEL,
+  GROUPINGS,
   plannedSection,
+  sectionsOfGroups,
   detailOf,
   sectionsByDay,
   visibleRows,
@@ -24,6 +28,7 @@ import {
   EMPTY_FILTERS,
 } from '../../lib/ledger_filters.js';
 import type { LedgerFilters } from '../../lib/ledger_filters.js';
+import { readGrouping, writeGrouping } from '../../lib/view_preferences.js';
 import { usePreferences } from '../../components/preferences.js';
 
 /**
@@ -92,6 +97,9 @@ export const LedgerScreen = (): React.ReactElement => {
   const filterKey = params.toString();
   const setFilters = (next: LedgerFilters): void =>
     setParams(filtersToParams(next, params), { replace: true });
+  const [grouping, setGrouping] = useState<Grouping>(() =>
+    readGrouping('lancamentos', GROUPINGS, 'dia'),
+  );
   const [book, setBook] = useState<BookResponse | null>(null);
   const [failed, setFailed] = useState(false);
   const [accounts, setAccounts] = useState<ReadonlyMap<string, string>>(new Map());
@@ -107,7 +115,12 @@ export const LedgerScreen = (): React.ReactElement => {
   useEffect(() => {
     const controller = new AbortController();
     fetchBook(
-      { month, limit: 200, ...filtersFromParams(new URLSearchParams(filterKey)) },
+      {
+        month,
+        limit: 200,
+        ...(grouping === 'dia' ? {} : { groupBy: grouping }),
+        ...filtersFromParams(new URLSearchParams(filterKey)),
+      },
       controller.signal,
     )
       .then(setBook)
@@ -115,7 +128,7 @@ export const LedgerScreen = (): React.ReactElement => {
         if (!controller.signal.aborted) setFailed(true);
       });
     return () => controller.abort();
-  }, [month, reload, filterKey]);
+  }, [month, reload, filterKey, grouping]);
 
   if (failed) return <p role="alert">Não foi possível carregar os lançamentos.</p>;
   if (book === null) return <p role="status">Carregando…</p>;
@@ -126,7 +139,21 @@ export const LedgerScreen = (): React.ReactElement => {
   };
   const { totals } = book;
   const rows = visibleRows(book.rows, filters.tipo);
-  const planned = plannedSection(rows, today);
+  const planned = plannedSection(grouping === 'dia' ? rows : [], today);
+  const sections: readonly GroupSection[] =
+    grouping === 'dia' || book.groups === null
+      ? sectionsByDay(rows.filter((r) => r.situation === 'lancado')).map((d) => ({
+          key: d.date,
+          label: dayLabel(d.date),
+          count: d.rows.length,
+          rows: d.rows,
+        }))
+      : sectionsOfGroups(
+          book.groups,
+          grouping,
+          (k) => KIND_LABEL[k as keyof typeof KIND_LABEL] ?? k,
+          filters.tipo,
+        );
   const detail = (row: BookRowResource): string | null =>
     detailOf(row, {
       money: (v) => formatMoney(v, { hidden }).text,
@@ -180,6 +207,24 @@ export const LedgerScreen = (): React.ReactElement => {
           value={filters.situacao}
           onChange={(situacao) => setFilters({ ...filters, situacao })}
         />
+        <label className="ml-auto flex items-center gap-2 text-sm">
+          Agrupar:
+          <select
+            value={grouping}
+            onChange={(e) => {
+              const next = e.target.value as Grouping;
+              writeGrouping('lancamentos', next);
+              setGrouping(next);
+            }}
+            className="rounded-field border border-line bg-field px-2 py-1.5"
+          >
+            {GROUPINGS.map((g) => (
+              <option key={g} value={g}>
+                {GROUPING_LABEL[g]}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       {hasFilters(filters) ? (
         <ul aria-label="Filtros ativos" className="flex flex-wrap gap-2">
@@ -269,11 +314,14 @@ export const LedgerScreen = (): React.ReactElement => {
             })}
           </tbody>
         )}
-        {sectionsByDay(rows.filter((r) => r.situation === 'lancado')).map((section) => (
-          <tbody key={section.date}>
+        {sections.map((section) => (
+          <tbody key={section.key}>
             <tr>
               <th scope="rowgroup" colSpan={6} className="pt-3 text-left text-ink-2">
-                {dayLabel(section.date)}
+                {section.label}
+                {grouping === 'dia' ? null : (
+                  <span className="ml-2 font-normal text-ink-3">{section.count}</span>
+                )}
               </th>
             </tr>
             {section.rows.map((row) => (

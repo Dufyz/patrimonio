@@ -158,3 +158,64 @@ export const detailOf = (row: BookRowResource, fmt: DetailFormat): string | null
       : `${preposition} ${fmt.accountName(row.account_id) ?? 'conta'}`;
   return head === '' ? where : `${head} · ${where}`;
 };
+
+export const GROUPINGS = ['dia', 'tipo', 'conta_carteira'] as const;
+export type Grouping = (typeof GROUPINGS)[number];
+
+export const GROUPING_LABEL: Readonly<Record<Grouping, string>> = {
+  dia: 'Dia',
+  tipo: 'Tipo',
+  conta_carteira: 'Conta/carteira',
+};
+
+/** RN-U1 · a ordem das seções no agrupamento por tipo. */
+export const KIND_ORDER: readonly BookRowResource['kind'][] = [
+  'RECEITA',
+  'DESPESA',
+  'APORTE',
+  'RESGATE',
+  'PROVENTO',
+  'TRANSFERENCIA',
+  'PAGAMENTO_FATURA',
+  'EVENTO',
+];
+
+export type GroupSection = {
+  readonly key: string;
+  readonly label: string;
+  /** Inclui os previstos (LAN-05, item 4). */
+  readonly count: number;
+  readonly rows: readonly BookRowResource[];
+};
+
+/** Previstos primeiro dentro do grupo; o resto na ordem do servidor. */
+const plannedFirst = (rows: readonly BookRowResource[]): readonly BookRowResource[] => [
+  ...rows.filter((r) => r.situation === 'previsto'),
+  ...rows.filter((r) => r.situation !== 'previsto'),
+];
+
+export const sectionsOfGroups = (
+  groups: NonNullable<BookResponse['groups']>,
+  by: Exclude<Grouping, 'dia'>,
+  kindLabel: (kind: string) => string,
+  tipos: readonly string[],
+): readonly GroupSection[] => {
+  const shown = groups
+    .map((g) => {
+      const rows = visibleRows(g.rows, tipos);
+      return {
+        key: g.key,
+        label: by === 'tipo' ? kindLabel(g.key) : g.label,
+        count: rows.length,
+        rows: plannedFirst(rows),
+      };
+    })
+    .filter((g) => g.count > 0);
+  return by === 'tipo'
+    ? [...shown].sort(
+        (a, b) =>
+          KIND_ORDER.indexOf(a.key as BookRowResource['kind']) -
+          KIND_ORDER.indexOf(b.key as BookRowResource['kind']),
+      )
+    : shown;
+};
