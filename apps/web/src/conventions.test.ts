@@ -201,3 +201,17 @@ describe('atalhos só da tabela única (NAV-11)', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
+
+describe('gráficos (CMP-07)', () => {
+  it('não existe componente de pizza nem de donut', () => {
+    const offenders: string[] = [];
+    for (const file of walk(ROOT, ['.ts', '.tsx'])) {
+      const code = stripComments(readFileSync(file, 'utf8'));
+      // Identificadores e arquivos; a palavra solta em texto de interface não conta.
+      const isPie =
+        /\b(Pie|Donut|Doughnut)[A-Z]?\w*\b/.test(code) || /(pie|donut)/i.test(file);
+      if (isPie) offenders.push(relative(ROOT, file));
+    }
+    expect(offenders).toEqual([]);
+  });
+});
