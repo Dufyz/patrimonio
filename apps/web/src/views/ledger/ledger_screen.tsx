@@ -51,6 +51,7 @@ import {
   canMove,
   canMoveInvoice,
   isEntryRow,
+  linkedOf,
   skippable,
 } from '../../lib/ledger_batch.js';
 import type { EditableEntry } from '../../lib/ledger_entry_form.js';
@@ -742,6 +743,7 @@ export const LedgerScreen = (): React.ReactElement => {
       <BatchDialog
         action={single?.action ?? null}
         chosen={single === null ? [] : [single.row]}
+        linked={single === null ? null : linkedOf(single.row, book.rows)}
         accounts={accounts}
         hidden={hidden}
         onClose={() => setSingle(null)}

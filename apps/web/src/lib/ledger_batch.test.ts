@@ -11,6 +11,7 @@ import {
   deleteEffect,
   deletePath,
   moveBody,
+  linkedOf,
   recategorizeBody,
   skippable,
 } from './ledger_batch.js';
@@ -189,5 +190,20 @@ describe('LAN-07.4 · pular este mês', () => {
   it('previsto avulso e lançado não têm o que pular', () => {
     expect(skippable(planned(null))).toBeNull();
     expect(skippable(row({}))).toBeNull();
+  });
+});
+
+describe('RN-U6 · o outro lado do resgate', () => {
+  const resgate = row({ id: 'x1', kind: 'RESGATE', event_id: 'ev1' });
+  const despesa = row({ id: 'x2', kind: 'DESPESA', event_id: 'ev1' });
+
+  it('cada lado acha o outro pelo mesmo event_id', () => {
+    expect(linkedOf(resgate, [resgate, despesa])?.id).toBe('x2');
+    expect(linkedOf(despesa, [resgate, despesa])?.id).toBe('x1');
+  });
+
+  it('linha sem ligação, ou com o par fora da lista, não tem outro lado', () => {
+    expect(linkedOf(row({}), [resgate, despesa])).toBeNull();
+    expect(linkedOf(resgate, [resgate])).toBeNull();
   });
 });

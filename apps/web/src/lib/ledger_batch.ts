@@ -191,3 +191,15 @@ export const skippable = (
     ? { recurringId: id, month: row.date.slice(0, 7) }
     : null;
 };
+
+/**
+ * RN-U6 · O outro lado de um resgate que pagou uma despesa: mesmo `event_id`,
+ * tipo diferente. Excluir um pergunta pelo outro.
+ */
+export const linkedOf = (
+  row: BookRowResource,
+  rows: readonly BookRowResource[],
+): BookRowResource | null => {
+  if (row.event_id === null) return null;
+  return rows.find((r) => r.event_id === row.event_id && r.id !== row.id) ?? null;
+};

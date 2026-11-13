@@ -31,12 +31,15 @@ export type BatchAction = 'delete' | 'recategorize' | 'move';
 export const BatchDialog = ({
   action,
   chosen,
+  linked = null,
   accounts,
   hidden,
   onClose,
   onDone,
 }: {
   readonly action: BatchAction | null;
+  /** RN-U6: o outro lado do resgate que pagou a despesa, se houver. */
+  readonly linked?: BookRowResource | null;
   readonly chosen: readonly BookRowResource[];
   readonly accounts: ReadonlyMap<string, string>;
   readonly hidden: boolean;
@@ -47,6 +50,7 @@ export const BatchDialog = ({
   const [categories, setCategories] = useState<readonly CategoryOption[]>([]);
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
+  const [alsoLinked, setAlsoLinked] = useState(true);
   const [failure, setFailure] = useState<string | null>(null);
   const [balances, setBalances] = useState<
     ReadonlyMap<string, { readonly name: string; readonly balance: string }>
@@ -86,6 +90,7 @@ export const BatchDialog = ({
   const effect = single === undefined ? [] : deleteEffect(single, balances);
 
   const close = (): void => {
+    setAlsoLinked(true);
     setTarget('');
     setFailure(null);
     onClose();
@@ -95,7 +100,11 @@ export const BatchDialog = ({
     setBusy(true);
     setFailure(null);
     try {
-      for (const row of chosen) {
+      const targets =
+        action === 'delete' && linked !== null && alsoLinked
+          ? [...chosen, linked]
+          : chosen;
+      for (const row of targets) {
         if (action === 'delete') {
           const path = deletePath(row);
           if (path !== null) await deleteBookRow(path);
@@ -139,6 +148,23 @@ export const BatchDialog = ({
             {count} · valor total {total}.
             {action === 'delete' ? ' A exclusão não pode ser desfeita.' : ''}
           </span>
+          {action === 'delete' && linked !== null && chosen.length === 1 ? (
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={alsoLinked}
+                onChange={(event) => setAlsoLinked(event.target.checked)}
+              />
+              <span>
+                Excluir também{' '}
+                {linked.kind === 'DESPESA' ? 'a despesa ligada' : 'o resgate ligado'}:{' '}
+                {linked.description}
+                {linked.amount === null
+                  ? ''
+                  : ` · ${formatMoney(linked.amount, { hidden }).text}`}
+              </span>
+            </label>
+          ) : null}
           {effect.length > 0 ? <EffectTable rows={effect} /> : null}
           {action === 'delete' ? null : (
             <label className="flex flex-col gap-1">

@@ -312,6 +312,55 @@ describe('LedgerScreen', () => {
     );
   });
 
+  it('RN-U6: excluir o resgate pergunta pela despesa ligada e apaga as duas', async () => {
+    const calls: string[] = [];
+    const linked = {
+      ...book,
+      rows: [
+        {
+          ...book.rows[0],
+          id: 'rg1',
+          kind: 'RESGATE',
+          description: 'Resgate CDB',
+          event_id: 'ev1',
+          entry: null,
+        },
+        {
+          ...book.rows[0],
+          id: 'ds1',
+          kind: 'DESPESA',
+          description: 'Conserto do carro',
+          event_id: 'ev1',
+          entry: null,
+        },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          calls.push(String(url));
+          return new Response(null, { status: 204 });
+        }
+        return new Response(JSON.stringify(linked), { status: 200 });
+      }),
+    );
+    wrap();
+    await waitFor(() => expect(screen.getByText('Resgate CDB')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ações de Resgate CDB' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Excluir' }));
+
+    expect(
+      screen.getByText(/Excluir também a despesa ligada: Conserto do carro/),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+
+    await waitFor(() =>
+      expect(calls).toEqual(['/api/transactions/rg1', '/api/finance/entries/ds1']),
+    );
+  });
+
   it('LAN-06: Lançar abre o modal com valor editável e confirma com data, valor e Idempotency-Key', async () => {
     const posted: { url: string; body: string; key: string | null }[] = [];
     vi.stubGlobal(
