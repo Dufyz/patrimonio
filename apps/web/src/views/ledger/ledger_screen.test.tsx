@@ -230,6 +230,55 @@ describe('LedgerScreen', () => {
     await waitFor(() => expect(calls).toEqual(['/api/finance/entries/1']));
   });
 
+  it('LAN-07: excluir uma despesa lançada mostra o saldo da conta antes → depois', async () => {
+    const withEntry = {
+      ...book,
+      rows: [
+        {
+          ...book.rows[0],
+          kind: 'DESPESA',
+          description: 'Mercado',
+          amount: '200.00',
+          entry: {
+            kind: 'despesa',
+            description: 'Mercado',
+            date: '2020-01-05',
+            category_id: null,
+            amount: '200.00',
+            payments: [{ source_type: 'conta', source_id: 'a' }],
+          },
+        },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        String(url).startsWith('/api/finance/accounts')
+          ? new Response(
+              JSON.stringify({
+                accounts: [
+                  {
+                    account: { id: 'a', name: 'Nubank Conta' },
+                    balance: '1000.00',
+                  },
+                ],
+              }),
+              { status: 200 },
+            )
+          : new Response(JSON.stringify(withEntry), { status: 200 }),
+      ),
+    );
+    wrap();
+    await waitFor(() => expect(screen.getByText('Mercado')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ações de Mercado' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Excluir' }));
+
+    expect(await screen.findByText('Saldo de Nubank Conta')).toBeTruthy();
+    expect(screen.getByText(/1\.000,00/)).toBeTruthy();
+    expect(screen.getByText(/1\.200,00/)).toBeTruthy();
+  });
+
   it('LAN-06: Lançar abre o modal com valor editável e confirma com data, valor e Idempotency-Key', async () => {
     const posted: { url: string; body: string; key: string | null }[] = [];
     vi.stubGlobal(

@@ -1,14 +1,17 @@
 import type { BookRowResource } from '@patrimonio/contracts';
 import { useEffect, useState } from 'react';
 
+import { fetchAccounts } from '../../api/accounts.js';
 import { deleteBookRow, fetchCategoryOptions, putFinanceEntry } from '../../api/book.js';
 import type { CategoryOption } from '../../api/book.js';
+import { EffectTable } from '../../components/effect_table.js';
 import { AlertModal } from '../../components/overlay.js';
 import { formatMoney } from '../../lib/format.js';
 import {
   batchTotal,
   canDelete,
   canMove,
+  deleteEffect,
   deletePath,
   isEntryRow,
   moveBody,
@@ -45,6 +48,9 @@ export const BatchDialog = ({
   const [target, setTarget] = useState('');
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [balances, setBalances] = useState<
+    ReadonlyMap<string, { readonly name: string; readonly balance: string }>
+  >(new Map());
   const total = formatMoney(batchTotal(chosen), { hidden }).text;
   const count = `${chosen.length} ${chosen.length === 1 ? 'lançamento' : 'lançamentos'}`;
 
@@ -54,6 +60,30 @@ export const BatchDialog = ({
       .then(setCategories)
       .catch(() => setCategories([]));
   }, [action]);
+
+  // LAN-07.3: o efeito de excluir uma linha só precisa dos saldos de hoje.
+  const single = action === 'delete' && chosen.length === 1 ? chosen[0] : undefined;
+  useEffect(() => {
+    if (single === undefined) return;
+    let current = true;
+    fetchAccounts(false)
+      .then((body) => {
+        if (!current) return;
+        setBalances(
+          new Map(
+            body.accounts.map((item) => [
+              item.account.id,
+              { name: item.account.name, balance: item.balance },
+            ]),
+          ),
+        );
+      })
+      .catch(() => setBalances(new Map()));
+    return () => {
+      current = false;
+    };
+  }, [single]);
+  const effect = single === undefined ? [] : deleteEffect(single, balances);
 
   const close = (): void => {
     setTarget('');
@@ -109,6 +139,7 @@ export const BatchDialog = ({
             {count} · valor total {total}.
             {action === 'delete' ? ' A exclusão não pode ser desfeita.' : ''}
           </span>
+          {effect.length > 0 ? <EffectTable rows={effect} /> : null}
           {action === 'delete' ? null : (
             <label className="flex flex-col gap-1">
               {action === 'recategorize' ? 'Nova categoria' : 'Nova conta'}

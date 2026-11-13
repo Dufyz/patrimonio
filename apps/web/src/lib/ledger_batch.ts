@@ -1,4 +1,6 @@
 import type { BookRowResource } from '@patrimonio/contracts';
+import { decimalToCents } from '../finance/lib/money.js';
+import type { Cents } from '../finance/lib/money.js';
 
 /**
  * LAN-08 · O que uma linha do livro aceita em lote. Quem sabe a rota de cada
@@ -148,4 +150,30 @@ export const reversalBody = (
     amount: entryOf(row).amount,
     reverses_id: row.id,
   };
+};
+
+/**
+ * LAN-07.3 · O efeito de excluir uma receita ou despesa lançada paga numa só
+ * conta: o saldo dela antes → depois. Sem conta única (cartão, dividida) ou sem
+ * saldo conhecido, não há o que mostrar, e a tela não inventa.
+ */
+export const deleteEffect = (
+  row: BookRowResource,
+  balances: ReadonlyMap<string, { readonly name: string; readonly balance: string }>,
+): readonly { label: string; before: Cents; after: Cents }[] => {
+  if (!isEntryRow(row) || row.situation !== 'lancado') return [];
+
+  const payments = entryOf(row).payments;
+  const [only] = payments;
+  if (payments.length !== 1 || only?.source_type !== 'conta') return [];
+
+  const account = balances.get(only.source_id);
+  const amount = decimalToCents(entryOf(row).amount);
+  const before = account === undefined ? null : decimalToCents(account.balance);
+  if (account === undefined || amount === null || before === null) return [];
+
+  // Excluir uma despesa devolve o dinheiro à conta; excluir uma receita o tira.
+  const after = row.kind === 'DESPESA' ? before + amount : before - amount;
+
+  return [{ label: `Saldo de ${account.name}`, before, after }];
 };

@@ -8,6 +8,7 @@ import {
   reversalBody,
   canDelete,
   canMove,
+  deleteEffect,
   deletePath,
   moveBody,
   recategorizeBody,
@@ -137,5 +138,37 @@ describe('LAN-07 · cartão', () => {
       reverses_id: 'e1',
     });
     expect(reversalBody(account)).toBeNull();
+  });
+});
+
+describe('LAN-07.3 · efeito de excluir', () => {
+  const balances = new Map([['a1', { name: 'Nubank Conta', balance: '1000.00' }]]);
+
+  it('excluir despesa devolve o valor ao saldo da conta', () => {
+    expect(deleteEffect(row({}), balances)).toEqual([
+      { label: 'Saldo de Nubank Conta', before: 100000, after: 112050 },
+    ]);
+  });
+
+  it('excluir receita tira o valor do saldo', () => {
+    const income = row({
+      kind: 'RECEITA',
+      amount: '300.00',
+      entry: { ...row({}).entry, kind: 'receita', amount: '300.00' },
+    });
+
+    expect(deleteEffect(income, balances)).toEqual([
+      { label: 'Saldo de Nubank Conta', before: 100000, after: 70000 },
+    ]);
+  });
+
+  it('cartão, previsto e conta sem saldo conhecido não têm efeito inventado', () => {
+    const card = row({
+      entry: { ...row({}).entry, payments: [{ source_type: 'cartao', source_id: 'k1' }] },
+    });
+
+    expect(deleteEffect(card, balances)).toEqual([]);
+    expect(deleteEffect(row({ situation: 'previsto' }), balances)).toEqual([]);
+    expect(deleteEffect(row({}), new Map())).toEqual([]);
   });
 });
