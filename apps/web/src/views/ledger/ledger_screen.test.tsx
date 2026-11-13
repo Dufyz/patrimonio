@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { MemoryRouter } from 'react-router';
@@ -85,6 +85,10 @@ describe('LedgerScreen', () => {
       screen.getByRole('button', { name: /Remover filtro Busca: zzz/ }),
     ).toBeTruthy();
     expect(screen.getByRole('search')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('Selecionar Salário'));
+    expect(screen.getByRole('toolbar', { name: 'Ações em lote' })).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('toolbar')).toBeNull();
     expect(screen.getByText('Saldo do mês')).toBeTruthy();
     expect(screen.getByText('2 previstos até 30/11')).toBeTruthy();
     expect(screen.getByText(/Próximos dias · previstos/)).toBeTruthy();

@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router';
 import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
 
 import { confirmPlanned, fetchAccountNames, fetchBook } from '../../api/book.js';
+import { downloadCsv } from '../../finance/lib/csv.js';
 import { StatStrip } from '../../finance/components/stat_strip.js';
 import { formatMoney, formatQuantity, MINUS } from '../../lib/format.js';
 import type { Grouping, GroupSection } from '../../lib/ledger_book.js';
@@ -14,7 +15,10 @@ import {
   GROUPINGS,
   plannedSection,
   sectionsOfGroups,
+  batchOnlyDelete,
   detailOf,
+  exportRows,
+  selectable,
   sectionsByDay,
   visibleRows,
   signOf,
@@ -103,6 +107,7 @@ export const LedgerScreen = (): React.ReactElement => {
   const [book, setBook] = useState<BookResponse | null>(null);
   const [failed, setFailed] = useState(false);
   const [accounts, setAccounts] = useState<ReadonlyMap<string, string>>(new Map());
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [reload, setReload] = useState(0);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -130,6 +135,14 @@ export const LedgerScreen = (): React.ReactElement => {
     return () => controller.abort();
   }, [month, reload, filterKey, grouping]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setSelected(new Set());
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   if (failed) return <p role="alert">Não foi possível carregar os lançamentos.</p>;
   if (book === null) return <p role="status">Carregando…</p>;
 
@@ -139,6 +152,15 @@ export const LedgerScreen = (): React.ReactElement => {
   };
   const { totals } = book;
   const rows = visibleRows(book.rows, filters.tipo);
+  const chosen = rows.filter((r) => selected.has(r.id));
+  const visibleSelectable = rows.filter(selectable);
+  const toggle = (id: string): void =>
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const planned = plannedSection(grouping === 'dia' ? rows : [], today);
   const sections: readonly GroupSection[] =
     grouping === 'dia' || book.groups === null
@@ -225,7 +247,57 @@ export const LedgerScreen = (): React.ReactElement => {
             ))}
           </select>
         </label>
+        <button
+          type="button"
+          aria-label="Exportar CSV"
+          onClick={() =>
+            downloadCsv(
+              `lancamentos-${month}.csv`,
+              exportRows(rows, (k) => KIND_LABEL[k as keyof typeof KIND_LABEL] ?? k),
+            )
+          }
+          className="rounded-field border border-line px-3 py-1.5"
+        >
+          Exportar
+        </button>
       </div>
+      {chosen.length > 0 ? (
+        <div
+          role="toolbar"
+          aria-label="Ações em lote"
+          className="flex items-center gap-3"
+        >
+          <span>
+            {chosen.length} {chosen.length === 1 ? 'selecionado' : 'selecionados'}
+          </span>
+          <button
+            type="button"
+            disabled={batchOnlyDelete(chosen)}
+            title={
+              batchOnlyDelete(chosen)
+                ? 'Aporte, resgate, provento e evento só aceitam Excluir.'
+                : undefined
+            }
+          >
+            Recategorizar
+          </button>
+          <button
+            type="button"
+            disabled={batchOnlyDelete(chosen)}
+            title={
+              batchOnlyDelete(chosen)
+                ? 'Aporte, resgate, provento e evento só aceitam Excluir.'
+                : undefined
+            }
+          >
+            Mover de conta
+          </button>
+          <button type="button">Excluir</button>
+          <button type="button" onClick={() => setSelected(new Set())}>
+            Limpar seleção
+          </button>
+        </div>
+      ) : null}
       {hasFilters(filters) ? (
         <ul aria-label="Filtros ativos" className="flex flex-wrap gap-2">
           {chipsOf(
@@ -261,6 +333,23 @@ export const LedgerScreen = (): React.ReactElement => {
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-label text-ink-3 uppercase">
+            <th scope="col">
+              <input
+                type="checkbox"
+                aria-label="Selecionar todos os visíveis"
+                checked={
+                  visibleSelectable.length > 0 &&
+                  chosen.length === visibleSelectable.length
+                }
+                onChange={(e) =>
+                  setSelected(
+                    e.target.checked
+                      ? new Set(visibleSelectable.map((r) => r.id))
+                      : new Set(),
+                  )
+                }
+              />
+            </th>
             <th scope="col">Data</th>
             <th scope="col">Descrição</th>
             <th scope="col">Tipo</th>
@@ -274,7 +363,7 @@ export const LedgerScreen = (): React.ReactElement => {
         {planned.rows.length === 0 ? null : (
           <tbody data-section="previstos">
             <tr>
-              <th scope="rowgroup" colSpan={6} className="pt-3 text-left text-ink-2">
+              <th scope="rowgroup" colSpan={7} className="pt-3 text-left text-ink-2">
                 Próximos dias · previstos{' '}
                 <span className="font-normal text-ink-3">
                   {planned.counter} · não entram nos totais do mês
@@ -285,6 +374,7 @@ export const LedgerScreen = (): React.ReactElement => {
               const note = overdueNote(row.date, today);
               return (
                 <tr key={row.id} data-situation="previsto" className="bg-planned-soft">
+                  <td />
                   <td className="tabular">
                     {row.date.slice(8)}/{row.date.slice(5, 7)}
                     {note === null ? null : (
@@ -317,7 +407,7 @@ export const LedgerScreen = (): React.ReactElement => {
         {sections.map((section) => (
           <tbody key={section.key}>
             <tr>
-              <th scope="rowgroup" colSpan={6} className="pt-3 text-left text-ink-2">
+              <th scope="rowgroup" colSpan={7} className="pt-3 text-left text-ink-2">
                 {section.label}
                 {grouping === 'dia' ? null : (
                   <span className="ml-2 font-normal text-ink-3">{section.count}</span>
@@ -326,6 +416,16 @@ export const LedgerScreen = (): React.ReactElement => {
             </tr>
             {section.rows.map((row) => (
               <tr key={row.id} data-situation={row.situation}>
+                <td>
+                  {selectable(row) ? (
+                    <input
+                      type="checkbox"
+                      aria-label={`Selecionar ${row.description}`}
+                      checked={selected.has(row.id)}
+                      onChange={() => toggle(row.id)}
+                    />
+                  ) : null}
+                </td>
                 <td className="tabular">
                   {row.date.slice(8)}/{row.date.slice(5, 7)}
                 </td>

@@ -5,7 +5,9 @@ import type { BookRowResource } from '@patrimonio/contracts';
 import {
   balanceOf,
   dayLabel,
+  batchOnlyDelete,
   detailOf,
+  exportRows,
   sectionsOfGroups,
   visibleRows,
   overdueNote,
@@ -137,5 +139,17 @@ describe('ledger_book', () => {
     expect(s.map((g) => g.key)).toEqual(['RECEITA', 'DESPESA']);
     expect(s[1]?.rows.map((r) => r.id)).toEqual(['p', 'l']);
     expect(s[1]?.count).toBe(2);
+  });
+
+  it('exporta as linhas com sinal e lote só aceita excluir com aporte', () => {
+    const rows = [
+      row({ kind: 'DESPESA', amount: '10.5' }),
+      row({ kind: 'RECEITA', amount: '20' }),
+    ];
+    const out = exportRows(rows, (k) => k);
+    expect(out[1]?.[4]).toBe('-10.5');
+    expect(out[2]?.[4]).toBe('20');
+    expect(batchOnlyDelete(rows)).toBe(false);
+    expect(batchOnlyDelete([row({ kind: 'APORTE' })])).toBe(true);
   });
 });

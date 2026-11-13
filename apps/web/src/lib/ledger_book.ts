@@ -219,3 +219,43 @@ export const sectionsOfGroups = (
       )
     : shown;
 };
+
+/** LAN-08 · Só linha lançada é selecionável. */
+export const selectable = (row: BookRowResource): boolean => row.situation === 'lancado';
+
+/** Aporte, resgate, provento e evento só aceitam Excluir em lote. */
+export const batchOnlyDelete = (rows: readonly BookRowResource[]): boolean =>
+  rows.some((r) => ['APORTE', 'RESGATE', 'PROVENTO', 'EVENTO'].includes(r.kind));
+
+export const EXPORT_HEADER = [
+  'Data',
+  'Descrição',
+  'Tipo',
+  'Situação',
+  'Valor',
+  'Conta',
+  'Carteira',
+  'Quantidade',
+  'Preço',
+  'Taxas',
+] as const;
+
+/** Números sem moeda e com ponto decimal; o valor leva o sinal do tipo. */
+export const exportRows = (
+  rows: readonly BookRowResource[],
+  kindLabel: (kind: string) => string,
+): readonly (readonly string[])[] => [
+  [...EXPORT_HEADER],
+  ...rows.map((r) => [
+    r.date,
+    r.description,
+    kindLabel(r.kind),
+    r.situation === 'previsto' ? 'Previsto' : 'Lançado',
+    r.amount === null ? '' : `${signOf(r.kind) === '-' ? '-' : ''}${r.amount}`,
+    r.account_id ?? '',
+    r.portfolio_id ?? '',
+    r.quantity ?? '',
+    r.unit_price ?? '',
+    r.fees ?? '',
+  ]),
+];
