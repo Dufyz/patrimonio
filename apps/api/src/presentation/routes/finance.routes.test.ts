@@ -608,6 +608,70 @@ describe('um cartão (CRT-03)', () => {
   });
 });
 
+describe('fatura: estorno e fatura paga (CRT-07)', () => {
+  it('o estorno marca a compra original e a fatura com pagamento sai de unpaid_months', async () => {
+    const cards = await get('/cards');
+    let cardId = '';
+    let month = '';
+    let before: Awaited<ReturnType<typeof get>> | undefined;
+    let purchase: Record<string, any> | undefined;
+    for (const row of cards.body.cards) {
+      const detail = await get(`/cards/${row.card.id}`);
+      for (const inv of detail.body.invoices as { month: string; status: string }[]) {
+        if (inv.status === 'paga') continue;
+        const res = await get(`/cards/${row.card.id}/invoices/${inv.month}`);
+        const found = res.body.lines.find(
+          (l: { block: string; origin: string }) =>
+            l.block === 'compras' && l.origin === 'entry',
+        );
+        if (found !== undefined) {
+          cardId = row.card.id;
+          month = inv.month;
+          before = res;
+          purchase = found;
+          break;
+        }
+      }
+      if (purchase !== undefined) break;
+    }
+    if (before === undefined || purchase === undefined)
+      throw new Error('sem compra de cartão no seed');
+    expect(purchase.reversed).toBe(false);
+    expect(before.body.unpaid_months).toContain(month);
+
+    const credit = await send('post', `/cards/${cardId}/items`, {
+      kind: 'credito',
+      subtype: 'estorno',
+      invoice_month: month,
+      description: `Estorno: ${purchase.description}`,
+      amount: purchase.amount,
+      reverses_id: purchase.id,
+    });
+    expect(credit.status).toBe(201);
+    const after = await get(`/cards/${cardId}/invoices/${month}`);
+    const marked = after.body.lines.find((l: { id: string }) => l.id === purchase.id);
+    expect(marked.reversed).toBe(true);
+    expect(Number(after.body.totals.creditos)).toBeGreaterThan(0);
+
+    const paid = await send('post', `/cards/${cardId}/invoices/${month}/payments`, {
+      date: '2026-10-24',
+      amount: '1.00',
+    });
+    expect(paid.status).toBe(201);
+    const locked = await get(`/cards/${cardId}/invoices/${month}`);
+    expect(locked.body.unpaid_months).not.toContain(month);
+    const refused = await send('post', `/cards/${cardId}/items`, {
+      kind: 'encargo',
+      subtype: 'juros',
+      invoice_month: month,
+      description: 'Juros',
+      amount: '5.00',
+      category_id: ids['cat:Moradia'] ?? purchase.category_id,
+    });
+    expect(refused.status).toBeGreaterThanOrEqual(400);
+  });
+});
+
 describe('livro unificado (LIV-02)', () => {
   it('os totais do mês batem com a Visão geral e não dependem da página', async () => {
     const overview = await get('/overview?month=2026-10');

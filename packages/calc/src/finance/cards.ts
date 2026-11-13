@@ -72,6 +72,10 @@ export type InvoiceLine = {
   readonly installment: { readonly no: number; readonly total: number } | null;
   readonly subtype: string | null;
   readonly forecast: boolean;
+  /** Existe um crédito de estorno que desfaz esta linha. */
+  readonly reversed: boolean;
+  /** A compra foi movida para outra fatura que não a do fechamento. */
+  readonly moved: boolean;
 };
 
 const entryInvoice = (
@@ -94,7 +98,11 @@ const cardParts = (
       key: entryInvoice(card, entry, payment.invoice_month),
     }));
 
-const entryLine = (entry: FinEntry, amount: Decimal): InvoiceLine => ({
+const entryLine = (
+  entry: FinEntry,
+  amount: Decimal,
+  extra: { readonly reversed: boolean; readonly moved: boolean },
+): InvoiceLine => ({
   id: entry.id,
   origin: 'entry',
   block:
@@ -109,9 +117,13 @@ const entryLine = (entry: FinEntry, amount: Decimal): InvoiceLine => ({
       : { no: entry.installment.no, total: entry.installment.total },
   subtype: null,
   forecast: entry.status === 'prevista',
+  ...extra,
 });
 
-const itemLine = (item: FinCardItem): InvoiceLine => ({
+const itemLine = (
+  item: FinCardItem,
+  extra: { readonly reversed: boolean; readonly moved: boolean },
+): InvoiceLine => ({
   id: item.id,
   origin: 'item',
   block:
@@ -132,6 +144,7 @@ const itemLine = (item: FinCardItem): InvoiceLine => ({
       : { no: item.installment.no, total: item.installment.total },
   subtype: item.subtype,
   forecast: false,
+  ...extra,
 });
 
 const byDate = (a: InvoiceLine, b: InvoiceLine): number =>
@@ -144,6 +157,9 @@ export const invoiceLines = (
   key: string,
 ): readonly InvoiceLine[] => {
   const lines: InvoiceLine[] = [];
+  const reversed = new Set(
+    data.card_items.flatMap((item) => (item.reverses_id === null ? [] : [item.reverses_id])),
+  );
   for (const entry of data.entries) {
     if (entry.kind !== 'despesa') continue;
     const amount = total(
@@ -151,11 +167,25 @@ export const invoiceLines = (
         .filter((p) => p.key === key)
         .map((p) => p.amount),
     );
-    if (amount.gt(0)) lines.push(entryLine(entry, amount));
+    if (amount.gt(0))
+      lines.push(
+        entryLine(entry, amount, {
+          reversed: reversed.has(entry.id),
+          moved: key !== invoiceKeyOf(card, entry.date),
+        }),
+      );
   }
   for (const item of data.card_items) {
     if (item.card_id === card.id && item.invoice_month === key)
-      lines.push(itemLine(item));
+      lines.push(
+        itemLine(item, {
+          reversed: reversed.has(item.id),
+          moved:
+            item.kind !== 'credito' &&
+            item.kind !== 'encargo' &&
+            item.invoice_month !== invoiceKeyOf(card, item.purchase_date),
+        }),
+      );
   }
   return lines.sort(byDate);
 };

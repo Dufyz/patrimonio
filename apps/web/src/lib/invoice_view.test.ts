@@ -19,6 +19,8 @@ const line = (over: Partial<InvoiceLineResource>): InvoiceLineResource => ({
   installment: null,
   subtype: null,
   forecast: false,
+  reversed: false,
+  moved: false,
   ...over,
 });
 

@@ -3,8 +3,24 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { fetchAccountNames } from '../../api/book.js';
 import { fetchInvoice } from '../../api/invoice.js';
-import type { InvoiceBlock, InvoiceResource } from '../../api/invoice.js';
+import type {
+  InvoiceBlock,
+  InvoiceLineResource,
+  InvoiceResource,
+} from '../../api/invoice.js';
+import { deleteLine, moveLine } from '../../api/invoice_write.js';
+import { ApiError } from '../../api/client.js';
 import { fetchCategories } from '../../api/ledger_write.js';
+import type { CategoryOption } from '../../api/ledger_write.js';
+import { AlertModal, Menu } from '../../components/overlay.js';
+import { newAttemptKey } from '../../lib/entry.js';
+import {
+  canReverse,
+  readOnly,
+  reversalMonth,
+  reversalRequest,
+} from '../../lib/invoice_actions.js';
+import { InvoiceItemModal } from './invoice_item_modal.js';
 import { usePreferences } from '../../components/preferences.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
 import { PanelError } from '../../finance/components/states.js';
@@ -40,6 +56,15 @@ export const InvoiceScreen = (): React.ReactElement => {
   const [data, setData] = useState<InvoiceResource | null>(null);
   const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
   const [categories, setCategories] = useState<ReadonlyMap<string, string>>(new Map());
+  const [categoryList, setCategoryList] = useState<readonly CategoryOption[]>([]);
+  const [dialog, setDialog] = useState<
+    | { kind: 'credito' | 'encargo'; line?: InvoiceLineResource }
+    | { kind: 'mover'; line: InvoiceLineResource }
+    | { kind: 'excluir'; line: InvoiceLineResource }
+    | null
+  >(null);
+  const [moveTo, setMoveTo] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
 
@@ -61,7 +86,10 @@ export const InvoiceScreen = (): React.ReactElement => {
       .then(setNames)
       .catch(() => undefined);
     fetchCategories(controller.signal)
-      .then((list) => setCategories(new Map(list.map((c) => [c.id, c.name]))))
+      .then((list) => {
+        setCategoryList(list);
+        setCategories(new Map(list.map((c) => [c.id, c.name])));
+      })
       .catch(() => undefined);
     return () => controller.abort();
   }, [id, month, reload]);
@@ -101,6 +129,21 @@ export const InvoiceScreen = (): React.ReactElement => {
     setParams(next, { replace: true });
   };
   const filtered = query !== '' || types.length > 0;
+  const locked = readOnly(summary.status);
+  const run = (job: Promise<unknown>): void => {
+    void job
+      .then(() => {
+        setDialog(null);
+        setReload((n) => n + 1);
+      })
+      .catch((error: unknown) => {
+        setActionError(
+          error instanceof ApiError ? error.message : 'Não foi possível concluir.',
+        );
+        setReload((n) => n + 1);
+      });
+  };
+  const moveOptions = data.unpaid_months.filter((m) => m !== month);
   const paid = summary.status === 'paga' ? paidNote(data.payments, accountName) : null;
 
   return (
@@ -198,9 +241,27 @@ export const InvoiceScreen = (): React.ReactElement => {
             {LINE_TYPE_LABEL[b.id]}
           </button>
         ))}
+        {!locked && (
+          <>
+            <button
+              type="button"
+              className="ml-auto cursor-pointer rounded-field border border-line px-3 py-1.5 text-sm"
+              onClick={() => setDialog({ kind: 'credito' })}
+            >
+              Novo crédito
+            </button>
+            <button
+              type="button"
+              className="cursor-pointer rounded-field border border-line px-3 py-1.5 text-sm"
+              onClick={() => setDialog({ kind: 'encargo' })}
+            >
+              Novo encargo
+            </button>
+          </>
+        )}
         <button
           type="button"
-          className="ml-auto cursor-pointer rounded-field border border-line px-3 py-1.5 text-sm"
+          className={`${locked ? 'ml-auto ' : ''}cursor-pointer rounded-field border border-line px-3 py-1.5 text-sm`}
           onClick={() =>
             downloadCsv(
               `fatura-${card.name}-${month}.csv`,
@@ -222,6 +283,9 @@ export const InvoiceScreen = (): React.ReactElement => {
             <th scope="col" className="text-right">
               Valor
             </th>
+            <th scope="col">
+              <span className="sr-only">Ações</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -237,10 +301,11 @@ export const InvoiceScreen = (): React.ReactElement => {
                     {money(subtotal(lines))}
                     {filtered && <span className="sr-only"> (filtrado)</span>}
                   </td>
+                  <td />
                 </tr>
                 {lines.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="text-xs text-ink-3">
+                    <td colSpan={5} className="text-xs text-ink-3">
                       {block.empty}
                     </td>
                   </tr>
@@ -276,6 +341,39 @@ export const InvoiceScreen = (): React.ReactElement => {
                           ? `− ${money(l.amount)}`
                           : money(l.amount)}
                       </td>
+                      <td className="text-right">
+                        {!locked && (
+                          <Menu
+                            label={`Ações de ${l.description}`}
+                            items={[
+                              {
+                                id: 'estornar',
+                                label: 'Estornar',
+                                disabled: !canReverse(l, summary.status),
+                                onSelect: () => setDialog({ kind: 'credito', line: l }),
+                              },
+                              {
+                                id: 'mover',
+                                label: 'Mover de fatura',
+                                onSelect: () => {
+                                  setMoveTo('');
+                                  setActionError(null);
+                                  setDialog({ kind: 'mover', line: l });
+                                },
+                              },
+                              {
+                                id: 'excluir',
+                                label: 'Excluir',
+                                destructive: true,
+                                onSelect: () => {
+                                  setActionError(null);
+                                  setDialog({ kind: 'excluir', line: l });
+                                },
+                              },
+                            ]}
+                          />
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -300,6 +398,100 @@ export const InvoiceScreen = (): React.ReactElement => {
           )}
         </tfoot>
       </table>
+      {(dialog?.kind === 'credito' || dialog?.kind === 'encargo') && (
+        <InvoiceItemModal
+          cardId={card.id}
+          kind={dialog.kind}
+          month={
+            dialog.line === undefined
+              ? month
+              : (reversalMonth(month, data.unpaid_months) ?? month)
+          }
+          months={data.unpaid_months}
+          categories={categoryList}
+          reversesId={dialog.line?.id}
+          initial={
+            dialog.line === undefined
+              ? undefined
+              : (() => {
+                  const r = reversalRequest(dialog.line, month);
+                  return {
+                    subtype: r.subtype,
+                    description: r.description,
+                    amount: r.amount.replace('.', ','),
+                  };
+                })()
+          }
+          onSaved={() => setReload((n) => n + 1)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'mover' && (
+        <AlertModal
+          open
+          danger={false}
+          title={`Mover "${dialog.line.description}" de fatura`}
+          message={
+            <>
+              <select
+                aria-label="Mover para a fatura"
+                className="w-full rounded-field border border-line px-2 py-1.5"
+                value={moveTo}
+                onChange={(e) => setMoveTo(e.target.value)}
+              >
+                <option value="">Escolha a fatura</option>
+                {moveOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {monthLabel(m)}
+                  </option>
+                ))}
+              </select>
+              {actionError !== null && (
+                <span role="alert" className="mt-2 block text-negative">
+                  {actionError}
+                </span>
+              )}
+            </>
+          }
+          cancelLabel="Cancelar"
+          confirmLabel="Mover"
+          pending={moveTo === ''}
+          onCancel={() => setDialog(null)}
+          onConfirm={() =>
+            run(moveLine(dialog.line.origin, dialog.line.id, moveTo, newAttemptKey()))
+          }
+        />
+      )}
+      {dialog?.kind === 'excluir' && (
+        <AlertModal
+          open
+          title={`Excluir "${dialog.line.description}"?`}
+          message={
+            <>
+              A linha sai da fatura
+              {dialog.line.installment === null ? '' : ' (só esta parcela)'}.
+              {actionError !== null && (
+                <span role="alert" className="mt-2 block text-negative">
+                  {actionError}
+                </span>
+              )}
+            </>
+          }
+          cancelLabel="Cancelar"
+          confirmLabel="Excluir"
+          onCancel={() => setDialog(null)}
+          onConfirm={() =>
+            run(
+              deleteLine(
+                dialog.line.origin,
+                dialog.line.id,
+                dialog.line.installment !== null,
+                newAttemptKey(),
+              ),
+            )
+          }
+        />
+      )}
     </div>
   );
 };

@@ -14,6 +14,8 @@ export type InvoiceLineResource = {
   readonly installment: { readonly no: number; readonly total: number } | null;
   readonly subtype: string | null;
   readonly forecast: boolean;
+  readonly reversed: boolean;
+  readonly moved: boolean;
 };
 
 export type InvoiceResource = {
@@ -51,6 +53,8 @@ export type InvoiceResource = {
   }[];
   /** As faturas com movimento, da mais antiga à última prevista. */
   readonly months: readonly string[];
+  /** As faturas sem pagamento: só elas aceitam estorno, mover, crédito e encargo. */
+  readonly unpaid_months: readonly string[];
 };
 
 export const fetchInvoice = (

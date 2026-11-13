@@ -240,6 +240,19 @@ export const addCardItem = (
 > => {
   const errors = validateItem(data, cardId, input);
   if (errors.length > 0) return failure(errors);
+  // CRT-07: fatura com pagamento não recebe crédito nem encargo.
+  if (
+    data.invoice_payments.some(
+      (p) => p.card_id === cardId && p.invoice_month === input.invoice_month,
+    )
+  ) {
+    return failure([
+      rule(
+        'INVOICE_PAID_LOCKED',
+        'Fatura com pagamento não recebe nem perde lançamentos. Exclua o pagamento antes.',
+      ),
+    ]);
+  }
 
   const card = findCard(data, cardId);
   if (card === undefined)

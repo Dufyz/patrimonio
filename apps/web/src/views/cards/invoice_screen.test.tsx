@@ -52,17 +52,27 @@ const body = {
   },
   payments: [],
   months: ['2026-10', '2026-11'],
+  unpaid_months: ['2026-10', '2026-11'],
 };
 
-const mount = (): void => {
+const calls: { url: string; method: string; body?: string }[] = [];
+
+const mount = (status = 'aberta'): void => {
+  calls.length = 0;
+  const current = { ...body, summary: { ...body.summary, status } };
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (url: string) => {
+    vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({
+        url,
+        method: init?.method ?? 'GET',
+        ...(typeof init?.body === 'string' ? { body: init.body } : {}),
+      });
       const payload = url.includes('/categories')
         ? { categories: [{ id: 'c1', name: 'Alimentação', kind: 'despesa' }] }
         : url.includes('/finance/accounts')
           ? { accounts: [{ account: { id: 'a1', name: 'Itaú Unibanco' } }] }
-          : body;
+          : current;
       return new Response(JSON.stringify(payload), { status: 200 });
     }),
   );
@@ -133,5 +143,41 @@ describe('InvoiceScreen · CRT-04/05', () => {
     expect((screen.getByLabelText('Fatura anterior') as HTMLButtonElement).disabled).toBe(
       false,
     );
+  });
+});
+
+describe('InvoiceScreen · CRT-07', () => {
+  it('fatura paga é somente leitura: sem crédito, encargo nem ações de linha', async () => {
+    mount('paga');
+    await screen.findByText('Mercado');
+    expect(screen.queryByRole('button', { name: 'Novo crédito' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Novo encargo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Ações de Mercado/ })).toBeNull();
+  });
+
+  it('encargo exige categoria e depois grava na fatura exibida', async () => {
+    mount();
+    await screen.findByText('Mercado');
+    fireEvent.click(screen.getByRole('button', { name: 'Novo encargo' }));
+    fireEvent.change(await screen.findByLabelText('Descrição'), {
+      target: { value: 'Juros rotativos' },
+    });
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '12,50' } });
+    fireEvent.click(screen.getByRole('button', { name: /Lançar encargo/ }));
+    expect(
+      await screen.findByText('Encargo precisa de uma categoria de despesa.'),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Categoria'), { target: { value: 'c1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Lançar encargo/ }));
+    await vi.waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true));
+    const post = calls.find((c) => c.method === 'POST');
+    expect(post?.url).toBe('/api/finance/cards/c1/items');
+    expect(JSON.parse(post?.body ?? '{}')).toMatchObject({
+      kind: 'encargo',
+      subtype: 'juros',
+      invoice_month: '2026-11',
+      amount: '12.50',
+      category_id: 'c1',
+    });
   });
 });

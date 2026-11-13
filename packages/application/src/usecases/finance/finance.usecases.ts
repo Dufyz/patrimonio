@@ -299,6 +299,10 @@ export const financeUseCases = (deps: FinanceDeps) => ({
           (p) => p.card_id === cardId && p.invoice_month === month,
         ),
         months: fin.cardInvoiceKeys(data, card, today),
+        /** Faturas sem nenhum pagamento: as que aceitam estorno, mover, crédito e encargo. */
+        unpaid_months: fin
+          .cardInvoiceKeys(data, card, today)
+          .filter((key) => fin.invoicePaid(data, cardId, key).lte(0)),
       };
     }),
 
