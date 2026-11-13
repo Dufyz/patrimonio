@@ -7,7 +7,7 @@ describe('rotas de Finanças', () => {
     expect(financeRoutes.overview()).toBe('/?escopo=fluxo');
     expect(financeRoutes.account('itau')).toBe('/contas/itau');
     expect(financeRoutes.card('nubank-mc', '2026-11')).toBe(
-      '/cartoes/nubank-mc?fatura=2026-11',
+      '/cartoes/nubank-mc/faturas/2026-11',
     );
     expect(financeRoutes.entries('conta=itau')).toBe('/lancamentos?conta=itau');
   });

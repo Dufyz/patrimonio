@@ -85,7 +85,7 @@ export const CardsScreen = (): React.ReactElement => {
               className="cursor-pointer rounded-field border border-line px-2 py-1.5"
               value=""
               onChange={(e) =>
-                e.target.value !== '' && navigate(`/cartoes-novo/${e.target.value}`)
+                e.target.value !== '' && navigate(`/cartoes/${e.target.value}`)
               }
             >
               <option value="">Cartão: Todos</option>
@@ -98,7 +98,7 @@ export const CardsScreen = (): React.ReactElement => {
           </label>
         }
       />
-      <Link to="/contas-novo" aria-label="Ir para Contas" className="block no-underline">
+      <Link to="/contas" aria-label="Ir para Contas" className="block no-underline">
         <StatStrip
           label="Livre após faturas"
           cells={[
@@ -156,7 +156,7 @@ export const CardsScreen = (): React.ReactElement => {
                   </td>
                 </tr>
                 {group.cards.map((row) => {
-                  const open = `/cartoes-novo/${row.card.id}`;
+                  const open = `/cartoes/${row.card.id}`;
                   const days =
                     row.debt.next_due === null
                       ? null

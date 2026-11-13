@@ -85,10 +85,10 @@ describe('CardScreen · CRT-03', () => {
       ),
     );
     render(
-      <MemoryRouter initialEntries={['/cartoes-novo/c1']}>
+      <MemoryRouter initialEntries={['/cartoes/c1']}>
         <PreferencesProvider>
           <Routes>
-            <Route path="/cartoes-novo/:id" element={<CardScreen />} />
+            <Route path="/cartoes/:id" element={<CardScreen />} />
           </Routes>
         </PreferencesProvider>
       </MemoryRouter>,

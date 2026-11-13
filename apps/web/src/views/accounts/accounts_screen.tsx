@@ -128,9 +128,9 @@ export const AccountsScreen = (): React.ReactElement => {
               key={row.account.id}
               tabIndex={0}
               className="cursor-pointer hover:bg-panel-2"
-              onClick={() => navigate(`/contas-novo/${row.account.id}`)}
+              onClick={() => navigate(`/contas/${row.account.id}`)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') navigate(`/contas-novo/${row.account.id}`);
+                if (e.key === 'Enter') navigate(`/contas/${row.account.id}`);
                 const sibling =
                   e.key === 'ArrowDown'
                     ? e.currentTarget.nextElementSibling

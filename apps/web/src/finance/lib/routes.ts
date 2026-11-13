@@ -28,7 +28,9 @@ export const financeRoutes = {
     withSearch(`/contas/${encodeURIComponent(id)}`, search),
   cards: (): string => '/cartoes',
   card: (id: string, invoice?: string): string =>
-    `/cartoes/${encodeURIComponent(id)}${invoice === undefined ? '' : `?fatura=${invoice}`}`,
+    invoice === undefined
+      ? `/cartoes/${encodeURIComponent(id)}`
+      : `/cartoes/${encodeURIComponent(id)}/faturas/${invoice}`,
   recurrings: (): string => '/recorrentes',
   categories: (): string => '/categorias',
   settings: (): string => '/configuracoes',

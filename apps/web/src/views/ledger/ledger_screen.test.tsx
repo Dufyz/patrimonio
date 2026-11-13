@@ -73,7 +73,7 @@ describe('LedgerScreen', () => {
       vi.fn(async () => new Response(JSON.stringify(book), { status: 200 })),
     );
     render(
-      <MemoryRouter initialEntries={['/livro?q=zzz']}>
+      <MemoryRouter initialEntries={['/lancamentos?q=zzz']}>
         <PreferencesProvider>
           <LedgerScreen />
         </PreferencesProvider>
@@ -98,7 +98,7 @@ describe('LedgerScreen', () => {
 
   const wrap = (): void => {
     render(
-      <MemoryRouter initialEntries={['/livro']}>
+      <MemoryRouter initialEntries={['/lancamentos']}>
         <PreferencesProvider>
           <LedgerScreen />
         </PreferencesProvider>

@@ -77,10 +77,10 @@ const mount = (status = 'aberta'): void => {
     }),
   );
   render(
-    <MemoryRouter initialEntries={['/cartoes-novo/c1/faturas/2026-11']}>
+    <MemoryRouter initialEntries={['/cartoes/c1/faturas/2026-11']}>
       <PreferencesProvider>
         <Routes>
-          <Route path="/cartoes-novo/:id/faturas/:month" element={<InvoiceScreen />} />
+          <Route path="/cartoes/:id/faturas/:month" element={<InvoiceScreen />} />
         </Routes>
       </PreferencesProvider>
     </MemoryRouter>,

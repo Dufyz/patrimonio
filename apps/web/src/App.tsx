@@ -97,12 +97,14 @@ const Workspace = (): React.ReactElement => (
         element={<Navigate to={routes.portfolio(ALL_SCOPE)} replace />}
       />
       {/* Configurações vale para o app inteiro. */}
-      <Route path="/livro" element={<LedgerScreen />} />
-      <Route path="/cartoes-novo" element={<CardsScreen />} />
-      <Route path="/cartoes-novo/:id" element={<CardScreen />} />
-      <Route path="/cartoes-novo/:id/faturas/:month" element={<InvoiceScreen />} />
-      <Route path="/contas-novo" element={<AccountsScreen />} />
-      <Route path="/contas-novo/:id" element={<AccountStatementScreen />} />
+      {/* As telas de Lançamentos, Contas e Cartões leem o livro do servidor. */}
+      <Route path="/lancamentos" element={<LedgerScreen />} />
+      <Route path="/livro" element={<Navigate to="/lancamentos" replace />} />
+      <Route path="/cartoes" element={<CardsScreen />} />
+      <Route path="/cartoes/:id" element={<CardScreen />} />
+      <Route path="/cartoes/:id/faturas/:month" element={<InvoiceScreen />} />
+      <Route path="/contas" element={<AccountsScreen />} />
+      <Route path="/contas/:id" element={<AccountStatementScreen />} />
       <Route path="/configuracoes" element={<SettingsScreen />} />
       <Route path="*" element={<NotFound />} />
     </Route>

@@ -57,10 +57,10 @@ const mount = (closing: string): void => {
     }),
   );
   render(
-    <MemoryRouter initialEntries={['/contas-novo/a1']}>
+    <MemoryRouter initialEntries={['/contas/a1']}>
       <Routes>
         <Route
-          path="/contas-novo/:id"
+          path="/contas/:id"
           element={
             <PreferencesProvider>
               <AccountStatementScreen />

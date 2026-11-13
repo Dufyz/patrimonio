@@ -72,7 +72,7 @@ export const CardScreen = (): React.ReactElement => {
     <div className="flex flex-col gap-6">
       <ScreenHeader
         title={card.name}
-        crumbs={[{ label: 'Cartões', to: '/cartoes-novo' }, { label: card.name }]}
+        crumbs={[{ label: 'Cartões', to: '/cartoes' }, { label: card.name }]}
         subtitle={`final ${card.last4} · paga pela ${accountName(card.pay_account_id)} · limite ${money(card.limit_amount)} · usado ${data.summary.used_percent}% · disponível ${money(data.summary.available)}`}
         extra={
           <>
@@ -102,8 +102,8 @@ export const CardScreen = (): React.ReactElement => {
                 onChange={(e) =>
                   navigate(
                     e.target.value === ''
-                      ? '/cartoes-novo'
-                      : `/cartoes-novo/${e.target.value}`,
+                      ? '/cartoes'
+                      : `/cartoes/${e.target.value}`,
                   )
                 }
               >
@@ -154,7 +154,7 @@ export const CardScreen = (): React.ReactElement => {
           onCancel={() => setArchiving(false)}
           onConfirm={() => {
             void setCardArchived(card.id, true, newAttemptKey())
-              .then(() => navigate('/cartoes-novo'))
+              .then(() => navigate('/cartoes'))
               .catch((error: unknown) =>
                 setArchiveError(
                   error instanceof ApiError
@@ -186,7 +186,7 @@ export const CardScreen = (): React.ReactElement => {
             {data.invoices.map((inv) => {
               const note =
                 inv.status === 'paga' ? paidNote(inv.payments, accountName) : null;
-              const href = `/cartoes-novo/${card.id}/faturas/${inv.month}`;
+              const href = `/cartoes/${card.id}/faturas/${inv.month}`;
               return (
                 <tr
                   key={inv.month}

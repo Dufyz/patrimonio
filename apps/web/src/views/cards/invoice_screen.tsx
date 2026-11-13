@@ -122,7 +122,7 @@ export const InvoiceScreen = (): React.ReactElement => {
   const nav = neighbours(data.months, month);
   const goTo = (m: string): void => {
     void navigate(
-      `/cartoes-novo/${card.id}/faturas/${m}${params.toString() === '' ? '' : `?${params}`}`,
+      `/cartoes/${card.id}/faturas/${m}${params.toString() === '' ? '' : `?${params}`}`,
     );
   };
   const set = (key: string, value: string): void => {
@@ -157,8 +157,8 @@ export const InvoiceScreen = (): React.ReactElement => {
           locked ? undefined : { label: 'Lançamento', onClick: () => setEntering(true) }
         }
         crumbs={[
-          { label: 'Cartões', to: '/cartoes-novo' },
-          { label: card.name, to: `/cartoes-novo/${card.id}` },
+          { label: 'Cartões', to: '/cartoes' },
+          { label: card.name, to: `/cartoes/${card.id}` },
           { label: monthLabel(month) },
         ]}
         subtitle={
@@ -350,7 +350,7 @@ export const InvoiceScreen = (): React.ReactElement => {
                         {l.origin === 'entry' ? (
                           <Link
                             className="underline"
-                            to={`/livro?q=${encodeURIComponent(l.description)}`}
+                            to={`/lancamentos?q=${encodeURIComponent(l.description)}`}
                           >
                             {l.description}
                           </Link>

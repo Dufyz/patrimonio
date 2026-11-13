@@ -3,11 +3,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 
 import { FinancePeriodProvider, useFinancePeriod } from './components/period_provider.js';
 
-import {
-  DetailSkeleton,
-  OverviewSkeleton,
-  TableScreenSkeleton,
-} from './components/screen_skeletons.js';
+import { OverviewSkeleton, TableScreenSkeleton } from './components/screen_skeletons.js';
 import { PanelError } from './components/states.js';
 import { syncRecurring } from './domain/recurring.js';
 import {
@@ -23,27 +19,6 @@ import { setTodayOverride, todayFromSearch } from './lib/clock.js';
 export const FinanceOverview = lazy(() =>
   import('./screens/overview_screen.js').then((module) => ({
     default: module.OverviewScreen,
-  })),
-);
-const CardScreen = lazy(() =>
-  import('./screens/card_screen.js').then((module) => ({ default: module.CardScreen })),
-);
-const CardsScreen = lazy(() =>
-  import('./screens/cards_screen.js').then((module) => ({ default: module.CardsScreen })),
-);
-const AccountsScreen = lazy(() =>
-  import('./screens/accounts_screen.js').then((module) => ({
-    default: module.AccountsScreen,
-  })),
-);
-const StatementScreen = lazy(() =>
-  import('./screens/statement_screen.js').then((module) => ({
-    default: module.StatementScreen,
-  })),
-);
-const EntriesScreen = lazy(() =>
-  import('./screens/entries_screen.js').then((module) => ({
-    default: module.EntriesScreen,
   })),
 );
 const RecurringsScreen = lazy(() =>
@@ -163,52 +138,6 @@ export const FinanceProviders = ({
 export const financeScreenRoutes = (
   <>
     <Route
-      path="/lancamentos"
-      element={
-        <Suspense
-          fallback={<TableScreenSkeleton label="Carregando Lançamentos" stats={4} />}
-        >
-          <EntriesScreen />
-        </Suspense>
-      }
-    />
-    <Route
-      path="/contas"
-      element={
-        <Suspense
-          fallback={<TableScreenSkeleton label="Carregando Contas" stats={3} rows={5} />}
-        >
-          <AccountsScreen />
-        </Suspense>
-      }
-    />
-    <Route
-      path="/contas/:id"
-      element={
-        <Suspense fallback={<DetailSkeleton label="Carregando extrato" />}>
-          <StatementScreen />
-        </Suspense>
-      }
-    />
-    <Route
-      path="/cartoes"
-      element={
-        <Suspense
-          fallback={<TableScreenSkeleton label="Carregando Cartões" stats={3} rows={5} />}
-        >
-          <CardsScreen />
-        </Suspense>
-      }
-    />
-    <Route
-      path="/cartoes/:id"
-      element={
-        <Suspense fallback={<DetailSkeleton label="Carregando fatura" />}>
-          <CardScreen />
-        </Suspense>
-      }
-    />
-    <Route
       path="/recorrentes"
       element={
         <Suspense
@@ -233,7 +162,7 @@ export const financeScreenRoutes = (
 export const FinanceRoutes = (): React.ReactElement => (
   <Routes>
     {financeScreenRoutes}
-    <Route path="*" element={<Navigate to="/lancamentos" replace />} />
+    <Route path="*" element={<Navigate to="/recorrentes" replace />} />
   </Routes>
 );
 
