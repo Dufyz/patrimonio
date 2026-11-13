@@ -499,7 +499,27 @@ describe('SettingsView', () => {
       within(tabela.getByRole('row', { name: /04\/10\/2026/ })).getByText('Semanal'),
     ).toBeTruthy();
     expect(screen.getByText(/7 diários, 4 semanais e 6 mensais/)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Restaurar/ })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /Restaurar o backup de/ })).toHaveLength(
+      2,
+    );
+  });
+
+  it('BKP-03 · Restaurar mostra o conteúdo e o aviso, e só libera o comando com a palavra RESTAURAR', async () => {
+    const user = userEvent.setup();
+    montar({ section: 'dados-e-backup' });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Restaurar o backup de 2026-10-08' }),
+    );
+    expect(screen.getByText(/substitui todos os dados atuais/)).toBeTruthy();
+    expect(screen.getByText(/esquema 051/)).toBeTruthy();
+    expect(screen.queryByText(/--confirm=RESTAURAR/)).toBeNull();
+
+    await user.type(screen.getByLabelText(/Digite RESTAURAR/), 'restaurar');
+    expect(screen.queryByText(/--confirm=RESTAURAR/)).toBeNull();
+    await user.clear(screen.getByLabelText(/Digite RESTAURAR/));
+    await user.type(screen.getByLabelText(/Digite RESTAURAR/), 'RESTAURAR');
+    expect(screen.getByText(/--name=patrimonio-2026-10-08-s051\.dump\.age/)).toBeTruthy();
   });
 
   it('sem backup ainda, a seção diz "Nenhum backup feito" (CFG-06)', () => {

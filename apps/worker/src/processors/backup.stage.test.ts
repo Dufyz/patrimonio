@@ -27,6 +27,7 @@ const fakeStorage = (
       removed.push(...names);
     },
     size: async () => storedBytes,
+    download: async () => undefined,
   };
 
   return { storage, uploaded, removed };
@@ -210,6 +211,7 @@ describe('backup', () => {
             list: async () => [],
             remove: async () => undefined,
             size: async () => null,
+            download: async () => undefined,
           },
         }),
         '2026-10-06',
@@ -232,6 +234,7 @@ describe('backup', () => {
           list: async () => [],
           remove: async () => undefined,
           size: async () => null,
+          download: async () => undefined,
         },
         dump: async () => ({
           path: '/tmp/x.dump.age',

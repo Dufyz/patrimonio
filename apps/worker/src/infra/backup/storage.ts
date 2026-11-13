@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 
 import type { BackupEntry } from './retention.js';
 
@@ -18,6 +18,8 @@ export type BackupStorage = {
   readonly remove: (names: readonly string[]) => Promise<void>;
   /** O tamanho do objeto no destino, ou nulo se ele não está lá. */
   readonly size: (name: string) => Promise<number | null>;
+  /** BKP-03 · Baixa o objeto (ainda cifrado) para um arquivo local. */
+  readonly download: (name: string, path: string) => Promise<void>;
 };
 
 const DATE_IN_NAME = /(\d{4}-\d{2}-\d{2})/;
@@ -45,6 +47,16 @@ export const createBackupStorage = (options: StorageOptions): BackupStorage => {
           `upload do backup falhou: ${response.status} ${await response.text()}`,
         );
       }
+    },
+
+    download: async (name, path) => {
+      const response = await fetch(objectUrl(name), { headers });
+      if (!response.ok) {
+        throw new Error(
+          `download do backup falhou: ${response.status} ${await response.text()}`,
+        );
+      }
+      await writeFile(path, new Uint8Array(await response.arrayBuffer()));
     },
 
     size: async (name) => {

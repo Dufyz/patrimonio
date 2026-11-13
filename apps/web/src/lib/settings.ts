@@ -423,3 +423,10 @@ export const formatBytes = (bytes: number): string => {
 export const BACKUP_KIND_LABEL: Readonly<
   Record<SettingsBackup['files'][number]['kind'], string>
 > = { daily: 'Diário', weekly: 'Semanal', monthly: 'Mensal', manual: 'Manual' };
+
+/** BKP-03 · A palavra que libera a restauração. */
+export const CONFIRMATION_WORD = 'RESTAURAR';
+
+/** O comando do operador que restaura um backup (a chave fica com quem restaura). */
+export const restoreCommand = (name: string): string =>
+  `pnpm --filter @patrimonio/worker restore --name=${name} --identity=<chave.age> --confirm=${CONFIRMATION_WORD}`;

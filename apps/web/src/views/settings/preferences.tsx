@@ -5,11 +5,18 @@ import { DELETE_ALL_PHRASE } from '@patrimonio/contracts';
 
 import { deleteAllData, fetchExport } from '../../api/data.js';
 import { runBackup } from '../../api/settings.js';
+import { AlertModal } from '../../components/overlay.js';
 import { usePreferences } from '../../components/preferences.js';
 import { Button, Segmented } from '../../components/primitives.js';
 import { csvFiles, exportName, saveFile, zipStore } from '../../lib/export_files.js';
 import type { Density, ThemePreference } from '../../lib/theme.js';
-import { BACKUP_KIND_LABEL, backupSummary, formatBytes } from '../../lib/settings.js';
+import {
+  BACKUP_KIND_LABEL,
+  backupSummary,
+  CONFIRMATION_WORD,
+  formatBytes,
+  restoreCommand,
+} from '../../lib/settings.js';
 import {
   DATE_FORMATS,
   DEFAULT_PERIODS,
@@ -236,14 +243,20 @@ export const DisplaySection = (): React.ReactElement => {
 
 /**
  * BKP-01 · Os backups que o bucket guarda, do mais novo ao mais antigo. A
- * retenção é texto informativo; a restauração (BKP-03) não tem botão aqui
- * porque ainda não existe no servidor.
+ * retenção é texto informativo. BKP-03: "Restaurar" mostra o que o backup
+ * contém e o aviso, pede a palavra RESTAURAR e entrega o comando do operador;
+ * a chave de decifragem não está no servidor, então a restauração roda no
+ * terminal (`pnpm --filter @patrimonio/worker restore`), nunca por rota.
  */
 const BackupFiles = ({
   backup,
 }: {
   readonly backup: SettingsBackup;
 }): React.ReactElement | null => {
+  const [restoring, setRestoring] = useState<SettingsBackup['files'][number] | null>(
+    null,
+  );
+  const [typed, setTyped] = useState('');
   if (!backup.enabled) return null;
   if (backup.files.length === 0) {
     return (
@@ -270,6 +283,7 @@ const BackupFiles = ({
             <th scope="col" className={TH}>
               Situação
             </th>
+            <td className={TH} />
           </tr>
         </thead>
         <tbody>
@@ -283,10 +297,74 @@ const BackupFiles = ({
               <td className={TD}>
                 <StatusDot tone="ok">verificado</StatusDot>
               </td>
+              <td className={TD}>
+                <button
+                  type="button"
+                  className="cursor-pointer text-accent hover:underline"
+                  aria-label={`Restaurar o backup de ${file.taken_on}`}
+                  onClick={() => {
+                    setTyped('');
+                    setRestoring(file);
+                  }}
+                >
+                  Restaurar
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      <AlertModal
+        open={restoring !== null}
+        title="Restaurar este backup?"
+        message={
+          restoring === null ? null : (
+            <span className="flex flex-col gap-3">
+              <span>
+                Backup de {restoring.taken_on.split('-').reverse().join('/')} ·{' '}
+                {formatBytes(restoring.bytes)}
+                {restoring.schema_version === null
+                  ? ''
+                  : ` · esquema ${restoring.schema_version}`}
+                . Restaurar <strong>substitui todos os dados atuais</strong>: antes, o
+                comando grava um backup de segurança do estado de agora, e a troca é tudo
+                ou nada.
+              </span>
+              <label className="flex flex-col gap-1">
+                Digite {CONFIRMATION_WORD} para liberar o comando
+                <input
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  className="rounded-field border border-line bg-field px-2 py-1.5"
+                />
+              </label>
+              {typed === CONFIRMATION_WORD ? (
+                <code className="block rounded-field bg-field px-2 py-1.5 text-xs break-all">
+                  {restoreCommand(restoring.name)}
+                </code>
+              ) : null}
+              <span className="text-ink-3">
+                Pare a API e o worker antes de rodar; depois, sincronize o mercado. A
+                chave privada do backup não fica no servidor, por isso o comando roda no
+                terminal.
+              </span>
+            </span>
+          )
+        }
+        cancelLabel="Fechar"
+        confirmLabel="Copiar comando"
+        danger
+        pending={typed !== CONFIRMATION_WORD}
+        onCancel={() => setRestoring(null)}
+        onConfirm={() => {
+          if (restoring !== null) {
+            void globalThis.navigator?.clipboard?.writeText(
+              restoreCommand(restoring.name),
+            );
+          }
+          setRestoring(null);
+        }}
+      />
     </div>
   );
 };
