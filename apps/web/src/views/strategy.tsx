@@ -386,6 +386,27 @@ const Distribution = ({
 }): React.ReactElement => {
   const { composition, strategy_defined: defined, rules } = data;
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  // EST-02.4: busca por classe e filtro por situação (dentro, fora da tolerância).
+  const [query, setQuery] = useState('');
+  const [situation, setSituation] = useState<'todas' | 'dentro' | 'fora'>('todas');
+  const fold = (text: string): string =>
+    text
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase();
+  const visibleNodes = composition.nodes.filter((node) => {
+    const matchesQuery =
+      query.trim() === '' ||
+      fold(node.name).includes(fold(query.trim())) ||
+      node.children.some((child) => fold(child.name).includes(fold(query.trim())));
+    const matchesSituation =
+      situation === 'todas' || !data.strategy_defined
+        ? true
+        : situation === 'fora'
+          ? node.over_tolerance
+          : !node.over_tolerance;
+    return matchesQuery && matchesSituation;
+  });
   const scale = useMemo(() => barScale(composition.nodes), [composition.nodes]);
   const state = saveState(rows, draft);
   const editing = Object.keys(draft).length > 0;
@@ -467,6 +488,24 @@ const Distribution = ({
       hint={`Dê um alvo a cada classe. As categorias dentro dela contam para o alvo. Tolerância ± ${inputText(fromPercent(tolerance))} pp.`}
       action={
         <span className="flex items-center gap-2">
+          <input
+            type="search"
+            aria-label="Buscar classe"
+            placeholder="Buscar classe"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className="rounded-field border border-line bg-field px-3 py-1.5 text-[0.8125rem]"
+          />
+          <select
+            aria-label="Situação"
+            value={situation}
+            onChange={(event) => setSituation(event.target.value as typeof situation)}
+            className="rounded-field border border-line bg-field px-2 py-1.5 text-[0.8125rem]"
+          >
+            <option value="todas">Todas</option>
+            <option value="dentro">Dentro</option>
+            <option value="fora">Fora da tolerância</option>
+          </select>
           <Button onClick={onManageClasses}>Classes</Button>
           <Button disabled={!editing} onClick={onRestore}>
             Restaurar
@@ -518,7 +557,24 @@ const Distribution = ({
             </tr>
           </thead>
           <tbody>
-            {composition.nodes.flatMap((node) => [
+            {visibleNodes.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-6 text-center text-ink-3">
+                  Nenhuma classe encontrada.{' '}
+                  <button
+                    type="button"
+                    className="cursor-pointer underline"
+                    onClick={() => {
+                      setQuery('');
+                      setSituation('todas');
+                    }}
+                  >
+                    Limpar filtros
+                  </button>
+                </td>
+              </tr>
+            ) : null}
+            {visibleNodes.flatMap((node) => [
               classRow(node),
               ...(node.level === 'group' && open.has(node.id)
                 ? node.children

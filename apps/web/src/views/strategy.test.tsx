@@ -258,6 +258,33 @@ describe('a tabela', () => {
     const caixa = screen.getByRole('row', { name: /Caixa/ });
     expect(within(caixa).getByTitle('Acima da tolerância')).toBeInTheDocument();
   });
+
+  it('EST-02.4: busca por classe e filtro por situação, com Limpar filtros', async () => {
+    const over = allocation();
+    const node = over.composition.nodes[1];
+    if (node === undefined) throw new Error('fixture');
+    node.over_tolerance = true;
+    show(over);
+
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Situação' }),
+      'fora',
+    );
+    expect(screen.getByRole('row', { name: /Caixa/ })).toBeInTheDocument();
+    expect(screen.queryByRole('row', { name: /Renda variável/ })).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Situação' }),
+      'todas',
+    );
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Buscar classe' }),
+      'zzzz',
+    );
+    expect(screen.getByText(/Nenhuma classe encontrada/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }));
+    expect(screen.getByRole('row', { name: /Renda variável/ })).toBeInTheDocument();
+  });
 });
 
 describe('editar e salvar', () => {
