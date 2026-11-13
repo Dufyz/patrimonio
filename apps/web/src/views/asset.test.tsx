@@ -705,6 +705,25 @@ describe('título de renda fixa', () => {
     },
   });
 
+  it('POS-06: a faixa do CDB traz Aplicado, Valor na curva, Resultado, Taxa, Vencimento e prazo', async () => {
+    answerWith(cdb);
+    show();
+    await screen.findByRole('heading', { name: 'Rendimento acumulado' });
+
+    const faixa = within(screen.getByRole('region', { name: 'Posição' }));
+    for (const label of [
+      'Aplicado',
+      'Valor na curva',
+      'Resultado',
+      'Taxa contratada',
+      'Vencimento',
+      'Dias até o vencimento',
+    ]) {
+      expect(faixa.getByText(label)).toBeInTheDocument();
+    }
+    expect(faixa.getByText('01/10/2031')).toBeInTheDocument();
+  });
+
   it('o gráfico é o do rendimento acumulado, e não o do preço', async () => {
     answerWith(cdb);
     show();

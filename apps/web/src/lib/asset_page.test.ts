@@ -15,6 +15,7 @@ import {
   monthInitial,
   monthLabel,
   priceStamp,
+  daysToMaturity,
   transactionsCountLabel,
   usedPayoutSlices,
 } from './asset_page.js';
@@ -348,5 +349,13 @@ describe('historyCsv', () => {
     );
     expect(buy).toBe('30/09/2026;"Compra";"Investimentos";"";12;182,82;-2193,84');
     expect(payout).toBe('30/09/2026;"Provento";"Investimentos";"";;;96,12');
+  });
+});
+
+describe('POS-06 · daysToMaturity', () => {
+  it('conta dias corridos até o vencimento, negativo se venceu', () => {
+    expect(daysToMaturity('2026-12-31', '2026-11-13')).toBe(48);
+    expect(daysToMaturity('2026-11-13', '2026-11-13')).toBe(0);
+    expect(daysToMaturity('2026-11-01', '2026-11-13')).toBe(-12);
   });
 });

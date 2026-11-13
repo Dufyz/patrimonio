@@ -179,6 +179,12 @@ export const fixedIncomeFacts = (asset: AssetPageResource['asset']): readonly Fa
   return facts;
 };
 
+/** Dias corridos de hoje até o vencimento (negativo se já venceu). */
+export const daysToMaturity = (maturity: string, today: string): number =>
+  Math.round(
+    (Date.parse(`${maturity}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000,
+  );
+
 /** `2035-05-15` → `15/05/2035`. Vencimento mostra o ano inteiro, sempre. */
 export const formatFullDate = (date: string): string => {
   const [year = '', month = '', day = ''] = date.split('-');

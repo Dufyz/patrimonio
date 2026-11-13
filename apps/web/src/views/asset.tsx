@@ -53,6 +53,7 @@ import {
   usedPayoutSlices,
   usesValueChart,
   fixedIncomeFacts,
+  daysToMaturity,
   historyCsv,
 } from '../lib/asset_page.js';
 import { CSV_BOM } from '../lib/statement.js';
@@ -735,15 +736,70 @@ const KpiStrip = ({
             ),
           },
     ];
+    if (!caixinha) {
+      // POS-06 · CDB comum: aplicado, valor na curva, resultado, taxa, vencimento e prazo.
+      const maturity = resource.asset.maturity_date;
+      const today = new Date().toISOString().slice(0, 10);
+      const days = maturity === null ? null : daysToMaturity(maturity, today);
+      cells = [
+        {
+          label: 'Aplicado',
+          value: <Money value={lots !== null ? lots.principal : position.cost_basis} />,
+          sub:
+            lifetime.first_trade_date === null
+              ? portfolioName
+              : `em ${formatFullDate(lifetime.first_trade_date)}`,
+        },
+        {
+          label: 'Valor na curva',
+          value: <Money value={lots !== null ? lots.gross_value : position.value} />,
+          sub: 'com o CDI do dia',
+        },
+        {
+          label: 'Resultado',
+          value: (
+            <MoneyChange
+              value={lots !== null ? lots.accrued_interest : position.open_result}
+            />
+          ),
+          sub: (
+            <PercentChange
+              value={accruedRatio ?? position.open_result_ratio}
+              decimals={2}
+            />
+          ),
+        },
+        {
+          label: 'Taxa contratada',
+          value: terms.find((entry) => entry.label === 'Remuneração')?.value ?? '—',
+          sub: null,
+        },
+        {
+          label: 'Vencimento',
+          value: maturity === null ? '—' : formatFullDate(maturity),
+          sub: null,
+        },
+        {
+          label: 'Dias até o vencimento',
+          value: days === null ? '—' : days < 0 ? 'vencido' : String(days),
+          sub: null,
+        },
+      ];
+    }
     // Caixinha: bruto, líquido, investido e rendimento, nessa ordem.
-    if (lots !== null && cells.length === 4) {
+    if (caixinha && lots !== null && cells.length === 4) {
       const [gross, invested, yielded, net] = cells as [
         KpiCell,
         KpiCell,
         KpiCell,
         KpiCell,
       ];
-      cells = [gross, net, invested, yielded];
+      cells = [
+        { ...gross, label: 'Valor', sub: 'na curva de hoje, com o CDI do dia' },
+        net,
+        { ...invested, label: 'Aportado' },
+        { ...yielded, label: 'Rendimento' },
+      ];
     }
 
     facts = [
@@ -755,8 +811,7 @@ const KpiStrip = ({
               value: <Percent value={position.weight} decimals={1} />,
             },
           ]),
-      ...pick('Remuneração'),
-      ...(caixinha ? [] : pick('Vencimento')),
+      ...(caixinha ? pick('Remuneração', '% do CDI contratado') : []),
       ...(caixinha ? [] : pick('Carência', 'Liquidez')),
       ...(caixinha
         ? [
