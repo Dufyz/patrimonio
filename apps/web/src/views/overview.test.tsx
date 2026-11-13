@@ -3,6 +3,7 @@ import type {
   OverviewResource,
   PerformanceResource,
 } from '@patrimonio/contracts';
+import axe from 'axe-core';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -747,5 +748,21 @@ describe('benchmarks no gráfico de retorno', () => {
     });
 
     expect(screen.getByText(/Ibovespa \(nenhum dado coletado\)/)).toBeInTheDocument();
+  });
+});
+
+describe('VGR-18 · acessibilidade da Visão geral de Investimentos nos dois temas', () => {
+  it.each(['light', 'dark'])('sem violação AA (tema %s)', async (theme) => {
+    document.documentElement.dataset['theme'] = theme;
+    const { container } = showConsolidated();
+    const result = await axe.run(container, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+      rules: { 'color-contrast': { enabled: false }, region: { enabled: false } },
+    });
+    expect(
+      result.violations.map(
+        (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,
+      ),
+    ).toEqual([]);
   });
 });

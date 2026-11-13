@@ -697,8 +697,8 @@ export const OverviewView = ({
               title="Alocação por classe"
               hint={
                 overview.scope.portfolio_id === null
-                  ? 'soma das carteiras'
-                  : 'peso e desvio do alvo'
+                  ? 'soma das carteiras · posição de hoje'
+                  : 'peso e desvio do alvo · posição de hoje'
               }
               className="flex flex-col"
               action={
@@ -718,7 +718,7 @@ export const OverviewView = ({
               <ClassesTable overview={overview} />
             </Panel>
 
-            <Panel title="Carteiras" className="flex flex-col">
+            <Panel title="Carteiras" hint="posição de hoje" className="flex flex-col">
               <PortfoliosPanel
                 overview={overview}
                 {...(onOpenPortfolio === undefined ? {} : { onOpenPortfolio })}
@@ -729,6 +729,7 @@ export const OverviewView = ({
           <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
             <Panel
               title="Maiores posições"
+              hint="posição de hoje"
               className="flex flex-col"
               action={
                 onOpenScreen === undefined ? undefined : (
