@@ -568,7 +568,10 @@ describe('tela de Posições', () => {
     );
     show();
 
-    expect(await screen.findByText(/Carteira ainda não consolidada/)).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText(/Carteira ainda não consolidada/)).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Lançar aporte' })).toBeInTheDocument();
   });
 
   it('a api fora do ar aparece como mensagem, não como tabela vazia', async () => {

@@ -518,6 +518,7 @@ export const PositionsScreen = ({
                         institutionIds.length > 0
                       }
                       hasClose={resource !== null && resource.as_of !== null}
+                      onLaunch={() => entry.openEntry({ tab: 'buy', portfolioId })}
                       onClear={() =>
                         update({ busca: null, classe: null, instituicao: null })
                       }
@@ -890,10 +891,12 @@ const EmptyState = ({
   filtered,
   hasClose,
   onClear,
+  onLaunch,
 }: {
   readonly filtered: boolean;
   readonly hasClose: boolean;
   readonly onClear: () => void;
+  readonly onLaunch: () => void;
 }): React.ReactElement => (
   <div className="flex flex-col items-start gap-2 px-3 py-10">
     <p className="text-sm">
@@ -906,9 +909,14 @@ const EmptyState = ({
     {filtered ? (
       <Button onClick={onClear}>Limpar filtros</Button>
     ) : (
-      <p className="text-[0.8125rem] text-ink-3">
-        Um lançamento de compra abre a primeira posição.
-      </p>
+      <>
+        <p className="text-[0.8125rem] text-ink-3">
+          Um lançamento de compra abre a primeira posição.
+        </p>
+        <Button variant="primary" onClick={onLaunch}>
+          Lançar aporte
+        </Button>
+      </>
     )}
   </div>
 );
