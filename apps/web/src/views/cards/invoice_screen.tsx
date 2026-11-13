@@ -8,7 +8,7 @@ import type {
   InvoiceLineResource,
   InvoiceResource,
 } from '../../api/invoice.js';
-import { deleteLine, moveLine } from '../../api/invoice_write.js';
+import { deleteLine, deletePayment, moveLine } from '../../api/invoice_write.js';
 import { ApiError } from '../../api/client.js';
 import { fetchCategories } from '../../api/ledger_write.js';
 import type { CategoryOption } from '../../api/ledger_write.js';
@@ -61,6 +61,7 @@ export const InvoiceScreen = (): React.ReactElement => {
     | { kind: 'credito' | 'encargo'; line?: InvoiceLineResource }
     | { kind: 'mover'; line: InvoiceLineResource }
     | { kind: 'excluir'; line: InvoiceLineResource }
+    | { kind: 'pagamento'; paymentId: string }
     | null
   >(null);
   const [moveTo, setMoveTo] = useState('');
@@ -214,6 +215,28 @@ export const InvoiceScreen = (): React.ReactElement => {
           </span>
         )}
       </p>
+      {data.payments.length > 0 && (
+        <ul aria-label="Pagamentos da fatura" className="flex flex-col gap-1 text-sm">
+          {data.payments.map((p) => (
+            <li key={p.id} className="flex items-center gap-3">
+              <span>
+                Pagamento de {money(p.amount)} em {shortDate(p.date)} ·{' '}
+                {accountName(p.account_id)}
+              </span>
+              <button
+                type="button"
+                className="cursor-pointer text-xs text-negative underline"
+                onClick={() => {
+                  setActionError(null);
+                  setDialog({ kind: 'pagamento', paymentId: p.id });
+                }}
+              >
+                Excluir pagamento
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <div role="search" className="flex flex-wrap items-center gap-2">
         <input
           type="search"
@@ -460,6 +483,26 @@ export const InvoiceScreen = (): React.ReactElement => {
           onConfirm={() =>
             run(moveLine(dialog.line.origin, dialog.line.id, moveTo, newAttemptKey()))
           }
+        />
+      )}
+      {dialog?.kind === 'pagamento' && (
+        <AlertModal
+          open
+          title="Excluir o pagamento?"
+          message={
+            <>
+              O valor volta para a conta e a fatura reabre.
+              {actionError !== null && (
+                <span role="alert" className="mt-2 block text-negative">
+                  {actionError}
+                </span>
+              )}
+            </>
+          }
+          cancelLabel="Cancelar"
+          confirmLabel="Excluir pagamento"
+          onCancel={() => setDialog(null)}
+          onConfirm={() => run(deletePayment(dialog.paymentId, newAttemptKey()))}
         />
       )}
       {dialog?.kind === 'excluir' && (

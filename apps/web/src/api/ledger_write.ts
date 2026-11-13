@@ -6,6 +6,12 @@ import { request } from './client.js';
  * para o bloco "Efeito" e `Idempotency-Key` por tentativa de submissão.
  */
 export type EffectResource = {
+  readonly wealth?: {
+    readonly em_contas: { readonly before: string; readonly after: string };
+    readonly total_devido: { readonly before: string; readonly after: string };
+    readonly livre: { readonly before: string; readonly after: string };
+    readonly falta: { readonly before: string; readonly after: string };
+  };
   readonly accounts: readonly {
     readonly account_id: string;
     readonly name: string;

@@ -402,6 +402,21 @@ const cents = (value: string): number => {
   return parts.negative ? -total : total;
 };
 
+/** Em contas, total devido e Livre após faturas: só quando o lançamento os move. */
+const wealthRows = (effect: EffectResource): readonly EffectRow[] => {
+  const w = effect.wealth;
+  if (w === undefined) return [];
+  const rows: [string, { before: string; after: string }][] = [
+    ['Em contas', w.em_contas],
+    ['Total devido', w.total_devido],
+    ['Livre após faturas', w.livre],
+    ['Falta para as faturas', w.falta],
+  ];
+  return rows
+    .filter(([, v]) => v.before !== v.after)
+    .map(([label, v]) => ({ label, before: cents(v.before), after: cents(v.after) }));
+};
+
 /** As linhas do bloco "Efeito" a partir do preview do servidor. */
 export const effectRows = (effect: EffectResource): readonly EffectRow[] => [
   ...effect.accounts.map((a) => ({
@@ -414,6 +429,7 @@ export const effectRows = (effect: EffectResource): readonly EffectRow[] => [
     before: cents(i.before),
     after: cents(i.after),
   })),
+  ...wealthRows(effect),
   ...effect.months.flatMap((m) => [
     {
       label: `Receitas · ${m.month}`,

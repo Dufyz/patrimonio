@@ -672,6 +672,29 @@ describe('fatura: estorno e fatura paga (CRT-07)', () => {
   });
 });
 
+describe('pagar fatura: efeito em Livre após faturas (CRT-06)', () => {
+  it('o preview mostra Em contas e total devido caindo igual, e o livre acompanha', async () => {
+    const list = await get('/cards');
+    const row = list.body.cards.find(
+      (c: { invoice: { remaining: string } }) => Number(c.invoice.remaining) > 1,
+    );
+    const res = await send(
+      'post',
+      `/cards/${row.card.id}/invoices/${row.invoice.month}/payments?preview=true`,
+      { date: '2026-10-24', amount: '1.00' },
+    );
+    expect(res.status).toBe(200);
+    const w = res.body.effect.wealth;
+    const drop = (v: { before: string; after: string }) =>
+      Number(v.before) - Number(v.after);
+    expect(drop(w.em_contas)).toBeCloseTo(1, 2);
+    expect(drop(w.total_devido)).toBeCloseTo(1, 2);
+    // livre = máx(0; contas − devido): as duas caem igual, então livre e falta não mudam.
+    expect(w.livre.after).toBe(w.livre.before);
+    expect(w.falta.after).toBe(w.falta.before);
+  });
+});
+
 describe('livro unificado (LIV-02)', () => {
   it('os totais do mês batem com a Visão geral e não dependem da página', async () => {
     const overview = await get('/overview?month=2026-10');

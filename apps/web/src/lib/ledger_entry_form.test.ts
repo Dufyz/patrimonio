@@ -195,3 +195,20 @@ describe('ledger_entry_form', () => {
     });
   });
 });
+
+describe('effectRows · Em contas, total devido e Livre após faturas (CRT-06)', () => {
+  it('só mostra o que o lançamento move', () => {
+    const rows = effectRows({
+      wealth: {
+        em_contas: { before: '1462.51', after: '1162.51' },
+        total_devido: { before: '4268.37', after: '3968.37' },
+        livre: { before: '0.00', after: '0.00' },
+        falta: { before: '2805.86', after: '2805.86' },
+      },
+      accounts: [],
+      months: [],
+    } as never);
+    expect(rows.map((r) => r.label)).toEqual(['Em contas', 'Total devido']);
+    expect(rows[0]).toMatchObject({ before: 146251, after: 116251 });
+  });
+});

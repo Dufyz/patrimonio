@@ -1,11 +1,12 @@
 import type { FinEntry, FinSnapshot } from '@patrimonio/domain';
 
-import { accountBalance } from './accounts.js';
+import { accountBalance, totalInAccounts } from './accounts.js';
 import { cardInvoiceKeys, invoiceTotal } from './cards.js';
 import { monthKey, monthRange } from './dates.js';
 import { dec, money } from './money.js';
 import { indicators, ledgerPool } from './ledger.js';
 import { findAccount, findCard } from './lookup.js';
+import { freeAfterInvoices, invoiceDebt } from './wealth.js';
 
 /**
  * "Efeito · antes → depois" dos modais: o que muda nos números se a pessoa
@@ -49,7 +50,16 @@ export type InstallmentEffect = {
   readonly change: 'criada' | 'alterada' | 'removida';
 };
 
+export type WealthEffect = {
+  readonly em_contas: { readonly before: string; readonly after: string };
+  readonly total_devido: { readonly before: string; readonly after: string };
+  readonly livre: { readonly before: string; readonly after: string };
+  readonly falta: { readonly before: string; readonly after: string };
+};
+
 export type Effect = {
+  /** CRT-06 · Em contas, total devido e Livre após faturas antes e depois. */
+  readonly wealth: WealthEffect;
   readonly accounts: readonly AccountEffect[];
   readonly invoices: readonly InvoiceEffect[];
   readonly months: readonly MonthEffect[];
@@ -203,7 +213,24 @@ export const effectBetween = (
     })
     .sort((a, b) => a.no - b.no);
 
-  return { accounts, invoices, months: monthEffects, installments, warnings };
+  const position = (data: FinSnapshot) => {
+    const emContas = money(totalInAccounts(data, today));
+    const debt = invoiceDebt(data, today);
+    return {
+      em_contas: emContas,
+      ...freeAfterInvoices(emContas, debt.abertas, debt.fechadas_a_pagar),
+    };
+  };
+  const a = position(before);
+  const b = position(after);
+  const wealth: WealthEffect = {
+    em_contas: { before: a.em_contas, after: b.em_contas },
+    total_devido: { before: a.total_devido, after: b.total_devido },
+    livre: { before: a.livre, after: b.livre },
+    falta: { before: a.falta, after: b.falta },
+  };
+
+  return { wealth, accounts, invoices, months: monthEffects, installments, warnings };
 };
 
 export { cardInvoiceKeys, dec };

@@ -50,7 +50,7 @@ const body = {
     encargos: '0.00',
     total: '550.05',
   },
-  payments: [],
+  payments: [{ id: 'p1', date: '2026-11-10', account_id: 'a1', amount: '550.05' }],
   months: ['2026-10', '2026-11'],
   unpaid_months: ['2026-10', '2026-11'],
 };
@@ -179,5 +179,19 @@ describe('InvoiceScreen · CRT-07', () => {
       amount: '12.50',
       category_id: 'c1',
     });
+  });
+});
+
+describe('InvoiceScreen · CRT-06', () => {
+  it('excluir o pagamento pede confirmação e chama a api', async () => {
+    mount('paga');
+    await screen.findByText('Mercado');
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir pagamento' }));
+    const buttons = await screen.findAllByRole('button', { name: 'Excluir pagamento' });
+    fireEvent.click(buttons[buttons.length - 1] as HTMLElement);
+    await vi.waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true));
+    expect(calls.find((c) => c.method === 'DELETE')?.url).toBe(
+      '/api/finance/payments/p1',
+    );
   });
 });

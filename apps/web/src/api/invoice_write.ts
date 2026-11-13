@@ -61,3 +61,10 @@ export const deleteLine = (
     raw,
     { method: 'DELETE', headers: { 'Idempotency-Key': key } },
   );
+
+/** CRT-06 · Excluir o pagamento devolve o saldo à conta e reabre a fatura. */
+export const deletePayment = (paymentId: string, key: string): Promise<unknown> =>
+  request(`/api/finance/payments/${encodeURIComponent(paymentId)}`, raw, {
+    method: 'DELETE',
+    headers: { 'Idempotency-Key': key },
+  });
