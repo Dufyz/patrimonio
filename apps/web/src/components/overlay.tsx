@@ -316,6 +316,24 @@ export const Modal = ({
     if (guard && !dirty) setDirty(true);
   };
 
+  /**
+   * CFG-07 · ⌘↵ (Ctrl+↵) aciona o botão principal do rodapé. Quem já trata a
+   * tecla (o lançamento tem o próprio ⌘↵) marca o evento, e aqui ele passa
+   * direto; o modal destrutivo nunca confirma por atalho, só por clique.
+   */
+  const confirmWithModifier = (event: React.KeyboardEvent<HTMLElement>): void => {
+    if (event.defaultPrevented || tone === 'danger') return;
+    if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return;
+
+    const primary = event.currentTarget.querySelector<HTMLButtonElement>(
+      '[data-slot="dialog-footer"] [data-variant="primary"]:not(:disabled)',
+    );
+    if (primary === null) return;
+
+    event.preventDefault();
+    primary.click();
+  };
+
   return (
     <ModalCloseContext.Provider value={guard ? requestClose : null}>
       <Dialog open={open} onOpenChange={(next) => (next ? undefined : requestClose())}>
@@ -323,6 +341,7 @@ export const Modal = ({
           className={wide ? 'max-w-[52rem]' : narrow ? 'max-w-[35rem]' : 'max-w-2xl'}
           onInputCapture={markDirty}
           onChangeCapture={markDirty}
+          onKeyDown={confirmWithModifier}
           onClickCapture={(event) => {
             if (
               event.target instanceof globalThis.Element &&

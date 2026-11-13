@@ -252,7 +252,7 @@ describe('GoalsOverviewView', () => {
     expect(onOpenPortfolio).toHaveBeenCalledWith(INVESTIMENTOS);
   });
 
-  it('escolher um cenário simula com aquele aporte, e o ritmo atual não é escolhível', async () => {
+  it('escolher um cenário simula com aquele aporte, e o ritmo atual simula mantendo o de cada carteira', async () => {
     const onChange = vi.fn();
     montar({ onChange });
 
@@ -260,10 +260,11 @@ describe('GoalsOverviewView', () => {
     await userEvent.click(within(lista).getByText(/10\.000/));
 
     expect(onChange).toHaveBeenCalledWith({ budget: '10000.00' });
-    expect(
-      (within(lista).getByText('média 12M').closest('button') as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    const atual = within(lista)
+      .getByText('média 12M')
+      .closest('button') as HTMLButtonElement;
+    expect(atual.title).toBe('Simular mantendo o aporte atual de cada carteira');
+    expect(atual.disabled).toBe(false);
   });
 
   it('o aporte digitado vai com vírgula normalizada, e valor inválido não simula', async () => {

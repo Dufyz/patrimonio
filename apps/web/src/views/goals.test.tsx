@@ -173,20 +173,21 @@ describe('GoalsView', () => {
     const onRateChange = vi.fn();
     montar({ kind: 'ready', value: dados(goal) }, onRateChange);
 
-    await userEvent.type(screen.getByLabelText(/Rentabilidade esperada/), '4,5');
+    await userEvent.type(screen.getByLabelText(/Rentabilidade esperada ·/), '4,5');
 
     await waitFor(() => expect(onRateChange).toHaveBeenCalledWith('4.5'));
   });
 
-  it('taxa inválida avisa e não simula', async () => {
+  it('a máscara não deixa passar de 100: 150 vira 15, e é isso que simula', async () => {
     const onRateChange = vi.fn();
     montar({ kind: 'ready', value: dados(goal) }, onRateChange);
 
-    await userEvent.type(screen.getByLabelText(/Rentabilidade esperada/), '150');
+    const campo = screen.getByLabelText(/Rentabilidade esperada ·/) as HTMLInputElement;
+    await userEvent.type(campo, '150');
 
-    expect(screen.getByRole('alert').textContent).toMatch(/0 a 100/);
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    expect(onRateChange).not.toHaveBeenCalled();
+    expect(campo.value).toBe('15');
+    expect(screen.queryByRole('alert')).toBeNull();
+    await waitFor(() => expect(onRateChange).toHaveBeenLastCalledWith('15'));
   });
 
   it('projeção bloqueada explica o motivo e não desenha gráfico nem tabela', () => {
