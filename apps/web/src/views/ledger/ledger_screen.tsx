@@ -19,7 +19,6 @@ import {
   GROUPINGS,
   plannedSection,
   sectionsOfGroups,
-  batchOnlyDelete,
   detailOf,
   exportRows,
   selectable,
@@ -37,6 +36,7 @@ import {
 } from '../../lib/ledger_filters.js';
 import type { LedgerFilters } from '../../lib/ledger_filters.js';
 import { totalLink } from '../../lib/total_links.js';
+import { BatchActions } from './batch_actions.js';
 import { NewEntryModal } from './new_entry_modal.js';
 import { readGrouping, writeGrouping } from '../../lib/view_preferences.js';
 import { usePreferences } from '../../components/preferences.js';
@@ -324,45 +324,13 @@ export const LedgerScreen = (): React.ReactElement => {
         </button>
       </div>
       {chosen.length > 0 ? (
-        <div
-          role="toolbar"
-          aria-label="Ações em lote"
-          className="flex items-center gap-3"
-        >
-          <span>
-            {chosen.length} {chosen.length === 1 ? 'selecionado' : 'selecionados'}
-          </span>
-          <button
-            type="button"
-            disabled={batchOnlyDelete(chosen)}
-            title={
-              batchOnlyDelete(chosen)
-                ? 'Aporte, resgate, provento e evento só aceitam Excluir.'
-                : undefined
-            }
-          >
-            Recategorizar
-          </button>
-          <button
-            type="button"
-            disabled={batchOnlyDelete(chosen)}
-            title={
-              batchOnlyDelete(chosen)
-                ? 'Aporte, resgate, provento e evento só aceitam Excluir.'
-                : undefined
-            }
-          >
-            Mover de conta
-          </button>
-          <button type="button">Excluir</button>
-          <button
-            type="button"
-            className="cursor-pointer"
-            onClick={() => setSelected(new Set())}
-          >
-            Limpar seleção
-          </button>
-        </div>
+        <BatchActions
+          chosen={chosen}
+          accounts={accounts}
+          hidden={hidden}
+          onDone={() => setReload((n) => n + 1)}
+          onClear={() => setSelected(new Set())}
+        />
       ) : null}
       {hasFilters(filters) ? (
         <ul aria-label="Filtros ativos" className="flex flex-wrap gap-2">

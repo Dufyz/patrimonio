@@ -185,4 +185,26 @@ describe('LedgerScreen', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('toolbar')).toBeNull();
   });
+
+  it('LAN-08: Excluir em lote confirma com contagem e total, apaga e relê', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        if (method === 'DELETE') {
+          calls.push(String(url));
+          return new Response(null, { status: 204 });
+        }
+        return new Response(JSON.stringify(book), { status: 200 });
+      }),
+    );
+    wrap();
+    await waitFor(() => expect(screen.getByText('Salário')).toBeTruthy());
+    fireEvent.click(screen.getByLabelText('Selecionar Salário'));
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    expect(screen.getByText(/1 lançamento · valor total/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir', hidden: false }));
+    await waitFor(() => expect(calls).toEqual(['/api/finance/entries/1']));
+  });
 });

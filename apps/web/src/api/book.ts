@@ -73,3 +73,43 @@ export const fetchAccountNames = async (
   );
   return new Map((body.accounts ?? []).map((row) => [row.account.id, row.account.name]));
 };
+
+const accept = { parse: (v: unknown): unknown => v };
+
+/** LAN-08 · Exclui uma linha pela rota do tipo dela (`deletePath`). */
+export const deleteBookRow = (path: string): Promise<unknown> =>
+  request(path, accept, {
+    method: 'DELETE',
+    headers: { 'Idempotency-Key': globalThis.crypto.randomUUID() },
+  });
+
+/** LAN-08 · Grava o lançamento já com a troca de categoria ou de conta. */
+export const putFinanceEntry = (
+  id: string,
+  body: Record<string, unknown>,
+): Promise<unknown> =>
+  request(`/api/finance/entries/${id}`, accept, {
+    method: 'PUT',
+    headers: { 'Idempotency-Key': globalThis.crypto.randomUUID() },
+    body: JSON.stringify(body),
+  });
+
+export type CategoryOption = {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: string;
+};
+
+export const fetchCategoryOptions = async (
+  signal?: AbortSignal,
+): Promise<readonly CategoryOption[]> => {
+  const body = await request(
+    '/api/finance/categories',
+    {
+      parse: (v: unknown) =>
+        v as { categories?: readonly (CategoryOption & { archived?: boolean })[] },
+    },
+    signal === undefined ? {} : { signal },
+  );
+  return (body.categories ?? []).filter((c) => c.archived !== true);
+};
