@@ -9,7 +9,7 @@ import { usePreferences } from '../../components/preferences.js';
 import { Button, Segmented } from '../../components/primitives.js';
 import { csvFiles, exportName, saveFile, zipStore } from '../../lib/export_files.js';
 import type { Density, ThemePreference } from '../../lib/theme.js';
-import { backupSummary } from '../../lib/settings.js';
+import { BACKUP_KIND_LABEL, backupSummary, formatBytes } from '../../lib/settings.js';
 import {
   DATE_FORMATS,
   DEFAULT_PERIODS,
@@ -26,10 +26,14 @@ import { DeleteDialog } from '../registers/delete_dialog.js';
 import { ImportDialog } from './import_dialog.js';
 import {
   ActionNote,
+  ROW,
   SettingsPanel,
   SettingsSection,
   StatusDot,
   Switch,
+  TD,
+  TH,
+  TH_RIGHT,
 } from './parts.js';
 
 /**
@@ -230,6 +234,63 @@ export const DisplaySection = (): React.ReactElement => {
   );
 };
 
+/**
+ * BKP-01 · Os backups que o bucket guarda, do mais novo ao mais antigo. A
+ * retenção é texto informativo; a restauração (BKP-03) não tem botão aqui
+ * porque ainda não existe no servidor.
+ */
+const BackupFiles = ({
+  backup,
+}: {
+  readonly backup: SettingsBackup;
+}): React.ReactElement | null => {
+  if (!backup.enabled) return null;
+  if (backup.files.length === 0) {
+    return (
+      <p className="border-t border-line px-4 py-3 text-[0.8125rem] text-ink-3">
+        Nenhum backup feito. O primeiro sai hoje às 03:00, ou agora pelo botão acima.
+      </p>
+    );
+  }
+  return (
+    <div className="border-t border-line">
+      <table className="w-full text-[0.8125rem] whitespace-nowrap">
+        <caption className="sr-only">Backups guardados</caption>
+        <thead>
+          <tr>
+            <th scope="col" className={TH}>
+              Data
+            </th>
+            <th scope="col" className={TH}>
+              Tipo
+            </th>
+            <th scope="col" className={TH_RIGHT}>
+              Tamanho
+            </th>
+            <th scope="col" className={TH}>
+              Situação
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {backup.files.map((file) => (
+            <tr key={file.name} className={ROW}>
+              <th scope="row" className={`${TD} tabular text-left font-medium`}>
+                {file.taken_on.split('-').reverse().join('/')}
+              </th>
+              <td className={TD}>{BACKUP_KIND_LABEL[file.kind]}</td>
+              <td className={`${TD} tabular text-right`}>{formatBytes(file.bytes)}</td>
+              <td className={TD}>
+                <StatusDot tone="ok">verificado</StatusDot>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
 type Receipt = { readonly tone: 'ok' | 'error'; readonly text: string };
 
 const BackupState = ({
@@ -339,6 +400,7 @@ export const BackupSection = ({
             <ActionNote tone={receipt.tone}>{receipt.text}</ActionNote>
           </div>
         )}
+        <BackupFiles backup={backup} />
         <Row
           title="Importar planilha"
           hint="Mapeia as colunas da sua planilha para lançamentos e mostra uma prévia antes de gravar."

@@ -1,3 +1,4 @@
+import { success } from '@patrimonio/shared';
 import { unwrapFailure, unwrapSuccess } from '@patrimonio/shared/testing';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
@@ -136,6 +137,37 @@ describe('backup', () => {
     expect(error.message).toMatch(/verificação/);
     // Só o arquivo do dia sai; a retenção não rodou, então o antigo continua lá.
     expect(removed).toEqual(['patrimonio-2026-10-06.dump.age']);
+  });
+
+  it('registra o arquivo verificado para a tela e esquece o que a retenção apagou (BKP-01)', async () => {
+    const { storage } = fakeStorage([
+      { name: 'patrimonio-2025-01-10.dump.age', date: '2025-01-10' },
+    ]);
+    const recorded: unknown[] = [];
+    const forgotten: string[] = [];
+    const log = {
+      record: async (file: unknown) => {
+        recorded.push(file);
+        return success(undefined);
+      },
+      forget: async (names: readonly string[]) => {
+        forgotten.push(...names);
+        return success(undefined);
+      },
+    };
+
+    unwrapSuccess(await runBackup(depsWith({ storage, log }), '2026-10-06'));
+
+    expect(recorded).toEqual([
+      {
+        name: 'patrimonio-2026-10-06.dump.age',
+        taken_on: '2026-10-06',
+        manual: false,
+        bytes: 1_234,
+        schema_version: null,
+      },
+    ]);
+    expect(forgotten).toEqual(['patrimonio-2025-01-10.dump.age']);
   });
 
   it('o backup manual não mexe na retenção e não conta como diário', async () => {

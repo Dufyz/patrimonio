@@ -406,3 +406,20 @@ export const referenceLoadedAt = (health: MarketHealth): string | null => {
 
 export const referencePending = (health: MarketHealth): boolean =>
   health.catalogs.some((catalog) => catalog.state === 'pending');
+
+/** `5452595` → `5,2 MB`: o tamanho do arquivo cifrado, no que a pessoa lê. */
+export const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'] as const;
+  let value = bytes / 1024;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  return `${value.toFixed(1).replace('.', ',')} ${units[index]}`;
+};
+
+export const BACKUP_KIND_LABEL: Readonly<
+  Record<SettingsBackup['files'][number]['kind'], string>
+> = { daily: 'Diário', weekly: 'Semanal', monthly: 'Mensal', manual: 'Manual' };

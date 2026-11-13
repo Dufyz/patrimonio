@@ -34,12 +34,34 @@ export type SettingsArchivedPortfolioRow = {
   readonly archived_on: DateOnly;
 };
 
+/** Um arquivo de backup como a tela o lista. */
+export type BackupFileRow = {
+  readonly name: string;
+  readonly taken_on: DateOnly;
+  readonly manual: boolean;
+  readonly bytes: number;
+  readonly schema_version: string | null;
+};
+
+/** O que o worker grava do backup que acabou de verificar (e do que a retenção apagou). */
+export type BackupLogRepository = {
+  readonly record: (file: {
+    readonly name: string;
+    readonly taken_on: DateOnly;
+    readonly manual: boolean;
+    readonly bytes: number;
+    readonly schema_version: string | null;
+  }) => Promise<Either<AppError, undefined>>;
+  readonly forget: (names: readonly string[]) => Promise<Either<AppError, undefined>>;
+};
+
 /** O que a tabela do pipeline sabe do backup. O bucket só o worker enxerga. */
 export type SettingsBackupRow = {
   readonly last_success_at: string | null;
   readonly last_failure_at: string | null;
   readonly last_failure_error: string | null;
   readonly pending: boolean;
+  readonly files: readonly BackupFileRow[];
 };
 
 export type SettingsSnapshot = {

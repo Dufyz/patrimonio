@@ -1,4 +1,5 @@
 import type {
+  BackupFileRow,
   SettingsArchivedPortfolioRow,
   SettingsBackupRow,
   SettingsPortfolioRow,
@@ -49,7 +50,19 @@ const parseArchived = (row: Row): SettingsArchivedPortfolioRow => ({
   archived_on: asDateOnly(row, 'archived_on'),
 });
 
-const parseBackup = (row: Row | undefined): SettingsBackupRow => ({
+const parseFile = (row: Row): BackupFileRow => ({
+  name: asString(row, 'name'),
+  taken_on: asDateOnly(row, 'taken_on'),
+  manual: asBoolean(row, 'manual'),
+  bytes: asInteger(row, 'bytes'),
+  schema_version: asStringOrNull(row, 'schema_version'),
+});
+
+const parseBackup = (
+  row: Row | undefined,
+  files: readonly BackupFileRow[],
+): SettingsBackupRow => ({
+  files,
   last_success_at: row === undefined ? null : asIsoStringOrNull(row, 'last_success_at'),
   last_failure_at: row === undefined ? null : asIsoStringOrNull(row, 'last_failure_at'),
   last_failure_error:
@@ -149,7 +162,17 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
         )
         SELECT (SELECT value FROM portfolio_json) AS portfolios,
                (SELECT value FROM archived_json) AS archived_portfolios,
-               (SELECT TO_JSONB(b) FROM backup_row b) AS backup
+               (SELECT TO_JSONB(b) FROM backup_row b) AS backup,
+               (SELECT COALESCE(JSONB_AGG(
+                         JSONB_BUILD_OBJECT(
+                           'name', f.name,
+                           'taken_on', f.taken_on,
+                           'manual', f.manual,
+                           'bytes', f.bytes,
+                           'schema_version', f.schema_version
+                         ) ORDER BY f.taken_on DESC, f.created_at DESC
+                       ), '[]'::JSONB)
+                  FROM backup_file f) AS backup_files
       `;
 
       if (row === undefined) {
@@ -165,6 +188,7 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
           typeof row['backup'] === 'object' && row['backup'] !== null
             ? (row['backup'] as Row)
             : undefined,
+          asRows(row['backup_files']).map(parseFile),
         ),
       });
     } catch (error) {

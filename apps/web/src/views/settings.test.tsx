@@ -74,6 +74,22 @@ const settings: Settings = {
     last_success_at: '2026-10-08T06:01:00Z',
     last_failure: null,
     pending: false,
+    files: [
+      {
+        name: 'patrimonio-2026-10-08-s051.dump.age',
+        taken_on: '2026-10-08',
+        kind: 'daily',
+        bytes: 5_452_595,
+        schema_version: '051',
+      },
+      {
+        name: 'patrimonio-2026-10-04-s051.dump.age',
+        taken_on: '2026-10-04',
+        kind: 'weekly',
+        bytes: 5_300_000,
+        schema_version: '051',
+      },
+    ],
   },
 };
 
@@ -471,6 +487,36 @@ describe('SettingsView', () => {
     expect(screen.queryByText(/dados? falhando/)).toBeNull();
   });
 
+  it('a tabela de backups mostra data, tipo, tamanho e situação, e a retenção é só texto (BKP-01)', () => {
+    montar({ section: 'dados-e-backup' });
+
+    const tabela = within(screen.getByRole('table', { name: 'Backups guardados' }));
+    const diario = tabela.getByRole('row', { name: /08\/10\/2026/ });
+    expect(within(diario).getByText('Diário')).toBeTruthy();
+    expect(within(diario).getByText('5,2 MB')).toBeTruthy();
+    expect(within(diario).getByText('verificado')).toBeTruthy();
+    expect(
+      within(tabela.getByRole('row', { name: /04\/10\/2026/ })).getByText('Semanal'),
+    ).toBeTruthy();
+    expect(screen.getByText(/7 diários, 4 semanais e 6 mensais/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Restaurar/ })).toBeNull();
+  });
+
+  it('sem backup ainda, a seção diz "Nenhum backup feito" (CFG-06)', () => {
+    montar({
+      section: 'dados-e-backup',
+      settings: {
+        kind: 'ready',
+        value: {
+          ...settings,
+          backup: { ...settings.backup, last_success_at: null, files: [] },
+        },
+      },
+    });
+    expect(screen.getByText(/Nenhum backup feito\./)).toBeTruthy();
+    expect(screen.queryByRole('table', { name: 'Backups guardados' })).toBeNull();
+  });
+
   it('exibição troca o tema e a densidade sem recarregar', async () => {
     montar({ section: 'exibicao' });
 
@@ -562,7 +608,7 @@ describe('SettingsView', () => {
     const confirm = screen.getByRole('button', { name: 'Apagar tudo' });
     expect((confirm as HTMLButtonElement).disabled).toBe(true);
 
-    await user.type(screen.getByPlaceholderText('APAGAR TUDO'), 'APAGAR TUDO');
+    await user.type(screen.getByPlaceholderText('APAGAR'), 'APAGAR');
     expect((confirm as HTMLButtonElement).disabled).toBe(false);
   });
 

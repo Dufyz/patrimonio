@@ -1,4 +1,5 @@
 import { AppError, BadRequestError, ExternalServiceError } from '@patrimonio/application';
+import type { BackupLogRepository } from '@patrimonio/application';
 import { dedupeKey } from '@patrimonio/domain';
 import { environment } from '@patrimonio/env';
 import { failure, success } from '@patrimonio/shared';
@@ -38,6 +39,8 @@ export type BackupStageDeps = StageDeps & {
   readonly dump?: typeof createEncryptedDump;
   /** A versão do esquema que vai no nome do arquivo (número de migrations aplicadas). */
   readonly schemaVersion?: () => Promise<string | undefined>;
+  /** BKP-01: o que a tela de Configurações lista. Opcional para o teste do dump. */
+  readonly log?: BackupLogRepository;
 };
 
 export type BackupRun = {
@@ -129,6 +132,25 @@ export const runBackup = async (
             referenceDate,
           );
     await storage.remove(plan.remove);
+
+    // A tela lista o que o bucket guarda. Falhar em anotar não desfaz o backup:
+    // o arquivo está verificado, e o aviso vai para o log.
+    if (deps.log !== undefined) {
+      const noted = await deps.log.record({
+        name,
+        taken_on: referenceDate,
+        manual: run.manual === true,
+        bytes: dump.bytes,
+        schema_version: schema ?? null,
+      });
+      const forgotten = await deps.log.forget(plan.remove);
+      if (noted.isFailure() || forgotten.isFailure()) {
+        deps.logger.warn(
+          { name },
+          'backup feito, mas o registro da tela não foi gravado',
+        );
+      }
+    }
 
     deps.logger.info(
       {

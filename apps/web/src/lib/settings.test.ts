@@ -17,6 +17,7 @@ const backup = (overrides: Partial<SettingsBackup>): SettingsBackup => ({
   last_success_at: null,
   last_failure: null,
   pending: false,
+  files: [],
   ...overrides,
 });
 

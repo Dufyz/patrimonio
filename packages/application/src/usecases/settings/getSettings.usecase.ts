@@ -13,6 +13,16 @@ import type { SettingsRepository } from '../../interfaces/settings.repository.js
  *   desfazer vêm de configuração de implantação; `editable: false` diz à tela
  *   que não há botão de salvar para elas.
  */
+/** Domingo é o semanal e o dia 1 é o mensal: é o que a retenção guarda (BKP-02). */
+export const backupKind = (
+  takenOn: string,
+  manual: boolean,
+): 'daily' | 'weekly' | 'monthly' | 'manual' => {
+  if (manual) return 'manual';
+  if (takenOn.endsWith('-01')) return 'monthly';
+  return new Date(`${takenOn}T00:00:00.000Z`).getUTCDay() === 0 ? 'weekly' : 'daily';
+};
+
 export type GetSettingsDeps = {
   readonly settings: SettingsRepository;
   readonly undoWindowSeconds: number;
@@ -66,6 +76,13 @@ export const getSettings = (deps: GetSettingsDeps) =>
                 error: backup.last_failure_error ?? 'sem mensagem de erro',
               },
         pending: backup.pending,
+        files: backup.files.map((file) => ({
+          name: file.name,
+          taken_on: file.taken_on,
+          kind: backupKind(file.taken_on, file.manual),
+          bytes: file.bytes,
+          schema_version: file.schema_version,
+        })),
       },
     };
   });

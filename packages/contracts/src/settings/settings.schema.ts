@@ -59,6 +59,17 @@ export const settingsBackupSchema = z.object({
   last_failure: z.object({ at: z.string(), error: z.string() }).nullable(),
   /** Há um pedido de backup esperando o relay ou rodando agora. */
   pending: z.boolean(),
+  /** Os backups que o bucket guarda, do mais novo ao mais antigo (BKP-01). */
+  files: z.array(
+    z.object({
+      name: z.string(),
+      taken_on: dateOnly,
+      /** Diário, semanal (o de domingo), mensal (o do dia 1) ou manual. */
+      kind: z.enum(['daily', 'weekly', 'monthly', 'manual']),
+      bytes: z.number().int(),
+      schema_version: z.string().nullable(),
+    }),
+  ),
 });
 
 export const settingsLedgerDefaultsSchema = z.object({
@@ -91,7 +102,7 @@ export type SettingsPortfolio = z.infer<typeof settingsPortfolioSchema>;
 export type SettingsBackup = z.infer<typeof settingsBackupSchema>;
 
 /** A frase que o usuário digita para apagar tudo: o atrito é proporcional ao estrago. */
-export const DELETE_ALL_PHRASE = 'APAGAR TUDO';
+export const DELETE_ALL_PHRASE = 'APAGAR';
 
 /** "Exportar tudo": o arquivo sai inteiro, sem filtro. */
 export const exportDataSchema = z.object({});

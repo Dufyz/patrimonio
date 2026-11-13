@@ -143,6 +143,8 @@ export type {
   GoalWrite,
 } from './interfaces/goal.repository.js';
 export type {
+  BackupFileRow,
+  BackupLogRepository,
   SettingsArchivedPortfolioRow,
   SettingsBackupRow,
   DeleteAllCounts,

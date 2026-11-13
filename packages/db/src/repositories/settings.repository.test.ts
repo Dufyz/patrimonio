@@ -10,6 +10,7 @@ import {
   rollbackTestTransaction,
 } from '../testing/database.js';
 import type { TestTransaction } from '../testing/database.js';
+import { createBackupLogRepository } from './backup_log.repository.js';
 import { createSettingsRepository } from './settings.repository.js';
 
 const LONGO = '0191e5a0-0000-7000-8000-00000000e001';
@@ -244,7 +245,34 @@ describe('o estado do backup', () => {
       last_failure_at: null,
       last_failure_error: null,
       pending: false,
+      files: [],
     });
+  });
+
+  it('os arquivos gravados pelo worker voltam do mais novo ao mais antigo, e o esquecido sai (BKP-01)', async () => {
+    const log = createBackupLogRepository(tx);
+    const file = (name: string, taken_on: string, manual = false) => ({
+      name,
+      taken_on,
+      manual,
+      bytes: 1_000,
+      schema_version: '051',
+    });
+    unwrapSuccess(await log.record(file('a.dump.age', '2026-10-05')));
+    unwrapSuccess(await log.record(file('b.dump.age', '2026-10-06')));
+    unwrapSuccess(await log.record(file('c-manual.dump.age', '2026-10-06', true)));
+    // Gravar de novo o mesmo nome atualiza, não duplica.
+    unwrapSuccess(
+      await log.record({ ...file('a.dump.age', '2026-10-05'), bytes: 2_000 }),
+    );
+    unwrapSuccess(await log.forget(['b.dump.age']));
+
+    const { backup } = unwrapSuccess(await createSettingsRepository(tx).snapshot());
+
+    expect(backup.files.map((f) => [f.name, f.bytes, f.manual])).toEqual([
+      ['c-manual.dump.age', 1_000, true],
+      ['a.dump.age', 2_000, false],
+    ]);
   });
 
   it('o último sucesso é o mais recente, e uma falha antiga já superada não aparece', async () => {

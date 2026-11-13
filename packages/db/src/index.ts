@@ -30,6 +30,7 @@ export { createOverviewRepository } from './repositories/overview.repository.js'
 export { createAllocationRepository } from './repositories/allocation.repository.js';
 export { createGoalRepository } from './repositories/goal.repository.js';
 export { createProjectionPlanRepository } from './repositories/projection_plan.repository.js';
+export { createBackupLogRepository } from './repositories/backup_log.repository.js';
 export { createSettingsRepository } from './repositories/settings.repository.js';
 export { createPerformanceRepository } from './repositories/performance.repository.js';
 export { createMarketIngestionRepository } from './repositories/market_ingestion.repository.js';

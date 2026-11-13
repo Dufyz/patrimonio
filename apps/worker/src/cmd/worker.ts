@@ -1,4 +1,4 @@
-import { migrationStatus } from '@patrimonio/db';
+import { createBackupLogRepository, migrationStatus } from '@patrimonio/db';
 import { environment } from '@patrimonio/env';
 import { registerSchedules } from '@patrimonio/queue';
 
@@ -35,6 +35,7 @@ const workers = [
   importStage(deps),
   backupStage({
     ...deps,
+    log: createBackupLogRepository(container.sql),
     schemaVersion: async () => {
       const status = await migrationStatus(environment.database.connection);
       return String(status.applied.length).padStart(3, '0');
