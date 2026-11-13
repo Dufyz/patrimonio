@@ -49,6 +49,7 @@ import { GoalPanelBody } from './overview_goal.js';
 import { PortfoliosPanel } from './overview_portfolios.js';
 import { ReturnsBars } from './overview_returns.js';
 import type { PortfolioReturn } from './overview_returns.js';
+import { HomeScopeControl } from '../components/home_scope_control.js';
 import { usePortfolios } from '../components/portfolios_provider.js';
 import {
   SkeletonChart,
@@ -613,7 +614,11 @@ export const OverviewView = ({
           <p className="truncate text-xs text-ink-3">{subtitle}</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <HomeScopeControl
+            scope="investimentos"
+            portfolioId={overview.scope.portfolio_id}
+          />
           <PeriodControl
             value={period}
             onChange={onPeriodChange}

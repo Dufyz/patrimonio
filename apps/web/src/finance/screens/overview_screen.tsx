@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
+import { HomeScopeControl } from '../../components/home_scope_control.js';
 import { Panel } from '../../components/primitives.js';
 import { FlowChart } from '../components/flow_chart.js';
 import { PanelBoundary } from '../components/states.js';
@@ -58,7 +59,11 @@ export const OverviewScreen = (): React.ReactElement => {
   if (firstUse) {
     return (
       <>
-        <ScreenHeader title="Visão geral" subtitle="Finanças · receitas e despesas" />
+        <ScreenHeader
+          title="Visão geral"
+          subtitle="Finanças · receitas e despesas"
+          period={<HomeScopeControl scope="fluxo" />}
+        />
         <div className="flex flex-col gap-4">
           <FinanceWelcome data={data} today={today} />
         </div>
@@ -71,7 +76,12 @@ export const OverviewScreen = (): React.ReactElement => {
       <ScreenHeader
         title="Visão geral"
         subtitle={`Finanças · ${isWholeMonth(range) ? formatMonth(range.from) : formatRange(range, today)} · receitas e despesas · ${pluralize(result.accountsCount, 'conta', 'contas')} e ${pluralize(data.cards.length, 'cartão', 'cartões')}`}
-        period={<PeriodControl value={range} onChange={setRange} today={today} />}
+        period={
+          <span className="flex flex-wrap items-center gap-2">
+            <HomeScopeControl scope="fluxo" />
+            <PeriodControl value={range} onChange={setRange} today={today} />
+          </span>
+        }
         primary={{ label: PRIMARY_LABELS.entries, onClick: () => setCreating(true) }}
       />
       <div className="flex flex-col gap-4">

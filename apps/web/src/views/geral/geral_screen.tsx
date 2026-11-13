@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router';
 
 import { fetchGoalsOverview } from '../../api/goals.js';
 import { fetchOverview } from '../../api/overview.js';
+import { HomeScopeControl } from '../../components/home_scope_control.js';
 import { usePortfolios } from '../../components/portfolios_provider.js';
 import { MoneyChange, PercentChange } from '../../components/number.js';
 import { KeepPrevious } from '../../components/pending.js';
@@ -385,6 +386,7 @@ export const GeralView = ({
       <ScreenHeader
         title="Visão geral"
         subtitle={`Hoje · ${formatDate(today as DateOnly)} · Finanças e todas as carteiras juntos`}
+        period={<HomeScopeControl scope="tudo" />}
         primary={{ label: 'Lançamento', onClick: onNewEntry }}
       />
       <div className="flex flex-col gap-4">
