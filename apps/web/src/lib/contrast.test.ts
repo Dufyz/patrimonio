@@ -1,110 +1,115 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 /**
- * TEM-04 (1) · Todo par texto/fundo declarado dos tokens atinge contraste AA nos
- * dois temas. Lê os valores de `styles.css`, a única fonte de cor, e calcula a
- * razão de contraste da WCAG 2.1. Um token translúcido é misturado sobre o fundo
- * em que de fato aparece, o painel.
+ * NAV-15 · TEM-04 · A casca e os papéis de texto atingem contraste AA (4,5:1)
+ * nos dois temas. O teste lê o `styles.css` de verdade: trocar um token que
+ * quebra o contraste falha aqui, antes de qualquer revisão visual.
  */
+const css = readFileSync(join(__dirname, '..', 'styles.css'), 'utf8');
 
-type Rgb = readonly [number, number, number];
-
-const css = readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf8');
-
-/** O conteúdo do primeiro bloco `{ ... }` depois de `opening`. */
-const blockAfter = (opening: string): string => {
-  const start = css.indexOf(opening);
-  if (start < 0) throw new Error(`bloco não encontrado: ${opening}`);
-  const open = css.indexOf('{', start);
-  let depth = 0;
-  for (let index = open; index < css.length; index += 1) {
-    if (css[index] === '{') depth += 1;
-    if (css[index] === '}') depth -= 1;
-    if (depth === 0) return css.slice(open + 1, index);
-  }
-  throw new Error(`bloco sem fim: ${opening}`);
+const block = (selector: string): string => {
+  const start = css.indexOf(selector);
+  return css.slice(start, css.indexOf('\n}', start));
 };
 
-const readTokens = (block: string): Map<string, string> => {
-  const tokens = new Map<string, string>();
-  for (const match of block.matchAll(/--color-([a-z0-9-]+):\s*([^;]+);/g)) {
-    tokens.set(match[1] ?? '', (match[2] ?? '').trim());
-  }
-  return tokens;
+const tokens = (text: string): Map<string, string> =>
+  new Map(
+    [...text.matchAll(/(--color-[\w-]+):\s*(#[0-9a-fA-F]{6})\s*;/gu)].map(
+      (match) => [match[1] ?? '', (match[2] ?? '').toLowerCase()] as const,
+    ),
+  );
+
+/** `rgb(76 183 130 / 0.12)` sobre o painel vira o hexadecimal opaco que o olho vê. */
+const blended = (text: string, base: Map<string, string>): Map<string, string> => {
+  const panel = base.get('--color-panel') ?? '#ffffff';
+  const mix = (top: number, bottom: number, alpha: number): number =>
+    Math.round(top * alpha + bottom * (1 - alpha));
+  const hex = (value: number): string => value.toString(16).padStart(2, '0');
+
+  return new Map(
+    [
+      ...text.matchAll(/(--color-[\w-]+):\s*rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\)\s*;/gu),
+    ].map((match) => {
+      const alpha = Number(match[5]);
+      const channels = [match[2], match[3], match[4]].map((value, index) =>
+        mix(
+          Number(value),
+          Number.parseInt(panel.slice(1 + index * 2, 3 + index * 2), 16),
+          alpha,
+        ),
+      );
+      return [match[1] ?? '', `#${channels.map(hex).join('')}`] as const;
+    }),
+  );
 };
 
-const light = readTokens(blockAfter('@theme static'));
-// O escuro só redeclara o que muda: o resto vale o que vale no claro.
-const dark = new Map([...light, ...readTokens(blockAfter(":root[data-theme='dark']"))]);
+const light = tokens(block('@theme'));
+const darkBlock = block(":root[data-theme='dark']");
+const darkBase = new Map([...light, ...tokens(darkBlock)]);
+const dark = new Map([...darkBase, ...blended(darkBlock, darkBase)]);
 
-const parseColor = (value: string, over: Rgb | null): Rgb => {
-  const hex = /^#([0-9a-f]{6})$/i.exec(value);
-  if (hex !== null) {
-    const n = parseInt(hex[1] ?? '', 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  }
-  const rgb = /^rgb\(\s*(\d+)\s+(\d+)\s+(\d+)\s*\/\s*([\d.]+)\s*\)$/.exec(value);
-  if (rgb !== null && over !== null) {
-    const alpha = Number(rgb[4]);
-    return [1, 2, 3].map((slot) =>
-      Math.round(Number(rgb[slot]) * alpha + (over[slot - 1] ?? 0) * (1 - alpha)),
-    ) as unknown as Rgb;
-  }
-  throw new Error(`cor não suportada: ${value}`);
+const channel = (value: number): number => {
+  const unit = value / 255;
+  return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
 };
 
-const luminance = ([r, g, b]: Rgb): number => {
-  const channel = (value: number): number => {
-    const s = value / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  };
+const luminance = (hex: string): number => {
+  const r = Number.parseInt(hex.slice(1, 3), 16);
+  const g = Number.parseInt(hex.slice(3, 5), 16);
+  const b = Number.parseInt(hex.slice(5, 7), 16);
   return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
 };
 
-const ratio = (a: Rgb, b: Rgb): number => {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
-  return (hi + 0.05) / (lo + 0.05);
+const ratio = (foreground: string, background: string): number => {
+  const [a, b] = [luminance(foreground), luminance(background)].sort((x, y) => y - x);
+  return ((a ?? 0) + 0.05) / ((b ?? 0) + 0.05);
 };
 
-/** [texto, fundo, mínimo]. 4,5 para texto comum; o resto está nas pontas do par. */
-const PAIRS: readonly (readonly [string, string, number])[] = [
-  ['ink', 'bg', 4.5],
-  ['ink', 'panel', 4.5],
-  ['ink-2', 'panel', 4.5],
-  ['ink-3', 'panel', 4.5],
-  ['accent', 'panel', 4.5],
-  ['btn-ink', 'btn', 4.5],
-  ['seg-active-ink', 'seg-active', 4.5],
-  ['positive', 'panel', 4.5],
-  ['negative', 'panel', 4.5],
-  ['attention', 'panel', 4.5],
-  ['positive', 'positive-soft', 4.5],
-  ['negative', 'negative-soft', 4.5],
-  ['attention', 'attention-soft', 4.5],
-  ['type-buy-ink', 'type-buy', 4.5],
-  ['type-sell-ink', 'type-sell', 4.5],
-  ['type-income-ink', 'type-income', 4.5],
-  ['type-cash-ink', 'type-cash', 4.5],
+/** Texto sobre fundo: o que a casca, a barra, a busca e o cabeçalho usam. */
+const PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ['--color-ink', '--color-bg'],
+  ['--color-ink', '--color-panel'],
+  ['--color-ink', '--color-panel-2'],
+  ['--color-ink-2', '--color-panel'],
+  ['--color-ink-3', '--color-panel'],
+  ['--color-ink', '--color-nav-active'],
+  ['--color-seg-active-ink', '--color-seg-active'],
+  ['--color-accent-ink', '--color-btn'],
+  ['--color-accent', '--color-panel'],
+  ['--color-positive', '--color-panel'],
+  ['--color-negative', '--color-panel'],
+  ['--color-attention', '--color-panel'],
+  ['--color-positive', '--color-positive-soft'],
+  ['--color-negative', '--color-negative-soft'],
+  ['--color-attention', '--color-attention-soft'],
 ];
 
 describe.each([
   ['claro', light],
   ['escuro', dark],
-] as const)('contraste AA · tema %s', (_name, tokens) => {
-  const panel = parseColor(tokens.get('panel') ?? '', null);
-  const get = (token: string): Rgb => {
-    const value = tokens.get(token);
-    if (value === undefined) throw new Error(`token --color-${token} não existe`);
-    return parseColor(value, panel);
-  };
+] as const)('contraste AA no tema %s', (_name, theme) => {
+  it.each(PAIRS)('%s sobre %s passa de 4,5:1', (foreground, background) => {
+    const fg = theme.get(foreground);
+    const bg = theme.get(background);
+    expect(fg, foreground).toBeDefined();
+    expect(bg, background).toBeDefined();
+    expect(ratio(fg ?? '#000000', bg ?? '#ffffff')).toBeGreaterThanOrEqual(4.5);
+  });
+});
 
-  it.each(PAIRS)('%s sobre %s ≥ %s:1', (text, background, minimum) => {
-    const found = ratio(get(text), get(background));
-    expect(
-      found,
-      `${text} sobre ${background}: ${found.toFixed(2)}:1`,
-    ).toBeGreaterThanOrEqual(minimum);
+describe('a casca usa só tokens (NAV-15)', () => {
+  it.each([
+    'components/shell.tsx',
+    'components/search_palette.tsx',
+    'finance/components/screen_header.tsx',
+  ])('%s não tem cor fixa', (file) => {
+    const source = readFileSync(join(__dirname, '..', file), 'utf8');
+    expect(/#[0-9a-fA-F]{3,8}\b/u.test(source), 'hexadecimal').toBe(false);
+    expect(/\b(?:bg|text|border)-(?:white|black|gray|slate|zinc)\b/u.test(source)).toBe(
+      false,
+    );
   });
 });
