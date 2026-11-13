@@ -11,6 +11,8 @@ export type AccountRowResource = {
     readonly type: string;
     readonly institution: string | null;
     readonly role: string;
+    readonly opening_amount: string;
+    readonly opening_date: string;
     readonly in_wealth: boolean;
     readonly archived: boolean;
   };

@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router';
 
 import { fetchAccountStatement } from '../../api/statement_view.js';
 import type { AccountStatementResource } from '../../api/statement_view.js';
+import { NewEntryModal } from '../ledger/new_entry_modal.js';
+import { fetchAccountNames } from '../../api/book.js';
 import { fetchCategories } from '../../api/ledger_write.js';
 import { usePreferences } from '../../components/preferences.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
@@ -35,6 +37,10 @@ export const AccountStatementScreen = (): React.ReactElement => {
   const [categories, setCategories] = useState<ReadonlyMap<string, string>>(new Map());
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
+  const [transferring, setTransferring] = useState(false);
+  const [accountNames, setAccountNames] = useState<ReadonlyMap<string, string>>(
+    new Map(),
+  );
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [query, setQuery] = useState('');
   const [types, setTypes] = useState<readonly StatementType[]>([]);
@@ -47,6 +53,9 @@ export const AccountStatementScreen = (): React.ReactElement => {
       .catch(() => {
         if (!controller.signal.aborted) setFailed(true);
       });
+    fetchAccountNames(controller.signal)
+      .then(setAccountNames)
+      .catch(() => undefined);
     fetchCategories(controller.signal)
       .then((list) => setCategories(new Map(list.map((c) => [c.id, c.name]))))
       .catch(() => undefined);
@@ -86,6 +95,15 @@ export const AccountStatementScreen = (): React.ReactElement => {
     <div className="flex flex-col gap-4">
       <ScreenHeader
         title={name}
+        extra={
+          <button
+            type="button"
+            className="cursor-pointer rounded-field border border-line px-3 py-1.5 text-sm"
+            onClick={() => setTransferring(true)}
+          >
+            Transferir
+          </button>
+        }
         crumbs={[{ label: 'Contas', to: financeRoutes.accounts() }, { label: name }]}
         subtitle={
           closes ? (
@@ -207,6 +225,16 @@ export const AccountStatementScreen = (): React.ReactElement => {
             </tr>
           </tfoot>
         </table>
+      )}
+      {transferring && (
+        <NewEntryModal
+          today={data.through}
+          accounts={[...accountNames].map(([id, name]) => ({ id, name }))}
+          context={{ accountId: data.account.id }}
+          initialKind="TRANSFERENCIA"
+          onSaved={() => setReload((n) => n + 1)}
+          onClose={() => setTransferring(false)}
+        />
       )}
     </div>
   );
