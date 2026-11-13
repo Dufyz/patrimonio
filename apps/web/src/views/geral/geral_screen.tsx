@@ -30,7 +30,7 @@ import {
 } from '../../finance/components/overview_panels.js';
 import { useFinancePeriod } from '../../finance/components/period_provider.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
-import { PanelBoundary } from '../../finance/components/states.js';
+import { PanelBoundary, PanelError } from '../../finance/components/states.js';
 import { accountsOverview } from '../../finance/domain/accounts.js';
 import { accountsTotal } from '../../finance/domain/cash_flow.js';
 import { emptyEntryDraft } from '../../finance/domain/entry_ops.js';
@@ -323,9 +323,10 @@ const CascataDoMes = ({ month }: { readonly month: string }): React.ReactElement
   }
   if (state.kind !== 'ready') {
     return (
-      <p role="alert" className="border-t border-line px-4 py-3 text-xs text-negative">
-        Não foi possível carregar a cascata do mês.
-      </p>
+      <PanelError
+        title="Não foi possível carregar a cascata do mês"
+        onRetry={book.reload}
+      />
     );
   }
   const { totals } = state.value;
@@ -455,9 +456,10 @@ export const SaldoPrevistoPanel = ({
     body = <p className="px-4 py-3 text-xs text-ink-3">Carregando o saldo previsto…</p>;
   } else if (state.kind !== 'ready') {
     body = (
-      <p role="alert" className="px-4 py-3 text-xs text-negative">
-        Não foi possível carregar o saldo previsto.
-      </p>
+      <PanelError
+        title="Não foi possível carregar o saldo previsto"
+        onRetry={forecast.reload}
+      />
     );
   } else {
     const { parts, series } = state.value;

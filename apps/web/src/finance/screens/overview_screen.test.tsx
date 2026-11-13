@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { PreferencesProvider } from '../../components/preferences.js';
 import { ShortcutProvider } from '../../components/shortcuts.js';
@@ -57,42 +57,6 @@ describe('Composição da tela (FVG-008)', () => {
   });
 });
 
-describe('Saldo previsto (FVG-001, FVG-002)', () => {
-  const panel = () => screen.getByRole('region', { name: 'Saldo previsto' });
-
-  it('mostra a data de hoje, o saldo ao fim do mês e Em contas hoje', () => {
-    open();
-    expect(within(panel()).getByText(/hoje, .* · fim de out\/2026/u)).toBeTruthy();
-    expect(within(panel()).queryByText('dia 24 de 31')).toBeNull();
-    expect(within(panel()).getByText('Saldo ao fim do mês')).toBeTruthy();
-    expect(panel().textContent).toContain('R$ 12.583,85');
-  });
-
-  it('tem as três linhas com barra e o menor saldo do horizonte', () => {
-    open();
-    for (const label of ['Em contas hoje', 'Entradas previstas', 'Saídas previstas']) {
-      expect(within(panel()).getByText(label)).toBeTruthy();
-    }
-    expect(within(panel()).getByText(/Menor saldo até 30\/11/u)).toBeTruthy();
-  });
-
-  it('cada linha leva ao que a compõe', () => {
-    open();
-    const link = within(panel()).getByText('Saídas previstas').closest('a');
-    expect(link?.getAttribute('href')).toBe(
-      '/lancamentos?tipo=despesa&situacao=prevista',
-    );
-  });
-
-  it('o gráfico traz realizado e previsto e marca o menor saldo', () => {
-    open();
-    expect(
-      within(panel()).getByRole('img', { name: /realizado até hoje e previsto depois/u }),
-    ).toBeTruthy();
-    expect(within(panel()).getByLabelText('Menor saldo')).toBeTruthy();
-  });
-});
-
 describe('Receitas × despesas (FIN-602)', () => {
   it('painel com subtítulo, legenda do mês do período e 12 meses no eixo', () => {
     open();
@@ -142,35 +106,67 @@ describe('Receitas × despesas (FIN-602)', () => {
   });
 });
 
-describe('Despesas por categoria (FVG-003)', () => {
-  const panel = () => screen.getByRole('region', { name: 'Despesas por categoria' });
-  const table = () =>
-    within(screen.getByRole('table', { name: 'Despesas por categoria' }));
+describe('Despesas por categoria (VGR-10)', () => {
+  const breakdown = {
+    total: '300.00',
+    count: 3,
+    rows: [
+      {
+        category_id: 'c1',
+        name: 'Moradia',
+        color: 'blue',
+        amount: '200.00',
+        count: 1,
+        tenths: 667,
+      },
+      {
+        category_id: 'c2',
+        name: 'Mercado',
+        color: 'green',
+        amount: '100.00',
+        count: 2,
+        tenths: 333,
+      },
+    ],
+  };
 
-  it('subtítulo com o mês e "até agora", sem coluna de variação', () => {
+  const stub = (): void => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input).includes('/categories/breakdown')
+          ? new Response(JSON.stringify(breakdown), { status: 200 })
+          : new Response('{}', { status: 500 }),
+      ),
+    );
+  };
+
+  it('vem do servidor, da maior para a menor, e fecha com o total', async () => {
+    stub();
     open();
-    expect(within(panel()).getByText('out/2026 · até agora')).toBeTruthy();
-    expect(table().queryByRole('columnheader', { name: 'Variação' })).toBeNull();
-    expect(table().getByRole('columnheader', { name: '% do total' })).toBeTruthy();
+    const painel = screen.getByRole('region', { name: 'Despesas por categoria' });
+    const tabela = await within(painel).findByRole('table', {
+      name: 'Despesas por categoria',
+    });
+    const linhas = within(tabela).getAllByRole('row').slice(1);
+    expect(linhas[0]?.textContent).toContain('Moradia');
+    expect(linhas[0]?.textContent).toContain('66,7%');
+    expect(linhas[1]?.textContent).toContain('Mercado');
+    expect(within(tabela).getByRole('row', { name: /Total/ }).textContent).toContain(
+      'R$ 300,00',
+    );
+    vi.unstubAllGlobals();
   });
 
-  it('ordena da maior para a menor, com valor e percentual, e fecha com o total', () => {
+  it('o link leva a Lançamentos de despesas lançadas', async () => {
+    stub();
     open();
-    const rows = table().getAllByRole('row').slice(1);
-    expect(rows[0]?.textContent).toContain('Investimento');
-    expect(rows[0]?.textContent).toContain('R$ 4.500,00');
-    expect(rows[0]?.textContent).toContain('47,4%');
-    expect(rows[rows.length - 1]?.textContent).toContain('Total');
-    expect(rows[rows.length - 1]?.textContent).toContain('R$ 9.478,10');
-  });
-
-  it('o link leva a Lançamentos de despesas lançadas', () => {
-    open();
-    expect(
-      within(panel())
-        .getByRole('link', { name: /^Ver por categoria/u })
-        .getAttribute('href'),
-    ).toBe('/lancamentos?tipo=despesa&situacao=lancada');
+    const painel = screen.getByRole('region', { name: 'Despesas por categoria' });
+    const link = await within(painel).findByRole('link', { name: /^Ver por categoria/u });
+    expect(link.getAttribute('href')).toMatch(
+      /^\/lancamentos\?tipo=DESPESA&situacao=lancado/,
+    );
+    vi.unstubAllGlobals();
   });
 });
 

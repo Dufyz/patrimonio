@@ -5,17 +5,17 @@ import { HomeScopeControl } from '../../components/home_scope_control.js';
 import { Panel } from '../../components/primitives.js';
 import { FlowChart } from '../components/flow_chart.js';
 import { PanelBoundary } from '../components/states.js';
+import { DespesasCategoriaServerPanel } from '../components/despesas_categoria_server.js';
+import { SaldoPrevistoPanel } from '../../views/geral/geral_screen.js';
 import { FinanceWelcome } from '../components/finance_welcome.js';
 import { EntryDialog } from '../components/entry_dialog.js';
 import { FlowPeriodControl as PeriodControl } from '../../components/period_control.js';
 import { useFinancePeriod } from '../components/period_provider.js';
 import {
   ContasPanel,
-  DespesasCategoriaPanel,
   FaturasAbertasPanel,
   PanelHeaderAction,
   ProximosLancamentosPanel,
-  SaldoPrevistoPanel,
 } from '../components/overview_panels.js';
 import { ScreenHeader } from '../components/screen_header.js';
 import { monthResult, monthSeries } from '../domain/overview.js';
@@ -88,10 +88,10 @@ export const OverviewScreen = (): React.ReactElement => {
         {/* Cards na mesma linha têm a mesma altura (grid com itens esticados). */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <PanelBoundary title="o saldo previsto">
-            <SaldoPrevistoPanel data={data} today={today} />
+            <SaldoPrevistoPanel today={today} />
           </PanelBoundary>
           <PanelBoundary title="as despesas por categoria">
-            <DespesasCategoriaPanel data={data} range={range} today={today} />
+            <DespesasCategoriaServerPanel range={range} today={today} />
           </PanelBoundary>
         </div>
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
