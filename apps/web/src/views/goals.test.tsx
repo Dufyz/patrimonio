@@ -1,3 +1,4 @@
+import axe from 'axe-core';
 import type { GoalResource, GoalsResource } from '@patrimonio/contracts';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -380,5 +381,21 @@ describe('GoalsView', () => {
       ).toBeTruthy();
       expect(vi.mocked(deleteGoal)).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('OBJ-07 · acessibilidade de Objetivos nos dois temas', () => {
+  it.each(['light', 'dark'])('sem violação AA (tema %s)', async (theme) => {
+    document.documentElement.dataset['theme'] = theme;
+    const { container } = montar({ kind: 'ready', value: dados(null) });
+    const result = await axe.run(container, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+      rules: { 'color-contrast': { enabled: false }, region: { enabled: false } },
+    });
+    expect(
+      result.violations.map(
+        (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,
+      ),
+    ).toEqual([]);
   });
 });
