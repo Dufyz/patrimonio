@@ -172,6 +172,7 @@ export const DeletePortfolioDialog = ({
     plural(assets, 'ativo', 'ativos'),
     ...(portfolio.goal === null ? [] : ['o objetivo']),
     ...(portfolio.strategy_categories === 0 ? [] : ['a estratégia de alocação']),
+    'as regras de aporte e os recorrentes de aporte ligados a ela',
     'todo o histórico de patrimônio e rentabilidade',
   ];
 
@@ -190,10 +191,14 @@ export const DeletePortfolioDialog = ({
             new Error('Confirme as duas etapas para excluir a carteira.'),
           );
         }
-        return deletePortfolio(portfolio.id, {
-          confirm_name: portfolio.name,
-          transactions: 'delete',
-        });
+        return deletePortfolio(
+          portfolio.id,
+          {
+            confirm_name: portfolio.name,
+            transactions: 'delete',
+          },
+          portfolio.updated_at,
+        );
       }}
     >
       <Callout tone="warning">

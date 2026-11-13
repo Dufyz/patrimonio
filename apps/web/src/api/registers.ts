@@ -17,10 +17,12 @@ const send = async (
   method: 'POST' | 'PATCH' | 'DELETE' | 'PUT',
   path: string,
   body?: unknown,
+  headers?: Readonly<Record<string, string>>,
 ): Promise<unknown> =>
   request(path, accept, {
     method,
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(headers === undefined ? {} : { headers }),
   });
 
 export type PortfolioBody = {
@@ -41,10 +43,29 @@ export type DeletePortfolioBody = {
   readonly destination_portfolio_id?: string;
 };
 
+/**
+ * `ifMatch` é o `updated_at` que a tela viu: o servidor o exige quando a carteira
+ * tem aportes com origem em conta, porque excluir devolve esse dinheiro às contas.
+ */
 export const deletePortfolio = (
   id: string,
   body: DeletePortfolioBody,
-): Promise<unknown> => send('DELETE', `/api/portfolios/${id}`, body);
+  ifMatch?: string,
+): Promise<unknown> =>
+  send(
+    'DELETE',
+    `/api/portfolios/${id}`,
+    body,
+    ifMatch === undefined ? undefined : { 'If-Match': ifMatch },
+  );
+
+/** CFG-04 · A ordem da tabela é a da barra lateral e a dos atalhos ⌘1..3. */
+export const reorderPortfolios = (ids: readonly string[]): Promise<unknown> =>
+  send('PUT', '/api/portfolios/order', { ids });
+
+/** CFG-04 · Arquivar tira do seletor e do panorama; reativar devolve. */
+export const archivePortfolio = (id: string, archived: boolean): Promise<unknown> =>
+  send('POST', `/api/portfolios/${id}/archive`, { archived });
 
 const categoriesParser: Parser<readonly CategoryResource[]> = {
   parse: (value) => {

@@ -22,6 +22,10 @@ export type SettingsPortfolioRow = {
   readonly goal: string | null;
   readonly transactions: number;
   readonly assets: number;
+  /** O valor no último fechamento; nulo enquanto a carteira não fechou nenhum dia. */
+  readonly value: string | null;
+  /** A versão que a tela leva no `If-Match` ao excluir. */
+  readonly updated_at: string;
 };
 
 export type SettingsArchivedPortfolioRow = {

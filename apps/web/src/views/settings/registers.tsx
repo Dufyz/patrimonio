@@ -1,7 +1,10 @@
 import type { Settings, SettingsPortfolio } from '@patrimonio/contracts';
 import { useState } from 'react';
 
-import { Button } from '../../components/primitives.js';
+import { usePreferences } from '../../components/preferences.js';
+import { Button, IconButton } from '../../components/primitives.js';
+import { archivePortfolio, reorderPortfolios } from '../../api/registers.js';
+import { formatMoney } from '../../lib/format.js';
 import {
   DeletePortfolioDialog,
   PortfolioDialog,
@@ -44,6 +47,31 @@ export const PortfoliosSection = ({
   readonly onChanged: () => void;
 }): React.ReactElement => {
   const [editing, setEditing] = useState<Editing<SettingsPortfolio>>(NONE);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const { hidden } = usePreferences();
+  const apply = async (action: () => Promise<unknown>): Promise<void> => {
+    setBusy(true);
+    setFailure(null);
+    try {
+      await action();
+      notifyPortfoliosChanged();
+      onChanged();
+    } catch (error) {
+      setFailure(error instanceof Error ? error.message : 'Não foi possível salvar.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const move = (index: number, by: -1 | 1): Promise<void> => {
+    const ids = settings.portfolios.map((portfolio) => portfolio.id);
+    const target = index + by;
+    const [moved] = ids.splice(index, 1);
+    if (moved === undefined || target < 0 || target > ids.length)
+      return Promise.resolve();
+    ids.splice(target, 0, moved);
+    return apply(() => reorderPortfolios(ids));
+  };
   const done = (): void => {
     setEditing(NONE);
     notifyPortfoliosChanged();
@@ -77,16 +105,27 @@ export const PortfoliosSection = ({
                   <th scope="col" className={TH}>
                     Carteira
                   </th>
+                  <th scope="col" className={TH_RIGHT}>
+                    Valor
+                  </th>
+                  <th scope="col" className={TH_RIGHT}>
+                    Posições
+                  </th>
+                  <th scope="col" className={TH}>
+                    Objetivo
+                  </th>
                   <th scope="col" className={TH}>
                     Estratégia
                   </th>
                   <th scope="col" className={TH_RIGHT}>
                     Lançamentos
                   </th>
-                  <th scope="col" className={TH_RIGHT}>
-                    Ativos
+                  <th scope="col" className={TH}>
+                    Situação
                   </th>
-                  <th scope="col" className="w-12" />
+                  <th scope="col" className="w-40">
+                    <span className="sr-only">Ações</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -102,6 +141,17 @@ export const PortfoliosSection = ({
                         {portfolio.name}
                       </span>
                     </th>
+                    <td className={`${TD} tabular text-right`}>
+                      {portfolio.value === null
+                        ? '—'
+                        : formatMoney(portfolio.value, { hidden }).text}
+                    </td>
+                    <td className={`${TD} tabular text-right`}>
+                      {portfolio.blocking.assets}
+                    </td>
+                    <td className={TD}>
+                      {portfolio.goal === null ? <Muted>Não</Muted> : 'Sim'}
+                    </td>
                     <td className={TD}>
                       {portfolio.strategy_categories === 0 ? (
                         <Muted>sem estratégia</Muted>
@@ -115,14 +165,36 @@ export const PortfoliosSection = ({
                     >
                       {portfolio.blocking.transactions}
                     </td>
-                    <td className={`${TD} tabular text-right`}>
-                      {portfolio.blocking.assets}
-                    </td>
-                    <td className="pr-4 text-right">
+                    <td className={TD}>Ativa</td>
+                    <td className="pr-4 text-right whitespace-nowrap">
+                      <IconButton
+                        row
+                        label={`Subir ${portfolio.name}`}
+                        icon="arrow-up"
+                        disabled={busy || index === 0}
+                        onClick={() => void move(index, -1)}
+                      />
+                      <IconButton
+                        row
+                        label={`Descer ${portfolio.name}`}
+                        icon="arrow-down"
+                        disabled={busy || index === settings.portfolios.length - 1}
+                        onClick={() => void move(index, 1)}
+                      />
                       <EditButton
                         label={`a carteira ${portfolio.name}`}
                         onClick={() => setEditing({ kind: 'edit', item: portfolio })}
                       />
+                      <Button
+                        variant="ghost"
+                        aria-label={`Arquivar ${portfolio.name}`}
+                        disabled={busy}
+                        onClick={() =>
+                          void apply(() => archivePortfolio(portfolio.id, true))
+                        }
+                      >
+                        Arquivar
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -137,11 +209,44 @@ export const PortfoliosSection = ({
             <span className="text-ink-3">
               {settings.archived_portfolios.length === 0
                 ? 'nenhuma arquivada'
-                : `${plural(settings.archived_portfolios.length, 'arquivada', 'arquivadas')} · ${settings.archived_portfolios
-                    .map((portfolio) => portfolio.name)
-                    .join(', ')}`}
+                : plural(settings.archived_portfolios.length, 'arquivada', 'arquivadas')}
             </span>
           </div>
+          {settings.archived_portfolios.length === 0 ? null : (
+            <ul aria-label="Carteiras arquivadas" className="border-t border-line">
+              {settings.archived_portfolios.map((portfolio) => (
+                <li
+                  key={portfolio.id}
+                  className="flex items-center justify-between gap-3 border-t border-line px-4 py-2 text-[0.8125rem] first:border-t-0"
+                >
+                  <span>
+                    {portfolio.name}{' '}
+                    <Muted>
+                      arquivada em {portfolio.archived_on.split('-').reverse().join('/')}
+                    </Muted>
+                  </span>
+                  <Button
+                    variant="ghost"
+                    aria-label={`Reativar ${portfolio.name}`}
+                    disabled={busy}
+                    onClick={() =>
+                      void apply(() => archivePortfolio(portfolio.id, false))
+                    }
+                  >
+                    Reativar
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {failure === null ? null : (
+            <p
+              role="alert"
+              className="border-t border-line px-4 py-2 text-[0.8125rem] text-negative"
+            >
+              {failure}
+            </p>
+          )}
         </SettingsPanel>
       </SettingsSection>
       {editing.kind === 'create' || editing.kind === 'edit' ? (

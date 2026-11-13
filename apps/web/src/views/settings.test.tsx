@@ -18,6 +18,8 @@ const registers = vi.hoisted(() => ({
   createPortfolio: vi.fn(),
   updatePortfolio: vi.fn(),
   deletePortfolio: vi.fn(),
+  reorderPortfolios: vi.fn(),
+  archivePortfolio: vi.fn(),
 }));
 
 vi.mock('../api/registers.js', () => registers);
@@ -42,6 +44,8 @@ const settings: Settings = {
       strategy_categories: 5,
       goal: 'Independência financeira',
       blocking: { transactions: 41, assets: 9 },
+      value: '125000.50',
+      updated_at: '2026-04-01T10:00:00.000Z',
     },
     {
       id: IMOVEL,
@@ -50,6 +54,8 @@ const settings: Settings = {
       strategy_categories: 0,
       goal: null,
       blocking: { transactions: 0, assets: 0 },
+      value: null,
+      updated_at: '2026-04-02T10:00:00.000Z',
     },
   ],
   archived_portfolios: [{ id: 'a', name: 'Viagem 2024', archived_on: '2026-03-04' }],
@@ -212,8 +218,9 @@ describe('SettingsView', () => {
     const imovel = carteiras.getByRole('row', { name: /Entrada do imóvel/ });
     expect(within(imovel).getByText('sem estratégia')).toBeTruthy();
     expect(carteiras.queryByRole('columnheader', { name: 'Benchmark' })).toBeNull();
-    expect(carteiras.queryByRole('columnheader', { name: 'Objetivo' })).toBeNull();
-    expect(screen.getByText(/1 arquivada · Viagem 2024/)).toBeTruthy();
+    expect(carteiras.getByRole('columnheader', { name: 'Objetivo' })).toBeTruthy();
+    expect(screen.getByText('1 arquivada')).toBeTruthy();
+    expect(screen.getByText(/Viagem 2024/)).toBeTruthy();
   });
 
   it('criar carteira abre o modal e grava só o nome, sem campo de benchmark', async () => {
@@ -273,10 +280,58 @@ describe('SettingsView', () => {
     await user.click(confirm);
     await user.click(await screen.findByRole('button', { name: 'Sim, excluir' }));
 
-    expect(registers.deletePortfolio).toHaveBeenCalledWith(LONGO, {
-      confirm_name: 'Longo prazo',
-      transactions: 'delete',
-    });
+    expect(registers.deletePortfolio).toHaveBeenCalledWith(
+      LONGO,
+      { confirm_name: 'Longo prazo', transactions: 'delete' },
+      '2026-04-01T10:00:00.000Z',
+    );
+  });
+
+  it('a tabela mostra valor, posições, objetivo e situação, e reordena pelos botões (CFG-04)', async () => {
+    const user = userEvent.setup();
+    registers.reorderPortfolios.mockResolvedValue({});
+    const reload = vi.fn();
+    montar({ reload });
+
+    const longo = screen.getByRole('row', { name: /Longo prazo/ });
+    expect(within(longo).getByText('R$ 125.000,50')).toBeTruthy();
+    expect(within(longo).getByText('Sim')).toBeTruthy();
+    expect(within(longo).getByText('Ativa')).toBeTruthy();
+    const imovel = screen.getByRole('row', { name: /Entrada do imóvel/ });
+    expect(within(imovel).getByText('Não')).toBeTruthy();
+
+    // O primeiro não sobe e o último não desce.
+    expect(
+      (screen.getByRole('button', { name: 'Subir Longo prazo' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'Subir Entrada do imóvel' }));
+    expect(registers.reorderPortfolios).toHaveBeenCalledWith([IMOVEL, LONGO]);
+  });
+
+  it('arquivar tira a carteira da lista e reativar a devolve, sem apagar nada (CFG-04)', async () => {
+    const user = userEvent.setup();
+    registers.archivePortfolio.mockResolvedValue({});
+    montar();
+
+    await user.click(screen.getByRole('button', { name: 'Arquivar Longo prazo' }));
+    expect(registers.archivePortfolio).toHaveBeenCalledWith(LONGO, true);
+
+    await user.click(screen.getByRole('button', { name: 'Reativar Viagem 2024' }));
+    expect(registers.archivePortfolio).toHaveBeenCalledWith('a', false);
+  });
+
+  it('a recusa do servidor ao reordenar aparece na tela, não some (CFG-06)', async () => {
+    const user = userEvent.setup();
+    registers.reorderPortfolios.mockRejectedValue(
+      new Error('A ordem mudou em outra aba.'),
+    );
+    montar();
+
+    await user.click(screen.getByRole('button', { name: 'Descer Longo prazo' }));
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'A ordem mudou em outra aba.',
+    );
   });
 
   it('dados de mercado mostram cobertura, falha com a mensagem e os papéis sem preço', () => {

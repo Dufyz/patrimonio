@@ -34,6 +34,8 @@ export const getSettings = (deps: GetSettingsDeps) =>
         strategy_categories: portfolio.strategy_categories,
         goal: portfolio.goal,
         blocking: { transactions: portfolio.transactions, assets: portfolio.assets },
+        value: portfolio.value,
+        updated_at: portfolio.updated_at,
       })),
       archived_portfolios: [...snapshot.archived_portfolios],
       ledger_defaults: {

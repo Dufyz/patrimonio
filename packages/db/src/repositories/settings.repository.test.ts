@@ -192,7 +192,7 @@ describe('o instantâneo da tela de configurações', () => {
       await createSettingsRepository(tx).snapshot(),
     ).portfolios;
 
-    expect(longo).toEqual({
+    expect(longo).toMatchObject({
       id: LONGO,
       name: 'Longo prazo',
       benchmark: 'CDI',
@@ -200,7 +200,10 @@ describe('o instantâneo da tela de configurações', () => {
       goal: 'Independência financeira',
       transactions: 3,
       assets: 2,
+      // Sem fechamento diário, o valor é nulo; a versão sempre vem (If-Match, CFG-05).
+      value: null,
     });
+    expect(longo?.updated_at).toMatch(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/);
     expect(imovel).toMatchObject({
       benchmark: null,
       strategy_categories: 0,

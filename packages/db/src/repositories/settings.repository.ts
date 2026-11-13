@@ -39,6 +39,8 @@ const parsePortfolio = (row: Row): SettingsPortfolioRow => ({
   goal: asStringOrNull(row, 'goal'),
   transactions: asInteger(row, 'transactions'),
   assets: asInteger(row, 'assets'),
+  value: asStringOrNull(row, 'value'),
+  updated_at: asString(row, 'updated_at'),
 });
 
 const parseArchived = (row: Row): SettingsArchivedPortfolioRow => ({
@@ -60,7 +62,7 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
     try {
       const [row] = await sql<Row[]>`
         WITH open_portfolio AS (
-          SELECT p.id, p.name, p.benchmark, p.sort_order
+          SELECT p.id, p.name, p.benchmark, p.sort_order, p.updated_at
             FROM portfolio p
            WHERE p.archived_at IS NULL
         ),
@@ -86,7 +88,18 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
                         WHERE g.portfolio_id = p.id AND g.closed_at IS NULL
                      ),
                      'transactions', COALESCE(c.transactions, 0),
-                     'assets', COALESCE(c.assets, 0)
+                     'assets', COALESCE(c.assets, 0),
+                     'value', (
+                       SELECT d.total_value::TEXT
+                         FROM portfolio_daily d
+                        WHERE d.portfolio_id = p.id
+                        ORDER BY d.position_date DESC
+                        LIMIT 1
+                     ),
+                     'updated_at', TO_CHAR(
+                       p.updated_at AT TIME ZONE 'UTC',
+                       'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+                     )
                    ) ORDER BY p.sort_order, LOWER(p.name)
                  ), '[]'::JSONB) AS value
             FROM open_portfolio p

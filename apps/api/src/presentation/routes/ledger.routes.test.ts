@@ -828,3 +828,64 @@ describe('carteiras: excluir com pernas e reordenar (CFG-05)', () => {
     expect(inexistente.status).toBe(400);
   });
 });
+
+describe('excluir carteira em cascata (CFG-05)', () => {
+  it('remove só os dados da Emergência e devolve à conta o valor dos aportes dela', async () => {
+    const emergencia = (
+      await request(harness.app).post('/api/portfolios').send({ name: 'Emergência' })
+    ).body.portfolio.id as string;
+
+    const antes = await saldo();
+    const longo = await aportar({ quantity: '10', unit_price: '100', fees: '0' });
+    const reserva = await aportar(
+      {
+        portfolio_id: emergencia,
+        asset: { ticker: 'LFTS11', name: 'It Now Selic', b3_type: 'etf' },
+        quantity: '5',
+        unit_price: '200',
+        fees: '0',
+      },
+      '',
+      'chave-emergencia',
+    );
+    expect(longo.status).toBe(201);
+    expect(reserva.status).toBe(201);
+    expect(await saldo()).toBeCloseTo(antes - 1000 - 1000, 2);
+
+    // Sem a versão que a tela viu, o servidor recusa: excluir mexe nas contas.
+    const semVersao = await request(harness.app)
+      .delete(`/api/portfolios/${emergencia}`)
+      .send({ confirm_name: 'Emergência', transactions: 'delete' });
+    expect(semVersao.status).toBe(428);
+    expect(
+      await contagem(`SELECT COUNT(*) AS n FROM "transaction" WHERE kind = 'buy'`),
+    ).toBe(2);
+
+    const [row] = await harness.sql<{ updated_at: Date }[]>`
+      SELECT updated_at FROM portfolio WHERE id = ${emergencia}`;
+    const removida = await request(harness.app)
+      .delete(`/api/portfolios/${emergencia}`)
+      .set('If-Match', row?.updated_at.toISOString() ?? '')
+      .send({ confirm_name: 'Emergência', transactions: 'delete' });
+    expect(removida.status).toBe(200);
+
+    // Só o aporte da Emergência voltou; o do Longo prazo continua de pé.
+    expect(await saldo()).toBeCloseTo(antes - 1000, 2);
+    expect(
+      await contagem(`SELECT COUNT(*) AS n FROM portfolio WHERE id = '${emergencia}'`),
+    ).toBe(0);
+    expect(
+      await contagem(
+        `SELECT COUNT(*) AS n FROM "transaction" WHERE portfolio_id = '${emergencia}'`,
+      ),
+    ).toBe(0);
+    expect(
+      await contagem(
+        `SELECT COUNT(*) AS n FROM "transaction" WHERE portfolio_id = '${carteira}'`,
+      ),
+    ).toBe(1);
+    expect(
+      await contagem(`SELECT COUNT(*) AS n FROM fin_movement WHERE kind = 'APORTE'`),
+    ).toBe(1);
+  });
+});

@@ -39,6 +39,10 @@ export const settingsPortfolioSchema = z.object({
     transactions: z.number().int(),
     assets: z.number().int(),
   }),
+  /** O valor no último fechamento. Nulo enquanto a carteira não fechou um dia. */
+  value: z.string().nullable(),
+  /** A versão da carteira: vai no `If-Match` da exclusão. */
+  updated_at: z.string(),
 });
 
 export const settingsArchivedPortfolioSchema = z.object({
