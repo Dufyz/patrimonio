@@ -137,6 +137,28 @@ describe('GET /api/projection', () => {
 });
 
 describe('PUT /api/portfolios/:id/projection-plan', () => {
+  it('If-Match: a versão lida vale uma vez; repetir a mesma dá 409 VERSAO_DIVERGENTE', async () => {
+    const lida = await request(harness.app).get(
+      `/api/projection?portfolio_id=${emergencia}`,
+    );
+    const version = lida.body.portfolios[0].version as string;
+    expect(typeof version).toBe('string');
+    const body = { expected_return_pct: '10.00', rules: [] };
+
+    const primeira = await request(harness.app)
+      .put(`/api/portfolios/${emergencia}/projection-plan`)
+      .set('If-Match', `"${version}"`)
+      .send(body);
+    expect(primeira.status).toBe(200);
+
+    const segunda = await request(harness.app)
+      .put(`/api/portfolios/${emergencia}/projection-plan`)
+      .set('If-Match', `"${version}"`)
+      .send(body);
+    expect(segunda.status).toBe(409);
+    expect(segunda.body.code).toBe('VERSAO_DIVERGENTE');
+  });
+
   it('troca as regras anteriores em vez de acumular', async () => {
     await plano(emergencia, {
       expected_return_pct: '10.00',

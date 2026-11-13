@@ -45,6 +45,7 @@ export const createProjectionController = (
         expected_return_pct: body.expected_return_pct,
         rules: body.rules,
       },
+      request.header('If-Match')?.replace(/^W\//, '').replace(/"/g, '').trim(),
     );
 
     if (result.isFailure()) {

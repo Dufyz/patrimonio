@@ -24,8 +24,14 @@ const accept = { parse: (value: unknown): unknown => value };
 export const putProjectionPlan = (
   portfolioId: string,
   body: PutProjectionPlanBody,
+  /** `version` que a tela viu: o servidor recusa com 409 se o plano mudou. */
+  ifMatch?: string,
 ): Promise<unknown> =>
   request(`/api/portfolios/${portfolioId}/projection-plan`, accept, {
     method: 'PUT',
+    headers: {
+      'Idempotency-Key': globalThis.crypto.randomUUID(),
+      ...(ifMatch === undefined ? {} : { 'If-Match': `"${ifMatch}"` }),
+    },
     body: JSON.stringify(body),
   });

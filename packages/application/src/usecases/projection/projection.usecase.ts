@@ -5,6 +5,7 @@ import type { Either } from '@patrimonio/shared';
 
 import { InvalidParameterError, NotFoundError } from '../../errors/app-error.js';
 import type { AppError } from '../../errors/app-error.js';
+import { FinanceError } from '../../errors/finance-error.js';
 import type { Clock } from '../../interfaces/clock.js';
 import type {
   ProjectionPlanRepository,
@@ -120,7 +121,11 @@ export const validatePlan = (
 
 /** Troca a rentabilidade esperada e as regras de aporte da carteira. */
 export const putProjectionPlan = (deps: PutProjectionPlanDeps) =>
-  either(async function* (portfolioId: string, write: ProjectionPlanWrite) {
+  either(async function* (
+    portfolioId: string,
+    write: ProjectionPlanWrite,
+    ifMatch?: string | undefined,
+  ) {
     yield* validatePlan(write);
 
     return yield* await deps.unitOfWork.run<AppError, void>(async (repositories) => {
@@ -128,6 +133,24 @@ export const putProjectionPlan = (deps: PutProjectionPlanDeps) =>
       if (found.isFailure()) return found;
       if (found.value === null || found.value.archived_at !== null) {
         return failure(new NotFoundError(`Carteira ${portfolioId} não encontrada`));
+      }
+
+      if (
+        ifMatch !== undefined &&
+        new Date(ifMatch).getTime() !== new Date(found.value.updated_at).getTime()
+      ) {
+        return failure(
+          new FinanceError(
+            [
+              {
+                code: 'VERSAO_DIVERGENTE',
+                message: 'O plano mudou desde que você o abriu.',
+                details: { current: found.value.updated_at },
+              },
+            ],
+            409,
+          ),
+        );
       }
 
       return repositories.projectionPlans.save(portfolioId, write);

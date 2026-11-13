@@ -4,6 +4,7 @@ import type {
 } from '@patrimonio/application';
 import {
   asDateOnlyOrNull,
+  asIsoString,
   asNumeric,
   asNumericOrNull,
   asString,
@@ -37,6 +38,7 @@ export const createProjectionPlanRepository = (
       const rows = await sql<Row[]>`
         SELECT p.id::TEXT AS portfolio_id,
                p.name,
+               p.updated_at AS version,
                p.expected_return_pct::TEXT AS expected_return_pct,
                last.total_value::TEXT AS current_value,
                last.position_date::TEXT AS as_of,
@@ -70,6 +72,7 @@ export const createProjectionPlanRepository = (
           current_value: asNumericOrNull(row, 'current_value'),
           as_of: asDateOnlyOrNull(row, 'as_of'),
           rules: asRules(row['rules']),
+          version: asIsoString(row, 'version'),
         })),
       );
     } catch (error) {

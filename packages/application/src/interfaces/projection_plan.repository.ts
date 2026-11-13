@@ -23,6 +23,8 @@ export type ProjectionPlanRow = {
   readonly current_value: string | null;
   readonly as_of: DateOnly | null;
   readonly rules: readonly ProjectionRuleRow[];
+  /** `updated_at` da carteira: a versão que a gravação confere em `If-Match`. */
+  readonly version: string;
 };
 
 export type ProjectionPlanWrite = {

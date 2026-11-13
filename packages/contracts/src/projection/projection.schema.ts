@@ -50,6 +50,8 @@ export const projectionSchema = z.object({
       current_value: decimalString.nullable(),
       as_of: dateOnly.nullable(),
       rules: z.array(projectionRuleSchema),
+      /** A versão que a tela viu; volta em `If-Match` ao gravar o plano. */
+      version: z.string(),
       projection: resultSchema.nullable(),
     }),
   ),

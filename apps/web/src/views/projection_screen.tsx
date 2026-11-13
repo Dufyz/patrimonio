@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { fetchProjection, putProjectionPlan } from '../api/projection.js';
+import { ApiError } from '../api/client.js';
 import { Money } from '../components/number.js';
 import { KeepPrevious } from '../components/pending.js';
 import { Button, Panel } from '../components/primitives.js';
@@ -188,19 +189,32 @@ const Loaded = ({
     try {
       for (const item of dirty) {
         const draft = current(item.portfolio_id);
-        await putProjectionPlan(item.portfolio_id, {
-          expected_return_pct: parseReturnText(draft.returnText) ?? null,
-          rules: draft.rules.map((rule) => ({
-            amount: parseAmountText(rule.amount) ?? '0.01',
-            from: rule.from,
-            until: rule.until === '' ? null : rule.until,
-          })),
-        });
+        await putProjectionPlan(
+          item.portfolio_id,
+          {
+            expected_return_pct: parseReturnText(draft.returnText) ?? null,
+            rules: draft.rules.map((rule) => ({
+              amount: parseAmountText(rule.amount) ?? '0.01',
+              from: rule.from,
+              until: rule.until === '' ? null : rule.until,
+            })),
+          },
+          item.version,
+        );
       }
       setDrafts({});
       onSaved();
     } catch (error) {
-      setFailure(error instanceof Error ? error.message : 'Não foi possível salvar');
+      if (error instanceof ApiError && error.status === 409) {
+        // O plano mudou em outro lugar: a tela mostra o estado atual do servidor.
+        setDrafts({});
+        onSaved();
+        setFailure(
+          'O plano mudou desde que você o abriu. Mostrando o estado atual: confira e salve de novo.',
+        );
+      } else {
+        setFailure(error instanceof Error ? error.message : 'Não foi possível salvar');
+      }
     } finally {
       setSaving(false);
     }
