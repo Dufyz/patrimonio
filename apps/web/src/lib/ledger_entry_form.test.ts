@@ -6,6 +6,7 @@ import {
   isValid,
   newDraft,
   switchKind,
+  OUTSIDE,
   toRequest,
   validateDraft,
 } from './ledger_entry_form.js';
@@ -94,6 +95,58 @@ describe('ledger_entry_form', () => {
     expect(toRequest(pay)).toEqual({
       path: '/api/finance/cards/k1/invoices/2026-11/payments',
       body: { account_id: 'a1', date: TODAY, amount: '450.10' },
+    });
+  });
+
+  const asset = { id: 'x1', label: 'BOVA11', name: 'iShares', held: '10' };
+  const aporte = {
+    ...switchKind(filled, 'APORTE'),
+    portfolioId: 'p1',
+    institutionId: 'i1',
+    asset,
+    quantity: '80',
+    unitPrice: '32,40',
+    fees: '0,80',
+    accountId: 'a1',
+  };
+
+  it('aporte: exige ativo da lista e vai para /ledger/aportes', () => {
+    expect(isValid(validateDraft(aporte, TODAY))).toBe(true);
+    expect(validateDraft({ ...aporte, asset: null }, TODAY).asset).toBeDefined();
+    expect(toRequest(aporte)).toEqual({
+      path: '/api/ledger/aportes',
+      body: {
+        portfolio_id: 'p1',
+        institution_id: 'i1',
+        trade_date: TODAY,
+        quantity: '80',
+        unit_price: '32.40',
+        fees: '0.80',
+        account_id: 'a1',
+        asset_id: 'x1',
+      },
+    });
+  });
+
+  it('aporte fora do app grava account_id nulo', () => {
+    expect(toRequest({ ...aporte, accountId: OUTSIDE }).body).toMatchObject({
+      account_id: null,
+    });
+  });
+
+  it('resgate: quantidade acima da posição é erro; despesa ligada exige conta e categoria', () => {
+    const resgate = { ...aporte, kind: 'RESGATE' as const };
+    expect(validateDraft({ ...resgate, quantity: '11' }, TODAY).quantity).toMatch(
+      /passa da posição/,
+    );
+    const linked = { ...resgate, quantity: '5', linkExpense: true, accountId: OUTSIDE };
+    const errors = validateDraft(linked, TODAY);
+    expect(errors.accountId).toBeDefined();
+    expect(errors.categoryId).toBeDefined();
+    const ok = { ...linked, accountId: 'a1', categoryId: 'c1', description: 'Reserva' };
+    expect(isValid(validateDraft(ok, TODAY))).toBe(true);
+    expect(toRequest(ok).body).toMatchObject({
+      linked_expense: { category_id: 'c1', description: 'Reserva' },
     });
   });
 });

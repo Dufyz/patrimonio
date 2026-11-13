@@ -31,11 +31,28 @@ export type EffectResource = {
 type Parsed<T> = { readonly parse: (value: unknown) => T };
 const as = <T>(): Parsed<T> => ({ parse: (value) => value as T });
 
+type BeforeAfter = { readonly before: string; readonly after: string };
+
+/** O que o preview devolve: o efeito de Finanças ou o de aporte/resgate (conta e posição). */
+export type PreviewResponse = {
+  readonly effect?: EffectResource;
+  readonly account?: {
+    readonly account_id: string;
+    readonly before: string;
+    readonly after: string;
+  } | null;
+  readonly position?: {
+    readonly quantity: BeforeAfter;
+    readonly avg_price: BeforeAfter;
+    readonly cost_basis: BeforeAfter;
+  } | null;
+};
+
 export const previewEntry = (
   req: EntryRequest,
   signal?: AbortSignal,
-): Promise<{ readonly effect: EffectResource }> =>
-  request(`${req.path}?preview=true`, as<{ effect: EffectResource }>(), {
+): Promise<PreviewResponse> =>
+  request(`${req.path}?preview=true`, as<PreviewResponse>(), {
     method: 'POST',
     body: JSON.stringify(req.body),
     ...(signal === undefined ? {} : { signal }),

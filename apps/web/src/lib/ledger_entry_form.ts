@@ -1,8 +1,15 @@
-import type { EntryBody, TransferBody } from '@patrimonio/contracts';
+import type {
+  ContributionBody,
+  EntryBody,
+  RedemptionBody,
+  TransferBody,
+} from '@patrimonio/contracts';
 
-import type { EffectResource } from '../api/ledger_write.js';
+import type { EffectResource, PreviewResponse } from '../api/ledger_write.js';
 import type { EffectRow } from '../finance/domain/effects.js';
-import { parseDecimal } from './decimal.js';
+import type { EffectRow as PairRow } from './entry.js';
+import type { PickedAsset } from '../views/entry/asset_picker.js';
+import { compareDecimal, parseDecimal } from './decimal.js';
 
 /**
  * LAN-09 · O rascunho do modal "Novo lançamento" e o que dele vira pedido.
@@ -16,6 +23,8 @@ export const MODAL_KINDS = [
   'DESPESA',
   'TRANSFERENCIA',
   'PAGAMENTO_FATURA',
+  'APORTE',
+  'RESGATE',
 ] as const;
 export type ModalKind = (typeof MODAL_KINDS)[number];
 
@@ -24,7 +33,12 @@ export const MODAL_KIND_LABEL: Readonly<Record<ModalKind, string>> = {
   DESPESA: 'Despesa',
   TRANSFERENCIA: 'Transferência',
   PAGAMENTO_FATURA: 'Pagamento de fatura',
+  APORTE: 'Aporte',
+  RESGATE: 'Resgate',
 };
+
+/** Origem "Fora do app" no aporte e destino "Fora do app" no resgate. */
+export const OUTSIDE = 'fora';
 
 export type Draft = {
   readonly kind: ModalKind;
@@ -38,6 +52,15 @@ export type Draft = {
   readonly cardId: string;
   readonly month: string;
   readonly categoryId: string;
+  /** Aporte e resgate. */
+  readonly portfolioId: string;
+  readonly institutionId: string;
+  readonly asset: PickedAsset | null;
+  readonly quantity: string;
+  readonly unitPrice: string;
+  readonly fees: string;
+  /** Resgate: gerar a despesa ligada (RN-U6). */
+  readonly linkExpense: boolean;
 };
 
 export type DraftContext = {
@@ -50,7 +73,11 @@ export type DraftContext = {
 
 /** O tipo inicial vem do contexto: fatura → pagamento; ativo → aporte; resto → despesa. */
 export const initialKind = (context: DraftContext): ModalKind =>
-  context.invoice === true ? 'PAGAMENTO_FATURA' : 'DESPESA';
+  context.invoice === true
+    ? 'PAGAMENTO_FATURA'
+    : context.assetId !== undefined
+      ? 'APORTE'
+      : 'DESPESA';
 
 export const newDraft = (
   today: string,
@@ -66,12 +93,27 @@ export const newDraft = (
   cardId: context.cardId ?? '',
   month: '',
   categoryId: '',
+  portfolioId: context.portfolioId ?? '',
+  institutionId: '',
+  asset: null,
+  quantity: '',
+  unitPrice: '',
+  fees: '',
+  linkExpense: false,
 });
 
 export const switchKind = (draft: Draft, kind: ModalKind): Draft =>
   kind === draft.kind
     ? draft
-    : { ...draft, kind, categoryId: '', toAccountId: '', cardId: '', month: '' };
+    : {
+        ...draft,
+        kind,
+        categoryId: '',
+        toAccountId: '',
+        cardId: '',
+        month: '',
+        linkExpense: false,
+      };
 
 export type DraftErrors = Partial<Record<keyof Draft, string>>;
 
@@ -79,7 +121,59 @@ export type DraftErrors = Partial<Record<keyof Draft, string>>;
 export const FUTURE_DATE_MESSAGE =
   'Data futura não é lançamento. Crie um recorrente ou um previsto.';
 
+const positive = (value: string): boolean => {
+  const parts = parseDecimal(value.trim().replace(',', '.'));
+  return (
+    parts !== null && !parts.negative && !/^0*$/.test(parts.integer + parts.fraction)
+  );
+};
+
+const nonNegative = (value: string): boolean => {
+  const parts = parseDecimal(value.trim().replace(',', '.'));
+  return parts !== null && !parts.negative;
+};
+
+export const isInvestment = (kind: ModalKind): boolean =>
+  kind === 'APORTE' || kind === 'RESGATE';
+
+/** LAN-14/15 · Aporte e resgate: carteira, ativo da lista, quantidade, preço, taxas, conta. */
+const validateInvestment = (draft: Draft, today: string): DraftErrors => {
+  const errors: DraftErrors = {};
+  if (draft.portfolioId === '') errors.portfolioId = 'Escolha a carteira.';
+  if (draft.institutionId === '') errors.institutionId = 'Escolha a instituição.';
+  if (draft.asset === null || draft.asset.id === null) {
+    errors.asset = 'Escolha um ativo da lista.';
+  }
+  if (!positive(draft.quantity)) {
+    errors.quantity = 'Informe uma quantidade maior que zero.';
+  } else if (
+    draft.kind === 'RESGATE' &&
+    draft.asset?.held != null &&
+    compareDecimal(draft.quantity.replace(',', '.'), draft.asset.held) > 0
+  ) {
+    errors.quantity = `Você tem ${draft.asset.held}; a quantidade passa da posição.`;
+  }
+  if (!positive(draft.unitPrice)) errors.unitPrice = 'Informe o preço.';
+  if (draft.fees.trim() !== '' && !nonNegative(draft.fees)) {
+    errors.fees = 'As taxas não podem ser negativas.';
+  }
+  if (draft.date === '') errors.date = 'Informe a data.';
+  else if (draft.date > today) errors.date = FUTURE_DATE_MESSAGE;
+  if (draft.accountId === '') {
+    errors.accountId =
+      draft.kind === 'APORTE' ? 'Escolha a origem.' : 'Escolha a conta de destino.';
+  }
+  if (draft.kind === 'RESGATE' && draft.linkExpense) {
+    if (draft.accountId === OUTSIDE) {
+      errors.accountId = 'Para gerar a despesa ligada, escolha a conta que recebe.';
+    }
+    if (draft.categoryId === '') errors.categoryId = 'Escolha a categoria da despesa.';
+  }
+  return errors;
+};
+
 export const validateDraft = (draft: Draft, today: string): DraftErrors => {
+  if (isInvestment(draft.kind)) return validateInvestment(draft, today);
   const errors: DraftErrors = {};
   const transfer = draft.kind === 'TRANSFERENCIA';
   const payment = draft.kind === 'PAGAMENTO_FATURA';
@@ -116,6 +210,8 @@ export const isValid = (errors: DraftErrors): boolean => Object.keys(errors).len
 const decimal = (value: string): string => value.trim().replace(',', '.');
 
 export type EntryRequest =
+  | { readonly path: '/api/ledger/aportes'; readonly body: ContributionBody }
+  | { readonly path: '/api/ledger/resgates'; readonly body: RedemptionBody }
   | { readonly path: '/api/finance/entries'; readonly body: EntryBody }
   | { readonly path: '/api/finance/transfers'; readonly body: TransferBody }
   | { readonly path: string; readonly body: InvoicePaymentBody };
@@ -127,7 +223,43 @@ export type InvoicePaymentBody = {
 };
 
 /** Vírgula decimal digitada vira o ponto que o contrato pede. */
+const investmentBase = (draft: Draft) => ({
+  portfolio_id: draft.portfolioId,
+  institution_id: draft.institutionId,
+  trade_date: draft.date,
+  quantity: decimal(draft.quantity),
+  unit_price: decimal(draft.unitPrice),
+  ...(draft.fees.trim() === '' ? {} : { fees: decimal(draft.fees) }),
+  account_id: draft.accountId === OUTSIDE ? null : draft.accountId,
+});
+
 export const toRequest = (draft: Draft): EntryRequest =>
+  draft.kind === 'APORTE'
+    ? {
+        path: '/api/ledger/aportes',
+        body: { ...investmentBase(draft), asset_id: draft.asset?.id ?? '' },
+      }
+    : draft.kind === 'RESGATE'
+      ? {
+          path: '/api/ledger/resgates',
+          body: {
+            ...investmentBase(draft),
+            asset_id: draft.asset?.id ?? '',
+            ...(draft.linkExpense
+              ? {
+                  linked_expense: {
+                    category_id: draft.categoryId,
+                    ...(draft.description.trim() === ''
+                      ? {}
+                      : { description: draft.description.trim() }),
+                  },
+                }
+              : {}),
+          },
+        }
+      : toFinanceRequest(draft);
+
+const toFinanceRequest = (draft: Draft): EntryRequest =>
   draft.kind === 'PAGAMENTO_FATURA'
     ? {
         path: `/api/finance/cards/${draft.cardId}/invoices/${draft.month}/payments`,
@@ -193,4 +325,43 @@ export const effectRows = (effect: EffectResource): readonly EffectRow[] => [
       after: cents(m.despesas_after),
     },
   ]),
+];
+
+const pair = (
+  id: string,
+  label: string,
+  unit: 'quantity' | 'money',
+  values: { readonly before: string; readonly after: string },
+): PairRow => ({
+  id,
+  label,
+  kind: 'pair',
+  unit,
+  before: values.before,
+  after: values.after,
+  unchanged: compareDecimal(values.before, values.after) === 0,
+});
+
+/** O bloco "Efeito" de qualquer preview: conta, fatura, mês e — no aporte/resgate — a posição. */
+export const previewRows = (
+  response: PreviewResponse,
+  accountName: (id: string) => string | null,
+): readonly (EffectRow | PairRow)[] => [
+  ...(response.effect === undefined ? [] : effectRows(response.effect)),
+  ...(response.account === null || response.account === undefined
+    ? []
+    : [
+        {
+          label: `Saldo · ${accountName(response.account.account_id) ?? 'conta'}`,
+          before: cents(response.account.before),
+          after: cents(response.account.after),
+        },
+      ]),
+  ...(response.position === null || response.position === undefined
+    ? []
+    : [
+        pair('quantity', 'Quantidade', 'quantity', response.position.quantity),
+        pair('avg_price', 'Preço médio', 'money', response.position.avg_price),
+        pair('cost_basis', 'Custo da posição', 'money', response.position.cost_basis),
+      ]),
 ];
