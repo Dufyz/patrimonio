@@ -1,6 +1,7 @@
 import type { OverviewResource } from '@patrimonio/contracts';
 
 import { useState } from 'react';
+import { Link } from 'react-router';
 
 import { CompositionBar } from '../components/bars.js';
 import { Icon } from '../components/icon.js';
@@ -63,8 +64,14 @@ const classLines = (
 
 export const ClassesTable = ({
   overview,
+  classHref,
+  strategyHref,
 }: {
   readonly overview: OverviewResource;
+  /** VGR-06 · Para onde a classe leva (Posições filtrada). Ausente, é só texto. */
+  readonly classHref?: ((classId: string) => string) | undefined;
+  /** O link "Estratégia →" do rodapé, numa carteira só. */
+  readonly strategyHref?: string | undefined;
 }): React.ReactElement => {
   const lines = classLines(overview.composition.nodes);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
@@ -160,7 +167,16 @@ export const ClassesTable = ({
                         className="size-2 shrink-0 rounded-xs"
                         style={{ backgroundColor: colorForToken(line.colorToken) }}
                       />
-                      {line.name}
+                      {classHref === undefined ? (
+                        line.name
+                      ) : (
+                        <Link
+                          to={classHref(line.id)}
+                          className="cursor-pointer hover:text-accent hover:underline"
+                        >
+                          {line.name}
+                        </Link>
+                      )}
                     </span>
                   </th>
                   <td className="px-4 text-right">
@@ -207,7 +223,14 @@ export const ClassesTable = ({
         </table>
       </div>
 
-      <p className="border-t border-line px-4 py-3 text-xs text-ink-3">{note}</p>
+      <p className="flex flex-wrap items-baseline justify-between gap-2 border-t border-line px-4 py-3 text-xs text-ink-3">
+        <span>{note}</span>
+        {strategyHref === undefined || consolidated ? null : (
+          <Link to={strategyHref} className="cursor-pointer text-accent hover:underline">
+            Estratégia →
+          </Link>
+        )}
+      </p>
     </div>
   );
 };

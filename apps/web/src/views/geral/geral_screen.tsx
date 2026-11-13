@@ -51,10 +51,11 @@ import { commands } from '../../finance/store/commands.js';
 import { DEFAULT_PERIOD, resolvePeriod } from '../../lib/period.js';
 import { formatDate, monthLabel, percentAsRatio } from '../../lib/overview.js';
 import { routes } from '../../lib/routes.js';
-import { ALL_SCOPE } from '../../lib/scope.js';
+import { ALL_SCOPE, scopeForPortfolioId } from '../../lib/scope.js';
 import type { Resource } from '../../lib/use_resource.js';
 import { useResource } from '../../lib/use_resource.js';
 import { ClassesTable } from '../overview_classes.js';
+import { PortfoliosPanel } from '../overview_portfolios.js';
 import { GoalPanelBody } from '../overview_goal.js';
 import { Evolution } from '../overview.js';
 
@@ -681,6 +682,12 @@ export const GeralView = ({
   onNewEntry,
 }: GeralViewProps): React.ReactElement => {
   const loaded = overview.state.kind === 'ready' ? overview.state.value : null;
+  const navigate = useNavigate();
+  const { slugs } = usePortfolios();
+  const onOpenPortfolio = (id: string): void => {
+    const target = scopeForPortfolioId(id, slugs);
+    if (target !== null) void navigate(routes.home('investimentos', target));
+  };
   return (
     <>
       <ScreenHeader
@@ -744,13 +751,38 @@ export const GeralView = ({
                   : 'Carregando…'}
               </p>
             ) : (
-              <ClassesTable overview={loaded} />
+              <ClassesTable
+                overview={loaded}
+                classHref={(id) =>
+                  `${routes.portfolio(ALL_SCOPE, 'posicoes')}?classe=${encodeURIComponent(id)}`
+                }
+              />
+            )}
+          </Panel>
+
+          <Panel
+            title="Carteiras"
+            className="flex flex-col"
+            action={
+              <Link to={routes.home('investimentos', ALL_SCOPE)} className={LINK}>
+                Investimentos →
+              </Link>
+            }
+          >
+            {loaded === null ? (
+              <p className="p-4 text-[0.8125rem] text-ink-3">
+                {overview.state.kind === 'error'
+                  ? 'Indisponível: os investimentos não carregaram.'
+                  : 'Carregando…'}
+              </p>
+            ) : (
+              <PortfoliosPanel overview={loaded} onOpenPortfolio={onOpenPortfolio} />
             )}
           </Panel>
 
           <Panel
             title="Objetivos"
-            className="flex flex-col"
+            className="flex flex-col xl:col-span-2"
             action={
               <Link to={routes.portfolio(ALL_SCOPE, 'objetivos')} className={LINK}>
                 Objetivos →

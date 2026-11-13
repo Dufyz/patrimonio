@@ -332,6 +332,55 @@ describe('Visão geral de Geral (GER)', () => {
     expect(within(painel).getByText(/em outubro/i)).toBeInTheDocument();
   });
 
+  it('VGR-06/07 · a classe abre Posições filtrada e o painel Carteiras lista valor e peso', () => {
+    const base = overviewOf('194998.09');
+    open(
+      ready({
+        ...base,
+        composition: {
+          ...base.composition,
+          nodes: [
+            {
+              id: 'renda-fixa',
+              name: 'Renda fixa',
+              color_token: 'class.renda_fixa',
+              level: 'category',
+              value: '157957.29',
+              current_pct: '81.1',
+              target_pct: null,
+              deviation_pp: null,
+              over_tolerance: false,
+              amount_to_move: null,
+              target_value: null,
+              children: [],
+            },
+          ],
+        },
+        by_portfolio: [
+          {
+            portfolio_id: 'p1',
+            name: 'Emergência',
+            value: '140279.26',
+            weight_pct: '71.9',
+          },
+          {
+            portfolio_id: 'p2',
+            name: 'Investimentos',
+            value: '54718.83',
+            weight_pct: '28.1',
+          },
+        ],
+      } as unknown as OverviewResource),
+    );
+    const alocacao = screen.getByRole('region', { name: 'Alocação por classe' });
+    expect(
+      within(alocacao).getByRole('link', { name: 'Renda fixa' }).getAttribute('href'),
+    ).toBe('/carteiras/todas/posicoes?classe=renda-fixa');
+    const carteiras = screen.getByRole('region', { name: 'Carteiras' });
+    expect(within(carteiras).getByText('Emergência')).toBeInTheDocument();
+    expect(within(carteiras).getByText('Investimentos')).toBeInTheDocument();
+  });
+
   it('investimentos que falham dizem o que houve e não viram patrimônio zero', () => {
     open({
       state: { kind: 'error', error: new Error('api fora do ar') },
