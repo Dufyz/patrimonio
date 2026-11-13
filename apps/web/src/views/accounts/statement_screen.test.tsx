@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -91,5 +91,18 @@ describe('AccountStatementScreen', () => {
     mount('131.00');
     await screen.findByRole('alert');
     expect(screen.queryByText(/131/)).toBeNull();
+  });
+});
+
+describe('StatementScreen · CTA-03/04', () => {
+  it('mostra o gráfico com o menor saldo marcado e filtra sem mudar o saldo após', async () => {
+    mount('130.00');
+    await screen.findByText('Mercado');
+    expect(screen.getByTestId('lowest')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Despesa' }));
+    const rows = screen.getAllByRole('row');
+    expect(rows.some((r) => r.textContent?.includes('Salário'))).toBe(false);
+    expect(screen.getByText(/Total do período filtrado/)).toBeTruthy();
+    expect(screen.getAllByText(/130,00/).length).toBeGreaterThan(0);
   });
 });

@@ -11,11 +11,17 @@ import { TableScreenSkeleton } from '../../finance/components/screen_skeletons.j
 import { financeRoutes } from '../../finance/lib/routes.js';
 import { formatMoney } from '../../lib/format.js';
 import {
+  dailySeries,
   dayMonth,
+  filterLines,
   newestFirst,
   statementCloses,
+  STATEMENT_TYPES,
+  sumAmounts,
   typeLabel,
 } from '../../lib/statement_view.js';
+import type { StatementType } from '../../lib/statement_view.js';
+import { BalanceLine } from './balance_line.js';
 
 /**
  * CTA-02 · Extrato: o que entrou e saiu de uma conta, do mais novo ao mais
@@ -29,11 +35,14 @@ export const AccountStatementScreen = (): React.ReactElement => {
   const [categories, setCategories] = useState<ReadonlyMap<string, string>>(new Map());
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
+  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [query, setQuery] = useState('');
+  const [types, setTypes] = useState<readonly StatementType[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
     setData(null);
-    fetchAccountStatement(id, {}, controller.signal)
+    fetchAccountStatement(id, { month }, controller.signal)
       .then(setData)
       .catch(() => {
         if (!controller.signal.aborted) setFailed(true);
@@ -42,9 +51,16 @@ export const AccountStatementScreen = (): React.ReactElement => {
       .then((list) => setCategories(new Map(list.map((c) => [c.id, c.name]))))
       .catch(() => undefined);
     return () => controller.abort();
-  }, [id, reload]);
+  }, [id, month, reload]);
 
-  const lines = useMemo(() => (data === null ? [] : newestFirst(data.lines)), [data]);
+  const lines = useMemo(
+    () => (data === null ? [] : newestFirst(filterLines(data.lines, query, types))),
+    [data, query, types],
+  );
+  const series = useMemo(
+    () => (data === null ? [] : dailySeries(data, data.through)),
+    [data],
+  );
 
   if (failed) {
     return (
@@ -97,6 +113,39 @@ export const AccountStatementScreen = (): React.ReactElement => {
           Ver em Lançamentos com filtro desta conta
         </Link>
       </p>
+      {closes && <BalanceLine points={series} format={money} />}
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="text-sm">
+          Período{' '}
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => e.target.value !== '' && setMonth(e.target.value)}
+          />
+        </label>
+        <input
+          type="search"
+          aria-label="Buscar por descrição ou valor"
+          placeholder="Buscar descrição ou valor"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {STATEMENT_TYPES.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            aria-pressed={types.includes(t.id)}
+            className="cursor-pointer rounded-full border border-line px-2 py-0.5 text-xs aria-pressed:bg-panel-2"
+            onClick={() =>
+              setTypes((cur) =>
+                cur.includes(t.id) ? cur.filter((x) => x !== t.id) : [...cur, t.id],
+              )
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
       {lines.length === 0 ? (
         <p className="text-sm text-ink-3">Nenhum movimento neste período.</p>
       ) : (
@@ -144,6 +193,19 @@ export const AccountStatementScreen = (): React.ReactElement => {
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr className="font-semibold">
+              <th scope="row" colSpan={4} className="text-left">
+                {query !== '' || types.length > 0
+                  ? 'Total do período filtrado'
+                  : 'Total do período'}
+              </th>
+              <td className="tabular text-right">
+                {closes ? money(sumAmounts(lines)) : '—'}
+              </td>
+              <td />
+            </tr>
+          </tfoot>
         </table>
       )}
     </div>
