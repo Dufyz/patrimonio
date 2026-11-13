@@ -5,6 +5,8 @@ import type { BookRowResource } from '@patrimonio/contracts';
 import {
   balanceOf,
   dayLabel,
+  overdueNote,
+  plannedSection,
   postedBalance,
   sectionsByDay,
   signOf,
@@ -68,5 +70,18 @@ describe('ledger_book', () => {
     expect(postedBalance(rows)).toBe(
       balanceOf({ totals: { saldo_do_mes: '2999.50' } } as never),
     );
+  });
+
+  it('previstos do mais próximo ao mais distante, com vencidos contados', () => {
+    const rows = [
+      row({ id: 'a', situation: 'previsto', date: '2026-11-20' }),
+      row({ id: 'b', situation: 'previsto', date: '2026-11-05' }),
+      row({ id: 'c', situation: 'lancado', date: '2026-11-01' }),
+    ];
+    const p = plannedSection(rows, '2026-11-12');
+    expect(p.rows.map((r) => r.id)).toEqual(['b', 'a']);
+    expect(p.counter).toBe('2 previstos · 1 vencido');
+    expect(overdueNote('2026-11-05', '2026-11-12')).toBe('venceu em 05/11');
+    expect(overdueNote('2026-11-20', '2026-11-12')).toBeNull();
   });
 });

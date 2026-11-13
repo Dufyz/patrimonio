@@ -2,10 +2,16 @@ import { useEffect, useState } from 'react';
 
 import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
 
-import { fetchBook } from '../../api/book.js';
+import { confirmPlanned, fetchBook } from '../../api/book.js';
 import { StatStrip } from '../../finance/components/stat_strip.js';
 import { formatMoney, MINUS } from '../../lib/format.js';
-import { dayLabel, sectionsByDay, signOf } from '../../lib/ledger_book.js';
+import {
+  dayLabel,
+  overdueNote,
+  plannedSection,
+  sectionsByDay,
+  signOf,
+} from '../../lib/ledger_book.js';
 import { usePreferences } from '../../components/preferences.js';
 
 /**
@@ -32,6 +38,8 @@ export const LedgerScreen = (): React.ReactElement => {
   const [month] = useState(currentMonth);
   const [book, setBook] = useState<BookResponse | null>(null);
   const [failed, setFailed] = useState(false);
+  const [reload, setReload] = useState(0);
+  const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -41,7 +49,7 @@ export const LedgerScreen = (): React.ReactElement => {
         if (!controller.signal.aborted) setFailed(true);
       });
     return () => controller.abort();
-  }, [month]);
+  }, [month, reload]);
 
   if (failed) return <p role="alert">Não foi possível carregar os lançamentos.</p>;
   if (book === null) return <p role="status">Carregando…</p>;
@@ -51,6 +59,7 @@ export const LedgerScreen = (): React.ReactElement => {
     return sign === '-' ? `${MINUS}${text}` : sign === '+' ? `+${text}` : text;
   };
   const { totals } = book;
+  const planned = plannedSection(book.rows, today);
 
   return (
     <div className="flex flex-col gap-4">
@@ -83,29 +92,74 @@ export const LedgerScreen = (): React.ReactElement => {
             <th scope="col" className="text-right">
               Valor
             </th>
+            <td />
           </tr>
         </thead>
-        {sectionsByDay(book.rows).map((section) => (
-          <tbody key={section.date}>
+        {planned.rows.length === 0 ? null : (
+          <tbody data-section="previstos">
             <tr>
-              <th scope="rowgroup" colSpan={4} className="pt-3 text-left text-ink-2">
-                {dayLabel(section.date)}
+              <th scope="rowgroup" colSpan={5} className="pt-3 text-left text-ink-2">
+                Próximos dias · previstos{' '}
+                <span className="font-normal text-ink-3">
+                  {planned.counter} · não entram nos totais do mês
+                </span>
               </th>
             </tr>
-            {section.rows.map((row) => (
-              <tr key={row.id} data-situation={row.situation}>
-                <td className="tabular">
-                  {row.date.slice(8)}/{row.date.slice(5, 7)}
-                </td>
-                <td>{row.description}</td>
-                <td>{KIND_LABEL[row.kind]}</td>
-                <td className="tabular text-right">
-                  {row.amount === null ? '—' : money(row.amount, signOf(row.kind))}
-                </td>
-              </tr>
-            ))}
+            {planned.rows.map((row) => {
+              const note = overdueNote(row.date, today);
+              return (
+                <tr key={row.id} data-situation="previsto" className="bg-planned-soft">
+                  <td className="tabular">
+                    {row.date.slice(8)}/{row.date.slice(5, 7)}
+                    {note === null ? null : (
+                      <span className="ml-2 text-attention">{note}</span>
+                    )}
+                  </td>
+                  <td>{row.description}</td>
+                  <td>{KIND_LABEL[row.kind]}</td>
+                  <td className="tabular text-right">
+                    {row.amount === null ? '—' : money(row.amount, signOf(row.kind))}
+                  </td>
+                  <td data-launch>
+                    {row.entry === null ? null : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void confirmPlanned(row.id).then(() => setReload((n) => n + 1));
+                        }}
+                      >
+                        Lançar
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
-        ))}
+        )}
+        {sectionsByDay(book.rows.filter((r) => r.situation === 'lancado')).map(
+          (section) => (
+            <tbody key={section.date}>
+              <tr>
+                <th scope="rowgroup" colSpan={5} className="pt-3 text-left text-ink-2">
+                  {dayLabel(section.date)}
+                </th>
+              </tr>
+              {section.rows.map((row) => (
+                <tr key={row.id} data-situation={row.situation}>
+                  <td className="tabular">
+                    {row.date.slice(8)}/{row.date.slice(5, 7)}
+                  </td>
+                  <td>{row.description}</td>
+                  <td>{KIND_LABEL[row.kind]}</td>
+                  <td className="tabular text-right">
+                    {row.amount === null ? '—' : money(row.amount, signOf(row.kind))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          ),
+        )}
       </table>
     </div>
   );

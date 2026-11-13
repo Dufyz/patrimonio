@@ -28,6 +28,26 @@ const book = {
       entry: null,
       event_id: null,
     },
+    {
+      id: '2',
+      kind: 'DESPESA',
+      date: '2020-01-05',
+      situation: 'previsto',
+      description: 'Aluguel',
+      amount: '1500',
+      account_id: 'a',
+      to_account_id: null,
+      card_id: null,
+      category_id: null,
+      portfolio_id: null,
+      asset_id: null,
+      asset_class: null,
+      quantity: null,
+      unit_price: null,
+      fees: null,
+      entry: {},
+      event_id: null,
+    },
   ],
   next_cursor: null,
   totals: {
@@ -59,5 +79,8 @@ describe('LedgerScreen', () => {
     expect(screen.getByText('Quarta, 11/11')).toBeTruthy();
     expect(screen.getByText('Saldo do mês')).toBeTruthy();
     expect(screen.getByText('2 previstos até 30/11')).toBeTruthy();
+    expect(screen.getByText(/Próximos dias · previstos/)).toBeTruthy();
+    expect(screen.getByText('venceu em 05/01')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Lançar' })).toBeTruthy();
   });
 });

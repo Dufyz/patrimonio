@@ -47,3 +47,14 @@ export const fetchBook = (
     bookResponseSchema,
     signal === undefined ? {} : { signal },
   );
+
+/** LAN-02 · "Lançar" um previsto: confirma o lançamento na data e valor previstos. */
+export const confirmPlanned = (entryId: string): Promise<unknown> =>
+  request(
+    `/api/finance/entries/${entryId}/confirm`,
+    { parse: (v: unknown) => v },
+    {
+      method: 'POST',
+      body: '{}',
+    },
+  );

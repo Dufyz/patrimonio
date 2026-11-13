@@ -88,3 +88,34 @@ export const postedBalance = (rows: readonly BookRowResource[]): bigint =>
 /** O `saldo_do_mes` do servidor na mesma escala, para conferir a soma. */
 export const balanceOf = (book: Pick<BookResponse, 'totals'>): bigint =>
   toScaled(book.totals.saldo_do_mes);
+
+export type PlannedSection = {
+  readonly rows: readonly BookRowResource[];
+  readonly overdue: number;
+  /** "3 previstos · 1 vencido"; sem vencidos, só a contagem. */
+  readonly counter: string;
+};
+
+const plural = (n: number, one: string, many: string): string =>
+  `${n} ${n === 1 ? one : many}`;
+
+/** LAN-02 · Os previstos, do mais próximo ao mais distante; vencido é data < hoje. */
+export const plannedSection = (
+  rows: readonly BookRowResource[],
+  today: string,
+): PlannedSection => {
+  const planned = rows
+    .filter((r) => r.situation === 'previsto')
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const overdue = planned.filter((r) => r.date < today).length;
+  const base = plural(planned.length, 'previsto', 'previstos');
+  return {
+    rows: planned,
+    overdue,
+    counter: overdue === 0 ? base : `${base} · ${plural(overdue, 'vencido', 'vencidos')}`,
+  };
+};
+
+/** "venceu em dd/mm" para o previsto cuja data já passou. */
+export const overdueNote = (date: string, today: string): string | null =>
+  date < today ? `venceu em ${date.slice(8)}/${date.slice(5, 7)}` : null;
