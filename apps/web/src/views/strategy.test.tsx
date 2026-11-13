@@ -151,6 +151,25 @@ describe('a tabela', () => {
     expect(screen.getByText('✓ 100%')).toBeInTheDocument();
   });
 
+  it('cada classe diz em palavras se está dentro ou fora da tolerância', () => {
+    show(allocation());
+
+    expect(screen.getByRole('columnheader', { name: 'Situação' })).toBeInTheDocument();
+    expect(screen.getAllByText(/^(dentro|fora da tolerância)$/).length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it('Esc num campo de alvo descarta o que foi digitado', async () => {
+    show(allocation());
+
+    await retype('Renda variável', '50');
+    expect(field('Renda variável')).toHaveValue('50');
+    await userEvent.keyboard('{Escape}');
+
+    expect(field('Renda variável')).toHaveValue('60');
+  });
+
   it('expandir a classe mostra as categorias dela, sem campo de alvo', async () => {
     show(allocation());
 

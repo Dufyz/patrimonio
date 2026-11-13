@@ -245,14 +245,25 @@ const Cells = ({
         <Points value={defined ? line.deviation_pp : null} tone="neutral" />
       )}
     </td>
+    <td className="px-4 whitespace-nowrap">
+      {defined && line.target_pct !== null ? (
+        <span
+          className={line.over_tolerance ? 'font-semibold text-attention' : 'text-ink-2'}
+        >
+          {line.over_tolerance ? 'fora da tolerância' : 'dentro'}
+        </span>
+      ) : (
+        <span className="text-ink-3">—</span>
+      )}
+    </td>
     <td className="px-4">{bar ? <DeviationBar line={line} scale={scale} /> : null}</td>
-    <td className="px-4 text-right">
+    <td className="px-4 text-right max-[1000px]:hidden">
       <Money value={line.value} />
     </td>
-    <td className="px-4 text-right">
+    <td className="px-4 text-right max-[1200px]:hidden">
       <Money value={defined ? line.target_value : null} />
     </td>
-    <td className="px-4 text-right">
+    <td className="px-4 text-right max-[1100px]:hidden">
       {isZeroDecimal(line.amount_to_move) ? (
         <Money value={line.amount_to_move} />
       ) : (
@@ -270,11 +281,12 @@ const MemberCells = ({ line }: { readonly line: Line }): React.ReactElement => (
     </td>
     <td />
     <td />
-    <td className="px-4 text-right">
+    <td />
+    <td className="px-4 text-right max-[1000px]:hidden">
       <Money value={line.value} />
     </td>
-    <td />
-    <td />
+    <td className="max-[1200px]:hidden" />
+    <td className="max-[1100px]:hidden" />
   </>
 );
 
@@ -404,16 +416,28 @@ const Distribution = ({
                 Desvio
               </th>
               <th scope="col" className="px-4 py-2 text-left font-medium">
+                Situação
+              </th>
+              <th scope="col" className="px-4 py-2 text-left font-medium">
                 Atual × alvo
               </th>
-              <th scope="col" className="px-4 py-2 text-right font-medium">
+              <th
+                scope="col"
+                className="px-4 py-2 text-right font-medium max-[1000px]:hidden"
+              >
                 Valor atual
               </th>
-              <th scope="col" className="px-4 py-2 text-right font-medium">
+              <th
+                scope="col"
+                className="px-4 py-2 text-right font-medium max-[1200px]:hidden"
+              >
                 Valor no alvo
               </th>
-              <th scope="col" className="px-4 py-2 text-right font-medium">
-                Para o alvo
+              <th
+                scope="col"
+                className="px-4 py-2 text-right font-medium max-[1100px]:hidden"
+              >
+                Diferença (R$)
               </th>
             </tr>
           </thead>
@@ -465,13 +489,14 @@ const Distribution = ({
               <td className="tabular px-4 text-right">100%</td>
               <td />
               <td />
-              <td className="px-4 text-right">
+              <td />
+              <td className="px-4 text-right max-[1000px]:hidden">
                 <Money value={composition.total} />
               </td>
-              <td className="px-4 text-right">
+              <td className="px-4 text-right max-[1200px]:hidden">
                 <Money value={defined ? composition.total : null} />
               </td>
-              <td className="px-4 text-right">
+              <td className="px-4 text-right max-[1100px]:hidden">
                 <Money value={defined ? '0' : null} />
               </td>
             </tr>
@@ -488,7 +513,7 @@ const Distribution = ({
             : ''}
         </span>
         <span className="flex items-center gap-1">
-          <Kbd>Tab</Kbd> próximo campo · <Kbd>⌘S</Kbd> salvar
+          <Kbd>Tab</Kbd> próximo campo · <Kbd>⌘↵</Kbd> salvar
         </span>
       </p>
     </Panel>
@@ -780,9 +805,23 @@ export const StrategyView = ({
   // ⌘S salva de qualquer campo, e o navegador não abre "Salvar página".
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        (event.key.toLowerCase() === 's' || event.key === 'Enter')
+      ) {
         event.preventDefault();
         void save();
+        return;
+      }
+      // Esc num campo de alvo descarta o rascunho (EST-06).
+      const target = event.target;
+      if (
+        event.key === 'Escape' &&
+        target instanceof HTMLInputElement &&
+        (target.getAttribute('aria-label') ?? '').startsWith('Alvo de')
+      ) {
+        setDraft(EMPTY_DRAFT);
+        setFailure(null);
       }
     };
     globalThis.addEventListener('keydown', onKey);
