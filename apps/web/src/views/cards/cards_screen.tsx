@@ -10,7 +10,6 @@ import { StatStrip } from '../../finance/components/stat_strip.js';
 import { EmptyPanel, PanelError } from '../../finance/components/states.js';
 import { TableScreenSkeleton } from '../../finance/components/screen_skeletons.js';
 import {
-  barWidth,
   daysBetween,
   dueIn,
   groupByPayer,
@@ -19,6 +18,7 @@ import {
   payerTitle,
 } from '../../lib/cards_view.js';
 import { formatMoney } from '../../lib/format.js';
+import { LimitBar } from '../../finance/components/limit_bar.js';
 import { CardModal } from './card_modal.js';
 import { NewEntryModal } from '../ledger/new_entry_modal.js';
 
@@ -204,22 +204,7 @@ export const CardsScreen = (): React.ReactElement => {
                         )}
                       </td>
                       <td className="max-lg:hidden">
-                        <div
-                          role="progressbar"
-                          aria-label={`Limite usado de ${row.card.name}`}
-                          aria-valuenow={row.used_percent}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          className="h-1.5 w-24 rounded-full bg-panel-2"
-                        >
-                          <div
-                            className={`h-full rounded-full ${row.used_percent >= 90 ? 'bg-negative' : 'bg-accent'}`}
-                            style={{ width: `${barWidth(row.used_percent)}%` }}
-                          />
-                        </div>
-                        <span className="tabular text-xs text-ink-3">
-                          {row.used_percent}%
-                        </span>
+                        <LimitBar percent={row.used_percent} />
                       </td>
                       <td
                         className="text-right whitespace-nowrap"

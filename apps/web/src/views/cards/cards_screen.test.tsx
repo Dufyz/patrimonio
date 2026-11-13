@@ -11,6 +11,7 @@ const card = (
   pay: string,
   abertas: string,
   fechadas: string,
+  usedPercent = 27.1,
 ) => ({
   card: {
     id,
@@ -30,7 +31,7 @@ const card = (
     overdue: false,
   },
   used: abertas,
-  used_percent: 27.1,
+  used_percent: usedPercent,
   available: '5832.58',
   days_to_due: 7,
   debt: { abertas, fechadas_a_pagar: fechadas, next_due: '2026-11-20' },
@@ -39,7 +40,7 @@ const card = (
 const body = {
   cards: [
     card('c1', 'Itaú Visa', 'a1', '1000.00', '2100.95'),
-    card('c2', 'Nubank', 'a1', '1167.42', '0.00'),
+    card('c2', 'Nubank', 'a1', '1167.42', '0.00', 75.5),
   ],
   upcoming: [
     {
@@ -97,6 +98,15 @@ describe('CardsScreen · CRT-01/02', () => {
     expect(screen.getAllByText(/4\.268,37/).length).toBeGreaterThan(0);
     expect(screen.getByText(/faltam .*2\.805,86/)).toBeTruthy();
     expect(screen.getByText(/próximo vencimento 20\/11/)).toBeTruthy();
+  });
+
+  it('a barra do limite é verde até 70%, âmbar de 70% a 90%, com o percentual ao lado (CMP-06)', async () => {
+    mount();
+    await screen.findByText('Itaú Unibanco paga 2 cartões');
+    const bars = screen.getAllByRole('progressbar', { name: 'Limite usado' });
+    const tones = bars.map((bar) => bar.firstElementChild?.getAttribute('data-tone'));
+    expect(tones).toEqual(['ok', 'warn']);
+    expect(screen.getByText('75,5%')).toBeTruthy();
   });
 
   it('próximas faturas usam traço para cartão sem fatura a pagar', async () => {
