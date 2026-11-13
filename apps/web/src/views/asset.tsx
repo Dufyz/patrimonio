@@ -176,6 +176,30 @@ export const AssetScreen = ({
     return () => controller.abort();
   }, [assetRef, portfolioId, period, kind, reloads, entry.version]);
 
+  // POS-07 · `N` nesta página abre o modal já neste ativo (a tela se sobrepõe ao global).
+  const openForAsset = entry.openEntry;
+  const shortcutAsset = resource?.asset ?? null;
+  const shortcutHeld = resource?.position?.quantity ?? null;
+  const assetShortcuts = useMemo(
+    () =>
+      shortcutAsset === null
+        ? {}
+        : {
+            new_transaction: () =>
+              openForAsset({
+                asset: {
+                  id: shortcutAsset.asset_id,
+                  label: assetTitle(shortcutAsset),
+                  name: shortcutAsset.name,
+                  held: shortcutHeld,
+                },
+                portfolioId,
+              }),
+          },
+    [openForAsset, shortcutAsset, shortcutHeld, portfolioId],
+  );
+  useShortcuts(assetShortcuts);
+
   if (error !== null) {
     return <AssetError assetRef={assetRef} error={error} onBack={onBack} />;
   }

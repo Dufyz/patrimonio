@@ -645,6 +645,21 @@ describe('o que ainda não existe', () => {
   });
 });
 
+describe('POS-07 · atalho N', () => {
+  it('N abre o modal já neste ativo', async () => {
+    const user = userEvent.setup();
+    show();
+    await screen.findByRole('heading', { name: 'ITUB4' });
+    entry.openEntry.mockClear();
+
+    await user.keyboard('n');
+
+    expect(entry.openEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ asset: expect.objectContaining({ label: 'ITUB4' }) }),
+    );
+  });
+});
+
 describe('o endereço velho', () => {
   it('ativo inexistente diz que não existe, e não que a api caiu', async () => {
     answerWith({ status: 404 });
