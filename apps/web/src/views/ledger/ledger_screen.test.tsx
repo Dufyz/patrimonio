@@ -140,4 +140,19 @@ describe('LedgerScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
     await waitFor(() => expect(screen.getByText('Salário')).toBeTruthy());
   });
+
+  it('teclado: Espaço seleciona a linha em foco e Esc limpa', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify(book), { status: 200 })),
+    );
+    wrap();
+    await waitFor(() => expect(screen.getByText('Salário')).toBeTruthy());
+    const row = screen.getByText('Salário').closest('tr') as HTMLElement;
+    row.focus();
+    fireEvent.keyDown(row, { key: ' ' });
+    expect(screen.getByRole('toolbar', { name: 'Ações em lote' })).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('toolbar')).toBeNull();
+  });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
@@ -7,6 +7,7 @@ import { confirmPlanned, fetchAccountNames, fetchBook } from '../../api/book.js'
 import { EmptyPanel, PanelError } from '../../finance/components/states.js';
 import { TableScreenSkeleton } from '../../finance/components/screen_skeletons.js';
 import { downloadCsv } from '../../finance/lib/csv.js';
+import { useShortcuts } from '../../components/shortcuts.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
 import { StatStrip } from '../../finance/components/stat_strip.js';
 import { formatMoney, formatQuantity, MINUS } from '../../lib/format.js';
@@ -113,6 +114,9 @@ export const LedgerScreen = (): React.ReactElement => {
   const [accounts, setAccounts] = useState<ReadonlyMap<string, string>>(new Map());
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [creating, setCreating] = useState(false);
+  const searchBox = useRef<HTMLInputElement>(null);
+  const shortcuts = useMemo(() => ({ filter: () => searchBox.current?.focus() }), []);
+  useShortcuts(shortcuts);
   const [reload, setReload] = useState(0);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -240,6 +244,7 @@ export const LedgerScreen = (): React.ReactElement => {
       />
       <div role="search" className="flex flex-wrap items-center gap-2">
         <input
+          ref={searchBox}
           type="search"
           aria-label="Buscar lançamento"
           placeholder="Buscar lançamento"
@@ -390,8 +395,12 @@ export const LedgerScreen = (): React.ReactElement => {
             </th>
             <th scope="col">Data</th>
             <th scope="col">Descrição</th>
-            <th scope="col">Tipo</th>
-            <th scope="col">Detalhe</th>
+            <th scope="col" className="max-md:hidden">
+              Tipo
+            </th>
+            <th scope="col" className="max-xl:hidden">
+              Detalhe
+            </th>
             <th scope="col" className="text-right">
               Valor
             </th>
@@ -420,8 +429,8 @@ export const LedgerScreen = (): React.ReactElement => {
                     )}
                   </td>
                   <td>{row.description}</td>
-                  <td>{KIND_LABEL[row.kind]}</td>
-                  <td className="text-ink-3">{detail(row)}</td>
+                  <td className="max-md:hidden">{KIND_LABEL[row.kind]}</td>
+                  <td className="text-ink-3 max-xl:hidden">{detail(row)}</td>
                   <td className="tabular text-right">
                     {row.amount === null ? '—' : money(row.amount, signOf(row.kind))}
                   </td>
@@ -453,7 +462,24 @@ export const LedgerScreen = (): React.ReactElement => {
               </th>
             </tr>
             {section.rows.map((row) => (
-              <tr key={row.id} data-situation={row.situation}>
+              <tr
+                key={row.id}
+                data-situation={row.situation}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  const rowEl = e.currentTarget;
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    (rowEl.nextElementSibling as HTMLElement | null)?.focus();
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    (rowEl.previousElementSibling as HTMLElement | null)?.focus();
+                  } else if (e.key === ' ' && e.target === rowEl && selectable(row)) {
+                    e.preventDefault();
+                    toggle(row.id);
+                  }
+                }}
+              >
                 <td>
                   {selectable(row) ? (
                     <input
@@ -468,8 +494,8 @@ export const LedgerScreen = (): React.ReactElement => {
                   {row.date.slice(8)}/{row.date.slice(5, 7)}
                 </td>
                 <td>{row.description}</td>
-                <td>{KIND_LABEL[row.kind]}</td>
-                <td className="text-ink-3">{detail(row)}</td>
+                <td className="max-md:hidden">{KIND_LABEL[row.kind]}</td>
+                <td className="text-ink-3 max-xl:hidden">{detail(row)}</td>
                 <td className="tabular text-right">
                   {row.amount === null ? '—' : money(row.amount, signOf(row.kind))}
                 </td>
