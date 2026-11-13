@@ -222,13 +222,32 @@ export const AppLayout = ({
   // `G V` vale em qualquer tela. As demais letras de `G` são as das telas de
   // carteira, ligadas pela própria tela. A camada da casca é a mais antiga: as
   // telas respondem antes dela.
-  const globalShortcuts = useMemo(
-    () => ({
-      go_overview: () => void navigate(routes.home()),
+  // NAV-11 · Cada atalho de `G` leva à tela que o menu lista com o mesmo nome, e
+  // `⌘1..3` às três primeiras carteiras da barra. Carteira que não existe deixa
+  // a tecla sem efeito: a chave só entra no objeto quando há para onde ir.
+  const globalShortcuts = useMemo(() => {
+    const goto = (path: string) => () => void navigate(path);
+    const nth = portfolioEntries.filter((entry) => entry.id !== ALL_PORTFOLIOS);
+    const jump = (index: number): Record<string, () => void> => {
+      const target = nth[index];
+      return target === undefined
+        ? {}
+        : { [`portfolio_${index + 1}`]: goto(target.path) };
+    };
+    return {
+      go_overview: goto(routes.home()),
+      go_entries: goto('/lancamentos'),
+      go_accounts: goto('/contas'),
+      go_cards: goto('/cartoes'),
+      go_recurrings: goto('/recorrentes'),
+      go_categories: goto('/categorias'),
+      go_settings: goto(routes.settings()),
+      ...jump(0),
+      ...jump(1),
+      ...jump(2),
       search: toggleSearch,
-    }),
-    [navigate, toggleSearch],
-  );
+    };
+  }, [navigate, toggleSearch, portfolioEntries]);
   useShortcuts(globalShortcuts);
 
   /** As telas do app, como a paleta as lista, com o atalho que cada uma realmente tem. */
@@ -245,7 +264,16 @@ export const AppLayout = ({
               id: `fluxo-${entry.id}`,
               label: entry.label,
               glyph: entry.icon,
-              shortcut: entry.id === 'visao-geral' ? shortcutOf('go_overview') : null,
+              shortcut: shortcutOf(
+                {
+                  'visao-geral': 'go_overview',
+                  lancamentos: 'go_entries',
+                  contas: 'go_accounts',
+                  cartoes: 'go_cards',
+                  recorrentes: 'go_recurrings',
+                  categorias: 'go_categories',
+                }[entry.id] ?? '',
+              ),
               module: entry.id === 'visao-geral' ? 'geral' : 'financas',
               path: entry.path,
             },
@@ -270,7 +298,7 @@ export const AppLayout = ({
         id: 'configuracoes',
         label: 'Configurações',
         glyph: 'settings',
-        shortcut: null,
+        shortcut: shortcutOf('go_settings'),
         module: 'geral',
         path: routes.settings(),
       },

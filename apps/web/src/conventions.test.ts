@@ -3,6 +3,8 @@ import { join, relative } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
+import { SHORTCUTS } from './lib/shortcuts.js';
+
 /**
  * TEM-01 (3) e TEM-05 · As convenções visuais, verificadas a cada `pnpm test`.
  * Cada regra falha nomeando arquivo e linha, para a correção ser direta.
@@ -163,5 +165,39 @@ describe('cores só nos tokens (TEM-01)', () => {
         });
     }
     expect(violations).toEqual([]);
+  });
+});
+
+describe('atalhos só da tabela única (NAV-11)', () => {
+  const IDS = new Set(SHORTCUTS.map((shortcut) => shortcut.id));
+  // Os nomes que só um atalho usa: um erro de digitação aqui seria um atalho
+  // que nunca dispara, e ninguém notaria até apertar a tecla.
+  const SHORTCUT_NAME =
+    /^(go_[a-z_]+|portfolio_\d|row_[a-z_]+|form_[a-z_]+|overlay_[a-z_]+)$/;
+
+  it('todo manipulador registrado tem entrada na tabela', () => {
+    const violations: string[] = [];
+    for (const file of walk(ROOT, ['.ts', '.tsx'])) {
+      const source = parse(file);
+      const visit = (node: ts.Node): void => {
+        if (
+          (ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node)) &&
+          (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name))
+        ) {
+          const name = node.name.text;
+          if (SHORTCUT_NAME.test(name) && !IDS.has(name)) {
+            violations.push(`${where(file, source, node)} ${name}`);
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it('a ajuda lista todo atalho da tabela, sem repetir nem esconder nenhum', () => {
+    const ids = SHORTCUTS.map((shortcut) => shortcut.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

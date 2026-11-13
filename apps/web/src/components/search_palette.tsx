@@ -2,6 +2,7 @@ import type { SearchResource } from '@patrimonio/contracts';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { SEARCH_TEXT_MAX, fetchSearch } from '../api/search.js';
+import { parseQuickEntry } from '../lib/quick_entry.js';
 import { browserStorage } from '../lib/preferences.js';
 import type { Storageish } from '../lib/preferences.js';
 import {
@@ -132,8 +133,10 @@ const PaletteDialog = ({
 
     setServer({ kind: 'loading' });
     const controller = new AbortController();
+    // NAV-10 · `aporte 80 divo11 32,40` procura o ativo pelo código, não pela frase.
+    const wanted = parseQuickEntry(text)?.ticker ?? text;
     const timer = setTimeout(() => {
-      search(text, controller.signal)
+      search(wanted, controller.signal)
         .then((resource) => {
           if (!controller.signal.aborted) setServer({ kind: 'ready', resource });
         })

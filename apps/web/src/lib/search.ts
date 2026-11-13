@@ -15,6 +15,8 @@ import { routes } from './routes.js';
 import { formatQuantity } from './format.js';
 import { formatDate } from './overview.js';
 import { readJson, writeJson } from './preferences.js';
+import { parseQuickEntry, quickEntryLabel } from './quick_entry.js';
+import type { QuickEntry } from './quick_entry.js';
 import type { Storageish } from './preferences.js';
 
 /**
@@ -33,7 +35,7 @@ import type { Storageish } from './preferences.js';
  */
 
 export const SEARCH_DEBOUNCE_MS = 90;
-export const RECENT_LIMIT = 5;
+export const RECENT_LIMIT = 8;
 export const RECENT_STORAGE_KEY = 'patrimonio.search.recent';
 
 /** Quando a ação existe na paleta mas a tela que a executa ainda não chegou. */
@@ -44,6 +46,7 @@ export const ACTION_PENDING_REASON = 'chega com T-10';
 
 export type SearchGroupId =
   | 'recent'
+  | 'quick'
   | 'assets'
   | 'asset_actions'
   | 'instruments'
@@ -57,6 +60,7 @@ export type SearchGroupId =
 
 /** A ordem de desempate quando dois grupos são igualmente prováveis. */
 const CANONICAL_ORDER: readonly SearchGroupId[] = [
+  'quick',
   'recent',
   'assets',
   'asset_actions',
@@ -83,6 +87,7 @@ const isScreenGroup = (group: SearchGroupId): boolean =>
 
 export const GROUP_TITLES: Readonly<Record<SearchGroupId, string>> = {
   recent: 'Recentes',
+  quick: 'Lançamento rápido',
   assets: 'Ativos',
   // O título real leva o código do ativo; ver `assetActionItems`.
   asset_actions: 'Ações com o ativo',
@@ -96,7 +101,8 @@ export const GROUP_TITLES: Readonly<Record<SearchGroupId, string>> = {
   actions: 'Ações',
 };
 
-export type SearchActionId = 'new_transaction' | 'buy_asset' | 'payout_asset';
+export type SearchActionId =
+  'new_transaction' | 'buy_asset' | 'sell_asset' | 'payout_asset';
 
 /**
  * Os glifos são nomes de ícone, os mesmos da barra lateral e do resto da aplicação: um ícone que muda
@@ -137,6 +143,8 @@ export type SearchTarget =
       readonly assetId?: string;
       /** O título do ativo, como a tela o escreve. */
       readonly title?: string;
+      /** NAV-10 · Os campos que o texto digitado já preenche; o modal abre sem salvar. */
+      readonly seed?: { readonly quantity?: string; readonly price?: string };
     };
 
 export type SearchItem = {
@@ -580,7 +588,7 @@ export const nextFilter = (current: SearchFilter, backwards = false): SearchFilt
 
 /** O filtro deixa de fora tudo que não é do tipo escolhido. */
 const passesFilter = (group: SearchGroupId, filter: SearchFilter): boolean => {
-  if (filter === null) return true;
+  if (filter === null || group === 'quick') return true;
   if (filter === 'assets') {
     return group === 'assets' || group === 'asset_actions' || group === 'instruments';
   }
@@ -607,6 +615,50 @@ export type SearchModel = {
 
 export const LOOKUP_UNAVAILABLE_NOTICE =
   'A busca ao vivo não respondeu: mostrando só os papéis que já estão no catálogo.';
+
+/**
+ * NAV-10 · O texto que o `parseQuickEntry` entende vira o resultado do topo, e só
+ * se o código é de um ativo que a `api` reconheceu: ativo inexistente não gera
+ * ação, e o texto cai nos resultados comuns. Escolher o resultado abre o modal
+ * preenchido; nada é gravado aqui.
+ */
+export const quickEntryItem = (
+  entry: QuickEntry,
+  assets: readonly SearchAsset[],
+  readyActions: ReadonlySet<SearchActionId>,
+): SearchItem | null => {
+  const asset = assets.find((item) => item.ticker.toUpperCase() === entry.ticker);
+  if (asset === undefined) return null;
+
+  const action: SearchActionId =
+    entry.verb === 'buy'
+      ? 'buy_asset'
+      : entry.verb === 'sell'
+        ? 'sell_asset'
+        : 'payout_asset';
+  // O provento recebe valor, não quantidade: o modal dele pede o valor, e a
+  // quantidade e o preço só preenchem compra e venda.
+  const seed =
+    entry.verb === 'payout'
+      ? {}
+      : {
+          quantity: entry.amount,
+          ...(entry.price === null ? {} : { price: entry.price }),
+        };
+
+  return {
+    id: `quick:${action}:${asset.id}:${entry.amount}:${entry.price ?? ''}`,
+    group: 'quick',
+    glyph: GLYPHS.action,
+    label: quickEntryLabel(entry),
+    detail: 'abre o lançamento preenchido, sem salvar',
+    amount: null,
+    shortcut: '↵',
+    keywords: [],
+    target: { kind: 'action', action, assetId: asset.id, title: assetName(asset), seed },
+    disabled: readyActions.has(action) ? null : ACTION_PENDING_REASON,
+  };
+};
 
 /**
  * Sem texto, a paleta é um atalho: o que se abriu por último, as telas e as
@@ -671,6 +723,14 @@ export const buildModel = (input: {
 
     if (input.server.kind === 'ready') {
       const { assets, instruments, transactions } = input.server.resource;
+
+      const quick = parseQuickEntry(query);
+      const quickItem =
+        quick === null ? null : quickEntryItem(quick, assets.items, input.readyActions);
+      if (quickItem !== null) {
+        push('quick', [quickItem]);
+        scores.set('quick', 100);
+      }
 
       // A ordem que a `api` deu é a ordem: ela sabe o que a pessoa tem.
       const assetRows = assetItems(assets.items);

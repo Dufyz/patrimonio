@@ -269,7 +269,7 @@ export const AccountsCardsSection = (): React.ReactElement => {
                       Limite
                     </th>
                     <th scope="col" className={TH_RIGHT}>
-                      Fechamento
+                      Dia de fechamento
                     </th>
                     <th scope="col" className={TH_RIGHT}>
                       Vencimento

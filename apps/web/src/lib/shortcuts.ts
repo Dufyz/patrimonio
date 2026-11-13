@@ -20,7 +20,7 @@ export type Shortcut = {
   readonly label: string;
   readonly scope: ShortcutScope;
   /** Modificador exigido, para os poucos atalhos que têm um. */
-  readonly modifier?: 'meta' | undefined;
+  readonly modifier?: 'meta' | 'shift' | undefined;
 };
 
 export const SHORTCUTS: readonly Shortcut[] = [
@@ -44,6 +44,43 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: 'Movimentações',
     scope: 'navigation',
   },
+  { id: 'go_entries', sequence: ['g', 'l'], label: 'Lançamentos', scope: 'navigation' },
+  { id: 'go_accounts', sequence: ['g', 'c'], label: 'Contas', scope: 'navigation' },
+  { id: 'go_cards', sequence: ['g', 'a'], label: 'Cartões', scope: 'navigation' },
+  {
+    id: 'go_recurrings',
+    sequence: ['g', 'r'],
+    label: 'Recorrentes',
+    scope: 'navigation',
+  },
+  { id: 'go_categories', sequence: ['g', 't'], label: 'Categorias', scope: 'navigation' },
+  {
+    id: 'go_settings',
+    sequence: ['g', ','],
+    label: 'Configurações',
+    scope: 'navigation',
+  },
+  {
+    id: 'portfolio_1',
+    sequence: ['1'],
+    modifier: 'meta',
+    label: 'Primeira carteira',
+    scope: 'navigation',
+  },
+  {
+    id: 'portfolio_2',
+    sequence: ['2'],
+    modifier: 'meta',
+    label: 'Segunda carteira',
+    scope: 'navigation',
+  },
+  {
+    id: 'portfolio_3',
+    sequence: ['3'],
+    modifier: 'meta',
+    label: 'Terceira carteira',
+    scope: 'navigation',
+  },
   { id: 'go_strategy', sequence: ['g', 'e'], label: 'Estratégia', scope: 'navigation' },
   { id: 'go_projection', sequence: ['g', 'j'], label: 'Projeção', scope: 'navigation' },
   { id: 'go_goals', sequence: ['g', 'o'], label: 'Objetivos', scope: 'navigation' },
@@ -59,6 +96,13 @@ export const SHORTCUTS: readonly Shortcut[] = [
     sequence: ['enter'],
     modifier: 'meta',
     label: 'Salvar',
+    scope: 'form',
+  },
+  {
+    id: 'form_submit_again',
+    sequence: ['enter'],
+    modifier: 'shift',
+    label: 'Salvar e abrir outro',
     scope: 'form',
   },
   { id: 'overlay_close', sequence: ['escape'], label: 'Fechar', scope: 'overlay' },
@@ -90,6 +134,8 @@ export type KeyEvent = {
   readonly metaKey: boolean;
   readonly ctrlKey: boolean;
   readonly altKey: boolean;
+  /** `⇧`; ausente nos eventos de quem não o conhece, e então vale falso. */
+  readonly shiftKey?: boolean;
   readonly target: EventTarget | null;
 };
 
@@ -111,7 +157,11 @@ export const resolveShortcut = (
 
   // Modificador é o único caso em que um atalho dispara dentro de um campo:
   // `⌘Enter` salva o formulário de onde quer que o foco esteja.
-  if (isTypingTarget(event.target) && !hasModifier(event)) {
+  if (
+    isTypingTarget(event.target) &&
+    !hasModifier(event) &&
+    !(event.shiftKey === true && key === 'enter')
+  ) {
     return { shortcut: null, buffer: [] };
   }
 
@@ -126,6 +176,14 @@ export const resolveShortcut = (
   }
 
   if (event.altKey) return { shortcut: null, buffer: [] };
+
+  // ⇧↵ é do formulário ("salvar e abrir outro") e vale de dentro dos campos.
+  if (event.shiftKey === true && key === 'enter') {
+    return {
+      shortcut: available.find((candidate) => candidate.modifier === 'shift') ?? null,
+      buffer: [],
+    };
+  }
 
   const next = [...buffer, key];
 
@@ -158,7 +216,9 @@ export const describeShortcut = (shortcut: Shortcut): string => {
           ? '⌫'
           : key.toUpperCase(),
   );
-  return shortcut.modifier === 'meta' ? `⌘${keys.join(' ')}` : keys.join(' ');
+  if (shortcut.modifier === 'meta') return `⌘${keys.join(' ')}`;
+  if (shortcut.modifier === 'shift') return `⇧${keys.join(' ')}`;
+  return keys.join(' ');
 };
 
 export const groupShortcuts = (

@@ -108,3 +108,58 @@ describe('atalhos de teclado', () => {
     }
   });
 });
+
+describe('a tabela única de atalhos (NAV-11)', () => {
+  it('as letras de G são as da especificação', () => {
+    const go = (id: string): string | undefined =>
+      SHORTCUTS.find((shortcut) => shortcut.id === id)?.sequence.join(' ');
+
+    expect(go('go_overview')).toBe('g v');
+    expect(go('go_entries')).toBe('g l');
+    expect(go('go_accounts')).toBe('g c');
+    expect(go('go_cards')).toBe('g a');
+    expect(go('go_positions')).toBe('g p');
+    expect(go('go_strategy')).toBe('g e');
+    expect(go('go_goals')).toBe('g o');
+    expect(go('go_projection')).toBe('g j');
+    expect(go('go_recurrings')).toBe('g r');
+    expect(go('go_categories')).toBe('g t');
+    expect(go('go_settings')).toBe('g ,');
+  });
+
+  it('G seguido de vírgula abre as Configurações', () => {
+    const first = resolveShortcut([], press('g'));
+    expect(resolveShortcut(first.buffer, press(',')).shortcut?.id).toBe('go_settings');
+  });
+
+  it('⌘1, ⌘2 e ⌘3 trocam de carteira', () => {
+    for (const n of ['1', '2', '3']) {
+      expect(resolveShortcut([], press(n, { metaKey: true })).shortcut?.id).toBe(
+        `portfolio_${n}`,
+      );
+    }
+    expect(resolveShortcut([], press('4', { metaKey: true })).shortcut).toBeNull();
+  });
+
+  it('⇧↵ salva e abre outro, de dentro de um campo, e não abre a linha', () => {
+    const typed = resolveShortcut(
+      [],
+      press('enter', { shiftKey: true, target: field('input') }),
+    );
+    expect(typed.shortcut?.id).toBe('form_submit_again');
+    expect(resolveShortcut([], press('enter', { shiftKey: true })).shortcut?.id).toBe(
+      'form_submit_again',
+    );
+    expect(resolveShortcut([], press('enter')).shortcut?.id).toBe('row_open');
+  });
+
+  it('o selo se escreve como se lê', () => {
+    const find = (id: string) => SHORTCUTS.find((shortcut) => shortcut.id === id);
+    expect(
+      describeShortcut(find('form_submit_again') as (typeof SHORTCUTS)[number]),
+    ).toBe('⇧↵');
+    expect(describeShortcut(find('portfolio_2') as (typeof SHORTCUTS)[number])).toBe(
+      '⌘2',
+    );
+  });
+});

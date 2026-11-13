@@ -184,6 +184,38 @@ describe('busca', () => {
     expect(within(itub3).getByText(/sem posição/)).toBeInTheDocument();
   });
 
+  it('"aporte 80 itub4 32,40" põe o lançamento preenchido no topo, procura o ativo pelo código e não salva (NAV-10)', async () => {
+    const READY: ReadonlySet<SearchActionId> = new Set(['buy_asset']);
+    const { user, search, onSelect } = open({ readyActions: READY });
+
+    await user.type(field(), 'aporte 80 itub4 32,40');
+
+    const top = await screen.findByRole('option', {
+      name: /Lançar aporte de 80 ITUB4 a R\$ 32,40/,
+    });
+    expect(marked()).toBe(top);
+    expect(screen.getByText('Lançamento rápido')).toBeInTheDocument();
+    expect(search).toHaveBeenLastCalledWith('ITUB4', expect.anything());
+
+    await user.keyboard('{Enter}');
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'action',
+        action: 'buy_asset',
+        seed: { quantity: '80', price: '32.40' },
+      }),
+    );
+  });
+
+  it('ativo inexistente não gera ação: o texto cai nos resultados comuns (NAV-10)', async () => {
+    const { user } = open({ readyActions: new Set(['buy_asset']) });
+
+    await user.type(field(), 'aporte 80 zzzz99 32,40');
+    await screen.findByText('Ativos');
+
+    expect(screen.queryByText('Lançamento rápido')).toBeNull();
+  });
+
   it('marca o ativo de cima quando a api responde', async () => {
     const { user } = open();
 

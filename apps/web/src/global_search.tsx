@@ -26,6 +26,7 @@ import type { SearchActionId, SearchScreen, SearchTarget } from './lib/search.js
 const READY_ACTIONS: ReadonlySet<SearchActionId> = new Set([
   'new_transaction',
   'buy_asset',
+  'sell_asset',
   'payout_asset',
 ]);
 
@@ -136,8 +137,14 @@ export const GlobalSearch = ({
           };
 
     entry.openEntry({
-      tab: target.action === 'payout_asset' ? 'payout' : 'buy',
+      tab:
+        target.action === 'payout_asset'
+          ? 'payout'
+          : target.action === 'sell_asset'
+            ? 'sell'
+            : 'buy',
       asset,
+      ...(target.seed === undefined ? {} : { seed: target.seed }),
     });
   };
 
