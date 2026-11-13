@@ -68,7 +68,7 @@ describe('visão geral (CE-01 a CE-03)', () => {
     expect(response.body.despesas.amount).toBe('15104.37');
     expect(response.body.saldo).toBe('1245.63');
     expect(response.body.em_contas.amount).toBe('12583.85');
-    expect(response.body.faturas_abertas).toBe('5422.27');
+    expect(response.body.faturas_abertas).toBe('4303.88');
     expect(response.body.months).toHaveLength(12);
   });
 

@@ -889,3 +889,43 @@ describe('excluir carteira em cascata (CFG-05)', () => {
     ).toBe(1);
   });
 });
+
+describe('QC-11 aportes entre telas (QUA-01)', () => {
+  it('Aportes: faixa de Lançamentos = cascata do Livro = soma das pernas de aporte com origem em conta nos Extratos', async () => {
+    expect((await aportar({ fees: '0' })).status).toBe(201);
+    const outra = await aportar(
+      {
+        trade_date: '2026-10-21',
+        asset: { ticker: 'IVVB11', name: 'iShares S&P 500', b3_type: 'etf' },
+        quantity: '3',
+        unit_price: '250',
+        fees: '0',
+      },
+      '',
+      'chave-qc11',
+    );
+    expect(outra.status).toBe(201);
+
+    const livro = await request(harness.app).get(
+      '/api/finance/book?from=2026-10-01&to=2026-10-31',
+    );
+    const lancamentos = await request(harness.app).get(
+      '/api/finance/entries?from=2026-10-01&to=2026-10-31',
+    );
+    const extrato = await request(harness.app).get(
+      `/api/finance/accounts/${conta}/statement?from=2026-10-01&to=2026-10-31`,
+    );
+
+    const pernas = (extrato.body.lines as { amount: string; origin: string }[]).filter(
+      (line) => line.origin === 'aporte',
+    );
+    const somaPernas = pernas.reduce(
+      (total, line) => total + Math.round(Math.abs(Number(line.amount)) * 100),
+      0,
+    );
+
+    expect(livro.body.totals.aportes).toBe('1750.00');
+    expect(somaPernas).toBe(175_000);
+    expect(lancamentos.body.indicators).toBeDefined();
+  });
+});

@@ -2,7 +2,7 @@ import type { FinEntry, FinSnapshot } from '@patrimonio/domain';
 
 import { accountsOverview, dailyTotalInAccounts, totalInAccounts } from './accounts.js';
 import type { DailyBalance } from './accounts.js';
-import { activeCards, cardSummary, openInvoicesTotal } from './cards.js';
+import { activeCards, cardSummary } from './cards.js';
 import type { InvoiceStatus } from './cards.js';
 import {
   addMonths,
@@ -15,6 +15,7 @@ import {
 import type { DateRange } from './dates.js';
 import { money } from './money.js';
 import { byLedgerOrder, indicators, isOverdue, isPosted, ledgerPool } from './ledger.js';
+import { invoiceDebt } from './wealth.js';
 import type { Indicators } from './ledger.js';
 
 /**
@@ -135,7 +136,9 @@ export const overview = (data: FinSnapshot, month: string, today: string): Overv
       amount: money(totalInAccounts(data, today)),
       count: accounts.accounts.filter((a) => !a.account.archived).length,
     },
-    faturas_abertas: money(openInvoicesTotal(data, today)),
+    // QC-04 · "Faturas abertas" é a mesma conta da tela de Cartões: o que ainda
+    // não fechou, menos o pago. A fechada a pagar é outra linha (total devido).
+    faturas_abertas: invoiceDebt(data, today).abertas,
     daily: dailyTotalInAccounts(data, range, today),
     months: monthSeries(data, month, today),
     upcoming_dues: dues,
