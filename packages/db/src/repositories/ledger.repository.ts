@@ -7,6 +7,7 @@ import {
   asDateOnly,
   asDateOnlyOrNull,
   asNumeric,
+  asNumericOrNull,
   asString,
   asStringOrNull,
   toDateOnly,
@@ -72,7 +73,31 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
         SELECT t.id, t.kind, t.trade_date, t.portfolio_id, p.name AS portfolio_name,
                t.asset_id, a.ticker AS asset_name, a.category_id AS asset_class,
                t.quantity, t.unit_price, t.fees, t.net_amount, t.payout_kind,
-               t.event_ratio_from, t.event_ratio_to, t.event_id
+               t.event_ratio_from, t.event_ratio_to, t.event_id,
+               -- PM da posição antes e depois do dia. Com mais de um lançamento do
+               -- ativo no dia, antes e depois não se separam por linha: fica nulo.
+               CASE WHEN COUNT(*) OVER (
+                           PARTITION BY t.portfolio_id, t.asset_id, t.trade_date
+                         ) = 1
+                    THEN (SELECT pd.avg_price
+                            FROM position_daily pd
+                           WHERE pd.portfolio_id = t.portfolio_id
+                             AND pd.asset_id = t.asset_id
+                             AND pd.position_date < t.trade_date
+                           ORDER BY pd.position_date DESC
+                           LIMIT 1)
+               END AS avg_price_before,
+               CASE WHEN COUNT(*) OVER (
+                           PARTITION BY t.portfolio_id, t.asset_id, t.trade_date
+                         ) = 1
+                    THEN (SELECT pd.avg_price
+                            FROM position_daily pd
+                           WHERE pd.portfolio_id = t.portfolio_id
+                             AND pd.asset_id = t.asset_id
+                             AND pd.position_date <= t.trade_date
+                           ORDER BY pd.position_date DESC
+                           LIMIT 1)
+               END AS avg_price_after
           FROM transaction t
           JOIN portfolio p ON p.id = t.portfolio_id
           JOIN asset a ON a.id = t.asset_id
@@ -98,6 +123,8 @@ export const createLedgerRepository = (sql: Connection): LedgerRepository => ({
           event_ratio_from: asStringOrNull(row, 'event_ratio_from'),
           event_ratio_to: asStringOrNull(row, 'event_ratio_to'),
           event_id: asStringOrNull(row, 'event_id'),
+          avg_price_before: asNumericOrNull(row, 'avg_price_before'),
+          avg_price_after: asNumericOrNull(row, 'avg_price_after'),
         })),
       );
     } catch (error) {

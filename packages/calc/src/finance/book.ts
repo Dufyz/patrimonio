@@ -39,6 +39,9 @@ export type BookInvestmentRow = {
   readonly event_ratio_to: string | null;
   /** Liga a perna de posição à perna financeira. */
   readonly event_id: string | null;
+  /** Preço médio da posição antes e depois do aporte; nulo se o dia tem mais de um lançamento do ativo. */
+  readonly avg_price_before?: string | null | undefined;
+  readonly avg_price_after?: string | null | undefined;
 };
 
 export type BookSituation = 'previsto' | 'lancado';
@@ -65,6 +68,9 @@ export type BookRow = {
   /** Despesa e receita guardam o lançamento de Finanças (pagamentos, parcelas). */
   readonly entry: FinEntry | null;
   readonly event_id: string | null;
+  /** LAN-03: "PM R$ 31,20 → R$ 31,45" no aporte. */
+  readonly avg_price_before?: string | null | undefined;
+  readonly avg_price_after?: string | null | undefined;
 };
 
 const BLANK: Omit<BookRow, 'id' | 'kind' | 'date' | 'situation' | 'description'> = {
@@ -202,6 +208,8 @@ export const bookRows = (
       unit_price: row.unit_price,
       fees: row.fees,
       event_id: row.event_id,
+      avg_price_before: kind === 'APORTE' ? (row.avg_price_before ?? null) : null,
+      avg_price_after: kind === 'APORTE' ? (row.avg_price_after ?? null) : null,
     });
   }
 

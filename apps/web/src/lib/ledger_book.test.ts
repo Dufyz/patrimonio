@@ -192,3 +192,34 @@ describe('LAN-03.5 · ativo da linha de investimento', () => {
     expect(assetTarget(row({}), ['p1'], slugs)).toBeNull();
   });
 });
+
+describe('LAN-03.2 · PM no aporte', () => {
+  const fmt = {
+    money: (v: string) => `R$ ${v}`,
+    quantity: (v: string) => v,
+    accountName: () => 'Nubank Conta',
+  };
+  const aporte = row({
+    kind: 'APORTE',
+    portfolio_id: 'p1',
+    quantity: '80',
+    unit_price: '32.40',
+    fees: '0.80',
+    avg_price_before: '31.20',
+    avg_price_after: '31.45',
+  });
+
+  it('o aporte diz o preço médio antes → depois', () => {
+    expect(detailOf(aporte, fmt)).toBe(
+      '80 × R$ 32.40 + taxas R$ 0.80 · de Nubank Conta · PM R$ 31.20 → R$ 31.45',
+    );
+  });
+
+  it('sem PM (mais de um lançamento no dia) a linha fica como estava', () => {
+    expect(detailOf({ ...aporte, avg_price_before: null }, fmt)).not.toMatch(/PM/);
+  });
+
+  it('resgate não mostra PM', () => {
+    expect(detailOf({ ...aporte, kind: 'RESGATE' }, fmt)).not.toMatch(/PM/);
+  });
+});

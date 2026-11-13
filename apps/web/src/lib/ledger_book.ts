@@ -158,7 +158,15 @@ export const detailOf = (row: BookRowResource, fmt: DetailFormat): string | null
     row.account_id === null
       ? 'Fora do app'
       : `${preposition} ${fmt.accountName(row.account_id) ?? 'conta'}`;
-  return head === '' ? where : `${head} · ${where}`;
+  const base = head === '' ? where : `${head} · ${where}`;
+  if (
+    row.kind === 'APORTE' &&
+    row.avg_price_before != null &&
+    row.avg_price_after != null
+  ) {
+    return `${base} · PM ${fmt.money(row.avg_price_before)} → ${fmt.money(row.avg_price_after)}`;
+  }
+  return base;
 };
 
 export const GROUPINGS = ['dia', 'tipo', 'conta_carteira'] as const;

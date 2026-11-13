@@ -303,6 +303,8 @@ export const bookRowSchema = z.object({
   fees: z.string().nullable(),
   entry: z.object({}).passthrough().nullable(),
   event_id: z.string().nullable(),
+  avg_price_before: z.string().nullable().optional(),
+  avg_price_after: z.string().nullable().optional(),
 });
 
 export const bookResponseSchema = z.object({
