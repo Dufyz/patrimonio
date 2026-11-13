@@ -175,6 +175,7 @@ export const financeUseCases = (deps: FinanceDeps) => ({
       return {
         date: target,
         balance: fin.projectedBalance(data, target, today, aportes),
+        parts: fin.projectedParts(data, target, today, aportes),
         planned_aportes: aportes.filter((a) => a.date <= target),
         series: fin.forecastSeries(
           data,

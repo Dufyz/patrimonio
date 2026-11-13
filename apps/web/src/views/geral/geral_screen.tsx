@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import { fetchBook } from '../../api/book.js';
+import { fetchForecast } from '../../api/forecast.js';
 import { fetchCardsOverview } from '../../api/cards_overview.js';
 import { fetchGoalsOverview } from '../../api/goals.js';
 import { fetchOverview } from '../../api/overview.js';
@@ -12,6 +13,7 @@ import { usePortfolios } from '../../components/portfolios_provider.js';
 import { MoneyChange, PercentChange } from '../../components/number.js';
 import { KeepPrevious } from '../../components/pending.js';
 import { Panel } from '../../components/primitives.js';
+import { SeriesChart } from '../../components/series_chart.js';
 import { SkeletonChart, SkeletonRegion } from '../../components/skeleton.js';
 import { Amount } from '../../finance/components/amount.js';
 import { EntryDialog } from '../../finance/components/entry_dialog.js';
@@ -25,9 +27,10 @@ import { useFinancePeriod } from '../../finance/components/period_provider.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
 import { PanelBoundary } from '../../finance/components/states.js';
 import { accountsOverview } from '../../finance/domain/accounts.js';
-import { accountsTotal, monthFlow } from '../../finance/domain/cash_flow.js';
+import { accountsTotal } from '../../finance/domain/cash_flow.js';
 import { emptyEntryDraft } from '../../finance/domain/entry_ops.js';
 import type { FinanceData } from '../../finance/domain/types.js';
+import { endOfMonth } from '../../finance/lib/dates.js';
 import type { IsoDate } from '../../finance/lib/dates.js';
 import {
   allocatePercentTenths,
@@ -400,14 +403,10 @@ const CascataDoMes = ({ month }: { readonly month: string }): React.ReactElement
 /* GER-004 · Fluxo do mês                                                     */
 
 export const FluxoDoMesPanel = ({
-  data,
   today,
 }: {
-  readonly data: FinanceData;
   readonly today: IsoDate;
 }): React.ReactElement => {
-  const flow = useMemo(() => monthFlow(data, today), [data, today]);
-
   return (
     <Panel
       title="Fluxo do mês"
@@ -421,33 +420,155 @@ export const FluxoDoMesPanel = ({
       }
       className="flex flex-col"
     >
-      <FinTable caption="Fluxo do mês" fill>
-        <THead>
-          <Th>Até {formatDate(flow.monthEnd as DateOnly)}</Th>
-          <Th align="right">Valor</Th>
-        </THead>
-        <tbody>
-          <Line
-            label="Em contas hoje"
-            to={financeRoutes.accounts()}
-            cents={flow.emContasCents}
-          />
-          <Line label="Receitas previstas" cents={flow.receitasPrevistasCents} sign="+" />
-          <Line label="Despesas previstas" cents={flow.despesasPrevistasCents} sign="−" />
-          <Line
-            label="Faturas a pagar"
-            to={financeRoutes.cards()}
-            cents={flow.faturasAPagarCents}
-            sign="−"
-          />
-          <Line
-            label="Saldo previsto ao fim do mês"
-            cents={flow.saldoPrevistoCents}
-            strong
-          />
-        </tbody>
-      </FinTable>
       <CascataDoMes month={today.slice(0, 7)} />
+    </Panel>
+  );
+};
+
+/**
+ * VGR-04 · Saldo previsto (RN-U9): Em contas hoje + entradas − saídas − aportes
+ * − pagamentos de fatura, ao fim do mês, com a curva dia a dia e o menor saldo.
+ * Tudo lido da previsão do servidor, a mesma de Contas (RN-U16).
+ */
+export const SaldoPrevistoPanel = ({
+  today,
+}: {
+  readonly today: IsoDate;
+}): React.ReactElement => {
+  const from = `${today.slice(0, 7)}-01`;
+  const to = endOfMonth(today);
+  const forecast = useResource(
+    (signal) => fetchForecast({ from, to }, signal),
+    [from, to],
+  );
+  const state = forecast.state;
+  const cents = (value: string): Cents => (decimalToCents(value) ?? 0) as Cents;
+
+  let body: React.ReactElement;
+  if (state.kind === 'loading') {
+    body = <p className="px-4 py-3 text-xs text-ink-3">Carregando o saldo previsto…</p>;
+  } else if (state.kind !== 'ready') {
+    body = (
+      <p role="alert" className="px-4 py-3 text-xs text-negative">
+        Não foi possível carregar o saldo previsto.
+      </p>
+    );
+  } else {
+    const { parts, series } = state.value;
+    const dates = series.points.map((point) => point.date as DateOnly);
+    const lastRealized = series.points.reduce(
+      (index, point, at) => (point.forecast ? index : at),
+      -1,
+    );
+    const realized = {
+      id: 'realizado',
+      label: 'Realizado',
+      color: 'var(--color-accent)',
+      area: true,
+      points: series.points.map((point, at) => ({
+        date: point.date as DateOnly,
+        value: at <= lastRealized ? point.balance : null,
+      })),
+    };
+    const planned = {
+      id: 'previsto',
+      label: 'Previsto',
+      color: 'var(--color-ink-3)',
+      dashed: true,
+      points: series.points.map((point, at) => ({
+        date: point.date as DateOnly,
+        value:
+          at >= lastRealized && lastRealized >= 0
+            ? point.balance
+            : point.forecast
+              ? point.balance
+              : null,
+      })),
+    };
+    const lowest = series.lowest;
+    const lowestCents = lowest === null ? 0 : cents(lowest.balance);
+    body = (
+      <>
+        <FinTable caption="Saldo previsto">
+          <THead>
+            <Th>Até {formatDate(state.value.date as DateOnly)}</Th>
+            <Th align="right">Valor</Th>
+          </THead>
+          <tbody>
+            <Line
+              label="Em contas hoje"
+              to={financeRoutes.accounts()}
+              cents={cents(parts.em_contas)}
+            />
+            <Line label="Entradas previstas" cents={cents(parts.entradas)} sign="+" />
+            <Line label="Saídas previstas" cents={cents(parts.saidas)} sign="−" />
+            <Line label="Aportes previstos" cents={cents(parts.aportes)} sign="−" />
+            <Line
+              label="Pagamentos de fatura"
+              to={financeRoutes.cards()}
+              cents={cents(parts.faturas)}
+              sign="−"
+            />
+            <Line
+              label="Saldo previsto ao fim do mês"
+              cents={cents(parts.saldo)}
+              strong
+            />
+          </tbody>
+        </FinTable>
+        <div className="border-t border-line px-4 pt-3 pb-2">
+          <SeriesChart
+            dates={dates}
+            series={[realized, planned]}
+            valueFormat="money"
+            ariaLabel="Saldo previsto dia a dia"
+            height={160}
+            xTickLabel={(date) => date.slice(8, 10)}
+            tooltipDateLabel={(date) => formatDate(date)}
+            markers={
+              lowest === null
+                ? undefined
+                : [
+                    {
+                      id: 'menor',
+                      date: lowest.date as DateOnly,
+                      value: lowest.balance,
+                      color:
+                        lowestCents < 0 ? 'var(--color-negative)' : 'var(--color-ink-2)',
+                      label: 'Menor saldo',
+                    },
+                  ]
+            }
+            markerLegend="Menor saldo"
+          />
+        </div>
+        {lowest === null ? null : (
+          <p
+            className={`border-t border-line px-4 py-3 text-[0.8125rem] ${
+              lowestCents < 0 ? 'text-negative' : ''
+            }`}
+          >
+            Menor saldo até {formatDate(lowest.date as DateOnly).slice(0, 5)}:{' '}
+            <span className="tabular font-semibold">
+              <Amount cents={lowestCents as Cents} />
+            </span>
+          </p>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <Panel
+      title="Saldo previsto"
+      action={
+        <Link to={financeRoutes.accounts()} className={LINK}>
+          Contas →
+        </Link>
+      }
+      className="flex flex-col"
+    >
+      {body}
     </Panel>
   );
 };
@@ -514,7 +635,10 @@ export const GeralView = ({
             <PatrimonioPanel data={data} today={today} overview={loaded} />
           </PanelBoundary>
           <PanelBoundary title="o fluxo do mês">
-            <FluxoDoMesPanel data={data} today={today} />
+            <FluxoDoMesPanel today={today} />
+          </PanelBoundary>
+          <PanelBoundary title="o saldo previsto">
+            <SaldoPrevistoPanel today={today} />
           </PanelBoundary>
         </div>
 

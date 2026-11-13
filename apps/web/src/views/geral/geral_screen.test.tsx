@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PreferencesProvider } from '../../components/preferences.js';
 import { ShortcutProvider } from '../../components/shortcuts.js';
 import { FinancePeriodProvider } from '../../finance/components/period_provider.js';
-import { cashOutlook, monthFlow } from '../../finance/domain/cash_flow.js';
+import { monthFlow } from '../../finance/domain/cash_flow.js';
 import { setTodayOverride } from '../../finance/lib/clock.js';
 import { formatBRL } from '../../finance/lib/format.js';
 import {
@@ -117,6 +117,7 @@ describe('Visão geral de Geral (GER)', () => {
     for (const name of [
       'Patrimônio',
       'Fluxo do mês',
+      'Saldo previsto',
       'Evolução dos investimentos',
       'Alocação por classe',
       'Objetivos',
@@ -246,17 +247,61 @@ describe('Visão geral de Geral (GER)', () => {
     expect(within(painel).getAllByText(formatBRL(esperado)).length).toBeGreaterThan(0);
   });
 
-  it('o saldo previsto do fim do mês é o mesmo de Finanças (RN-70)', () => {
-    const { store } = open(ready(overviewOf('300000.00')));
-    const fim = monthFlow(store.get(), HOJE).monthEnd;
-    const previsto = cashOutlook(store.get(), HOJE, fim).endCents;
+  it('VGR-04 · o saldo previsto vem da previsão do servidor, com as linhas e o menor saldo', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/finance/forecast')) {
+          return new Response(
+            JSON.stringify({
+              date: '2026-10-31',
+              balance: '130.16',
+              parts: {
+                em_contas: '1462.51',
+                entradas: '2000.00',
+                saidas: '500.00',
+                aportes: '300.00',
+                faturas: '2532.35',
+                saldo: '130.16',
+              },
+              series: {
+                points: [
+                  { date: '2026-10-23', balance: '1462.51', forecast: false },
+                  { date: '2026-10-24', balance: '1462.51', forecast: false },
+                  { date: '2026-10-25', balance: '-50.00', forecast: true },
+                  { date: '2026-10-31', balance: '130.16', forecast: true },
+                ],
+                lowest: { date: '2026-10-25', balance: '-50.00' },
+                at_end: '130.16',
+              },
+            }),
+            { status: 200 },
+          );
+        }
+        return new Response('{}', { status: 500 });
+      }),
+    );
+    open(ready(overviewOf('300000.00')));
 
-    const painel = screen.getByRole('region', { name: 'Fluxo do mês' });
-    const linha = within(painel).getByRole('row', {
+    const painel = screen.getByRole('region', { name: 'Saldo previsto' });
+    const linha = await within(painel).findByRole('row', {
       name: /Saldo previsto ao fim do mês/,
     });
-
-    expect(within(linha).getByText(formatBRL(previsto))).toBeInTheDocument();
+    expect(within(linha).getByText('R$ 130,16')).toBeInTheDocument();
+    for (const label of [
+      'Em contas hoje',
+      'Entradas previstas',
+      'Saídas previstas',
+      'Aportes previstos',
+      'Pagamentos de fatura',
+    ]) {
+      expect(
+        within(painel).getByRole('row', { name: new RegExp(label) }),
+      ).toBeInTheDocument();
+    }
+    expect(within(painel).getByText(/Menor saldo até 25\/10/)).toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 
   it('investimentos que falham dizem o que houve e não viram patrimônio zero', () => {

@@ -53,17 +53,27 @@ const fromAccounts = (
           .map((payment) => dec(payment.amount)),
       );
 
+export type ProjectedParts = {
+  readonly em_contas: string;
+  readonly entradas: string;
+  readonly saidas: string;
+  readonly aportes: string;
+  readonly faturas: string;
+  readonly saldo: string;
+};
+
 /**
- * O saldo previsto ao fim de `upTo`: de todas as contas com "no patrimônio" ou,
- * com `accountId`, só da conta (CTA-01). Mesma fórmula nos dois casos.
+ * O saldo previsto ao fim de `upTo`, com as linhas que o compõem (VGR-04): de
+ * todas as contas com "no patrimônio" ou, com `accountId`, só da conta
+ * (CTA-01). Mesma fórmula nos dois casos.
  */
-export const projectedBalance = (
+export const projectedParts = (
   data: FinSnapshot,
   upTo: string,
   today: string,
   aportes: readonly PlannedAporte[] = [],
   accountId?: string,
-): string => {
+): ProjectedParts => {
   const planned = ledgerPool(data).filter(
     (entry) => entry.status === 'prevista' && compareDates(entry.date, upTo) <= 0,
   );
@@ -97,10 +107,25 @@ export const projectedBalance = (
     accountId === undefined
       ? totalInAccounts(data, today)
       : dec(accountBalance(data, accountId, today));
-  return money(
-    base.plus(receitas).minus(despesas).minus(aportesPrevistos).minus(faturas),
-  );
+  return {
+    em_contas: money(base),
+    entradas: money(receitas),
+    saidas: money(despesas),
+    aportes: money(aportesPrevistos),
+    faturas: money(faturas),
+    saldo: money(
+      base.plus(receitas).minus(despesas).minus(aportesPrevistos).minus(faturas),
+    ),
+  };
 };
+
+export const projectedBalance = (
+  data: FinSnapshot,
+  upTo: string,
+  today: string,
+  aportes: readonly PlannedAporte[] = [],
+  accountId?: string,
+): string => projectedParts(data, upTo, today, aportes, accountId).saldo;
 
 export type ForecastPoint = {
   readonly date: string;

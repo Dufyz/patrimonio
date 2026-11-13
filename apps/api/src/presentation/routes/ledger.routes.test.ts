@@ -707,6 +707,21 @@ describe('aporte recorrente e previstos de aporte (LIV-11)', () => {
     expect(antes.body.planned_aportes).toHaveLength(0);
   });
 
+  it('VGR-04 · a previsão traz as linhas que compõem o saldo e elas fecham', async () => {
+    await criar();
+    const res = await previsao('2026-10-31');
+    const { parts, balance } = res.body;
+    expect(parts.aportes).toBe('500.00');
+    const soma =
+      Number(parts.em_contas) +
+      Number(parts.entradas) -
+      Number(parts.saidas) -
+      Number(parts.aportes) -
+      Number(parts.faturas);
+    expect(soma).toBeCloseTo(Number(balance), 2);
+    expect(parts.saldo).toBe(balance);
+  });
+
   it('o previsto de aporte não entra em Aportes do livro', async () => {
     await criar();
     const livro = await request(harness.app).get(
