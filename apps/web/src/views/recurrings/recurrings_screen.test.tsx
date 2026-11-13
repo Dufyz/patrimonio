@@ -1,3 +1,4 @@
+import axe from 'axe-core';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -154,5 +155,25 @@ describe('Recorrentes (REC-01/02/03/05)', () => {
     expect(modal.getByLabelText('Carteira')).toBeTruthy();
     expect(modal.queryByLabelText('Categoria')).toBeNull();
     expect((modal.getByLabelText('Lançamento') as HTMLSelectElement).disabled).toBe(true);
+  });
+});
+
+const aaViolations = async (container: HTMLElement): Promise<readonly string[]> => {
+  const result = await axe.run(container, {
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+    rules: { 'color-contrast': { enabled: false }, region: { enabled: false } },
+  });
+  return result.violations.map(
+    (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,
+  );
+};
+
+describe('REC-07 · acessibilidade de Recorrentes nos dois temas', () => {
+  it.each(['light', 'dark'])('sem violação AA (tema %s)', async (theme) => {
+    document.documentElement.dataset['theme'] = theme;
+    stub();
+    const { container } = open();
+    await screen.findByRole('table', { name: 'Recorrentes' });
+    expect(await aaViolations(container)).toEqual([]);
   });
 });

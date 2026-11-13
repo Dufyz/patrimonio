@@ -196,9 +196,11 @@ export const CategoriesScreen = (): React.ReactElement => {
                   <SectionRow colSpan={cols} label={section.label} />
                   <tr className="border-b border-line">
                     <Th>Categoria</Th>
-                    {withNature ? <Th>Natureza</Th> : null}
+                    {withNature ? <Th className="max-md:hidden">Natureza</Th> : null}
                     <Th align="right">Lançado</Th>
-                    <Th align="right">Previsto</Th>
+                    <Th align="right" className="max-lg:hidden">
+                      Previsto
+                    </Th>
                     <Th>
                       <span className="sr-only">Ações</span>
                     </Th>
@@ -223,12 +225,14 @@ export const CategoriesScreen = (): React.ReactElement => {
                         </Link>
                       </Td>
                       {withNature ? (
-                        <Td>{line.nature == null ? '—' : NATURE_LABEL[line.nature]}</Td>
+                        <Td className="max-md:hidden">
+                          {line.nature == null ? '—' : NATURE_LABEL[line.nature]}
+                        </Td>
                       ) : null}
                       <Td numeric>
                         {isEmptyPeriod(line.posted) ? '0' : money(line.posted)}
                       </Td>
-                      <Td numeric>
+                      <Td numeric className="max-lg:hidden">
                         {isEmptyPeriod(line.planned) ? '—' : money(line.planned)}
                       </Td>
                       <Td align="right">
