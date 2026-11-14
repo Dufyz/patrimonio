@@ -5,7 +5,7 @@ import type {
   PerformanceResource,
 } from '@patrimonio/contracts';
 import type { DateOnly } from '@patrimonio/domain';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { fetchGoalsOverview } from '../api/goals.js';
@@ -13,6 +13,7 @@ import { fetchOverview } from '../api/overview.js';
 import { fetchPerformance } from '../api/performance.js';
 
 import { useEntry } from '../components/entry_provider.js';
+import { useShortcuts } from '../components/shortcuts.js';
 import { Money, MoneyChange, Percent, PercentChange } from '../components/number.js';
 import { OverviewHeader } from '../components/overview_header.js';
 import { KeepPrevious } from '../components/pending.js';
@@ -590,6 +591,18 @@ export const OverviewView = ({
   const { state, pending, reload } = resource;
   const { hidden, toggleHidden } = usePreferences();
   const entry = useEntry();
+  const openEntry = entry.openEntry;
+
+  // VGR-17.3: N lança e F leva o foco ao período, que é o filtro desta tela.
+  const shortcuts = useMemo(
+    () => ({
+      new_transaction: () => openEntry(),
+      filter: () =>
+        document.querySelector<HTMLElement>('button[aria-label^="Período:"]')?.focus(),
+    }),
+    [openEntry],
+  );
+  useShortcuts(shortcuts);
 
   if (state.kind === 'loading') return <Skeleton />;
   if (state.kind === 'error') return <Failed error={state.error} onRetry={reload} />;

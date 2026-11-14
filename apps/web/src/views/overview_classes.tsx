@@ -113,8 +113,8 @@ export const ClassesTable = ({
         />
       </div>
 
-      <div className="flex-1 overflow-x-auto">
-        <table className="w-full min-w-80 border-collapse text-[0.8125rem]">
+      <div className="flex-1">
+        <table className="w-full border-collapse text-[0.8125rem]">
           <caption className="sr-only">Distribuição por classe de ativo</caption>
           <thead>
             <tr className="tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
@@ -128,7 +128,10 @@ export const ClassesTable = ({
                 Peso
               </th>
               {consolidated ? null : (
-                <th scope="col" className="px-4 py-[9px] text-right font-medium">
+                <th
+                  scope="col"
+                  className="px-4 py-[9px] text-right font-medium max-sm:hidden"
+                >
                   vs alvo
                 </th>
               )}
@@ -186,7 +189,7 @@ export const ClassesTable = ({
                     <Percent value={percentAsRatio(line.currentPct)} decimals={1} />
                   </td>
                   {consolidated ? null : (
-                    <td className="px-4 text-right">
+                    <td className="px-4 text-right max-sm:hidden">
                       <Points
                         value={line.deviation}
                         decimals={1}
@@ -212,7 +215,7 @@ export const ClassesTable = ({
                       <td className="px-4 text-right">
                         <Percent value={percentAsRatio(member.currentPct)} decimals={1} />
                       </td>
-                      {consolidated ? null : <td />}
+                      {consolidated ? null : <td className="max-sm:hidden" />}
                     </tr>
                   ))
                 : [];

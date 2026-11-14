@@ -75,7 +75,7 @@ export const PortfoliosPanel = ({
         </div>
       ) : null}
 
-      <div className="flex-1 overflow-x-auto">
+      <div className="flex-1">
         <table className="h-full w-full border-collapse text-[0.8125rem]">
           <caption className="sr-only">Valor de cada carteira</caption>
           <thead>
@@ -87,7 +87,10 @@ export const PortfoliosPanel = ({
                 Valor
               </th>
               {withWeight ? (
-                <th scope="col" className="px-4 py-[9px] text-right font-medium">
+                <th
+                  scope="col"
+                  className="px-4 py-[9px] text-right font-medium max-sm:hidden"
+                >
                   Peso
                 </th>
               ) : null}
@@ -126,7 +129,7 @@ export const PortfoliosPanel = ({
                   <Money value={line.value} />
                 </td>
                 {withWeight ? (
-                  <td className="px-4 text-right">
+                  <td className="px-4 text-right max-sm:hidden">
                     <Percent value={percentAsRatio(line.weight)} decimals={1} />
                   </td>
                 ) : null}
@@ -144,7 +147,7 @@ export const PortfoliosPanel = ({
               <td className="px-4 text-right">
                 <Money value={total} />
               </td>
-              {withWeight ? <td /> : null}
+              {withWeight ? <td className="max-sm:hidden" /> : null}
             </tr>
           </tfoot>
         </table>

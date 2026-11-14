@@ -9,9 +9,19 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { PreferencesProvider } from '../components/preferences.js';
+import { ShortcutProvider } from '../components/shortcuts.js';
 import { DEFAULT_PERIOD } from '../lib/period.js';
 import type { Resource } from '../lib/use_resource.js';
 import { OverviewView } from './overview.js';
+
+const entry = vi.hoisted(() => ({
+  openEntry: vi.fn(),
+  openEdit: vi.fn(),
+  openConfirmPayout: vi.fn(),
+  version: 0,
+}));
+
+vi.mock('../components/entry_provider.js', () => ({ useEntry: () => entry }));
 
 /**
  * O que a tela promete e o teste cobra: a ordem das perguntas, o bloco que
@@ -311,17 +321,31 @@ const showConsolidated = (opened: string[] = []) =>
 const show = (resource: Resource<OverviewResource>) =>
   render(
     <PreferencesProvider storage={null}>
-      <OverviewView
-        resource={resource}
-        performance={readyPerf(performanceData)}
-        extraIds={[]}
-        onExtraIdsChange={() => {}}
-        period={DEFAULT_PERIOD}
-        onPeriodChange={() => {}}
-        today={HOJE}
-      />
+      <ShortcutProvider>
+        <OverviewView
+          resource={resource}
+          performance={readyPerf(performanceData)}
+          extraIds={[]}
+          onExtraIdsChange={() => {}}
+          period={DEFAULT_PERIOD}
+          onPeriodChange={() => {}}
+          today={HOJE}
+        />
+      </ShortcutProvider>
     </PreferencesProvider>,
   );
+
+describe('teclado (VGR-17)', () => {
+  it('N abre o lançamento e F leva o foco ao período', async () => {
+    show(ready(overview));
+
+    await userEvent.keyboard('n');
+    expect(entry.openEntry).toHaveBeenCalledTimes(1);
+
+    await userEvent.keyboard('f');
+    expect(document.activeElement?.getAttribute('aria-label') ?? '').toMatch(/^Período:/);
+  });
+});
 
 describe('todas as carteiras', () => {
   it('diz de quê é o número e mostra quanto cada carteira pesa', () => {
@@ -764,5 +788,18 @@ describe('VGR-18 · acessibilidade da Visão geral de Investimentos nos dois tem
         (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,
       ),
     ).toEqual([]);
+  });
+});
+
+describe('responsividade (VGR-17)', () => {
+  it('a coluna de menor prioridade some em janela estreita e não há rolagem horizontal', () => {
+    show(ready(overview));
+
+    const classes = screen.getByRole('table', {
+      name: 'Distribuição por classe de ativo',
+    });
+    const header = within(classes).getByRole('columnheader', { name: 'vs alvo' });
+    expect(header.className).toContain('max-sm:hidden');
+    expect(document.querySelector('.overflow-x-auto')).toBeNull();
   });
 });
