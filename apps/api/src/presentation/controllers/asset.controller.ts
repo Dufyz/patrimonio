@@ -131,6 +131,7 @@ export const createAssetController = (deps: AssetDeps): AssetController => ({
             name: body.name,
             origin: 'market',
             b3_type: body.b3_type,
+            etf_exposure: body.etf_exposure,
             category_id: body.category_id,
             sector: body.sector,
             price_source: body.price_source,
@@ -314,8 +315,13 @@ export const createAssetController = (deps: AssetDeps): AssetController => ({
       return;
     }
 
-    const { as_of, rule, valuation, incomplete, missing_days: missingDays } =
-      result.value;
+    const {
+      as_of,
+      rule,
+      valuation,
+      incomplete,
+      missing_days: missingDays,
+    } = result.value;
 
     response.status(200).json({
       as_of,

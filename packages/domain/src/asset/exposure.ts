@@ -56,3 +56,15 @@ export const exposureClassOf = (
       return 'outros';
   }
 };
+
+/**
+ * A classe de cada exposição de ETF é uma categoria do catálogo (filha do grupo
+ * da classe). Estratégia, Alocação da Visão geral e Posições agrupam pelo grupo
+ * da categoria; ligar a exposição à categoria é o que faz as três concordarem.
+ */
+export const ETF_EXPOSURE_CATEGORY_ID: Readonly<Record<EtfExposure, string>> = {
+  acoes_brasil: '01960000-0002-7000-8000-000000000030',
+  fiis: '01960000-0002-7000-8000-000000000031',
+  renda_fixa: '01960000-0002-7000-8000-000000000032',
+  acoes_exterior: '01960000-0002-7000-8000-000000000033',
+};

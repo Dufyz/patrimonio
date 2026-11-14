@@ -57,6 +57,7 @@ export const marketAssetSchema = z.object({
   ticker: z.string().trim().min(1).max(20).toUpperCase(),
   name,
   b3_type: b3TypeSchema.optional(),
+  etf_exposure: etfExposureSchema.nullable().optional(),
   category_id: uuid.nullable().optional(),
   sector: z.string().trim().max(120).nullable().optional(),
   price_source: priceSourceSchema.optional(),

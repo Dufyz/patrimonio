@@ -81,6 +81,7 @@ export const createAssetIn = async (
         indexer: draft.indexer,
         origin: draft.origin,
         sector: draft.sector,
+        etf_exposure: draft.etf_exposure,
       },
       categories.value,
     );
@@ -204,7 +205,31 @@ export const updateAsset = (deps: AssetWriteDeps) =>
         (field) => patch[field] !== undefined && patch[field] !== before[field],
       );
 
-      const updated = await repositories.assets.update(id, patch);
+      // EST-02: o que o ETF expõe escolhe a categoria da classe dele, a menos
+      // que a edição já traga a categoria.
+      let effectivePatch = patch;
+      let exposureChanged = false;
+      if (
+        patch.etf_exposure !== undefined &&
+        patch.etf_exposure !== null &&
+        patch.etf_exposure !== before.etf_exposure &&
+        patch.category_id === undefined &&
+        (patch.b3_type ?? before.b3_type) === 'etf'
+      ) {
+        const categories = await repositories.categories.list();
+        if (categories.isFailure()) return categories;
+
+        const byExposure = classifyAsset(
+          { b3_type: 'etf', etf_exposure: patch.etf_exposure },
+          categories.value,
+        );
+        if (byExposure !== null && byExposure.id !== before.category_id) {
+          effectivePatch = { ...patch, category_id: byExposure.id };
+          exposureChanged = true;
+        }
+      }
+
+      const updated = await repositories.assets.update(id, effectivePatch);
       if (updated.isFailure()) return updated;
       if (updated.value === null) {
         return failure(new NotFoundError(`Ativo ${id} não encontrado`));
@@ -224,7 +249,7 @@ export const updateAsset = (deps: AssetWriteDeps) =>
         if (moved.isFailure()) return moved;
       }
 
-      if (reclassified || recurved || reissued) {
+      if (reclassified || exposureChanged || recurved || reissued) {
         const holdings = await repositories.ledger.portfoliosHoldingAsset(id);
         if (holdings.isFailure()) return holdings;
 

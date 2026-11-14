@@ -1,3 +1,5 @@
+import { ETF_EXPOSURE_CATEGORY_ID } from '../asset/exposure.js';
+
 /**
  * Dois níveis: grupo (`parent_id` nulo) e categoria. O grupo é a soma das
  * categorias dentro dele, e isso é restrição do banco, não convenção: a
@@ -35,6 +37,8 @@ export type ClassifiableAsset = {
   readonly indexer?: string | null | undefined;
   readonly origin?: string | null | undefined;
   readonly sector?: string | null | undefined;
+  /** EST-02: o que o ETF expõe escolhe a categoria da classe dele. */
+  readonly etf_exposure?: string | null | undefined;
 };
 
 const RULE_KEYS = ['b3_type', 'indexer', 'origin', 'sector'] as const;
@@ -67,6 +71,14 @@ export const classifyAsset = (
   asset: ClassifiableAsset,
   categories: readonly Category[],
 ): Category | null => {
+  if (asset.b3_type === 'etf' && asset.etf_exposure) {
+    const id = (ETF_EXPOSURE_CATEGORY_ID as Record<string, string | undefined>)[
+      asset.etf_exposure
+    ];
+    const byExposure = categories.find((category) => category.id === id);
+    if (byExposure !== undefined) return byExposure;
+  }
+
   const candidates = categories
     .filter(
       (category) => category.auto_rule !== null && matches(category.auto_rule, asset),

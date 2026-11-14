@@ -189,3 +189,50 @@ describe('editar, arquivar e excluir', () => {
     expect(response.status).toBe(200);
   });
 });
+
+describe('exposição do ETF define a classe (EST-02)', () => {
+  const ETF_ACOES = '01960000-0002-7000-8000-000000000030';
+  const ETF_RF = '01960000-0002-7000-8000-000000000032';
+
+  const garantirCategoriasDeETF = async () => {
+    await harness.sql`
+      INSERT INTO category (id, name, color_token)
+      VALUES (${ETF_ACOES}, 'ETF de ações', 'class.etf'),
+             (${ETF_RF}, 'ETF de renda fixa', 'class.etf')
+      ON CONFLICT (id) DO NOTHING
+    `;
+  };
+
+  it('o ETF cadastrado com exposição cai na categoria dela', async () => {
+    await garantirCategoriasDeETF();
+
+    const response = await criarAtivo({
+      ticker: 'IMAB11',
+      name: 'It Now IMA-B',
+      b3_type: 'etf',
+      etf_exposure: 'renda_fixa',
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body.asset.category_id).toBe(ETF_RF);
+  });
+
+  it('trocar a exposição move o ETF de categoria', async () => {
+    await garantirCategoriasDeETF();
+    const criado = await criarAtivo({
+      ticker: 'BOVA11',
+      name: 'iShares Ibovespa',
+      b3_type: 'etf',
+      etf_exposure: 'acoes_brasil',
+    });
+    expect(criado.body.asset.category_id).toBe(ETF_ACOES);
+
+    const response = await request(harness.app)
+      .patch(`/api/assets/${criado.body.asset.id}`)
+      .send({ etf_exposure: 'renda_fixa' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.asset.etf_exposure).toBe('renda_fixa');
+    expect(response.body.asset.category_id).toBe(ETF_RF);
+  });
+});

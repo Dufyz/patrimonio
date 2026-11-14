@@ -74,3 +74,34 @@ describe('classificação automática', () => {
     ).toBeNull();
   });
 });
+
+describe('classifyAsset · exposição do ETF (EST-02)', () => {
+  const cat = (id: string, sort: number): Category => ({
+    id,
+    parent_id: null,
+    name: `c${sort}`,
+    color_token: 'class.etf',
+    auto_rule: null,
+    sort_order: sort,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+  });
+
+  it('manda o ETF para a categoria da exposição dele', () => {
+    const categories = [
+      cat('01960000-0002-7000-8000-000000000030', 1),
+      cat('01960000-0002-7000-8000-000000000032', 2),
+    ];
+    expect(
+      classifyAsset({ b3_type: 'etf', etf_exposure: 'renda_fixa' }, categories)?.id,
+    ).toBe('01960000-0002-7000-8000-000000000032');
+  });
+
+  it('sem exposição, o ETF segue as regras automáticas', () => {
+    expect(
+      classifyAsset({ b3_type: 'etf', etf_exposure: null }, [
+        cat('01960000-0002-7000-8000-000000000030', 1),
+      ]),
+    ).toBeNull();
+  });
+});

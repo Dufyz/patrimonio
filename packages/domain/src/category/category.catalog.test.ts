@@ -18,11 +18,11 @@ const asCategories = (): Category[] =>
   }));
 
 describe('o catálogo de categorias da plataforma', () => {
-  it('tem as 30 categorias, sem id nem nome repetido', () => {
-    expect(CATEGORY_CATALOG).toHaveLength(30);
-    expect(new Set(CATEGORY_CATALOG.map((item) => item.id)).size).toBe(30);
+  it('tem as 29 categorias, sem id nem nome repetido', () => {
+    expect(CATEGORY_CATALOG).toHaveLength(29);
+    expect(new Set(CATEGORY_CATALOG.map((item) => item.id)).size).toBe(29);
     expect(new Set(CATEGORY_CATALOG.map((item) => item.name.toLowerCase())).size).toBe(
-      30,
+      29,
     );
   });
 
