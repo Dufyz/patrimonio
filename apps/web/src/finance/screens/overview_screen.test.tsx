@@ -194,7 +194,7 @@ describe('Faturas abertas e Contas (FVG-005, FVG-006)', () => {
   it('Faturas abertas mostra fatura e limite por cartão, com o total no rodapé', () => {
     open();
     const panel = screen.getByRole('region', { name: 'Faturas abertas' });
-    expect(within(panel).getByText('% do limite usado')).toBeTruthy();
+    expect(within(panel).getByText('posição de hoje · % do limite usado')).toBeTruthy();
     expect(within(panel).getByRole('columnheader', { name: 'Limite' })).toBeTruthy();
     expect(panel.textContent).toContain('R$ 5.422,27');
     expect(panel.textContent).toMatch(/fecham \d\d\/\d\d · vencem \d\d\/\d\d/u);

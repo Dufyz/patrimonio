@@ -111,6 +111,22 @@ const open = (overview: Resource<OverviewResource>, onNewEntry?: () => void) => 
 };
 
 describe('Visão geral de Geral (GER)', () => {
+  it('VGR-14 · todo painel que ignora o período diz "posição de hoje"', () => {
+    open(ready(overviewOf('300000.00')));
+
+    for (const name of [
+      'Alocação por classe',
+      'Carteiras',
+      'Objetivos',
+      'Faturas abertas',
+      'Contas',
+    ]) {
+      expect(
+        within(screen.getByRole('region', { name })).getByText(/posição de hoje/),
+      ).toBeInTheDocument();
+    }
+  });
+
   it('abre com a data de hoje e os painéis da prancha', () => {
     open(ready(overviewOf('300000.00')));
 

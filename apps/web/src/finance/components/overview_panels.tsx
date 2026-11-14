@@ -616,7 +616,7 @@ export const FaturasAbertasPanel = ({
       title="Faturas abertas"
       action={
         <PanelHeaderAction
-          hint="% do limite usado"
+          hint="posição de hoje · % do limite usado"
           more={more ?? { to: financeRoutes.cards(), label: 'Cartões' }}
         />
       }
@@ -722,7 +722,7 @@ export const ContasPanel = ({
       title="Contas"
       action={
         <PanelHeaderAction
-          hint="saldo de hoje"
+          hint="posição de hoje · saldo de cada conta"
           more={more ?? { to: financeRoutes.accounts(), label: 'Contas' }}
         />
       }

@@ -746,7 +746,7 @@ export const GeralView = ({
         <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
           <Panel
             title="Alocação por classe"
-            hint="soma das carteiras"
+            hint="soma das carteiras · posição de hoje"
             className="flex flex-col"
             action={
               <Link to={routes.home('investimentos', ALL_SCOPE)} className={LINK}>
@@ -772,6 +772,7 @@ export const GeralView = ({
 
           <Panel
             title="Carteiras"
+            hint="posição de hoje"
             className="flex flex-col"
             action={
               <Link to={routes.home('investimentos', ALL_SCOPE)} className={LINK}>
@@ -792,6 +793,7 @@ export const GeralView = ({
 
           <Panel
             title="Objetivos"
+            hint="posição de hoje"
             className="flex flex-col xl:col-span-2"
             action={
               <Link to={routes.portfolio(ALL_SCOPE, 'objetivos')} className={LINK}>
