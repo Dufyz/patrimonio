@@ -389,7 +389,7 @@ describe('GET /api/performance · por classe', () => {
       '12m',
       'inception',
     ]);
-    expect(breakdown.portfolios).toBeUndefined();
+    expect(breakdown.portfolios).toEqual([]);
   });
 
   it('a classe rende por Dietz modificado: o aporte pesa pelo tempo que ficou investido', async () => {
@@ -478,9 +478,11 @@ describe('GET /api/performance · todas as carteiras', () => {
     const todas = windows.rows[0];
 
     // Patrimônio: 15.000 → 18.250, mas 2.000 são aporte. A cota reconstruída
-    // fica entre o retorno das duas carteiras (10% e 5%).
+    // fica entre o retorno das duas carteiras (10% e 5%). O provento de 100 do
+    // longo prazo saiu da carteira e conta como rendimento, o que a puxa para
+    // cima de um cálculo só de patrimônio.
     expect(numero(todas.values[6])).toBeGreaterThan(7);
-    expect(numero(todas.values[6])).toBeLessThan(8);
+    expect(numero(todas.values[6])).toBeLessThan(10);
   });
 
   it('devolve o retorno de cada carteira pela cota dela', async () => {

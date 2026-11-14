@@ -241,12 +241,16 @@ describe('quanto veio de aporte e quanto veio de rentabilidade', () => {
         contributions: '8000.00',
         total: '9000.00',
         result: '1000.00',
+        payouts: '0.00',
+        with_payouts: '9000.00',
       },
       {
         date: '2026-10-02',
         contributions: '8000.00',
         total: '10000.00',
         result: '2000.00',
+        payouts: '0.00',
+        with_payouts: '10000.00',
       },
     ]);
   });

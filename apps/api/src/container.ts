@@ -208,6 +208,7 @@ export const createApiUseCases = (deps: {
     unitOfWork: deps.unitOfWork,
     clock: deps.clock,
     staleAfterDays: environment.market.priceStaleAfterDays,
+    ceilings: { brapi: environment.market.brapiMonthlyCeiling },
   }),
   refreshMarketData: refreshMarketData({
     unitOfWork: deps.unitOfWork,

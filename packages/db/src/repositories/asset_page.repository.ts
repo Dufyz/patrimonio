@@ -473,7 +473,7 @@ export const createAssetPageRepository = (sql: Connection): AssetPageRepository 
           )
           SELECT JSON_BUILD_OBJECT(
             'asset', (SELECT ROW_TO_JSON(ar) FROM (
-                       SELECT asset_id, ticker, name, origin, b3_type, sector,
+                       SELECT asset_id, ticker, name, origin, b3_type, etf_exposure, sector,
                               price_source, category_id, category_name, color_token,
                               category_automatic, issuer_id, issuer_name, archived_at, indexer,
                               rate, issued_at, maturity_date, liquidity,

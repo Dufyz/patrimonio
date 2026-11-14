@@ -44,6 +44,8 @@ const schema = z
     MARKET_BRAPI_TOKEN: z.string().optional(),
     MARKET_REQUEST_TIMEOUT_MS: positiveInt.default(10_000),
     PRICE_STALE_AFTER_DAYS: positiveInt.default(3),
+    // O teto mensal de requisições do plano da brapi; a tela de mercado mostra o consumo contra ele.
+    MARKET_BRAPI_MONTHLY_CEILING: positiveInt.default(15_000),
 
     // ─── Lançamentos ────────────────────────────────────────────────────────
     // A janela do desfazer depois de excluir um lançamento. Curta demais não dá
@@ -121,6 +123,7 @@ export type Environment = {
     readonly brapiToken: string | undefined;
     readonly requestTimeoutMs: number;
     readonly priceStaleAfterDays: number;
+    readonly brapiMonthlyCeiling: number;
   };
   readonly ledger: {
     readonly undoWindowSeconds: number;
@@ -172,6 +175,7 @@ const group = (raw: Raw): Environment => ({
     brapiToken: raw.MARKET_BRAPI_TOKEN,
     requestTimeoutMs: raw.MARKET_REQUEST_TIMEOUT_MS,
     priceStaleAfterDays: raw.PRICE_STALE_AFTER_DAYS,
+    brapiMonthlyCeiling: raw.MARKET_BRAPI_MONTHLY_CEILING,
   },
   ledger: {
     undoWindowSeconds: raw.UNDO_WINDOW_SECONDS,

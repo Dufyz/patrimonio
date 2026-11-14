@@ -106,7 +106,13 @@ describe('situação dos dados de mercado', () => {
   });
 
   it('o consumo da cota aparece contra o teto do plano', async () => {
-    await registrarColeta({ requests: 600 });
+    // A janela do orçamento conta a partir de hoje: a coleta tem de ser recente.
+    const agora = new Date();
+    await registrarColeta({
+      requests: 600,
+      started_at: new Date(agora.getTime() - 60_000).toISOString(),
+      finished_at: agora.toISOString(),
+    });
 
     const { body } = await request(harness.app).get(
       '/api/market/health?on_date=2026-10-06',

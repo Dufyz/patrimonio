@@ -35,7 +35,7 @@ export const PROJECTION_ROUTE_DOCS: readonly RouteDoc[] = [
   },
   {
     method: 'put',
-    path: '/portfolios/{portfolio_id}/projection-plan',
+    path: '/portfolios/:portfolio_id/projection-plan',
     tag: TAG,
     summary: 'Troca a rentabilidade esperada e as regras de aporte da carteira',
     request: putProjectionPlanSchema,

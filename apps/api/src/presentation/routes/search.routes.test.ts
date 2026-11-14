@@ -145,17 +145,20 @@ describe('papéis do catálogo', () => {
 describe('o que a busca recusa', () => {
   it.each([
     ['sem texto', ''],
-    ['sem carteira', 'q=itub&limit=5&sem-carteira=1'],
     ['só espaço', 'q=%20%20'],
     ['texto longo demais', `q=${'a'.repeat(81)}`],
     ['carteira que não é UUID', 'q=itub&portfolio_id=longo-prazo'],
     ['limite acima de dez', 'q=itub&limit=11'],
     ['limite zero', 'q=itub&limit=0'],
   ])('responde 400 para %s', async (_caso, query) => {
-    const response = await request(harness.app).get(
-      `/api/search?${query === 'q=itub&limit=5&sem-carteira=1' ? query : comCarteira(query)}`,
-    );
+    const response = await request(harness.app).get(`/api/search?${comCarteira(query)}`);
 
     expect(response.status).toBe(400);
+  });
+
+  it('sem carteira busca em todas, e não recusa', async () => {
+    const response = await request(harness.app).get('/api/search?q=itub&limit=5');
+
+    expect(response.status).toBe(200);
   });
 });

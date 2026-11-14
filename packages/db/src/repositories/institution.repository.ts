@@ -21,7 +21,9 @@ export const createInstitutionRepository = (sql: Connection): InstitutionReposit
 
   list: async () => {
     try {
-      const rows = await sql<Row[]>`SELECT * FROM institution ORDER BY LOWER(name)`;
+      const rows = await sql<Row[]>`SELECT * FROM institution
+         ORDER BY TRANSLATE(LOWER(name), 'áàâãäéèêëíìîïóòôõöúùûüç', 'aaaaaeeeeiiiiooooouuuuc'),
+                  LOWER(name)`;
 
       return success(rows.map((row) => parseInstitutionFromDB(row)));
     } catch (error) {

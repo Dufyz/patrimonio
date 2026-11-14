@@ -27,7 +27,7 @@ export type RouteBudget = {
 };
 
 export const QUERY_BUDGETS: readonly RouteBudget[] = [
-  { path: '/overview', screen: 'Visão geral', max: 2, reaches: 2 },
+  { path: '/overview', screen: 'Visão geral', max: 2, reaches: 1 },
   { path: '/positions', screen: 'Posições', max: 2, reaches: 2 },
   { path: '/assets/:asset_id/page', screen: 'Ativo', max: 2, reaches: 2 },
   { path: '/statement', screen: 'Movimentações', max: 2, reaches: 2 },

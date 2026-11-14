@@ -175,6 +175,12 @@ const windowReturn = (
 
   if (base === null) return { return_pct: null, return_method: 'unavailable' };
 
+  // Um único fechamento, sem anterior: não há intervalo para medir. Zero seria
+  // dizer que a carteira não rendeu, quando ela apenas não tem história.
+  if (fromInception && snapshot.days.length < 2) {
+    return { return_pct: null, return_method: 'unavailable' };
+  }
+
   if (scoped) {
     if (base.quota_value === null || last.quota_value === null) {
       return { return_pct: null, return_method: 'unavailable' };
@@ -188,15 +194,18 @@ const windowReturn = (
 
   // A semente é o fechamento anterior à janela, com cota em 1: o retorno é uma
   // razão entre cotas, então o valor da semente não entra na resposta.
-  const series = buildQuotaSeries(fromInception ? snapshot.days.slice(1) : snapshot.days, {
-    previous: {
-      position_date: base.position_date,
-      total_value: base.total_value,
-      quota_value: '1',
-      quota_count: base.total_value,
-      cumulative_contributions: base.cumulative_contributions,
+  const series = buildQuotaSeries(
+    fromInception ? snapshot.days.slice(1) : snapshot.days,
+    {
+      previous: {
+        position_date: base.position_date,
+        total_value: base.total_value,
+        quota_value: '1',
+        quota_count: base.total_value,
+        cumulative_contributions: base.cumulative_contributions,
+      },
     },
-  });
+  );
 
   const end = series.at(-1);
   if (end === undefined) return { return_pct: null, return_method: 'unavailable' };
