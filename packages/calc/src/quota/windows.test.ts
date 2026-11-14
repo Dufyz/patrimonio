@@ -73,14 +73,14 @@ describe('retorno por janela', () => {
 
     expect(month?.from.position_date).toBe('2024-03-08');
     expect(month?.to.position_date).toBe('2024-04-30');
-    expect(month?.return_pct).toBe('6.52');
+    expect(month?.return_pct).toBe('7.29');
   });
 
   it('desde o início mede contra a primeira cota da série', () => {
     const inception = resolveWindow(series, 'inception');
 
     expect(inception?.from.position_date).toBe('2024-03-01');
-    expect(inception?.return_pct).toBe('6.87');
+    expect(inception?.return_pct).toBe('8.00');
   });
 
   it('janela maior que o histórico devolve traço, nunca um número extrapolado', () => {
@@ -111,9 +111,9 @@ describe('retorno por janela', () => {
   it('todas as janelas saem de uma chamada, com traço onde não há histórico', () => {
     const windows = allWindows(series);
 
-    expect(windows.month?.return_pct).toBe('6.52');
+    expect(windows.month?.return_pct).toBe('7.29');
     expect(windows.ytd).toBeNull();
-    expect(windows.inception?.return_pct).toBe('6.87');
+    expect(windows.inception?.return_pct).toBe('8.00');
   });
 });
 
@@ -123,8 +123,8 @@ describe('duas linhas e nada mais', () => {
 
     const direct = returnBetween(
       'month',
-      { position_date: '2024-03-08', quota_value: '1.003311258278' },
-      { position_date: '2024-04-30', quota_value: '1.068716992204' },
+      { position_date: '2024-03-08', quota_value: '1.006589838954' },
+      { position_date: '2024-04-30', quota_value: '1.080007188979' },
     );
 
     expect(direct?.return_pct).toBe(month?.return_pct);

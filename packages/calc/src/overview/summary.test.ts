@@ -21,9 +21,9 @@ describe('a variação do cabeçalho', () => {
   it('não inventa proporção quando a base é zero: a carteira começou vazia', () => {
     const [previous, current] = fromEmpty;
 
-    expect(valueChange(previous?.total_value ?? null, current?.total_value ?? null)).toEqual(
-      { amount: '1000.00', ratio: null },
-    );
+    expect(
+      valueChange(previous?.total_value ?? null, current?.total_value ?? null),
+    ).toEqual({ amount: '1000.00', ratio: null });
   });
 
   it('sem fechamento anterior não há variação, e isso não é zero', () => {
@@ -67,6 +67,8 @@ describe('as faixas do gráfico de evolução', () => {
       contributions: '95000.00',
       total: '105900.00',
       result: '10900.00',
+      payouts: '150.00',
+      with_payouts: '106050.00',
     });
   });
 
@@ -77,6 +79,8 @@ describe('as faixas do gráfico de evolução', () => {
         contributions: '95000.00',
         total: '88000.00',
         result: '-7000.00',
+        payouts: '0.00',
+        with_payouts: '88000.00',
       },
     ]);
   });

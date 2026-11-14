@@ -48,7 +48,8 @@ describe('a cota separa aporte de rentabilidade', () => {
 
   it('provento entra como rendimento e fica destacado', () => {
     expect(series[4]?.payouts).toBe('50.00');
-    expect(series[4]?.income).toBe('50.00');
+    // O mercado deu 50 e o provento de 50 saiu da carteira: rendimento 100.
+    expect(series[4]?.income).toBe('100.00');
   });
 
   it('o mês com queda devolve rendimento negativo, sem truncar em zero', () => {

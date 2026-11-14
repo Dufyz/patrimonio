@@ -8,11 +8,11 @@ import { buildQuotaSeries } from './series.js';
 const months = decomposeByMonth(buildQuotaSeries(twoMonths));
 
 describe('a identidade do mês', () => {
-  it('saldo inicial + aporte líquido + rendimento = saldo final, em todo mês', () => {
+  it('saldo inicial + aporte líquido + variação de preço = saldo final, em todo mês (o provento sai da carteira)', () => {
     for (const month of months) {
       const closing = new Decimal(month.opening_value)
         .plus(new Decimal(month.net_flow))
-        .plus(new Decimal(month.income));
+        .plus(new Decimal(month.price_change));
 
       expect(closing.toFixed(2)).toBe(month.closing_value);
     }
@@ -28,20 +28,20 @@ describe('a identidade do mês', () => {
 });
 
 describe('o que o mês separa', () => {
-  it('março: quinze mil de aporte e rendimento zero, apesar do movimento no meio', () => {
+  it('março: quinze mil de aporte e só o provento de rendimento, apesar do movimento no meio', () => {
     expect(months[0]?.month).toBe('2024-03');
     expect(months[0]?.net_flow).toBe('15000.00');
-    expect(months[0]?.income).toBe('0.00');
+    expect(months[0]?.income).toBe('50.00');
     expect(months[0]?.closing_value).toBe('15000.00');
   });
 
-  it('a parcela de provento aparece destacada dentro do rendimento', () => {
+  it('o provento soma ao rendimento e sai da variação de preço', () => {
     expect(months[0]?.payouts).toBe('50.00');
-    expect(months[0]?.price_change).toBe('-50.00');
+    expect(months[0]?.price_change).toBe('0.00');
 
-    expect(months[1]?.income).toBe('1000.00');
+    expect(months[1]?.income).toBe('1120.00');
     expect(months[1]?.payouts).toBe('120.00');
-    expect(months[1]?.price_change).toBe('880.00');
+    expect(months[1]?.price_change).toBe('1000.00');
   });
 
   it('o mês com prejuízo devolve rendimento negativo, sem truncar em zero', () => {
@@ -67,8 +67,8 @@ describe('o que o mês separa', () => {
   });
 
   it('o retorno do mês vem da cota, e não do saldo: o aporte não o contamina', () => {
-    expect(months[0]?.return_pct).toBe('0.33');
-    expect(months[1]?.return_pct).toBe('6.52');
+    expect(months[0]?.return_pct).toBe('0.66');
+    expect(months[1]?.return_pct).toBe('7.29');
   });
 
   it('série vazia não produz mês nenhum', () => {
@@ -97,13 +97,13 @@ describe('continuar de onde parou', () => {
     );
 
     expect(april[0]?.opening_value).toBe('15000.00');
-    expect(april[0]?.return_pct).toBe('6.52');
+    expect(april[0]?.return_pct).toBe('7.29');
   });
 
   it('sem fechamento anterior o retorno do mês parcial é medido da primeira cota', () => {
     const only = decomposeByMonth(buildQuotaSeries(marchWithContribution));
 
-    expect(only[0]?.return_pct).toBe('0.33');
+    expect(only[0]?.return_pct).toBe('0.66');
   });
 });
 
@@ -112,7 +112,7 @@ describe('total por ano', () => {
     const totals = yearTotals(months);
 
     expect(totals).toEqual([
-      { year: 2024, net_flow: '15500.00', income: '1000.00', payouts: '170.00' },
+      { year: 2024, net_flow: '15500.00', income: '1170.00', payouts: '170.00' },
     ]);
   });
 
