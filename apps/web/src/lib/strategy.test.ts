@@ -8,6 +8,7 @@ import {
   buildBody,
   editableRows,
   fieldError,
+  maskPercent,
   fromPercent,
   groupTotal,
   inputText,
@@ -412,5 +413,14 @@ describe('alvo no grupo', () => {
     expect(ids).toContain('rv');
     expect(ids).not.toContain('acoes');
     expect(ids).not.toContain('fiis');
+  });
+});
+
+describe('maskPercent', () => {
+  it('descarta o que não é número e limita as casas', () => {
+    expect(maskPercent('a1b2,345')).toBe('12,34');
+    expect(maskPercent('1234')).toBe('123');
+    expect(maskPercent(',5')).toBe('0,5');
+    expect(maskPercent('12.5.6')).toBe('12,56');
   });
 });

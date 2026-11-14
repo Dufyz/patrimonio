@@ -170,6 +170,45 @@ describe('as regras', () => {
   });
 });
 
+describe('benchmark e máscara (EST-03)', () => {
+  it('o benchmark é editável: normaliza, grava e recusa texto que não é índice', async () => {
+    const onSaveBenchmark = vi.fn().mockResolvedValue(undefined);
+    show(allocation(), { onSaveBenchmark });
+    const campo = screen.getByRole('combobox', { name: 'Benchmark da estratégia' });
+    expect(campo).toHaveValue('IPCA+6');
+
+    await userEvent.clear(campo);
+    await userEvent.type(campo, 'xyz');
+    expect(campo).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.queryByRole('button', { name: 'Salvar benchmark' })).toBeNull();
+
+    await userEvent.clear(campo);
+    await userEvent.type(campo, '110 % cdi');
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar benchmark' }));
+
+    await waitFor(() => expect(onSaveBenchmark).toHaveBeenCalledWith('110%CDI'));
+  });
+
+  it('campo vazio remove o benchmark', async () => {
+    const onSaveBenchmark = vi.fn().mockResolvedValue(undefined);
+    show(allocation(), { onSaveBenchmark });
+
+    await userEvent.clear(
+      screen.getByRole('combobox', { name: 'Benchmark da estratégia' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar benchmark' }));
+
+    await waitFor(() => expect(onSaveBenchmark).toHaveBeenCalledWith(null));
+  });
+
+  it('o campo de alvo só aceita número com até duas casas', async () => {
+    show(allocation());
+    await retype('Caixa', 'a1b2,345');
+
+    expect(field('Caixa')).toHaveValue('12,34');
+  });
+});
+
 describe('a tabela', () => {
   it('o alvo é da classe, e o total fecha 100%', () => {
     show(allocation());
@@ -334,10 +373,10 @@ describe('editar e salvar', () => {
     );
   });
 
-  it('campo inválido se marca e trava, sem adivinhar o número', async () => {
+  it('valor fora de 0–100 se marca e trava, sem adivinhar o número', async () => {
     show(allocation());
 
-    await retype('Renda variável', 'abc');
+    await retype('Renda variável', '150');
 
     expect(field('Renda variável')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('Corrija 1 campo para salvar')).toBeInTheDocument();

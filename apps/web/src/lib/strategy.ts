@@ -445,3 +445,20 @@ export const parseAmount = (text: string): string | null => {
 /** `"0.00"`, `"-0.00"` e `"0"`: zero não tem direção, e não leva `+` nem cor. */
 export const isZeroDecimal = (value: string | null): boolean =>
   value !== null && /^[+-]?0+(\.0+)?$/.test(value.trim());
+
+/**
+ * A máscara do campo de alvo (EST-03.1): só dígitos e um separador decimal,
+ * até três inteiros e duas casas. O que não é número nem chega ao campo.
+ */
+export const maskPercent = (raw: string): string => {
+  const cleaned = raw.replace(/[^\d.,]/g, '');
+  const separator = cleaned.search(/[.,]/);
+  if (separator === -1) return cleaned.slice(0, 3);
+
+  const whole = cleaned.slice(0, separator).slice(0, 3);
+  const fraction = cleaned
+    .slice(separator + 1)
+    .replace(/[.,]/g, '')
+    .slice(0, 2);
+  return `${whole === '' ? '0' : whole},${fraction}`;
+};

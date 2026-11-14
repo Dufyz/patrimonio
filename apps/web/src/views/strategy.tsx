@@ -1,3 +1,4 @@
+import { normalizeBenchmark } from '@patrimonio/domain';
 import type {
   AllocationContributionResource,
   AllocationResource,
@@ -7,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { fetchAllocation, putStrategy } from '../api/allocation.js';
 import { ApiError } from '../api/client.js';
+import { updatePortfolio } from '../api/registers.js';
 import { Money, MoneyChange, Percent, Points } from '../components/number.js';
 import { Modal } from '../components/overlay.js';
 import { KeepPrevious } from '../components/pending.js';
@@ -27,6 +29,7 @@ import {
   buildBody,
   editableRows,
   fieldError,
+  maskPercent,
   fromPercent,
   groupTotal,
   isZeroDecimal,
@@ -68,6 +71,8 @@ export type StrategyViewProps = {
   readonly onSave: (body: PutStrategyBody) => Promise<void>;
   /** O plano de um aporte: a mesma leitura, com o valor. Nulo se a `api` não devolve plano. */
   readonly onPlan: (amount: string) => Promise<AllocationContributionResource | null>;
+  /** EST-03.3: grava o benchmark da carteira; nulo remove. */
+  readonly onSaveBenchmark?: ((benchmark: string | null) => Promise<void>) | undefined;
 };
 
 export type StrategyScreenProps = {
@@ -113,6 +118,10 @@ const LoadedStrategy = ({
         }
         resource.reload();
       }}
+      onSaveBenchmark={async (benchmark) => {
+        await updatePortfolio(portfolioId, { benchmark });
+        resource.reload();
+      }}
       onPlan={async (amount) =>
         (await fetchAllocation({ portfolioId, contribution: amount })).contribution
       }
@@ -134,11 +143,88 @@ export const toleranceBody = (text: string): string | null => {
   return value.toFixed(2);
 };
 
+const BENCHMARK_PRESETS = ['CDI', 'IPCA+6', 'IBOV', '110%CDI'] as const;
+
+const BenchmarkEditor = ({
+  current,
+  onSave,
+}: {
+  readonly current: string | null;
+  readonly onSave: (benchmark: string | null) => Promise<void>;
+}): React.ReactElement => {
+  const saved = current ?? '';
+  const [text, setText] = useState(saved);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const blank = text.trim() === '';
+  const normalized = blank ? null : normalizeBenchmark(text);
+  const invalid = !blank && normalized === null;
+  const dirty = (normalized ?? '') !== saved && !invalid;
+
+  const save = async (): Promise<void> => {
+    if (invalid || busy) return;
+    setBusy(true);
+    setFailure(null);
+    try {
+      await onSave(normalized);
+    } catch (error) {
+      setFailure(error instanceof Error ? error.message : 'Não foi possível salvar');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1 border-line p-4 md:border-l">
+      <Label>Benchmark</Label>
+      <span className="flex items-center gap-2">
+        <input
+          aria-label="Benchmark da estratégia"
+          list="strategy-benchmark-presets"
+          placeholder="Sem benchmark"
+          value={text}
+          aria-invalid={invalid}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') void save();
+          }}
+          className="tabular w-36 rounded-field border border-line bg-field px-2 py-1 text-base font-semibold"
+        />
+        <datalist id="strategy-benchmark-presets">
+          {BENCHMARK_PRESETS.map((preset) => (
+            <option key={preset} value={preset} />
+          ))}
+        </datalist>
+        {dirty ? (
+          <Button variant="primary" disabled={busy} onClick={() => void save()}>
+            Salvar benchmark
+          </Button>
+        ) : null}
+      </span>
+      {invalid ? (
+        <p role="alert" className="text-[0.8125rem] text-negative">
+          Informe um benchmark como CDI, IPCA+6 ou 110%CDI
+        </p>
+      ) : null}
+      {failure === null ? null : (
+        <p role="alert" className="text-[0.8125rem] text-negative">
+          {failure}
+        </p>
+      )}
+      <p className="text-[0.8125rem] text-ink-2">
+        Usado na Visão geral quando esta carteira está selecionada.
+      </p>
+    </div>
+  );
+};
+
 const Rules = ({
   rules,
   onSaveTolerance,
+  onSaveBenchmark,
 }: {
   readonly rules: AllocationResource['rules'];
+  readonly onSaveBenchmark?: ((benchmark: string | null) => Promise<void>) | undefined;
   /** EST-03.3: grava a tolerância mantendo os alvos salvos. */
   readonly onSaveTolerance: (tolerancePp: string) => Promise<void>;
 }): React.ReactElement => {
@@ -200,15 +286,23 @@ const Rules = ({
             Acima disso a classe entra em Requer atenção.
           </p>
         </div>
-        <div className="flex flex-col gap-1 border-line p-4 md:border-l">
-          <Label>Benchmark</Label>
-          <span className="tabular text-base font-semibold">
-            {rules.benchmark?.name ?? 'Sem benchmark'}
-          </span>
-          <p className="text-[0.8125rem] text-ink-2">
-            Usado na Visão geral quando esta carteira está selecionada.
-          </p>
-        </div>
+        {onSaveBenchmark === undefined ? (
+          <div className="flex flex-col gap-1 border-line p-4 md:border-l">
+            <Label>Benchmark</Label>
+            <span className="tabular text-base font-semibold">
+              {rules.benchmark?.name ?? 'Sem benchmark'}
+            </span>
+            <p className="text-[0.8125rem] text-ink-2">
+              Usado na Visão geral quando esta carteira está selecionada.
+            </p>
+          </div>
+        ) : (
+          <BenchmarkEditor
+            key={rules.benchmark?.value ?? ''}
+            current={rules.benchmark?.value ?? null}
+            onSave={onSaveBenchmark}
+          />
+        )}
       </div>
     </Panel>
   );
@@ -248,7 +342,7 @@ const TargetField = ({
         aria-label={`Alvo de ${row.name}`}
         aria-invalid={error !== null}
         value={text}
-        onChange={(event) => onChange(row.id, event.target.value)}
+        onChange={(event) => onChange(row.id, maskPercent(event.target.value))}
         onFocus={(event) => event.target.select()}
         className="tabular min-w-0 flex-1 bg-transparent px-2 text-right outline-none"
       />
@@ -904,6 +998,7 @@ export const StrategyView = ({
   resource,
   onSave,
   onPlan,
+  onSaveBenchmark,
 }: StrategyViewProps): React.ReactElement => {
   const { state, pending, reload } = resource;
   const { hidden, toggleHidden } = usePreferences();
@@ -1016,6 +1111,7 @@ export const StrategyView = ({
       <Rules
         key={value.rules.tolerance_pp}
         rules={value.rules}
+        onSaveBenchmark={onSaveBenchmark}
         onSaveTolerance={(tolerance) =>
           onSave({ ...buildBody(rows, EMPTY_DRAFT), tolerance_pp: tolerance })
         }

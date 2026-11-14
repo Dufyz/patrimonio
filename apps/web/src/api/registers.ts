@@ -28,6 +28,8 @@ const send = async (
 
 export type PortfolioBody = {
   readonly name: string;
+  /** EST-03: `CDI`, `IPCA+6`, `110%CDI`; nulo remove. */
+  readonly benchmark?: string | null;
 };
 
 export const createPortfolio = (body: PortfolioBody): Promise<unknown> =>
