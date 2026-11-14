@@ -29,6 +29,7 @@ afterEach(async () => {
   // Estes testes comitam de propósito: a limpeza é explícita.
   await sql`DELETE FROM pipeline_outbox`;
   await sql`DELETE FROM institution WHERE id = ${INSTITUTION}`;
+  await sql`DELETE FROM portfolio WHERE id = ${INSTITUTION}`;
 });
 
 describe('transação', () => {
@@ -97,13 +98,14 @@ describe('transação', () => {
 
 describe('trava de escopo', () => {
   it('dois trabalhos na mesma carteira serializam, com atraso entre leitura e escrita', async () => {
+    // A tolerância da carteira é o contador: começa em 5 e cada trabalho soma 1.
     await sql`
-      INSERT INTO institution (id, name)
-      VALUES (${INSTITUTION}, 'Corretora Concorrente')
+      INSERT INTO portfolio (id, name, strategy_tolerance_pp)
+      VALUES (${INSTITUTION}, 'Carteira Concorrente', 5)
     `;
 
     // Lê, espera e escreve o valor lido + 1. Sem a trava os dois leem 0 e o
-    // resultado final é 1 — a corrida que aparece como número errado meses
+    // resultado final é 6 — a corrida que aparece como número errado meses
     // depois, sem rastro.
     const increment = async () =>
       uow.run(
@@ -111,15 +113,15 @@ describe('trava de escopo', () => {
           const { tx } = repositories as DbRepositories;
 
           const [row] = await tx<{ value: string }[]>`
-            SELECT brokerage_per_order::TEXT AS value
-              FROM institution WHERE id = ${INSTITUTION}
+            SELECT strategy_tolerance_pp::TEXT AS value
+              FROM portfolio WHERE id = ${INSTITUTION}
           `;
 
           await new Promise((resolve) => setTimeout(resolve, 80));
 
           await tx`
-            UPDATE institution
-               SET brokerage_per_order = ${Number(row?.value ?? 0) + 1}
+            UPDATE portfolio
+               SET strategy_tolerance_pp = ${Number(row?.value ?? 0) + 1}
              WHERE id = ${INSTITUTION}
           `;
 
@@ -131,9 +133,9 @@ describe('trava de escopo', () => {
     await Promise.all([increment(), increment()]);
 
     const [row] = await sql<{ value: string }[]>`
-      SELECT brokerage_per_order::TEXT AS value FROM institution WHERE id = ${INSTITUTION}
+      SELECT strategy_tolerance_pp::TEXT AS value FROM portfolio WHERE id = ${INSTITUTION}
     `;
 
-    expect(Number(row?.value)).toBe(2);
+    expect(Number(row?.value)).toBe(7);
   });
 });

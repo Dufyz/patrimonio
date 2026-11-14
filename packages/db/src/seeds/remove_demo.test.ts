@@ -89,12 +89,11 @@ describe('remoção da demonstração', () => {
           `;
         }
 
+        // A chave é (índice, dia): as duas origens ficam em dias diferentes.
         await sql`
           INSERT INTO index_quote (index_code, quote_date, daily_factor, source)
-          SELECT 'CDI', calendar_date, 1.0005, source
-            FROM business_day
-            CROSS JOIN (VALUES ('dev-seed'), ('bcb')) AS s(source)
-           WHERE calendar_date = '2026-01-05' AND is_business_day
+          VALUES ('CDI', '2026-01-05', 1.0005, 'dev-seed'),
+                 ('CDI', '2026-01-06', 1.0005, 'bcb')
         `;
 
         const removed = await removeDemoData(sql);

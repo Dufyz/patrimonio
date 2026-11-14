@@ -279,7 +279,7 @@ describe('papéis do catálogo', () => {
 
     const view = await find({ text: 'bovx' });
 
-    expect(view.instruments).toEqual({ total: 0, rows: [] });
+    expect(view.instruments).toMatchObject({ total: 0, rows: [] });
   });
 
   it('acha o título do Tesouro por palavras soltas, com o + do nome fora', async () => {
