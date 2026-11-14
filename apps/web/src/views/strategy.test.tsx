@@ -201,6 +201,14 @@ describe('benchmark e máscara (EST-03)', () => {
     await waitFor(() => expect(onSaveBenchmark).toHaveBeenCalledWith(null));
   });
 
+  it('Enter passa para o alvo da próxima classe', async () => {
+    show(allocation());
+    await userEvent.click(field('Renda variável'));
+    await userEvent.keyboard('{Enter}');
+
+    expect(field('Caixa')).toHaveFocus();
+  });
+
   it('o campo de alvo só aceita número com até duas casas', async () => {
     show(allocation());
     await retype('Caixa', 'a1b2,345');

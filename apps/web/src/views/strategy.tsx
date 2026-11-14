@@ -344,6 +344,18 @@ const TargetField = ({
         value={text}
         onChange={(event) => onChange(row.id, maskPercent(event.target.value))}
         onFocus={(event) => event.target.select()}
+        onKeyDown={(event) => {
+          // EST-03.1: Enter anda para a próxima classe, como Tab (⌘↵ salva).
+          if (event.key !== 'Enter' || event.metaKey || event.ctrlKey) return;
+          event.preventDefault();
+          const fields = [
+            ...document.querySelectorAll<HTMLInputElement>(
+              'input[aria-label^="Alvo de"]',
+            ),
+          ];
+          const next = fields[fields.indexOf(event.currentTarget) + 1];
+          next?.focus();
+        }}
         className="tabular min-w-0 flex-1 bg-transparent px-2 text-right outline-none"
       />
       <span aria-hidden="true" className="text-[0.75rem] text-ink-3">
