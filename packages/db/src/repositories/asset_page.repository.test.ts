@@ -1,3 +1,4 @@
+import { ASSET_PAGE_TRANSACTION_LIMIT } from '@patrimonio/application';
 import { unwrapSuccess } from '@patrimonio/shared/testing';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -466,10 +467,10 @@ describe('série do gráfico', () => {
 });
 
 describe('lançamentos', () => {
-  it('a lista é curta e vem da mais recente para a mais antiga', async () => {
+  it('a lista tem teto e vem da mais recente para a mais antiga', async () => {
     const view = unwrapSuccess(await open());
 
-    expect(view.transactions.length).toBeLessThanOrEqual(6);
+    expect(view.transactions.length).toBeLessThanOrEqual(ASSET_PAGE_TRANSACTION_LIMIT);
     expect(view.transactions[0]?.trade_date).toBe('2026-10-10');
     expect(view.transactions[0]?.portfolio_name).toBe('Longo prazo');
     expect(view.transactions[0]?.institution_name).toBe('Corretora A');

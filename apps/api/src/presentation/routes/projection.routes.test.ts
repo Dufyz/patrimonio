@@ -166,10 +166,10 @@ describe('PUT /api/portfolios/:id/projection-plan', () => {
     });
     await plano(emergencia, { expected_return_pct: null, rules: [] });
 
-    const [{ total }] = await harness.sql<{ total: string }[]>`
+    const [counted] = await harness.sql<{ total: string }[]>`
       SELECT COUNT(*)::TEXT AS total FROM projection_rule WHERE portfolio_id = ${emergencia}
     `;
-    expect(total).toBe('0');
+    expect(counted?.total).toBe('0');
   });
 
   it('recusa período invertido e carteira inexistente', async () => {
