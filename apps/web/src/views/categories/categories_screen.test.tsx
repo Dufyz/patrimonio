@@ -122,6 +122,22 @@ describe('Categorias (CAT-01/02/03)', () => {
     expect(screen.getByText('4 categorias')).toBeTruthy();
   });
 
+  it('CAT-06 · N abre a nova categoria e Enter na linha abre o menu dela', async () => {
+    stub();
+    open();
+    const linha = await screen.findByRole('row', { name: 'Mercado' });
+
+    linha.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(await screen.findByRole('menuitem', { name: 'Editar' })).toBeTruthy();
+    await userEvent.keyboard('{Escape}');
+
+    await userEvent.keyboard('n');
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
   it('a categoria leva a Lançamentos filtrado por ela', async () => {
     stub();
     open();

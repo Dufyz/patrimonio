@@ -59,6 +59,17 @@ const NATURE_LABEL: Readonly<Record<Nature, string>> = { fixa: 'Fixa', livre: 'L
 const control =
   'h-control cursor-pointer rounded-control border border-line-2 bg-panel px-2 text-[0.8125rem]';
 
+/** CAT-06: Enter na linha abre o menu de ações dela, como o gatilho abriria. */
+const openMenuOf = (label: string): void => {
+  const trigger = Array.from(
+    document.querySelectorAll<HTMLElement>('button[aria-label]'),
+  ).find((button) => button.getAttribute('aria-label') === label);
+  trigger?.focus();
+  trigger?.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+  );
+};
+
 export const CategoriesScreen = (): React.ReactElement => {
   const { hidden } = usePreferences();
   const { range, setRange, today } = useFinancePeriod();
@@ -209,7 +220,7 @@ export const CategoriesScreen = (): React.ReactElement => {
                     <Row
                       key={line.id}
                       label={line.name}
-                      onActivate={() => setModal({ editing: line })}
+                      onActivate={() => openMenuOf(`Ações de ${line.name}`)}
                     >
                       <Td>
                         <Link
@@ -258,7 +269,9 @@ export const CategoriesScreen = (): React.ReactElement => {
                   <SummaryRow>
                     <Td colSpan={withNature ? 2 : 1}>Total · {section.label}</Td>
                     <Td numeric>{money(sectionTotal(lines, 'posted'))}</Td>
-                    <Td numeric>{money(sectionTotal(lines, 'planned'))}</Td>
+                    <Td numeric className="max-lg:hidden">
+                      {money(sectionTotal(lines, 'planned'))}
+                    </Td>
                     <Td />
                   </SummaryRow>
                 </tbody>
