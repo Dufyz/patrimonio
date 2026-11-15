@@ -347,6 +347,50 @@ describe('contas, transferências e faturas', () => {
     expect(invoice.body.payments).toHaveLength(1);
   });
 
+  it('CRT-06 · pagar a fatura tira o valor da conta e da dívida igualmente; excluir o pagamento desfaz', async () => {
+    const cards = await get('/cards');
+    const summary = cards.body.cards.find(
+      (c: { card: { id: string } }) => c.card.id === ids['card:Itaú Visa'],
+    );
+    const month = summary.invoice.month;
+    const accountId = ids['acc:Itaú Corrente'];
+    const balanceOf = async (): Promise<number> => {
+      const accounts = await get('/accounts');
+      return Number(
+        accounts.body.accounts.find(
+          (a: { account: { id: string } }) => a.account.id === accountId,
+        ).balance,
+      );
+    };
+    const totalBefore = Number((await get('/accounts')).body.total_balance);
+    const accountBefore = await balanceOf();
+
+    const paid = await send(
+      'post',
+      `/cards/${summary.card.id}/invoices/${month}/payments`,
+      {
+        account_id: accountId,
+        date: '2026-10-24',
+        amount: '100.00',
+      },
+    );
+    expect(paid.status).toBe(201);
+
+    expect(await balanceOf()).toBeCloseTo(accountBefore - 100, 2);
+    expect(Number((await get('/accounts')).body.total_balance)).toBeCloseTo(
+      totalBefore - 100,
+      2,
+    );
+    const afterPay = await get(`/cards/${summary.card.id}/invoices/${month}`);
+    expect(afterPay.body.payments).toHaveLength(1);
+
+    const removed = await send('delete', `/payments/${afterPay.body.payments[0].id}`);
+    expect(removed.status).toBe(200);
+    expect(await balanceOf()).toBeCloseTo(accountBefore, 2);
+    const reopened = await get(`/cards/${summary.card.id}/invoices/${month}`);
+    expect(reopened.body.payments).toHaveLength(0);
+  });
+
   it('mover a compra para outra fatura muda só a fatura, não a data', async () => {
     const snap = await get('/snapshot');
     const entry = snap.body.entries.find(
