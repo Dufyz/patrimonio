@@ -512,8 +512,8 @@ const PortfolioTable = ({
       title="Por carteira"
       action={<span className="text-xs text-ink-3">mais atrasadas primeiro</span>}
     >
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-264 border-collapse text-[0.8125rem]">
+      <div>
+        <table className="w-full border-collapse text-[0.8125rem]">
           <caption className="sr-only">
             O objetivo de cada carteira, o aporte necessário e quando ele chega
           </caption>
@@ -531,13 +531,13 @@ const PortfolioTable = ({
               <th scope="col" className={`${TH} text-right`}>
                 Acumulado
               </th>
-              <th scope="col" className={`${TH} text-right`}>
+              <th scope="col" className={`${TH} text-right max-xl:hidden`}>
                 Falta
               </th>
               <th scope="col" className={`${TH} text-right`}>
                 Aporte necessário
               </th>
-              <th scope="col" className={`${TH} text-right`}>
+              <th scope="col" className={`${TH} text-right max-xl:hidden`}>
                 Aporte hoje
               </th>
               {showPlan ? (
@@ -620,7 +620,7 @@ const PortfolioTable = ({
                   <td className={`${TD} text-right`}>
                     <Money value={goal.current_value} />
                   </td>
-                  <td className={`${TD} text-right`}>
+                  <td className={`${TD} text-right max-xl:hidden`}>
                     <Money value={goal.remaining_brl} />
                   </td>
                   {goal.counted ? (
@@ -637,7 +637,7 @@ const PortfolioTable = ({
                           do total
                         </Sub>
                       </td>
-                      <td className={`${TD} text-right`}>
+                      <td className={`${TD} text-right max-xl:hidden`}>
                         <Money value={goal.current_monthly} decimals={0} />
                         <Sub>
                           <Percent
@@ -710,17 +710,17 @@ const PortfolioTable = ({
           </tbody>
           <tfoot>
             <tr className="border-t border-line bg-panel-2 font-semibold">
-              <th scope="row" colSpan={3} className="px-4 py-4 text-left font-semibold">
+              <th scope="row" colSpan={4} className="px-4 py-4 text-left font-semibold">
                 Total
               </th>
-              <td className={`${TD} text-right`}>
+              <td className={`${TD} text-right max-xl:hidden`}>
                 <Money value={totals.remaining_brl} />
               </td>
               <td className={`${TD} text-right`}>
                 <Money value={totals.required_monthly} decimals={0} />
                 <Sub>100%</Sub>
               </td>
-              <td className={`${TD} text-right`}>
+              <td className={`${TD} text-right max-xl:hidden`}>
                 <Money value={totals.current_monthly} decimals={0} />
                 <Sub>100%</Sub>
               </td>
