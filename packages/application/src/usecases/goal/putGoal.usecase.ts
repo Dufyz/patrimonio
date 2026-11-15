@@ -50,7 +50,11 @@ export const validateGoal = (
  * onde a barra mede "esperado hoje".
  */
 export const putGoal = (deps: PutGoalDeps) =>
-  either(async function* (portfolioId: string, write: GoalWrite) {
+  either(async function* (
+    portfolioId: string,
+    write: GoalWrite,
+    ifMatch?: string | undefined,
+  ) {
     yield* validateGoal(write, deps.clock.today());
 
     return yield* await deps.unitOfWork.run<AppError, PutGoalResult>(
@@ -61,7 +65,7 @@ export const putGoal = (deps: PutGoalDeps) =>
           return failure(new NotFoundError(`Carteira ${portfolioId} não encontrada`));
         }
 
-        return repositories.goals.save(portfolioId, write);
+        return repositories.goals.save(portfolioId, write, ifMatch);
       },
     );
   });

@@ -8,7 +8,16 @@ import type {
 import type { PreviewGoalBody, PutGoalBody } from '@patrimonio/contracts';
 import type { RequestHandler } from 'express';
 
+import type { Request } from 'express';
+
 import { sendFailure, validatedQuery } from '../middleware/respond.js';
+
+/** `If-Match: "2026-11-15T12:00:00.000Z"`: a versão do objetivo que a tela viu. */
+const ifMatchText = (request: Request): string | undefined => {
+  const header = request.header('If-Match');
+  const text = header?.replace(/^W\//, '').replace(/"/g, '').trim();
+  return text === undefined || Number.isNaN(Date.parse(text)) ? undefined : text;
+};
 
 /**
  * A tela de Objetivos, numa rota só. Ela é uma pergunta — o ritmo atual chega
@@ -95,6 +104,7 @@ export const createGoalController = (deps: GoalDeps): GoalController => ({
     const result = await deps.usecases.putGoal(
       String(request.params['portfolio_id']),
       body,
+      ifMatchText(request),
     );
 
     if (result.isFailure()) {
@@ -110,7 +120,10 @@ export const createGoalController = (deps: GoalDeps): GoalController => ({
   },
 
   remove: async (request, response) => {
-    const result = await deps.usecases.deleteGoal(String(request.params['portfolio_id']));
+    const result = await deps.usecases.deleteGoal(
+      String(request.params['portfolio_id']),
+      ifMatchText(request),
+    );
 
     if (result.isFailure()) {
       sendFailure(request, response, result.value);

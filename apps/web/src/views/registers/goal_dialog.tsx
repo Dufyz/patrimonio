@@ -176,7 +176,7 @@ export const GoalDialog = ({
     () =>
       result.body === null
         ? Promise.reject(new Error('formulário inválido'))
-        : putGoal(portfolioId, result.body),
+        : putGoal(portfolioId, result.body, goal?.version),
     onSaved,
   );
 

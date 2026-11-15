@@ -756,7 +756,7 @@ export const GoalsView = ({
           subject={`o objetivo ${data.goal.name}`}
           consequence="Posições, lançamentos e patrimônio não mudam: o objetivo só media a carteira."
           confirmLabel="Excluir objetivo"
-          onConfirm={() => deleteGoal(portfolioId)}
+          onConfirm={() => deleteGoal(portfolioId, data.goal?.version)}
           onClose={() => setDialog(null)}
           onDone={() => {
             setDialog(null);

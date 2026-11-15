@@ -133,6 +133,8 @@ export const goalSchema = z.object({
   /** O texto da premissa como foi guardado; nulo quando não há. O formulário o relê daqui. */
   return_assumption: z.string().nullable(),
   created_on: dateOnly,
+  /** O `If-Match` de editar e excluir; nulo quando o objetivo é só a prévia. */
+  version: z.string().nullable(),
   /** O valor da carteira no último fechamento até a data. */
   current_value: decimalString,
   /** A data desse fechamento. Nulo quando a carteira ainda não fechou. */

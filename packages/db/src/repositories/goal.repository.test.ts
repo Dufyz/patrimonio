@@ -427,13 +427,26 @@ describe('gravar o objetivo', () => {
     const repository = createGoalRepository(tx);
 
     const criado = unwrapSuccess(await repository.save(LONGO, ESCRITA));
-    const editado = unwrapSuccess(
-      await repository.save(LONGO, {
-        ...ESCRITA,
-        name: 'Liberdade',
-        target_amount: '2000000.00',
-      }),
+
+    // OBJ-03: o segundo "criar" é recusado; só se edita com a versão que se viu.
+    const segundo = await repository.save(LONGO, ESCRITA);
+    expect(segundo.isFailure() && (segundo.value as { code?: string }).code).toBe(
+      'OBJETIVO_JA_EXISTE',
     );
+
+    const { goal: visto } = unwrapSuccess(
+      await repository.snapshot({ portfolio_id: LONGO, on_date: HOJE }),
+    );
+    const editado = unwrapSuccess(
+      await repository.save(
+        LONGO,
+        { ...ESCRITA, name: 'Liberdade', target_amount: '2000000.00' },
+        visto?.version ?? undefined,
+      ),
+    );
+
+    const defasado = await repository.save(LONGO, ESCRITA, '2000-01-01T00:00:00.000Z');
+    expect(defasado.isFailure()).toBe(true);
 
     expect(criado.created).toBe(true);
     expect(editado.created).toBe(false);
@@ -460,7 +473,17 @@ describe('gravar o objetivo', () => {
     await goal(INDEPENDENCIA, 'Independência financeira', LONGO);
     await goal(VIAGEM, 'Viagem', RESERVA);
 
-    expect(unwrapSuccess(await repository.remove(LONGO))).toBe(true);
+    const { goal: visto } = unwrapSuccess(
+      await repository.snapshot({ portfolio_id: LONGO, on_date: HOJE }),
+    );
+
+    expect((await repository.remove(LONGO)).isFailure()).toBe(true);
+    expect((await repository.remove(LONGO, '2000-01-01T00:00:00.000Z')).isFailure()).toBe(
+      true,
+    );
+    expect(
+      unwrapSuccess(await repository.remove(LONGO, visto?.version ?? undefined)),
+    ).toBe(true);
     expect(unwrapSuccess(await repository.remove(LONGO))).toBe(false);
     expect(await abertos(RESERVA)).toBe(1);
   });

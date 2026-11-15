@@ -157,6 +157,7 @@ export type GoalResult = {
   readonly amount_in_today_brl: boolean;
   readonly return_assumption: string | null;
   readonly created_on: DateOnly;
+  readonly version: string | null;
   readonly current_value: string;
   readonly as_of: DateOnly | null;
   readonly progress_pct: string;
@@ -387,6 +388,7 @@ export const evaluate = (
     amount_in_today_brl: row.amount_in_today_brl,
     return_assumption: row.return_assumption,
     created_on: row.created_on,
+    version: row.version,
     current_value: row.current_value,
     as_of: row.as_of,
     progress_pct: standing.progress_pct,

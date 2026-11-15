@@ -282,6 +282,29 @@ const CORPO = {
 const gravar = (portfolio: string, body: Record<string, unknown> = CORPO) =>
   request(harness.app).put(`/api/portfolios/${portfolio}/goal`).send(body);
 
+const gravarVersao = (
+  portfolio: string,
+  version: string,
+  body: Record<string, unknown> = CORPO,
+) =>
+  request(harness.app)
+    .put(`/api/portfolios/${portfolio}/goal`)
+    .set('If-Match', `"${version}"`)
+    .send(body);
+
+const versaoDe = async (portfolio: string): Promise<string> => {
+  const { goal } = goalsSchema.parse(
+    (await request(harness.app).get(`/api/goals?portfolio_id=${portfolio}`)).body,
+  );
+  if (goal?.version == null) throw new Error('objetivo sem versão');
+  return goal.version;
+};
+
+const excluir = (portfolio: string, version?: string) => {
+  const call = request(harness.app).delete(`/api/portfolios/${portfolio}/goal`);
+  return version === undefined ? call : call.set('If-Match', `"${version}"`);
+};
+
 const quantos = async (portfolio: string): Promise<number> => {
   const [row] = await harness.sql<{ count: string }[]>`
     SELECT COUNT(*) AS count FROM goal WHERE portfolio_id = ${portfolio}
@@ -290,18 +313,26 @@ const quantos = async (portfolio: string): Promise<number> => {
 };
 
 describe('PUT /api/portfolios/:id/goal', () => {
-  it('cria o objetivo da carteira e, na segunda vez, o edita: nunca são dois', async () => {
+  it('cria o objetivo; o segundo é recusado com OBJETIVO_JA_EXISTE, e editar exige a versão', async () => {
     const criado = await gravar(longo);
     expect(criado.status).toBe(201);
     expect(criado.body.goal).toMatchObject({ name: 'Independência financeira' });
 
-    const editado = await gravar(longo, {
+    const segundo = await gravar(longo, { ...CORPO, name: 'Outro' });
+    expect(segundo.status).toBe(409);
+    expect(segundo.body.code).toBe('OBJETIVO_JA_EXISTE');
+
+    const velha = await versaoDe(longo);
+    const editado = await gravarVersao(longo, velha, {
       ...CORPO,
       name: 'Liberdade',
       target_amount: '2000000.00',
     });
     expect(editado.status).toBe(200);
     expect(editado.body.goal.id).toBe(criado.body.goal.id);
+
+    const defasada = await gravarVersao(longo, velha, { ...CORPO, name: 'Defasado' });
+    expect(defasada.status).toBe(409);
 
     expect(await quantos(longo)).toBe(1);
 
@@ -353,11 +384,19 @@ describe('DELETE /api/portfolios/:id/goal', () => {
   it('exclui o objetivo, e na segunda vez diz que não há', async () => {
     await gravar(longo);
 
-    const primeira = await request(harness.app).delete(`/api/portfolios/${longo}/goal`);
+    const semVersao = await excluir(longo);
+    expect(semVersao.status).toBe(428);
+    expect(semVersao.body.code).toBe('OBJETIVO_VERSAO_OBRIGATORIA');
+
+    const velha = await versaoDe(longo);
+    await gravarVersao(longo, velha, { ...CORPO, name: 'Mudou' });
+    expect((await excluir(longo, velha)).status).toBe(409);
+
+    const primeira = await excluir(longo, await versaoDe(longo));
     expect(primeira.status).toBe(200);
     expect(await quantos(longo)).toBe(0);
 
-    const segunda = await request(harness.app).delete(`/api/portfolios/${longo}/goal`);
+    const segunda = await excluir(longo);
     expect(segunda.status).toBe(404);
   });
 
@@ -365,7 +404,7 @@ describe('DELETE /api/portfolios/:id/goal', () => {
     await gravar(longo);
     await gravar(reserva);
 
-    await request(harness.app).delete(`/api/portfolios/${longo}/goal`);
+    await excluir(longo, await versaoDe(longo));
 
     expect(await quantos(reserva)).toBe(1);
   });

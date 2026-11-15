@@ -97,14 +97,26 @@ export type GoalBody = {
 
 const accept = { parse: (value: unknown): unknown => value };
 
-export const putGoal = (portfolioId: string, body: GoalBody): Promise<unknown> =>
+/** OBJ-03: sem `version` só cria; com ela, edita o que a tela viu (`If-Match`). */
+export const putGoal = (
+  portfolioId: string,
+  body: GoalBody,
+  version?: string | null,
+): Promise<unknown> =>
   request(`/api/portfolios/${portfolioId}/goal`, accept, {
     method: 'PUT',
     body: JSON.stringify(body),
+    ...(version == null ? {} : { headers: { 'If-Match': `"${version}"` } }),
   });
 
-export const deleteGoal = (portfolioId: string): Promise<unknown> =>
-  request(`/api/portfolios/${portfolioId}/goal`, accept, { method: 'DELETE' });
+export const deleteGoal = (
+  portfolioId: string,
+  version?: string | null,
+): Promise<unknown> =>
+  request(`/api/portfolios/${portfolioId}/goal`, accept, {
+    method: 'DELETE',
+    ...(version == null ? {} : { headers: { 'If-Match': `"${version}"` } }),
+  });
 
 /** O objetivo do formulário projetado como ficaria, sem gravar: o "depois" do modal. */
 export const previewGoal = async (

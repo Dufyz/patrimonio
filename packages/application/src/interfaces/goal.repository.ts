@@ -56,6 +56,8 @@ export type GoalRow = {
   readonly return_assumption: string | null;
   readonly amount_in_today_brl: boolean;
   readonly created_on: DateOnly;
+  /** `updated_at` em ms: o `If-Match` de editar e excluir. Nulo na prévia. */
+  readonly version: string | null;
   /** O último fechamento da carteira até a data. Zero sem fechamento. */
   readonly current_value: string;
   /** A data desse fechamento. */
@@ -127,8 +129,19 @@ export type GoalRepository = {
   readonly save: (
     portfolio_id: string,
     write: GoalWrite,
+    /**
+     * OBJ-03: sem versão, só cria (a carteira que já tem objetivo recusa com
+     * `OBJETIVO_JA_EXISTE`); com ela, edita se ainda for a que a tela viu.
+     */
+    if_match?: string | undefined,
   ) => Promise<Either<AppError, GoalSaved>>;
 
-  /** Falso quando a carteira não tinha objetivo aberto. */
-  readonly remove: (portfolio_id: string) => Promise<Either<AppError, boolean>>;
+  /**
+   * Falso quando a carteira não tinha objetivo aberto. Com `if_match`, só
+   * exclui a versão que a tela viu.
+   */
+  readonly remove: (
+    portfolio_id: string,
+    if_match?: string | undefined,
+  ) => Promise<Either<AppError, boolean>>;
 };

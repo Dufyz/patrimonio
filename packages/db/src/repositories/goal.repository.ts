@@ -1,4 +1,6 @@
+import { ConflictError, FinanceError, NotFoundError } from '@patrimonio/application';
 import type {
+  AppError,
   GoalFlowRow,
   GoalInflationRow,
   GoalOverviewQuery,
@@ -57,6 +59,7 @@ const parseGoal = (row: Row): GoalRow => ({
   return_assumption: asStringOrNull(row, 'return_assumption'),
   amount_in_today_brl: asBoolean(row, 'amount_in_today_brl'),
   created_on: asDateOnly(row, 'created_on'),
+  version: asStringOrNull(row, 'version'),
   current_value: asNumeric(row, 'current_value'),
   as_of: asDateOnlyOrNull(row, 'as_of'),
   history_start: asDateOnlyOrNull(row, 'history_start'),
@@ -82,12 +85,26 @@ const parseInflation = (value: unknown): GoalInflationRow => {
   };
 };
 
-export const createGoalRepository = (sql: Connection): GoalRepository => ({
-  snapshot: async (query: GoalSnapshotQuery) => {
-    const draft = query.draft ?? null;
+const staleGoal = (): AppError =>
+  new ConflictError('O objetivo mudou desde que você o abriu: confira e salve de novo');
 
-    try {
-      const [row] = await sql<Row[]>`
+export const createGoalRepository = (sql: Connection): GoalRepository => {
+  /** `If-Match` que não bateu: o objetivo sumiu, ou outra aba o mudou. */
+  const mismatch = async (portfolioId: string): Promise<AppError> => {
+    const [exists] = await sql<Row[]>`
+      SELECT 1 FROM goal WHERE portfolio_id = ${portfolioId}::UUID AND closed_at IS NULL
+    `;
+    return exists === undefined
+      ? new NotFoundError('Esta carteira não tem objetivo')
+      : staleGoal();
+  };
+
+  return {
+    snapshot: async (query: GoalSnapshotQuery) => {
+      const draft = query.draft ?? null;
+
+      try {
+        const [row] = await sql<Row[]>`
         WITH goal_rows AS (
           SELECT g.id,
                  g.name,
@@ -95,7 +112,8 @@ export const createGoalRepository = (sql: Connection): GoalRepository => ({
                  g.target_date,
                  g.return_assumption,
                  g.amount_in_today_brl,
-                 g.created_at::DATE AS created_on
+                 g.created_at::DATE AS created_on,
+                 TO_CHAR(g.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS version
             FROM goal g
             JOIN portfolio p ON p.id = g.portfolio_id
            WHERE g.closed_at IS NULL
@@ -109,7 +127,8 @@ export const createGoalRepository = (sql: Connection): GoalRepository => ({
                  ${draft?.target_date ?? null}::DATE,
                  ${draft?.return_assumption ?? null}::TEXT,
                  ${draft?.amount_in_today_brl ?? null}::BOOLEAN,
-                 COALESCE(g.created_at::DATE, ${query.on_date}::DATE)
+                 COALESCE(g.created_at::DATE, ${query.on_date}::DATE),
+                 NULL::TEXT
             FROM portfolio p
             LEFT JOIN goal g ON g.portfolio_id = p.id AND g.closed_at IS NULL
            WHERE p.id = ${query.portfolio_id}::UUID
@@ -188,6 +207,7 @@ export const createGoalRepository = (sql: Connection): GoalRepository => ({
                           'return_assumption', r.return_assumption,
                           'amount_in_today_brl', r.amount_in_today_brl,
                           'created_on', TO_CHAR(r.created_on, 'YYYY-MM-DD'),
+                          'version', r.version,
                           'current_value', COALESCE((
                             SELECT SUM(l.total_value) FROM latest l WHERE l.goal_id = r.id
                           ), 0)::TEXT,
@@ -238,35 +258,35 @@ export const createGoalRepository = (sql: Connection): GoalRepository => ({
                ) AS inflation
       `;
 
-      if (row === undefined) {
-        return failure(
-          getRepositoryError(new Error('a consulta dos objetivos não devolveu linha')),
-        );
+        if (row === undefined) {
+          return failure(
+            getRepositoryError(new Error('a consulta dos objetivos não devolveu linha')),
+          );
+        }
+
+        const scope = row['scope_portfolio'];
+
+        const snapshot: GoalSnapshot = {
+          scope_portfolio:
+            scope === null || scope === undefined
+              ? null
+              : {
+                  portfolio_id: asString(scope as Row, 'portfolio_id'),
+                  name: asString(scope as Row, 'name'),
+                },
+          goal: asGoal(row['goal']),
+          inflation: parseInflation(row['inflation']),
+        };
+
+        return success(snapshot);
+      } catch (error) {
+        return failure(getRepositoryError(error));
       }
+    },
 
-      const scope = row['scope_portfolio'];
-
-      const snapshot: GoalSnapshot = {
-        scope_portfolio:
-          scope === null || scope === undefined
-            ? null
-            : {
-                portfolio_id: asString(scope as Row, 'portfolio_id'),
-                name: asString(scope as Row, 'name'),
-              },
-        goal: asGoal(row['goal']),
-        inflation: parseInflation(row['inflation']),
-      };
-
-      return success(snapshot);
-    } catch (error) {
-      return failure(getRepositoryError(error));
-    }
-  },
-
-  overview: async (query: GoalOverviewQuery) => {
-    try {
-      const [row] = await sql<Row[]>`
+    overview: async (query: GoalOverviewQuery) => {
+      try {
+        const [row] = await sql<Row[]>`
         WITH goal_rows AS (
           SELECT p.id AS portfolio_id,
                  p.name AS portfolio_name,
@@ -277,7 +297,8 @@ export const createGoalRepository = (sql: Connection): GoalRepository => ({
                  g.target_date,
                  g.return_assumption,
                  g.amount_in_today_brl,
-                 g.created_at::DATE AS created_on
+                 g.created_at::DATE AS created_on,
+                 TO_CHAR(g.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS version
             FROM portfolio p
             LEFT JOIN goal g ON g.portfolio_id = p.id AND g.closed_at IS NULL
            WHERE p.archived_at IS NULL
@@ -357,6 +378,7 @@ export const createGoalRepository = (sql: Connection): GoalRepository => ({
                                 'return_assumption', r.return_assumption,
                                 'amount_in_today_brl', r.amount_in_today_brl,
                                 'created_on', TO_CHAR(r.created_on, 'YYYY-MM-DD'),
+                          'version', r.version,
                                 'current_value', COALESCE((
                                   SELECT l.total_value FROM latest l
                                    WHERE l.portfolio_id = r.portfolio_id
@@ -412,84 +434,143 @@ export const createGoalRepository = (sql: Connection): GoalRepository => ({
                ) AS inflation
       `;
 
-      if (row === undefined) {
-        return failure(
-          getRepositoryError(new Error('a consulta dos objetivos não devolveu linha')),
+        if (row === undefined) {
+          return failure(
+            getRepositoryError(new Error('a consulta dos objetivos não devolveu linha')),
+          );
+        }
+
+        const portfolios: readonly GoalOverviewRow[] = asRows(row['portfolios']).map(
+          (portfolio) => ({
+            portfolio_id: asString(portfolio, 'portfolio_id'),
+            portfolio_name: asString(portfolio, 'portfolio_name'),
+            goal: asGoal(portfolio['goal']),
+          }),
         );
+
+        const snapshot: GoalOverviewSnapshot = {
+          portfolios,
+          inflation: parseInflation(row['inflation']),
+        };
+
+        return success(snapshot);
+      } catch (error) {
+        return failure(getRepositoryError(error));
       }
+    },
 
-      const portfolios: readonly GoalOverviewRow[] = asRows(row['portfolios']).map(
-        (portfolio) => ({
-          portfolio_id: asString(portfolio, 'portfolio_id'),
-          portfolio_name: asString(portfolio, 'portfolio_name'),
-          goal: asGoal(portfolio['goal']),
-        }),
-      );
+    save: async (portfolioId: string, write: GoalWrite, ifMatch?: string | undefined) => {
+      try {
+        if (ifMatch === undefined) {
+          const [created] = await sql<Row[]>`
+          INSERT INTO goal (
+            id, portfolio_id, name, target_amount, target_date, return_assumption,
+            amount_in_today_brl
+          )
+          VALUES (
+            ${uuidv7()}::UUID,
+            ${portfolioId}::UUID,
+            ${write.name}::TEXT,
+            ${write.target_amount}::NUMERIC(20,2),
+            ${write.target_date}::DATE,
+            ${write.return_assumption}::TEXT,
+            ${write.amount_in_today_brl}::BOOLEAN
+          )
+          ON CONFLICT (portfolio_id) WHERE closed_at IS NULL DO NOTHING
+          RETURNING id::TEXT AS id
+        `;
 
-      const snapshot: GoalOverviewSnapshot = {
-        portfolios,
-        inflation: parseInflation(row['inflation']),
-      };
+          if (created === undefined) {
+            return failure(
+              new FinanceError(
+                [
+                  {
+                    code: 'OBJETIVO_JA_EXISTE',
+                    message:
+                      'Esta carteira já tem um objetivo: edite o que existe em vez de criar outro',
+                    field: 'portfolio_id',
+                  },
+                ],
+                409,
+              ),
+            );
+          }
 
-      return success(snapshot);
-    } catch (error) {
-      return failure(getRepositoryError(error));
-    }
-  },
+          const saved: GoalSaved = {
+            ...write,
+            id: asString(created, 'id'),
+            created: true,
+          };
+          return success(saved);
+        }
 
-  save: async (portfolioId: string, write: GoalWrite) => {
-    try {
-      const [row] = await sql<Row[]>`
-        INSERT INTO goal (
-          id, portfolio_id, name, target_amount, target_date, return_assumption,
-          amount_in_today_brl
-        )
-        VALUES (
-          ${uuidv7()}::UUID,
-          ${portfolioId}::UUID,
-          ${write.name}::TEXT,
-          ${write.target_amount}::NUMERIC(20,2),
-          ${write.target_date}::DATE,
-          ${write.return_assumption}::TEXT,
-          ${write.amount_in_today_brl}::BOOLEAN
-        )
-        ON CONFLICT (portfolio_id) WHERE closed_at IS NULL
-        DO UPDATE SET name = EXCLUDED.name,
-                      target_amount = EXCLUDED.target_amount,
-                      target_date = EXCLUDED.target_date,
-                      return_assumption = EXCLUDED.return_assumption,
-                      amount_in_today_brl = EXCLUDED.amount_in_today_brl
-        RETURNING id::TEXT AS id, (xmax = 0) AS created
+        const [updated] = await sql<Row[]>`
+        UPDATE goal
+           SET name = ${write.name}::TEXT,
+               target_amount = ${write.target_amount}::NUMERIC(20,2),
+               target_date = ${write.target_date}::DATE,
+               return_assumption = ${write.return_assumption}::TEXT,
+               amount_in_today_brl = ${write.amount_in_today_brl}::BOOLEAN
+         WHERE portfolio_id = ${portfolioId}::UUID
+           AND closed_at IS NULL
+           AND DATE_TRUNC('milliseconds', updated_at) = ${ifMatch}::TIMESTAMPTZ
+        RETURNING id::TEXT AS id
       `;
 
-      if (row === undefined) {
-        return failure(getRepositoryError(new Error('gravação do objetivo sem retorno')));
+        if (updated === undefined) return failure(await mismatch(portfolioId));
+
+        const saved: GoalSaved = {
+          ...write,
+          id: asString(updated, 'id'),
+          created: false,
+        };
+        return success(saved);
+      } catch (error) {
+        return failure(getRepositoryError(error));
       }
+    },
 
-      const saved: GoalSaved = {
-        ...write,
-        id: asString(row, 'id'),
-        created: asBoolean(row, 'created'),
-      };
+    remove: async (portfolioId: string, ifMatch?: string | undefined) => {
+      try {
+        if (ifMatch === undefined) {
+          const [exists] = await sql<Row[]>`
+            SELECT 1 FROM goal WHERE portfolio_id = ${portfolioId}::UUID AND closed_at IS NULL
+          `;
+          if (exists === undefined) return success(false);
 
-      return success(saved);
-    } catch (error) {
-      return failure(getRepositoryError(error));
-    }
-  },
+          return failure(
+            new FinanceError(
+              [
+                {
+                  code: 'OBJETIVO_VERSAO_OBRIGATORIA',
+                  message: 'Excluir o objetivo exige o If-Match da versão que a tela viu',
+                },
+              ],
+              428,
+            ),
+          );
+        }
 
-  remove: async (portfolioId: string) => {
-    try {
-      const rows = await sql<Row[]>`
+        const rows = await sql<Row[]>`
         DELETE FROM goal
          WHERE portfolio_id = ${portfolioId}::UUID
            AND closed_at IS NULL
+           AND (${ifMatch ?? null}::TEXT IS NULL
+                OR DATE_TRUNC('milliseconds', updated_at) = ${ifMatch ?? null}::TIMESTAMPTZ)
         RETURNING id
       `;
 
-      return success(rows.length > 0);
-    } catch (error) {
-      return failure(getRepositoryError(error));
-    }
-  },
-});
+        if (rows.length === 0 && ifMatch !== undefined) {
+          const [exists] = await sql<Row[]>`
+          SELECT 1 FROM goal WHERE portfolio_id = ${portfolioId}::UUID AND closed_at IS NULL
+        `;
+          if (exists !== undefined) return failure(staleGoal());
+        }
+
+        return success(rows.length > 0);
+      } catch (error) {
+        return failure(getRepositoryError(error));
+      }
+    },
+  };
+};

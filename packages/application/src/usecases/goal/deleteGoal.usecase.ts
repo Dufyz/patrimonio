@@ -11,10 +11,10 @@ export type DeleteGoalDeps = { readonly unitOfWork: UnitOfWork };
  * mede a carteira, e some a medida.
  */
 export const deleteGoal = (deps: DeleteGoalDeps) =>
-  either(async function* (portfolioId: string) {
+  either(async function* (portfolioId: string, ifMatch?: string | undefined) {
     return yield* await deps.unitOfWork.run<AppError, { deleted: true }>(
       async (repositories) => {
-        const removed = await repositories.goals.remove(portfolioId);
+        const removed = await repositories.goals.remove(portfolioId, ifMatch);
         if (removed.isFailure()) return removed;
 
         if (!removed.value) {

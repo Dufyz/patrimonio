@@ -28,6 +28,7 @@ const goal: GoalResource = {
   amount_in_today_brl: true,
   return_assumption: 'IPCA+6',
   created_on: '2025-01-01',
+  version: '2026-11-15T12:00:00.000Z',
   current_value: '318904.00',
   as_of: '2026-09-30',
   progress_pct: '21.26',
@@ -326,13 +327,17 @@ describe('GoalsView', () => {
       await userEvent.click(screen.getByRole('button', { name: /^Salvar/ }));
 
       await vi.waitFor(() => expect(reload).toHaveBeenCalled());
-      expect(vi.mocked(putGoal)).toHaveBeenCalledWith(LONGO, {
-        name: 'Liberdade',
-        target_amount: '1500000.00',
-        target_date: '2040-01-01',
-        return_assumption: 'IPCA+6',
-        amount_in_today_brl: true,
-      });
+      expect(vi.mocked(putGoal)).toHaveBeenCalledWith(
+        LONGO,
+        {
+          name: 'Liberdade',
+          target_amount: '1500000.00',
+          target_date: '2040-01-01',
+          return_assumption: 'IPCA+6',
+          amount_in_today_brl: true,
+        },
+        '2026-11-15T12:00:00.000Z',
+      );
     });
 
     it('Novo objetivo abre vazio, aponta o que falta e não grava', async () => {
