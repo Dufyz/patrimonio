@@ -87,6 +87,31 @@ describe('o que a busca acha', () => {
     expect(body.transactions.items[0]?.portfolio_name).toBe('Longo prazo');
   });
 
+  it('POS-03 · o ativo com preço defasado leva o ponto, com o dia do último preço', async () => {
+    const compraItub4 = await lancar(
+      compra('ITUB4', 'Itaú Unibanco PN', '2026-03-12', carteira),
+    );
+    await harness.sql`
+      INSERT INTO asset_price (asset_id, price_date, close, source, source_kind)
+      VALUES (${compraItub4.asset_id}, '2026-10-21', '31.00', 'teste', 'primary')
+    `;
+    await harness.sql`
+      INSERT INTO position_daily (
+        portfolio_id, asset_id, position_date, quantity, avg_price, cost_basis,
+        market_value, price_source_kind, accrued_interest
+      )
+      VALUES (
+        ${carteira}, ${compraItub4.asset_id}, '2026-10-24', '100.00000000',
+        '30.00000000', '3000.00', '3100.00', 'stale', '0.00'
+      )
+    `;
+
+    const body = await buscar('q=itub');
+
+    expect(body.assets.items[0]?.holding?.price_source_kind).toBe('stale');
+    expect(body.assets.items[0]?.holding?.price_date).toBe('2026-10-21');
+  });
+
   it('restringe os lançamentos à carteira da query', async () => {
     await lancar(compra('ITUB4', 'Itaú Unibanco PN', '2026-03-12', carteira));
     const naReserva = await lancar(

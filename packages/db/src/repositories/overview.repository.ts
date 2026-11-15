@@ -75,6 +75,7 @@ const parsePosition = (row: Row): OverviewPositionRow => ({
   color_token: asStringOrNull(row, 'color_token'),
   value: asMoney(row, 'value'),
   price_source_kind: asEnum(row, 'price_source_kind', COMPUTED_PRICE_KINDS),
+  price_date: asStringOrNull(row, 'price_date'),
 });
 
 const parseCategory = (row: Row): OverviewCategoryRow => ({
@@ -229,6 +230,12 @@ export const createOverviewRepository = (sql: Connection): OverviewRepository =>
                  asset.b3_type,
                  category.color_token,
                  SUM(held.market_value)::TEXT AS value,
+                 -- POS-03: o dia do último preço conhecido; o ponto laranja o diz.
+                 (SELECT MAX(ap.price_date)::TEXT
+                    FROM asset_price ap
+                   WHERE ap.asset_id = held.asset_id
+                     AND ap.price_date <= (SELECT position_date FROM reference)
+                 ) AS price_date,
                  MIN(
                    CASE held.price_source_kind
                      WHEN 'missing' THEN 1

@@ -66,6 +66,8 @@ type AssetResultRow = Omit<SearchAssetRow, 'portfolio_names' | 'id' | 'b3_type'>
   readonly maturity_date: string | null;
   readonly total: number;
   readonly portfolio_names: readonly string[] | null;
+  readonly price_source_kind: string | null;
+  readonly price_date: string | null;
 };
 
 type TransactionResultRow = SearchTransactionRow & { readonly total: number };
@@ -129,17 +131,33 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
                  NULL::TEXT AS maturity_date, c.total::INT AS total,
                  h.quantity::TEXT AS quantity,
                  h.market_value::NUMERIC(20,2)::TEXT AS market_value,
-                 h.portfolio_names
+                 h.portfolio_names,
+                 -- POS-03: o ponto laranja da busca; só existe com posição.
+                 CASE h.health
+                   WHEN 1 THEN 'missing'
+                   WHEN 2 THEN 'stale'
+                   WHEN 3 THEN 'manual'
+                   WHEN 4 THEN 'fresh'
+                 END AS price_source_kind,
+                 (SELECT MAX(ap.price_date)::TEXT
+                    FROM asset_price ap
+                   WHERE ap.asset_id = c.id) AS price_date
             FROM candidates c
             LEFT JOIN LATERAL (
               SELECT SUM(l.quantity) AS quantity,
                      SUM(l.market_value) AS market_value,
-                     ARRAY_AGG(l.name ORDER BY l.sort_order, l.name) AS portfolio_names
+                     ARRAY_AGG(l.name ORDER BY l.sort_order, l.name) AS portfolio_names,
+                     MIN(CASE l.kind
+                           WHEN 'missing' THEN 1
+                           WHEN 'stale' THEN 2
+                           WHEN 'manual' THEN 3
+                           ELSE 4
+                         END) AS health
                 FROM (
-                  SELECT s.name, s.sort_order, p.quantity, p.market_value
+                  SELECT s.name, s.sort_order, p.quantity, p.market_value, p.kind
                     FROM scope s
                     CROSS JOIN LATERAL (
-                      SELECT pd.quantity, pd.market_value
+                      SELECT pd.quantity, pd.market_value, pd.price_source_kind::TEXT AS kind
                         FROM position_daily pd
                        WHERE pd.asset_id = c.id
                          AND pd.portfolio_id = s.id
@@ -155,7 +173,8 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
           (SELECT 'catalog' AS row_kind, NULL::UUID AS id, k.ticker, k.name, k.b3_type,
                  k.maturity_date::TEXT AS maturity_date, k.total::INT AS total,
                  NULL::TEXT AS quantity, NULL::TEXT AS market_value,
-                 NULL::TEXT[] AS portfolio_names
+                 NULL::TEXT[] AS portfolio_names,
+                 NULL::TEXT AS price_source_kind, NULL::TEXT AS price_date
             FROM listed_catalog k
            ORDER BY k.match_rank, k.ticker
            LIMIT ${filter.limit})
@@ -165,7 +184,8 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
                  (CASE WHEN EXISTS (SELECT 1 FROM listed_instrument WHERE active)
                        THEN 1 ELSE 0 END) AS total,
                  NULL::TEXT AS quantity, NULL::TEXT AS market_value,
-                 NULL::TEXT[] AS portfolio_names)
+                 NULL::TEXT[] AS portfolio_names,
+                 NULL::TEXT AS price_source_kind, NULL::TEXT AS price_date)
         `,
         sql<TransactionResultRow[]>`
           SELECT t.id,
@@ -209,9 +229,11 @@ export const createSearchRepository = (sql: Connection): SearchRepository => ({
               portfolio_names,
               id,
               b3_type,
+              price_source_kind,
               ...row
             }): SearchAssetRow => ({
               ...row,
+              price_source_kind: price_source_kind as SearchAssetRow['price_source_kind'],
               id: id as string,
               b3_type: b3_type as SearchAssetRow['b3_type'],
               portfolio_names: portfolio_names ?? [],

@@ -40,6 +40,8 @@ const RESOURCE: SearchResource = {
           quantity: '500.00000000',
           market_value: '18420.00',
           portfolio_names: ['Longo prazo'],
+          price_source_kind: 'fresh',
+          price_date: null,
         },
       },
       {

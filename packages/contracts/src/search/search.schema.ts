@@ -54,6 +54,9 @@ export const searchHoldingSchema = z.object({
   market_value: decimalString,
   /** Em quais carteiras, na ordem em que a barra lateral as lista. */
   portfolio_names: z.array(z.string()),
+  /** POS-03: o ponto laranja da busca. */
+  price_source_kind: z.enum(['fresh', 'stale', 'manual', 'missing']),
+  price_date: dateOnly.nullable(),
 });
 
 export const searchAssetSchema = z.object({

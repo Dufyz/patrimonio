@@ -167,6 +167,13 @@ export type SearchItem = {
   readonly target: SearchTarget;
   /** O motivo, quando o item aparece mas ainda não pode ser executado. */
   readonly disabled: string | null;
+  /** POS-03: o ponto de preço defasado do ativo, quando há posição. */
+  readonly priceHealth?:
+    | {
+        readonly kind: 'fresh' | 'stale' | 'manual' | 'missing';
+        readonly date: string | null;
+      }
+    | undefined;
 };
 
 export type SearchSection = {
@@ -361,6 +368,10 @@ export const assetItems = (assets: readonly SearchAsset[]): readonly SearchItem[
       keywords: [asset.ticker, asset.name],
       target: { kind: 'asset', assetId: asset.id, slug: assetSlug(naming(asset)) },
       disabled: null,
+      priceHealth:
+        asset.holding === null
+          ? undefined
+          : { kind: asset.holding.price_source_kind, date: asset.holding.price_date },
     };
   });
 

@@ -129,6 +129,8 @@ export const overviewTopPositionSchema = z.object({
   value: decimalString,
   weight_pct: decimalString,
   price_source_kind: z.enum(['fresh', 'stale', 'manual', 'missing']),
+  /** O dia do último preço conhecido; vai no texto do ponto laranja (POS-03). */
+  price_date: dateOnly.nullable(),
 });
 
 export const overviewSchema = z.object({

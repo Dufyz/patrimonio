@@ -222,6 +222,8 @@ describe('searchGlobal · papéis do mercado', () => {
                 quantity: null,
                 market_value: null,
                 portfolio_names: [],
+                price_source_kind: null,
+                price_date: null,
               },
             ],
           },

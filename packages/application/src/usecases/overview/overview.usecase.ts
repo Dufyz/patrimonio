@@ -88,6 +88,7 @@ export type OverviewTopPosition = {
   readonly value: string;
   readonly weight_pct: string;
   readonly price_source_kind: ComputedPriceKind;
+  readonly price_date: string | null;
 };
 
 /**
@@ -345,6 +346,7 @@ export const getOverview = (deps: OverviewDeps) =>
             b3_type: row.b3_type,
             color_token: row.color_token,
             price_source_kind: row.price_source_kind,
+            price_date: row.price_date,
           })),
           held,
         );
@@ -404,6 +406,7 @@ export const getOverview = (deps: OverviewDeps) =>
               value: row.value,
               weight_pct: row.weight_pct,
               price_source_kind: row.price_source_kind,
+              price_date: row.price_date,
             })),
           },
         });

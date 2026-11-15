@@ -399,7 +399,7 @@ const TopPositions = ({
                     {assetTitle(row)}
                   </button>
                 )}
-                <PriceHealthDot kind={row.price_source_kind} />
+                <PriceHealthDot kind={row.price_source_kind} priceDate={row.price_date} />
               </span>
             </th>
             <td className="px-4 py-(--row-pad) text-right">

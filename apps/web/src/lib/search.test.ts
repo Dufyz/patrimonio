@@ -55,6 +55,8 @@ const itub4: SearchAsset = {
     quantity: '500.00000000',
     market_value: '18420.00',
     portfolio_names: ['Longo prazo'],
+    price_source_kind: 'fresh',
+    price_date: null,
   },
 };
 const itub3: SearchAsset = {
@@ -401,7 +403,13 @@ describe('rótulos', () => {
     expect(
       holdingLabel({
         ...itub4,
-        holding: { quantity: '600', market_value: '1', portfolio_names: ['A', 'B', 'C'] },
+        holding: {
+          quantity: '600',
+          market_value: '1',
+          portfolio_names: ['A', 'B', 'C'],
+          price_source_kind: 'fresh',
+          price_date: null,
+        },
       }),
     ).toBe('600 em 3 carteiras');
   });
@@ -428,6 +436,8 @@ const cdb: SearchAsset = {
     quantity: '1',
     market_value: '10250.00',
     portfolio_names: ['Reserva'],
+    price_source_kind: 'fresh',
+    price_date: null,
   },
 };
 
@@ -698,5 +708,25 @@ describe('NAV-10 · provento por texto', () => {
         all,
       ),
     ).toBeNull();
+  });
+});
+
+describe('ponto de preço na busca (POS-03)', () => {
+  it('o ativo com posição leva o estado do preço; sem posição, não', () => {
+    const stale = {
+      ...itub4,
+      holding: {
+        quantity: '1',
+        market_value: '1.00',
+        portfolio_names: ['A'],
+        price_source_kind: 'stale' as const,
+        price_date: '2026-10-21',
+      },
+    };
+    expect(assetItems([stale])[0]?.priceHealth).toEqual({
+      kind: 'stale',
+      date: '2026-10-21',
+    });
+    expect(assetItems([{ ...itub4, holding: null }])[0]?.priceHealth).toBeUndefined();
   });
 });

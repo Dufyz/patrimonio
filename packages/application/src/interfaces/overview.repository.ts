@@ -58,6 +58,8 @@ export type OverviewPositionRow = {
   readonly value: string;
   /** O estado do preço do papel na carteira. */
   readonly price_source_kind: ComputedPriceKind;
+  /** AAAA-MM-DD do último preço conhecido; diz "usando preço de dd/mm" no ponto. */
+  readonly price_date: string | null;
 };
 
 export type OverviewCategoryRow = {

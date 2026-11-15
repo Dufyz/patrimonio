@@ -61,6 +61,8 @@ const holdingOf = (row: SearchAssetRow) =>
         quantity: row.quantity,
         market_value: row.market_value,
         portfolio_names: [...row.portfolio_names],
+        price_source_kind: row.price_source_kind ?? 'fresh',
+        price_date: row.price_date,
       };
 
 const monthStart = (today: DateOnly): string => `${today.slice(0, 7)}-01T00:00:00.000Z`;

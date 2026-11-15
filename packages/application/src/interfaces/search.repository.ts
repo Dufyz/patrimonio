@@ -40,6 +40,10 @@ export type SearchAssetRow = {
   readonly quantity: string | null;
   readonly market_value: string | null;
   readonly portfolio_names: readonly string[];
+  /** Pior estado do preço entre as carteiras; nulo sem posição. */
+  readonly price_source_kind: 'fresh' | 'stale' | 'manual' | 'missing' | null;
+  /** AAAA-MM-DD do último preço conhecido. */
+  readonly price_date: string | null;
 };
 
 /** Um papel do catálogo que a pessoa ainda não tem como ativo. */

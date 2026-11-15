@@ -28,7 +28,7 @@ import type {
 } from '../lib/search.js';
 import { Icon, iconFor } from './icon.js';
 import { Money } from './number.js';
-import { Kbd, Label } from './primitives.js';
+import { Kbd, Label, PriceHealthDot } from './primitives.js';
 import { useDismiss } from './use_dismiss.js';
 
 /**
@@ -406,6 +406,9 @@ const Option = ({
       <span className={item.group === 'assets' ? 'tabular' : ''}>
         <Highlight text={item.label} query={query} />
       </span>
+      {item.priceHealth === undefined ? null : (
+        <PriceHealthDot kind={item.priceHealth.kind} priceDate={item.priceHealth.date} />
+      )}
       {item.detail === null ? null : (
         <>
           {/* Espaço de verdade, e não só margem: o leitor de tela junta os dois
