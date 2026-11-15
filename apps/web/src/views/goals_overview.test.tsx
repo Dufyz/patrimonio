@@ -195,6 +195,16 @@ describe('GoalsOverviewView', () => {
     expect(resumo.getByText(/faltam/)).toBeTruthy();
   });
 
+  it('OBJ-02 · a linha traz Acumulado, Falta e a barra com a marca do ritmo, sem ação de edição', () => {
+    montar();
+
+    const tabela = screen.getByRole('table', { name: /O objetivo de cada carteira/ });
+    for (const nome of ['Carteira', 'Objetivo', 'Progresso', 'Acumulado', 'Falta']) {
+      expect(within(tabela).getByRole('columnheader', { name: nome })).toBeTruthy();
+    }
+    expect(within(tabela).queryByRole('button', { name: /Editar|Excluir/ })).toBeNull();
+  });
+
   it('avisa que o aporte necessário cai quando a primeira meta fecha', () => {
     montar();
 

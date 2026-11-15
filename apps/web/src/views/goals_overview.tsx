@@ -529,6 +529,9 @@ const PortfolioTable = ({
                 Progresso
               </th>
               <th scope="col" className={`${TH} text-right`}>
+                Acumulado
+              </th>
+              <th scope="col" className={`${TH} text-right`}>
                 Falta
               </th>
               <th scope="col" className={`${TH} text-right`}>
@@ -560,7 +563,7 @@ const PortfolioTable = ({
                     <th scope="row" className="px-4 py-4 text-left font-normal">
                       <PortfolioLink row={row} onOpen={onOpenPortfolio} />
                     </th>
-                    <td colSpan={showPlan ? 7 : 6} className={TD}>
+                    <td colSpan={showPlan ? 8 : 7} className={TD}>
                       Sem objetivo
                     </td>
                     <td className={TD}>
@@ -613,6 +616,9 @@ const PortfolioTable = ({
                         <Percent value={percentAsRatio(goal.progress_pct)} decimals={1} />
                       </span>
                     </span>
+                  </td>
+                  <td className={`${TD} text-right`}>
+                    <Money value={goal.current_value} />
                   </td>
                   <td className={`${TD} text-right`}>
                     <Money value={goal.remaining_brl} />
