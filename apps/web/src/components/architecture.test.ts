@@ -75,3 +75,33 @@ describe('componentes base existem uma vez (CMP-12)', () => {
     expect(stray).toEqual([]);
   });
 });
+
+/**
+ * NAV-13 · O que só existia na separação por áreas não volta.
+ *
+ * Seletor de áreas, "área ativa" guardada e a casca por área saíram; o teste
+ * falha se um arquivo ou símbolo com esses nomes reaparecer.
+ */
+describe('estrutura de áreas removida (NAV-13)', () => {
+  const REMOVED_FILES = [
+    'lib/last_area.ts',
+    'components/area_selector.tsx',
+    'components/area_switcher.tsx',
+    'finance/components/finance_shell.tsx',
+    'investments',
+  ];
+
+  it('os arquivos e pastas removidos não existem', () => {
+    const back = REMOVED_FILES.filter((path) => existsSync(join(ROOT, path)));
+    expect(back).toEqual([]);
+  });
+
+  it('nenhum código guarda ou lê uma "área ativa"', () => {
+    const offenders = files.filter((file) =>
+      /\b(?:lastArea|activeArea|setActiveArea|AreaSelector|AreaSwitcher)\b/u.test(
+        readFileSync(join(ROOT, file), 'utf8'),
+      ),
+    );
+    expect(offenders).toEqual([]);
+  });
+});
