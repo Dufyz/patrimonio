@@ -10,6 +10,7 @@ export { createOutboxRepository } from './repositories/outbox.repository.js';
 export { createBusinessDayRepository } from './repositories/business_day.repository.js';
 export { createPortfolioRepository } from './repositories/portfolio.repository.js';
 export { createInstitutionRepository } from './repositories/institution.repository.js';
+export { createFinanceRepository } from './repositories/finance.repository.js';
 export { createCategoryRepository } from './repositories/category.repository.js';
 export { createInstrumentCatalogRepository } from './repositories/instrument_catalog.repository.js';
 export { createAssetRepository } from './repositories/asset.repository.js';
@@ -54,6 +55,11 @@ export { loadBusinessDays } from './seeds/load_business_days.js';
 export { loadInstitutions } from './seeds/load_institutions.js';
 export { fetchInstitutionNames } from './seeds/fetch_institutions.js';
 export { removeDemoData } from './seeds/remove_demo.js';
-export { loadFinanceDemo, removeFinanceDemo } from './seeds/finance_demo.js';
+export {
+  loadFinanceDemo,
+  readFinanceDemo,
+  removeFinanceDemo,
+  withUuids,
+} from './seeds/finance_demo.js';
 export type { RemovedDemo } from './seeds/remove_demo.js';
 export { calendarFromSeed } from './seeds/business_days.js';
