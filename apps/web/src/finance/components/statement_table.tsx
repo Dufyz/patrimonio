@@ -10,7 +10,14 @@ import { formatRange, isWholeMonth } from '../lib/period.js';
 import type { DateRange } from '../lib/period.js';
 import { financeRoutes } from '../lib/routes.js';
 import { Amount } from './amount.js';
-import { CategoryMarker, FinTable, Row, Td, Th, THead } from './fin_table.js';
+import {
+  CategoryMarker,
+  FinTable,
+  Row,
+  Td,
+  Th,
+  THead,
+} from '../../components/table_parts.js';
 import { NatureTag } from './tags.js';
 
 /**

@@ -7,7 +7,7 @@ import { ApiError } from '../../api/client.js';
 import type { AccountRowResource, AccountsResource } from '../../api/accounts.js';
 import { usePreferences } from '../../components/preferences.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
-import { SortTh } from '../../finance/components/fin_table.js';
+import { SortTh } from '../../components/table_parts.js';
 import { EmptyPanel, PanelError } from '../../finance/components/states.js';
 import { TableScreenSkeleton } from '../../finance/components/screen_skeletons.js';
 import { financeRoutes } from '../../finance/lib/routes.js';

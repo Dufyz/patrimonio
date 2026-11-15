@@ -23,7 +23,15 @@ import type { DateRange } from '../lib/period.js';
 import { financeRoutes } from '../lib/routes.js';
 import { LaunchPlannedDialog } from '../../views/ledger/launch_planned.js';
 import { Amount } from './amount.js';
-import { CategoryMarker, FillRow, FinTable, Row, Td, Th, THead } from './fin_table.js';
+import {
+  CategoryMarker,
+  FillRow,
+  FinTable,
+  Row,
+  Td,
+  Th,
+  THead,
+} from '../../components/table_parts.js';
 import { formatPercentValue } from './limit_bar.js';
 import { EmptyPanel } from './states.js';
 

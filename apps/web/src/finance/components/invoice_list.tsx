@@ -1,5 +1,5 @@
 import { Amount } from './amount.js';
-import { FinTable, Row, Td, Th, THead } from './fin_table.js';
+import { FinTable, Row, Td, Th, THead } from '../../components/table_parts.js';
 import { InvoiceStatus } from './invoice_status.js';
 import {
   cardInvoiceKeys,

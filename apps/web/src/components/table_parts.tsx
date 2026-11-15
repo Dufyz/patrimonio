@@ -1,6 +1,6 @@
-import { cn } from '../../lib/cn.js';
-import { ariaSort } from '../../lib/table_sort.js';
-import type { SortState } from '../../lib/table_sort.js';
+import { cn } from '../lib/cn.js';
+import { ariaSort } from '../lib/table_sort.js';
+import type { SortState } from '../lib/table_sort.js';
 
 /**
  * FIN-004 · Os componentes únicos de tabela de Finanças.

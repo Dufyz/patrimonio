@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { FinTable, Row, Td } from './fin_table.js';
+import { FinTable, Row, Td } from '../../components/table_parts.js';
 
 const setup = () => {
   const calls = { open: vi.fn(), toggle: vi.fn(), clear: vi.fn() };

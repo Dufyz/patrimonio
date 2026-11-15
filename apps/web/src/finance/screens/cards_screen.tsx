@@ -17,7 +17,7 @@ import {
   Td,
   Th,
   THead,
-} from '../components/fin_table.js';
+} from '../../components/table_parts.js';
 import { PayInvoiceDialog } from '../components/pay_invoice_dialog.js';
 import { CardDialog } from '../components/card_dialog.js';
 import { EmptyPanel, PanelBoundary } from '../components/states.js';

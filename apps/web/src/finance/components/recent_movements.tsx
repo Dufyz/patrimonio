@@ -7,7 +7,14 @@ import { formatDay } from '../lib/format.js';
 import { financeRoutes } from '../lib/routes.js';
 import { useFinanceData } from '../store/finance_store.js';
 import { Amount } from './amount.js';
-import { CategoryMarker, FinTable, Row, Td, Th, THead } from './fin_table.js';
+import {
+  CategoryMarker,
+  FinTable,
+  Row,
+  Td,
+  Th,
+  THead,
+} from '../../components/table_parts.js';
 import { useFinancePeriod } from './period_provider.js';
 import { NatureTag } from './tags.js';
 

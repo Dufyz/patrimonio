@@ -10,7 +10,15 @@ import {
 import { Checkbox } from '../../components/ui/checkbox.js';
 import { Select } from '../../views/entry/fields.js';
 import { Amount } from './amount.js';
-import { CategoryMarker, FinTable, Row, SectionRow, Td, Th, THead } from './fin_table.js';
+import {
+  CategoryMarker,
+  FinTable,
+  Row,
+  SectionRow,
+  Td,
+  Th,
+  THead,
+} from '../../components/table_parts.js';
 import { NatureTag } from './tags.js';
 import { accountNames } from '../domain/ledger.js';
 import { sourceName } from '../domain/sources.js';

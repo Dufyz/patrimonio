@@ -19,7 +19,7 @@ import {
   Td,
   Th,
   THead,
-} from '../components/fin_table.js';
+} from '../../components/table_parts.js';
 import { ArchiveAccountDialog } from '../components/archive_dialog.js';
 import { AccountDialog } from '../components/account_dialog.js';
 import { TransferDialog } from '../components/transfer_dialog.js';

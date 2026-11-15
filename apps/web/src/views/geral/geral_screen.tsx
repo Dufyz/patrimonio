@@ -23,7 +23,7 @@ import { SeriesChart } from '../../components/series_chart.js';
 import { SkeletonChart, SkeletonRegion } from '../../components/skeleton.js';
 import { Amount } from '../../finance/components/amount.js';
 import { EntryDialog } from '../../finance/components/entry_dialog.js';
-import { FillRow, FinTable, Th, THead } from '../../finance/components/fin_table.js';
+import { FillRow, FinTable, Th, THead } from '../../components/table_parts.js';
 import {
   ContasPanel,
   FaturasAbertasPanel,

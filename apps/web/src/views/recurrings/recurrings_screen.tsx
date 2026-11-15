@@ -26,7 +26,7 @@ import {
   Td,
   Th,
   THead,
-} from '../../finance/components/fin_table.js';
+} from '../../components/table_parts.js';
 import { categoryColor } from '../../finance/lib/category_colors.js';
 import {
   RECURRING_GROUPINGS,

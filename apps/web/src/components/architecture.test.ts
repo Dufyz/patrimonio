@@ -27,10 +27,7 @@ const BASE_PATTERN =
 /** Tabela, período, ferramentas, filtro e efeito: o módulo único. */
 const MODULE = 'components/';
 
-const PENDING_MERGE: readonly string[] = [
-  // A tabela das telas de Finanças, a fundir com `components/table.tsx` (CMP-03).
-  'finance/components/fin_table.tsx',
-];
+const PENDING_MERGE: readonly string[] = [];
 
 const files = walk(ROOT).map((file) => relative(ROOT, file));
 

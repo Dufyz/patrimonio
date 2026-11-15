@@ -8,7 +8,15 @@ import {
 import { categoryColor } from '../lib/category_colors.js';
 import { formatDay } from '../lib/format.js';
 import { Amount } from './amount.js';
-import { CategoryMarker, FinTable, Row, SectionRow, Td, Th, THead } from './fin_table.js';
+import {
+  CategoryMarker,
+  FinTable,
+  Row,
+  SectionRow,
+  Td,
+  Th,
+  THead,
+} from '../../components/table_parts.js';
 import { NatureTag } from './tags.js';
 import type { InvoiceBlock, InvoiceLine } from '../domain/cards.js';
 import { invoiceTotals } from '../domain/cards.js';

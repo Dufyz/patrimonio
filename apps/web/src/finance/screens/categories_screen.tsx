@@ -21,7 +21,7 @@ import {
   Td,
   Th,
   THead,
-} from '../components/fin_table.js';
+} from '../../components/table_parts.js';
 import { TableToolbar } from '../../components/table_toolbar.js';
 import type { Category } from '../domain/types.js';
 import { categoryColor } from '../lib/category_colors.js';

@@ -10,7 +10,15 @@ import type { DateRange } from '../lib/period.js';
 import type { IsoDate } from '../lib/dates.js';
 import { financeRoutes } from '../lib/routes.js';
 import { Amount } from './amount.js';
-import { CategoryMarker, FillRow, FinTable, Row, Td, Th, THead } from './fin_table.js';
+import {
+  CategoryMarker,
+  FillRow,
+  FinTable,
+  Row,
+  Td,
+  Th,
+  THead,
+} from '../../components/table_parts.js';
 import { PanelHeaderAction } from './overview_panels.js';
 import { EmptyPanel, PanelError, PanelLoading } from './states.js';
 

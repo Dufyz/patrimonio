@@ -2,7 +2,7 @@ import { EmptyPanel } from './states.js';
 import { Link } from 'react-router';
 
 import { Amount } from './amount.js';
-import { FinTable, Row, Td, Th, THead } from './fin_table.js';
+import { FinTable, Row, Td, Th, THead } from '../../components/table_parts.js';
 import { StatusTag } from './tags.js';
 import { upcomingInvoices } from '../domain/cards.js';
 import type { FinanceData } from '../domain/types.js';

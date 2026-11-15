@@ -13,7 +13,7 @@ import {
   Td,
   Th,
   THead,
-} from './fin_table.js';
+} from '../../components/table_parts.js';
 import { LimitBar } from './limit_bar.js';
 import { StatStrip } from './stat_strip.js';
 import { NatureTag, StatusTag } from './tags.js';

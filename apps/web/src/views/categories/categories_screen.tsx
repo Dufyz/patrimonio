@@ -19,7 +19,7 @@ import {
   SummaryRow,
   Td,
   Th,
-} from '../../finance/components/fin_table.js';
+} from '../../components/table_parts.js';
 import { categoryColor } from '../../finance/lib/category_colors.js';
 import { financeRoutes } from '../../finance/lib/routes.js';
 import { formatMoney } from '../../lib/format.js';

@@ -24,7 +24,7 @@ import {
   Td,
   Th,
   THead,
-} from '../components/fin_table.js';
+} from '../../components/table_parts.js';
 import { EmptyPanel } from '../components/states.js';
 import { hideBelow } from '../lib/responsive.js';
 import { ScreenHeader } from '../components/screen_header.js';
