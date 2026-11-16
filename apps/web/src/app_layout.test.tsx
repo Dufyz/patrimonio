@@ -191,6 +191,35 @@ describe('NAV-02 e NAV-11 · busca e atalhos', () => {
     await waitFor(() => expect(path()).toBe('/cartoes'));
   });
 
+  it('QUA-03 · navegar sem mouse: G V, ⌘K, setas, Enter, Esc e de volta com G V', async () => {
+    const user = await open('/contas');
+
+    await user.keyboard('gv');
+    await waitFor(() => expect(path()).toBe('/'));
+
+    await user.keyboard('{Meta>}k{/Meta}');
+    const campo = await screen.findByRole('combobox', { name: /Buscar/u });
+    expect(campo).toHaveFocus();
+    await user.keyboard('cartoes{Enter}');
+    await waitFor(() => expect(path()).toBe('/cartoes'));
+    expect(screen.queryByRole('combobox', { name: /Buscar/u })).toBeNull();
+
+    await user.keyboard('{Meta>}k{/Meta}');
+    await screen.findByRole('combobox', { name: /Buscar/u });
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('combobox', { name: /Buscar/u })).toBeNull();
+    expect(path()).toBe('/cartoes');
+
+    // O foco volta para algo que o teclado alcança: Tab sempre anda.
+    await user.tab();
+    const first = document.activeElement;
+    await user.tab();
+    expect(document.activeElement).not.toBe(first);
+
+    await user.keyboard('gv');
+    await waitFor(() => expect(path()).toBe('/'));
+  });
+
   it('a busca chega às telas de carteira a partir de uma tela de fluxo', async () => {
     const user = await open('/contas');
 
