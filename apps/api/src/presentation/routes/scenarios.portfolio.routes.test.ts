@@ -352,3 +352,47 @@ describe('QC-13 e QC-16 · objetivos e projeção por carteira', () => {
     expect(JSON.stringify(single)).toContain('54718.83');
   });
 });
+
+describe('CU-11 · ativo sem cotação do dia', () => {
+  it('aparece como sem cotação, com o último preço e nunca com valor zero', async () => {
+    await harness.sql`
+      UPDATE position_daily SET price_source_kind = 'stale'
+       WHERE asset_id = ${seeded.assets['BOVA11'] ?? ''}`;
+    const filtered = (
+      await get(
+        `/api/positions?portfolio_id=${seeded.investimentos}&price_status=sem_cotacao`,
+      )
+    ).body;
+    const rows = filtered.groups.flatMap((g: { positions: unknown[] }) => g.positions);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].ticker).toBe('BOVA11');
+    expect(rows[0].value).toBe('12000.00');
+    expect(Number(rows[0].value)).toBeGreaterThan(0);
+
+    const all = (await get(`/api/positions?portfolio_id=${seeded.investimentos}`)).body;
+    expect(all.groups.flatMap((g: { positions: unknown[] }) => g.positions)).toHaveLength(
+      5,
+    );
+  });
+});
+
+describe('QC-15 · Projeção em t = 0 = valor atual em Posições', () => {
+  it('por carteira e em Todas', async () => {
+    const positions = (await get('/api/positions')).body;
+    const projection = (await get('/api/projection?horizon=12')).body;
+    expect(projection.total.series[0].value).toBe('194998.09');
+    for (const [id, name] of [
+      [seeded.investimentos, 'Investimentos'],
+      [seeded.emergencia, 'Emergência'],
+    ] as const) {
+      const row = projection.portfolios.find(
+        (p: { portfolio_id: string }) => p.portfolio_id === id,
+      );
+      const inPositions = (await get(`/api/positions?portfolio_id=${id}`)).body.groups
+        .flatMap((g: { positions: { value: string }[] }) => g.positions)
+        .reduce((acc: number, p: { value: string }) => acc + Number(p.value), 0);
+      expect(Number(row.projection.series[0].value), name).toBeCloseTo(inPositions, 2);
+    }
+    expect(positions.groups.length).toBeGreaterThan(0);
+  });
+});
