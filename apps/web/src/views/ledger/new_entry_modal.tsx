@@ -53,6 +53,7 @@ export const NewEntryModal = ({
   accounts,
   context = {},
   initialKind,
+  prefill,
   onSaved,
   onClose,
   onConflict,
@@ -62,6 +63,8 @@ export const NewEntryModal = ({
   readonly accounts: readonly { readonly id: string; readonly name: string }[];
   readonly context?: DraftContext;
   readonly initialKind?: ModalKind;
+  /** LAN-06 · Lançar um aporte previsto: o modal abre com os dados do previsto. */
+  readonly prefill?: Partial<Draft> | undefined;
   readonly onSaved: () => void;
   readonly onClose: () => void;
   /** CRT-10 · Pagar fatura que já mudou: mostra o erro e pede para quem abriu recarregar. */
@@ -71,7 +74,7 @@ export const NewEntryModal = ({
 }): React.ReactElement => {
   const [draft, setDraft] = useState<Draft>(() =>
     editing === undefined
-      ? newDraft(today, context, initialKind)
+      ? { ...newDraft(today, context, initialKind), ...prefill }
       : draftFromEntry(today, editing.entry),
   );
   const [categories, setCategories] = useState<readonly CategoryOption[]>([]);

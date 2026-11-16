@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import type { BookResponse, BookRowResource } from '@patrimonio/contracts';
+import type { Draft } from '../../lib/ledger_entry_form.js';
 
 import { fetchAccountNames, fetchBook, fetchCategoryOptions } from '../../api/book.js';
 import type { CategoryOption } from '../../api/book.js';
@@ -118,6 +119,28 @@ const FilterGroup = ({
 
 const currentMonth = (): string => new Date().toISOString().slice(0, 7);
 
+const PLANNED_APORTE = 'previsto-aporte:';
+
+/** LAN-06 · O que o modal de aporte recebe de uma linha prevista: carteira, ativo, conta e valor. */
+export const aportePrefill = (row: BookRowResource, today: string): Partial<Draft> => {
+  const recurringId = row.id.startsWith(PLANNED_APORTE)
+    ? (row.id.slice(PLANNED_APORTE.length).split(':')[0] ?? '')
+    : '';
+  return {
+    kind: 'APORTE',
+    portfolioId: row.portfolio_id ?? '',
+    accountId: row.account_id ?? '',
+    asset:
+      row.asset_id === null
+        ? null
+        : { id: row.asset_id, label: row.description, name: null, held: null },
+    quantity: '1',
+    unitPrice: row.amount ?? '',
+    date: row.date < today ? row.date : today,
+    recurringId,
+  };
+};
+
 export const LedgerScreen = (): React.ReactElement => {
   const { hidden } = usePreferences();
   const [params, setParams] = useSearchParams();
@@ -141,6 +164,7 @@ export const LedgerScreen = (): React.ReactElement => {
   const [accounts, setAccounts] = useState<ReadonlyMap<string, string>>(new Map());
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [creating, setCreating] = useState(false);
+  const [launchingAporte, setLaunchingAporte] = useState<BookRowResource | null>(null);
   const searchBox = useRef<HTMLInputElement>(null);
   const shortcuts = useMemo(() => ({ filter: () => searchBox.current?.focus() }), []);
   useShortcuts(shortcuts);
@@ -286,6 +310,16 @@ export const LedgerScreen = (): React.ReactElement => {
           onClose={() => setCreating(false)}
         />
       ) : null}
+      {launchingAporte === null ? null : (
+        <NewEntryModal
+          today={today}
+          accounts={[...accounts].map(([id, name]) => ({ id, name }))}
+          initialKind="APORTE"
+          prefill={aportePrefill(launchingAporte, today)}
+          onSaved={() => setReload((n) => n + 1)}
+          onClose={() => setLaunchingAporte(null)}
+        />
+      )}
       {editRow === null || editRow.entry === null ? null : (
         <NewEntryModal
           today={today}
@@ -527,7 +561,17 @@ export const LedgerScreen = (): React.ReactElement => {
                     {row.amount === null ? '—' : money(row.amount, signOf(row.kind))}
                   </td>
                   <td data-launch>
-                    {row.entry === null ? null : (
+                    {row.entry === null ? (
+                      row.kind === 'APORTE' ? (
+                        <button
+                          type="button"
+                          className="cursor-pointer"
+                          onClick={() => setLaunchingAporte(row)}
+                        >
+                          Lançar
+                        </button>
+                      ) : null
+                    ) : (
                       <button
                         type="button"
                         className="cursor-pointer"

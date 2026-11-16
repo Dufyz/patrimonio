@@ -66,6 +66,8 @@ export type Draft = {
   readonly eventKind: string;
   readonly ratioFrom: string;
   readonly ratioTo: string;
+  /** Aporte lançado a partir de um previsto: o recorrente que sai do mês (LAN-06). */
+  readonly recurringId: string;
 };
 
 export type DraftContext = {
@@ -111,6 +113,7 @@ export const newDraft = (
   eventKind: 'split',
   ratioFrom: '1',
   ratioTo: '2',
+  recurringId: '',
 });
 
 export const switchKind = (draft: Draft, kind: ModalKind): Draft =>
@@ -288,6 +291,7 @@ const investmentBase = (draft: Draft) => ({
   unit_price: decimal(draft.unitPrice),
   ...(draft.fees.trim() === '' ? {} : { fees: decimal(draft.fees) }),
   account_id: draft.accountId === OUTSIDE ? null : draft.accountId,
+  ...(draft.recurringId === '' ? {} : { recurring_id: draft.recurringId }),
 });
 
 const toAssetEventRequest = (draft: Draft): EntryRequest => {

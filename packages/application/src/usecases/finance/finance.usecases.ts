@@ -135,7 +135,7 @@ export const financeUseCases = (deps: FinanceDeps) => ({
       if (investments.isFailure()) return investments;
 
       const data = loaded.value;
-      const all = fin.bookRows(data, investments.value);
+      const all = fin.bookRows(data, investments.value, range);
       const rows = fin.filterBook(data, all, { ...filters, range });
       const page = fin.paginateBook(rows, cursor, limit);
       const names = new Map(

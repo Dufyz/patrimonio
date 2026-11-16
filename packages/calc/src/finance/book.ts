@@ -1,11 +1,12 @@
 import { LEDGER_EFFECTS } from '@patrimonio/domain';
 import type { FinEntry, FinSnapshot, LedgerKind } from '@patrimonio/domain';
 
-import { compareDates, isDateInRange } from './dates.js';
+import { compareDates, isDateInRange, monthKey, shiftMonthKey } from './dates.js';
 import type { DateRange } from './dates.js';
 import { ledgerPool } from './ledger.js';
 import { findAccount, findCard, findCategory, sourceName } from './lookup.js';
 import { dec, money, total } from './money.js';
+import { plannedAportes } from './recurring.js';
 import { looseAmount, matchesText } from './text.js';
 
 /**
@@ -128,8 +129,36 @@ const investmentDescription = (row: BookInvestmentRow): string => {
 export const bookRows = (
   data: FinSnapshot,
   investments: readonly BookInvestmentRow[],
+  range?: DateRange,
 ): readonly BookRow[] => {
   const rows: BookRow[] = [];
+
+  // LIV-11 · O aporte previsto de cada recorrente de aporte ativo, um por mês do
+  // intervalo que ainda não foi lançado nem pulado. A linha leva o recorrente no
+  // `id` para o "Lançar" abrir o modal de aporte já preenchido.
+  if (range !== undefined) {
+    const last = monthKey(range.to);
+    for (
+      let month = monthKey(range.from);
+      month <= last;
+      month = shiftMonthKey(month, 1)
+    ) {
+      for (const item of plannedAportes(data, month)) {
+        rows.push({
+          ...BLANK,
+          id: `previsto-aporte:${item.recurring_id}:${month}`,
+          kind: 'APORTE',
+          date: item.date,
+          situation: 'previsto',
+          description: item.name,
+          amount: item.amount,
+          account_id: item.account_id,
+          portfolio_id: item.portfolio_id,
+          asset_id: item.asset_id,
+        });
+      }
+    }
+  }
 
   for (const entry of ledgerPool(data)) {
     const main = entry.payments[0];

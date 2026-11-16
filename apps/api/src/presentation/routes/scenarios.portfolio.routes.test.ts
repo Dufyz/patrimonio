@@ -296,7 +296,7 @@ describe('CU-03 · provento creditado na conta', () => {
 });
 
 describe('CU-13 · recorrente de aporte', () => {
-  it('é criado com carteira e origem, e aparece entre os recorrentes', async () => {
+  it('o previsto aparece em Lançamentos e em aportes previstos; lançar tira o previsto e move conta e carteira', async () => {
     const created = await request(harness.app)
       .post('/api/finance/recurrings')
       .send({
@@ -304,14 +304,44 @@ describe('CU-13 · recorrente de aporte', () => {
         kind: 'aporte',
         portfolio_id: seeded.emergencia,
         source: { type: 'conta', id: nubank },
-        day: 5,
+        day: 25,
         mode: 'manual',
         amount: '500.00',
       });
     expect(created.status).toBe(201);
-    const list = await get('/api/finance/recurrings');
-    const found = JSON.stringify(list.body).includes('Aporte Emergência');
-    expect(found).toBe(true);
+
+    const before = await book();
+    const planned = before.rows.find(
+      (r: { kind: string; situation: string }) =>
+        r.kind === 'APORTE' && r.situation === 'previsto',
+    );
+    expect(planned).toBeDefined();
+    expect(planned.amount).toBe('500.00');
+    expect(planned.portfolio_id).toBe(seeded.emergencia);
+    expect(planned.account_id).toBe(nubank);
+    expect(before.totals.previsto.aportes).toBe('500.00');
+    // O previsto não entra em Aportes nem no Saldo do mês (RN-U9).
+    expect(before.totals.aportes).toBe('2000.00');
+    expect(before.totals.saldo_do_mes).toBe('2877.57');
+
+    const launched = await aportar({
+      quantity: '1',
+      unit_price: '500',
+      recurring_id: created.body.result.id,
+    });
+    expect(launched.status).toBe(201);
+    expect(await balance(nubank)).toBe('522.86');
+    const after = await book();
+    expect(
+      after.rows.some(
+        (r: { kind: string; situation: string }) =>
+          r.kind === 'APORTE' && r.situation === 'previsto',
+      ),
+    ).toBe(false);
+    expect(after.totals.previsto.aportes).toBe('0.00');
+    expect(after.totals.aportes).toBe('2500.00');
+    expect(after.totals.saldo_do_mes).toBe('2377.57');
+    // O valor da carteira só reflete o aporte após o recálculo (LIV-13); aqui o worker não roda.
   });
 });
 
