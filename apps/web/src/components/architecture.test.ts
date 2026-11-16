@@ -123,3 +123,11 @@ describe('tabelas sem rolagem horizontal (CMP-03)', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe('VGR-20 · uma só Visão geral', () => {
+  it('as telas antigas de Finanças não voltam: só resta o painel do escopo Fluxo', () => {
+    const dir = join(import.meta.dirname, '..', 'finance', 'screens');
+    const files = readdirSync(dir).filter((name) => !name.includes('.test.'));
+    expect(files).toEqual(['overview_screen.tsx']);
+  });
+});

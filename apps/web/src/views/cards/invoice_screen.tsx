@@ -102,7 +102,6 @@ export const InvoiceScreen = (): React.ReactElement => {
   const visible = useMemo(
     () =>
       data === null ? [] : filterInvoiceLines(data.lines, query, types, categoryName),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [data, query, params, categories],
   );
 

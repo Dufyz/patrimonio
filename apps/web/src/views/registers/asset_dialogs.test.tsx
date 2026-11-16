@@ -11,7 +11,7 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock('../../api/registers.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../api/registers.js')>()),
+  ...(await importOriginal<Record<string, unknown>>()),
   updateAsset: api.updateAsset,
   fetchCategories: api.fetchCategories,
 }));
