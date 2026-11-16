@@ -1,4 +1,7 @@
 import type { ProjectionResource } from '@patrimonio/contracts';
+import type { DateOnly } from '@patrimonio/domain';
+
+import type { Band } from './chart/series.js';
 
 /**
  * PRJ-02..08 · O que a tela de Projeção decide sem navegador. Nenhuma conta
@@ -101,4 +104,42 @@ export const MONTH_NAMES = [
 export const monthLabel = (month: string): string => {
   const [year = '', m = '1'] = month.split('-');
   return `${MONTH_NAMES[Number(m) - 1] ?? m}/${year}`;
+};
+
+/**
+ * PRJ-04 · As faixas empilhadas da carteira: valor de hoje, aporte acumulado e
+ * rendimento acumulado, uma sobre a outra. A soma das três é o valor da série.
+ */
+export const projectionBands = (
+  result: Result,
+  todayValue: string,
+): {
+  readonly today: readonly Band[];
+  readonly contributions: readonly Band[];
+  readonly yield: readonly Band[];
+} => {
+  const base = toCents(todayValue);
+  const at = (month: string): DateOnly => `${month}-01` as DateOnly;
+  return {
+    today: result.series.map((point) => ({
+      date: at(point.month),
+      from: '0',
+      to: fromCents(base),
+      amount: fromCents(base),
+    })),
+    contributions: result.series.map((point) => ({
+      date: at(point.month),
+      from: fromCents(base),
+      to: fromCents(base + toCents(point.contributions_cumulative)),
+      amount: point.contributions_cumulative,
+    })),
+    yield: result.series.map((point) => ({
+      date: at(point.month),
+      from: fromCents(base + toCents(point.contributions_cumulative)),
+      to: fromCents(
+        base + toCents(point.contributions_cumulative) + toCents(point.yield_cumulative),
+      ),
+      amount: point.yield_cumulative,
+    })),
+  };
 };

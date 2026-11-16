@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router';
 
 import { fetchProjection, putProjectionPlan } from '../api/projection.js';
 import { ApiError } from '../api/client.js';
+import { useEntry } from '../components/entry_provider.js';
 import { Money } from '../components/number.js';
 import { KeepPrevious } from '../components/pending.js';
 import { Button, Panel } from '../components/primitives.js';
@@ -15,6 +16,7 @@ import { TableScreenSkeleton } from '../finance/components/screen_skeletons.js';
 import {
   HORIZONS,
   horizonFromParam,
+  projectionBands,
   monthLabel,
   monthlyContributions,
   parseAmountText,
@@ -22,6 +24,8 @@ import {
   returnText,
   rulesAmountAt,
 } from '../lib/projection_view.js';
+import { CONTRIBUTIONS_COLOR, resultColor } from '../lib/overview.js';
+import { SEMANTIC_COLORS } from '../lib/tokens.js';
 import { useResource } from '../lib/use_resource.js';
 import { Input, Select } from './entry/fields.js';
 
@@ -155,6 +159,7 @@ const Loaded = ({
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [allMonths, setAllMonths] = useState(false);
+  const entry = useEntry();
 
   const original = useMemo(
     () =>
@@ -237,6 +242,11 @@ const Loaded = ({
   const months = total?.series.map((point) => point.month) ?? [];
   const contributions = total === null ? [] : monthlyContributions(total);
   const shownMonths = allMonths ? months.length : Math.min(months.length, FIRST_ROWS + 1);
+  const only = single && total !== null ? data.portfolios[0] : undefined;
+  const stacked =
+    total !== null && only?.projection != null
+      ? projectionBands(total, total.kpis.today)
+      : null;
   const unconsolidated = data.portfolios.filter((item) => item.projection === null);
 
   const series = [
@@ -287,7 +297,11 @@ const Loaded = ({
 
       <KeepPrevious pending={pending}>
         {total === null ? (
-          <EmptyPanel message="Projeção indisponível: as carteiras ainda não foram consolidadas. Lance um aporte para ter de onde partir." />
+          <EmptyPanel
+            message="Projeção indisponível: as carteiras ainda não foram consolidadas. Lance um aporte para ter de onde partir."
+            actionLabel="Lançar aporte"
+            onAction={() => entry.openEntry({ tab: 'buy' })}
+          />
         ) : (
           <>
             <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line lg:grid-cols-4">
@@ -311,6 +325,31 @@ const Loaded = ({
                 <SeriesChart
                   dates={months.map((month) => `${month}-01` as DateOnly)}
                   series={series}
+                  {...(stacked === null
+                    ? {}
+                    : {
+                        bands: [
+                          {
+                            id: 'hoje',
+                            label: 'Valor de hoje',
+                            color: SEMANTIC_COLORS.accent,
+                            values: stacked.today,
+                          },
+                          {
+                            id: 'aportes',
+                            label: 'Aporte acumulado',
+                            color: CONTRIBUTIONS_COLOR,
+                            values: stacked.contributions,
+                          },
+                          {
+                            id: 'rendimento',
+                            label: 'Rendimento acumulado',
+                            color: resultColor(false),
+                            values: stacked.yield,
+                            signed: true,
+                          },
+                        ],
+                      })}
                   valueFormat="money"
                   ariaLabel="Valor projetado por mês"
                   height={260}

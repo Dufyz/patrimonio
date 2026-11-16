@@ -77,3 +77,29 @@ describe('projection_view', () => {
     expect(monthLabel('2026-11')).toBe('nov/2026');
   });
 });
+
+describe('PRJ-04 · faixas empilhadas', () => {
+  it('hoje + aporte acumulado + rendimento acumulado somam o valor da série', async () => {
+    const { projectionBands } = await import('./projection_view.js');
+    const result = {
+      series: [
+        {
+          month: '2026-12',
+          value: '10300.00',
+          contributions_cumulative: '200.00',
+          yield_cumulative: '100.00',
+        },
+      ],
+      kpis: {
+        today: '10000.00',
+        at_horizon: '10300.00',
+        contributions: '200.00',
+        estimated_yield: '100.00',
+      },
+    } as never;
+    const bands = projectionBands(result, '10000.00');
+    expect(bands.today[0]).toMatchObject({ from: '0', to: '10000.00' });
+    expect(bands.contributions[0]).toMatchObject({ from: '10000.00', to: '10200.00' });
+    expect(bands.yield[0]).toMatchObject({ from: '10200.00', to: '10300.00' });
+  });
+});
