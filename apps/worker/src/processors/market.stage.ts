@@ -1,8 +1,5 @@
 import { BadRequestError, lastBusinessDay } from '@patrimonio/application';
-import type {
-  BackfillAssetResult,
-  SyncMarketResult,
-} from '@patrimonio/application';
+import type { BackfillAssetResult, SyncMarketResult } from '@patrimonio/application';
 import { dedupeKey, isDateOnly } from '@patrimonio/domain';
 import type { OutboxEventDraft } from '@patrimonio/domain';
 import { failure } from '@patrimonio/shared';

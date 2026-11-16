@@ -18,3 +18,4 @@ export { createBackupStorage } from './storage.js';
 export type { BackupStorage } from './storage.js';
 export { performRestore, RestoreRefusedError } from './perform.js';
 export type { PerformRestoreOptions } from './perform.js';
+export { sameContentAtDestination } from './verify.js';

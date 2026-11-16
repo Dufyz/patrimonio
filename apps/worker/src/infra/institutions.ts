@@ -23,7 +23,9 @@ export const createInstitutionsRefresher =
   (deps: { readonly unitOfWork: UnitOfWork; readonly clock: Clock; readonly sql: Sql }) =>
   async (input: {
     readonly force: boolean;
-  }): Promise<Either<AppError, { readonly inserted: number; readonly skipped: boolean }>> => {
+  }): Promise<
+    Either<AppError, { readonly inserted: number; readonly skipped: boolean }>
+  > => {
     const startedAt = deps.clock.now().toISOString();
 
     if (!input.force) {

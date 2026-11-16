@@ -296,7 +296,9 @@ export type CotahistQuoteOptions = {
  * Preço de outro dia que apareça no arquivo é descartado: o arquivo diário só
  * tem o pregão dele, e um preço com data errada entraria na série parecendo certo.
  */
-export const createCotahistQuoteSource = (options: CotahistQuoteOptions): QuoteSource => ({
+export const createCotahistQuoteSource = (
+  options: CotahistQuoteOptions,
+): QuoteSource => ({
   fetchClosing: async (tickers, date) => {
     const location = options.locationFor?.(date) ?? cotahistDailyUrl(date);
 

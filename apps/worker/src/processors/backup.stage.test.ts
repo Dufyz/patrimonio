@@ -140,6 +140,17 @@ describe('backup', () => {
     expect(removed).toEqual(['patrimonio-2026-10-06.dump.age']);
   });
 
+  it('conteúdo diferente no destino reprova o backup mesmo com o tamanho certo (BKP-02)', async () => {
+    const { storage, removed } = fakeStorage([], 1_234);
+
+    const error = unwrapFailure(
+      await runBackup(depsWith({ storage, reread: async () => false }), '2026-10-06'),
+    );
+
+    expect(error.message).toMatch(/difere/);
+    expect(removed).toEqual(['patrimonio-2026-10-06.dump.age']);
+  });
+
   it('registra o arquivo verificado para a tela e esquece o que a retenção apagou (BKP-01)', async () => {
     const { storage } = fakeStorage([
       { name: 'patrimonio-2025-01-10.dump.age', date: '2025-01-10' },

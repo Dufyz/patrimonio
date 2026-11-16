@@ -1,3 +1,4 @@
+import { sameContentAtDestination } from '@patrimonio/backup';
 import { createBackupLogRepository, migrationStatus } from '@patrimonio/db';
 import { environment } from '@patrimonio/env';
 import { registerSchedules } from '@patrimonio/queue';
@@ -36,6 +37,7 @@ const workers = [
   backupStage({
     ...deps,
     log: createBackupLogRepository(container.sql),
+    reread: sameContentAtDestination,
     counts: async () => {
       const [row] = await container.sql<{ entries: number; portfolios: number }[]>`
         SELECT

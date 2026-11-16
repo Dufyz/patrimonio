@@ -40,6 +40,15 @@ export type BackupStageDeps = StageDeps & {
   /** A versão do esquema que vai no nome do arquivo (número de migrations aplicadas). */
   readonly schemaVersion?: () => Promise<string | undefined>;
   /** BKP-03: lançamentos e carteiras no momento do dump, para a tela mostrar. */
+  /**
+   * BKP-02: relê o objeto no destino e compara o conteúdo com o arquivo local.
+   * Em produção é `sameContentAtDestination`; sem ele só o tamanho é conferido.
+   */
+  readonly reread?: (
+    storage: BackupStorage,
+    name: string,
+    path: string,
+  ) => Promise<boolean>;
   readonly counts?: () => Promise<{ entries: number; portfolios: number }>;
   /** BKP-01: o que a tela de Configurações lista. Opcional para o teste do dump. */
   readonly log?: BackupLogRepository;
@@ -121,6 +130,15 @@ export const runBackup = async (
       return failure(
         new ExternalServiceError(
           `backup falhou na verificação: esperado ${dump.bytes} bytes, destino tem ${stored ?? 'nada'}`,
+        ),
+      );
+    }
+
+    if (deps.reread !== undefined && !(await deps.reread(storage, name, dump.path))) {
+      await storage.remove([name]);
+      return failure(
+        new ExternalServiceError(
+          'backup falhou na verificação: o conteúdo no destino difere do arquivo cifrado',
         ),
       );
     }
