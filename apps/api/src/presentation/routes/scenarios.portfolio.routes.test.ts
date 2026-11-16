@@ -474,3 +474,43 @@ describe('LIV-13 · escrita atômica, concorrência e recálculo', () => {
     expect(kept?.n).toBe(1);
   });
 });
+
+describe('NAV-12 · a lista de destino soma o valor clicado', () => {
+  const sum = (rows: readonly { amount: string | null }[]): number =>
+    rows.reduce((total, r) => total + Math.round(Number(r.amount ?? '0') * 100), 0);
+
+  it.each([
+    ['receitas', 'tipo=RECEITA&situacao=lancado', (t: Record<string, any>) => t.receitas],
+    ['despesas', 'tipo=DESPESA&situacao=lancado', (t: Record<string, any>) => t.despesas],
+    ['aportes', 'tipo=APORTE&situacao=lancado', (t: Record<string, any>) => t.aportes],
+  ])('%s', async (_name, filter, pick) => {
+    const all = (await book()).totals;
+    const listed = (await get(`/api/finance/book?month=2026-11&limit=200&${filter}`))
+      .body;
+    expect(listed.rows.length).toBeGreaterThan(0);
+    expect(sum(listed.rows)).toBe(Math.round(Number(pick(all)) * 100));
+  });
+
+  it('a lançar e aportes previstos', async () => {
+    await request(harness.app)
+      .post('/api/finance/recurrings')
+      .send({
+        name: 'Aporte previsto NAV-12',
+        kind: 'aporte',
+        portfolio_id: seeded.emergencia,
+        source: { type: 'conta', id: nubank },
+        day: 25,
+        mode: 'manual',
+        amount: '300.00',
+      });
+    const all = (await book()).totals;
+    const planned = (
+      await get('/api/finance/book?month=2026-11&limit=200&tipo=APORTE&situacao=previsto')
+    ).body;
+    expect(sum(planned.rows)).toBe(Math.round(Number(all.previsto.aportes) * 100));
+    const toLaunch = (
+      await get('/api/finance/book?month=2026-11&limit=200&situacao=previsto')
+    ).body;
+    expect(toLaunch.rows.length).toBe(all.a_lancar);
+  });
+});

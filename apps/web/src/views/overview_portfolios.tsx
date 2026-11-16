@@ -1,5 +1,6 @@
 import type { OverviewResource } from '@patrimonio/contracts';
 
+import { TOTAL_LINK_LABEL } from '../lib/total_links.js';
 import { CompositionBar } from '../components/bars.js';
 import { Money, Percent } from '../components/number.js';
 import { usePortfolios } from '../components/portfolios_provider.js';
@@ -126,7 +127,18 @@ export const PortfoliosPanel = ({
                   </span>
                 </th>
                 <td className="px-4 text-right">
-                  <Money value={line.value} />
+                  {onOpenPortfolio === undefined ? (
+                    <Money value={line.value} />
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={`${TOTAL_LINK_LABEL}: ${line.name}`}
+                      className="cursor-pointer hover:text-accent"
+                      onClick={() => onOpenPortfolio(line.id)}
+                    >
+                      <Money value={line.value} />
+                    </button>
+                  )}
                 </td>
                 {withWeight ? (
                   <td className="px-4 text-right max-sm:hidden">
