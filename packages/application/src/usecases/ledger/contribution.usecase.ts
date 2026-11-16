@@ -235,6 +235,14 @@ export const createContribution = (deps: ContributionDeps) =>
         const enqueued = await repositories.outbox.enqueue(plan.events);
         if (enqueued.isFailure()) return enqueued;
 
+        // LIV-13: a carteira aparece como "na fila" já na escrita; o worker a leva a
+        // "rodando" e a "ociosa", e uma falha dele não desfaz o lançamento.
+        const marked = await repositories.portfolios.applyRecalcTransition(
+          input.portfolio_id,
+          { recalc_status: 'queued', from_date: input.trade_date, error: null },
+        );
+        if (marked.isFailure()) return marked;
+
         return success({
           transaction,
           preview: plan.preview,

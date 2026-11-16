@@ -396,3 +396,51 @@ describe('QC-15 · Projeção em t = 0 = valor atual em Posições', () => {
     expect(positions.groups.length).toBeGreaterThan(0);
   });
 });
+
+describe('LIV-13 · escrita atômica, concorrência e recálculo', () => {
+  it('duas confirmações simultâneas do mesmo previsto produzem um efeito só', async () => {
+    const planned = (
+      await get('/api/finance/entries?month=2026-11&status=prevista&limit=50')
+    ).body.entries.find((e: { description: string }) => e.description === 'Seguro');
+    expect(planned).toBeDefined();
+    const before = Number((await book()).totals.despesas);
+    const [a, b] = await Promise.all([
+      request(harness.app)
+        .post(`/api/finance/entries/${planned.id}/confirm`)
+        .send({ amount: '400.00' }),
+      request(harness.app)
+        .post(`/api/finance/entries/${planned.id}/confirm`)
+        .send({ amount: '400.00' }),
+    ]);
+    expect([a.status, b.status].every((s) => s === 200 || s === 409)).toBe(true);
+    expect(Number((await book()).totals.despesas) - before).toBeCloseTo(400, 2);
+  });
+
+  it('o aporte grava as duas pernas e o recálculo na mesma escrita, e a carteira fica recalculando', async () => {
+    const created = await aportar();
+    expect(created.status).toBe(201);
+    expect(created.body.recalculation).not.toBeNull();
+    const [counts] = await harness.sql<{ tx: number; leg: number; outbox: number }[]>`
+      SELECT (SELECT COUNT(*)::INT FROM transaction WHERE event_id = ${created.body.event_id}) AS tx,
+             (SELECT COUNT(*)::INT FROM fin_movement WHERE event_id = ${created.body.event_id}) AS leg,
+             (SELECT COUNT(*)::INT FROM pipeline_outbox) AS outbox`;
+    expect(counts?.tx).toBe(1);
+    expect(counts?.leg).toBe(1);
+    expect(counts?.outbox).toBeGreaterThan(0);
+    const portfolio = (await get('/api/portfolios')).body.portfolios.find(
+      (p: { id: string }) => p.id === seeded.emergencia,
+    );
+    expect(portfolio.recalc_status).toBe('queued');
+  });
+
+  it('falha no recálculo não desfaz o lançamento', async () => {
+    const created = await aportar();
+    await harness.sql`
+      UPDATE portfolio SET recalc_status = 'failed', recalc_error = 'falha simulada'
+       WHERE id = ${seeded.emergencia}`;
+    expect(await balance(nubank)).toBe('22.86');
+    const [kept] = await harness.sql<{ n: number }[]>`
+      SELECT COUNT(*)::INT AS n FROM transaction WHERE event_id = ${created.body.event_id}`;
+    expect(kept?.n).toBe(1);
+  });
+});
