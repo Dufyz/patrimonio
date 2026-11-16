@@ -13,6 +13,8 @@ import {
 import { colorForToken } from '../lib/tokens.js';
 import { useViewportWidth } from './use_element_width.js';
 import { Icon } from './icon.js';
+import { FinTable, SortTh, SummaryRow, Td, Th } from './table_parts.js';
+import type { SortState } from '../lib/table_sort.js';
 
 /**
  * D-04 · A tabela densa.
@@ -86,13 +88,6 @@ export type DataTableProps<Row> = {
   readonly sort?: Sort | null | undefined;
   readonly onSortChange?: ((sort: Sort | null) => void) | undefined;
 };
-
-const alignClass = (numeric: boolean): string => (numeric ? 'text-right' : 'text-left');
-
-const SORT_GLYPH = { asc: '↑', desc: '↓' } as const;
-
-const HEADER_TYPOGRAPHY =
-  'tabular text-label font-medium tracking-[0.06em] whitespace-nowrap text-ink-3 uppercase';
 
 export const DataTable = <Row,>({
   caption,
@@ -236,50 +231,36 @@ export const DataTable = <Row,>({
     }
   };
 
+  const sortState: SortState =
+    state.sort === null || state.sort === undefined
+      ? null
+      : { key: state.sort.columnId, dir: state.sort.direction };
+
   const hasRows = groups.some((group) => group.rows.length > 0);
 
   return (
     <div ref={container} className="w-full">
-      <table
-        className="w-full table-auto border-collapse text-cell"
-        data-width-tier={width}
-      >
-        <caption className="sr-only">{caption}</caption>
-
-        <thead>
+      <FinTable caption={caption}>
+        <thead data-width-tier={width}>
           <tr className="border-b border-line">
-            {shown.map((column) => (
-              <th
-                key={column.id}
-                scope="col"
-                className={`px-3 py-[9px] ${alignClass(column.numeric === true)}`}
-                aria-sort={
-                  state.sort?.columnId === column.id
-                    ? state.sort.direction === 'asc'
-                      ? 'ascending'
-                      : 'descending'
-                    : 'none'
-                }
-              >
-                {column.sortable === true ? (
-                  <button
-                    type="button"
-                    // O `text-transform` do `th` não chega ao botão: a folha de
-                    // estilo do navegador o zera em todo controle de formulário.
-                    className={`${HEADER_TYPOGRAPHY} cursor-pointer hover:text-ink`}
-                    onClick={() => onSort(column.id)}
-                  >
-                    {column.header}
-                    {state.sort?.columnId === column.id
-                      ? ` ${SORT_GLYPH[state.sort.direction]}`
-                      : ''}
-                  </button>
-                ) : (
-                  <span className={HEADER_TYPOGRAPHY}>{column.header}</span>
-                )}
-              </th>
-            ))}
-            {rowActions === undefined ? null : <th className="w-11" />}
+            {shown.map((column) => {
+              const align = column.numeric === true ? 'right' : 'left';
+              return column.sortable === true ? (
+                <SortTh
+                  key={column.id}
+                  label={column.header}
+                  sortKey={column.id}
+                  sort={sortState}
+                  onSort={onSort}
+                  align={align}
+                />
+              ) : (
+                <Th key={column.id} align={align}>
+                  {column.header}
+                </Th>
+              );
+            })}
+            {rowActions === undefined ? null : <Th className="w-11" />}
           </tr>
         </thead>
 
@@ -297,11 +278,10 @@ export const DataTable = <Row,>({
               return (
                 <tr key={entry.id} className="border-b border-line bg-panel-2">
                   {shown.map((column, index) => (
-                    <td
+                    <Td
                       key={column.id}
-                      className={`py-(--row-pad) px-3 font-semibold ${alignClass(
-                        column.numeric === true,
-                      )}`}
+                      numeric={column.numeric === true}
+                      className="font-semibold"
                     >
                       {index === 0 ? (
                         <div className="flex items-center">
@@ -350,7 +330,7 @@ export const DataTable = <Row,>({
                       ) : (
                         column.summary?.(entry.group.summary)
                       )}
-                    </td>
+                    </Td>
                   ))}
                   {rowActions === undefined ? null : <td />}
                 </tr>
@@ -383,19 +363,14 @@ export const DataTable = <Row,>({
 
             if (entry.kind === 'total') {
               return (
-                <tr key={entry.id} className="border-t border-line-2 font-semibold">
+                <SummaryRow key={entry.id} kind="total">
                   {shown.map((column, index) => (
-                    <td
-                      key={column.id}
-                      className={`py-(--row-pad) px-3 ${alignClass(
-                        column.numeric === true,
-                      )}`}
-                    >
+                    <Td key={column.id} numeric={column.numeric === true}>
                       {index === 0 ? 'Total' : column.summary?.(entry.summary)}
-                    </td>
+                    </Td>
                   ))}
                   {rowActions === undefined ? null : <td />}
-                </tr>
+                </SummaryRow>
               );
             }
 
@@ -460,18 +435,17 @@ export const DataTable = <Row,>({
                 }}
               >
                 {shown.map((column) => (
-                  <td
+                  <Td
                     key={column.id}
-                    className={`py-(--row-pad) px-3 ${alignClass(
-                      column.numeric === true,
-                    )} ${
+                    numeric={column.numeric === true}
+                    className={
                       column.flexible === true
                         ? 'w-full max-w-0 truncate'
                         : 'whitespace-nowrap'
-                    }`}
+                    }
                   >
                     {column.cell(entry.row)}
-                  </td>
+                  </Td>
                 ))}
                 {rowActions === undefined ? null : disabled ? (
                   <td className="px-1.5 py-1" />
@@ -489,7 +463,7 @@ export const DataTable = <Row,>({
             );
           })}
         </tbody>
-      </table>
+      </FinTable>
     </div>
   );
 };

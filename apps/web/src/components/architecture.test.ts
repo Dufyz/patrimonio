@@ -124,6 +124,14 @@ describe('tabelas sem rolagem horizontal (CMP-03)', () => {
   });
 });
 
+describe('uma só família de tabela (CMP-03)', () => {
+  it('o DataTable monta cabeçalho, células e total com as peças de table_parts', () => {
+    const source = readFileSync(join(ROOT, 'components/table.tsx'), 'utf8');
+    expect(source).toMatch(/from '\.\/table_parts\.js'/u);
+    expect(source).not.toMatch(/<table\b|<th\b/u);
+  });
+});
+
 describe('VGR-20 · uma só Visão geral', () => {
   it('as telas antigas de Finanças não voltam: só resta o painel do escopo Fluxo', () => {
     const dir = join(import.meta.dirname, '..', 'finance', 'screens');
