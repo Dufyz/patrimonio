@@ -46,4 +46,12 @@ describe('rotas que o produto decidiu não ter (QUA-07)', () => {
       [],
     );
   });
+
+  it('ativo manual só existe para renda fixa e caixinha, nunca por rota própria', () => {
+    // Decisão do produto: caixinhas e renda fixa precificam à mão. Por isso não há
+    // uma rota "ativo manual" separada; o cadastro passa pelo mesmo POST /assets.
+    expect(
+      declared.filter((p) => /\bmanual-assets?\b|\bativos?-manuais?\b/i.test(p)),
+    ).toEqual([]);
+  });
 });
