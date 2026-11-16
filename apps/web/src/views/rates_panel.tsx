@@ -72,7 +72,7 @@ export const RatesPanel = ({
       title="Rentabilidade esperada"
       hint="ao ano, por carteira, a mesma da Projeção"
     >
-      <div className="overflow-x-auto">
+      <div>
         <table className="w-full border-collapse text-cell whitespace-nowrap">
           <caption className="sr-only">Rentabilidade esperada por carteira</caption>
           <thead>

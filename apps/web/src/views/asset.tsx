@@ -1730,8 +1730,8 @@ const HistoryPanel = ({
             : 'Este papel ainda não tem lançamento.'}
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[46rem] text-[0.8125rem]">
+        <div>
+          <table className="w-full text-[0.8125rem]">
             <caption className="sr-only">Histórico de {title}</caption>
             <thead>
               <tr className="tabular text-label tracking-[0.06em] text-ink-3 uppercase">

@@ -166,19 +166,23 @@ const LotsTable = ({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[52rem] text-[0.8125rem]">
+    <div>
+      <table className="w-full text-[0.8125rem]">
         <caption className="sr-only">Lotes abertos da caixinha</caption>
         <thead>
           <tr className="tabular text-label tracking-[0.06em] text-ink-3 uppercase">
             <th className="w-44 px-4 py-2 text-left font-medium">Aporte</th>
-            <th className="px-3 py-2 text-right font-medium">Dias</th>
+            <th className="px-3 py-2 text-right font-medium max-lg:hidden">Dias</th>
             <th className="px-3 py-2 text-left font-medium">Vencimento</th>
             <th className="px-3 py-2 text-right font-medium">Valor bruto</th>
             <th className="px-3 py-2 text-right font-medium">Valor líquido</th>
-            <th className="px-3 py-2 text-right font-medium">Valor investido</th>
-            <th className="px-3 py-2 text-right font-medium">Rendimento bruto</th>
-            <th className="px-3 py-2 text-right font-medium">IOF</th>
+            <th className="px-3 py-2 text-right font-medium max-xl:hidden">
+              Valor investido
+            </th>
+            <th className="px-3 py-2 text-right font-medium max-lg:hidden">
+              Rendimento bruto
+            </th>
+            <th className="px-3 py-2 text-right font-medium max-xl:hidden">IOF</th>
             <th className="px-4 py-2 text-right font-medium">IR</th>
           </tr>
         </thead>
@@ -194,7 +198,7 @@ const LotsTable = ({
                   </span>
                 )}
               </td>
-              <td className="tabular px-3 py-2.5 text-right text-ink-2">
+              <td className="tabular px-3 py-2.5 text-right text-ink-2 max-lg:hidden">
                 {lot.elapsed_days}
               </td>
               <td className="tabular px-3 py-2.5 whitespace-nowrap">
@@ -216,13 +220,13 @@ const LotsTable = ({
               <td className="px-3 py-2.5 text-right">
                 <Money value={lot.net_value} />
               </td>
-              <td className="px-3 py-2.5 text-right">
+              <td className="px-3 py-2.5 text-right max-xl:hidden">
                 <Money value={lot.remaining} />
               </td>
-              <td className="px-3 py-2.5 text-right">
+              <td className="px-3 py-2.5 text-right max-lg:hidden">
                 <Money value={lot.accrued_interest} />
               </td>
-              <td className="px-3 py-2.5 text-right text-ink-2">
+              <td className="px-3 py-2.5 text-right text-ink-2 max-xl:hidden">
                 <Money value={lot.iof_due} />
               </td>
               <td className="px-4 py-2.5 text-right text-ink-2">
@@ -235,7 +239,7 @@ const LotsTable = ({
         <tfoot>
           <tr className="border-t border-line font-semibold">
             <td className="px-4 py-2.5">Total</td>
-            <td />
+            <td className="max-lg:hidden" />
             <td />
             <td className="px-3 py-2.5 text-right">
               <Money value={view.gross_value} />
@@ -243,13 +247,13 @@ const LotsTable = ({
             <td className="px-3 py-2.5 text-right">
               <Money value={view.net_value} />
             </td>
-            <td className="px-3 py-2.5 text-right">
+            <td className="px-3 py-2.5 text-right max-xl:hidden">
               <Money value={view.principal} />
             </td>
-            <td className="px-3 py-2.5 text-right">
+            <td className="px-3 py-2.5 text-right max-lg:hidden">
               <Money value={view.accrued_interest} />
             </td>
-            <td className="px-3 py-2.5 text-right text-ink-2">
+            <td className="px-3 py-2.5 text-right text-ink-2 max-xl:hidden">
               <Money value={view.iof_due} />
             </td>
             <td className="px-4 py-2.5 text-right text-ink-2">

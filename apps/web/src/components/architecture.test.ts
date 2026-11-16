@@ -105,3 +105,21 @@ describe('estrutura de áreas removida (NAV-13)', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * CMP-03 · Tabela sem rolagem horizontal: as colunas somem por prioridade em
+ * larguras menores. O único `overflow-x-auto` que resta é o da tabela de efeito
+ * do modal, que tem largura própria.
+ */
+describe('tabelas sem rolagem horizontal (CMP-03)', () => {
+  const ALLOWED = new Set(['components/entry_provider.tsx']);
+
+  it('nenhuma tela ou componente envolve tabela em overflow-x-auto', () => {
+    const offenders = files.filter(
+      (file) =>
+        !ALLOWED.has(file) &&
+        /overflow-x-auto/u.test(readFileSync(join(ROOT, file), 'utf8')),
+    );
+    expect(offenders).toEqual([]);
+  });
+});

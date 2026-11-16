@@ -531,7 +531,7 @@ const Loaded = ({
 
         {total === null ? null : (
           <Panel title="Mês a mês">
-            <div className="overflow-x-auto">
+            <div>
               <table className="w-full text-[0.8125rem]">
                 <caption className="sr-only">Evolução mês a mês</caption>
                 <thead>

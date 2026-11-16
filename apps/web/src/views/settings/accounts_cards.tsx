@@ -133,7 +133,7 @@ export const AccountsCardsSection = (): React.ReactElement => {
           ) : accountRows.length === 0 ? (
             <p className="p-4 text-[0.8125rem] text-ink-3">Nenhuma conta cadastrada.</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div>
               <table className="w-full text-[0.8125rem] whitespace-nowrap">
                 <caption className="sr-only">Contas cadastradas</caption>
                 <thead>
@@ -141,16 +141,16 @@ export const AccountsCardsSection = (): React.ReactElement => {
                     <th scope="col" className={TH}>
                       Conta
                     </th>
-                    <th scope="col" className={TH}>
+                    <th scope="col" className={`${TH} max-md:hidden`}>
                       Tipo
                     </th>
-                    <th scope="col" className={TH}>
+                    <th scope="col" className={`${TH} max-lg:hidden`}>
                       Instituição
                     </th>
                     <th scope="col" className={TH_RIGHT}>
                       Saldo de abertura
                     </th>
-                    <th scope="col" className={TH_RIGHT}>
+                    <th scope="col" className={`${TH_RIGHT} max-lg:hidden`}>
                       Data de abertura
                     </th>
                     <th scope="col" className={TH}>
@@ -168,16 +168,16 @@ export const AccountsCardsSection = (): React.ReactElement => {
                       <th scope="row" className={`${TD} text-left font-medium`}>
                         {row.account.name}
                       </th>
-                      <td className={TD}>
+                      <td className={`${TD} max-md:hidden`}>
                         {TYPE_LABEL[row.account.type] ?? row.account.type}
                       </td>
-                      <td className={TD}>
+                      <td className={`${TD} max-lg:hidden`}>
                         {row.account.institution ?? <Muted>—</Muted>}
                       </td>
                       <td className={`${TD} tabular text-right`}>
                         {money(row.account.opening_amount)}
                       </td>
-                      <td className={`${TD} tabular text-right`}>
+                      <td className={`${TD} tabular text-right max-lg:hidden`}>
                         {asDate(row.account.opening_date)}
                       </td>
                       <td className={TD}>
@@ -254,7 +254,7 @@ export const AccountsCardsSection = (): React.ReactElement => {
           ) : cardRows.length === 0 ? (
             <p className="p-4 text-[0.8125rem] text-ink-3">Nenhum cartão cadastrado.</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div>
               <table className="w-full text-[0.8125rem] whitespace-nowrap">
                 <caption className="sr-only">Cartões cadastrados</caption>
                 <thead>
@@ -262,16 +262,16 @@ export const AccountsCardsSection = (): React.ReactElement => {
                     <th scope="col" className={TH}>
                       Cartão
                     </th>
-                    <th scope="col" className={TH}>
+                    <th scope="col" className={`${TH} max-lg:hidden`}>
                       Final
                     </th>
                     <th scope="col" className={TH_RIGHT}>
                       Limite
                     </th>
-                    <th scope="col" className={TH_RIGHT}>
+                    <th scope="col" className={`${TH_RIGHT} max-xl:hidden`}>
                       Dia de fechamento
                     </th>
-                    <th scope="col" className={TH_RIGHT}>
+                    <th scope="col" className={`${TH_RIGHT} max-lg:hidden`}>
                       Vencimento
                     </th>
                     <th scope="col" className={TH}>
@@ -289,14 +289,16 @@ export const AccountsCardsSection = (): React.ReactElement => {
                       <th scope="row" className={`${TD} text-left font-medium`}>
                         {row.card.name}
                       </th>
-                      <td className={`${TD} tabular`}>{row.card.last4 || '—'}</td>
+                      <td className={`${TD} tabular max-lg:hidden`}>
+                        {row.card.last4 || '—'}
+                      </td>
                       <td className={`${TD} tabular text-right`}>
                         {money(row.card.limit_amount)}
                       </td>
-                      <td className={`${TD} tabular text-right`}>
+                      <td className={`${TD} tabular text-right max-xl:hidden`}>
                         dia {row.card.closing_day}
                       </td>
-                      <td className={`${TD} tabular text-right`}>
+                      <td className={`${TD} tabular text-right max-lg:hidden`}>
                         dia {row.card.due_day}
                       </td>
                       <td className={TD}>{accountName(row.card.pay_account_id)}</td>

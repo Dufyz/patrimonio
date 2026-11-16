@@ -620,8 +620,8 @@ const Distribution = ({
         </span>
       }
     >
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-250 border-collapse text-[0.8125rem]">
+      <div>
+        <table className="w-full border-collapse text-[0.8125rem]">
           <caption className="sr-only">Distribuição por classe contra o alvo</caption>
           <thead>
             <tr className="border-b border-line bg-panel-2 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
