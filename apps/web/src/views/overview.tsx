@@ -166,7 +166,7 @@ export const OverviewScreen = ({
    */
   const [inception, setInception] = useState<DateOnly | null>(null);
   const range = resolvePeriod(period, today, inception);
-  const returns = returnsPeriod(period, today, inception);
+  const returns = returnsPeriod(today, inception);
   const returnsRange = resolvePeriod(returns, today, inception);
 
   const resource = useResource(
@@ -765,10 +765,10 @@ export const OverviewView = ({
               }
               extraIds={extraIds}
               onExtraIdsChange={onExtraIdsChange}
-              period={returnsPeriod(period, today, inception as DateOnly | null)}
+              period={returnsPeriod(today, inception as DateOnly | null)}
               periodFrom={
                 resolvePeriod(
-                  returnsPeriod(period, today, inception as DateOnly | null),
+                  returnsPeriod(today, inception as DateOnly | null),
                   today,
                   inception as DateOnly | null,
                 ).from as DateOnly

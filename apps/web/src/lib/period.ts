@@ -150,19 +150,14 @@ export const resolvePeriod = (
 /**
  * VGR-12 · O período do Retorno × benchmarks. A janela é de 12 meses; carteira
  * com menos de 12 meses de história usa o ano até hoje, e o rótulo diz "YTD".
- * Qualquer outro período escolhido vale como foi escolhido.
+ * O período escolhido na página não muda a janela: ela é fixa.
  */
-export const returnsPeriod = (
-  period: Period,
-  today: DateOnly,
-  inception: DateOnly | null,
-): Period => {
-  if (period.kind !== 'preset' || period.preset !== '12m' || inception === null) {
-    return period;
-  }
-  return inception > resolvePeriod(period, today, inception).from
+export const returnsPeriod = (today: DateOnly, inception: DateOnly | null): Period => {
+  const twelve: Period = { kind: 'preset', preset: '12m' };
+  if (inception === null) return twelve;
+  return inception > resolvePeriod(twelve, today, inception).from
     ? { kind: 'preset', preset: 'ytd' }
-    : period;
+    : twelve;
 };
 
 /** `2026-10-06` → `06/10`. O ano só aparece quando não é o de referência. */
