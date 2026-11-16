@@ -122,7 +122,7 @@ describe('restauração (BKP-03)', () => {
       identity,
     });
     expect(result.isFailure()).toBe(true);
-    expect(String((result.value as Error).message)).toMatch(/mais novo/);
+    expect(String((result.value as unknown as Error).message)).toMatch(/mais novo/);
     expect(uploaded).toEqual([]);
     expect(await count()).toBe(entries);
   });
@@ -156,7 +156,9 @@ describe('restauração (BKP-03)', () => {
       },
     })({ name: backupName, identity });
 
-    expect(result.isSuccess(), String((result.value as Error).message)).toBe(true);
+    expect(result.isSuccess(), String((result.value as unknown as Error).message)).toBe(
+      true,
+    );
     expect(during).toBe(true);
     expect(maintenance.active()).toBe(false);
     expect(await count()).toBe(entries);

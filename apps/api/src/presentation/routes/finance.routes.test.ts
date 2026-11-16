@@ -677,7 +677,14 @@ describe('fatura: estorno e fatura paga (CRT-07)', () => {
     let cardId = '';
     let month = '';
     let before: Awaited<ReturnType<typeof get>> | undefined;
-    let purchase: Record<string, any> | undefined;
+    let purchase:
+      | (Record<string, unknown> & {
+          id: string;
+          reversed: boolean;
+          description: string;
+          category_id: string;
+        })
+      | undefined;
     for (const row of cards.body.cards) {
       const detail = await get(`/cards/${row.card.id}`);
       for (const inv of detail.body.invoices as { month: string; status: string }[]) {
