@@ -1,7 +1,9 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useInRouterContext, useSearchParams } from 'react-router';
 
 import { today as clockToday } from '../lib/clock.js';
 import { defaultRange, readDisplay } from '../../lib/display_preferences.js';
+import { readRangeParams, writeRangeParams } from '../lib/period_url.js';
 import type { DateRange } from '../lib/period.js';
 
 /**
@@ -20,6 +22,27 @@ type PeriodValue = {
 
 const PeriodContext = createContext<PeriodValue | null>(null);
 
+/** Fora de um roteador (testes de painel) o período vive só em memória. */
+const UrlSync = ({
+  range,
+  fallback,
+}: {
+  readonly range: DateRange;
+  readonly fallback: DateRange;
+}): null => {
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const next = writeRangeParams(params, range, fallback);
+    if (next.toString() !== params.toString()) setParams(next, { replace: true });
+  }, [range, fallback, params, setParams]);
+  return null;
+};
+
+const InitialFromUrl = (): DateRange | null => {
+  if (typeof globalThis.location === 'undefined') return null;
+  return readRangeParams(new URLSearchParams(globalThis.location.search));
+};
+
 export const FinancePeriodProvider = ({
   children,
   initial,
@@ -27,14 +50,26 @@ export const FinancePeriodProvider = ({
   readonly children: React.ReactNode;
   readonly initial?: DateRange | undefined;
 }): React.ReactElement => {
+  const inRouter = useInRouterContext();
+  const fallback = useMemo(
+    () => defaultRange(readDisplay().defaultPeriod, clockToday()),
+    [],
+  );
   const [range, setRange] = useState<DateRange>(
-    () => initial ?? defaultRange(readDisplay().defaultPeriod, clockToday()),
+    () => initial ?? (inRouter ? InitialFromUrl() : null) ?? fallback,
   );
   const value = useMemo<PeriodValue>(
     () => ({ range, setRange, today: clockToday() }),
     [range],
   );
-  return <PeriodContext.Provider value={value}>{children}</PeriodContext.Provider>;
+  return (
+    <PeriodContext.Provider value={value}>
+      {inRouter && initial === undefined ? (
+        <UrlSync range={range} fallback={fallback} />
+      ) : null}
+      {children}
+    </PeriodContext.Provider>
+  );
 };
 
 export const useFinancePeriod = (): PeriodValue => {
