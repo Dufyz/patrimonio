@@ -9,6 +9,7 @@ import {
 } from '../lib/chart/scale.js';
 import { formatCompact } from '../lib/format.js';
 import { Money } from './number.js';
+import { ChartDataTable } from './chart_data_table.js';
 import { useValuesHidden } from './preferences.js';
 import { useElementWidth } from './use_element_width.js';
 
@@ -166,6 +167,20 @@ export const MonthlyBarsChart = ({
           })}
         </g>
       </svg>
+
+      <ChartDataTable
+        caption={ariaLabel}
+        rowLabels={bars.map((bar) => bar.label)}
+        columns={[
+          ...slices.map((slice, sliceIndex) => ({
+            id: slice.id,
+            label: slice.label,
+            values: bars.map((bar) => bar.values[sliceIndex] ?? null),
+          })),
+          { id: 'total', label: 'Total', values: bars.map((bar) => bar.total) },
+        ]}
+        format="money"
+      />
 
       {hoveredBar === undefined ? null : (
         <div

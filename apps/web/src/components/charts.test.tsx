@@ -1,3 +1,4 @@
+import type { DateOnly } from '@patrimonio/domain';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -471,5 +472,39 @@ describe('barras por mês', () => {
       (node) => node.textContent,
     );
     expect(texts).toContain('0');
+  });
+});
+
+describe('CMP-07 · alternativa em tabela', () => {
+  it('o gráfico de série traz tabela com os valores, e valor ausente é traço', () => {
+    const days = ['2026-10-01', '2026-10-02', '2026-10-03'] as DateOnly[];
+    wrap(
+      <SeriesChart
+        dates={days}
+        series={[
+          {
+            id: 'a',
+            label: 'Carteira',
+            color: 'var(--color-accent)',
+            points: [
+              { date: days[0]!, value: '100.00' },
+              { date: days[1]!, value: null },
+              { date: days[2]!, value: '120.00' },
+            ],
+          },
+        ]}
+        valueFormat="money"
+        ariaLabel="Patrimônio no período"
+        xTickLabel={(d) => d}
+        tooltipDateLabel={(d) => d}
+        width={600}
+      />,
+    );
+    const table = screen.getByRole('table', { name: 'Patrimônio no período' });
+    expect(table).toHaveAttribute('tabindex', '0');
+    const rows = within(table).getAllByRole('row');
+    expect(rows).toHaveLength(4);
+    expect(within(rows[2]!).getByText('—')).toBeTruthy();
+    expect(within(rows[1]!).getByText(/100,00/u)).toBeTruthy();
   });
 });

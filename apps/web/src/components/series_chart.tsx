@@ -19,6 +19,7 @@ import { formatCompact, formatMoney, formatPercent } from '../lib/format.js';
 import { areaFill } from '../lib/tokens.js';
 import { Money, MoneyChange, Percent } from './number.js';
 import { useElementWidth } from './use_element_width.js';
+import { ChartDataTable } from './chart_data_table.js';
 import { useValuesHidden } from './preferences.js';
 
 /**
@@ -547,6 +548,24 @@ export const SeriesChart = ({
             })}
           </g>
         </svg>
+
+        <ChartDataTable
+          caption={ariaLabel}
+          rowLabels={dates.map((date) => tooltipDateLabel(date))}
+          columns={[
+            ...visibleSeries.map((entry) => ({
+              id: entry.id,
+              label: entry.label,
+              values: dates.map((_, index) => entry.points[index]?.value ?? null),
+            })),
+            ...visibleBands.map((band) => ({
+              id: band.id,
+              label: band.label,
+              values: dates.map((_, index) => band.values[index]?.amount ?? null),
+            })),
+          ]}
+          format={valueFormat}
+        />
 
         {hover === null || hovered === undefined ? null : (
           <ChartTooltip
