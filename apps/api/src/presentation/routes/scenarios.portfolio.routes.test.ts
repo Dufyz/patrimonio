@@ -28,7 +28,6 @@ afterAll(async () => {
 });
 
 const get = (path: string) => request(harness.app).get(path);
-request(harness.app).post(path).send(body);
 
 beforeEach(async () => {
   await resetSourceTables(harness.sql);
