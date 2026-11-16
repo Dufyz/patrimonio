@@ -8,6 +8,7 @@ import {
 } from '@patrimonio/db';
 import type { Sql } from '@patrimonio/db';
 import { environment } from '@patrimonio/env';
+import type { DateOnly } from '@patrimonio/domain';
 import { unwrapSuccess } from '@patrimonio/shared/testing';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -36,9 +37,10 @@ const DATE = '2026-10-06';
 let sql: Sql;
 let unitOfWork: UnitOfWork;
 
+/** Hoje é o dia seguinte: a coleta sem data pedida é a do D-1, que é `DATE`. */
 const clock: Clock = {
-  now: () => new Date('2026-10-06T21:30:00.000Z'),
-  today: () => DATE,
+  now: () => new Date('2026-10-07T12:30:00.000Z'),
+  today: () => '2026-10-07',
 };
 
 const collect = (script: Script) =>
@@ -192,13 +194,13 @@ describe('a coleta do dia', () => {
   it('dia sem pregão não coleta nada: um feriado não tem preço', async () => {
     const natal = collectMarketData({
       unitOfWork,
-      clock: { now: clock.now, today: () => '2026-12-25' },
+      clock,
       quotes: scriptedQuotes({ quotes: [quote('32.41', '2026-12-25')] }),
       indices: scriptedIndices({}),
       treasury: scriptedTreasury({}),
     });
 
-    const result = unwrapSuccess(await natal({}));
+    const result = unwrapSuccess(await natal({ reference_date: '2026-12-25' }));
 
     expect(result.skipped).toBe(true);
 
@@ -409,7 +411,7 @@ describe('uma semana de coleta', () => {
         treasury: scriptedTreasury({ treasury: [tesouroQuote(dia)] }),
       });
 
-      unwrapSuccess(await diario({}));
+      unwrapSuccess(await diario({ reference_date: dia as DateOnly }));
     }
 
     const precos = await sql<{ price_date: string; close: string }[]>`

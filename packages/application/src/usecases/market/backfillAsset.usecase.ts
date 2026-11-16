@@ -1,3 +1,4 @@
+import { lastBusinessDay } from './lastBusinessDay.js';
 import type { DateOnly, PriceSourceKind, PriceableAsset } from '@patrimonio/domain';
 import { parseTreasuryTicker } from '@patrimonio/domain';
 import { either, failure, success } from '@patrimonio/shared';
@@ -120,7 +121,12 @@ const treasuryHistory = async (
 
 export const backfillAsset = (deps: BackfillAssetDeps) =>
   either(async function* (input: BackfillAssetInput) {
-    const date = input.reference_date ?? deps.clock.today();
+    // Sem data pedida, o backfill vai até o D-1, como a coleta: preço de hoje não existe ainda.
+    const date =
+      input.reference_date ??
+      (yield* await deps.unitOfWork.run((repositories) =>
+        lastBusinessDay(repositories, deps.clock.today()),
+      ));
 
     const context = yield* await deps.unitOfWork.run(async (repositories) => {
       const asset = await repositories.market.priceableAsset(input.asset_id);

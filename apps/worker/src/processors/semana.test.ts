@@ -1,3 +1,4 @@
+import type { DateOnly } from '@patrimonio/domain';
 import {
   closeDatabase,
   createConnection,
@@ -50,6 +51,9 @@ const SEMANA = [
   '2026-10-01',
   '2026-10-02',
 ] as const;
+
+/** O dia útil seguinte a cada um: a coleta roda no dia seguinte e trabalha o D-1. */
+const SEGUINTE = ['2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-05'];
 
 /** O preço sobe um real por dia: a série fica conferível a olho. */
 const PRECO = ['30.00', '31.00', '32.00', '33.00', '34.00'] as const;
@@ -168,8 +172,8 @@ const mesAte = (day: string): readonly string[] => {
 
 const depsFor = (day: string, index: number): StageDeps => {
   const clock: Clock = {
-    now: () => new Date(`${day}T21:30:00.000Z`),
-    today: () => day,
+    now: () => new Date(`${SEGUINTE[index] ?? day}T12:30:00.000Z`),
+    today: () => (SEGUINTE[index] ?? day) as DateOnly,
   };
 
   return {

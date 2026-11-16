@@ -90,13 +90,14 @@ describe('estágio finance', () => {
     );
   });
 
-  it('credita o benefício do mês uma única vez', async () => {
+  it('gera os previstos dos recorrentes do mês uma única vez', async () => {
     unwrapSuccess(await sync('2026-11-10T12:00:00.000Z'));
+    const sql = `
+      SELECT 1 FROM fin_entry WHERE recurring_id IS NOT NULL AND date >= '2026-11-01' AND date < '2026-12-01'`;
+    const first = await count(sql);
     unwrapSuccess(await sync('2026-11-10T13:00:00.000Z'));
-    const november = await count(`
-      SELECT 1 FROM fin_movement WHERE kind = 'CREDITO' AND date >= '2026-11-01' AND date < '2026-12-01'`);
-    // Dois benefícios na demonstração, um crédito cada, neste mês.
-    expect(november).toBe(2);
+    expect(first).toBeGreaterThan(0);
+    expect(await count(sql)).toBe(first);
   });
 
   it('a conta do dia é a de São Paulo: 23h de 05/11 em SP já é 06/11 em UTC', async () => {
