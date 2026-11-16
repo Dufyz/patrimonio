@@ -206,3 +206,149 @@ describe('CU-18 · Projeção em Todas', () => {
     }
   });
 });
+
+describe('CU-04 · resgatar com despesa ligada', () => {
+  it('conta e Em contas não mudam; Despesas sobem e o Saldo do mês cai o mesmo valor; excluir devolve', async () => {
+    const [categoria] = await harness.sql<{ id: string }[]>`
+      SELECT id FROM fin_category WHERE kind = 'DESPESA' LIMIT 1`;
+    const accounts = (await get('/api/finance/accounts')).body.accounts;
+    const itauId = accounts.find(
+      (a: { account: { name: string } }) => a.account.name === 'Itaú Unibanco',
+    ).account.id;
+    const before = {
+      itau: await balance(itauId),
+      wealth: await wealth(),
+      book: await book(),
+    };
+
+    const sold = await request(harness.app)
+      .post('/api/ledger/resgates')
+      .send({
+        portfolio_id: seeded.investimentos,
+        institution_id: seeded.institution,
+        asset_id: seeded.assets['BOVA11'],
+        trade_date: '2026-11-11',
+        quantity: '4',
+        unit_price: '200',
+        fees: '0',
+        account_id: itauId,
+        linked_expense: { category_id: categoria?.id, description: 'Viagem' },
+      });
+    expect(sold.status).toBe(201);
+    expect(await balance(itauId)).toBe(before.itau);
+    expect((await wealth()).em_contas).toBe(before.wealth.em_contas);
+    const totals = (await book()).totals;
+    expect(Number(totals.despesas) - Number(before.book.totals.despesas)).toBeCloseTo(
+      800,
+      2,
+    );
+    expect(
+      Number(before.book.totals.saldo_do_mes) - Number(totals.saldo_do_mes),
+    ).toBeCloseTo(800, 2);
+
+    const asked = await request(harness.app).delete(
+      `/api/transactions/${sold.body.transaction.id}`,
+    );
+    expect(asked.status).toBe(409);
+    const removed = await request(harness.app).delete(
+      `/api/transactions/${sold.body.transaction.id}?despesa_ligada=excluir`,
+    );
+    expect(removed.status).toBe(200);
+    expect((await book()).totals.saldo_do_mes).toBe(before.book.totals.saldo_do_mes);
+    expect((await book()).totals.despesas).toBe(before.book.totals.despesas);
+  });
+});
+
+describe('CU-03 · provento creditado na conta', () => {
+  it('conta e Em contas sobem; Receitas e Saldo do mês não mudam', async () => {
+    const bought = await request(harness.app).post('/api/transactions').send({
+      kind: 'buy',
+      portfolio_id: seeded.investimentos,
+      institution_id: seeded.institution,
+      asset_id: seeded.assets['DIVO11'],
+      trade_date: '2026-10-01',
+      quantity: '100',
+      unit_price: '100',
+      fees: '0',
+    });
+    expect(bought.status).toBe(201);
+    const before = { w: await wealth(), b: await book() };
+
+    const payout = await request(harness.app).post('/api/transactions/payouts').send({
+      portfolio_id: seeded.investimentos,
+      institution_id: seeded.institution,
+      asset_id: seeded.assets['DIVO11'],
+      payout_kind: 'dividend',
+      record_date: '2026-10-15',
+      payment_date: '2026-11-10',
+      gross_amount: '50.00',
+      confirmed: true,
+      account_id: nubank,
+    });
+    expect(payout.status).toBe(201);
+
+    expect(await balance(nubank)).toBe('1072.86');
+    expect((await wealth()).em_contas).toBe('1512.51');
+    const totals = (await book()).totals;
+    expect(totals.receitas).toBe(before.b.totals.receitas);
+    expect(totals.saldo_do_mes).toBe(before.b.totals.saldo_do_mes);
+  });
+});
+
+describe('CU-13 · recorrente de aporte', () => {
+  it('é criado com carteira e origem, e aparece entre os recorrentes', async () => {
+    const created = await request(harness.app)
+      .post('/api/finance/recurrings')
+      .send({
+        name: 'Aporte Emergência',
+        kind: 'aporte',
+        portfolio_id: seeded.emergencia,
+        source: { type: 'conta', id: nubank },
+        day: 5,
+        mode: 'manual',
+        amount: '500.00',
+      });
+    expect(created.status).toBe(201);
+    const list = await get('/api/finance/recurrings');
+    const found = JSON.stringify(list.body).includes('Aporte Emergência');
+    expect(found).toBe(true);
+  });
+});
+
+describe('QC-13 e QC-16 · objetivos e projeção por carteira', () => {
+  it('QC-16 · o valor no horizonte de uma carteira é o da linha dela em Todas', async () => {
+    await request(harness.app)
+      .put(`/api/portfolios/${seeded.investimentos}/projection-plan`)
+      .send({
+        expected_return_pct: '10.16',
+        rules: [{ amount: '2000.00', from: '2026-11', until: null }],
+      });
+    const all = (await get('/api/projection?horizon=24')).body;
+    const one = (
+      await get(`/api/projection?portfolio_id=${seeded.investimentos}&horizon=24`)
+    ).body;
+    const row = all.portfolios.find(
+      (p: { portfolio_id: string }) => p.portfolio_id === seeded.investimentos,
+    );
+    expect(one.portfolios[0].projection.kpis.at_horizon).toBe(
+      row.projection.kpis.at_horizon,
+    );
+  });
+
+  it('QC-13 · o panorama de Todas e o objetivo da carteira mostram o mesmo acumulado', async () => {
+    const set = await request(harness.app)
+      .put(`/api/portfolios/${seeded.investimentos}/goal`)
+      .send({
+        name: 'Independência',
+        target_amount: '400000.00',
+        target_date: '2035-12-31',
+        return_assumption: 'IPCA+6',
+        amount_in_today_brl: true,
+      });
+    expect(set.status).toBe(201);
+    const overview = (await get('/api/goals/overview')).body;
+    const single = (await get(`/api/goals?portfolio_id=${seeded.investimentos}`)).body;
+    expect(JSON.stringify(overview)).toContain('54718.83');
+    expect(JSON.stringify(single)).toContain('54718.83');
+  });
+});
