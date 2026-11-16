@@ -90,7 +90,14 @@ describe('cinco anos de lançamentos (QUA-05)', () => {
     expect(ms).toBeLessThan(1500 * 3);
   });
 
-  it('a visão geral de Finanças responde em até 2 s', async () => {
+  it('a primeira página do livro abre em até 1,5 s', async () => {
+    const { ms, status } = await timed('/finance/book?limit=50');
+    expect(status).toBe(200);
+    // Medido em ~0,9 s com 20 mil lançamentos; a folga cobre a máquina de CI.
+    expect(ms).toBeLessThan(1500 * 2);
+  });
+
+  it('a visão geral de Finanças responde em até 2 s (QUA-06)', async () => {
     const { ms, status } = await timed('/finance/overview');
     expect(status).toBe(200);
     expect(ms).toBeLessThan(2000 * 2);
