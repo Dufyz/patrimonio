@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createApiHarness, resetSourceTables } from '../../testing/harness.js';
 import type { ApiHarness } from '../../testing/harness.js';
+import { seedUnifiedInvestments } from '../../testing/unified_investments.js';
 
 /**
  * QUA-05 · Listas longas com cinco anos de histórico.
@@ -52,6 +53,7 @@ beforeAll(async () => {
     }
   }
   total = rows.length;
+  await seedUnifiedInvestments(harness.sql);
   const repo = createFinanceRepository(harness.sql);
   for (let i = 0; i < rows.length; i += 1000) {
     const saved = await repo.persist({
@@ -107,5 +109,19 @@ describe('cinco anos de lançamentos (QUA-05)', () => {
     const { ms, status } = await timed('/finance/search?q=mercado');
     expect(status).toBe(200);
     expect(ms).toBeLessThan(500);
+  });
+
+  it('com carteiras e posições: Visão geral, patrimônio, posições e projeção em até 2 s (QUA-06)', async () => {
+    for (const path of [
+      '/overview?on_date=2026-11-10',
+      '/finance/wealth',
+      '/positions',
+      '/projection',
+      '/search?q=bova',
+    ]) {
+      const { ms, status } = await timed(path);
+      expect(status, path).toBe(200);
+      expect(ms, path).toBeLessThan(2000);
+    }
   });
 });
