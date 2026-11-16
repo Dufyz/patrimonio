@@ -9,10 +9,11 @@ export const createBackupLogRepository = (sql: Connection): BackupLogRepository 
   record: async (file) => {
     try {
       await sql`
-        INSERT INTO backup_file (name, taken_on, manual, bytes, schema_version)
-        VALUES (${file.name}, ${file.taken_on}, ${file.manual}, ${file.bytes}, ${file.schema_version})
+        INSERT INTO backup_file (name, taken_on, manual, bytes, schema_version, entries, portfolios)
+        VALUES (${file.name}, ${file.taken_on}, ${file.manual}, ${file.bytes}, ${file.schema_version}, ${file.entries}, ${file.portfolios})
         ON CONFLICT (name) DO UPDATE
-          SET bytes = EXCLUDED.bytes, schema_version = EXCLUDED.schema_version
+          SET bytes = EXCLUDED.bytes, schema_version = EXCLUDED.schema_version,
+              entries = EXCLUDED.entries, portfolios = EXCLUDED.portfolios
       `;
       return success(undefined);
     } catch (error) {

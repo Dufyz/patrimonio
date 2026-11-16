@@ -82,6 +82,8 @@ export const getSettings = (deps: GetSettingsDeps) =>
           kind: backupKind(file.taken_on, file.manual),
           bytes: file.bytes,
           schema_version: file.schema_version,
+          entries: file.entries,
+          portfolios: file.portfolios,
         })),
       },
     };

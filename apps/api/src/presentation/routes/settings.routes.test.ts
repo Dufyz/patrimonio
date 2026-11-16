@@ -126,3 +126,31 @@ describe('o pedido de backup com o backup ligado', () => {
     expect(pedidos?.total).toBe('1');
   });
 });
+
+describe('POST /api/backup/restore (BKP-03)', () => {
+  const body = {
+    name: 'patrimonio-2026-11-12-s053.dump.age',
+    identity: 'AGE-SECRET-KEY-1ABCDEFGHIJ',
+    confirmation: 'RESTAURAR',
+  };
+
+  it('sem a palavra RESTAURAR a rota recusa antes de tocar em qualquer coisa', async () => {
+    const response = await request(harness.app)
+      .post('/api/backup/restore')
+      .send({ ...body, confirmation: 'restaurar' });
+    expect(response.status).toBe(400);
+  });
+
+  it('sem a chave a rota recusa', async () => {
+    const response = await request(harness.app)
+      .post('/api/backup/restore')
+      .send({ ...body, identity: '' });
+    expect(response.status).toBe(400);
+  });
+
+  it('com o backup desligado nesta instalação, diz que não há o que restaurar', async () => {
+    const response = await request(harness.app).post('/api/backup/restore').send(body);
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/desligado|sem destino/);
+  });
+});

@@ -53,6 +53,9 @@ importers:
       '@patrimonio/application':
         specifier: workspace:*
         version: link:../../packages/application
+      '@patrimonio/backup':
+        specifier: workspace:*
+        version: link:../../packages/backup
       '@patrimonio/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -208,6 +211,9 @@ importers:
       '@patrimonio/application':
         specifier: workspace:*
         version: link:../../packages/application
+      '@patrimonio/backup':
+        specifier: workspace:*
+        version: link:../../packages/backup
       '@patrimonio/calc':
         specifier: workspace:*
         version: link:../../packages/calc
@@ -254,6 +260,12 @@ importers:
       '@patrimonio/shared':
         specifier: workspace:*
         version: link:../shared
+
+  packages/backup:
+    dependencies:
+      '@patrimonio/domain':
+        specifier: workspace:*
+        version: link:../domain
 
   packages/calc:
     dependencies:

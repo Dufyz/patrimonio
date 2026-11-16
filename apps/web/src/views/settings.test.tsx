@@ -12,6 +12,7 @@ import { SettingsView } from './settings/index.js';
 
 const api = vi.hoisted(() => ({
   runBackup: vi.fn(),
+  restoreBackup: vi.fn(),
   refreshMarket: vi.fn(),
 }));
 
@@ -27,6 +28,7 @@ vi.mock('../api/registers.js', () => registers);
 vi.mock('../api/settings.js', () => ({
   fetchSettings: vi.fn(),
   runBackup: api.runBackup,
+  restoreBackup: api.restoreBackup,
 }));
 vi.mock('../api/market.js', () => ({
   fetchMarketHealth: vi.fn(),
@@ -82,6 +84,8 @@ const settings: Settings = {
         kind: 'daily',
         bytes: 5_452_595,
         schema_version: '051',
+        entries: 1_284,
+        portfolios: 3,
       },
       {
         name: 'patrimonio-2026-10-04-s051.dump.age',
@@ -89,6 +93,8 @@ const settings: Settings = {
         kind: 'weekly',
         bytes: 5_300_000,
         schema_version: '051',
+        entries: null,
+        portfolios: null,
       },
     ],
   },
@@ -197,6 +203,7 @@ const montar = (
 
 beforeEach(() => {
   api.runBackup.mockReset();
+  api.restoreBackup.mockReset();
   api.refreshMarket.mockReset();
   for (const mock of Object.values(registers)) mock.mockReset();
 });
@@ -505,7 +512,7 @@ describe('SettingsView', () => {
     );
   });
 
-  it('BKP-03 · Restaurar mostra o conteúdo e o aviso, e só libera o comando com a palavra RESTAURAR', async () => {
+  it('BKP-03 · Restaurar mostra o conteúdo e o aviso, e só libera com a chave e a palavra RESTAURAR', async () => {
     const user = userEvent.setup();
     montar({ section: 'dados-e-backup' });
 
@@ -514,13 +521,75 @@ describe('SettingsView', () => {
     );
     expect(screen.getByText(/substitui todos os dados atuais/)).toBeTruthy();
     expect(screen.getByText(/esquema 051/)).toBeTruthy();
-    expect(screen.queryByText(/--confirm=RESTAURAR/)).toBeNull();
+    expect(screen.getByText(/1\.284 lançamentos e 3 carteiras/)).toBeTruthy();
+    const confirmar = screen.getByRole('button', { name: 'Restaurar agora' });
+    expect((confirmar as HTMLButtonElement).disabled).toBe(true);
 
+    await user.type(
+      screen.getByLabelText(/Chave privada do backup/),
+      'AGE-SECRET-KEY-1ABCDEF',
+    );
     await user.type(screen.getByLabelText(/Digite RESTAURAR/), 'restaurar');
-    expect(screen.queryByText(/--confirm=RESTAURAR/)).toBeNull();
+    expect((confirmar as HTMLButtonElement).disabled).toBe(true);
     await user.clear(screen.getByLabelText(/Digite RESTAURAR/));
     await user.type(screen.getByLabelText(/Digite RESTAURAR/), 'RESTAURAR');
-    expect(screen.getByText(/--name=patrimonio-2026-10-08-s051\.dump\.age/)).toBeTruthy();
+    expect((confirmar as HTMLButtonElement).disabled).toBe(false);
+    expect(api.restoreBackup).not.toHaveBeenCalled();
+  });
+
+  it('BKP-03 · Restaurar envia o backup e a chave, e mostra o backup de segurança', async () => {
+    api.restoreBackup.mockResolvedValue({
+      safety_backup: 'patrimonio-2026-11-16-manual-1230-s053.dump.age',
+      message: 'Backup restaurado.',
+    });
+    const user = userEvent.setup();
+    montar({ section: 'dados-e-backup' });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Restaurar o backup de 2026-10-08' }),
+    );
+    await user.type(
+      screen.getByLabelText(/Chave privada do backup/),
+      'AGE-SECRET-KEY-1ABCDEF',
+    );
+    await user.type(screen.getByLabelText(/Digite RESTAURAR/), 'RESTAURAR');
+    await user.click(screen.getByRole('button', { name: 'Restaurar agora' }));
+
+    expect(api.restoreBackup).toHaveBeenCalledWith({
+      name: 'patrimonio-2026-10-08-s051.dump.age',
+      identity: 'AGE-SECRET-KEY-1ABCDEF',
+    });
+    expect(await screen.findByText(/Backup restaurado\./)).toBeTruthy();
+    expect(screen.getByText(/patrimonio-2026-11-16-manual-1230/)).toBeTruthy();
+  });
+
+  it('BKP-03 · falha na restauração mostra o motivo e mantém o diálogo aberto', async () => {
+    api.restoreBackup.mockRejectedValue(
+      new Error('Backup do esquema 060 é mais novo que o do app (053).'),
+    );
+    const user = userEvent.setup();
+    montar({ section: 'dados-e-backup' });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Restaurar o backup de 2026-10-08' }),
+    );
+    await user.type(
+      screen.getByLabelText(/Chave privada do backup/),
+      'AGE-SECRET-KEY-1ABCDEF',
+    );
+    await user.type(screen.getByLabelText(/Digite RESTAURAR/), 'RESTAURAR');
+    await user.click(screen.getByRole('button', { name: 'Restaurar agora' }));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/mais novo/);
+  });
+
+  it('BKP-03 · backup sem contagem diz que o conteúdo não foi registrado', async () => {
+    const user = userEvent.setup();
+    montar({ section: 'dados-e-backup' });
+    await user.click(
+      screen.getByRole('button', { name: 'Restaurar o backup de 2026-10-04' }),
+    );
+    expect(screen.getByText(/conteúdo não registrado/)).toBeTruthy();
   });
 
   it('sem backup ainda, a seção diz "Nenhum backup feito" (CFG-06)', () => {

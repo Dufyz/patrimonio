@@ -257,6 +257,8 @@ describe('o estado do backup', () => {
       manual,
       bytes: 1_000,
       schema_version: '051',
+      entries: 12,
+      portfolios: 2,
     });
     unwrapSuccess(await log.record(file('a.dump.age', '2026-10-05')));
     unwrapSuccess(await log.record(file('b.dump.age', '2026-10-06')));

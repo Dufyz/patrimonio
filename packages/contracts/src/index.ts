@@ -472,6 +472,9 @@ export type {
 
 export {
   DELETE_ALL_PHRASE,
+  RESTORE_PHRASE,
+  restoreBackupResultSchema,
+  restoreBackupSchema,
   backupQueuedSchema,
   deleteAllDataResultSchema,
   deleteAllDataSchema,

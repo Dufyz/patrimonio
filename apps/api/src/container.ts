@@ -100,6 +100,8 @@ import type { Queues, RedisConnection } from '@patrimonio/queue';
 import { uuidV7 } from '@patrimonio/shared';
 
 import { systemClock } from './infra/config/clock.js';
+import { maintenance } from './infra/maintenance.js';
+import { restoreBackup } from './infra/restore_backup.js';
 
 /**
  * Monta repositórios, gateways e casos de uso uma vez, no boot. Nenhum
@@ -283,6 +285,15 @@ export const createApiUseCases = (deps: {
   }),
   exportData: exportData({ settings: deps.repositories.settings }),
   deleteAllData: deleteAllData({ unitOfWork: deps.unitOfWork }),
+  // BKP-03: a restauração troca o banco inteiro, então roda em modo de manutenção
+  // e, ao fim, pede a sincronização de mercado (que recalcula as carteiras).
+  restoreBackup: restoreBackup({
+    maintenance,
+    now: () => deps.clock.now(),
+    afterRestore: async () => {
+      await refreshMarketData({ unitOfWork: deps.unitOfWork, clock: deps.clock })({});
+    },
+  }),
   requestBackup: requestBackup({
     unitOfWork: deps.unitOfWork,
     clock: deps.clock,

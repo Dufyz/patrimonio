@@ -3,9 +3,9 @@ import { unwrapFailure, unwrapSuccess } from '@patrimonio/shared/testing';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 
-import { BackupToolMissingError } from '../infra/backup/dump.js';
-import type { BackupEntry } from '../infra/backup/retention.js';
-import type { BackupStorage } from '../infra/backup/storage.js';
+import { BackupToolMissingError } from '@patrimonio/backup';
+import type { BackupEntry } from '@patrimonio/backup';
+import type { BackupStorage } from '@patrimonio/backup';
 import { runBackup } from './backup.stage.js';
 import type { BackupStageDeps } from './backup.stage.js';
 
@@ -166,6 +166,8 @@ describe('backup', () => {
         manual: false,
         bytes: 1_234,
         schema_version: null,
+        entries: null,
+        portfolios: null,
       },
     ]);
     expect(forgotten).toEqual(['patrimonio-2025-01-10.dump.age']);

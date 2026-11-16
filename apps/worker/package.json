@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@patrimonio/application": "workspace:*",
+    "@patrimonio/backup": "workspace:*",
     "@patrimonio/calc": "workspace:*",
     "@patrimonio/db": "workspace:*",
     "@patrimonio/domain": "workspace:*",

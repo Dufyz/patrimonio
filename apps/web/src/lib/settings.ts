@@ -426,7 +426,3 @@ export const BACKUP_KIND_LABEL: Readonly<
 
 /** BKP-03 · A palavra que libera a restauração. */
 export const CONFIRMATION_WORD = 'RESTAURAR';
-
-/** O comando do operador que restaura um backup (a chave fica com quem restaura). */
-export const restoreCommand = (name: string): string =>
-  `pnpm --filter @patrimonio/worker restore --name=${name} --identity=<chave.age> --confirm=${CONFIRMATION_WORD}`;

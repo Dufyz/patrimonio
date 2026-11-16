@@ -40,12 +40,34 @@ const ALLOWED: Record<string, readonly string[]> = {
   // Provedores atrás da interface MarketDataProvider.
   market: ['application', 'calc', 'domain', 'shared', 'env'],
   exporter: ['domain', 'shared'],
+  // Dump cifrado, retenção e restauração: ferramentas externas (pg_dump, age) atrás de funções.
+  backup: ['domain'],
   // A api não fala com o Redis no caminho de negócio: o pedido de trabalho vai
   // para a outbox. `queue` entra aqui só para montar o Bull Board em /api/queues.
   // `market` entra só pelo teto de requisições do plano, que a tela de dados
   // de mercado mostra: a coleta é do worker, e a api não fala com provedor.
-  api: ['application', 'contracts', 'db', 'domain', 'env', 'market', 'queue', 'shared'],
-  worker: ['application', 'calc', 'db', 'domain', 'env', 'market', 'queue', 'shared'],
+  api: [
+    'application',
+    'backup',
+    'contracts',
+    'db',
+    'domain',
+    'env',
+    'market',
+    'queue',
+    'shared',
+  ],
+  worker: [
+    'application',
+    'backup',
+    'calc',
+    'db',
+    'domain',
+    'env',
+    'market',
+    'queue',
+    'shared',
+  ],
   // Roda no navegador: só o contrato e o domínio.
   web: ['contracts', 'domain'],
 };

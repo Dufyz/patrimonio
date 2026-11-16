@@ -1,5 +1,9 @@
 import { assetResourceSchema } from '@patrimonio/contracts';
-import { CATEGORY_CATALOG, CATEGORY_IDS, fixedIncomeCategoryId } from '@patrimonio/domain';
+import {
+  CATEGORY_CATALOG,
+  CATEGORY_IDS,
+  fixedIncomeCategoryId,
+} from '@patrimonio/domain';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 

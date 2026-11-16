@@ -11,10 +11,10 @@ import {
   backupFileName,
   createEncryptedDump,
   isManualBackup,
-} from '../infra/backup/dump.js';
-import { applyRetention } from '../infra/backup/retention.js';
-import { createBackupStorage } from '../infra/backup/storage.js';
-import type { BackupStorage } from '../infra/backup/storage.js';
+} from '@patrimonio/backup';
+import { applyRetention } from '@patrimonio/backup';
+import { createBackupStorage } from '@patrimonio/backup';
+import type { BackupStorage } from '@patrimonio/backup';
 import { defineStage } from '../infra/define-stage.js';
 import type { StageDeps, StageJobData } from '../infra/define-stage.js';
 
@@ -39,6 +39,8 @@ export type BackupStageDeps = StageDeps & {
   readonly dump?: typeof createEncryptedDump;
   /** A versão do esquema que vai no nome do arquivo (número de migrations aplicadas). */
   readonly schemaVersion?: () => Promise<string | undefined>;
+  /** BKP-03: lançamentos e carteiras no momento do dump, para a tela mostrar. */
+  readonly counts?: () => Promise<{ entries: number; portfolios: number }>;
   /** BKP-01: o que a tela de Configurações lista. Opcional para o teste do dump. */
   readonly log?: BackupLogRepository;
 };
@@ -136,12 +138,15 @@ export const runBackup = async (
     // A tela lista o que o bucket guarda. Falhar em anotar não desfaz o backup:
     // o arquivo está verificado, e o aviso vai para o log.
     if (deps.log !== undefined) {
+      const counted = await deps.counts?.().catch(() => undefined);
       const noted = await deps.log.record({
         name,
         taken_on: referenceDate,
         manual: run.manual === true,
         bytes: dump.bytes,
         schema_version: schema ?? null,
+        entries: counted?.entries ?? null,
+        portfolios: counted?.portfolios ?? null,
       });
       const forgotten = await deps.log.forget(plan.remove);
       if (noted.isFailure() || forgotten.isFailure()) {

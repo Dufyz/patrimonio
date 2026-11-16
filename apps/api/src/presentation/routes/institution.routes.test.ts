@@ -2,7 +2,11 @@ import { institutionResourceSchema } from '@patrimonio/contracts';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { createApiHarness, resetSourceTables, seedInstitution } from '../../testing/harness.js';
+import {
+  createApiHarness,
+  resetSourceTables,
+  seedInstitution,
+} from '../../testing/harness.js';
 import type { ApiHarness } from '../../testing/harness.js';
 
 let harness: ApiHarness;
@@ -34,7 +38,9 @@ describe('catálogo de instituições', () => {
   });
 
   it('não aceita cadastro, edição nem exclusão pela api', async () => {
-    const criar = await request(harness.app).post('/api/institutions').send({ name: 'X' });
+    const criar = await request(harness.app)
+      .post('/api/institutions')
+      .send({ name: 'X' });
     const editar = await request(harness.app)
       .patch('/api/institutions/00000000-0000-7000-8000-000000000000')
       .send({ name: 'Y' });

@@ -56,8 +56,13 @@ export const confirmed = (typed: string | undefined): boolean =>
   typed === CONFIRMATION_WORD;
 
 /**
- * `age --decrypt | pg_restore --clean --single-transaction`: tudo ou nada. Se
- * qualquer passo falhar, a transação desfaz e os dados atuais ficam como estão.
+ * `age --decrypt | pg_restore -f - | psql --single-transaction`: tudo ou nada.
+ *
+ * `pg_restore --clean` não serve aqui: o banco tem tabelas particionadas, e o
+ * `DROP CONSTRAINT` das partições herdadas falha. Em vez disso o dump vira um
+ * script SQL e o `psql` o roda numa transação só, precedido de
+ * `DROP SCHEMA public CASCADE; CREATE SCHEMA public`. Se qualquer passo falhar,
+ * a transação desfaz — inclusive a limpeza — e os dados atuais ficam como estão.
  */
 export const restoreEncryptedDump = async (options: {
   readonly connection: string;
@@ -67,35 +72,64 @@ export const restoreEncryptedDump = async (options: {
   const decrypt = spawn('age', ['--decrypt', '-i', options.identityPath], {
     stdio: ['pipe', 'pipe', 'pipe'],
   });
-  const restore = spawn(
-    'pg_restore',
+  const script = spawn('pg_restore', ['--no-owner', '--no-privileges', '-f', '-'], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const apply = spawn(
+    'psql',
     [
-      '--clean',
-      '--if-exists',
-      '--no-owner',
       '--single-transaction',
-      '--exit-on-error',
-      '-d',
+      '--no-psqlrc',
+      '--quiet',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      'DROP SCHEMA public CASCADE; CREATE SCHEMA public;',
+      '-f',
+      '-',
       options.connection,
     ],
     { stdio: ['pipe', 'pipe', 'pipe'] },
   );
   const errors: string[] = [];
   decrypt.stderr.on('data', (c: Buffer) => errors.push(`age: ${c.toString()}`));
-  restore.stderr.on('data', (c: Buffer) => errors.push(`pg_restore: ${c.toString()}`));
+  script.stderr.on('data', (c: Buffer) => errors.push(`pg_restore: ${c.toString()}`));
+  apply.stderr.on('data', (c: Buffer) => errors.push(`psql: ${c.toString()}`));
+  apply.stdout.resume();
 
-  const codes = Promise.all([
-    new Promise<number>((resolve) => decrypt.on('close', (c) => resolve(c ?? 1))),
-    new Promise<number>((resolve) => restore.on('close', (c) => resolve(c ?? 1))),
-  ]);
-  await Promise.all([
+  const closed = (child: ReturnType<typeof spawn>): Promise<number> =>
+    new Promise<number>((resolve) => {
+      child.on('close', (c) => resolve(c ?? 1));
+      child.on('error', () => resolve(127));
+    });
+  const ageClosed = closed(decrypt);
+  const scriptClosed = closed(script);
+  const applyClosed = closed(apply);
+
+  // O `psql` só recebe o fim da entrada — e, com ele, o COMMIT — quando o `age` e
+  // o `pg_restore` terminaram bem. Se algum falhou, o script termina num
+  // comando que dá erro: `ON_ERROR_STOP` aborta e a transação desfaz tudo,
+  // inclusive o `DROP SCHEMA`. Entrada vazia por chave errada não apaga nada.
+  script.stdout.pipe(apply.stdin, { end: false });
+  const scriptEnded = new Promise<void>((resolve) => script.stdout.on('end', resolve));
+  apply.stdin.on('error', () => undefined);
+  void (async () => {
+    const [age, restore] = await Promise.all([ageClosed, scriptClosed]);
+    await scriptEnded;
+    apply.stdin.end(age === 0 && restore === 0 ? '' : 'SELECT 1/0;\n');
+  })();
+
+  decrypt.stdin.on('error', () => undefined);
+  script.stdin.on('error', () => undefined);
+  await Promise.allSettled([
     pipeline(createReadStream(options.file), decrypt.stdin),
-    pipeline(decrypt.stdout, restore.stdin),
+    pipeline(decrypt.stdout, script.stdin),
   ]);
-  const [ageCode, pgCode] = await codes;
-  if (ageCode !== 0 || pgCode !== 0) {
+  const codes = Promise.all([ageClosed, scriptClosed, applyClosed]);
+  const [ageCode, restoreCode, psqlCode] = await codes;
+  if (ageCode !== 0 || restoreCode !== 0 || psqlCode !== 0) {
     throw new Error(
-      `restauração falhou e nada foi alterado (age ${ageCode}, pg_restore ${pgCode}): ${errors.join(' ').trim()}`,
+      `restauração falhou e nada foi alterado (age ${ageCode}, pg_restore ${restoreCode}, psql ${psqlCode}): ${errors.join(' ').trim()}`,
     );
   }
 };

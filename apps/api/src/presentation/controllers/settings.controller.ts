@@ -4,6 +4,7 @@ import type {
   getSettings,
   requestBackup,
 } from '@patrimonio/application';
+import type { restoreBackup } from '../../infra/restore_backup.js';
 import type { RequestHandler } from 'express';
 
 import { sendFailure } from '../middleware/respond.js';
@@ -20,6 +21,7 @@ export type SettingsDeps = {
     readonly requestBackup: ReturnType<typeof requestBackup>;
     readonly exportData: ReturnType<typeof exportData>;
     readonly deleteAllData: ReturnType<typeof deleteAllData>;
+    readonly restoreBackup: ReturnType<typeof restoreBackup>;
   };
 };
 
@@ -28,6 +30,7 @@ export type SettingsController = {
   readonly backup: RequestHandler;
   readonly exportAll: RequestHandler;
   readonly deleteAll: RequestHandler;
+  readonly restore: RequestHandler;
 };
 
 export const createSettingsController = (deps: SettingsDeps): SettingsController => ({
@@ -77,6 +80,25 @@ export const createSettingsController = (deps: SettingsDeps): SettingsController
       .type('application/json')
       .attachment('patrimonio-export.json')
       .send(result.value.json);
+  },
+
+  restore: async (request, response) => {
+    const body = request.body as { name: string; identity: string };
+    const result = await deps.usecases.restoreBackup({
+      name: body.name,
+      identity: body.identity,
+    });
+
+    if (result.isFailure()) {
+      sendFailure(request, response, result.value);
+      return;
+    }
+
+    response.json({
+      safety_backup: result.value.safety,
+      message:
+        'Backup restaurado. A sincronização de mercado foi pedida e vai recalcular as carteiras.',
+    });
   },
 
   deleteAll: async (request, response) => {

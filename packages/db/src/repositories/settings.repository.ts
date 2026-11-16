@@ -56,6 +56,8 @@ const parseFile = (row: Row): BackupFileRow => ({
   manual: asBoolean(row, 'manual'),
   bytes: asInteger(row, 'bytes'),
   schema_version: asStringOrNull(row, 'schema_version'),
+  entries: row['entries'] === null ? null : asInteger(row, 'entries'),
+  portfolios: row['portfolios'] === null ? null : asInteger(row, 'portfolios'),
 });
 
 const parseBackup = (
@@ -169,7 +171,9 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
                            'taken_on', f.taken_on,
                            'manual', f.manual,
                            'bytes', f.bytes,
-                           'schema_version', f.schema_version
+                           'schema_version', f.schema_version,
+                           'entries', f.entries,
+                           'portfolios', f.portfolios
                          ) ORDER BY f.taken_on DESC, f.created_at DESC
                        ), '[]'::JSONB)
                   FROM backup_file f) AS backup_files

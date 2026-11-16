@@ -4,6 +4,8 @@ import {
   errorResponseSchema,
   exportDataSchema,
   getSettingsSchema,
+  restoreBackupResultSchema,
+  restoreBackupSchema,
   runBackupSchema,
   settingsSchema,
 } from '@patrimonio/contracts';
@@ -52,6 +54,25 @@ export const SETTINGS_ROUTE_DOCS: readonly RouteDoc[] = [
       },
       400: {
         description: 'O backup está desligado nesta instalação.',
+        schema: errorResponseSchema,
+      },
+    },
+  },
+  {
+    method: 'post',
+    path: '/backup/restore',
+    tag: TAG,
+    summary: 'Restaurar um backup',
+    request: restoreBackupSchema,
+    responses: {
+      200: {
+        description:
+          'Restaurado em modo de manutenção, depois de um backup de segurança. ' +
+          'Tudo ou nada: se falhar, os dados atuais ficam como estão.',
+        schema: restoreBackupResultSchema,
+      },
+      400: {
+        description: 'Backup inválido, de esquema mais novo, ou backup desligado.',
         schema: errorResponseSchema,
       },
     },

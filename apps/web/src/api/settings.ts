@@ -47,3 +47,37 @@ export const runBackup = async (): Promise<BackupReceipt> =>
     body: JSON.stringify({}),
     headers: { 'Idempotency-Key': globalThis.crypto.randomUUID() },
   });
+
+export type RestoreReceipt = {
+  readonly safety_backup: string;
+  readonly message: string;
+};
+
+const restoreParser = {
+  parse: (value: unknown): RestoreReceipt => {
+    const body = (typeof value === 'object' && value !== null ? value : {}) as Record<
+      string,
+      unknown
+    >;
+    const safety = body['safety_backup'];
+    const message = body['message'];
+    if (typeof safety !== 'string' || typeof message !== 'string') {
+      throw new Error('A api respondeu a restauração fora do contrato');
+    }
+    return { safety_backup: safety, message };
+  },
+};
+
+/**
+ * BKP-03 · Restaura um backup. A chave privada do `age` vai no corpo, é usada
+ * uma vez no servidor e não é guardada. A restauração leva o tempo do banco e
+ * roda em modo de manutenção: até ela terminar, as escritas voltam 503.
+ */
+export const restoreBackup = async (input: {
+  readonly name: string;
+  readonly identity: string;
+}): Promise<RestoreReceipt> =>
+  request('/api/backup/restore', restoreParser, {
+    method: 'POST',
+    body: JSON.stringify({ ...input, confirmation: 'RESTAURAR' }),
+  });

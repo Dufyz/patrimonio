@@ -1,18 +1,16 @@
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 
 import { migrationStatus } from '@patrimonio/db';
 import { environment } from '@patrimonio/env';
 
-import { backupFileName, createEncryptedDump } from '../infra/backup/dump.js';
 import {
   checkRestorable,
   confirmed,
   CONFIRMATION_WORD,
+  createBackupStorage,
   parseBackupName,
-  restoreEncryptedDump,
-} from '../infra/backup/restore.js';
-import { createBackupStorage } from '../infra/backup/storage.js';
+  performRestore,
+} from '@patrimonio/backup';
 
 /**
  * `pnpm restore --name=<arquivo> --identity=<chave.age> --confirm=RESTAURAR`
@@ -63,32 +61,19 @@ const storage = createBackupStorage({
   bucket,
 });
 
-say('Gravando backup de segurança do estado atual…');
-const today = new Date().toISOString().slice(0, 10);
-const safety = await createEncryptedDump({
+say('Restaurando (tudo ou nada), com backup de segurança antes…');
+const now = new Date();
+const result = await performRestore({
+  name: name as string,
+  identity: await readFile(identity as string, 'utf8'),
   connection: environment.database.connection,
+  currentSchema: current,
   recipient: publicKey as string,
-  date: today,
+  storage,
+  today: now.toISOString().slice(0, 10),
+  clockTime: now.toISOString().slice(11, 16),
 });
-const safetyName = backupFileName(today, {
-  schema: current,
-  manualAt: `pre${new Date().toISOString().slice(11, 16).replace(':', '')}`.replace(
-    /[^0-9]/g,
-    '',
-  ),
-});
-await storage.upload(safetyName, safety.path);
-await safety.cleanup();
-say(`Backup de segurança: ${safetyName}`);
-
-const local = join(tmpdir(), `restore-${name}`);
-await storage.download(name as string, local);
-say('Restaurando (tudo ou nada)…');
-await restoreEncryptedDump({
-  connection: environment.database.connection,
-  file: local,
-  identityPath: identity as string,
-});
+say(`Backup de segurança: ${result.safety}`);
 say(
   'Restauração concluída. Suba o app, rode a sincronização de mercado e a suíte de consistência.',
 );

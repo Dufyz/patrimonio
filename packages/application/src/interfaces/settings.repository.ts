@@ -41,6 +41,9 @@ export type BackupFileRow = {
   readonly manual: boolean;
   readonly bytes: number;
   readonly schema_version: string | null;
+  /** Lançamentos e carteiras no momento do dump; nulos nos backups antigos. */
+  readonly entries: number | null;
+  readonly portfolios: number | null;
 };
 
 /** O que o worker grava do backup que acabou de verificar (e do que a retenção apagou). */
@@ -51,6 +54,8 @@ export type BackupLogRepository = {
     readonly manual: boolean;
     readonly bytes: number;
     readonly schema_version: string | null;
+    readonly entries: number | null;
+    readonly portfolios: number | null;
   }) => Promise<Either<AppError, undefined>>;
   readonly forget: (names: readonly string[]) => Promise<Either<AppError, undefined>>;
 };

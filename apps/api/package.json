@@ -16,6 +16,7 @@
     "@bull-board/api": "^9.10.4",
     "@bull-board/express": "^9.10.4",
     "@patrimonio/application": "workspace:*",
+    "@patrimonio/backup": "workspace:*",
     "@patrimonio/contracts": "workspace:*",
     "@patrimonio/db": "workspace:*",
     "@patrimonio/domain": "workspace:*",

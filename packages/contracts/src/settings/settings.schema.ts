@@ -68,6 +68,9 @@ export const settingsBackupSchema = z.object({
       kind: z.enum(['daily', 'weekly', 'monthly', 'manual']),
       bytes: z.number().int(),
       schema_version: z.string().nullable(),
+      /** O que o dump continha; nulo nos backups feitos antes da contagem. */
+      entries: z.number().int().nullable(),
+      portfolios: z.number().int().nullable(),
     }),
   ),
 });
@@ -91,6 +94,26 @@ export const getSettingsSchema = z.object({});
 
 /** "Fazer backup agora": enfileira e devolve na hora, como "atualizar agora". */
 export const runBackupSchema = z.object({});
+
+/** A palavra que o usuário digita para autorizar a restauração. */
+export const RESTORE_PHRASE = 'RESTAURAR';
+
+/**
+ * BKP-03 · Restaurar. A chave privada do `age` segue na requisição, é usada uma
+ * vez e não é guardada em lugar nenhum.
+ */
+export const restoreBackupSchema = z.object({
+  body: z.object({
+    name: z.string().trim().min(1).max(200),
+    identity: z.string().trim().min(10).max(4000),
+    confirmation: z.literal(RESTORE_PHRASE),
+  }),
+});
+
+export const restoreBackupResultSchema = z.object({
+  safety_backup: z.string(),
+  message: z.string(),
+});
 
 export const backupQueuedSchema = z.object({
   job_id: uuid,

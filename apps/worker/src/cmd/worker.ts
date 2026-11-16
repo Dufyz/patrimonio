@@ -36,6 +36,14 @@ const workers = [
   backupStage({
     ...deps,
     log: createBackupLogRepository(container.sql),
+    counts: async () => {
+      const [row] = await container.sql<{ entries: number; portfolios: number }[]>`
+        SELECT
+          ((SELECT COUNT(*) FROM fin_entry) + (SELECT COUNT(*) FROM transaction))::INTEGER AS entries,
+          (SELECT COUNT(*) FROM portfolio)::INTEGER AS portfolios
+      `;
+      return { entries: row?.entries ?? 0, portfolios: row?.portfolios ?? 0 };
+    },
     schemaVersion: async () => {
       const status = await migrationStatus(environment.database.connection);
       return String(status.applied.length).padStart(3, '0');

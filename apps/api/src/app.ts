@@ -10,6 +10,7 @@ import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 
 import { logger } from './infra/config/logger.js';
+import { maintenance } from './infra/maintenance.js';
 import {
   errorHandler,
   notFoundHandler,
@@ -84,6 +85,9 @@ export const createApp = (deps: AppDeps): Express => {
     });
     app.use('/api/queues', adapter.getRouter());
   }
+
+  // BKP-03: durante a restauração só leituras passam.
+  app.use(maintenance.middleware);
 
   app.use('/api', apiRoutes(deps));
 
