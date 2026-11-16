@@ -30,8 +30,6 @@ export type Band = {
   readonly amount?: string | null | undefined;
 };
 
-export type SeriesKind = 'line' | 'area' | 'bar';
-
 export type Series = {
   readonly id: string;
   readonly label: string;

@@ -76,28 +76,3 @@ export const TableScreenSkeleton = ({
     </Panel>
   </Shell>
 );
-
-/** Extrato da conta e Fatura do cartão: totais, gráfico e tabela. */
-export const DetailSkeleton = ({
-  label,
-}: {
-  readonly label: string;
-}): React.ReactElement => (
-  <Shell label={label}>
-    <SkeletonStats count={4} />
-    <SkeletonPanel>
-      <SkeletonChart />
-    </SkeletonPanel>
-    <Toolbar />
-    <Panel>
-      <SkeletonTable rows={8} columns={6} />
-    </Panel>
-  </Shell>
-);
-
-export const SettingsSkeleton = (): React.ReactElement => (
-  <Shell label="Carregando Configurações">
-    <SkeletonPanel title="Preferências" />
-    <SkeletonPanel title="Dados" />
-  </Shell>
-);

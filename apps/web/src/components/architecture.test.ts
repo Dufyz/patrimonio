@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
@@ -139,6 +140,17 @@ describe('LIV-15 · sem a categoria de despesa "Investimento"', () => {
     expect(seed).not.toMatch(/categoryId: 'investimento'/u);
     expect(seed).toMatch(/kind: 'aporte'/u);
   });
+});
+
+describe('NAV-13 · sem código morto', () => {
+  it('o relatório do knip está vazio', () => {
+    const run = spawnSync('npx', ['knip', '--no-progress'], {
+      cwd: join(ROOT, '..'),
+      encoding: 'utf8',
+    });
+    expect(run.stdout + run.stderr).not.toMatch(/Unused (files|exports|exported types)/u);
+    expect(run.status).toBe(0);
+  }, 120_000);
 });
 
 describe('VGR-20 · uma só Visão geral', () => {

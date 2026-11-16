@@ -1,7 +1,6 @@
 import { toPercentNumber } from '../lib/chart/scale.js';
 import { colorForToken } from '../lib/tokens.js';
 import { Money, Percent, Points } from './number.js';
-import { Label } from './primitives.js';
 
 /**
  * D-07 · Barras de proporção, no lugar de pizza e donut.
@@ -242,5 +241,3 @@ export const BarLegend = ({
     ))}
   </ul>
 );
-
-export const BarSectionLabel = Label;

@@ -87,8 +87,6 @@ export type RenderRow<Row> =
     }
   | { readonly kind: 'total'; readonly id: string; readonly summary: GroupSummary };
 
-export type SortValue = (row: unknown, columnId: string) => string | null;
-
 export type BuildRowModelInput<Row> = {
   readonly groups: readonly TableGroup<Row>[];
   readonly state: TableState;
@@ -222,11 +220,6 @@ export const buildRowModel = <Row>(
 
 /** A chave do grupo único usado quando a tabela não agrupa. */
 export const UNGROUPED_KEY = '__sem_grupo__';
-
-export const ungrouped = <Row>(
-  rows: readonly Row[],
-  summary: GroupSummary = {},
-): readonly TableGroup<Row>[] => [{ key: UNGROUPED_KEY, label: '', rows, summary }];
 
 /** Abre a linha, ou fecha a que já estava aberta. */
 export const toggleRow = (current: string | null, id: string): string | null =>

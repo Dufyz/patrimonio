@@ -15,8 +15,6 @@ export const setTodayOverride = (date: IsoDate | null): void => {
   override = date;
 };
 
-export const hasTodayOverride = (): boolean => override !== null;
-
 export const today = (now: Date = new Date()): IsoDate => override ?? saoPauloDate(now);
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;

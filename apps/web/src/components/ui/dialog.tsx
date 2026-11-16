@@ -14,8 +14,6 @@ import { Icon } from '../icon.js';
  * respiro de 20 × 24 e rodapé branco, separado por uma linha (v2).
  */
 export const Dialog = DialogPrimitive.Root;
-export const DialogTrigger = DialogPrimitive.Trigger;
-export const DialogClose = DialogPrimitive.Close;
 
 export const DialogOverlay = ({
   className,

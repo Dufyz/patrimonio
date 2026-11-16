@@ -12,8 +12,6 @@ export const PRIMARY_LABELS = {
   categories: 'Categoria',
 } as const;
 
-export type PrimaryScreen = keyof typeof PRIMARY_LABELS;
-
 /** `1 conta`, `3 contas`. Zero é plural, como na fala. */
 export const pluralize = (count: number, singular: string, plural: string): string =>
   `${count} ${count === 1 ? singular : plural}`;

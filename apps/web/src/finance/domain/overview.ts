@@ -1,19 +1,18 @@
+import type { IsoDate } from '../lib/dates.js';
 import {
   addMonths,
   compareDates,
-  diffDays,
   endOfMonth,
   monthKey,
   startOfMonth,
 } from '../lib/dates.js';
-import type { IsoDate } from '../lib/dates.js';
 import { allocatePercentTenths } from '../lib/format.js';
 import type { Cents } from '../lib/money.js';
-import { comparisonRange } from '../lib/period.js';
 import type { DateRange } from '../lib/period.js';
+import { comparisonRange } from '../lib/period.js';
 import { accountsOverview } from './accounts.js';
-import { cardSummary, openInvoicesTotal } from './cards.js';
 import type { CardSummary } from './cards.js';
+import { cardSummary, openInvoicesTotal } from './cards.js';
 import { indicators, isPosted } from './ledger.js';
 import type { Entry, FinanceData } from './types.js';
 
@@ -151,6 +150,3 @@ export const categoryBreakdown = (
     })),
   };
 };
-
-export const periodLength = (range: DateRange): number =>
-  diffDays(range.from, range.to) + 1;

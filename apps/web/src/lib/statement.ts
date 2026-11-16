@@ -14,21 +14,6 @@ import { PAYOUT_KIND_LABELS, TRANSACTION_KIND_LABELS } from './asset_page.js';
 import type { Period } from './period.js';
 import { decodePeriod, encodePeriod } from './period.js';
 
-/**
- * T-04 · O que Lançamentos decide por conta própria.
- *
- * O extrato é onde se corrige o passado, e quase tudo que ele mostra já chega
- * pronto da `api`: resumo, subtotal de mês, contagem por tipo, e a coluna
- * Efeito. Sobra a tradução — qual frase descreve cada efeito, como a URL
- * guarda o recorte, o que vai para o CSV. Nenhuma função aqui soma dinheiro.
- */
-
-/** O extrato traz o período inteiro de uma vez; o teto só protege de um pedido sem fim. */
-export const STATEMENT_LIMIT = 2000;
-
-/** Releitura enquanto o recálculo não termina, em milissegundos. */
-export const RECALCULATION_POLL_MS = 4000;
-
 /** Sem filtro de período, o extrato abre nos últimos três meses. */
 export const DEFAULT_STATEMENT_PERIOD: Period = { kind: 'preset', preset: '3m' };
 
@@ -44,14 +29,6 @@ const GROUP_PARAMS: Readonly<Record<StatementGroup, string>> = {
   custody: 'custodia',
 };
 
-export const GROUP_LABELS: Readonly<Record<StatementGroup, string>> = {
-  buy: 'Compras',
-  sell: 'Vendas',
-  payout: 'Proventos',
-  event: 'Eventos',
-  custody: 'Custódia',
-};
-
 export const groupToParam = (group: StatementGroup): string => GROUP_PARAMS[group];
 
 export const groupFromParam = (raw: string | null): StatementGroup | null => {
@@ -60,20 +37,6 @@ export const groupFromParam = (raw: string | null): StatementGroup | null => {
   );
   return found?.[0] ?? null;
 };
-
-/** `vendas,proventos` → os tipos que o endereço pede, sem repetir nem inventar. */
-export const groupsFromParam = (raw: string | null): readonly StatementGroup[] => [
-  ...new Set(
-    (raw ?? '')
-      .split(',')
-      .map((part) => groupFromParam(part))
-      .filter((group): group is StatementGroup => group !== null),
-  ),
-];
-
-/** O padrão — nenhum tipo escolhido — nunca é escrito na URL. */
-export const groupsToParam = (groups: readonly StatementGroup[]): string | null =>
-  groups.length === 0 ? null : groups.map((group) => GROUP_PARAMS[group]).join(',');
 
 /** `id1,id2` do endereço → lista; vazio vira lista vazia. */
 export const listFromParam = (raw: string | null): readonly string[] =>
@@ -132,9 +95,6 @@ export const typeDetail = (row: StatementRow): string | null =>
 
 export const assetLabel = (row: StatementRow): string =>
   row.ticker ?? row.asset_name ?? '—';
-
-export const rowLabel = (row: StatementRow): string =>
-  `${typeLabel(row)} de ${assetLabel(row)} em ${row.trade_date}`;
 
 /* -------------------------------------------------------------------------- */
 /* Resumo                                                                     */
@@ -372,5 +332,3 @@ export const statementCsv = (rows: readonly StatementRow[]): string => {
 };
 
 export const CSV_BOM = '﻿';
-
-export const csvFilename = (today: DateOnly): string => `movimentacoes-${today}.csv`;

@@ -180,26 +180,6 @@ export const effectiveRows = (
   );
 };
 
-/**
- * Como o grupo está sendo alvo: `group` quando ele tem alvo próprio, `categories`
- * quando o alvo está nas categorias dentro dele, `free` quando nenhum tem.
- */
-export const groupMode = (
-  rows: readonly EditableRow[],
-  draft: Draft,
-  groupId: string,
-): 'group' | 'categories' | 'free' => {
-  const own = rows.find((row) => row.kind === 'group' && row.id === groupId);
-  if (own !== undefined && (parsed(own, draft) ?? 0) > 0) return 'group';
-
-  const inside = rows.some(
-    (row) =>
-      row.kind === 'category' && row.groupId === groupId && (parsed(row, draft) ?? 0) > 0,
-  );
-
-  return inside ? 'categories' : 'free';
-};
-
 const withoutKeys = (draft: Draft, ids: ReadonlySet<string>): Draft =>
   Object.fromEntries(Object.entries(draft).filter(([key]) => !ids.has(key)));
 

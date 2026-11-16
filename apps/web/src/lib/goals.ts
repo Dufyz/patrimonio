@@ -61,15 +61,6 @@ export const BLOCK_REASON: Readonly<
     'A carteira deste objetivo ainda não foi consolidada: a projeção começa na primeira consolidação.',
 };
 
-/** O que vem depois do valor da meta: prazo e premissa, nessa ordem. */
-export const goalCaptionTail = (goal: GoalResource): string =>
-  [
-    monthYearLabel(goal.target_date),
-    goal.rate === null || goal.rate.assumption === null
-      ? 'sem premissa'
-      : `premissa ${goal.rate.assumption}`,
-  ].join(' · ');
-
 export const arrivalText = (
   months: number | null,
   date: string | null,
@@ -186,13 +177,6 @@ export const latenessOf = (
   if (diff > 0) return { text: `+${diff} ${unit(diff)}`, tone: 'attention' };
   if (diff === 0) return { text: 'no prazo', tone: 'positive' };
   return { text: `${-diff} ${unit(-diff)} antes`, tone: 'positive' };
-};
-
-/** `IPCA+6` → `IPCA + 6%`: a premissa como a prancha a escreve. */
-export const assumptionLabel = (assumption: string | null): string | null => {
-  if (assumption === null) return null;
-  const text = assumption.replace(/\s*\+\s*/g, ' + ');
-  return /[%]/.test(text) ? text : /\d$/.test(text) ? `${text}%` : text;
 };
 
 /* -------------------------------------------------------------------------- */

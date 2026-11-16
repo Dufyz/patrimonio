@@ -34,15 +34,6 @@ export const DEFAULT_PERIOD: Period = { kind: 'preset', preset: '12m' };
 
 export type Range = { readonly from: DateOnly; readonly to: DateOnly };
 
-/** Os botões da barra, na ordem da prancha 03. O resto vive no calendário. */
-export const PERIOD_BUTTONS: readonly PeriodPreset[] = [
-  'mes',
-  'ytd',
-  '12m',
-  '24m',
-  'inicio',
-];
-
 export const PERIOD_LABELS: Readonly<Record<PeriodPreset, string>> = {
   mes: 'Mês',
   mes_anterior: 'Mês anterior',

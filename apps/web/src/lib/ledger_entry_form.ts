@@ -1,8 +1,8 @@
 import type { EffectResource, PreviewResponse } from '../api/ledger_write.js';
 import type { EffectRow } from '../finance/domain/effects.js';
-import type { EffectRow as PairRow } from './entry.js';
 import type { PickedAsset } from '../views/entry/asset_picker.js';
 import { compareDecimal, parseDecimal } from './decimal.js';
+import type { EffectRow as PairRow } from './entry.js';
 
 /**
  * LAN-09 · O rascunho do modal "Novo lançamento" e o que dele vira pedido.
@@ -277,12 +277,6 @@ export type EntryRequest = {
   readonly preview?: { readonly path: string; readonly body: unknown };
   /** Evento: registrar não aplica; a gravação confirma em seguida. */
   readonly confirmEvent?: true;
-};
-
-export type InvoicePaymentBody = {
-  readonly account_id: string;
-  readonly date: string;
-  readonly amount: string;
 };
 
 /** Vírgula decimal digitada vira o ponto que o contrato pede. */

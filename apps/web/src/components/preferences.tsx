@@ -7,11 +7,7 @@ import {
   useState,
 } from 'react';
 
-import {
-  HIDDEN_VALUES_SHORTCUT,
-  readHiddenValues,
-  writeHiddenValues,
-} from '../lib/hidden_values.js';
+import { readHiddenValues, writeHiddenValues } from '../lib/hidden_values.js';
 import type { Storageish } from '../lib/preferences.js';
 import { browserStorage } from '../lib/preferences.js';
 import type { Density, ResolvedTheme, ThemePreference } from '../lib/theme.js';
@@ -164,5 +160,3 @@ export const usePreferences = (): PreferencesValue => {
  * precise conhecer o contexto inteiro só para saber se esconde o valor.
  */
 export const useValuesHidden = (): boolean => usePreferences().hidden;
-
-export { HIDDEN_VALUES_SHORTCUT };

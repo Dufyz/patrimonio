@@ -1,5 +1,10 @@
+import type { IsoDate } from '../lib/dates.js';
+import { formatMonth } from '../lib/format.js';
+import type { Cents } from '../lib/money.js';
+import { currentMonth } from '../lib/period.js';
 import { accountBalance, findAccount } from './accounts.js';
 import { findCard, invoiceKeyOf, invoiceTotal, shiftInvoice } from './cards.js';
+import type { EntryDraft } from './entry_ops.js';
 import {
   addEntry,
   installmentCount,
@@ -7,24 +12,17 @@ import {
   paymentsOf,
   validateEntry,
 } from './entry_ops.js';
-import type { EntryDraft } from './entry_ops.js';
-import { deleteInstallments } from './installment_ops.js';
-import type { InstallmentScope } from './installment_ops.js';
 import { payInvoice } from './invoice_ops.js';
+import { monthResult } from './overview.js';
+import type { RecurringDraft } from './recurring.js';
 import {
   addRecurring,
   syncRecurring,
   updateRecurring,
   validateRecurring,
 } from './recurring.js';
-import type { RecurringDraft } from './recurring.js';
 import { sourceName } from './sources.js';
-import { monthResult } from './overview.js';
 import type { FinanceData } from './types.js';
-import type { IsoDate } from '../lib/dates.js';
-import type { Cents } from '../lib/money.js';
-import { formatMonth } from '../lib/format.js';
-import { currentMonth } from '../lib/period.js';
 
 /**
  * "Efeito · antes → depois" dos modais: o que muda nos números se a pessoa
@@ -136,32 +134,6 @@ export const payInvoiceEffect = (
   ];
 };
 
-/** Excluir parcela(s) de uma compra no cartão (prancha Modais E): a fatura aberta e as futuras. */
-export const deleteInstallmentEffect = (
-  data: FinanceData,
-  cardId: string,
-  key: string,
-  origin: 'entry' | 'item',
-  id: string,
-  scope: InstallmentScope,
-): readonly EffectRow[] => {
-  const card = findCard(data, cardId);
-  if (card === undefined) return [];
-  const after = deleteInstallments(data, origin, id, scope);
-  const future = (d: FinanceData): Cents =>
-    Array.from({ length: 36 }, (_, i) =>
-      invoiceTotal(d, card, shiftInvoice(key, i + 1)),
-    ).reduce((a, b) => a + b, 0);
-  return [
-    {
-      label: `Fatura de ${monthLabel(`${key}-01`)}`,
-      before: invoiceTotal(data, card, key),
-      after: invoiceTotal(after, card, key),
-    },
-    { label: 'Parcelas futuras', before: future(data), after: future(after) },
-  ];
-};
-
 /**
  * Novo recorrente (prancha Modais G): o que o previsto do mês muda — o total de
  * despesas (ou receitas) previstas e a saída prevista de cada origem.
@@ -208,6 +180,3 @@ export const recurringEffect = (
     })),
   ];
 };
-
-export const effectMonthLabel = (today: IsoDate): string =>
-  `${monthLabel(today).toLowerCase()}`;

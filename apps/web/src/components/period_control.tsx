@@ -96,45 +96,6 @@ export const PeriodControl = ({
   );
 };
 
-/**
- * O período como um botão só — o da prancha 07: ícone de calendário, o
- * intervalo e a seta. Abre o mesmo calendário.
- */
-export const PeriodRangeButton = ({
-  value,
-  onChange,
-  today,
-  inception,
-}: PeriodControlProps): React.ReactElement => {
-  const [open, setOpen] = useState(false);
-  const label = formatRange(resolvePeriod(value, today, inception), today);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-label={`Período: ${label}`}
-          className="inline-flex h-control cursor-pointer items-center gap-2 rounded-control border border-line-2 bg-panel px-[11px] text-[0.78125rem] font-medium text-ink-2 hover:bg-panel-2"
-        >
-          <Icon name="calendar" />
-          <span className="tabular">{label}</span>
-          <Icon name="chevron-down" />
-        </button>
-      </PopoverTrigger>
-      <RangePopover
-        value={value}
-        today={today}
-        inception={inception}
-        onChange={onChange}
-        onClose={() => setOpen(false)}
-      />
-    </Popover>
-  );
-};
-
 const RangePopover = ({
   value,
   today,
@@ -159,15 +120,6 @@ const RangePopover = ({
     </PopoverContent>
   );
 };
-
-/** O conteúdo do calendário, para quem o hospeda num popover próprio. */
-export const PeriodRangeBody = (
-  props: PeriodControlProps & { readonly onClose: () => void },
-): React.ReactElement => (
-  <div className="flex max-w-[calc(100vw-2rem)] flex-wrap">
-    <RangeBody {...props} />
-  </div>
-);
 
 export type RangeShortcut = {
   readonly id: string;

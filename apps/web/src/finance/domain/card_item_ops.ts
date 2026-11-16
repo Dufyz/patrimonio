@@ -1,6 +1,6 @@
 import type { IsoDate } from '../lib/dates.js';
 import { parseMoneyInput } from '../lib/format.js';
-import { entryInvoiceKey, invoiceKeyOf, paymentOf, shiftInvoice } from './cards.js';
+import { entryInvoiceKey, invoiceKeyOf, paymentOf } from './cards.js';
 import type { CardItem, ChargeType, CreditType, FinanceData } from './types.js';
 
 /**
@@ -18,13 +18,6 @@ export type CardItemDraft = {
 export type CardItemErrors = Partial<
   Record<'description' | 'date' | 'categoryId' | 'value', string>
 >;
-
-export const draftOfCardItem = (item: CardItem): CardItemDraft => ({
-  description: item.description,
-  date: item.date,
-  categoryId: item.categoryId ?? '',
-  value: (item.cents / 100).toFixed(2).replace('.', ','),
-});
 
 /** A fatura em que o item cai. */
 export const itemInvoice = (data: FinanceData, item: CardItem): string => {
@@ -94,14 +87,6 @@ export const emptyCreditDraft = (today: IsoDate): CreditDraft => ({
   value: '',
 });
 
-export const CREDIT_TYPES: readonly { readonly id: CreditType; readonly name: string }[] =
-  [
-    { id: 'devolucao', name: 'Devolução' },
-    { id: 'estorno', name: 'Estorno' },
-    { id: 'desconto', name: 'Desconto' },
-    { id: 'cashback', name: 'Cashback' },
-  ];
-
 /** FIN-508 · Crédito na fatura exibida: abate o total, nunca é receita (RN-51). */
 export const addCredit = (
   data: FinanceData,
@@ -142,13 +127,6 @@ export const CHARGE_TYPES: readonly { readonly id: ChargeType; readonly name: st
     { id: 'iof', name: 'IOF' },
   ];
 
-export const emptyChargeDraft = (today: IsoDate): ChargeDraft => ({
-  subtype: 'juros',
-  date: today,
-  value: '',
-  categoryId: '',
-});
-
 export const validateCharge = (
   draft: ChargeDraft,
 ): Partial<Record<'date' | 'value' | 'categoryId', string>> => {
@@ -183,22 +161,6 @@ export const addCharge = (
     invoice,
   };
   return { ...data, cardItems: [...data.cardItems, item] };
-};
-
-/** O primeiro mês, a partir de `from`, cuja fatura ainda não tem pagamento. */
-export const firstOpenInvoice = (
-  data: FinanceData,
-  cardId: string,
-  from: string,
-): string => {
-  let key = from;
-  for (
-    let guard = 0;
-    guard < 36 && paymentOf(data, cardId, key) !== undefined;
-    guard += 1
-  )
-    key = shiftInvoice(key, 1);
-  return key;
 };
 
 /** Mover de fatura: o lançamento ou o item muda de fatura sem mudar de data. */

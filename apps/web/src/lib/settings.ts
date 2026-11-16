@@ -74,37 +74,10 @@ export const portfolioHold = (blocking: {
     ? null
     : `${plural(blocking.transactions, 'lançamento', 'lançamentos')} · ${plural(blocking.assets, 'ativo', 'ativos')}`;
 
-export const portfolioCount = (count: number): string =>
-  plural(count, 'carteira', 'carteiras');
-
 /* -------------------------------------------------------------------------- */
 /* Catálogos da carga inicial                                                 */
 
 type CatalogKey = MarketHealth['catalogs'][number]['key'];
-
-export const CATALOG_LABEL: Readonly<Record<CatalogKey, string>> = {
-  institutions: 'Instituições',
-  instruments: 'Instrumentos listados',
-  treasury: 'Tesouro Direto',
-  indices: 'Índices',
-  price_history: 'Histórico de preços',
-};
-
-/** Os catálogos na ordem em que a carga os executa. */
-export const CATALOG_ORDER: readonly CatalogKey[] = [
-  'institutions',
-  'instruments',
-  'treasury',
-  'indices',
-  'price_history',
-];
-
-export const orderedCatalogs = (
-  catalogs: MarketHealth['catalogs'],
-): MarketHealth['catalogs'] =>
-  [...catalogs].sort(
-    (a, b) => CATALOG_ORDER.indexOf(a.key) - CATALOG_ORDER.indexOf(b.key),
-  );
 
 export const hasDemoData = (demo: MarketHealth['demo']): boolean =>
   demo.portfolios + demo.assets + demo.institutions > 0;
@@ -132,17 +105,7 @@ const SOURCE_LABEL: Readonly<Record<string, string>> = {
   cotacoes: 'Cotações (IBOV/IFIX)',
 };
 
-const KIND_LABEL: Readonly<Record<string, string>> = {
-  quotes: 'Cotações',
-  indices: 'Índices',
-  treasury: 'Tesouro Direto',
-  backfill: 'Histórico de ativo',
-  cotahist: 'Carga inicial',
-  contract_check: 'Verificação de formato',
-};
-
 export const sourceLabel = (source: string): string => SOURCE_LABEL[source] ?? source;
-export const runKindLabel = (kind: string): string => KIND_LABEL[kind] ?? kind;
 
 type SourceStatus = MarketHealth['sources'][number]['status'];
 export type Tone = 'ok' | 'attention' | 'error' | 'neutral';

@@ -99,21 +99,6 @@ export const PAYOUT_KIND_LABELS: Readonly<Record<string, string>> = {
   amortization: 'Amortização',
 };
 
-/**
- * O tom da pastilha de tipo. Dinheiro entrando é positivo, saindo é neutro e
- * venda é a única que se distingue por si — ela é a que realiza resultado.
- */
-export const transactionTone = (
-  kind: TransactionKind,
-): 'positive' | 'accent' | 'muted' =>
-  kind === 'payout' ? 'positive' : kind === 'sell' ? 'accent' : 'muted';
-
-export const CORPORATE_EVENT_LABELS: Readonly<Record<string, string>> = {
-  split: 'Desdobramento',
-  reverse_split: 'Grupamento',
-  bonus: 'Bonificação',
-};
-
 /** `1` para `2` → `1:2`, que é como o fator é lido e anunciado. */
 export const eventRatioLabel = (from: string, to: string): string =>
   `${trimZeros(from)}:${trimZeros(to)}`;

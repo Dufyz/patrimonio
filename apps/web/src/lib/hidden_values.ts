@@ -14,9 +14,6 @@ import { readBoolean, writeRaw } from './preferences.js';
 
 export const HIDDEN_VALUES_KEY = 'patrimonio.hidden_values';
 
-/** Tecla que alterna o modo, como a tela de Configurações anuncia. */
-export const HIDDEN_VALUES_SHORTCUT = 'h';
-
 export const readHiddenValues = (storage: Storageish | null): boolean =>
   readBoolean(storage, HIDDEN_VALUES_KEY, false);
 

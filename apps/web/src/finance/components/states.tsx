@@ -29,19 +29,6 @@ export const StripSkeleton = (): React.ReactElement => (
   </div>
 );
 
-/** Um gráfico: a moldura e as barras, sem valores. */
-export const ChartSkeleton = (): React.ReactElement => (
-  <div aria-hidden="true" className="flex h-[220px] items-end gap-3 px-5 pb-6">
-    {Array.from({ length: 12 }, (_, index) => (
-      <SkeletonBar
-        key={index}
-        className="flex-1"
-        // alturas fixas e diferentes: parece gráfico, não régua
-      />
-    ))}
-  </div>
-);
-
 /** Uma tela inteira enquanto o código dela chega. */
 export const FinanceLoading = ({
   label = 'Carregando Finanças',

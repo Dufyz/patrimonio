@@ -1,0 +1,14 @@
+{
+  "entry": ["src/**/*.test.{ts,tsx}", "src/testing/**"],
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignoreExportsUsedInFile": true,
+  "ignoreBinaries": ["tsc", "eslint", "vitest"],
+  "ignoreDependencies": [
+    "@fontsource-variable/ibm-plex-sans",
+    "@fontsource/ibm-plex-mono",
+    "jsdom",
+    "tailwindcss",
+    "cmdk",
+    "date-fns"
+  ]
+}

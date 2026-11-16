@@ -1,19 +1,19 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
+import { Outlet, Route, useLocation } from 'react-router';
 
 import { FinancePeriodProvider, useFinancePeriod } from './components/period_provider.js';
 
 import { OverviewSkeleton, TableScreenSkeleton } from './components/screen_skeletons.js';
 import { PanelError } from './components/states.js';
 import { syncRecurring } from './domain/recurring.js';
+import { setTodayOverride, todayFromSearch } from './lib/clock.js';
+import type { FinanceStore } from './store/finance_store.js';
 import {
   createRemoteFinanceStore,
   FinanceStoreProvider,
   useFinanceStatus,
   useFinanceStore,
 } from './store/finance_store.js';
-import type { FinanceStore } from './store/finance_store.js';
-import { setTodayOverride, todayFromSearch } from './lib/clock.js';
 
 /** As telas de fluxo chegam por conta própria, com o esqueleto de cada uma. */
 export const FinanceOverview = lazy(() =>
@@ -156,26 +156,6 @@ export const financeScreenRoutes = (
       }
     />
   </>
-);
-
-/** O módulo de Finanças sozinho, para os testes das telas. */
-export const FinanceRoutes = (): React.ReactElement => (
-  <Routes>
-    {financeScreenRoutes}
-    <Route path="*" element={<Navigate to="/recorrentes" replace />} />
-  </Routes>
-);
-
-export const FinanceApp = ({
-  store,
-}: {
-  readonly store?: FinanceStore | undefined;
-}): React.ReactElement => (
-  <FinanceProviders store={store}>
-    <StatusGate>
-      <FinanceRoutes />
-    </StatusGate>
-  </FinanceProviders>
 );
 
 /** O que Geral e Finanças têm em comum: os dados de Finanças. */

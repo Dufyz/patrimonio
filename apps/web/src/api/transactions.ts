@@ -47,11 +47,3 @@ export const undoDeletion = async (undoId: string): Promise<void> => {
     headers: { 'Idempotency-Key': key() },
   });
 };
-
-export const moveTransaction = async (id: string, portfolioId: string): Promise<void> => {
-  await request(`/api/transactions/${id}`, anyObject, {
-    method: 'PATCH',
-    headers: { 'Idempotency-Key': key() },
-    body: JSON.stringify({ portfolio_id: portfolioId }),
-  });
-};
