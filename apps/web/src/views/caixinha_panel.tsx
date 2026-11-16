@@ -116,7 +116,7 @@ export const CaixinhaPanel = ({
           <div role="alert" className="flex flex-col gap-3 px-4 py-3">
             <p className="text-sm text-negative">{lots.state.error.message}</p>
             <div>
-              <Button onClick={lots.reload}>Tentar de novo</Button>
+              <Button onClick={lots.reload}>Tentar novamente</Button>
             </div>
           </div>
         ) : lots.state.value === null ? null : (

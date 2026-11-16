@@ -60,6 +60,7 @@ import {
   SkeletonStats,
   SkeletonTable,
 } from '../components/skeleton.js';
+import { ScreenFailed } from '../components/panel_state.js';
 
 /**
  * T-01 · Visão geral — a prancha `04 · Visão geral`, que também carrega o que
@@ -425,34 +426,7 @@ const Empty = ({ scope }: { readonly scope: string }): React.ReactElement => (
   </section>
 );
 
-const Failed = ({
-  error,
-  onRetry,
-}: {
-  readonly error: Error;
-  readonly onRetry: () => void;
-}): React.ReactElement => (
-  <section
-    role="alert"
-    className="rounded-panel border border-line bg-panel p-8 text-center"
-  >
-    <h2 className="text-panel-title font-semibold text-negative">
-      A tela não pôde ser carregada
-    </h2>
-    {/* Erro nunca vira "nenhum resultado": uma tela vazia porque a api caiu é
-        a pior mentira que uma tela financeira conta. */}
-    <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
-      {error.message}
-    </p>
-    <button
-      type="button"
-      className="mt-4 h-control cursor-pointer rounded-control border border-line px-3 text-[0.8125rem] hover:bg-panel-2"
-      onClick={onRetry}
-    >
-      Tentar de novo
-    </button>
-  </section>
-);
+const Failed = ScreenFailed;
 
 const Skeleton = (): React.ReactElement => (
   <SkeletonRegion label="Carregando a visão geral" className="flex flex-col gap-4">
@@ -519,7 +493,7 @@ const ReturnsFailed = ({
       className="h-control cursor-pointer rounded-control border border-line px-3 text-ink hover:bg-panel-2"
       onClick={onRetry}
     >
-      Tentar de novo
+      Tentar novamente
     </button>
   </p>
 );

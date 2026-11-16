@@ -483,7 +483,7 @@ describe('o que a tela faz quando não há número', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'não foi possível falar com a api',
     );
-    expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument();
   });
 
   it('recálculo em andamento não é patrimônio zero: o número fica, com a ressalva', () => {

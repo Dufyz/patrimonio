@@ -101,9 +101,7 @@ export const CardScreen = (): React.ReactElement => {
                 value={card.id}
                 onChange={(e) =>
                   navigate(
-                    e.target.value === ''
-                      ? '/cartoes'
-                      : `/cartoes/${e.target.value}`,
+                    e.target.value === '' ? '/cartoes' : `/cartoes/${e.target.value}`,
                   )
                 }
               >

@@ -618,7 +618,7 @@ const InvestmentsFailed = ({
       className="h-control cursor-pointer rounded-control border border-line px-3 text-ink hover:bg-panel-2"
       onClick={onRetry}
     >
-      Tentar de novo
+      Tentar novamente
     </button>
   </p>
 );

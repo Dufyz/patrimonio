@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { refreshMarket } from '../../api/market.js';
 import { AlertModal } from '../../components/overlay.js';
+import { PanelFailed } from '../../components/panel_state.js';
 import { Button } from '../../components/primitives.js';
 import { SkeletonRegion, SkeletonTable } from '../../components/skeleton.js';
 import type { Resource } from '../../lib/use_resource.js';
@@ -64,12 +65,7 @@ const Failed = ({
   readonly error: Error;
   readonly onRetry: () => void;
 }): React.ReactElement => (
-  <div role="alert" className="flex flex-wrap items-center gap-3 p-4 text-[0.8125rem]">
-    <span className="text-negative">
-      Não foi possível ler a situação das fontes: {error.message}
-    </span>
-    <Button onClick={onRetry}>Tentar de novo</Button>
-  </div>
+  <PanelFailed error={error} onRetry={onRetry} what="a situação das fontes" />
 );
 
 const PositionsLink = ({ children }: { readonly children: React.ReactNode }) => {

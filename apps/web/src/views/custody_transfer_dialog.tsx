@@ -109,7 +109,7 @@ export const CustodyTransferDialog = ({
         <div role="alert" className="flex flex-col gap-3">
           <p className="text-sm text-negative">{institutions.state.error.message}</p>
           <div>
-            <Button onClick={institutions.reload}>Tentar de novo</Button>
+            <Button onClick={institutions.reload}>Tentar novamente</Button>
           </div>
         </div>
       ) : (

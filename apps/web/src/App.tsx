@@ -256,7 +256,7 @@ const Workbench = ({ home = false }: { readonly home?: boolean }): React.ReactEl
           className="mt-4 h-control cursor-pointer rounded-control border border-line px-3 text-[0.8125rem] hover:bg-panel-2"
           onClick={reload}
         >
-          Tentar de novo
+          Tentar novamente
         </button>
       </div>
     );

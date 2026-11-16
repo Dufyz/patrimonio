@@ -48,6 +48,7 @@ import { useResource } from '../lib/use_resource.js';
 import { Icon } from '../components/icon.js';
 import { MoneyInput } from './entry/fields.js';
 import { ClassesDialog } from './strategy_classes.js';
+import { ScreenFailed } from '../components/panel_state.js';
 
 /**
  * T-06 · Estratégia — a prancha `09 · Estratégia`.
@@ -979,32 +980,7 @@ const PlanDialog = ({
 /* -------------------------------------------------------------------------- */
 /* A moldura                                                                   */
 
-const Failed = ({
-  error,
-  onRetry,
-}: {
-  readonly error: Error;
-  readonly onRetry: () => void;
-}): React.ReactElement => (
-  <section
-    role="alert"
-    className="rounded-panel border border-line bg-panel p-8 text-center"
-  >
-    <h2 className="text-panel-title font-semibold text-negative">
-      A tela não pôde ser carregada
-    </h2>
-    <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
-      {error.message}
-    </p>
-    <button
-      type="button"
-      className="mt-4 h-control cursor-pointer rounded-control border border-line px-3 text-[0.8125rem] hover:bg-panel-2"
-      onClick={onRetry}
-    >
-      Tentar de novo
-    </button>
-  </section>
-);
+const Failed = ScreenFailed;
 
 export const StrategyView = ({
   resource,
