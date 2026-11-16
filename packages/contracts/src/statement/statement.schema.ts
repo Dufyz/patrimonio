@@ -50,7 +50,7 @@ export type StatementKind = (typeof STATEMENT_KINDS)[number];
 
 /** Quais tipos de lançamento cada grupo reúne. */
 export const STATEMENT_GROUP_KINDS: Readonly<
-  Record<StatementGroup, readonly (StatementKind)[]>
+  Record<StatementGroup, readonly StatementKind[]>
 > = {
   buy: ['buy'],
   sell: ['sell'],
