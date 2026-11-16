@@ -1,6 +1,6 @@
 import { settingsSchema } from '@patrimonio/contracts';
 import { requestBackup } from '@patrimonio/application';
-import { createUnitOfWork } from '@patrimonio/db';
+import { createUnitOfWork, loadFinanceDemo } from '@patrimonio/db';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -152,5 +152,64 @@ describe('POST /api/backup/restore (BKP-03)', () => {
     const response = await request(harness.app).post('/api/backup/restore').send(body);
     expect(response.status).toBe(400);
     expect(response.body.message).toMatch(/desligado|sem destino/);
+  });
+});
+
+describe('exportar e apagar tudo (BKP-04)', () => {
+  const tabelas = [
+    'fin_category',
+    'fin_account',
+    'fin_card',
+    'fin_recurring',
+    'fin_entry',
+    'fin_movement',
+    'fin_card_item',
+    'fin_invoice_payment',
+  ] as const;
+
+  const contar = async (tabela: string): Promise<number> => {
+    const [linha] = await harness.sql.unsafe<{ total: number }[]>(
+      `SELECT COUNT(*)::INTEGER AS total FROM ${tabela}`,
+    );
+    return linha?.total ?? 0;
+  };
+
+  it('o JSON traz a versão do esquema e as entidades de Finanças, com a contagem das tabelas', async () => {
+    await loadFinanceDemo(harness.sql);
+    await request(harness.app).post('/api/portfolios').send({ name: 'Longo prazo' });
+
+    const response = await request(harness.app).get('/api/data/export');
+    expect(response.status).toBe(200);
+    const documento = JSON.parse(response.text) as {
+      schema_version: string;
+      tables: Record<string, unknown[]>;
+    };
+
+    expect(documento.schema_version).toMatch(/^\d{3}$/);
+    for (const tabela of tabelas) {
+      expect(documento.tables[tabela]).toBeDefined();
+      expect(documento.tables[tabela]?.length).toBe(await contar(tabela));
+    }
+    expect(documento.tables['fin_entry']?.length).toBeGreaterThan(0);
+    expect(documento.tables['portfolio']).toHaveLength(1);
+  });
+
+  it('apagar tudo exige a palavra APAGAR e deixa Finanças e carteiras vazias', async () => {
+    await loadFinanceDemo(harness.sql);
+    await request(harness.app).post('/api/portfolios').send({ name: 'Longo prazo' });
+
+    const recusado = await request(harness.app)
+      .delete('/api/data')
+      .send({ confirmation: 'apagar' });
+    expect(recusado.status).toBe(400);
+    expect(await contar('fin_entry')).toBeGreaterThan(0);
+
+    const apagado = await request(harness.app)
+      .delete('/api/data')
+      .send({ confirmation: 'APAGAR' });
+    expect(apagado.status).toBe(200);
+    for (const tabela of [...tabelas, 'portfolio']) {
+      expect(await contar(tabela), tabela).toBe(0);
+    }
   });
 });

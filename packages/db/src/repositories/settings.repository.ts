@@ -208,6 +208,7 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
         SELECT JSON_BUILD_OBJECT(
           'exported_at', NOW(),
           'format', 'patrimonio-export-v1',
+          'schema_version', (SELECT LPAD(COUNT(*)::TEXT, 3, '0') FROM schema_migrations),
           'tables', JSON_BUILD_OBJECT(
             'institution', (SELECT COALESCE(JSON_AGG(t ORDER BY t.created_at), '[]'::JSON) FROM institution t),
             'category', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM category t),
@@ -220,7 +221,18 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
             'announced_payout', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM announced_payout t),
             'corporate_event', (SELECT COALESCE(JSON_AGG(t ORDER BY t.record_date), '[]'::JSON) FROM corporate_event t),
             'payout_dismissal', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM payout_dismissal t),
-            'custody_transfer', (SELECT COALESCE(JSON_AGG(t ORDER BY t.transfer_date, t.created_at), '[]'::JSON) FROM custody_transfer t)
+            'custody_transfer', (SELECT COALESCE(JSON_AGG(t ORDER BY t.transfer_date, t.created_at), '[]'::JSON) FROM custody_transfer t),
+            'projection_rule', (SELECT COALESCE(JSON_AGG(t ORDER BY t.created_at), '[]'::JSON) FROM projection_rule t),
+            'fin_category', (SELECT COALESCE(JSON_AGG(t ORDER BY t.created_at), '[]'::JSON) FROM fin_category t),
+            'fin_account', (SELECT COALESCE(JSON_AGG(t ORDER BY t.created_at), '[]'::JSON) FROM fin_account t),
+            'fin_card', (SELECT COALESCE(JSON_AGG(t ORDER BY t.created_at), '[]'::JSON) FROM fin_card t),
+            'fin_recurring', (SELECT COALESCE(JSON_AGG(t ORDER BY t.created_at), '[]'::JSON) FROM fin_recurring t),
+            'fin_recurring_skip', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM fin_recurring_skip t),
+            'fin_entry', (SELECT COALESCE(JSON_AGG(t ORDER BY t.date, t.created_at), '[]'::JSON) FROM fin_entry t),
+            'fin_entry_payment', (SELECT COALESCE(JSON_AGG(t), '[]'::JSON) FROM fin_entry_payment t),
+            'fin_movement', (SELECT COALESCE(JSON_AGG(t ORDER BY t.date, t.created_at), '[]'::JSON) FROM fin_movement t),
+            'fin_card_item', (SELECT COALESCE(JSON_AGG(t ORDER BY t.created_at), '[]'::JSON) FROM fin_card_item t),
+            'fin_invoice_payment', (SELECT COALESCE(JSON_AGG(t ORDER BY t.created_at), '[]'::JSON) FROM fin_invoice_payment t)
           )
         )::TEXT AS document
       `;
@@ -238,6 +250,17 @@ export const createSettingsRepository = (sql: Connection): SettingsRepository =>
       // A carteira leva junto, por cascata, estratégia, objetivos, posições,
       // patrimônio diário, resultado realizado, descartes e desfazer.
       const transactions = await sql`DELETE FROM transaction RETURNING 1`;
+      // Finanças: dos filhos para os pais. Pagamentos, saltos e itens saem junto do
+      // lançamento ou do cartão por cascata; o que restringe é apagado antes.
+      await sql`DELETE FROM fin_invoice_payment`;
+      await sql`DELETE FROM fin_card_item`;
+      await sql`DELETE FROM fin_movement`;
+      await sql`DELETE FROM fin_entry`;
+      await sql`DELETE FROM fin_recurring`;
+      await sql`DELETE FROM fin_card`;
+      await sql`DELETE FROM fin_account`;
+      await sql`DELETE FROM fin_category`;
+      await sql`DELETE FROM fin_idempotency`;
       await sql`DELETE FROM announced_payout`;
       await sql`DELETE FROM manual_price`;
       const portfolios = await sql`DELETE FROM portfolio RETURNING 1`;
