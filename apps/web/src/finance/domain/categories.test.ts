@@ -13,7 +13,6 @@ describe('uso das categorias na semente (prancha 06, com as regras do documento)
     expect(usage('moradia')).toMatchObject({ count: 3, total: 356240 });
     expect(usage('saude')).toMatchObject({ count: 3, total: 90580 });
     expect(usage('transporte')).toMatchObject({ count: 1, total: 45400 });
-    expect(usage('investimento')).toMatchObject({ count: 1, total: 450000 });
     expect(usage('salario')).toMatchObject({ count: 1, total: 1420000 });
     expect(usage('freelas')).toMatchObject({ count: 1, total: 180000 });
     expect(usage('reembolso')).toMatchObject({ count: 1, total: 35000 });

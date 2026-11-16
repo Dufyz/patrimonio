@@ -65,7 +65,7 @@ describe('Receitas × despesas (FIN-602)', () => {
     expect(within(panel).getByText('Receitas')).toBeTruthy();
     expect(within(panel).getByText('R$ 16.350')).toBeTruthy();
     expect(within(panel).getByText('Despesas')).toBeTruthy();
-    expect(within(panel).getByText('R$ 9.478')).toBeTruthy();
+    expect(within(panel).getByText('R$ 4.978')).toBeTruthy();
     const months = panel.querySelectorAll('[data-month]:not([data-future])');
     expect(months).toHaveLength(12);
     expect(months[0]?.getAttribute('data-month')).toBe('2025-11');
@@ -101,8 +101,8 @@ describe('Receitas × despesas (FIN-602)', () => {
     const tip = within(screen.getByRole('tooltip'));
     expect(tip.getByText('out/2026')).toBeTruthy();
     expect(screen.getByRole('tooltip').textContent).toContain('R$ 16.350,00');
-    expect(screen.getByRole('tooltip').textContent).toContain('R$ 9.478,10');
-    expect(screen.getByRole('tooltip').textContent).toContain('R$ 6.871,90');
+    expect(screen.getByRole('tooltip').textContent).toContain('R$ 4.978,10');
+    expect(screen.getByRole('tooltip').textContent).toContain('R$ 11.371,90');
   });
 });
 

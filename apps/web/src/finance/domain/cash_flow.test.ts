@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  accountsTotal,
-  cashOutlook,
-  defaultHorizon,
-  investmentCategoryIds,
-  monthFlow,
-} from './cash_flow.js';
+import { accountsTotal, cashOutlook, defaultHorizon, monthFlow } from './cash_flow.js';
 import { projectBalance, startingBalance } from './projection.js';
 import { SEED_REFERENCE_DATE, seedData } from './seed.js';
 
@@ -64,22 +58,5 @@ describe('fluxo do mês (GER-004)', () => {
   it('Em contas hoje e Faturas abertas são as posições de hoje', () => {
     expect(flow.emContasCents).toBe(startingBalance(data, TODAY));
     expect(flow.faturasAbertasCents).toBeGreaterThanOrEqual(0);
-  });
-
-  it('aportes previstos são parte das despesas previstas, nunca mais que elas', () => {
-    expect(flow.aportesPrevistosCents).toBeLessThanOrEqual(flow.despesasPrevistasCents);
-  });
-
-  it('identifica a categoria Investimentos pelo nome, no singular ou plural, sem caixa', () => {
-    const ids = investmentCategoryIds({
-      ...data,
-      categories: [
-        { id: 'c1', name: ' INVESTIMENTOS ', kind: 'despesa', color: 'blue' },
-        { id: 'c2', name: 'Mercado', kind: 'despesa', color: 'red' },
-        { id: 'c4', name: 'Investimento', kind: 'despesa', color: 'blue' },
-        { id: 'c3', name: 'Investimentos', kind: 'receita', color: 'green' },
-      ],
-    });
-    expect([...ids]).toEqual(['c1', 'c4']);
   });
 });

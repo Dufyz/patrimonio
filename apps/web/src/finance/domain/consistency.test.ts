@@ -107,8 +107,8 @@ describe('consistência entre telas (FIN-704, RN-70)', () => {
     expectConsistent(base);
     const { overview, accounts } = screens(base);
     expect(overview.receitas.cents).toBe(1635000);
-    expect(overview.despesas.cents).toBe(947810);
-    expect(overview.saldo).toBe(687190);
+    expect(overview.despesas.cents).toBe(497810);
+    expect(overview.saldo).toBe(1137190);
     expect(accounts.totalBalance).toBe(1258385);
     expect(overview.invoicesCents).toBe(542227);
   });
@@ -145,25 +145,23 @@ describe('CE-01 · recorrente automático chega no dia', () => {
 });
 
 describe('CE-02 · lançar o previsto manual com o valor real', () => {
-  const entry = base.entries.find((e) => e.id === 'l-investimento-fim')!;
+  const entry = base.entries.find((e) => e.id === 'l-gasto-livre')!;
   const launched = launchEntry(
     base,
-    'l-investimento-fim',
+    'l-gasto-livre',
     { ...draftOfEntry(entry, TODAY), value: '2300,00', date: '2026-10-24' },
     TODAY,
   );
   it('Despesas, Saldo, Ainda a lançar, Itaú, Em contas e categoria', () => {
     const { overview, ledger } = screens(launched);
-    expect(overview.despesas.cents).toBe(1177810);
-    expect(overview.saldo).toBe(457190);
-    expect(ledger.aLancar.cents).toBe(472190);
-    expect(ledger.aLancar.count).toBe(2);
-    expect(balance(launched, 'itau-corrente')).toBe(81280);
+    expect(overview.despesas.cents).toBe(727810);
+    expect(overview.saldo).toBe(907190);
+    expect(ledger.aLancar.cents).toBe(2190);
+    expect(ledger.aLancar.count).toBe(1);
+    expect(balance(launched, 'itau-corrente')).toBe(311280);
     expect(overview.accountsCents).toBe(1028385);
-    expect(categoryUsage(launched.entries, 'investimento', TODAY).total).toBe(680000);
-    expect(launched.recurrings.find((r) => r.id === 'r-investimento-fim')?.cents).toBe(
-      215000,
-    );
+    expect(categoryUsage(launched.entries, 'gasto-livre', TODAY).total).toBe(230000);
+    expect(launched.recurrings.find((r) => r.id === 'r-gasto-livre')?.cents).toBe(470000);
     expectConsistent(launched);
   });
 });
@@ -301,11 +299,11 @@ describe('CE-08 · desativar o recorrente Spotify', () => {
   const next = setRecurringActive(base, 'r-spotify', false, TODAY);
   it('o previsto some, Ainda a lançar cai e a contagem de ativas muda', () => {
     expect(next.entries.some((e) => e.id === 'l-spotify')).toBe(false);
-    expect(screens(next).ledger.aLancar.cents).toBe(685000);
+    expect(screens(next).ledger.aLancar.cents).toBe(470000);
     expect(next.entries.some((e) => e.id === 'l-netflix')).toBe(true);
     const active = next.recurrings.filter((r) => r.active).length;
     const paused = next.recurrings.filter((r) => !r.active).length;
-    expect([active, paused]).toEqual([14, 2]);
+    expect([active, paused]).toEqual([12, 2]);
     const november = syncRecurring(next, '2026-11-01');
     expect(
       november.entries.some(
@@ -322,7 +320,7 @@ describe('CE-09 · excluir Moradia com reatribuição para Mercado', () => {
     expect(next.categories.some((c) => c.id === 'moradia')).toBe(false);
     expect(next.recurrings.some((r) => r.categoryId === 'moradia')).toBe(false);
     expect(categoryUsage(next.entries, 'mercado', TODAY).total).toBe(356240);
-    expect(screens(next).overview.despesas.cents).toBe(947810);
+    expect(screens(next).overview.despesas.cents).toBe(497810);
     const rows = categoryBreakdown(next, OCTOBER).rows.map((r) => r.categoryId);
     expect(rows).not.toContain('moradia');
     expect(rows).toContain('mercado');

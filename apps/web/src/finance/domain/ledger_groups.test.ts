@@ -18,12 +18,11 @@ describe('por dia', () => {
     expect(groups[0]?.entries.map((e) => e.date)).toEqual([
       '2026-10-30',
       '2026-10-31',
-      '2026-10-31',
       '2026-11-10',
     ]);
     const days = groups.slice(1).map((g) => g.date);
     expect(days).toEqual([...days].sort().reverse());
-    expect(days[0]).toBe('2026-10-21');
+    expect(days[0]).toBe('2026-10-20');
     expect(days.at(-1)).toBe('2026-10-05');
   });
 });
@@ -41,14 +40,14 @@ describe('por tipo', () => {
   });
 
   it('despesas: conta previstos e soma lançadas e previstos (prancha 02B)', () => {
-    expect(groups[1]?.entries).toHaveLength(13);
-    expect(groups[1]?.summary).toEqual({ despesas: 947810, previsto: 1007190 });
+    expect(groups[1]?.entries).toHaveLength(11);
+    expect(groups[1]?.summary).toEqual({ despesas: 497810, previsto: 792190 });
   });
 
   it('dentro do grupo, previstos primeiro e lançados do mais novo ao mais antigo', () => {
     const list = groups[1]?.entries ?? [];
-    expect(list.slice(0, 4).every((e) => e.status === 'prevista')).toBe(true);
-    const posted = list.slice(4).map((e) => e.date);
+    expect(list.slice(0, 3).every((e) => e.status === 'prevista')).toBe(true);
+    const posted = list.slice(3).map((e) => e.date);
     expect(posted).toEqual([...posted].sort().reverse());
   });
 });

@@ -61,8 +61,8 @@ describe('geração mensal', () => {
     const november = next.entries.filter(
       (e) => e.date.startsWith('2026-11') && !e.historical,
     );
-    // 15 ativos, e o Aluguel de 10/11 já existia (geração antecipada).
-    expect(november).toHaveLength(15);
+    // 13 ativos, e o Aluguel de 10/11 já existia (geração antecipada).
+    expect(november).toHaveLength(13);
     expect(november.some((e) => e.recurringId === 'r-seguro-res')).toBe(false);
     expect(november.filter((e) => e.recurringId === 'r-aluguel')).toHaveLength(1);
   });

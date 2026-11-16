@@ -103,7 +103,7 @@ export type Account = {
 };
 
 /** O que move uma conta além dos lançamentos (RN-32 a RN-34). */
-export type MovementKind = 'transferencia' | 'ajuste';
+export type MovementKind = 'transferencia' | 'ajuste' | 'aporte';
 
 /**
  * Movimentação fora de Lançamentos: nunca é receita nem despesa (RN-33).

@@ -13,8 +13,8 @@ describe('faixa de totais (FIN-601)', () => {
   it('receitas, despesas e saldo do período', () => {
     expect(result.saldo).toBe(result.receitas.cents - result.despesas.cents);
     expect(result.receitas).toEqual({ cents: 1635000, count: 3 });
-    expect(result.despesas).toEqual({ cents: 947810, count: 9 });
-    expect(result.saldo).toBe(687190);
+    expect(result.despesas).toEqual({ cents: 497810, count: 8 });
+    expect(result.saldo).toBe(1137190);
   });
   it('em contas e faturas abertas refletem hoje', () => {
     expect(result.accountsCents).toBe(1258385);
@@ -46,12 +46,12 @@ describe('Despesas por categoria (FIN-603)', () => {
     expect([...cents].sort((a, b) => b - a)).toEqual(cents);
     expect(breakdown.rows.reduce((acc, r) => acc + r.tenths, 0)).toBe(1000);
     expect(breakdown.comparison).toEqual({ from: '2026-09-01', to: '2026-09-30' });
-    expect(breakdown.total).toBe(947810);
+    expect(breakdown.total).toBe(497810);
     expect(breakdown.rows[0]).toEqual({
-      categoryId: 'investimento',
-      cents: 450000,
-      previous: 620000,
-      tenths: 474,
+      categoryId: 'moradia',
+      cents: 356240,
+      previous: 341000,
+      tenths: 716,
     });
   });
 });

@@ -93,7 +93,7 @@ describe('extrato do Itaú Corrente (prancha 03B)', () => {
       ['10-15', 'Seguro do carro', 782520],
       ['10-15', 'Internet', 777520],
       ['10-17', 'Conta de luz', 761280],
-      ['10-21', 'Investimento', 311280],
+      ['10-21', 'Aporte', 311280],
     ]);
   });
 
@@ -166,7 +166,7 @@ describe('últimas movimentações (FIN-402)', () => {
     expect(recent).toHaveLength(8);
     const dates = recent.map((m) => m.date);
     expect([...dates].sort().reverse()).toEqual(dates);
-    expect(recent[0]?.description).toBe('Investimento');
+    expect(recent[0]?.description).toBe('Aporte');
   });
 
   it('despesa com duas origens aparece uma vez, com o total', () => {

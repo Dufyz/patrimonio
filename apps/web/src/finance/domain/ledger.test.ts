@@ -13,16 +13,16 @@ describe('indicadores de outubro (prancha 02A)', () => {
 
   it('receitas e despesas só dos lançados do período', () => {
     expect(result.receitas).toEqual({ cents: 1635000, count: 3 });
-    expect(result.despesas).toEqual({ cents: 947810, count: 9 });
+    expect(result.despesas).toEqual({ cents: 497810, count: 8 });
   });
 
   it('saldo é receitas menos despesas lançadas', () => {
-    expect(result.saldo).toBe(687190);
+    expect(result.saldo).toBe(1137190);
   });
 
   it('ainda a lançar soma os previstos até o fim do período', () => {
-    // Spotify, Gasto livre e Investimento; o aluguel de 10/11 fica de fora.
-    expect(result.aLancar).toEqual({ cents: 687190, count: 3 });
+    // Spotify e Gasto livre; o aluguel de 10/11 fica de fora.
+    expect(result.aLancar).toEqual({ cents: 472190, count: 2 });
   });
 
   it('o histórico nunca entra', () => {
@@ -40,7 +40,7 @@ describe('período e filtros mudam a faixa', () => {
       from: '2026-10-01',
       to: '2026-11-30',
     });
-    expect(november.aLancar.count).toBe(4);
+    expect(november.aLancar.count).toBe(3);
   });
 
   it('o filtro de tipo restringe a faixa', () => {
@@ -62,7 +62,7 @@ describe('período e filtros mudam a faixa', () => {
   });
 
   it('filtrar por situação previsto', () => {
-    expect(queryEntries(data, '', { situacao: ['prevista'] })).toHaveLength(4);
+    expect(queryEntries(data, '', { situacao: ['prevista'] })).toHaveLength(3);
   });
 });
 
@@ -121,7 +121,7 @@ describe('previsto vencido (RN-13)', () => {
   it('vencido continua somando em Ainda a lançar e fora de Receitas, Despesas e Saldo', () => {
     const november = { from: '2026-11-01', to: '2026-11-30' };
     const result = indicators(queryEntries(data, '', {}), november);
-    expect(result.aLancar.count).toBe(4);
+    expect(result.aLancar.count).toBe(3);
     expect(result.despesas.count).toBe(0);
     expect(result.saldo).toBe(0);
   });

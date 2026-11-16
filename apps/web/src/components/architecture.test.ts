@@ -132,6 +132,15 @@ describe('uma só família de tabela (CMP-03)', () => {
   });
 });
 
+describe('LIV-15 · sem a categoria de despesa "Investimento"', () => {
+  it('o seed do web não a cria; aporte é movimentação, não despesa', () => {
+    const seed = readFileSync(join(ROOT, 'finance/domain/seed.ts'), 'utf8');
+    expect(seed).not.toMatch(/category\('investimento'/u);
+    expect(seed).not.toMatch(/categoryId: 'investimento'/u);
+    expect(seed).toMatch(/kind: 'aporte'/u);
+  });
+});
+
 describe('VGR-20 · uma só Visão geral', () => {
   it('as telas antigas de Finanças não voltam: só resta o painel do escopo Fluxo', () => {
     const dir = join(import.meta.dirname, '..', 'finance', 'screens');

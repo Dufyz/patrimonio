@@ -57,7 +57,7 @@ describe('criar e editar', () => {
       kind: 'despesa',
       color: 'olive',
     });
-    expect(next.categories).toHaveLength(16);
+    expect(next.categories).toHaveLength(15);
   });
 
   it('não cria categoria inválida', () => {

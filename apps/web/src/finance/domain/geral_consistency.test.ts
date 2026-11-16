@@ -47,21 +47,11 @@ describe('CG-02 · despesa lançada hoje na conta', () => {
 
 describe('CG-03 · despesa prevista até o fim do mês', () => {
   const comum = monthFlow(addEntry(data, base({ date: FIM }), TODAY), TODAY);
-  const aporte = monthFlow(
-    addEntry(data, base({ date: FIM, categoryId: 'investimento' }), TODAY),
-    TODAY,
-  );
 
   it('não mexe em Em contas hoje, só no saldo previsto', () => {
     expect(comum.emContasCents).toBe(antes.emContasCents);
     expect(comum.saldoPrevistoCents).toBe(antes.saldoPrevistoCents - 10000);
     expect(comum.despesasPrevistasCents).toBe(antes.despesasPrevistasCents + 10000);
-  });
-
-  it('um aporte previsto é parte da despesa prevista, e sai do saldo uma vez só', () => {
-    expect(aporte.aportesPrevistosCents).toBe(antes.aportesPrevistosCents + 10000);
-    expect(aporte.despesasPrevistasCents).toBe(antes.despesasPrevistasCents + 10000);
-    expect(aporte.saldoPrevistoCents).toBe(antes.saldoPrevistoCents - 10000);
   });
 });
 

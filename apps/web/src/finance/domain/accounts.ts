@@ -39,6 +39,7 @@ export type PostedLine = StatementLine & { readonly balanceAfter: Cents };
 const ORIGIN_TAG: Readonly<Record<MovementKind, string>> = {
   transferencia: 'transferência',
   ajuste: 'ajuste',
+  aporte: 'aporte',
 };
 
 export const findAccount = (data: FinanceData, id: string): Account | undefined =>

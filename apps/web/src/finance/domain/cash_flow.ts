@@ -78,22 +78,6 @@ export const defaultHorizon = (today: IsoDate): IsoDate => {
   return endOfMonth(next);
 };
 
-/** A categoria dos aportes. Identificada pelo nome até existir marca de sistema (INT-001). */
-export const INVESTMENT_CATEGORY = /^investimentos?$/u;
-
-export const investmentCategoryIds = (data: FinanceData): ReadonlySet<string> =>
-  new Set(
-    data.categories
-      .filter(
-        (category) =>
-          category.kind === 'despesa' &&
-          INVESTMENT_CATEGORY.test(
-            category.name.normalize('NFD').replace(/[̀-ͯ]/gu, '').trim().toLowerCase(),
-          ),
-      )
-      .map((category) => category.id),
-  );
-
 export type MonthFlow = {
   readonly today: IsoDate;
   /** O último dia do mês. */
@@ -108,11 +92,6 @@ export type MonthFlow = {
   readonly despesasRealizadasCents: Cents;
   /** Despesas ainda previstas até o fim do mês, sem as faturas. */
   readonly despesasPrevistasCents: Cents;
-  /**
-   * Parte das despesas previstas que vai para investir (categoria Investimentos).
-   * Não é uma parcela a mais no saldo: já está dentro de `despesasPrevistasCents`.
-   */
-  readonly aportesPrevistosCents: Cents;
   /** Faturas que vencem até o fim do mês e saem da conta. */
   readonly faturasAPagarCents: Cents;
   readonly nextInvoiceDue: IsoDate | null;
@@ -131,7 +110,6 @@ export const monthFlow = (data: FinanceData, today: IsoDate): MonthFlow => {
   const planned = plannedEntries(data, today, monthEnd).filter(
     (entry) => entry.historical !== true && !isOnCard(data, entry),
   );
-  const investing = investmentCategoryIds(data);
   const previstas = planned.filter((entry) => entry.kind === 'despesa');
   const receitasPrevistas = sum(
     planned.filter((entry) => entry.kind === 'receita').map((entry) => entry.cents),
@@ -149,11 +127,6 @@ export const monthFlow = (data: FinanceData, today: IsoDate): MonthFlow => {
     receitasPrevistasCents: receitasPrevistas,
     despesasRealizadasCents: flows.despesas.cents,
     despesasPrevistasCents: sum(previstas.map((entry) => entry.cents)),
-    aportesPrevistosCents: sum(
-      previstas
-        .filter((entry) => investing.has(entry.categoryId))
-        .map((entry) => entry.cents),
-    ),
     faturasAPagarCents: sum(faturas.map((event) => -event.cents)),
     nextInvoiceDue: owing.map((item) => item.invoice.due).sort(compareDates)[0] ?? null,
     emContasCents: outlook.startCents,
