@@ -17,7 +17,6 @@ const AGORA = new Date('2026-11-11T15:00:00.000Z');
 let harness: ApiHarness;
 let seeded: Awaited<ReturnType<typeof seedUnifiedInvestments>>;
 let nubank: string;
-let itau: string;
 
 beforeAll(async () => {
   harness = await createApiHarness({
@@ -29,8 +28,7 @@ afterAll(async () => {
 });
 
 const get = (path: string) => request(harness.app).get(path);
-const post = (path: string, body: object = {}) =>
-  request(harness.app).post(path).send(body);
+request(harness.app).post(path).send(body);
 
 beforeEach(async () => {
   await resetSourceTables(harness.sql);
@@ -39,7 +37,6 @@ beforeEach(async () => {
   const accounts = await get('/api/finance/accounts');
   for (const row of accounts.body.accounts) {
     if (row.account.name === 'Nubank Conta') nubank = row.account.id;
-    if (row.account.name === 'Itaú Unibanco') itau = row.account.id;
   }
 });
 
