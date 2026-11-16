@@ -30,7 +30,7 @@ export const QUERY_BUDGETS: readonly RouteBudget[] = [
   { path: '/overview', screen: 'Visão geral', max: 2, reaches: 1 },
   { path: '/positions', screen: 'Posições', max: 2, reaches: 2 },
   { path: '/assets/:asset_id/page', screen: 'Ativo', max: 2, reaches: 2 },
-  { path: '/statement', screen: 'Movimentações', max: 2, reaches: 2 },
+  { path: '/statement', screen: 'Extrato', max: 2, reaches: 2 },
   { path: '/performance', screen: 'Desempenho', max: 2, reaches: 2 },
   { path: '/allocation', screen: 'Estratégia', max: 1, reaches: 1 },
   { path: '/goals', screen: 'Objetivos', max: 1, reaches: 1 },

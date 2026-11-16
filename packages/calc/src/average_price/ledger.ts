@@ -191,7 +191,7 @@ export const applyLedger = (
 /**
  * Um passo do motor. É o único lugar que decide o que cada tipo de lançamento
  * faz com a posição — `applyLedger` e `ledgerEffects` passam por aqui, e é isso
- * que impede a coluna "Efeito" de Movimentações de divergir do que o recálculo
+ * que impede a coluna "Efeito" de Lançamentos de divergir do que o recálculo
  * grava.
  */
 const applyEntry = (state: Internal, entry: LedgerEntry): void => {
@@ -232,7 +232,7 @@ const realizedTotal = (state: Internal): string =>
  * O que um lançamento mudou na posição: a posição logo antes e logo depois dele,
  * e o resultado realizado quando ele é uma venda.
  *
- * É a coluna "Efeito" de Movimentações (T-04). Ela precisa sair do mesmo passo
+ * É a coluna "Efeito" de Lançamentos (T-04). Ela precisa sair do mesmo passo
  * que o recálculo usa, e não de uma conta própria da tela: um preço médio
  * mostrado ali que difere do de Posições por um centavo é um extrato que não
  * confere com a carteira.

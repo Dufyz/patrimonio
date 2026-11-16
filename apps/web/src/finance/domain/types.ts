@@ -98,7 +98,7 @@ export type Account = {
   /** Saldo antes da primeira movimentação acompanhada. */
   readonly initialCents: Cents;
   readonly archived?: boolean;
-  /** Movimentações anteriores a esta data já estão no saldo inicial e não contam. */
+  /** Lançamentos anteriores a esta data já estão no saldo inicial e não contam. */
   readonly openedOn?: IsoDate;
 };
 

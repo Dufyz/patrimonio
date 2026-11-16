@@ -9,7 +9,7 @@ import type { IconName } from '../components/icon.js';
  * o caminho.
  *
  * Visão geral (escopo Investimentos da raiz) segue roteável, mas fora da barra:
- * vira o painel da Visão geral unificada. O endereço antigo de Movimentações
+ * vira o painel da Visão geral unificada. O endereço antigo de Lançamentos
  * redireciona para Lançamentos (LAN-21).
  */
 

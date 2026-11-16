@@ -275,7 +275,7 @@ export const assetState = (resource: AssetPageResource): AssetState => {
 
 /**
  * Quantos lançamentos o rodapé da lista promete mostrar. O número é da `api`
- * com o filtro aplicado, e o link leva a Movimentações já filtrado por este
+ * com o filtro aplicado, e o link leva a Lançamentos já filtrado por este
  * ativo — a lista daqui é curta de propósito.
  */
 export const transactionsCountLabel = (total: number): string =>

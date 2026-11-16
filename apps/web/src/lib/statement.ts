@@ -15,7 +15,7 @@ import type { Period } from './period.js';
 import { decodePeriod, encodePeriod } from './period.js';
 
 /**
- * T-04 · O que Movimentações decide por conta própria.
+ * T-04 · O que Lançamentos decide por conta própria.
  *
  * O extrato é onde se corrige o passado, e quase tudo que ele mostra já chega
  * pronto da `api`: resumo, subtotal de mês, contagem por tipo, e a coluna

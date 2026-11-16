@@ -119,7 +119,7 @@ export const effectBetween = (
     }
   }
 
-  // Movimentações, itens de fatura e pagamentos que mudaram também mexem em saldos e faturas.
+  // Lançamentos, itens de fatura e pagamentos que mudaram também mexem em saldos e faturas.
   const touch = <T extends { id: string }>(
     a: readonly T[],
     b: readonly T[],

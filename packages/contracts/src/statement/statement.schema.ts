@@ -12,7 +12,7 @@ import {
 /**
  * T-04 · O extrato do livro de lançamentos.
  *
- * Movimentações é onde o usuário corrige o passado, e o formato segue disso: a
+ * Lançamentos é onde o usuário corrige o passado, e o formato segue disso: a
  * pergunta não é "quanto tenho", é "o que aconteceu, e o que cada lançamento
  * mudou". Por isso a resposta carrega, junto de cada linha, o **efeito** dela na
  * posição — preço médio de antes e de depois, resultado realizado, isenção —,

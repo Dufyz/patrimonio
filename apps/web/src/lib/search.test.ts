@@ -36,7 +36,7 @@ import type { SearchActionId, SearchServerState } from './search.js';
 const SCREENS = [
   { id: 'visao', label: 'Visão geral', glyph: '▦', shortcut: 'G V' },
   { id: 'posicoes', label: 'Posições', glyph: '≡', shortcut: 'G P' },
-  { id: 'movimentacoes', label: 'Movimentações', glyph: '⇄', shortcut: 'G M' },
+  { id: 'movimentacoes', label: 'Lançamentos', glyph: '⇄', shortcut: 'G M' },
 ];
 const PORTFOLIOS = [{ id: 'longo', label: 'Longo prazo' }];
 
@@ -179,7 +179,7 @@ describe('itens locais', () => {
     expect(screens.map((item) => [item.label, item.shortcut])).toEqual([
       ['Visão geral', 'G V'],
       ['Posições', 'G P'],
-      ['Movimentações', 'G M'],
+      ['Lançamentos', 'G M'],
     ]);
   });
 

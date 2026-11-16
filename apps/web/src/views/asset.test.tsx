@@ -572,7 +572,7 @@ describe('o histórico', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('cada linha tem o menu de ações de Movimentações', async () => {
+  it('cada linha tem o menu de ações de Lançamentos', async () => {
     show();
     await screen.findByRole('heading', { name: 'ITUB4' });
 

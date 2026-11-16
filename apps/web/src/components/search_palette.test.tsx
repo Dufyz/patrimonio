@@ -22,7 +22,7 @@ import type { SearchPaletteProps } from './search_palette.js';
 const SCREENS = [
   { id: 'visao', label: 'Visão geral', glyph: '▦', shortcut: 'G V' },
   { id: 'posicoes', label: 'Posições', glyph: '≡', shortcut: 'G P' },
-  { id: 'movimentacoes', label: 'Movimentações', glyph: '⇄', shortcut: 'G M' },
+  { id: 'movimentacoes', label: 'Lançamentos', glyph: '⇄', shortcut: 'G M' },
 ];
 const PORTFOLIOS = [{ id: 'longo', label: 'Longo prazo' }];
 
@@ -388,8 +388,8 @@ describe('teclado', () => {
       search: vi.fn(async () => RESOURCE),
     });
 
-    // Antes da resposta só há telas; a pessoa desce até "Movimentações".
-    await user.type(field(), 'mov');
+    // Antes da resposta só há telas; a pessoa desce até "Lançamentos".
+    await user.type(field(), 'lan');
     await user.keyboard('{ArrowDown}');
     const before = marked();
 
@@ -483,7 +483,7 @@ describe('mouse', () => {
   it('um clique executa o item', async () => {
     const { user, onSelect, onClose } = open();
 
-    await user.click(screen.getByRole('option', { name: /Movimentações/ }));
+    await user.click(screen.getByRole('option', { name: /Lançamentos/ }));
 
     expect(onSelect).toHaveBeenCalledWith({ kind: 'screen', screen: 'movimentacoes' });
     expect(onClose).toHaveBeenCalled();

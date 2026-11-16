@@ -106,14 +106,14 @@ describe('NAV-04 · trocar de carteira mantém a tela', () => {
     expect(titles).toContain('Projeção');
   });
 
-  it('a barra não lista Visão geral nem Movimentações dentro do grupo de carteiras', async () => {
+  it('a barra não lista Visão geral nem Extrato dentro do grupo de carteiras', async () => {
     await open('/carteiras/longo-prazo/posicoes');
 
     const titles = within(nav())
       .getAllByRole('button')
       .map((button) => button.getAttribute('title'));
     expect(titles.filter((title) => title === 'Visão geral')).toHaveLength(1);
-    expect(titles).not.toContain('Movimentações');
+    expect(titles).not.toContain('Extrato');
   });
 
   it('a página do ativo mantém Posições destacada, e trocar de carteira abre Posições', async () => {

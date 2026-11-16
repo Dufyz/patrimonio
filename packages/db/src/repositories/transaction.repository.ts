@@ -58,7 +58,7 @@ export const createTransactionRepository = (sql: Connection): TransactionReposit
   },
 
   /**
-   * O extrato de Movimentações, com os filtros combináveis. Duas consultas: a
+   * O extrato de Lançamentos, com os filtros combináveis. Duas consultas: a
    * página e a contagem — o orçamento da rota conta as duas.
    */
   list: async (filter: TransactionFilter) => {

@@ -133,7 +133,7 @@ export const AccountModal = ({
         <Field
           label="Data de abertura"
           error={shown.openingDate}
-          hint="Movimentações anteriores a esta data não entram no saldo."
+          hint="Lançamentos anteriores a esta data não entram no saldo."
         >
           {(p) => (
             <Input

@@ -248,7 +248,7 @@ export const assetPageTransactionSchema = z.object({
 });
 
 export const assetPageTransactionsSchema = z.object({
-  /** As mais recentes. A lista inteira é Movimentações (T-04). */
+  /** As mais recentes. A lista inteira é Lançamentos (T-04). */
   recent: z.array(assetPageTransactionSchema),
   /** Quantos lançamentos existem no recorte, com o filtro de tipo aplicado. */
   total: z.number().int().nonnegative(),

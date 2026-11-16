@@ -80,7 +80,7 @@ export type FinAccount = {
   readonly role: string;
   readonly role_tag: string | null;
   readonly opening_amount: string;
-  /** Movimentações anteriores a esta data não entram no saldo. */
+  /** Lançamentos anteriores a esta data não entram no saldo. */
   readonly opening_date: string;
   /** "No patrimônio": só estas contas somam em Em contas e no patrimônio. */
   readonly in_wealth: boolean;

@@ -4,7 +4,7 @@ import { applyLedger, ledgerEffects } from './ledger.js';
 import type { LedgerEntry } from './ledger.js';
 
 /**
- * A coluna "Efeito" de Movimentações sai daqui. O que esta suíte garante é a
+ * A coluna "Efeito" de Lançamentos sai daqui. O que esta suíte garante é a
  * única promessa que importa para ela: o efeito de cada lançamento é o passo do
  * mesmo motor que o recálculo usa, e não uma conta paralela.
  */

@@ -9,7 +9,7 @@ import { validate } from '../middleware/validate.js';
  * T-04 · O extrato.
  *
  * Em arquivo próprio, e não dentro de `transaction.routes.ts`, porque o que a
- * tela de Movimentações lê não é o lançamento cru: é o recorte agregado, com o
+ * tela de Lançamentos lê não é o lançamento cru: é o recorte agregado, com o
  * efeito de cada linha e os subtotais. `GET /transactions` continua sendo a
  * listagem do livro; esta é a leitura de tela.
  */

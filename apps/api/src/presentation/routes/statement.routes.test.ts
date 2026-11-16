@@ -11,7 +11,7 @@ import {
 import type { ApiHarness } from '../../testing/harness.js';
 
 /**
- * T-04 · A rota que Movimentações consome.
+ * T-04 · A rota que Lançamentos consome.
  *
  * A profundidade do SQL está no teste do repositório, em `packages/db`. O que
  * esta suíte prova é o que só o caminho inteiro mostra: que o efeito de cada
