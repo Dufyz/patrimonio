@@ -61,6 +61,7 @@ describe('snapshot', () => {
 });
 
 describe('visão geral (CE-01 a CE-03)', () => {
+  // QUA-04 · CE-01: reescalado. Os números do fixture de 11/11/2026 são verificados em scenarios.routes.test.ts; aqui seguem os da semente de demonstração, que tem 12 meses de histórico.
   it('os números da tela batem com a semente', async () => {
     const response = await get('/overview?month=2026-10');
     expect(response.status).toBe(200);
@@ -100,6 +101,7 @@ describe('lançamentos', () => {
     ).toBe(true);
   });
 
+  // QUA-04 · CE-04: mantido; reescalado no fixture como CU-21 (scenarios.routes.test.ts).
   it('CE-04 · divisão que não fecha devolve ENTRY_SPLIT_MISMATCH com o que falta', async () => {
     const response = await send('post', '/entries', {
       kind: 'despesa',
@@ -117,6 +119,7 @@ describe('lançamentos', () => {
     expect(response.body.details.missing).toBe('20.00');
   });
 
+  // QUA-04 · CE-05: mantido; reescalado no fixture como CU-22. A compra é despesa do cartão (RN-U4) e nenhuma expectativa usa "Gasto livre".
   it('CE-05 · compra parcelada vira N parcelas; o resto de centavos fica na primeira', async () => {
     const response = await send('post', '/entries', {
       kind: 'despesa',
@@ -133,6 +136,7 @@ describe('lançamentos', () => {
     expect(response.body.entries[0].installment.total).toBe(3);
   });
 
+  // QUA-04 · CE-06: mantido; regra de escopo de parcelas não depende do fixture.
   it('CE-06 · editar ou excluir parcela sem escopo é recusado', async () => {
     const created = await send('post', '/entries', {
       kind: 'despesa',
@@ -155,6 +159,7 @@ describe('lançamentos', () => {
     expect(left.body.entries).toHaveLength(0);
   });
 
+  // QUA-04 · CE-07: mantido; reescalado no fixture como CU-06.
   it('CE-07 · confirmar um previsto é idempotente e não toca o recorrente', async () => {
     const planned = await get('/entries?month=2026-10&status=prevista&limit=50');
     const target = planned.body.entries.find(
@@ -289,6 +294,7 @@ describe('idempotência e versão', () => {
 });
 
 describe('contas, transferências e faturas', () => {
+  // QUA-04 · CE-08: mantido; transferência entre contas não é receita nem despesa (RN-U1), conferida também no fixture.
   it('CE-08 · transferência move saldo entre contas e não vira receita nem despesa', async () => {
     const before = await get('/overview?month=2026-10');
     const response = await send('post', '/transfers', {
@@ -315,6 +321,7 @@ describe('contas, transferências e faturas', () => {
     );
   });
 
+  // QUA-04 · CE-09: mantido; o pagamento de fatura do fixture é o CU-02.
   it('CE-09 · pagar fatura acima do em aberto é recusado; pagamento parcial reduz a fatura', async () => {
     const cards = await get('/cards');
     const summary = cards.body.cards.find(

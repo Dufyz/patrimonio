@@ -210,3 +210,49 @@ describe('CU-22 · compra parcelada no cartão', () => {
     expect(Number(after.body.abertas)).toBeGreaterThan(Number(before.body.abertas));
   });
 });
+
+describe('CE-01 e CE-08 reescalados para o fixture (QUA-04)', () => {
+  it('CE-01 · os números da Visão geral de novembro batem com o fixture', async () => {
+    const response = await get('/overview?month=2026-11');
+    expect(response.body.receitas.amount).toBe('8720.00');
+    expect(response.body.despesas.amount).toBe('3842.43');
+    expect(response.body.saldo).toBe('4877.57');
+    expect(response.body.em_contas.amount).toBe('1462.51');
+    expect(response.body.faturas_abertas).toBe('2167.42');
+  });
+
+  it('CE-08 · transferência entre contas não vira receita nem despesa', async () => {
+    const before = await get('/overview?month=2026-11');
+    const response = await send('post', '/transfers', {
+      from_account_id: ids['acc:Nubank Conta'],
+      to_account_id: ids['acc:Itaú Unibanco'],
+      amount: '300.00',
+      date: '2026-11-11',
+    });
+    expect(response.status).toBe(201);
+    const after = await get('/overview?month=2026-11');
+    expect(after.body.receitas.amount).toBe(before.body.receitas.amount);
+    expect(after.body.despesas.amount).toBe(before.body.despesas.amount);
+    expect(after.body.em_contas.amount).toBe(before.body.em_contas.amount);
+    expect(await balanceOf('Itaú Unibanco')).toBe('739.65');
+  });
+});
+
+describe('o que não existe mais (QUA-04)', () => {
+  it('nenhuma categoria "Investimento" nem "Gasto livre" no fixture', async () => {
+    const categories = await get('/categories');
+    const names: string[] = categories.body.categories.map(
+      (c: { name: string }) => c.name,
+    );
+    expect(names.filter((n) => /^investimentos?$/i.test(n))).toEqual([]);
+  });
+
+  it('as compras de cartão contam em Despesas do mês', async () => {
+    const overview = await get('/overview?month=2026-11');
+    const entries = await get('/entries?month=2026-11&kind=despesa&limit=200');
+    const soma = entries.body.entries
+      .filter((e: { status: string }) => e.status === 'lancada')
+      .reduce((t: number, e: { amount: string }) => t + Number(e.amount), 0);
+    expect(soma).toBeCloseTo(Number(overview.body.despesas.amount), 2);
+  });
+});
