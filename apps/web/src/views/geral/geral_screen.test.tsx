@@ -1,3 +1,4 @@
+import axe from 'axe-core';
 import type { GoalsOverviewResource, OverviewResource } from '@patrimonio/contracts';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -443,5 +444,23 @@ describe('Visão geral de Geral (GER)', () => {
 
     expect(await screen.findByLabelText('Valor real')).toBeTruthy();
     expect(screen.getByLabelText('Data')).toBeTruthy();
+  });
+});
+
+const aaViolations = async (container: HTMLElement): Promise<readonly string[]> => {
+  const result = await axe.run(container, {
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+    rules: { 'color-contrast': { enabled: false }, region: { enabled: false } },
+  });
+  return result.violations.map(
+    (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,
+  );
+};
+
+describe('QUA-03 · acessibilidade de Visão geral nos dois temas', () => {
+  it.each(['light', 'dark'])('sem violação AA (tema %s)', async (theme) => {
+    document.documentElement.dataset['theme'] = theme;
+    open(ready(overviewOf('300000.00')));
+    expect(await aaViolations(document.body)).toEqual([]);
   });
 });

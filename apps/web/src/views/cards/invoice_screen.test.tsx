@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import axe from 'axe-core';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -193,5 +194,24 @@ describe('InvoiceScreen · CRT-06', () => {
     expect(calls.find((c) => c.method === 'DELETE')?.url).toBe(
       '/api/finance/payments/p1',
     );
+  });
+});
+
+const aaViolations = async (container: HTMLElement): Promise<readonly string[]> => {
+  const result = await axe.run(container, {
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+    rules: { 'color-contrast': { enabled: false }, region: { enabled: false } },
+  });
+  return result.violations.map(
+    (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,
+  );
+};
+
+describe('QUA-03 · acessibilidade de Fatura nos dois temas', () => {
+  it.each(['light', 'dark'])('sem violação AA (tema %s)', async (theme) => {
+    document.documentElement.dataset['theme'] = theme;
+    mount();
+    await screen.findByText('Mercado');
+    expect(await aaViolations(document.body)).toEqual([]);
   });
 });

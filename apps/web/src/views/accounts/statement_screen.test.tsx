@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import axe from 'axe-core';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -104,5 +105,24 @@ describe('StatementScreen · CTA-03/04', () => {
     expect(rows.some((r) => r.textContent?.includes('Salário'))).toBe(false);
     expect(screen.getByText(/Total do período filtrado/)).toBeTruthy();
     expect(screen.getAllByText(/130,00/).length).toBeGreaterThan(0);
+  });
+});
+
+const aaViolations = async (container: HTMLElement): Promise<readonly string[]> => {
+  const result = await axe.run(container, {
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+    rules: { 'color-contrast': { enabled: false }, region: { enabled: false } },
+  });
+  return result.violations.map(
+    (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,
+  );
+};
+
+describe('QUA-03 · acessibilidade de Extrato nos dois temas', () => {
+  it.each(['light', 'dark'])('sem violação AA (tema %s)', async (theme) => {
+    document.documentElement.dataset['theme'] = theme;
+    mount('130.00');
+    await screen.findByText('Mercado');
+    expect(await aaViolations(document.body)).toEqual([]);
   });
 });

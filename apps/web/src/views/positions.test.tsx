@@ -1,3 +1,4 @@
+import axe from 'axe-core';
 import type {
   PositionGroup,
   PositionResource,
@@ -643,5 +644,24 @@ describe('tela de Posições', () => {
     show();
 
     expect(await screen.findByText(/Sem consolidação: nenhuma carteira/)).toBeTruthy();
+  });
+});
+
+const aaViolations = async (container: HTMLElement): Promise<readonly string[]> => {
+  const result = await axe.run(container, {
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+    rules: { 'color-contrast': { enabled: false }, region: { enabled: false } },
+  });
+  return result.violations.map(
+    (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`,
+  );
+};
+
+describe('QUA-03 · acessibilidade de Posições nos dois temas', () => {
+  it.each(['light', 'dark'])('sem violação AA (tema %s)', async (theme) => {
+    document.documentElement.dataset['theme'] = theme;
+    show();
+    await screen.findByText('28 posições');
+    expect(await aaViolations(document.body)).toEqual([]);
   });
 });
