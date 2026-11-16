@@ -10,6 +10,8 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PreferencesProvider } from '../components/preferences.js';
+import { HIDDEN_VALUES_KEY } from '../lib/hidden_values.js';
+import type { Storageish } from '../lib/preferences.js';
 import { ShortcutProvider } from '../components/shortcuts.js';
 import { PositionsScreen } from './positions.js';
 
@@ -245,13 +247,17 @@ const answerWith = (body: PositionsResource): void => {
 /** Para onde a tela mandou abrir o ativo, que é o que T-03 recebe. */
 const opened: string[] = [];
 
-const show = (initial = '/longo-prazo/posicoes', width = 1440) => {
+const show = (
+  initial = '/longo-prazo/posicoes',
+  width = 1440,
+  storage: Storageish | null = null,
+) => {
   // O jsdom mede tudo como zero; a largura é informada, como na galeria.
   Object.defineProperty(globalThis, 'innerWidth', { value: width, writable: true });
 
   return render(
     <MemoryRouter initialEntries={[initial]}>
-      <PreferencesProvider storage={null}>
+      <PreferencesProvider storage={storage}>
         <ShortcutProvider>
           <PositionsScreen
             portfolioId="p1"
@@ -274,6 +280,44 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   entry.openEntry.mockClear();
+});
+
+const MONEY = /R\$\s?\d[\d.]*,\d{2}/gu;
+/** O texto da tela com um espaço entre os nós, para que células vizinhas não se colem. */
+const spacedText = (root: HTMLElement): string => {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const parts: string[] = [];
+  while (walker.nextNode()) parts.push(walker.currentNode.textContent ?? '');
+  return parts.join(' ');
+};
+const PERCENT = /-?\d[\d.]*,\d+\s?%/gu;
+
+describe('QC-20 / CU-20 · mascarar e trocar o tema não alteram número nenhum', () => {
+  it('CU-20 · com os valores ocultos some todo valor em reais e ficam percentuais e quantidades; o tema não muda o texto', async () => {
+    const shown = show();
+    await screen.findByText('28 posições');
+    const visibleText = spacedText(shown.container);
+    expect((visibleText.match(MONEY) ?? []).length).toBeGreaterThan(5);
+    const percents = visibleText.match(PERCENT) ?? [];
+    expect(percents.length).toBeGreaterThan(0);
+
+    document.documentElement.dataset['theme'] = 'dark';
+    expect(spacedText(shown.container)).toBe(visibleText);
+    delete document.documentElement.dataset['theme'];
+    shown.unmount();
+
+    const store = new Map<string, string>([[HIDDEN_VALUES_KEY, 'true']]);
+    const masked = show('/longo-prazo/posicoes', 1440, {
+      getItem: (key) => store.get(key) ?? null,
+      setItem: (key, value) => void store.set(key, value),
+      removeItem: (key) => void store.delete(key),
+    });
+    await screen.findByText('28 posições');
+    const hiddenText = spacedText(masked.container);
+    expect(hiddenText.match(MONEY) ?? []).toEqual([]);
+    expect(hiddenText.match(PERCENT) ?? []).toEqual(percents);
+    expect(hiddenText).toContain('28 posições');
+  });
 });
 
 describe('tela de Posições', () => {

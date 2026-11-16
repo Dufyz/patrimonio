@@ -263,7 +263,7 @@ describe('GoalsView', () => {
     expect(screen.getByRole('heading', { name: 'Novo objetivo' })).toBeTruthy();
   });
 
-  it('sem objetivo, vazio explicado; com erro, alerta e nova tentativa', () => {
+  it('CU-10 · sem objetivo, vazio explicado; com erro, alerta e nova tentativa', () => {
     const { unmount } = montar({ kind: 'ready', value: dados(null) });
     expect(screen.getByText('Esta carteira não tem objetivo.')).toBeTruthy();
     expect(

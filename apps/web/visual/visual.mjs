@@ -161,7 +161,7 @@ const capture = async ({
   if (drawer) {
     await page.getByRole('button', { name: 'Abrir a barra lateral' }).click();
   }
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(900);
   const shot = await page.screenshot({ fullPage: !drawer });
   await page.close();
   compare(name, shot);

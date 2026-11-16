@@ -514,3 +514,64 @@ describe('NAV-12 · a lista de destino soma o valor clicado', () => {
     expect(toLaunch.rows.length).toBe(all.a_lancar);
   });
 });
+
+describe('QC-22 · despesa com duas origens', () => {
+  it('a soma das partes é o valor total e o total do período conta o valor uma vez', async () => {
+    const [categoria] = await harness.sql<{ id: string }[]>`
+      SELECT id FROM fin_category WHERE kind = 'DESPESA' LIMIT 1`;
+    const accounts = (await get('/api/finance/accounts')).body.accounts;
+    const outra = accounts.find(
+      (a: { account: { id: string } }) => a.account.id !== nubank,
+    ).account.id;
+    const before = await book();
+    const despesaAntes = Math.round(Number(before.totals.despesas) * 100);
+
+    const created = await request(harness.app)
+      .post('/api/finance/entries')
+      .send({
+        kind: 'despesa',
+        description: 'Jantar em duas origens',
+        date: '2026-11-10',
+        category_id: categoria?.id,
+        amount: '100.00',
+        payments: [
+          { source_type: 'conta', source_id: nubank, amount: '60.00' },
+          { source_type: 'conta', source_id: outra, amount: '40.00' },
+        ],
+      });
+    expect(created.status).toBe(201);
+
+    const after = await book();
+    expect(Math.round(Number(after.totals.despesas) * 100) - despesaAntes).toBe(10000);
+    const rows = after.rows.filter(
+      (r: { description: string }) => r.description === 'Jantar em duas origens',
+    );
+    const parts = rows.reduce(
+      (total: number, r: { amount: string }) =>
+        total + Math.round(Number(r.amount) * 100),
+      0,
+    );
+    expect(parts).toBe(10000);
+  });
+});
+
+describe('QC-19 · a soma do CSV exportado é o total da tela', () => {
+  it('receitas e despesas lançadas do mês', async () => {
+    const totals = (await book()).totals;
+    const csv = (await get('/api/finance/entries/export?month=2026-11&status=lancada'))
+      .text;
+    const lines = csv.replace(/^﻿/u, '').trim().split('\r\n').slice(1);
+    let receitas = 0;
+    let despesas = 0;
+    for (const line of lines) {
+      const cells = line.split(';').map((c) => c.replace(/^"|"$/gu, ''));
+      const value = Math.round(
+        Number((cells[6] ?? '0').replace(/\./gu, '').replace(',', '.')) * 100,
+      );
+      if (cells[1] === 'Receita') receitas += value;
+      if (cells[1] === 'Despesa') despesas += -value;
+    }
+    expect(receitas).toBe(Math.round(Number(totals.receitas) * 100));
+    expect(despesas).toBe(Math.round(Number(totals.despesas) * 100));
+  });
+});

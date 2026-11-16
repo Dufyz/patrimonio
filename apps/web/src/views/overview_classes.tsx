@@ -1,5 +1,6 @@
 import type { OverviewResource } from '@patrimonio/contracts';
 
+import { TOTAL_LINK_LABEL } from '../lib/total_links.js';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
@@ -183,7 +184,17 @@ export const ClassesTable = ({
                     </span>
                   </th>
                   <td className="px-4 text-right">
-                    <Money value={line.value} />
+                    {classHref === undefined ? (
+                      <Money value={line.value} />
+                    ) : (
+                      <Link
+                        to={classHref(line.id)}
+                        aria-label={`${TOTAL_LINK_LABEL}: ${line.name}`}
+                        className="cursor-pointer hover:text-accent hover:underline"
+                      >
+                        <Money value={line.value} />
+                      </Link>
+                    )}
                   </td>
                   <td className="px-4 text-right">
                     <Percent value={percentAsRatio(line.currentPct)} decimals={1} />

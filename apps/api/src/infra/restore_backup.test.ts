@@ -134,7 +134,7 @@ describe('restauração (BKP-03)', () => {
     expect(await count()).toBe(entries);
   });
 
-  it('restaura o backup, em manutenção, com backup de segurança antes', async () => {
+  it('CU-12 · restaura o backup, em manutenção, com backup de segurança antes', async () => {
     const before = uploaded.length;
     await removeFinanceDemo(scratch);
     expect(await count()).toBe(0);

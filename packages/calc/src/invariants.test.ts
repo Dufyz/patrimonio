@@ -307,7 +307,7 @@ describe('série de cota', () => {
     );
   });
 
-  it('LIV-14 · qualquer sequência de aportes, de conta ou de fora do app, não move o valor da cota', () => {
+  it('QC-23 · LIV-14 · qualquer sequência de aportes, de conta ou de fora do app, não move o valor da cota', () => {
     const aporte = fc.record({
       amount: fc.integer({ min: 1, max: 50_000 }),
       origin: fc.constantFrom('conta', 'fora'),

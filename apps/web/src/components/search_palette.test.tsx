@@ -186,7 +186,7 @@ describe('busca', () => {
     expect(within(itub3).getByText(/sem posição/)).toBeInTheDocument();
   });
 
-  it('"aporte 80 itub4 32,40" põe o lançamento preenchido no topo, procura o ativo pelo código e não salva (NAV-10)', async () => {
+  it('CU-17 · "aporte 80 itub4 32,40" põe o lançamento preenchido no topo, procura o ativo pelo código e não salva (NAV-10)', async () => {
     const READY: ReadonlySet<SearchActionId> = new Set(['buy_asset']);
     const { user, search, onSelect } = open({ readyActions: READY });
 

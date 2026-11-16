@@ -4,6 +4,7 @@ import type {
   OverviewTopPositionResource,
   PerformanceResource,
 } from '@patrimonio/contracts';
+import { TOTAL_LINK_LABEL } from '../lib/total_links.js';
 import type { DateOnly } from '@patrimonio/domain';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -412,7 +413,18 @@ const TopPositions = ({
               </span>
             </th>
             <td className="px-4 py-(--row-pad) text-right">
-              <Money value={row.value} decimals={2} />
+              {onOpenAsset === undefined ? (
+                <Money value={row.value} decimals={2} />
+              ) : (
+                <button
+                  type="button"
+                  aria-label={`${TOTAL_LINK_LABEL}: ${row.ticker ?? row.name}`}
+                  className="cursor-pointer hover:text-accent"
+                  onClick={() => onOpenAsset(assetSlug(row))}
+                >
+                  <Money value={row.value} decimals={2} />
+                </button>
+              )}
             </td>
             <td className="px-4 py-(--row-pad) text-right">
               <Percent value={percentAsRatio(row.weight_pct)} decimals={1} />

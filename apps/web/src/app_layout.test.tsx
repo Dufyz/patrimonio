@@ -73,7 +73,7 @@ describe('NAV-04 · trocar de carteira mantém a tela', () => {
     globalThis.innerWidth = 1440;
   });
 
-  it('trocar de carteira mantém a tela', async () => {
+  it('CU-08 · trocar de carteira mantém a tela', async () => {
     const user = await open('/carteiras/longo-prazo/posicoes');
 
     await user.click(within(nav()).getByRole('button', { name: /Reserva/u }));
@@ -82,7 +82,7 @@ describe('NAV-04 · trocar de carteira mantém a tela', () => {
     expect(current()).toEqual(['Reserva', 'Posições']);
   });
 
-  it('em Todas, Estratégia não existe; vir de Estratégia abre a Visão geral do novo escopo', async () => {
+  it('CU-09 · em Todas, Estratégia não existe; vir de Estratégia abre a Visão geral do novo escopo', async () => {
     const user = await open('/carteiras/longo-prazo/estrategia');
 
     await user.click(within(nav()).getByRole('button', { name: /Todas as carteiras/u }));
