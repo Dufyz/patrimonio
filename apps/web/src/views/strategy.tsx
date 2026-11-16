@@ -742,6 +742,26 @@ const Distribution = ({
           </tfoot>
         </table>
       </div>
+      {defined ? null : (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3 text-[0.8125rem] text-ink-2"
+        >
+          <span>
+            Esta carteira ainda não tem estratégia: o atual aparece, o alvo não.
+          </span>
+          <Button
+            variant="secondary"
+            onClick={() =>
+              document
+                .querySelector<HTMLInputElement>('input[aria-label^="Alvo de"]')
+                ?.focus()
+            }
+          >
+            Definir alvos
+          </Button>
+        </div>
+      )}
       {bar}
       <p className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3 text-[0.75rem] text-ink-3">
         <span>

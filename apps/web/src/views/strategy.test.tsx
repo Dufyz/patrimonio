@@ -294,6 +294,20 @@ describe('a tabela', () => {
     expect(screen.getByRole('button', { name: 'Planejar aporte' })).toBeDisabled();
   });
 
+  it('EST-05 · sem estratégia, "Definir alvos" leva o foco ao primeiro alvo', async () => {
+    show(
+      allocation({
+        strategy_defined: false,
+        composition: {
+          ...allocation().composition,
+          nodes: [line(CAIXA, 'Caixa', '100.00', null)],
+        },
+      }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Definir alvos' }));
+    expect(screen.getByLabelText('Alvo de Caixa')).toHaveFocus();
+  });
+
   it('a linha acima da tolerância fica marcada', () => {
     const over = allocation();
     const node = over.composition.nodes[1];
