@@ -29,8 +29,7 @@ const low = <T extends string>(value: string | null): T | null =>
  * A foto inteira numa consulta. Dinheiro sai como texto (`::TEXT`): o JSON
  * numérico perderia a forma decimal exata.
  */
-const LOAD = `
-  SELECT jsonb_build_object(
+const SNAPSHOT_JSON = `jsonb_build_object(
     'categories', (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.name), '[]') FROM fin_category t),
     'accounts', (SELECT COALESCE(jsonb_agg(to_jsonb(t) || jsonb_build_object(
         'opening_amount', t.opening_amount::TEXT) ORDER BY t.name), '[]') FROM fin_account t),
@@ -38,16 +37,36 @@ const LOAD = `
     'recurrings', (SELECT COALESCE(jsonb_agg(to_jsonb(t) || jsonb_build_object(
         'amount', t.amount::TEXT, 'covers_up_to', t.covers_up_to::TEXT) ORDER BY t.day, t.name), '[]') FROM fin_recurring t),
     'skips', (SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]') FROM fin_recurring_skip t),
-    'entries', (SELECT COALESCE(jsonb_agg(to_jsonb(e) || jsonb_build_object(
-        'amount', e.amount::TEXT,
-        'payments', COALESCE((SELECT jsonb_agg(jsonb_build_object(
-            'source_type', p.source_type, 'source_id', p.source_id, 'amount', p.amount::TEXT,
-            'invoice_month', p.invoice_month) ORDER BY p.position)
-          FROM fin_entry_payment p WHERE p.entry_id = e.id), '[]')) ORDER BY e.date DESC, e.id DESC), '[]') FROM fin_entry e),
     'movements', (SELECT COALESCE(jsonb_agg(to_jsonb(t) || jsonb_build_object('amount', t.amount::TEXT) ORDER BY t.date, t.id), '[]') FROM fin_movement t),
     'card_items', (SELECT COALESCE(jsonb_agg(to_jsonb(t) || jsonb_build_object('amount', t.amount::TEXT) ORDER BY t.purchase_date, t.id), '[]') FROM fin_card_item t),
     'invoice_payments', (SELECT COALESCE(jsonb_agg(to_jsonb(t) || jsonb_build_object('amount', t.amount::TEXT) ORDER BY t.date, t.id), '[]') FROM fin_invoice_payment t)
-  ) AS snapshot
+  )`;
+
+/**
+ * Os lançamentos saem em consultas simples, sem o JSON intermediário: com cinco
+ * anos de histórico são vinte mil linhas, e agregá-las em `jsonb` para o Node
+ * desfazer custava mais que a leitura. Datas e dinheiro saem como texto.
+ */
+const LOAD = `
+  WITH snap AS (SELECT ${SNAPSHOT_JSON} AS snapshot)
+  SELECT 0 AS ord, snap.snapshot,
+         NULL::UUID AS id, NULL::TEXT AS kind, NULL::TEXT AS description, NULL::TEXT AS date,
+         NULL::UUID AS category_id, NULL::TEXT AS amount, NULL::TEXT AS status,
+         NULL::UUID AS recurring_id, NULL::UUID AS installment_group_id,
+         NULL::INTEGER AS installment_no, NULL::INTEGER AS installment_total,
+         NULL::TEXT AS installment_origin, NULL::TEXT AS note, NULL::UUID AS event_id,
+         NULL::INTEGER AS version, NULL::TEXT AS p_source_type, NULL::UUID AS p_source_id,
+         NULL::TEXT AS p_amount, NULL::TEXT AS p_invoice_month, NULL::INTEGER AS p_position
+    FROM snap
+  UNION ALL
+  SELECT 1, NULL::JSONB, e.id, e.kind, e.description, e.date::TEXT, e.category_id,
+         e.amount::TEXT, e.status, e.recurring_id, e.installment_group_id,
+         e.installment_no, e.installment_total, e.installment_origin::TEXT,
+         e.note, e.event_id, e.version,
+         p.source_type, p.source_id, p.amount::TEXT, p.invoice_month, p.position
+    FROM fin_entry e
+    LEFT JOIN fin_entry_payment p ON p.entry_id = e.id
+   ORDER BY ord, date DESC NULLS LAST, id DESC NULLS LAST, p_position
 `;
 
 const installment = (row: Row): FinEntry['installment'] =>
@@ -193,8 +212,28 @@ const split = <T>(rows: readonly T[], size = 500): T[][] => {
 export const createFinanceRepository = (sql: Connection): FinanceRepository => ({
   load: async () => {
     try {
-      const [row] = await sql.unsafe<{ snapshot: Record<string, Row[]> }[]>(LOAD);
-      return success(parseSnapshot(row?.snapshot ?? {}));
+      const joined = await sql.unsafe<Row[]>(LOAD);
+      const snapshot = (joined[0]?.['snapshot'] ?? {}) as Record<string, Row[]>;
+
+      // Uma linha por parte de pagamento: junta de volta no lançamento, na ordem.
+      const entries: Row[] = [];
+      for (const line of joined.slice(1)) {
+        const last = entries[entries.length - 1];
+        const entry =
+          last !== undefined && last['id'] === line['id']
+            ? last
+            : (entries[entries.push({ ...line, payments: [] }) - 1] as Row);
+        if (line['p_source_type'] !== null) {
+          (entry['payments'] as Row[]).push({
+            source_type: line['p_source_type'],
+            source_id: line['p_source_id'],
+            amount: line['p_amount'],
+            invoice_month: line['p_invoice_month'],
+          });
+        }
+      }
+
+      return success(parseSnapshot({ ...snapshot, entries }));
     } catch (error) {
       return failure(getRepositoryError(error));
     }

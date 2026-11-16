@@ -87,25 +87,25 @@ describe('cinco anos de lançamentos (QUA-05)', () => {
   it('a leitura do livro abre em até 1,5 s', async () => {
     const { ms, status } = await timed('/finance/snapshot');
     expect(status).toBe(200);
-    expect(ms).toBeLessThan(1500 * 3);
+    expect(ms).toBeLessThan(1500);
   });
 
   it('a primeira página do livro abre em até 1,5 s', async () => {
     const { ms, status } = await timed('/finance/book?limit=50');
     expect(status).toBe(200);
     // Medido em ~0,9 s com 20 mil lançamentos; a folga cobre a máquina de CI.
-    expect(ms).toBeLessThan(1500 * 2);
+    expect(ms).toBeLessThan(1500);
   });
 
   it('a visão geral de Finanças responde em até 2 s (QUA-06)', async () => {
     const { ms, status } = await timed('/finance/overview');
     expect(status).toBe(200);
-    expect(ms).toBeLessThan(2000 * 2);
+    expect(ms).toBeLessThan(2000);
   });
 
   it('a busca responde em até 500 ms', async () => {
     const { ms, status } = await timed('/finance/search?q=mercado');
     expect(status).toBe(200);
-    expect(ms).toBeLessThan(500 * 3);
+    expect(ms).toBeLessThan(500);
   });
 });
