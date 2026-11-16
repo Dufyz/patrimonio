@@ -1,3 +1,4 @@
+import type { DateOnly } from '@patrimonio/domain';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -97,5 +98,24 @@ describe('período', () => {
     expect(decodePeriod('2026-10-06..2026-09-01')).toEqual(DEFAULT_PERIOD);
     expect(decodePeriod('2026-13-01..2026-10-06')).toEqual(DEFAULT_PERIOD);
     expect(decodePeriod(null)).toEqual(DEFAULT_PERIOD);
+  });
+});
+
+describe('VGR-12 · returnsPeriod', () => {
+  const hoje = '2026-11-11' as DateOnly;
+  it('carteira com menos de 12 meses cai para o YTD', async () => {
+    const { returnsPeriod, DEFAULT_PERIOD } = await import('./period.js');
+    expect(returnsPeriod(DEFAULT_PERIOD, hoje, '2026-06-01' as DateOnly)).toEqual({
+      kind: 'preset',
+      preset: 'ytd',
+    });
+  });
+  it('carteira antiga e período escolhido ficam como estão', async () => {
+    const { returnsPeriod, DEFAULT_PERIOD } = await import('./period.js');
+    expect(returnsPeriod(DEFAULT_PERIOD, hoje, '2024-01-02' as DateOnly)).toEqual(
+      DEFAULT_PERIOD,
+    );
+    const mes = { kind: 'preset', preset: 'mes' } as const;
+    expect(returnsPeriod(mes, hoje, '2026-06-01' as DateOnly)).toEqual(mes);
   });
 });

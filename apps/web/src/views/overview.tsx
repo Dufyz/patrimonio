@@ -30,6 +30,7 @@ import {
   encodePeriod,
   formatDayMonth,
   resolvePeriod,
+  returnsPeriod,
 } from '../lib/period.js';
 import {
   CONTRIBUTIONS_COLOR,
@@ -165,6 +166,8 @@ export const OverviewScreen = ({
    */
   const [inception, setInception] = useState<DateOnly | null>(null);
   const range = resolvePeriod(period, today, inception);
+  const returns = returnsPeriod(period, today, inception);
+  const returnsRange = resolvePeriod(returns, today, inception);
 
   const resource = useResource(
     (signal) => fetchOverview({ portfolioId, from: range.from, to: range.to }, signal),
@@ -176,10 +179,15 @@ export const OverviewScreen = ({
   const performance = useResource(
     (signal) =>
       fetchPerformance(
-        { portfolioId, from: range.from, to: range.to, benchmarks: extraIds },
+        {
+          portfolioId,
+          from: returnsRange.from,
+          to: returnsRange.to,
+          benchmarks: extraIds,
+        },
         signal,
       ),
-    [portfolioId, range.from, range.to, extraIds.join(',')],
+    [portfolioId, returnsRange.from, returnsRange.to, extraIds.join(',')],
   );
 
   // Em Todas, cada carteira rende pela cota dela: uma leitura por carteira, no
@@ -192,7 +200,7 @@ export const OverviewScreen = ({
       return Promise.all(
         portfolios.map(async (portfolio): Promise<PortfolioReturn> => {
           const one = await fetchPerformance(
-            { portfolioId: portfolio.id, from: range.from, to: range.to },
+            { portfolioId: portfolio.id, from: returnsRange.from, to: returnsRange.to },
             signal,
           );
           const values = one.chart.portfolio;
@@ -207,7 +215,7 @@ export const OverviewScreen = ({
         }),
       );
     },
-    [portfolioId, range.from, range.to, portfolioKey],
+    [portfolioId, returnsRange.from, returnsRange.to, portfolioKey],
   );
 
   const goals = useResource((signal) => fetchGoalsOverview({}, signal), [portfolioId]);
@@ -757,10 +765,13 @@ export const OverviewView = ({
               }
               extraIds={extraIds}
               onExtraIdsChange={onExtraIdsChange}
-              period={period}
+              period={returnsPeriod(period, today, inception as DateOnly | null)}
               periodFrom={
-                resolvePeriod(period, today, inception as DateOnly | null)
-                  .from as DateOnly
+                resolvePeriod(
+                  returnsPeriod(period, today, inception as DateOnly | null),
+                  today,
+                  inception as DateOnly | null,
+                ).from as DateOnly
               }
             />
           )}

@@ -147,6 +147,24 @@ export const resolvePeriod = (
   }
 };
 
+/**
+ * VGR-12 · O período do Retorno × benchmarks. A janela é de 12 meses; carteira
+ * com menos de 12 meses de história usa o ano até hoje, e o rótulo diz "YTD".
+ * Qualquer outro período escolhido vale como foi escolhido.
+ */
+export const returnsPeriod = (
+  period: Period,
+  today: DateOnly,
+  inception: DateOnly | null,
+): Period => {
+  if (period.kind !== 'preset' || period.preset !== '12m' || inception === null) {
+    return period;
+  }
+  return inception > resolvePeriod(period, today, inception).from
+    ? { kind: 'preset', preset: 'ytd' }
+    : period;
+};
+
 /** `2026-10-06` → `06/10`. O ano só aparece quando não é o de referência. */
 export const formatDayMonth = (date: DateOnly, reference: DateOnly): string => {
   const { year, month, day } = parts(date);
