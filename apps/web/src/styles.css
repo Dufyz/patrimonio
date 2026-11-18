@@ -395,3 +395,12 @@ body {
 [data-consulta='true'] [data-launch] {
   display: none;
 }
+
+/* Linha prevista: listrada na diagonal, como as pranchas, só com tokens do tema. */
+@utility planned-stripes {
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--color-panel) 0 5px,
+    var(--color-panel-2) 5px 6px
+  );
+}

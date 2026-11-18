@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { DateRange } from 'react-day-picker';
 
 import { WEEKDAY_INITIALS } from '../lib/calendar.js';
@@ -54,6 +54,56 @@ const toIso = (date: Date): string =>
 
 const brDate = (iso: string | null): string =>
   iso === null ? '—' : `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+
+/** `17072026` → `17/07/2026`, enquanto a pessoa digita. */
+const maskBrDate = (raw: string): string => {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+};
+
+/** `17/07/2026` → a data, ou `null` se não for um dia que existe. */
+const parseBrDate = (text: string): Date | null => {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
+  if (match === null) return null;
+  const [, d = '', m = '', y = ''] = match;
+  const date = new Date(Number(y), Number(m) - 1, Number(d));
+  return date.getDate() === Number(d) && date.getMonth() === Number(m) - 1 ? date : null;
+};
+
+const DateTextField = ({
+  label,
+  value,
+  invalid = false,
+  inputRef,
+  onChange,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly invalid?: boolean;
+  readonly inputRef?: React.Ref<HTMLInputElement>;
+  readonly onChange: (raw: string) => void;
+}): React.ReactElement => {
+  const broken = value.length === 10 && parseBrDate(value) === null;
+  return (
+    <label className="flex flex-col gap-1">
+      <Label>{label}</Label>
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="numeric"
+        placeholder="dd/mm/aaaa"
+        aria-invalid={invalid || broken ? true : undefined}
+        className={`tabular h-[38px] w-36 rounded-control border bg-panel px-2.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-focus/30 ${
+          invalid || broken ? 'border-negative' : 'border-line-2'
+        }`}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+};
 
 export const PeriodControl = ({
   value,
@@ -145,7 +195,7 @@ export const RangePickerBody = ({
 }: {
   readonly shortcuts: readonly RangeShortcut[];
   readonly activeId: string | null;
-  /** O intervalo livre em vigor: o calendário abre nele. */
+  /** O intervalo em vigor (atalho ou livre): o calendário abre com ele marcado. */
   readonly custom: { readonly from: string; readonly to: string } | null;
   readonly today: string;
   readonly allowFuture?: boolean;
@@ -156,13 +206,66 @@ export const RangePickerBody = ({
   const [range, setRange] = useState<DateRange | undefined>(
     custom === null ? undefined : { from: toDate(custom.from), to: toDate(custom.to) },
   );
+  // "Personalizado" é um atalho como os outros: marcado, o foco vai para o "De".
+  const [customMode, setCustomMode] = useState(activeId === null);
+  const [fromText, setFromText] = useState(custom === null ? '' : brDate(custom.from));
+  const [toText, setToText] = useState(custom === null ? '' : brDate(custom.to));
+  const fromInput = useRef<HTMLInputElement>(null);
 
   const todayDate = toDate(today);
   const narrow = globalThis.innerWidth < 760;
   const complete = range?.from !== undefined && range.to !== undefined;
   const from = range?.from === undefined ? null : toIso(range.from);
   const to = range?.to === undefined ? null : toIso(range.to);
-  const anchor = range?.to ?? todayDate;
+  const [month, setMonth] = useState<Date>(() => {
+    const anchor = range?.to ?? todayDate;
+    return narrow ? anchor : new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1);
+  });
+  const outOfBounds = (date: Date): boolean => !allowFuture && date > todayDate;
+
+  const pick = (next: DateRange | undefined): void => {
+    setRange(next);
+    setCustomMode(true);
+    setFromText(next?.from === undefined ? '' : brDate(toIso(next.from)));
+    setToText(next?.to === undefined ? '' : brDate(toIso(next.to)));
+  };
+
+  /** Digitado: aceita dd/mm/aaaa; datas válidas movem o calendário até elas. */
+  const type = (which: 'from' | 'to', raw: string): void => {
+    const text = maskBrDate(raw);
+    (which === 'from' ? setFromText : setToText)(text);
+    setCustomMode(true);
+    const date = parseBrDate(text);
+    if (date === null || outOfBounds(date)) {
+      if (text.length === 10 || text === '') {
+        setRange((current) =>
+          which === 'from'
+            ? current?.to === undefined
+              ? undefined
+              : { from: undefined, to: current.to }
+            : current?.from === undefined
+              ? undefined
+              : { from: current.from, to: undefined },
+        );
+      }
+      return;
+    }
+    setRange((current) => {
+      const other = which === 'from' ? current?.to : current?.from;
+      if (other === undefined) {
+        return which === 'from'
+          ? { from: date, to: undefined }
+          : { from: undefined, to: date };
+      }
+      return which === 'from' ? { from: date, to: other } : { from: other, to: date };
+    });
+    setMonth(
+      narrow || which === 'from'
+        ? new Date(date.getFullYear(), date.getMonth(), 1)
+        : new Date(date.getFullYear(), date.getMonth() - 1, 1),
+    );
+  };
+  const ordered = from !== null && to !== null && from <= to;
 
   return (
     <>
@@ -185,24 +288,30 @@ export const RangePickerBody = ({
             {shortcut.label}
           </button>
         ))}
-        <span
-          className={`mx-2 mt-1 block rounded-control px-2 py-2 text-left text-[0.84375rem] ${
-            activeId === null ? 'bg-accent-soft font-semibold' : 'text-ink-2'
+        <button
+          type="button"
+          aria-current={customMode ? 'true' : undefined}
+          className={`mx-2 block w-[calc(100%-1rem)] cursor-pointer rounded-control px-2 py-2 text-left text-[0.84375rem] ${
+            customMode ? 'bg-accent-soft font-semibold' : 'hover:bg-panel-2'
           }`}
+          onClick={() => {
+            setCustomMode(true);
+            fromInput.current?.focus();
+            fromInput.current?.select();
+          }}
         >
           Personalizado
-        </span>
+        </button>
       </div>
 
       <div className="flex flex-col gap-4 p-4">
         <Calendar
           mode="range"
           numberOfMonths={narrow ? 1 : 2}
-          defaultMonth={
-            narrow ? anchor : new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1)
-          }
+          month={month}
+          onMonthChange={setMonth}
           selected={range}
-          onSelect={setRange}
+          onSelect={pick}
           {...(allowFuture
             ? {}
             : { disabled: { after: todayDate }, endMonth: todayDate })}
@@ -213,25 +322,25 @@ export const RangePickerBody = ({
 
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex gap-3">
-            <span className="flex flex-col gap-1">
-              <Label>De</Label>
-              <output className="tabular flex h-[38px] min-w-32 items-center rounded-control border border-line-2 px-2.5 text-sm">
-                {brDate(from)}
-              </output>
-            </span>
-            <span className="flex flex-col gap-1">
-              <Label>Até</Label>
-              <output className="tabular flex h-[38px] min-w-32 items-center rounded-control border border-line-2 px-2.5 text-sm">
-                {brDate(to)}
-              </output>
-            </span>
+            <DateTextField
+              label="De"
+              inputRef={fromInput}
+              value={fromText}
+              onChange={(raw) => type('from', raw)}
+            />
+            <DateTextField
+              label="Até"
+              value={toText}
+              invalid={from !== null && to !== null && !ordered}
+              onChange={(raw) => type('to', raw)}
+            />
           </div>
 
           <div className="flex gap-2">
             <Button onClick={onClose}>Cancelar</Button>
             <Button
               variant="primary"
-              disabled={!complete}
+              disabled={!complete || !ordered}
               onClick={() => {
                 if (from !== null && to !== null) {
                   onApply({ from, to });
@@ -262,7 +371,7 @@ const RangeBody = ({
       range: resolvePeriod({ kind: 'preset', preset: shortcut.preset }, today, inception),
     }))}
     activeId={value.kind === 'preset' ? value.preset : null}
-    custom={value.kind === 'custom' ? { from: value.from, to: value.to } : null}
+    custom={resolvePeriod(value, today, inception)}
     today={today}
     onShortcut={(shortcut) =>
       onChange({ kind: 'preset', preset: shortcut.id as PeriodPreset })
@@ -292,6 +401,8 @@ export const FlowPeriodControl = ({
   const [open, setOpen] = useState(false);
   const label = formatFlowRange(value, today);
   const active = flowShortcutFor(value, today);
+  const name =
+    FLOW_SHORTCUTS.find((shortcut) => shortcut.id === active)?.label ?? 'Personalizado';
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -300,18 +411,20 @@ export const FlowPeriodControl = ({
           type="button"
           aria-haspopup="dialog"
           aria-expanded={open}
-          aria-label={`Período: ${label}`}
-          className="inline-flex h-control cursor-pointer items-center gap-2 rounded-control border border-line-2 bg-panel px-[11px] text-[0.78125rem] font-medium text-ink-2 hover:bg-panel-2"
+          aria-label={`Período: ${name} · ${label}`}
+          className="inline-flex h-control cursor-pointer items-center gap-2 rounded-control border border-line-2 bg-panel px-[11px] text-[0.78125rem] font-medium text-ink hover:bg-panel-2"
         >
           <Icon name="calendar" />
-          <span className="tabular">{label}</span>
+          <span>{name}</span>
+          <span className="tabular text-[0.71875rem] font-normal text-ink-3">
+            {label}
+          </span>
           <Icon name="chevron-down" />
         </button>
       </PopoverTrigger>
       <PopoverContent
         role="dialog"
-        aria-label="Escolher período"
-        align="end"
+        aria-label="Período personalizado"
         collisionPadding={16}
         className="flex max-w-[calc(100vw-2rem)] flex-wrap"
       >
@@ -322,7 +435,7 @@ export const FlowPeriodControl = ({
             range: shortcut.range(today),
           }))}
           activeId={active}
-          custom={active === null ? value : null}
+          custom={value}
           today={today}
           allowFuture
           onShortcut={(shortcut) => onChange(shortcut.range as FlowRange)}

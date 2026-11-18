@@ -103,11 +103,8 @@ const FinanceRow = ({ row }: { readonly row: FinanceEffectRow }): React.ReactEle
         <span className="ml-1.5 text-xs text-ink-3">{row.hint}</span>
       )}
     </th>
-    <td className="tabular px-3 py-2 text-right text-ink-3">{formatBRL(row.before)}</td>
+    <td className="tabular px-3 py-2 text-right text-ink-2">{formatBRL(row.before)}</td>
     <td className="tabular px-3 py-2 text-right font-semibold">
-      <span aria-hidden="true" className="mr-1.5 text-ink-3">
-        →
-      </span>
       <span className="sr-only">para </span>
       {formatBRL(row.after)}
     </td>
@@ -127,34 +124,42 @@ export const EffectTable = ({
   // nenhuma mudança o bloco inteiro some.
   const shown = rows.filter((row) => !isFinanceRow(row) || row.before !== row.after);
   if (shown.length === 0) return null;
+  // Prancha 07: o rótulo "EFEITO" fica fora da tabela; dentro, colunas Antes e
+  // Depois, com o depois em negrito.
   return (
-    <table
-      aria-busy={busy}
-      className={`w-full overflow-hidden rounded-control border border-line text-sm transition-opacity ${
-        busy ? 'opacity-60' : ''
-      }`}
-    >
-      <caption className="sr-only">{title}</caption>
-      <thead className="bg-panel-2">
-        <tr>
-          <th scope="col" className="px-3 py-1.5 text-left font-normal">
-            <Label>{title}</Label>
-          </th>
-          <th scope="col" colSpan={2} className="px-3 py-1.5 text-right font-normal">
-            <Label>Antes → depois</Label>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {shown.map((row) =>
-          isFinanceRow(row) ? (
-            <FinanceRow key={`${row.label}-${row.hint ?? ''}`} row={row} />
-          ) : (
-            <Row key={row.id} row={row} />
-          ),
-        )}
-      </tbody>
-    </table>
+    <div className="flex flex-col gap-2">
+      <Label>{title}</Label>
+      <table
+        aria-busy={busy}
+        className={`w-full overflow-hidden rounded-control border border-line text-sm transition-opacity ${
+          busy ? 'opacity-60' : ''
+        }`}
+      >
+        <caption className="sr-only">{title}</caption>
+        <thead>
+          <tr>
+            <th scope="col" className="px-3 py-1.5 text-left font-normal">
+              <span className="sr-only">Linha</span>
+            </th>
+            <th scope="col" className="w-32 px-3 py-1.5 text-right font-normal">
+              <Label>Antes</Label>
+            </th>
+            <th scope="col" className="w-32 px-3 py-1.5 text-right font-normal">
+              <Label>Depois</Label>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((row) =>
+            isFinanceRow(row) ? (
+              <FinanceRow key={`${row.label}-${row.hint ?? ''}`} row={row} />
+            ) : (
+              <Row key={row.id} row={row} />
+            ),
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 };
 

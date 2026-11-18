@@ -166,6 +166,7 @@ const PATHS = {
       <path d="M2 5h12v8.5H2z M5.5 5V3h5v2" />
     </>
   ),
+  grip: <path d="M6 3.5v.01 M10 3.5v.01 M6 8v.01 M10 8v.01 M6 12.5v.01 M10 12.5v.01" />,
 } as const;
 
 export type IconName = keyof typeof PATHS;

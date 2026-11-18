@@ -185,3 +185,17 @@ export const decodePeriod = (raw: string | null): Period => {
 
   return { kind: 'custom', from, to };
 };
+
+const WINDOW_LABELS: Readonly<Record<PeriodPreset, string>> = {
+  mes: 'este mês',
+  mes_anterior: 'mês anterior',
+  '3m': 'últimos 3 meses',
+  ytd: 'no ano',
+  '12m': 'últimos 12 meses',
+  '24m': 'últimos 24 meses',
+  inicio: 'desde o início',
+};
+
+/** Como o cabeçalho de um painel nomeia a janela: "últimos 12 meses", "no ano". */
+export const windowLabel = (period: Period): string =>
+  period.kind === 'preset' ? WINDOW_LABELS[period.preset] : 'período escolhido';

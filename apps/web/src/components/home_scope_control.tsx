@@ -5,6 +5,7 @@ import type { HomeScope } from '../lib/routes.js';
 import { ALL_SCOPE } from '../lib/scope.js';
 import { usePortfolios } from './portfolios_provider.js';
 import { Segmented } from './primitives.js';
+import { SearchSelect } from './search_select.js';
 
 /**
  * VGR-01 · O escopo da Visão geral: Tudo, Fluxo ou Investimentos. É o único
@@ -26,7 +27,7 @@ const ScopeControl = ({
   readonly portfolioId?: string | null;
 }): React.ReactElement => {
   const navigate = useNavigate();
-  const { portfolios, slugs } = usePortfolios();
+  const { portfolios, slugs, total, values } = usePortfolios();
   const portfolio =
     portfolioId === null ? ALL_SCOPE : (slugs.get(portfolioId) ?? ALL_SCOPE);
 
@@ -43,21 +44,22 @@ const ScopeControl = ({
         }}
       />
       {scope === 'investimentos' ? (
-        <select
-          aria-label="Carteira"
-          className="h-control cursor-pointer rounded-control border border-line bg-panel px-2 text-[0.8125rem]"
+        <SearchSelect
+          label="Carteira"
+          toolbar={{ icon: 'list' }}
           value={portfolio}
-          onChange={(event) => {
-            void navigate(routes.home('investimentos', event.target.value));
+          options={[
+            { id: ALL_SCOPE, label: 'Todas as carteiras', value: total },
+            ...portfolios.map((item) => ({
+              id: slugs.get(item.id) ?? item.id,
+              label: item.name,
+              value: values[item.id] ?? null,
+            })),
+          ]}
+          onChange={(next) => {
+            void navigate(routes.home('investimentos', next));
           }}
-        >
-          <option value={ALL_SCOPE}>Todas as carteiras</option>
-          {portfolios.map((item) => (
-            <option key={item.id} value={slugs.get(item.id) ?? item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
+        />
       ) : null}
     </div>
   );

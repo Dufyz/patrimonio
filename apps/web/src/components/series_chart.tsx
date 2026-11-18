@@ -100,6 +100,8 @@ export type SeriesChartProps = {
   readonly height?: number;
   /** Área empilhada começa em zero; linha de retorno pode descer abaixo dele. */
   readonly fromZero?: boolean;
+  /** Piso do eixo (de `axisFloor`): o gráfico começa nele em vez de no zero. */
+  readonly floor?: number | undefined;
   readonly xTickLabel: (date: DateOnly) => string;
   readonly tooltipDateLabel: (date: DateOnly) => string;
   readonly width?: number | undefined;
@@ -136,6 +138,7 @@ export const SeriesChart = ({
   ariaLabel,
   height = DEFAULT_HEIGHT,
   fromZero = false,
+  floor,
   xTickLabel,
   tooltipDateLabel,
   width: forcedWidth,
@@ -194,7 +197,10 @@ export const SeriesChart = ({
     ...markerValues(markers),
     ...(reference === undefined ? [] : markerValues([{ value: reference.value }])),
   ];
-  const domain = domainOf(values, { fromZero });
+  const domain = domainOf(
+    values,
+    floor === undefined ? { fromZero } : { fromZero, floor },
+  );
 
   const x = linearScale([0, Math.max(1, dates.length - 1)], [0, plotWidth]);
   const y = linearScale(domain, [plotHeight, 0]);
@@ -364,7 +370,7 @@ export const SeriesChart = ({
                     textAnchor="middle"
                     className="fill-ink-3 text-label"
                   >
-                    antes do primeiro lançamento
+                    antes da primeira movimentação
                   </text>
                 ) : null}
               </g>

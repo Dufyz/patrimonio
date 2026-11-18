@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useId, useRef, useState } from 'r
 
 import { cn } from '../lib/cn.js';
 import { Icon } from './icon.js';
+import type { IconName } from './icon.js';
 import { Button, Kbd } from './primitives.js';
 import {
   Dialog,
@@ -212,11 +213,17 @@ export const AlertModal = ({
   confirmLabel,
   danger = true,
   pending = false,
+  subtitle,
+  icon,
   onCancel,
   onConfirm,
 }: {
   readonly open: boolean;
   readonly title: string;
+  /** Uma linha abaixo do título: o que exatamente está em jogo. */
+  readonly subtitle?: string | undefined;
+  /** O ícone do círculo; por padrão, lixeira no destrutivo e "i" no resto. */
+  readonly icon?: IconName | undefined;
   readonly message: React.ReactNode;
   readonly cancelLabel: string;
   readonly confirmLabel: string;
@@ -238,12 +245,24 @@ export const AlertModal = ({
       }}
     >
       <DialogHeader>
+        <span
+          aria-hidden="true"
+          className={cn(
+            'grid size-9 shrink-0 place-items-center rounded-full',
+            danger ? 'bg-negative-soft text-negative' : 'bg-accent-soft text-accent',
+          )}
+        >
+          <Icon name={icon ?? (danger ? 'trash' : 'info')} />
+        </span>
         <div className="min-w-0">
           <DialogTitle>{title}</DialogTitle>
+          {subtitle === undefined ? null : (
+            <DialogDescription className="truncate">{subtitle}</DialogDescription>
+          )}
         </div>
       </DialogHeader>
       <DialogBody>
-        <p className="text-sm">{message}</p>
+        <div className="text-sm leading-relaxed text-ink-2">{message}</div>
       </DialogBody>
       <DialogFooter>
         <span />
@@ -381,6 +400,7 @@ export const Modal = ({
           {footer === undefined ? null : <DialogFooter>{footer}</DialogFooter>}
 
           <AlertModal
+            icon="warning"
             open={asking}
             title="Descartar alterações?"
             message="O que você preencheu neste formulário será perdido."

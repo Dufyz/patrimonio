@@ -50,6 +50,8 @@ export type DataTableProps<Row> = {
   readonly rowId: (row: Row) => string;
   readonly rowLabel: (row: Row) => string;
   readonly total?: GroupSummary | undefined;
+  /** O rótulo da linha de total; sem ele, "Total". */
+  readonly totalLabel?: string | undefined;
   readonly rowsPerGroup?: number | undefined;
   readonly onOpenRow?: ((row: Row) => void) | undefined;
   /**
@@ -77,6 +79,8 @@ export type DataTableProps<Row> = {
       ) => { readonly label: string; readonly onSelect: () => void } | null)
     | undefined;
   readonly isRowDisabled?: ((row: Row) => boolean) | undefined;
+  /** Linhas que vão para o fim do grupo, mas continuam clicáveis (posição encerrada). */
+  readonly isRowPinnedLast?: ((row: Row) => boolean) | undefined;
   /** Largura imposta, para teste e para a comparação visual. */
   readonly width?: number | undefined;
   /** As colunas que a pessoa escolheu em Exibição; a largura ainda pode escondê-las. */
@@ -96,6 +100,7 @@ export const DataTable = <Row,>({
   rowId,
   rowLabel,
   total,
+  totalLabel,
   rowsPerGroup,
   onOpenRow,
   openOnClick = false,
@@ -105,6 +110,7 @@ export const DataTable = <Row,>({
   renderExpansion,
   emptyState,
   isRowDisabled,
+  isRowPinnedLast,
   groupAction,
   width: forcedWidth,
   columnPreference = EMPTY_COLUMN_PREFERENCE,
@@ -154,7 +160,9 @@ export const DataTable = <Row,>({
         ...(total === undefined ? {} : { total }),
         ...(rowsPerGroup === undefined ? {} : { rowsPerGroup }),
         expandable: renderExpansion !== undefined,
-        ...(isRowDisabled === undefined ? {} : { pinLast: isRowDisabled }),
+        ...((isRowPinnedLast ?? isRowDisabled) === undefined
+          ? {}
+          : { pinLast: isRowPinnedLast ?? isRowDisabled }),
       }),
     [
       groups,
@@ -166,6 +174,7 @@ export const DataTable = <Row,>({
       rowsPerGroup,
       renderExpansion,
       isRowDisabled,
+      isRowPinnedLast,
     ],
   );
 
@@ -366,7 +375,9 @@ export const DataTable = <Row,>({
                 <SummaryRow key={entry.id} kind="total">
                   {shown.map((column, index) => (
                     <Td key={column.id} numeric={column.numeric === true}>
-                      {index === 0 ? 'Total' : column.summary?.(entry.summary)}
+                      {index === 0
+                        ? (totalLabel ?? 'Total')
+                        : column.summary?.(entry.summary)}
                     </Td>
                   ))}
                   {rowActions === undefined ? null : <td />}

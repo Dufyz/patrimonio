@@ -1,5 +1,6 @@
 import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import { DatePicker } from '../../components/date_picker.js';
 import { Icon } from '../../components/icon.js';
 import type { EntryField, FieldErrors } from '../../lib/entry.js';
 import { maskMoney, maskPercent } from '../../lib/money_mask.js';
@@ -89,12 +90,38 @@ export const Input = ({
   readonly invalid: boolean;
   readonly changed?: boolean;
   readonly numeric?: boolean;
-}): React.ReactElement => (
-  <input
-    className={`${controlClass({ invalid, changed, numeric })} ${className ?? ''}`}
-    {...rest}
-  />
-);
+}): React.ReactElement => {
+  // Todo campo de data usa o seletor padrão, nunca o calendário do navegador.
+  if (rest.type === 'date') {
+    const emit = (iso: string): void =>
+      rest.onChange?.({
+        target: { value: iso },
+        currentTarget: { value: iso },
+      } as unknown as React.ChangeEvent<HTMLInputElement>);
+    return (
+      <DatePicker
+        value={typeof rest.value === 'string' ? rest.value : ''}
+        onChange={emit}
+        min={typeof rest.min === 'string' ? rest.min : undefined}
+        max={typeof rest.max === 'string' ? rest.max : undefined}
+        id={rest.id}
+        disabled={rest.disabled}
+        invalid={invalid}
+        changed={changed}
+        className={className}
+        aria-describedby={rest['aria-describedby']}
+        aria-invalid={invalid}
+        aria-label={rest['aria-label']}
+      />
+    );
+  }
+  return (
+    <input
+      className={`${controlClass({ invalid, changed, numeric })} ${className ?? ''}`}
+      {...rest}
+    />
+  );
+};
 
 /**
  * Campo de dinheiro: o `Input` com a máscara de `maskMoney`. O valor chega a
@@ -148,7 +175,7 @@ export const MoneyInput = ({
       inputMode="decimal"
       autoComplete="off"
       {...rest}
-      className={`${mask ? (symbolSide === 'left' ? 'pl-9 ' : 'pr-7 ') : ''}${className ?? ''}`}
+      className={`${mask && symbol !== '' ? (symbolSide === 'left' ? 'pl-9 ' : 'pr-7 ') : ''}${className ?? ''}`}
       ref={ref}
       value={shown}
       onChange={(event) => {
@@ -179,7 +206,7 @@ export const MoneyInput = ({
     />
   );
 
-  if (!mask) return input;
+  if (!mask || symbol === '') return input;
 
   // O "R$" fica fora do valor: o campo guarda `1.200,00`, e a tela mostra
   // `R$ 1.200,00`. Assim o valor continua sendo lido por `parseAmountInput`.
@@ -309,7 +336,7 @@ export const Callout = ({
             : 'text-accent'
       }`}
     >
-      <Icon name={tone === 'info' ? 'info' : 'warning'} />
+      <Icon name={tone === 'info' ? 'check' : 'warning'} />
     </span>
     <div className="min-w-0">{children}</div>
   </div>
@@ -323,3 +350,81 @@ export const FieldLabel = ({
 }): React.ReactElement => (
   <span className="text-xs font-medium text-ink-2">{children}</span>
 );
+
+/**
+ * O interruptor da prancha 07 ("Repetir todo mês"): botão com `role="switch"`,
+ * rótulo ao lado. Clicar no rótulo também alterna.
+ */
+export const Toggle = ({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+}: {
+  readonly checked: boolean;
+  readonly onChange: (next: boolean) => void;
+  readonly label: string;
+  readonly disabled?: boolean;
+}): React.ReactElement => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    disabled={disabled}
+    onClick={() => onChange(!checked)}
+    className="inline-flex cursor-pointer items-center gap-2.5 text-sm text-ink disabled:cursor-not-allowed disabled:text-ink-3"
+  >
+    <span
+      aria-hidden="true"
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+        checked ? 'bg-accent' : 'bg-line-2'
+      }`}
+    >
+      <span
+        className={`absolute size-4 rounded-full bg-white shadow-sm transition-transform ${
+          checked ? 'translate-x-[18px]' : 'translate-x-0.5'
+        }`}
+      />
+    </span>
+    {label}
+  </button>
+);
+
+/**
+ * Anotações de um lançamento ou recorrente: texto livre, separado do título, com
+ * o contador no canto do rótulo. É o mesmo campo nos dois modais.
+ */
+export const NoteField = ({
+  value,
+  onChange,
+  placeholder = 'Detalhes que não cabem na descrição',
+  max = 200,
+}: {
+  readonly value: string;
+  readonly onChange: (next: string) => void;
+  readonly placeholder?: string;
+  readonly max?: number;
+}): React.ReactElement => {
+  const id = useId();
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <label htmlFor={id} className="text-xs font-medium text-ink-2">
+          Anotações
+        </label>
+        <span className="tabular text-[0.71875rem] text-ink-3">
+          {value.length}/{max}
+        </span>
+      </div>
+      <textarea
+        id={id}
+        rows={2}
+        maxLength={max}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-[60px] w-full resize-y rounded-control border border-line-2 bg-field px-2.5 py-2 text-sm outline-none placeholder:text-ink-3 focus:border-accent focus:ring-2 focus:ring-accent-soft"
+      />
+    </div>
+  );
+};

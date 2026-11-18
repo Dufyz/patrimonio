@@ -28,9 +28,26 @@ export const last12Months = (today: IsoDate): DateRange => ({
   to: endOfMonth(today),
 });
 
+export const last3Months = (today: IsoDate): DateRange => ({
+  from: startOfMonth(addMonths(today, -2)),
+  to: endOfMonth(today),
+});
+
+/** Do 1º de janeiro ao fim do mês corrente (o fluxo inclui os previstos do mês). */
+export const yearToDate = (today: IsoDate): DateRange => ({
+  from: `${today.slice(0, 4)}-01-01` as IsoDate,
+  to: endOfMonth(today),
+});
+
+/**
+ * Os mesmos atalhos e nomes do seletor de período da Visão geral (o seletor
+ * padrão da aplicação); no fluxo, cada um cobre meses inteiros.
+ */
 export const PERIOD_SHORTCUTS = [
-  { id: 'current', label: 'Mês atual', range: currentMonth },
+  { id: 'current', label: 'Este mês', range: currentMonth },
   { id: 'previous', label: 'Mês anterior', range: previousMonth },
+  { id: 'last3', label: 'Últimos 3 meses', range: last3Months },
+  { id: 'ytd', label: 'Ano até hoje', range: yearToDate },
   { id: 'last12', label: 'Últimos 12 meses', range: last12Months },
 ] as const;
 

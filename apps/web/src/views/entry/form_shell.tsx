@@ -1,5 +1,5 @@
 import { useRequestClose } from '../../components/overlay.js';
-import { Button } from '../../components/primitives.js';
+import { Button, Kbd } from '../../components/primitives.js';
 import { Callout } from './fields.js';
 import { submitKeys } from './hooks.js';
 
@@ -22,6 +22,7 @@ export const FormShell = ({
   canSave = true,
   error,
   destructive,
+  hint,
   secondary,
   summary,
   children,
@@ -41,6 +42,8 @@ export const FormShell = ({
   /** O que a `api` recusou e não tem campo próprio. */
   readonly error?: string | null | undefined;
   readonly destructive?: React.ReactNode;
+  /** Falso esconde a dica de teclado do rodapé (passos de assistente). */
+  readonly hint?: boolean;
   readonly secondary?: React.ReactNode;
   /** O resumo à esquerda dos campos, no segundo passo do assistente. */
   readonly summary?: React.ReactNode;
@@ -72,24 +75,28 @@ export const FormShell = ({
         <Callout tone="error">{error}</Callout>
       )}
 
-      <div className="sticky -bottom-5 z-10 -mx-6 -mb-5 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-panel px-6 py-4">
+      <div className="sticky -bottom-5 z-10 -mx-6 -mb-5 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-panel-2 px-6 py-3.5">
         <div className="flex items-center gap-2">
           {destructive}
           {secondary}
+          {destructive === undefined &&
+          secondary === undefined &&
+          saveShortcut !== null &&
+          hint !== false ? (
+            <span className="inline-flex items-center gap-1.5 text-xs text-ink-3 max-sm:hidden">
+              <Kbd>⌘↵</Kbd> salva
+              {onSaveAgain === undefined ? null : (
+                <>
+                  {' · '}
+                  <Kbd>⇧↵</Kbd> salva e abre outro
+                </>
+              )}
+            </span>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
-          {onSaveAgain === undefined ? null : (
-            <Button disabled={pending || !canSave} shortcut="⇧↵" onClick={onSaveAgain}>
-              Salvar e novo
-            </Button>
-          )}
           {showCancel ? <Button onClick={cancel}>Cancelar</Button> : null}
-          <Button
-            variant="primary"
-            {...(saveShortcut === null ? {} : { shortcut: saveShortcut })}
-            disabled={pending || !canSave}
-            onClick={onSave}
-          >
+          <Button variant="primary" disabled={pending || !canSave} onClick={onSave}>
             {pending ? 'Salvando…' : saveLabel}
           </Button>
         </div>

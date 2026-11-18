@@ -34,6 +34,18 @@ export type SearchSelectProps = {
   readonly onChange: (id: string) => void;
   readonly placeholder?: string;
   readonly emptyLabel?: string;
+  /**
+   * Na barra de uma tela, o gatilho mostra ícone e rótulo ("≡ Carteira
+   * Emergência") e tem a largura do conteúdo, como na prancha 1.3.
+   */
+  readonly toolbar?:
+    { readonly icon: React.ComponentProps<typeof Icon>['name'] } | undefined;
+  /** Uma nota no pé da lista ("Vale só para esta tela..."). */
+  readonly note?: string | undefined;
+  /** Já abre com a lista à mostra: a edição em linha de uma célula. */
+  readonly defaultOpen?: boolean | undefined;
+  /** Fechou sem escolher (Esc ou clique fora). */
+  readonly onDismiss?: (() => void) | undefined;
 };
 
 const matches = (option: SelectOption, query: string): boolean => {
@@ -52,8 +64,12 @@ export const SearchSelect = ({
   onChange,
   placeholder = 'Filtrar',
   emptyLabel = 'Nada encontrado',
+  toolbar,
+  note,
+  defaultOpen = false,
+  onDismiss,
 }: SearchSelectProps): React.ReactElement => {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const container = useRef<HTMLDivElement>(null);
@@ -66,7 +82,10 @@ export const SearchSelect = ({
     trigger.current?.focus();
   };
 
-  useDismiss(container, open, close);
+  useDismiss(container, open, () => {
+    close();
+    onDismiss?.();
+  });
 
   const filtered = useMemo(
     () => options.filter((option) => matches(option, query)),
@@ -101,27 +120,53 @@ export const SearchSelect = ({
 
   return (
     <div ref={container} className="relative">
-      <button
-        ref={trigger}
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={label}
-        className="flex h-control w-full cursor-pointer items-center justify-between gap-2 rounded-control border border-line bg-panel px-3 text-sm"
-        onClick={() => {
-          setOpen((current) => !current);
-          setActive(0);
-        }}
-      >
-        <span className="truncate">{selected?.label ?? placeholder}</span>
-        <span aria-hidden="true" className="text-ink-3">
-          <Icon name="chevron-down" />
-        </span>
-      </button>
+      {toolbar === undefined ? (
+        <button
+          ref={trigger}
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label={label}
+          className="flex h-control w-full cursor-pointer items-center justify-between gap-2 rounded-control border border-line bg-panel px-3 text-sm"
+          onClick={() => {
+            setOpen((current) => !current);
+            setActive(0);
+          }}
+        >
+          <span className="truncate">{selected?.label ?? placeholder}</span>
+          <span aria-hidden="true" className="text-ink-3">
+            <Icon name="chevron-down" />
+          </span>
+        </button>
+      ) : (
+        <button
+          ref={trigger}
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label={`${label}: ${selected?.label ?? placeholder}`}
+          className="flex h-control cursor-pointer items-center gap-2 rounded-control border border-line bg-panel px-3 text-[0.8125rem] hover:bg-panel-2"
+          onClick={() => {
+            setOpen((current) => !current);
+            setActive(0);
+          }}
+        >
+          <span aria-hidden="true" className="text-ink-2">
+            <Icon name={toolbar.icon} />
+          </span>
+          <span className="text-ink-3">{label}</span>
+          <span className="font-semibold">{selected?.label ?? placeholder}</span>
+          <span aria-hidden="true" className="text-ink-3">
+            <Icon name="chevron-down" />
+          </span>
+        </button>
+      )}
 
       {open ? (
         <div
-          className="absolute top-[calc(var(--spacing-control)+0.25rem)] right-0 left-0 z-30 rounded-panel border border-line bg-panel py-1 shadow-lg"
+          className={`absolute top-[calc(var(--spacing-control)+0.25rem)] z-30 rounded-panel border border-line bg-panel p-1 shadow-lg ${
+            toolbar === undefined ? 'right-0 left-0' : 'left-0 w-64'
+          }`}
           onKeyDown={onKeyDown}
         >
           {withSearch ? (
@@ -156,8 +201,12 @@ export const SearchSelect = ({
                   role="option"
                   aria-selected={option.id === value}
                   tabIndex={-1}
-                  className={`flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-1.5 text-left text-sm ${
-                    index === active ? 'bg-panel-2' : ''
+                  className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-control px-3 py-1.5 text-left text-sm ${
+                    option.id === value
+                      ? 'bg-accent-soft font-semibold text-accent'
+                      : index === active
+                        ? 'bg-panel-2'
+                        : ''
                   }`}
                   onMouseEnter={() => setActive(index)}
                   onClick={() => choose(option.id)}
@@ -182,6 +231,11 @@ export const SearchSelect = ({
               </li>
             ))}
           </ul>
+          {note === undefined ? null : (
+            <p className="mt-1 border-t border-line px-3 pt-2 pb-1.5 text-xs text-ink-3">
+              {note}
+            </p>
+          )}
         </div>
       ) : null}
     </div>

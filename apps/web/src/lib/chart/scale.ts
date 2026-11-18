@@ -76,12 +76,19 @@ export const niceTicks = (min: number, max: number, count = 5): readonly number[
  */
 export const domainOf = (
   values: readonly number[],
-  options: { readonly fromZero?: boolean } = {},
+  options: { readonly fromZero?: boolean; readonly floor?: number } = {},
 ): readonly [number, number] => {
   if (values.length === 0) return [0, 1];
 
   const min = Math.min(...values);
   const max = Math.max(...values);
+
+  // Piso explícito (a prancha 1 diz "eixo a partir de R$ 100k" no cabeçalho do
+  // painel): o gráfico começa nele e não no menor valor, com folga só em cima.
+  if (options.floor !== undefined && options.floor < min && options.floor < max) {
+    return [options.floor, max + (max - options.floor) * 0.04];
+  }
+
   const low = options.fromZero === true ? Math.min(0, min) : min;
   const high = options.fromZero === true ? Math.max(0, max) : max;
 
@@ -90,6 +97,33 @@ export const domainOf = (
   const padding = (high - low) * 0.08;
   return [options.fromZero === true ? low : low - padding, high + padding];
 };
+
+/**
+ * O piso redondo de um eixo que não parte de zero: o maior múltiplo do passo das
+ * marcas que ainda fica abaixo do menor valor (`118k` a `195k` → `100k`). Zero
+ * quando os valores já tocam o zero ou quando não há intervalo para marcar —
+ * nesse caso o eixo é o de sempre.
+ */
+export const axisFloor = (values: readonly number[]): number => {
+  const finite = values.filter((value) => Number.isFinite(value));
+  if (finite.length === 0) return 0;
+  const min = Math.min(...finite);
+  const max = Math.max(...finite);
+  if (min <= 0 || min === max) return 0;
+  const ticks = niceTicks(min, max, 4);
+  const first = ticks[0];
+  const second = ticks[1];
+  if (first === undefined || second === undefined) return 0;
+  const step = second - first;
+  if (step <= 0) return 0;
+  return Math.max(0, Math.floor(min / step) * step);
+};
+
+/** `100000` → `R$ 100k`; abaixo de mil, o número inteiro. Para o cabeçalho do painel. */
+export const formatAxisFloor = (floor: number): string =>
+  floor >= 1000
+    ? `R$ ${String(Number((floor / 1000).toFixed(1))).replace('.', ',')}k`
+    : `R$ ${floor}`;
 
 /** Posições de barra em um eixo categórico, com folga entre elas. */
 export const bandScale = (

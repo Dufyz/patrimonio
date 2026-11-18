@@ -21,7 +21,9 @@ export const Panel = ({
   action,
   children,
   className,
+  id,
 }: {
+  readonly id?: string | undefined;
   readonly title?: string | undefined;
   readonly hint?: React.ReactNode;
   readonly action?: React.ReactNode;
@@ -31,6 +33,7 @@ export const Panel = ({
   const titleId = useId();
   return (
     <section
+      id={id}
       {...(title === undefined ? {} : { 'aria-labelledby': titleId })}
       className={cn(
         'flex min-w-0 flex-col overflow-hidden rounded-panel border border-line bg-panel shadow-panel',
