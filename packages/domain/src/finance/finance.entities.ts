@@ -115,6 +115,8 @@ export type FinRecurring = {
   readonly second_source: FinSource | null;
   /** Divisão: quanto a primeira origem cobre; a segunda paga o resto (RN-20, RN-21). */
   readonly covers_up_to: string | null;
+  /** Anotações livres do recorrente. */
+  readonly note?: string | null | undefined;
   readonly day: number;
   readonly mode: FinRecurringMode;
   readonly amount: string;
@@ -138,6 +140,15 @@ export type FinInstallment = {
   /** A data da compra original, que a fatura exibe em todas as parcelas. */
   readonly origin: string;
 };
+
+/**
+ * O previsto sem data (ainda não se sabe quando acontece): a data guardada é
+ * este marcador, fora de qualquer período. Nunca entra em totais, saldo previsto
+ * nem fatura; só aparece na seção "Previstos sem data" de Lançamentos.
+ */
+export const UNDATED_DATE = '9999-12-31';
+
+export const isUndatedDate = (date: string): boolean => date === UNDATED_DATE;
 
 export type FinEntry = {
   readonly id: string;

@@ -61,6 +61,9 @@
   "up/060_add_fin_account_in_wealth.sql": "e6cfe4bc80ed42d286a015d7792bde0526c76a71d28af8a9ffff7956b7ccc5db",
   "up/061_add_fin_recurring_aporte_columns.sql": "de1d1869691afac478531321d38fa265e889fcb5c3b144ee5125954e65a84223",
   "up/062_allow_fin_recurring_aporte.sql": "1ae011466f82e86cd87a2f00cc1d41ef8d301c5b178ec5b05461592daacbf6ee",
+  "up/063_add_fin_recurring_note.sql": "201fed30c39a269f520eaa7d5a3c86c980d13480b7c21820c1c8a93492820ef6",
+  "up/064_add_fin_category_investment.sql": "2dc7446918454527ead2dba3d8d666605775493c7e218accda47b232e6345c8d",
+  "up/065_drop_fin_category_investment.sql": "29dee3506cb77f29bd549061c1e387034c115be9535b71657816f5add5cdcd7a",
   "down/001_enable_unaccent.sql": "6241c808422ee14f6e894e5d956e5ee87de4f2d77b97254f8e95480efb1cc5ee",
   "down/002_create_function_set_updated_at.sql": "8082b3778dff358f301dd51673d7b1cd65c103d48527235d11927ba2917dfc2e",
   "down/003_create_table_business_day.sql": "e296e46e1cb36390374925e5f57856498dfb7e45a14c2e2b1e7f36676bb9cf2f",
@@ -122,5 +125,8 @@
   "down/059_add_fin_category_nature.sql": "0b8e7b6e93089d0389c5151802a65cc7224ee3f5af6beb8118c9180f518b1878",
   "down/060_add_fin_account_in_wealth.sql": "1a881d0e7f587126a5e49fad0b9ee585d7de64201eb953df133f59ed1c88129c",
   "down/061_add_fin_recurring_aporte_columns.sql": "8959a32afb96bb150fd53ae2f6e8d235691d5908cdcd9ba0a3deb07777928557",
-  "down/062_allow_fin_recurring_aporte.sql": "091572937e09ff150795e9056bbc87230f12c54ad98e0c09ba33b59f2e3c38b8"
+  "down/062_allow_fin_recurring_aporte.sql": "091572937e09ff150795e9056bbc87230f12c54ad98e0c09ba33b59f2e3c38b8",
+  "down/063_add_fin_recurring_note.sql": "728c6119f42d68e229f21851e4adae90ae72a36c6f5a9b035b5f9fe9b5243935",
+  "down/064_add_fin_category_investment.sql": "9a51779abb831f3e7130b2951d4f1fac65ca686d0f2bf384a0787048c1abf0c6",
+  "down/065_drop_fin_category_investment.sql": "f7f2b296fe79fb9b5214dede66d48f868017a2b0903e0f75756dbe88b71234e4"
 }

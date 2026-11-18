@@ -134,6 +134,7 @@ export const parseSnapshot = (raw: Record<string, Row[]>): FinSnapshot => ({
         ? null
         : source(r['second_source_type'], r['second_source_id']),
     covers_up_to: (r['covers_up_to'] as string | null) ?? null,
+    note: (r['note'] as string | null) ?? null,
     day: r['day'] as number,
     mode: low(r['mode'] as string) as FinRecurring['mode'],
     amount: r['amount'] as string,
@@ -354,6 +355,7 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
           second_source_type: up(r.second_source?.type ?? null),
           second_source_id: r.second_source?.id ?? null,
           covers_up_to: r.covers_up_to,
+          note: r.note ?? null,
           day: r.day,
           mode: up(r.mode),
           amount: r.amount,
@@ -366,7 +368,7 @@ export const createFinanceRepository = (sql: Connection): FinanceRepository => (
             portfolio_id = EXCLUDED.portfolio_id, asset_id = EXCLUDED.asset_id,
             source_type = EXCLUDED.source_type, source_id = EXCLUDED.source_id, split = EXCLUDED.split,
             second_source_type = EXCLUDED.second_source_type, second_source_id = EXCLUDED.second_source_id,
-            covers_up_to = EXCLUDED.covers_up_to, day = EXCLUDED.day, mode = EXCLUDED.mode, amount = EXCLUDED.amount,
+            covers_up_to = EXCLUDED.covers_up_to, note = EXCLUDED.note, day = EXCLUDED.day, mode = EXCLUDED.mode, amount = EXCLUDED.amount,
             active = EXCLUDED.active, version = fin_recurring.version + 1
             WHERE fin_recurring.version = EXCLUDED.version
           RETURNING id`;
