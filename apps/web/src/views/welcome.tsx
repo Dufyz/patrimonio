@@ -29,7 +29,7 @@ const STEPS = [
   {
     title: 'Lance o que você já tem',
     text: 'Uma compra por ativo, com preço médio, já basta para começar. Ou importe uma planilha em Configurações.',
-    action: 'Novo lançamento',
+    action: 'Nova movimentação',
   },
 ] as const;
 
@@ -47,7 +47,7 @@ export const WelcomeScreen = ({
           Patrimônio
         </p>
         <h1 className="mt-1 text-[1.5rem] leading-8 font-semibold">
-          Seu patrimônio aparece aqui depois do primeiro lançamento
+          Seu patrimônio aparece aqui depois da primeira movimentação
         </h1>
         <p className="mt-1 text-[0.8125rem] text-ink-2">
           Três passos; nenhum gráfico ou tabela vazio é mostrado antes disso.
@@ -84,8 +84,8 @@ export const WelcomeScreen = ({
       </section>
 
       <p className="flex flex-wrap items-center gap-1 text-[0.8125rem] text-ink-2">
-        A tela troca os blocos por um roteiro. Assim que existe um lançamento, os blocos
-        normais aparecem, mesmo com pouca informação.
+        A tela troca os blocos por um roteiro. Assim que existe uma movimentação, os
+        blocos normais aparecem, mesmo com pouca informação.
         <Button variant="ghost" onClick={onOpenSettings}>
           Abrir configurações
         </Button>

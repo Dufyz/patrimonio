@@ -2,7 +2,8 @@ import type { Settings, SettingsPortfolio } from '@patrimonio/contracts';
 import { useState } from 'react';
 
 import { usePreferences } from '../../components/preferences.js';
-import { Button, IconButton } from '../../components/primitives.js';
+import { Icon } from '../../components/icon.js';
+import { Button } from '../../components/primitives.js';
 import { archivePortfolio, reorderPortfolios } from '../../api/registers.js';
 import { formatMoney } from '../../lib/format.js';
 import {
@@ -10,11 +11,10 @@ import {
   PortfolioDialog,
 } from '../registers/portfolio_dialogs.js';
 import { notifyPortfoliosChanged } from '../../lib/portfolio_events.js';
-import { colorForSeries } from '../../lib/tokens.js';
 import { plural } from '../../lib/settings.js';
 import {
-  EditButton,
   Muted,
+  PanelFootnote,
   ROW,
   SettingsPanel,
   SettingsSection,
@@ -49,6 +49,7 @@ export const PortfoliosSection = ({
   const [editing, setEditing] = useState<Editing<SettingsPortfolio>>(NONE);
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState<string | null>(null);
   const { hidden } = usePreferences();
   const apply = async (action: () => Promise<unknown>): Promise<void> => {
     setBusy(true);
@@ -63,7 +64,7 @@ export const PortfoliosSection = ({
       setBusy(false);
     }
   };
-  const move = (index: number, by: -1 | 1): Promise<void> => {
+  const move = (index: number, by: number): Promise<void> => {
     const ids = settings.portfolios.map((portfolio) => portfolio.id);
     const target = index + by;
     const [moved] = ids.splice(index, 1);
@@ -86,7 +87,8 @@ export const PortfoliosSection = ({
         description="Uma carteira separa o dinheiro por propósito. Cada uma tem estratégia e objetivo próprios, e cada posição pertence a uma carteira só."
       >
         <SettingsPanel
-          title="Suas carteiras"
+          title="Carteiras"
+          hint="uma carteira separa o dinheiro por propósito"
           action={
             <Button icon="plus" onClick={() => setEditing({ kind: 'create' })}>
               Nova carteira
@@ -102,26 +104,26 @@ export const PortfoliosSection = ({
               <caption className="sr-only">Carteiras abertas</caption>
               <thead>
                 <tr>
-                  <th scope="col" className={TH}>
+                  <th scope="col" className="w-8">
+                    <span className="sr-only">Ordem</span>
+                  </th>
+                  <th scope="col" className={`${TH} pl-1`}>
                     Carteira
                   </th>
                   <th scope="col" className={TH_RIGHT}>
                     Valor
                   </th>
-                  <th scope="col" className={TH_RIGHT}>
-                    Posições
+                  <th scope="col" className={`${TH_RIGHT} max-md:hidden`}>
+                    Ativos
                   </th>
-                  <th scope="col" className={TH}>
-                    Objetivo
+                  <th scope="col" className={`${TH_RIGHT} max-md:hidden`}>
+                    Movimentações
                   </th>
-                  <th scope="col" className={TH}>
+                  <th scope="col" className={`${TH} max-lg:hidden`}>
                     Estratégia
                   </th>
-                  <th scope="col" className={TH_RIGHT}>
-                    Lançamentos
-                  </th>
-                  <th scope="col" className={TH}>
-                    Situação
+                  <th scope="col" className={`${TH} max-lg:hidden`}>
+                    Objetivo
                   </th>
                   <th scope="col" className="w-40">
                     <span className="sr-only">Ações</span>
@@ -130,115 +132,99 @@ export const PortfoliosSection = ({
               </thead>
               <tbody>
                 {settings.portfolios.map((portfolio, index) => (
-                  <tr key={portfolio.id} className={ROW}>
-                    <th scope="row" className={`${TD} text-left font-medium`}>
-                      <span className="inline-flex items-center gap-2">
-                        <span
-                          aria-hidden="true"
-                          className="size-2 shrink-0 rounded-xs"
-                          style={{ backgroundColor: colorForSeries(index) }}
-                        />
-                        {portfolio.name}
-                      </span>
+                  <tr
+                    key={portfolio.id}
+                    className={`${ROW} ${dragging === portfolio.id ? 'opacity-50' : ''}`}
+                    draggable={!busy}
+                    onDragStart={() => setDragging(portfolio.id)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={() => {
+                      const from = settings.portfolios.findIndex(
+                        (item) => item.id === dragging,
+                      );
+                      setDragging(null);
+                      if (from !== -1 && from !== index) void move(from, index - from);
+                    }}
+                    onDragEnd={() => setDragging(null)}
+                  >
+                    <td className="pl-3">
+                      <button
+                        type="button"
+                        aria-label={`Reordenar ${portfolio.name}: setas para cima e para baixo`}
+                        title="Arraste, ou use as setas, para mudar a ordem"
+                        disabled={busy}
+                        className="cursor-grab text-ink-3 hover:text-ink-2"
+                        onKeyDown={(event) => {
+                          if (event.key === 'ArrowUp') {
+                            event.preventDefault();
+                            void move(index, -1);
+                          } else if (event.key === 'ArrowDown') {
+                            event.preventDefault();
+                            void move(index, 1);
+                          }
+                        }}
+                      >
+                        <Icon name="grip" />
+                      </button>
+                    </td>
+                    <th scope="row" className="pl-1 text-left font-semibold">
+                      {portfolio.name}
                     </th>
                     <td className={`${TD} tabular text-right`}>
                       {portfolio.value === null
                         ? '—'
                         : formatMoney(portfolio.value, { hidden }).text}
                     </td>
-                    <td className={`${TD} tabular text-right`}>
+                    <td className={`${TD} tabular text-right max-md:hidden`}>
                       {portfolio.blocking.assets}
                     </td>
-                    <td className={TD}>
-                      {portfolio.goal === null ? <Muted>Não</Muted> : 'Sim'}
-                    </td>
-                    <td className={TD}>
-                      {portfolio.strategy_categories === 0 ? (
-                        <Muted>sem estratégia</Muted>
-                      ) : (
-                        plural(portfolio.strategy_categories, 'categoria', 'categorias')
-                      )}
-                    </td>
                     <td
-                      className={`${TD} tabular text-right`}
-                      title="Excluir a carteira exclui também estes lançamentos"
+                      className={`${TD} tabular text-right max-md:hidden`}
+                      title="Excluir a carteira exclui também estas movimentações"
                     >
                       {portfolio.blocking.transactions}
                     </td>
-                    <td className={TD}>Ativa</td>
+                    <td className={`${TD} text-ink-2 max-lg:hidden`}>
+                      {portfolio.strategy_categories === 0
+                        ? 'sem estratégia'
+                        : plural(portfolio.strategy_categories, 'classe', 'classes')}
+                    </td>
+                    <td className={`${TD} text-ink-2 max-lg:hidden`}>
+                      {portfolio.goal ?? 'sem objetivo'}
+                    </td>
                     <td className="pr-4 text-right whitespace-nowrap">
-                      <IconButton
-                        row
-                        label={`Subir ${portfolio.name}`}
-                        icon="arrow-up"
-                        disabled={busy || index === 0}
-                        onClick={() => void move(index, -1)}
-                      />
-                      <IconButton
-                        row
-                        label={`Descer ${portfolio.name}`}
-                        icon="arrow-down"
-                        disabled={busy || index === settings.portfolios.length - 1}
-                        onClick={() => void move(index, 1)}
-                      />
-                      <EditButton
-                        label={`a carteira ${portfolio.name}`}
+                      <button
+                        type="button"
+                        aria-label={`Renomear ${portfolio.name}`}
+                        className="cursor-pointer text-accent hover:underline"
                         onClick={() => setEditing({ kind: 'edit', item: portfolio })}
-                      />
-                      <Button
-                        variant="ghost"
+                      >
+                        Renomear
+                      </button>
+                      <span aria-hidden="true" className="px-1.5 text-ink-3">
+                        ·
+                      </span>
+                      <button
+                        type="button"
                         aria-label={`Arquivar ${portfolio.name}`}
                         disabled={busy}
+                        className="cursor-pointer text-accent hover:underline disabled:opacity-60"
                         onClick={() =>
                           void apply(() => archivePortfolio(portfolio.id, true))
                         }
                       >
                         Arquivar
-                      </Button>
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-          <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-line px-4 py-3 text-[0.8125rem]">
-            <span className="text-ink-2">
-              A ordem aqui é a ordem da barra lateral. Carteiras arquivadas saem dela; o
-              histórico fica guardado.
-            </span>
-            <span className="text-ink-3">
-              {settings.archived_portfolios.length === 0
-                ? 'nenhuma arquivada'
-                : plural(settings.archived_portfolios.length, 'arquivada', 'arquivadas')}
-            </span>
-          </div>
-          {settings.archived_portfolios.length === 0 ? null : (
-            <ul aria-label="Carteiras arquivadas" className="border-t border-line">
-              {settings.archived_portfolios.map((portfolio) => (
-                <li
-                  key={portfolio.id}
-                  className="flex items-center justify-between gap-3 border-t border-line px-4 py-2 text-[0.8125rem] first:border-t-0"
-                >
-                  <span>
-                    {portfolio.name}{' '}
-                    <Muted>
-                      arquivada em {portfolio.archived_on.split('-').reverse().join('/')}
-                    </Muted>
-                  </span>
-                  <Button
-                    variant="ghost"
-                    aria-label={`Reativar ${portfolio.name}`}
-                    disabled={busy}
-                    onClick={() =>
-                      void apply(() => archivePortfolio(portfolio.id, false))
-                    }
-                  >
-                    Reativar
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <PanelFootnote>
+            Arraste para mudar a ordem: é a ordem do seletor na barra lateral. Estratégia
+            e objetivo são editados nas telas da carteira.
+          </PanelFootnote>
           {failure === null ? null : (
             <p
               role="alert"
@@ -246,6 +232,45 @@ export const PortfoliosSection = ({
             >
               {failure}
             </p>
+          )}
+        </SettingsPanel>
+
+        <SettingsPanel
+          title="Arquivadas"
+          hint="saem do seletor; o histórico fica guardado"
+        >
+          {settings.archived_portfolios.length === 0 ? (
+            <p className="px-4 py-4 text-[0.8125rem] text-ink-2">
+              Nenhuma carteira arquivada. Arquivar exige que a carteira esteja sem
+              posições abertas ou que você transfira as posições antes.
+            </p>
+          ) : (
+            <ul aria-label="Carteiras arquivadas">
+              {settings.archived_portfolios.map((portfolio) => (
+                <li
+                  key={portfolio.id}
+                  className="flex h-(--row-height) items-center justify-between gap-3 border-t border-line px-4 text-[0.8125rem] first:border-t-0"
+                >
+                  <span>
+                    {portfolio.name}{' '}
+                    <Muted>
+                      arquivada em {portfolio.archived_on.split('-').reverse().join('/')}
+                    </Muted>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Reativar ${portfolio.name}`}
+                    disabled={busy}
+                    className="cursor-pointer text-accent hover:underline disabled:opacity-60"
+                    onClick={() =>
+                      void apply(() => archivePortfolio(portfolio.id, false))
+                    }
+                  >
+                    Reativar
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </SettingsPanel>
       </SettingsSection>

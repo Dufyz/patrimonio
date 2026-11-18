@@ -55,6 +55,7 @@ describe('os dados de mercado', () => {
         asset_id: ticker,
         ticker,
         last_price_date: null,
+        last_price: null,
       }));
 
     expect(missingPricesText(missing())).toBe('');

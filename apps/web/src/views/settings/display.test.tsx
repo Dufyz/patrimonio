@@ -9,7 +9,7 @@ import { DisplaySection } from './preferences.js';
 describe('Exibição (CFG-02)', () => {
   beforeEach(() => window.localStorage.clear());
 
-  it('escolher escopo, período e formato persiste e mostra os atalhos só para leitura', async () => {
+  it('escolher escopo, período e formato persiste e lista os atalhos', async () => {
     const user = userEvent.setup();
     render(
       <PreferencesProvider storage={null}>
@@ -17,15 +17,15 @@ describe('Exibição (CFG-02)', () => {
       </PreferencesProvider>,
     );
 
-    await user.click(screen.getByRole('radio', { name: 'Fluxo' }));
+    await user.selectOptions(screen.getByLabelText('Escopo da Visão geral'), 'fluxo');
     await user.selectOptions(screen.getByLabelText('Período padrão'), 'ano-ate-hoje');
-    await user.click(screen.getByRole('radio', { name: 'aaaa-mm-dd (ISO)' }));
+    await user.selectOptions(screen.getByLabelText('Data'), 'iso');
 
     expect(readDisplay()).toMatchObject({
       homeScope: 'fluxo',
       defaultPeriod: 'ano-ate-hoje',
       dateFormat: 'iso',
     });
-    expect(screen.getByText('Busca global')).toBeTruthy();
+    expect(screen.getByText('Buscar em tudo')).toBeTruthy();
   });
 });

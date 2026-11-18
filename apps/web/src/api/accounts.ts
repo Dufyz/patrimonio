@@ -20,12 +20,28 @@ export type AccountRowResource = {
   readonly variation: string;
   readonly cards: readonly string[];
   readonly projected_month_end: string;
+  /** A linha prevista mais próxima da conta; valor com sinal. */
+  readonly next_planned: {
+    readonly date: string;
+    readonly label: string;
+    readonly amount: string;
+  } | null;
 };
 
 export type AccountsResource = {
   readonly accounts: readonly AccountRowResource[];
   readonly total_balance: string;
   readonly projected_total: string;
+  /** O dia a que o previsto se refere: o fim do mês. */
+  readonly projected_on: string;
+  /** Faturas a pagar e livre após faturas, calculados no servidor (RN-U3). */
+  readonly debt: {
+    readonly total_devido: string;
+    readonly abertas: string;
+    readonly fechadas_a_pagar: string;
+    readonly livre: string;
+    readonly falta: string;
+  };
   readonly as_of: string;
 };
 

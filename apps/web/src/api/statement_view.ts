@@ -16,6 +16,28 @@ export type StatementLineResource = {
   readonly tags: readonly string[];
   readonly entry_id: string | null;
   readonly balance_after: string;
+  /** receita, despesa, transferencia, fatura, aporte, resgate, provento ou ajuste. */
+  readonly kind: string;
+  /** Origem e destino em texto; os dois nulos num ajuste. */
+  readonly from: string | null;
+  readonly to: string | null;
+  readonly portfolio_id: string | null;
+};
+
+/** Uma linha prevista: não altera o saldo de hoje; leva o saldo previsto depois dela. */
+export type PlannedLineResource = {
+  readonly id: string;
+  readonly date: string;
+  readonly origin: 'receita' | 'despesa' | 'aporte' | 'fatura';
+  readonly description: string;
+  readonly amount: string;
+  readonly balance_after: string;
+  readonly entry_id: string | null;
+  readonly category_id: string | null;
+  readonly portfolio_id: string | null;
+  readonly card_id: string | null;
+  readonly from: string | null;
+  readonly to: string | null;
 };
 
 export type AccountStatementResource = {
@@ -32,6 +54,12 @@ export type AccountStatementResource = {
   readonly closing: string;
   readonly lines: readonly StatementLineResource[];
   readonly through: string;
+  readonly entered_count: number;
+  readonly left_count: number;
+  readonly planned: readonly PlannedLineResource[];
+  /** O saldo previsto ao fim do período; nulo quando o período já acabou. */
+  readonly projected: string | null;
+  readonly projected_note: string;
 };
 
 export const fetchAccountStatement = (

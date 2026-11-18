@@ -678,9 +678,9 @@ export const GoalsView = ({
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-screen-title leading-7 font-semibold">Objetivos</h1>
+          <h1 className="text-screen-title leading-7 font-semibold">Objetivo</h1>
           <p className="truncate text-xs text-ink-3">
-            {scopeLabel} · o objetivo de valor e prazo desta carteira
+            {scopeLabel} · o objetivo desta carteira
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -691,6 +691,11 @@ export const GoalsView = ({
           >
             <Icon name={hidden ? 'eye-off' : 'eye'} />
           </IconButton>
+          {data.goal === null ? null : (
+            <Button variant="primary" icon="plus" onClick={() => setDialog('edit')}>
+              Editar objetivo
+            </Button>
+          )}
         </div>
       </header>
 
@@ -730,7 +735,7 @@ export const GoalsView = ({
           title={`Excluir ${data.goal.name}?`}
           subtitle="Esta ação não pode ser desfeita"
           subject={`o objetivo ${data.goal.name}`}
-          consequence="Posições, lançamentos e patrimônio não mudam: o objetivo só media a carteira."
+          consequence="Posições, movimentações e patrimônio não mudam: o objetivo só media a carteira."
           confirmLabel="Excluir objetivo"
           onConfirm={() => deleteGoal(portfolioId, data.goal?.version)}
           onClose={() => setDialog(null)}

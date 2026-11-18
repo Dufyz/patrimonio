@@ -22,11 +22,14 @@ export type RecurringResource = {
     readonly id: string;
   } | null;
   readonly covers_up_to: string | null;
+  readonly note?: string | null | undefined;
   readonly day: number;
   readonly mode: 'manual' | 'automatico';
   readonly amount: string;
   readonly active: boolean;
   readonly version: number;
+  /** A próxima data em que gera previsto; nulo quando pausado. */
+  readonly next_planned?: string | null | undefined;
 };
 
 export const KIND_LABEL: Readonly<Record<RecurringKind, string>> = {

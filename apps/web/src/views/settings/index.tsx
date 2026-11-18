@@ -1,13 +1,14 @@
 import type { MarketHealth, Settings } from '@patrimonio/contracts';
-import { useCallback } from 'react';
+import { SearchSelect } from '../../components/search_select.js';
+import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
+import { fetchAccounts } from '../../api/accounts.js';
 import { fetchMarketHealth } from '../../api/market.js';
 import { fetchSettings } from '../../api/settings.js';
 import { Icon } from '../../components/icon.js';
 import { KeepPrevious } from '../../components/pending.js';
 import {
-  SkeletonHeader,
   SkeletonLines,
   SkeletonPanel,
   SkeletonRegion,
@@ -28,6 +29,8 @@ import { BackupSection, DisplaySection } from './preferences.js';
 import { PortfoliosSection } from './registers.js';
 import { AccountsCardsSection } from './accounts_cards.js';
 import { ScreenFailed } from '../../components/panel_state.js';
+import { ScreenHeader } from '../../finance/components/screen_header.js';
+import { NewEntryModal } from '../ledger/new_entry_modal.js';
 
 /**
  * T-08 · Configurações — a prancha `11 · Configurações`.
@@ -75,6 +78,17 @@ export const SettingsScreen = (): React.ReactElement => {
 
 const Failed = ScreenFailed;
 
+/** O subtítulo de cada seção, como na prancha 11. */
+const SUBTITLES: Readonly<Record<SectionId, string>> = {
+  exibicao: 'Aparência e comportamento do app · valem só para este navegador',
+  'contas-e-cartoes':
+    'Cadastro das contas e dos cartões · saldos e faturas ficam em Contas e Cartões',
+  carteiras: 'Criar, ordenar e arquivar carteiras',
+  'dados-de-mercado': 'Catálogos, fontes de preço e cotações manuais',
+  'dados-e-backup': 'Exportação, backup e apagamento',
+};
+
+/** O menu da prancha: um cartão ao lado do conteúdo, sem títulos de grupo. */
 const SectionNav = ({
   section,
   onSection,
@@ -84,92 +98,61 @@ const SectionNav = ({
   readonly onSection: (section: SectionId) => void;
   /** Seções com algo a ver: ganham um ponto, como "Dados de mercado" na prancha. */
   readonly attention: ReadonlySet<SectionId>;
-}): React.ReactElement => {
-  const groups = [...new Set(SECTIONS.map((item) => item.group))];
-
-  return (
-    <nav
-      aria-label="Seções de configuração"
-      className="flex shrink-0 flex-col gap-4 border-b border-line bg-panel px-3 py-4 lg:sticky lg:top-0 lg:h-dvh lg:w-60 lg:self-start lg:overflow-y-auto lg:border-r lg:border-b-0"
-    >
-      <header className="min-w-0 px-3">
-        <h1 className="text-screen-title leading-7 font-semibold">Configurações</h1>
-        <p className="text-xs text-ink-3">Valem para o app inteiro</p>
-      </header>
-      {/* CFG-07 · Abaixo de 1.000 px o menu vira um seletor no topo. */}
-      <select
-        aria-label="Seção de configuração"
+}): React.ReactElement => (
+  <nav
+    aria-label="Seções de configuração"
+    className="shrink-0 rounded-panel border border-line bg-panel p-2 shadow-panel lg:w-60"
+  >
+    {/* CFG-07 · Abaixo de 1.000 px o menu vira um seletor no topo. */}
+    <div className="lg:hidden">
+      <SearchSelect
+        label="Seção de configuração"
+        options={SECTIONS.map((item) => ({ id: item.id, label: item.label }))}
         value={section}
-        onChange={(e) => onSection(e.target.value as SectionId)}
-        className="h-control w-full rounded-control border border-line bg-field px-3 text-sm lg:hidden"
-      >
-        {groups.map((group) => (
-          <optgroup key={group} label={group}>
-            {SECTIONS.filter((item) => item.group === group).map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-      {groups.map((group) => (
-        <div
-          key={group}
-          className="max-lg:hidden"
-          onKeyDown={(event) => {
-            // Setas percorrem o menu interno, de cima a baixo, entre os grupos.
-            if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-            const items = [
-              ...(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
-                'ul button',
-              ) ?? []),
-            ];
-            const at = items.indexOf(document.activeElement as HTMLButtonElement);
-            if (at === -1) return;
-            event.preventDefault();
-            items[at + (event.key === 'ArrowDown' ? 1 : -1)]?.focus();
-          }}
-        >
-          <p className="mb-1 px-3 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
-            {group}
-          </p>
-          <ul className="flex flex-wrap gap-1 lg:flex-col">
-            {SECTIONS.filter((item) => item.group === group).map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  aria-current={item.id === section ? 'true' : undefined}
-                  className={`flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-control px-3 text-left text-sm whitespace-nowrap ${
-                    item.id === section
-                      ? 'bg-accent-soft font-medium text-accent'
-                      : 'text-ink-2 hover:bg-panel-2'
-                  }`}
-                  onClick={() => onSection(item.id)}
-                >
-                  <Icon name={item.icon} />
-                  <span className="flex-1">{item.label}</span>
-                  {attention.has(item.id) ? (
-                    <span
-                      role="img"
-                      aria-label="pede atenção"
-                      className="size-1.5 rounded-full bg-attention"
-                    />
-                  ) : null}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+        onChange={(id) => onSection(id as SectionId)}
+      />
+    </div>
+    <ul
+      className="flex flex-col gap-0.5 max-lg:hidden"
+      onKeyDown={(event) => {
+        // Setas percorrem o menu, de cima a baixo.
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+        const items = [
+          ...event.currentTarget.querySelectorAll<HTMLButtonElement>('button'),
+        ];
+        const at = items.indexOf(document.activeElement as HTMLButtonElement);
+        if (at === -1) return;
+        event.preventDefault();
+        items[at + (event.key === 'ArrowDown' ? 1 : -1)]?.focus();
+      }}
+    >
+      {SECTIONS.map((item) => (
+        <li key={item.id}>
+          <button
+            type="button"
+            aria-current={item.id === section ? 'true' : undefined}
+            className={`flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-control px-3 text-left text-sm whitespace-nowrap ${
+              item.id === section
+                ? 'bg-accent-soft font-medium text-accent'
+                : 'text-ink-2 hover:bg-panel-2'
+            }`}
+            onClick={() => onSection(item.id)}
+          >
+            <Icon name={item.icon} />
+            <span className="flex-1">{item.label}</span>
+            {attention.has(item.id) ? (
+              <span
+                role="img"
+                aria-label="pede atenção"
+                className="size-1.5 rounded-full bg-attention"
+              />
+            ) : null}
+          </button>
+        </li>
       ))}
-      <p className="hidden border-t border-line px-3 pt-3 text-xs text-ink-3 lg:block">
-        Patrimônio · versão pessoal
-        <br />
-        Dados armazenados na sua conta
-      </p>
-    </nav>
-  );
-};
+    </ul>
+  </nav>
+);
 
 export const SettingsView = ({
   settings: resource,
@@ -178,24 +161,30 @@ export const SettingsView = ({
   onSection,
 }: SettingsViewProps): React.ReactElement => {
   const { state, pending, reload } = resource;
+  const [entering, setEntering] = useState(false);
+  const accounts = useResource((signal) => fetchAccounts(false, signal), []);
+
+  const header = (
+    <ScreenHeader
+      title="Configurações"
+      subtitle={SUBTITLES[section]}
+      primary={{ label: 'Movimentação', onClick: () => setEntering(true) }}
+    />
+  );
 
   if (state.kind === 'loading') {
     return (
-      <SkeletonRegion
-        label="Carregando as configurações"
-        className="-mx-7 -mt-5 -mb-10 flex min-h-dvh flex-col lg:flex-row"
-      >
-        <div className="flex shrink-0 flex-col gap-4 border-b border-line bg-panel p-4 lg:w-60 lg:border-r lg:border-b-0">
-          <SkeletonHeader />
-          <SkeletonLines lines={5} className="hidden lg:flex" />
-        </div>
-        <div className="min-w-0 flex-1 px-7 pt-5 pb-10">
-          <div className="mx-auto flex max-w-[60rem] min-w-0 flex-col gap-4">
+      <SkeletonRegion label="Carregando as configurações">
+        {header}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+          <div className="shrink-0 rounded-panel border border-line bg-panel p-4 lg:w-60">
+            <SkeletonLines lines={5} />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
             <SkeletonPanel title="Carteiras">
               <SkeletonTable rows={3} columns={3} />
             </SkeletonPanel>
             <SkeletonPanel title="Dados de mercado" />
-            <SkeletonPanel title="Exibição" />
           </div>
         </div>
       </SkeletonRegion>
@@ -214,14 +203,12 @@ export const SettingsView = ({
   }
 
   return (
-    <div className="-mx-7 -mt-5 -mb-10 flex min-h-dvh flex-col lg:flex-row">
-      <SectionNav section={section} onSection={onSection} attention={attention} />
+    <div>
+      {header}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <SectionNav section={section} onSection={onSection} attention={attention} />
 
-      <div className="min-w-0 flex-1 px-7 pt-5 pb-10">
-        <KeepPrevious
-          pending={pending}
-          className="mx-auto flex max-w-[60rem] min-w-0 flex-col gap-8"
-        >
+        <KeepPrevious pending={pending} className="flex min-w-0 flex-1 flex-col gap-4">
           {isEmptyInstallation(settings) ? (
             <p
               role="status"
@@ -242,6 +229,25 @@ export const SettingsView = ({
           ) : null}
         </KeepPrevious>
       </div>
+      {entering ? (
+        <NewEntryModal
+          today={
+            accounts.state.kind === 'ready'
+              ? accounts.state.value.as_of
+              : new Date().toISOString().slice(0, 10)
+          }
+          accounts={
+            accounts.state.kind === 'ready'
+              ? accounts.state.value.accounts.map((row) => ({
+                  id: row.account.id,
+                  name: row.account.name,
+                }))
+              : []
+          }
+          onSaved={reload}
+          onClose={() => setEntering(false)}
+        />
+      ) : null}
     </div>
   );
 };

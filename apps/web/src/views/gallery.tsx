@@ -585,7 +585,7 @@ export const Gallery = (): React.ReactElement => {
 
               <ControlGroup label="Botões">
                 <Button variant="primary" icon="plus" shortcut="N">
-                  Lançamento
+                  Movimentação
                 </Button>
                 <Button>Exportar CSV</Button>
                 <Chip colorToken="class.acoes" count={14} selected>

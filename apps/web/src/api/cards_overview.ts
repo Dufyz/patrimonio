@@ -22,12 +22,44 @@ export type CardRowResource = {
   readonly used: string;
   readonly used_percent: number;
   readonly available: string;
+  /** O limite pelo que se deve: faturas abertas mais fechadas a pagar. */
+  readonly limit: {
+    readonly used: string;
+    readonly available: string;
+    readonly percent: number;
+  };
   readonly days_to_due: number;
   readonly debt: {
     readonly abertas: string;
     readonly fechadas_a_pagar: string;
     readonly next_due: string | null;
+    /** Aberta + fechada a pagar. */
+    readonly total: string;
   };
+  /** As faturas do cartão, da mais distante à mais antiga. */
+  readonly invoices: readonly OverviewInvoiceResource[];
+};
+
+export type OverviewInvoiceResource = {
+  readonly month: string;
+  readonly status: string;
+  readonly total: string;
+  readonly paid: string;
+  readonly remaining: string;
+  readonly closing: string;
+  readonly due: string;
+  readonly overdue: boolean;
+  readonly from: string;
+  readonly to: string;
+};
+
+export type OverviewInstallmentResource = {
+  readonly description: string;
+  readonly current: number;
+  readonly total: number;
+  readonly amount: string;
+  readonly remaining: string;
+  readonly card_id: string;
 };
 
 export type UpcomingRowResource = {
@@ -50,6 +82,26 @@ export type CardsResource = {
     readonly livre: string;
     readonly falta: string;
   };
+  readonly summary: {
+    readonly closed_count: number;
+    readonly closed_first_due: string | null;
+    readonly open_count: number;
+    readonly open_dues: readonly string[];
+    readonly limit_total: string;
+    readonly limit_available: string;
+    readonly limit_used_percent: number;
+  };
+  readonly planned_payments: readonly {
+    readonly month: string;
+    readonly due: string;
+    readonly amount: string;
+    readonly status: string;
+    readonly account_id: string;
+    readonly card_id: string;
+  }[];
+  readonly planned_total: string;
+  readonly installments: readonly OverviewInstallmentResource[];
+  readonly installments_total: string;
 };
 
 export const fetchCardsOverview = (signal?: AbortSignal): Promise<CardsResource> =>

@@ -115,7 +115,7 @@ export const PortfolioDialog = ({
             </thead>
             <tbody>
               {[
-                ['Lançamentos', String(portfolio.blocking.transactions)],
+                ['Movimentações', String(portfolio.blocking.transactions)],
                 ['Ativos', String(portfolio.blocking.assets)],
                 [
                   'Estratégia',
@@ -168,7 +168,7 @@ export const DeletePortfolioDialog = ({
   const confirmed = typed.trim() === portfolio.name;
 
   const gone = [
-    plural(transactions, 'lançamento', 'lançamentos'),
+    plural(transactions, 'movimentação', 'movimentações'),
     plural(assets, 'ativo', 'ativos'),
     ...(portfolio.goal === null ? [] : ['o objetivo']),
     ...(portfolio.strategy_categories === 0 ? [] : ['a estratégia de alocação']),

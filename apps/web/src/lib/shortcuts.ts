@@ -31,14 +31,14 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: 'Busca global',
     scope: 'global',
   },
-  { id: 'new_transaction', sequence: ['n'], label: 'Novo lançamento', scope: 'global' },
+  { id: 'new_transaction', sequence: ['n'], label: 'Nova movimentação', scope: 'global' },
   { id: 'filter', sequence: ['f'], label: 'Filtrar a lista', scope: 'global' },
   { id: 'hide_values', sequence: ['h'], label: 'Ocultar valores', scope: 'global' },
   { id: 'help', sequence: ['?'], label: 'Esta ajuda', scope: 'global' },
 
   { id: 'go_overview', sequence: ['g', 'v'], label: 'Visão geral', scope: 'navigation' },
   { id: 'go_positions', sequence: ['g', 'p'], label: 'Posições', scope: 'navigation' },
-  { id: 'go_entries', sequence: ['g', 'l'], label: 'Lançamentos', scope: 'navigation' },
+  { id: 'go_entries', sequence: ['g', 'l'], label: 'Movimentações', scope: 'navigation' },
   { id: 'go_accounts', sequence: ['g', 'c'], label: 'Contas', scope: 'navigation' },
   { id: 'go_cards', sequence: ['g', 'a'], label: 'Cartões', scope: 'navigation' },
   {

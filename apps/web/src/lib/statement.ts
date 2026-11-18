@@ -78,7 +78,7 @@ export const sinceLabel = (date: DateOnly): string => {
 };
 
 export const entriesLabel = (count: number): string =>
-  `${count} ${count === 1 ? 'lançamento' : 'lançamentos'}`;
+  `${count} ${count === 1 ? 'movimentação' : 'movimentações'}`;
 
 /** A troca de custodiante é fato do livro, mas não um lançamento: não se edita nem se exclui aqui. */
 export const isLedgerEntry = (row: StatementRow): boolean =>

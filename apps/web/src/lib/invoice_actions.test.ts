@@ -12,6 +12,7 @@ import {
 
 const line = (over: Partial<InvoiceLineResource> = {}): InvoiceLineResource => ({
   id: 'l1',
+  accumulated: '0.00',
   origin: 'entry',
   block: 'compras',
   date: '2026-11-02',

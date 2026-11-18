@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { previewCaixinhaRedemption, redeemCaixinha } from '../api/caixinha.js';
 import type { RedemptionBody } from '../api/caixinha.js';
 import { createTransaction } from '../api/entry.js';
-import { Money } from '../components/number.js';
+import { Money, MoneyChange } from '../components/number.js';
 import { Modal } from '../components/overlay.js';
 import { Button, Panel } from '../components/primitives.js';
 import { SkeletonLines, SkeletonRegion } from '../components/skeleton.js';
@@ -104,8 +104,8 @@ export const CaixinhaPanel = ({
       >
         {rule === null ? null : (
           <p className="border-b border-line bg-panel-2 px-4 py-2.5 text-[0.8125rem] text-ink-2 first-letter:uppercase">
-            {termsHint(asset)} · o resgate consome {RULE_LABELS[rule]} · IOF e IR
-            estimados como se o lote fosse resgatado hoje
+            {termsHint(asset)} · o resgate consome {RULE_LABELS[rule]} · IR estimados como
+            se o lote fosse resgatado hoje
           </p>
         )}
         {lots.state.kind === 'loading' ? (
@@ -174,16 +174,11 @@ const LotsTable = ({
             <th className="w-44 px-4 py-2 text-left font-medium">Aporte</th>
             <th className="px-3 py-2 text-right font-medium max-lg:hidden">Dias</th>
             <th className="px-3 py-2 text-left font-medium">Vencimento</th>
+            <th className="px-3 py-2 text-right font-medium max-xl:hidden">Principal</th>
             <th className="px-3 py-2 text-right font-medium">Valor bruto</th>
-            <th className="px-3 py-2 text-right font-medium">Valor líquido</th>
-            <th className="px-3 py-2 text-right font-medium max-xl:hidden">
-              Valor investido
-            </th>
-            <th className="px-3 py-2 text-right font-medium max-lg:hidden">
-              Rendimento bruto
-            </th>
-            <th className="px-3 py-2 text-right font-medium max-xl:hidden">IOF</th>
-            <th className="px-4 py-2 text-right font-medium">IR</th>
+            <th className="px-3 py-2 text-right font-medium max-lg:hidden">Rendimento</th>
+            <th className="px-3 py-2 text-right font-medium max-xl:hidden">Alíquota</th>
+            <th className="px-4 py-2 text-right font-medium">Líquido</th>
           </tr>
         </thead>
         <tbody>
@@ -214,24 +209,20 @@ const LotsTable = ({
                   </>
                 )}
               </td>
-              <td className="px-3 py-2.5 text-right">
-                <Money value={lot.gross_value} />
-              </td>
-              <td className="px-3 py-2.5 text-right">
-                <Money value={lot.net_value} />
-              </td>
               <td className="px-3 py-2.5 text-right max-xl:hidden">
                 <Money value={lot.remaining} />
               </td>
+              <td className="px-3 py-2.5 text-right">
+                <Money value={lot.gross_value} />
+              </td>
               <td className="px-3 py-2.5 text-right max-lg:hidden">
-                <Money value={lot.accrued_interest} />
+                <MoneyChange value={lot.accrued_interest} tone="neutral" />
               </td>
-              <td className="px-3 py-2.5 text-right text-ink-2 max-xl:hidden">
-                <Money value={lot.iof_due} />
+              <td className="tabular px-3 py-2.5 text-right text-ink-2 max-xl:hidden">
+                {lot.tax_rate.replace('.', ',')}%
               </td>
-              <td className="px-4 py-2.5 text-right text-ink-2">
-                <Money value={lot.tax_due} />
-                <span className="text-ink-3"> · {lot.tax_rate.replace('.', ',')}%</span>
+              <td className="px-4 py-2.5 text-right">
+                <Money value={lot.net_value} />
               </td>
             </tr>
           ))}
@@ -241,23 +232,18 @@ const LotsTable = ({
             <td className="px-4 py-2.5">Total</td>
             <td className="max-lg:hidden" />
             <td />
-            <td className="px-3 py-2.5 text-right">
-              <Money value={view.gross_value} />
-            </td>
-            <td className="px-3 py-2.5 text-right">
-              <Money value={view.net_value} />
-            </td>
             <td className="px-3 py-2.5 text-right max-xl:hidden">
               <Money value={view.principal} />
             </td>
+            <td className="px-3 py-2.5 text-right">
+              <Money value={view.gross_value} />
+            </td>
             <td className="px-3 py-2.5 text-right max-lg:hidden">
-              <Money value={view.accrued_interest} />
+              <MoneyChange value={view.accrued_interest} tone="neutral" />
             </td>
-            <td className="px-3 py-2.5 text-right text-ink-2 max-xl:hidden">
-              <Money value={view.iof_due} />
-            </td>
-            <td className="px-4 py-2.5 text-right text-ink-2">
-              <Money value={view.tax_due} />
+            <td className="max-xl:hidden" />
+            <td className="px-4 py-2.5 text-right">
+              <Money value={view.net_value} />
             </td>
           </tr>
         </tfoot>
@@ -411,8 +397,8 @@ const ContributeDialog = ({
         <p className="text-[0.8125rem] text-ink-3">
           O aporte vira um lote novo, com a própria data: ele rende e paga IR pelo prazo
           dele, não pelo da caixinha. Ele rende desde o dia do aporte e fica disponível
-          para resgate na data de liquidação do lançamento, que é a do aporte a menos que
-          você a edite (o Itaú, por exemplo, libera no dia útil seguinte).
+          para resgate na data de liquidação da movimentação, que é a do aporte a menos
+          que você a edite (o Itaú, por exemplo, libera no dia útil seguinte).
         </p>
         {error === null ? null : (
           <p role="alert" className="text-sm text-negative">

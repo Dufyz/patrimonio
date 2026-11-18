@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 
+import { Icon } from '../../components/icon.js';
 import { fetchAccounts } from '../../api/accounts.js';
 import { ApiError } from '../../api/client.js';
 import { fetchCardsOverview } from '../../api/cards_overview.js';
@@ -13,71 +14,51 @@ import {
 import { Menu, AlertModal } from '../../components/overlay.js';
 import { usePortfolios } from '../../components/portfolios_provider.js';
 import { usePreferences } from '../../components/preferences.js';
-import { Segmented } from '../../components/primitives.js';
+import { Panel } from '../../components/primitives.js';
 import { useShortcuts } from '../../components/shortcuts.js';
+import { FilterBar, ToolbarSearch } from '../../components/filter_bar.js';
+import { Arrow } from '../ledger/ledger_parts.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
 import { TableScreenSkeleton } from '../../finance/components/screen_skeletons.js';
 import { EmptyPanel, PanelError } from '../../finance/components/states.js';
 import {
   FinTable,
   Row,
-  SectionRow,
   SummaryRow,
   Td,
   Th,
   THead,
 } from '../../components/table_parts.js';
 import { categoryColor } from '../../finance/lib/category_colors.js';
-import {
-  RECURRING_GROUPINGS,
-  readRecurringGrouping,
-  writeRecurringGrouping,
-} from '../../finance/lib/preferences.js';
-import type { RecurringGrouping } from '../../finance/lib/preferences.js';
 import { newAttemptKey } from '../../lib/entry.js';
 import { formatMoney } from '../../lib/format.js';
 import { useResource } from '../../lib/use_resource.js';
-import { browserStorage } from '../../lib/preferences.js';
-import {
-  EMPTY_RECURRING_FILTERS,
-  filterRecurrings,
-  groupRecurrings,
-  hasRecurringFilters,
-  monthlyResult,
-  summaryLabel,
-} from '../../lib/recurring_view.js';
-import type {
-  RecurringFilters,
-  RecurringKind,
-  RecurringResource,
-} from '../../lib/recurring_view.js';
+import type { RecurringKind, RecurringResource } from '../../lib/recurring_view.js';
 import { RecurringModal } from './recurring_modal.js';
 import type { SourceOption } from './recurring_modal.js';
 
 /**
- * REC-01 a REC-06 · Recorrentes: o que gera previstos todo mês. Blocos por tipo
- * (receitas, despesas, aportes), % do bloco e resultado mensal = receitas −
- * despesas − aportes. Tudo lido e gravado no servidor; a tela não calcula
- * previsto, só mostra o modelo.
+ * REC-01 a REC-06 · Recorrentes: os modelos que geram os previstos de cada mês,
+ * numa tabela só (como na v3), agrupada por tipo, categoria ou conta, com o
+ * subtotal de cada grupo e o resultado mensal no pé. Aporte não é recorrente:
+ * investir é uma despesa (categoria) e a compra de ativos se lança em Posições.
  */
-const GROUP_LABEL: Readonly<Record<RecurringGrouping, string>> = {
-  tipo: 'Tipo',
-  categoria: 'Categoria',
-  conta: 'Conta',
+const dm = (iso: string | null | undefined): string =>
+  iso == null ? '—' : `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+
+type Grouping = 'tipo' | 'categoria' | 'conta';
+
+type Filters = {
+  readonly q: string;
+  readonly tipo: readonly string[];
+  readonly categoria: readonly string[];
+  readonly conta: readonly string[];
 };
 
-const KIND_OPTIONS: readonly { value: RecurringKind | ''; label: string }[] = [
-  { value: '', label: 'Todos os tipos' },
-  { value: 'receita', label: 'Receitas' },
-  { value: 'despesa', label: 'Despesas' },
-  { value: 'aporte', label: 'Aportes' },
-];
+const NO_FILTERS: Filters = { q: '', tipo: [], categoria: [], conta: [] };
 
-const control =
-  'h-control cursor-pointer rounded-control border border-line-2 bg-panel px-2 text-[0.8125rem]';
-
-const tenthsText = (tenths: number | undefined): string =>
-  tenths === undefined ? '—' : `${(tenths / 10).toFixed(1).replace('.', ',')}%`;
+const modelsLabel = (count: number): string =>
+  `${count} ${count === 1 ? 'modelo' : 'modelos'}`;
 
 export const RecurringsScreen = (): React.ReactElement => {
   const { hidden } = usePreferences();
@@ -87,21 +68,19 @@ export const RecurringsScreen = (): React.ReactElement => {
   const accounts = useResource((signal) => fetchAccounts(false, signal), []);
   const cards = useResource((signal) => fetchCardsOverview(signal), []);
 
-  const [filters, setFilters] = useState<RecurringFilters>(EMPTY_RECURRING_FILTERS);
-  const [grouping, setGrouping] = useState<RecurringGrouping>(() =>
-    readRecurringGrouping(browserStorage()),
-  );
   const [modal, setModal] = useState<{
     readonly editing: RecurringResource | undefined;
   } | null>(null);
   const [deleting, setDeleting] = useState<RecurringResource | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [grouping, setGrouping] = useState<Grouping>('tipo');
 
   const openNew = useMemo(() => () => setModal({ editing: undefined }), []);
   const shortcuts = useMemo(() => ({ new_transaction: openNew }), [openNew]);
   useShortcuts(shortcuts);
 
-  const money = (value: string): string => formatMoney(value, { hidden }).text;
+  const bare = (value: string): string => formatMoney(value, { hidden, bare: true }).text;
 
   const sources: readonly SourceOption[] = useMemo(
     () => [
@@ -147,10 +126,10 @@ export const RecurringsScreen = (): React.ReactElement => {
     categories.state.kind !== 'ready' ||
     accounts.state.kind !== 'ready'
   ) {
-    return <TableScreenSkeleton label="Carregando recorrentes" columns={8} />;
+    return <TableScreenSkeleton label="Carregando recorrentes" columns={6} />;
   }
 
-  const all = recurrings.state.value;
+  const { recurrings: all } = recurrings.state.value;
   const catList = categories.state.value;
   const sourceName = (id: string): string =>
     sources.find((s) => s.id.endsWith(`:${id}`))?.name ?? '—';
@@ -166,12 +145,6 @@ export const RecurringsScreen = (): React.ReactElement => {
     portfolios.length > 0 &&
     !portfolios.some((p) => p.id === item.portfolio_id);
 
-  const visible = filterRecurrings(all, filters);
-  const groups = groupRecurrings(visible, grouping, {
-    category: categoryName,
-    source: sourceName,
-  });
-
   const refresh = (): void => recurrings.reload();
   const attempt = async (action: () => Promise<unknown>): Promise<void> => {
     setFailure(null);
@@ -183,14 +156,156 @@ export const RecurringsScreen = (): React.ReactElement => {
     }
   };
   const month = new Date().toISOString().slice(0, 7);
-  const COLS = 9;
+
+  const pay = (item: RecurringResource): React.ReactNode =>
+    item.second_source === null ? (
+      sourceName(item.source.id)
+    ) : (
+      <>
+        {sourceName(item.source.id)} + {sourceName(item.second_source.id)}
+      </>
+    );
+
+  const actions = (item: RecurringResource): React.ReactElement => (
+    <Td align="right">
+      <Menu
+        label={`Ações de ${item.name}`}
+        items={[
+          {
+            id: 'edit',
+            label: 'Editar',
+            icon: <Icon name="pencil" />,
+            onSelect: () => setModal({ editing: item }),
+          },
+          {
+            id: 'toggle',
+            label: item.active ? 'Pausar' : 'Ativar',
+            icon: <Icon name={item.active ? 'pulse' : 'check'} />,
+            onSelect: () =>
+              void attempt(() =>
+                setRecurringActive(item.id, !item.active, newAttemptKey()),
+              ),
+          },
+          {
+            id: 'skip',
+            label: 'Pular este mês',
+            icon: <Icon name="repeat" />,
+            disabled: !item.active,
+            onSelect: () =>
+              void attempt(() => skipRecurringMonth(item.id, month, newAttemptKey())),
+          },
+          {
+            id: 'delete',
+            label: 'Excluir',
+            icon: <Icon name="trash" />,
+            destructive: true,
+            onSelect: () => setDeleting(item),
+          },
+        ]}
+      />
+    </Td>
+  );
+
+  const nameCell = (item: RecurringResource, chip?: string): React.ReactElement => (
+    <Td>
+      <span className="font-medium">{item.name}</span>
+      {chip === undefined ? null : (
+        <span className="ml-2 rounded-[4px] bg-accent-soft px-1.5 py-0.5 text-xs font-medium text-accent">
+          {chip}
+        </span>
+      )}
+      {item.active ? null : (
+        <span className="ml-2 text-xs font-normal text-ink-3">pausado</span>
+      )}
+      {item.mode === 'manual' && item.kind !== 'aporte' ? (
+        <span className="ml-2 text-xs font-normal text-ink-3">manual</span>
+      ) : null}
+      {archivedPortfolio(item) ? (
+        <span className="block text-xs text-attention">
+          carteira arquivada: não gera previsto
+        </span>
+      ) : null}
+    </Td>
+  );
+
+  const cents = (value: string): number => {
+    const [whole = '0', frac = ''] = value.split('.');
+    const sign = whole.startsWith('-') ? -1 : 1;
+    return sign * (Math.abs(Number(whole)) * 100 + Number(`${frac}00`.slice(0, 2)));
+  };
+  const fromCents = (value: number): string => (value / 100).toFixed(2);
+  /** Com sinal: receita soma, despesa e aporte subtraem. Pausado fica fora da soma. */
+  const signedSum = (items: readonly RecurringResource[]): number =>
+    items
+      .filter((item) => item.active)
+      .reduce(
+        (sum, item) => sum + (item.kind === 'receita' ? 1 : -1) * cents(item.amount),
+        0,
+      );
+
+  const query = filters.q.trim().toLowerCase();
+  const visible = all.filter(
+    (item) =>
+      (query === '' || item.name.toLowerCase().includes(query)) &&
+      (filters.tipo.length === 0 || filters.tipo.includes(item.kind)) &&
+      (filters.categoria.length === 0 ||
+        (item.category_id !== null && filters.categoria.includes(item.category_id))) &&
+      (filters.conta.length === 0 ||
+        filters.conta.includes(`${item.source.type}:${item.source.id}`) ||
+        (item.second_source !== null &&
+          filters.conta.includes(`${item.second_source.type}:${item.second_source.id}`))),
+  );
+
+  type Group = {
+    readonly key: string;
+    readonly label: string;
+    readonly items: readonly RecurringResource[];
+  };
+  const KIND_GROUPS: readonly { kind: RecurringKind; label: string }[] = [
+    { kind: 'receita', label: 'Receitas' },
+    { kind: 'despesa', label: 'Despesas' },
+    { kind: 'aporte', label: 'Aportes' },
+  ];
+  const byDay = (items: readonly RecurringResource[]): readonly RecurringResource[] =>
+    [...items].sort((a, b) => a.day - b.day || a.name.localeCompare(b.name, 'pt-BR'));
+  const groups: readonly Group[] =
+    grouping === 'tipo'
+      ? KIND_GROUPS.map((g) => ({
+          key: g.kind,
+          label: g.label,
+          items: byDay(visible.filter((item) => item.kind === g.kind)),
+        })).filter((g) => g.items.length > 0)
+      : grouping === 'categoria'
+        ? [...new Set(visible.map((item) => item.category_id ?? ''))]
+            .map((id) => ({
+              key: id,
+              label: id === '' ? 'Sem categoria' : categoryName(id),
+              items: byDay(visible.filter((item) => (item.category_id ?? '') === id)),
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+        : [...new Set(visible.map((item) => item.source.id))]
+            .map((id) => ({
+              key: id,
+              label: sourceName(id),
+              items: byDay(visible.filter((item) => item.source.id === id)),
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+
+  const signedCell = (value: number): React.ReactElement => (
+    <Td numeric className={`font-semibold ${value > 0 ? 'text-positive' : ''}`}>
+      {value > 0 ? '+' : value < 0 ? '−' : ''}
+      {bare(fromCents(Math.abs(value)))}
+    </Td>
+  );
+
+  const COLUMNS = 7;
 
   return (
     <div className="flex flex-col gap-4">
       <ScreenHeader
         title="Recorrentes"
-        subtitle="Receitas, despesas e aportes que se repetem e geram previstos"
-        primary={{ label: 'Novo recorrente', onClick: openNew }}
+        subtitle="Receitas e despesas que se repetem e geram os previstos de cada mês"
+        primary={{ label: 'Recorrente', onClick: openNew }}
       />
 
       {failure === null ? null : (
@@ -212,303 +327,168 @@ export const RecurringsScreen = (): React.ReactElement => {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-panel border border-line bg-panel">
-        <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2.5">
-          <span className="mr-2 text-[0.8125rem] text-ink-2">{summaryLabel(all)}</span>
-          <input
-            type="search"
-            aria-label="Buscar recorrente"
-            placeholder="Buscar recorrente"
-            className={`${control} w-48 cursor-text`}
-            value={filters.q}
-            onChange={(e) => setFilters({ ...filters, q: e.target.value })}
+      {all.length === 0 ? (
+        <EmptyPanel
+          message="Nenhum recorrente ainda. Cadastre o que se repete todo mês para os previstos nascerem sozinhos."
+          actionLabel="Novo recorrente"
+          onAction={openNew}
+        />
+      ) : (
+        <Panel className="overflow-visible">
+          <FilterBar
+            search={
+              <ToolbarSearch
+                value={filters.q}
+                label="Buscar recorrente"
+                placeholder="Buscar recorrente"
+                onChange={(q) => setFilters({ ...filters, q })}
+              />
+            }
+            extraCount={filters.q === '' ? 0 : 1}
+            fields={[
+              {
+                id: 'tipo',
+                label: 'Tipo',
+                icon: 'tag',
+                options: KIND_GROUPS.filter((g) =>
+                  all.some((item) => item.kind === g.kind),
+                ).map((g) => ({ id: g.kind, label: g.label })),
+                selected: filters.tipo,
+                onChange: (tipo) => setFilters({ ...filters, tipo: [...tipo] }),
+              },
+              {
+                id: 'categoria',
+                label: 'Categoria',
+                icon: 'hash',
+                options: catList
+                  .filter((c) => all.some((item) => item.category_id === c.id))
+                  .map((c) => ({ id: c.id, label: c.name })),
+                selected: filters.categoria,
+                onChange: (categoria) =>
+                  setFilters({ ...filters, categoria: [...categoria] }),
+              },
+              {
+                id: 'conta',
+                label: 'Conta ou cartão',
+                icon: 'bank',
+                options: sources.map((s) => ({ id: s.id, label: s.name })),
+                selected: filters.conta,
+                onChange: (conta) => setFilters({ ...filters, conta: [...conta] }),
+              },
+            ]}
+            display={{
+              groupBy: {
+                label: 'Agrupar por',
+                value: grouping,
+                options: [
+                  { value: 'tipo', label: 'Tipo' },
+                  { value: 'categoria', label: 'Categoria' },
+                  { value: 'conta', label: 'Conta ou cartão' },
+                ],
+                onChange: (value) => setGrouping(value as Grouping),
+              },
+            }}
           />
-          <select
-            aria-label="Tipo"
-            className={control}
-            value={filters.kinds[0] ?? ''}
-            onChange={(e) =>
-              setFilters({
-                ...filters,
-                kinds: e.target.value === '' ? [] : [e.target.value as RecurringKind],
-              })
-            }
-          >
-            {KIND_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Categoria"
-            className={control}
-            value={filters.categories[0] ?? ''}
-            onChange={(e) =>
-              setFilters({
-                ...filters,
-                categories: e.target.value === '' ? [] : [e.target.value],
-              })
-            }
-          >
-            <option value="">Todas as categorias</option>
-            {catList
-              .filter((c) => !c.archived)
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-          </select>
-          <select
-            aria-label="Conta ou cartão"
-            className={control}
-            value={filters.sources[0] ?? ''}
-            onChange={(e) =>
-              setFilters({
-                ...filters,
-                sources:
-                  e.target.value === '' ? [] : [e.target.value.split(':')[1] ?? ''],
-              })
-            }
-          >
-            <option value="">Todas as contas e cartões</option>
-            {sources.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Situação"
-            className={control}
-            value={filters.situation[0] ?? ''}
-            onChange={(e) =>
-              setFilters({
-                ...filters,
-                situation:
-                  e.target.value === '' ? [] : [e.target.value as 'ativo' | 'pausado'],
-              })
-            }
-          >
-            <option value="">Ativos e pausados</option>
-            <option value="ativo">Ativos</option>
-            <option value="pausado">Pausados</option>
-          </select>
-          <select
-            aria-label="Lançamento"
-            className={control}
-            value={filters.modes[0] ?? ''}
-            onChange={(e) =>
-              setFilters({
-                ...filters,
-                modes:
-                  e.target.value === ''
-                    ? []
-                    : [e.target.value as 'manual' | 'automatico'],
-              })
-            }
-          >
-            <option value="">Automático e manual</option>
-            <option value="automatico">Automático</option>
-            <option value="manual">Manual</option>
-          </select>
-          <span className="ml-auto flex items-center gap-2 text-[0.8125rem] text-ink-3">
-            Agrupar
-            <Segmented
-              label="Agrupar por"
-              value={grouping}
-              options={RECURRING_GROUPINGS.map((value) => ({
-                value,
-                label: GROUP_LABEL[value],
-              }))}
-              onChange={(next) => {
-                setGrouping(next);
-                writeRecurringGrouping(browserStorage(), next);
-              }}
+          {visible.length === 0 ? (
+            <EmptyPanel
+              message="Nenhum recorrente com esses filtros."
+              actionLabel="Limpar filtros"
+              onAction={() => setFilters(NO_FILTERS)}
             />
-          </span>
-        </div>
-
-        {all.length === 0 ? (
-          <EmptyPanel
-            message="Nenhum recorrente ainda. Cadastre o que se repete todo mês para os previstos nascerem sozinhos."
-            actionLabel="Novo recorrente"
-            onAction={openNew}
-          />
-        ) : visible.length === 0 ? (
-          <EmptyPanel
-            message="Nenhum recorrente com esses filtros."
-            {...(hasRecurringFilters(filters)
-              ? {
-                  actionLabel: 'Limpar filtros',
-                  onAction: () => setFilters(EMPTY_RECURRING_FILTERS),
-                }
-              : {})}
-          />
-        ) : (
-          <FinTable caption="Recorrentes">
-            <THead>
-              <Th>Item</Th>
-              <Th>Categoria</Th>
-              <Th className="max-[1000px]:hidden">Pagamento</Th>
-              <Th align="right" className="max-[900px]:hidden">
-                Dia
-              </Th>
-              <Th className="max-[1100px]:hidden">Lançamento</Th>
-              <Th align="right">Valor</Th>
-              <Th align="right" className="max-[800px]:hidden">
-                % do bloco
-              </Th>
-              <Th align="center">Ativo</Th>
-              <Th>
-                <span className="sr-only">Ações</span>
-              </Th>
-            </THead>
-            <tbody>
+          ) : (
+            <FinTable caption="Recorrentes">
+              <THead>
+                <Th>Modelo</Th>
+                <Th align="right">Dia</Th>
+                <Th>Conta ou cartão</Th>
+                <Th className="max-md:hidden">Categoria</Th>
+                <Th>Próximo previsto</Th>
+                <Th align="right">Valor (R$)</Th>
+                <Th>
+                  <span className="sr-only">Ações</span>
+                </Th>
+              </THead>
               {groups.map((group) => (
-                <GroupBlock
-                  key={group.key}
-                  label={group.label}
-                  colSpan={COLS}
-                  total={money(group.total)}
-                >
-                  {group.items.map((item) => {
-                    const edit = (): void => setModal({ editing: item });
-                    const toggle = (): void =>
-                      void attempt(() =>
-                        setRecurringActive(item.id, !item.active, newAttemptKey()),
-                      );
-                    const warnPortfolio = archivedPortfolio(item);
-                    return (
-                      <Row
-                        key={item.id}
-                        label={item.name}
-                        muted={!item.active}
-                        onActivate={edit}
-                        onToggle={toggle}
-                      >
-                        <Td>
-                          <span className="font-medium">{item.name}</span>
-                          {warnPortfolio ? (
-                            <span className="block text-xs text-attention">
-                              carteira arquivada: não gera previsto
-                            </span>
-                          ) : null}
-                        </Td>
-                        <Td>
-                          {item.kind === 'aporte' ? (
-                            <span className="flex flex-col">
-                              <span>{portfolioName(item.portfolio_id)}</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-2">
-                              <span
-                                aria-hidden="true"
-                                className="inline-block size-2.5 rounded-[2px]"
-                                style={{
-                                  backgroundColor: categoryColor(
-                                    catList.find((c) => c.id === item.category_id)?.color,
-                                  ),
-                                }}
-                              />
-                              {categoryName(item.category_id)}
-                            </span>
-                          )}
-                        </Td>
-                        <Td className="max-[1000px]:hidden">
-                          {item.second_source === null ? (
-                            sourceName(item.source.id)
-                          ) : (
-                            <span className="flex flex-col text-xs">
-                              <span>
-                                {sourceName(item.source.id)}{' '}
-                                {money(item.covers_up_to ?? '0.00')}
-                              </span>
-                              <span>
-                                {sourceName(item.second_source.id)}{' '}
-                                {money(
-                                  (
-                                    Number(item.amount) - Number(item.covers_up_to ?? 0)
-                                  ).toFixed(2),
-                                )}
-                              </span>
-                            </span>
-                          )}
-                        </Td>
-                        <Td numeric className="max-[900px]:hidden">
-                          {item.day}
-                        </Td>
-                        <Td className="max-[1100px]:hidden">
-                          {item.mode === 'automatico' ? 'Automático' : 'Manual'}
-                        </Td>
-                        <Td numeric>
-                          {money(item.amount)}
-                          {item.mode === 'manual' ? (
-                            <span className="block text-xs font-normal text-ink-3">
-                              estimativa
-                            </span>
-                          ) : null}
-                        </Td>
-                        <Td numeric className="max-[800px]:hidden">
-                          {item.active ? tenthsText(group.weights.get(item.id)) : '—'}
-                        </Td>
-                        <Td align="center">
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={item.active}
-                            aria-label={`Ativo: ${item.name}`}
-                            className={`relative h-5 w-9 cursor-pointer rounded-full border border-line-2 transition-colors ${
-                              item.active ? 'bg-accent' : 'bg-panel-2'
-                            }`}
-                            onClick={toggle}
-                          >
+                <tbody key={group.key}>
+                  <tr className="border-t border-line bg-panel-2">
+                    <th
+                      scope="rowgroup"
+                      colSpan={COLUMNS}
+                      className="px-3 py-[var(--row-pad)] text-left text-[0.8125rem] font-semibold"
+                    >
+                      {group.label}
+                      <span className="ml-2 font-normal text-ink-3">
+                        {modelsLabel(group.items.length)}
+                      </span>
+                    </th>
+                  </tr>
+                  {group.items.map((item) => (
+                    <Row
+                      key={item.id}
+                      label={item.name}
+                      muted={!item.active}
+                      onActivate={() => setModal({ editing: item })}
+                    >
+                      {nameCell(item)}
+                      <Td numeric>{item.day}</Td>
+                      <Td>
+                        {item.kind === 'aporte' ? (
+                          <>
+                            {sourceName(item.source.id)}
+                            <Arrow />
+                            {portfolioName(item.portfolio_id)}
+                          </>
+                        ) : (
+                          pay(item)
+                        )}
+                      </Td>
+                      <Td className="text-ink-2 max-md:hidden">
+                        {item.kind === 'aporte' ? (
+                          '—'
+                        ) : (
+                          <span className="inline-flex items-center gap-2">
                             <span
                               aria-hidden="true"
-                              className={`absolute top-0.5 size-3.5 rounded-full bg-panel shadow transition-all ${
-                                item.active ? 'left-[1.1rem]' : 'left-0.5'
-                              }`}
+                              className="inline-block size-2 rounded-[2px]"
+                              style={{
+                                backgroundColor: categoryColor(
+                                  catList.find((c) => c.id === item.category_id)?.color,
+                                ),
+                              }}
                             />
-                          </button>
-                        </Td>
-                        <Td align="right">
-                          <Menu
-                            label={`Ações de ${item.name}`}
-                            items={[
-                              { id: 'edit', label: 'Editar', onSelect: edit },
-                              {
-                                id: 'skip',
-                                label: 'Pular este mês',
-                                disabled: !item.active,
-                                onSelect: () =>
-                                  void attempt(() =>
-                                    skipRecurringMonth(item.id, month, newAttemptKey()),
-                                  ),
-                              },
-                              {
-                                id: 'delete',
-                                label: 'Excluir',
-                                destructive: true,
-                                onSelect: () => setDeleting(item),
-                              },
-                            ]}
-                          />
-                        </Td>
-                      </Row>
-                    );
-                  })}
-                </GroupBlock>
+                            {categoryName(item.category_id)}
+                          </span>
+                        )}
+                      </Td>
+                      <Td className="tabular text-ink-2">{dm(item.next_planned)}</Td>
+                      <Td
+                        numeric
+                        className={`font-semibold ${item.kind === 'receita' ? 'text-positive' : ''}`}
+                      >
+                        {item.kind === 'receita' ? '+' : '−'}
+                        {bare(item.amount)}
+                      </Td>
+                      {actions(item)}
+                    </Row>
+                  ))}
+                  <SummaryRow>
+                    <Td colSpan={5}>Total · {group.label}</Td>
+                    {signedCell(signedSum(group.items))}
+                    <Td />
+                  </SummaryRow>
+                </tbody>
               ))}
-              <SummaryRow kind="total">
-                <Td colSpan={5}>Resultado mensal (receitas − despesas − aportes)</Td>
-                <Td numeric>{money(monthlyResult(visible))}</Td>
-                <Td colSpan={3} />
-              </SummaryRow>
-            </tbody>
-          </FinTable>
-        )}
-      </section>
+              <tbody>
+                <SummaryRow kind="total">
+                  <Td colSpan={5}>Resultado mensal (receitas − despesas)</Td>
+                  {signedCell(signedSum(visible))}
+                  <Td />
+                </SummaryRow>
+              </tbody>
+            </FinTable>
+          )}
+        </Panel>
+      )}
 
       {modal === null ? null : (
         <RecurringModal
@@ -537,25 +517,3 @@ export const RecurringsScreen = (): React.ReactElement => {
     </div>
   );
 };
-
-const GroupBlock = ({
-  label,
-  total,
-  colSpan,
-  children,
-}: {
-  readonly label: string;
-  readonly total: string;
-  readonly colSpan: number;
-  readonly children: React.ReactNode;
-}): React.ReactElement => (
-  <>
-    <SectionRow colSpan={colSpan} label={label} />
-    {children}
-    <SummaryRow>
-      <Td colSpan={5}>Total ativo · {label}</Td>
-      <Td numeric>{total}</Td>
-      <Td colSpan={3} />
-    </SummaryRow>
-  </>
-);

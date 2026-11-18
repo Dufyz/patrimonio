@@ -104,7 +104,7 @@ describe('Configurações · Contas e cartões (CFG-03)', () => {
         calls.some((c) => c.method === 'PUT' && c.url.endsWith('/finance/accounts/a1')),
       ).toBe(true),
     );
-    await user.click(screen.getAllByRole('button', { name: 'Arquivar' })[0]!);
+    await user.click(screen.getByRole('button', { name: 'Arquivar Nubank Conta' }));
     await waitFor(() =>
       expect(
         calls.some(

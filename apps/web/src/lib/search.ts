@@ -87,12 +87,12 @@ const isScreenGroup = (group: SearchGroupId): boolean =>
 
 export const GROUP_TITLES: Readonly<Record<SearchGroupId, string>> = {
   recent: 'Recentes',
-  quick: 'Lançamento rápido',
+  quick: 'Movimentação rápida',
   assets: 'Ativos',
   // O título real leva o código do ativo; ver `assetActionItems`.
   asset_actions: 'Ações com o ativo',
   instruments: 'Papéis do mercado',
-  transactions: 'Lançamentos',
+  transactions: 'Movimentações',
   screens: 'Ir para',
   screens_geral: 'Telas · Geral',
   screens_investimentos: 'Telas · Investimentos',
@@ -300,7 +300,7 @@ export const localItems = (input: {
     id: 'action:new_transaction',
     group: 'actions',
     glyph: GLYPHS.action,
-    label: 'Novo lançamento',
+    label: 'Nova movimentação',
     detail: null,
     amount: null,
     shortcut: 'N',
@@ -530,7 +530,7 @@ export const readRecents = (storage: Storageish | null): readonly RecentEntry[] 
   readJson(storage, RECENT_STORAGE_KEY, isRecentList, []).slice(0, RECENT_LIMIT);
 
 /**
- * Ação não vira recente: "Novo lançamento" está a um `N` de distância, e uma
+ * Ação não vira recente: "Nova movimentação" está a um `N` de distância, e uma
  * lista de recentes cheia de ações empurra para fora justamente o que a
  * pessoa quer reabrir — o ativo e a tela.
  */
@@ -588,7 +588,7 @@ export const SEARCH_FILTERS: readonly SearchFilter[] = [
 
 export const FILTER_LABELS: Readonly<Record<Exclude<SearchFilter, null>, string>> = {
   assets: 'Ativos',
-  transactions: 'Lançamentos',
+  transactions: 'Movimentações',
   finance: 'Finanças',
   screens: 'Telas',
   actions: 'Ações',
@@ -665,7 +665,7 @@ export const quickEntryItem = (
     group: 'quick',
     glyph: GLYPHS.action,
     label: quickEntryLabel(entry),
-    detail: 'abre o lançamento preenchido, sem salvar',
+    detail: 'abre a movimentação preenchida, sem salvar',
     amount: null,
     shortcut: '↵',
     keywords: [],

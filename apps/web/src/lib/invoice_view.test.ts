@@ -9,6 +9,7 @@ import {
 } from './invoice_view.js';
 
 const line = (over: Partial<InvoiceLineResource>): InvoiceLineResource => ({
+  accumulated: '0.00',
   id: 'x',
   origin: 'entry',
   block: 'compras',

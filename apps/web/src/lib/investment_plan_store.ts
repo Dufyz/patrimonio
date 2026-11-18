@@ -73,3 +73,11 @@ export const usePlan = (
   );
   return { plan, set };
 };
+
+let counter = 0;
+export const newRuleId = (): string => {
+  counter += 1;
+  return `r-${Date.now().toString(36)}${counter.toString(36)}${Math.random()
+    .toString(36)
+    .slice(2, 6)}`;
+};

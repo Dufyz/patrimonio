@@ -349,7 +349,7 @@ describe('tela de Posições', () => {
     show();
     await screen.findByText('28 posições');
 
-    const total = screen.getByText('Total').closest('tr');
+    const total = screen.getByText(/^Total/).closest('tr');
     expect(within(total as HTMLElement).getByText('R$ 318.904,12')).toBeInTheDocument();
   });
 

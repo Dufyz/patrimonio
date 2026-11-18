@@ -39,8 +39,9 @@ import { OverviewScreen } from './views/overview.js';
 import { GoalsScreen } from './views/goals.js';
 import { GoalsOverviewScreen } from './views/goals_overview.js';
 import { PositionsScreen } from './views/positions.js';
-import { ProjectionScreen } from './views/projection_screen.js';
+import { ProjectionScreen } from './views/projection.js';
 import { SettingsScreen } from './views/settings/index.js';
+import { fetchClosedPositions } from './api/positions.js';
 import { StrategyScreen } from './views/strategy.js';
 
 /**
@@ -187,7 +188,7 @@ const Workbench = ({ home = false }: { readonly home?: boolean }): React.ReactEl
   const asset = home ? undefined : params['asset'];
   const navigate = useNavigate();
 
-  const { portfolios, slugs, loaded, failed, reload } = usePortfolios();
+  const { portfolios, slugs, loaded, failed, reload, values } = usePortfolios();
 
   const allPortfolios = scope === ALL_SCOPE;
   const portfolioId = allPortfolios ? null : portfolioIdForScope(scope, slugs);
@@ -235,8 +236,29 @@ const Workbench = ({ home = false }: { readonly home?: boolean }): React.ReactEl
    * encerrada, que soma carteiras) não abre.
    */
   const openAssetIn = (slug: string, rowPortfolioId: string | null): void => {
-    const target = rowPortfolioId ?? portfolioId;
-    if (target === null) return;
+    const target = rowPortfolioId === '' ? null : (rowPortfolioId ?? portfolioId);
+    // Encerrada em Todas as carteiras soma carteiras e não traz uma: procura a
+    // carteira onde o ativo foi encerrado por último e abre a página dele lá.
+    if (target === null) {
+      const assetId = slug;
+      void Promise.all(
+        portfolios.map(async (portfolio) => {
+          const closed = await fetchClosedPositions(portfolio.id, '').catch(() => null);
+          const hit = closed?.positions.find(
+            (row) =>
+              row.asset_id === assetId || row.ticker.toLowerCase() === slug.toLowerCase(),
+          );
+          return hit === undefined ? null : { id: portfolio.id, on: hit.closed_on };
+        }),
+      ).then((found) => {
+        const best = found
+          .filter((item): item is { id: string; on: string } => item !== null)
+          .sort((a, b) => (a.on < b.on ? 1 : -1))[0];
+        const scope = best === undefined ? null : scopeForPortfolioId(best.id, slugs);
+        if (scope !== null) void navigate(routes.asset(scope, slug));
+      });
+      return;
+    }
 
     const targetScope = scopeForPortfolioId(target, slugs);
     if (targetScope !== null) void navigate(routes.asset(targetScope, slug));
@@ -334,7 +356,11 @@ const Workbench = ({ home = false }: { readonly home?: boolean }): React.ReactEl
           <GoalsScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
         )
       ) : current?.id === 'projecao' ? (
-        <ProjectionScreen portfolioId={portfolioId} scopeLabel={scopeLabel} />
+        <ProjectionScreen
+          portfolios={portfolios}
+          portfolioId={portfolioId}
+          values={values}
+        />
       ) : null}
     </>
   );

@@ -8,8 +8,9 @@ import type { Tone } from '../../lib/settings.js';
  */
 
 /**
- * Cada seção tem âncora, título e descrição fora do painel — como na prancha 20 —
- * e os painéis dela vêm dentro. A navegação lateral leva até a âncora.
+ * Cada seção é uma região da tela de Configurações: o título e a descrição
+ * ficam para leitores de tela (a prancha 11 mostra só os painéis), e os painéis
+ * dela vêm dentro.
  */
 export const SettingsSection = ({
   id,
@@ -22,16 +23,19 @@ export const SettingsSection = ({
   readonly description: React.ReactNode;
   readonly children: React.ReactNode;
 }): React.ReactElement => (
-  <section id={`secao-${id}`} aria-labelledby={`titulo-${id}`} className="scroll-mt-4">
-    <h2 id={`titulo-${id}`} className="text-panel-title font-semibold">
+  <section id={`secao-${id}`} aria-labelledby={`titulo-${id}`}>
+    <h2 id={`titulo-${id}`} className="sr-only">
       {title}
     </h2>
-    <p className="mt-1 mb-3 max-w-[60rem] text-[0.8125rem] text-ink-2">{description}</p>
-    <div className="flex flex-col gap-3">{children}</div>
+    <p className="sr-only">{description}</p>
+    <div className="flex flex-col gap-4">{children}</div>
   </section>
 );
 
-/** O painel de dentro de uma seção: borda, linhas separadas e, às vezes, cabeçalho. */
+/**
+ * O painel de dentro de uma seção: borda, linhas separadas e o cabeçalho da
+ * prancha — título (com a ação ao lado) à esquerda e a nota à direita.
+ */
 export const SettingsPanel = ({
   title,
   hint,
@@ -50,19 +54,26 @@ export const SettingsPanel = ({
       tone === 'danger' ? 'border-negative' : 'border-line'
     }`}
   >
-    {title === undefined && action === undefined ? null : (
-      <header className="flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-2.5">
-        <div className="flex min-w-0 items-baseline gap-2">
+    {title === undefined ? null : (
+      <header className="flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line px-4 py-2.5">
+        <div className="flex min-w-0 items-center gap-3">
           <h3 className="text-[0.8125rem] font-semibold">{title}</h3>
-          {hint === undefined ? null : (
-            <span className="truncate text-xs text-ink-3">{hint}</span>
-          )}
+          {action}
         </div>
-        {action}
+        {hint === undefined ? null : <span className="text-xs text-ink-3">{hint}</span>}
       </header>
     )}
     {children}
   </div>
+);
+
+/** A nota de rodapé de um painel, no tom da prancha. */
+export const PanelFootnote = ({
+  children,
+}: {
+  readonly children: React.ReactNode;
+}): React.ReactElement => (
+  <p className="border-t border-line px-4 py-3 text-[0.8125rem] text-ink-2">{children}</p>
 );
 
 const DOT_CLASS: Readonly<Record<Tone, string>> = {

@@ -541,7 +541,7 @@ export const DeleteAssetDialog = ({
         title={`${asset.ticker} não pode ser excluído`}
         subject={asset.ticker}
         blocked={`${refusal} Arquivar esconde o ativo das buscas e do cadastro, mas mantém o histórico e a rentabilidade passada.`}
-        blockedAction={{ label: 'Ver lançamentos', onClick: onOpenStatement }}
+        blockedAction={{ label: 'Ver movimentações', onClick: onOpenStatement }}
         onConfirm={() => Promise.resolve()}
         onClose={onClose}
         onDone={onDone}
@@ -552,7 +552,7 @@ export const DeleteAssetDialog = ({
   return (
     <DeleteDialog
       title={`Excluir ${asset.ticker}?`}
-      subtitle="Nenhum lançamento usa este ativo"
+      subtitle="Nenhuma movimentação usa este ativo"
       subject={`${asset.ticker} · ${asset.name}`}
       consequence="O cadastro é removido e o código volta a aparecer apenas na busca da base."
       confirmLabel="Excluir ativo"

@@ -167,7 +167,14 @@ const health: MarketHealth = {
       detail: null,
     },
   ],
-  missing_prices: [{ asset_id: 'k', ticker: 'KNRI11', last_price_date: '2026-10-04' }],
+  missing_prices: [
+    {
+      asset_id: 'k',
+      ticker: 'KNRI11',
+      last_price_date: '2026-10-04',
+      last_price: '100.00',
+    },
+  ],
 };
 
 const resource = <T,>(
@@ -279,9 +286,7 @@ describe('SettingsView', () => {
     registers.deletePortfolio.mockResolvedValue({});
     montar();
 
-    await user.click(
-      screen.getByRole('button', { name: 'Editar a carteira Longo prazo' }),
-    );
+    await user.click(screen.getByRole('button', { name: 'Renomear Longo prazo' }));
     await user.click(screen.getByRole('button', { name: /Excluir carteira/ }));
 
     const dialog = screen.getByRole('dialog', { name: /Excluir Longo prazo\?/ });
@@ -311,7 +316,7 @@ describe('SettingsView', () => {
     );
   });
 
-  it('a tabela mostra valor, posições, objetivo e situação, e reordena pelos botões (CFG-04)', async () => {
+  it('a tabela mostra valor, ativos, estratégia e objetivo, e reordena pelo teclado (CFG-04)', async () => {
     const user = userEvent.setup();
     registers.reorderPortfolios.mockResolvedValue({});
     const reload = vi.fn();
@@ -319,17 +324,13 @@ describe('SettingsView', () => {
 
     const longo = screen.getByRole('row', { name: /Longo prazo/ });
     expect(within(longo).getByText('R$ 125.000,50')).toBeTruthy();
-    expect(within(longo).getByText('Sim')).toBeTruthy();
-    expect(within(longo).getByText('Ativa')).toBeTruthy();
-    const imovel = screen.getByRole('row', { name: /Entrada do imóvel/ });
-    expect(within(imovel).getByText('Não')).toBeTruthy();
+    expect(within(longo).getByText('Independência financeira')).toBeTruthy();
+    expect(within(longo).getByText('5 classes')).toBeTruthy();
 
-    // O primeiro não sobe e o último não desce.
-    expect(
-      (screen.getByRole('button', { name: 'Subir Longo prazo' }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
-    await user.click(screen.getByRole('button', { name: 'Subir Entrada do imóvel' }));
+    // A alça sobe e desce pelas setas: o resto da ordem não muda.
+    const alca = screen.getByRole('button', { name: /^Reordenar Entrada do imóvel/ });
+    alca.focus();
+    await user.keyboard('{ArrowUp}');
     expect(registers.reorderPortfolios).toHaveBeenCalledWith([IMOVEL, LONGO]);
   });
 
@@ -352,7 +353,8 @@ describe('SettingsView', () => {
     );
     montar();
 
-    await user.click(screen.getByRole('button', { name: 'Descer Longo prazo' }));
+    screen.getByRole('button', { name: /^Reordenar Longo prazo/ }).focus();
+    await user.keyboard('{ArrowDown}');
     expect((await screen.findByRole('alert')).textContent).toContain(
       'A ordem mudou em outra aba.',
     );
@@ -381,30 +383,30 @@ describe('SettingsView', () => {
       market: { kind: 'ready', value: { ...health, sources: [base, failing] } },
     });
 
-    const row = screen.getByRole('row', { name: /Preços de bolsa/ });
-    expect(within(row).getByText('22 / 24')).toBeTruthy();
+    const row = within(
+      screen.getByRole('table', { name: 'Situação de cada fonte' }),
+    ).getByRole('row', { name: /Cotações/ });
     expect(within(row).getByText('2 sem preço')).toBeTruthy();
 
-    const indices = screen.getByRole('row', { name: /Índices/ });
-    expect(within(indices).getByText('falhando')).toBeTruthy();
+    const fontes = within(screen.getByRole('table', { name: 'Situação de cada fonte' }));
+    expect(fontes.getByText('falhando')).toBeTruthy();
     expect(screen.getByText(/bcb respondeu 503/)).toBeTruthy();
-
-    const treasury = screen.getByRole('row', { name: /Tesouro Direto/ });
-    expect(within(treasury).getByText('nunca coletou')).toBeTruthy();
 
     expect(screen.getByText(/ativo sem cotação do dia/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Definir preço de KNRI11' })).toBeTruthy();
   });
 
-  it('a referência é uma linha só, com contagens e aviso do que ainda vai carregar', () => {
+  it('os catálogos mostram registros e dizem quais ainda estão pendentes', () => {
     montar({ section: 'dados-de-mercado' });
 
-    expect(screen.getByText(/312 instituições/)).toBeTruthy();
-    expect(screen.getByText(/1840 papéis listados/)).toBeTruthy();
-    expect(screen.getByText(/carregando na próxima atualização/)).toBeTruthy();
+    const catalogos = within(
+      screen.getByRole('table', { name: 'Catálogos de referência' }),
+    );
+    expect(catalogos.getByRole('row', { name: /Instituições.*312/ })).toBeTruthy();
     expect(
-      screen.queryByRole('table', { name: 'Catálogos da carga inicial' }),
-    ).toBeNull();
+      catalogos.getByRole('row', { name: /Instrumentos listados.*1840/ }),
+    ).toBeTruthy();
+    expect(catalogos.getAllByText('pendente').length).toBe(2);
   });
 
   it('sem dado de demonstração, não há aviso', () => {
@@ -495,9 +497,10 @@ describe('SettingsView', () => {
     expect(screen.queryByText(/dados? falhando/)).toBeNull();
   });
 
-  it('a tabela de backups mostra data, tipo, tamanho e situação, e a retenção é só texto (BKP-01)', () => {
+  it('a tabela de backups mostra data, tipo, tamanho e situação, e a retenção é só texto (BKP-01)', async () => {
     montar({ section: 'dados-e-backup' });
 
+    await userEvent.click(screen.getByRole('button', { name: 'Escolher backup' }));
     const tabela = within(screen.getByRole('table', { name: 'Backups guardados' }));
     const diario = tabela.getByRole('row', { name: /08\/10\/2026/ });
     expect(within(diario).getByText('Diário')).toBeTruthy();
@@ -516,6 +519,7 @@ describe('SettingsView', () => {
     const user = userEvent.setup();
     montar({ section: 'dados-e-backup' });
 
+    await user.click(screen.getByRole('button', { name: 'Escolher backup' }));
     await user.click(
       screen.getByRole('button', { name: 'Restaurar o backup de 2026-10-08' }),
     );
@@ -545,6 +549,7 @@ describe('SettingsView', () => {
     const user = userEvent.setup();
     montar({ section: 'dados-e-backup' });
 
+    await user.click(screen.getByRole('button', { name: 'Escolher backup' }));
     await user.click(
       screen.getByRole('button', { name: 'Restaurar o backup de 2026-10-08' }),
     );
@@ -570,6 +575,7 @@ describe('SettingsView', () => {
     const user = userEvent.setup();
     montar({ section: 'dados-e-backup' });
 
+    await user.click(screen.getByRole('button', { name: 'Escolher backup' }));
     await user.click(
       screen.getByRole('button', { name: 'Restaurar o backup de 2026-10-08' }),
     );
@@ -586,13 +592,14 @@ describe('SettingsView', () => {
   it('BKP-03 · backup sem contagem diz que o conteúdo não foi registrado', async () => {
     const user = userEvent.setup();
     montar({ section: 'dados-e-backup' });
+    await user.click(screen.getByRole('button', { name: 'Escolher backup' }));
     await user.click(
       screen.getByRole('button', { name: 'Restaurar o backup de 2026-10-04' }),
     );
     expect(screen.getByText(/conteúdo não registrado/)).toBeTruthy();
   });
 
-  it('sem backup ainda, a seção diz "Nenhum backup feito" (CFG-06)', () => {
+  it('sem backup ainda, a seção diz "Nenhum backup feito" (CFG-06)', async () => {
     montar({
       section: 'dados-e-backup',
       settings: {
@@ -603,6 +610,7 @@ describe('SettingsView', () => {
         },
       },
     });
+    await userEvent.click(screen.getByRole('button', { name: 'Escolher backup' }));
     expect(screen.getByText(/Nenhum backup feito\./)).toBeTruthy();
     expect(screen.queryByRole('table', { name: 'Backups guardados' })).toBeNull();
   });
@@ -627,7 +635,7 @@ describe('SettingsView', () => {
     const reload = vi.fn();
     montar({ reload, section: 'dados-e-backup' });
 
-    expect(screen.getByText('Último backup em 08/10 03:01')).toBeTruthy();
+    expect(screen.getByText('Último backup')).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'Fazer backup agora' }));
 
     expect(api.runBackup).toHaveBeenCalledTimes(1);
@@ -644,13 +652,12 @@ describe('SettingsView', () => {
       },
     });
 
-    // O motivo mora na dica do botão, e não num texto ao lado dele.
-    expect(screen.queryByText('Backup desligado nesta instalação')).toBeNull();
+    // O motivo vem na linha do "Último backup".
+    expect(screen.getByText('Backup desligado nesta instalação')).toBeTruthy();
     const button = screen.getByRole('button', {
       name: 'Fazer backup agora',
     }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
-    expect(button.title).toBe('Backup desligado nesta instalação');
   });
 
   it('a falha do backup vem com a mensagem do erro', () => {

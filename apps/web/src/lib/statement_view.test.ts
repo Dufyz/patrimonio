@@ -14,6 +14,10 @@ const line = (over: Partial<StatementLineResource>): StatementLineResource => ({
   tags: [],
   entry_id: null,
   balance_after: '0',
+  kind: 'despesa',
+  from: null,
+  to: null,
+  portfolio_id: null,
   ...over,
 });
 

@@ -17,17 +17,12 @@ import { FormShell } from '../entry/form_shell.js';
 
 /**
  * CAT-03 · Nova, editar e excluir categoria. O tipo só muda em categoria sem
- * lançamentos; a natureza (fixa ou livre) é só da despesa; excluir categoria em
+ * lançamentos; excluir categoria em
  * uso pede o destino e, depois, uma segunda confirmação com a contagem.
  */
 const KIND_OPTIONS = [
   { id: 'despesa', name: 'Despesa' },
   { id: 'receita', name: 'Receita' },
-] as const;
-
-const NATURE_OPTIONS = [
-  { id: 'livre', name: 'Livre' },
-  { id: 'fixa', name: 'Fixa' },
 ] as const;
 
 export const CategoryModal = ({
@@ -46,7 +41,6 @@ export const CategoryModal = ({
 }): React.ReactElement => {
   const [name, setName] = useState(editing?.name ?? '');
   const [kind, setKind] = useState<'receita' | 'despesa'>(editing?.kind ?? 'despesa');
-  const [nature, setNature] = useState<'fixa' | 'livre'>(editing?.nature ?? 'livre');
   const [color, setColor] = useState(editing?.color ?? CATEGORY_PALETTE[0].id);
   const [attempted, setAttempted] = useState(false);
   const [pending, setPending] = useState(false);
@@ -76,7 +70,8 @@ export const CategoryModal = ({
       name: trimmed,
       kind,
       color,
-      nature: kind === 'despesa' ? nature : null,
+      // Categoria é só categoria: não há natureza fixa/livre.
+      nature: null,
     };
     try {
       if (editing === undefined) await createFinanceCategory(body, newAttemptKey());
@@ -117,7 +112,7 @@ export const CategoryModal = ({
         </Field>
         <Field
           label="Tipo"
-          hint={locked ? 'Categoria com lançamentos não muda de tipo.' : undefined}
+          hint={locked ? 'Categoria com movimentações não muda de tipo.' : undefined}
         >
           {(p) => (
             <Select
@@ -130,19 +125,6 @@ export const CategoryModal = ({
             />
           )}
         </Field>
-        {kind === 'despesa' ? (
-          <Field label="Natureza">
-            {(p) => (
-              <Select
-                {...p}
-                invalid={false}
-                options={NATURE_OPTIONS}
-                value={nature}
-                onChange={(e) => setNature(e.target.value as 'fixa' | 'livre')}
-              />
-            )}
-          </Field>
-        ) : null}
         <fieldset className="flex flex-col gap-1.5">
           <legend className="text-xs font-medium text-ink-2">Cor</legend>
           <div role="radiogroup" aria-label="Cor" className="flex flex-wrap gap-2">
@@ -211,7 +193,7 @@ export const DeleteCategoryModal = ({
       <AlertModal
         open
         title={`Excluir ${category.name}?`}
-        message="A categoria não tem lançamentos e será removida."
+        message="A categoria não tem movimentações e será removida."
         cancelLabel="Cancelar"
         confirmLabel="Excluir"
         pending={pending}
@@ -227,7 +209,7 @@ export const DeleteCategoryModal = ({
       open
       title="Confirmar exclusão"
       message={`${category.entriesTotal} ${
-        category.entriesTotal === 1 ? 'lançamento' : 'lançamentos'
+        category.entriesTotal === 1 ? 'movimentação' : 'movimentações'
       } de "${category.name}" (e os recorrentes dela) vão para "${destinationName}". Não dá para desfazer.`}
       cancelLabel="Voltar"
       confirmLabel="Excluir e mover"
@@ -248,7 +230,7 @@ export const DeleteCategoryModal = ({
       >
         <p className="text-[0.8125rem] text-ink-2">
           Esta categoria tem {category.entriesTotal}{' '}
-          {category.entriesTotal === 1 ? 'lançamento' : 'lançamentos'}. Escolha a
+          {category.entriesTotal === 1 ? 'movimentação' : 'movimentações'}. Escolha a
           categoria que vai recebê-los, com os recorrentes.
         </p>
         <Field label="Mover para">

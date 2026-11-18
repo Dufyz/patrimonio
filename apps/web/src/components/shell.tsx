@@ -12,7 +12,7 @@ import { browserStorage, readRaw, writeRaw } from '../lib/preferences.js';
  * Uma só barra lateral, sem seletor de áreas. De cima para baixo: o nome
  * "Patrimônio" (só texto) e o botão de recolher; a busca; Visão geral e
  * Lançamentos; Contas e cartões; Carteiras (o seletor e as telas do escopo);
- * Planejamento; Cadastros; e Configurações no pé.
+ * Cadastros (recorrentes e categorias); e Configurações no pé.
  *
  * A tela, a carteira e o período vivem na URL, e não em estado: voltar, avançar e
  * abrir em nova aba preservam a seleção. Trocar de carteira mantém a tela atual,

@@ -7,7 +7,7 @@ import {
   fetchCategories,
   updateCategory,
 } from '../api/registers.js';
-import { Modal } from '../components/overlay.js';
+import { AlertModal, Modal } from '../components/overlay.js';
 import { Button, IconButton } from '../components/primitives.js';
 import { CLASS_COLOR_TOKENS, colorForToken } from '../lib/tokens.js';
 import { useResource } from '../lib/use_resource.js';
@@ -114,6 +114,7 @@ export const ClassesDialog = ({
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [newName, setNewName] = useState('');
+  const [removing, setRemoving] = useState<CategoryResource | null>(null);
 
   const categories = resource.state.kind === 'ready' ? resource.state.value : [];
   const classes = useMemo(() => groupClasses(categories), [categories]);
@@ -199,7 +200,7 @@ export const ClassesDialog = ({
                     ? 'Mova as categorias para outra classe antes de excluir'
                     : undefined
                 }
-                onClick={() => void run(() => deleteCategory(group.head.id))}
+                onClick={() => setRemoving(group.head)}
               />
             </div>
 
@@ -261,6 +262,20 @@ export const ClassesDialog = ({
           Criar classe
         </Button>
       </div>
+      <AlertModal
+        open={removing !== null}
+        title={`Excluir a classe ${removing?.name ?? ''}?`}
+        message="A classe sai da estratégia e das listas de escolha. A exclusão não pode ser desfeita."
+        cancelLabel="Cancelar"
+        confirmLabel="Excluir classe"
+        pending={busy}
+        onCancel={() => setRemoving(null)}
+        onConfirm={() => {
+          const target = removing;
+          setRemoving(null);
+          if (target !== null) void run(() => deleteCategory(target.id));
+        }}
+      />
     </Modal>
   );
 };

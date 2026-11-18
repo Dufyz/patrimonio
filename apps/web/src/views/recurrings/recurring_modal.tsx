@@ -6,7 +6,17 @@ import { ApiError } from '../../api/client.js';
 import { Modal } from '../../components/overlay.js';
 import { newAttemptKey } from '../../lib/entry.js';
 import type { RecurringKind, RecurringResource } from '../../lib/recurring_view.js';
-import { Field, Input, Select } from '../entry/fields.js';
+import {
+  Callout,
+  Field,
+  Input,
+  MoneyInput,
+  NoteField,
+  Select,
+  Toggle,
+} from '../entry/fields.js';
+import { KindSelect } from '../ledger/kind_select.js';
+import type { ModalKind } from '../../lib/ledger_entry_form.js';
 import { FormShell } from '../entry/form_shell.js';
 
 /**
@@ -32,18 +42,28 @@ type Draft = {
   readonly day: string;
   readonly mode: 'manual' | 'automatico';
   readonly amount: string;
+  readonly note: string;
 };
 
-const KINDS: readonly { id: RecurringKind; name: string }[] = [
-  { id: 'receita', name: 'Receita' },
-  { id: 'despesa', name: 'Despesa' },
-  { id: 'aporte', name: 'Aporte' },
-];
+// Aporte não é recorrente: o valor investido sai como despesa (categoria) e a
+// compra de ativos se lança em Posições. O recorrente de aporte que já existir
+// ainda abre para edição.
+const KINDS: readonly RecurringKind[] = ['receita', 'despesa'];
+const KIND_SUBTITLE: Readonly<Record<RecurringKind, string>> = {
+  receita: 'Receita · entra todo mês em uma conta',
+  despesa: 'Despesa · sai todo mês de uma conta ou cartão',
+  aporte: 'Aporte · conta → carteira, confirmado mês a mês',
+};
+const KIND_NAME: Readonly<Record<RecurringKind, string>> = {
+  receita: 'receita',
+  despesa: 'despesa',
+  aporte: 'aporte',
+};
 
-const MODES = [
-  { id: 'manual', name: 'Manual (valor estimado)' },
-  { id: 'automatico', name: 'Automático (valor fixo)' },
-] as const;
+const DAYS = Array.from({ length: 31 }, (_, index) => ({
+  id: String(index + 1),
+  name: `Dia ${index + 1}`,
+}));
 
 const encode = (source: { type: string; id: string } | null): string =>
   source === null ? '' : `${source.type}:${source.id}`;
@@ -105,6 +125,7 @@ export const toRecurringRequest = (draft: Draft): RecurringRequest => ({
   day: Number(draft.day),
   mode: draft.kind === 'aporte' ? 'manual' : draft.mode,
   amount: Number(normalize(draft.amount)).toFixed(2),
+  note: draft.note.trim() === '' ? null : draft.note.trim(),
 });
 
 const draftOf = (recurring: RecurringResource | undefined): Draft => ({
@@ -118,6 +139,7 @@ const draftOf = (recurring: RecurringResource | undefined): Draft => ({
   day: String(recurring?.day ?? 1),
   mode: recurring?.mode ?? 'manual',
   amount: recurring?.amount.replace('.', ',') ?? '',
+  note: recurring?.note ?? '',
 });
 
 export const RecurringModal = ({
@@ -175,163 +197,221 @@ export const RecurringModal = ({
       guard
       narrow
       title={editing === undefined ? 'Novo recorrente' : 'Editar recorrente'}
+      subtitle={KIND_SUBTITLE[draft.kind]}
       onClose={onClose}
     >
       <FormShell
         pending={pending}
         error={failure}
-        saveLabel={editing === undefined ? 'Criar recorrente' : 'Salvar'}
+        saveLabel={
+          editing === undefined ? `Criar ${KIND_NAME[draft.kind]} recorrente` : 'Salvar'
+        }
         onSave={() => void submit()}
         onCancel={onClose}
       >
-        <Field label="Item" error={shown.name}>
+        <Field label="Tipo">
+          {(p) => (
+            <KindSelect
+              id={p.id}
+              kinds={(draft.kind === 'aporte'
+                ? [...KINDS, 'aporte' as const]
+                : KINDS
+              ).map((k) => k.toUpperCase() as ModalKind)}
+              value={draft.kind.toUpperCase() as ModalKind}
+              onChange={(next) => {
+                const kind = next.toLowerCase() as RecurringKind;
+                setDraft((d) => ({
+                  ...d,
+                  kind,
+                  categoryId: '',
+                  secondSource: '',
+                  source:
+                    kind === 'aporte' && d.source.startsWith('cartao:') ? '' : d.source,
+                  mode: kind === 'aporte' ? 'manual' : d.mode,
+                }));
+              }}
+            />
+          )}
+        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field
+            label="Dia do mês"
+            error={shown.day}
+            hint="Dia 31 em mês curto cai no último dia."
+          >
+            {(p) => (
+              <Select
+                {...p}
+                invalid={p['aria-invalid']}
+                options={DAYS}
+                value={draft.day}
+                onChange={(e) => set('day', e.target.value)}
+              />
+            )}
+          </Field>
+          {aporte ? (
+            <Field label="Carteira" error={shown.portfolio}>
+              {(p) => (
+                <Select
+                  {...p}
+                  invalid={p['aria-invalid']}
+                  placeholder="Escolha a carteira"
+                  options={portfolios}
+                  value={draft.portfolioId}
+                  onChange={(e) => set('portfolioId', e.target.value)}
+                />
+              )}
+            </Field>
+          ) : (
+            <Field label="Categoria" error={shown.category}>
+              {(p) => (
+                <Select
+                  {...p}
+                  invalid={p['aria-invalid']}
+                  placeholder="Escolha a categoria"
+                  options={kindCategories}
+                  value={draft.categoryId}
+                  onChange={(e) => set('categoryId', e.target.value)}
+                />
+              )}
+            </Field>
+          )}
+        </div>
+        <Field label="Descrição" error={shown.name}>
           {(p) => (
             <Input
               {...p}
               invalid={p['aria-invalid']}
               value={draft.name}
+              placeholder={
+                aporte
+                  ? 'Aporte mensal'
+                  : draft.kind === 'receita'
+                    ? 'Salário'
+                    : 'Aluguel'
+              }
               onChange={(e) => set('name', e.target.value)}
             />
           )}
         </Field>
-        <Field label="Tipo">
-          {(p) => (
-            <Select
-              {...p}
-              invalid={false}
-              options={KINDS}
-              value={draft.kind}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  kind: e.target.value as RecurringKind,
-                  categoryId: '',
-                  secondSource: '',
-                  source:
-                    e.target.value === 'aporte' && d.source.startsWith('cartao:')
-                      ? ''
-                      : d.source,
-                  mode: e.target.value === 'aporte' ? 'manual' : d.mode,
-                }))
-              }
-            />
-          )}
-        </Field>
-        {aporte ? (
-          <Field label="Carteira" error={shown.portfolio}>
+        <div className="grid grid-cols-2 gap-4">
+          <Field
+            label={
+              aporte
+                ? 'Conta de origem'
+                : draft.kind === 'receita'
+                  ? 'Conta de destino'
+                  : 'Pago com'
+            }
+            error={shown.source}
+          >
             {(p) => (
               <Select
                 {...p}
                 invalid={p['aria-invalid']}
-                placeholder="Escolha a carteira"
-                options={portfolios}
-                value={draft.portfolioId}
-                onChange={(e) => set('portfolioId', e.target.value)}
+                placeholder={
+                  draft.kind === 'despesa'
+                    ? 'Escolha a conta ou o cartão'
+                    : 'Escolha a conta'
+                }
+                options={(draft.kind === 'despesa' ? available : accountOnly).map(
+                  (s) => ({
+                    id: s.id,
+                    name: s.isCard
+                      ? `${s.name.replace(/ \(cartão\)$/u, '')} · cartão`
+                      : s.name,
+                  }),
+                )}
+                value={draft.source}
+                onChange={(e) => set('source', e.target.value)}
               />
             )}
           </Field>
-        ) : (
-          <Field label="Categoria" error={shown.category}>
+          <Field
+            label={
+              draft.mode === 'manual' || aporte ? 'Valor estimado (R$)' : 'Valor (R$)'
+            }
+            error={shown.amount}
+          >
             {(p) => (
-              <Select
+              <MoneyInput
                 {...p}
+                symbol=""
                 invalid={p['aria-invalid']}
-                placeholder="Escolha a categoria"
-                options={kindCategories}
-                value={draft.categoryId}
-                onChange={(e) => set('categoryId', e.target.value)}
+                value={draft.amount}
+                onChange={(e) => set('amount', e.target.value)}
               />
             )}
           </Field>
-        )}
-        <Field label={aporte ? 'Conta de origem' : 'Pagamento'} error={shown.source}>
-          {(p) => (
-            <Select
-              {...p}
-              invalid={p['aria-invalid']}
-              placeholder="Escolha a conta ou o cartão"
-              options={available}
-              value={draft.source}
-              onChange={(e) => set('source', e.target.value)}
-            />
-          )}
-        </Field>
+        </div>
         {draft.kind === 'despesa' ? (
-          <>
-            <Field label="Segunda fonte (opcional)">
+          <div className="grid grid-cols-2 gap-4">
+            <Field
+              label="Divisão"
+              hint={
+                draft.secondSource === ''
+                  ? 'Opcional: parte em outra conta ou cartão.'
+                  : undefined
+              }
+            >
               {(p) => (
                 <Select
                   {...p}
                   invalid={false}
-                  placeholder="Sem segunda fonte"
-                  options={available.filter((s) => s.id !== draft.source)}
+                  placeholder="Não dividir"
+                  options={available
+                    .filter((s) => s.id !== draft.source)
+                    .map((s) => ({ id: s.id, name: `Dividir com ${s.name}` }))}
                   value={draft.secondSource}
                   onChange={(e) => set('secondSource', e.target.value)}
                 />
               )}
             </Field>
             {draft.secondSource === '' ? null : (
-              <Field label="A primeira fonte cobre até" error={shown.covers}>
+              <Field
+                label="A primeira origem cobre até (R$)"
+                error={shown.covers}
+                hint="O resto sai da segunda."
+              >
                 {(p) => (
-                  <Input
+                  <MoneyInput
                     {...p}
-                    numeric
+                    symbol=""
                     invalid={p['aria-invalid']}
-                    inputMode="decimal"
                     value={draft.coversUpTo}
                     onChange={(e) => set('coversUpTo', e.target.value)}
                   />
                 )}
               </Field>
             )}
-          </>
+          </div>
         ) : null}
-        <Field
-          label="Dia do mês"
-          error={shown.day}
-          hint="Dia 31 em mês curto cai no último dia."
-        >
-          {(p) => (
-            <Input
-              {...p}
-              numeric
-              invalid={p['aria-invalid']}
-              inputMode="numeric"
-              value={draft.day}
-              onChange={(e) => set('day', e.target.value)}
-            />
-          )}
-        </Field>
-        <Field
-          label="Lançamento"
-          hint={aporte ? 'Aporte é sempre manual: você confirma cada mês.' : undefined}
-        >
-          {(p) => (
-            <Select
-              {...p}
-              invalid={false}
-              disabled={aporte}
-              options={MODES}
-              value={aporte ? 'manual' : draft.mode}
-              onChange={(e) => set('mode', e.target.value as Draft['mode'])}
-            />
-          )}
-        </Field>
-        <Field
-          label={draft.mode === 'manual' || aporte ? 'Valor estimado' : 'Valor'}
-          error={shown.amount}
-        >
-          {(p) => (
-            <Input
-              {...p}
-              numeric
-              invalid={p['aria-invalid']}
-              inputMode="decimal"
-              value={draft.amount}
-              onChange={(e) => set('amount', e.target.value)}
-            />
-          )}
-        </Field>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Toggle
+            label="Lançar sozinho no dia"
+            checked={!aporte && draft.mode === 'automatico'}
+            disabled={aporte}
+            onChange={(on) => set('mode', on ? 'automatico' : 'manual')}
+          />
+          <span className="text-[0.8125rem] text-ink-2">
+            Situação:{' '}
+            <span className="font-semibold text-ink">
+              {!aporte && draft.mode === 'automatico' ? 'Lançado no dia' : 'Previsto'}
+            </span>
+          </span>
+        </div>
+        <NoteField
+          value={draft.note}
+          placeholder="Detalhes que não cabem na descrição"
+          onChange={(note) => set('note', note)}
+        />
+        <Callout tone="info">
+          {aporte
+            ? `Todo dia ${draft.day} nasce um aporte previsto; você confirma com ativo, quantidade e preço. Aporte é despesa financeira: o patrimônio não muda.`
+            : draft.mode === 'automatico'
+              ? `Todo dia ${draft.day} a movimentação entra sozinha, com o valor fixo. Dá para pular um mês ou pausar.`
+              : `Todo dia ${draft.day} nasce um previsto com o valor estimado; ao lançar, você confirma o valor real.`}
+        </Callout>
       </FormShell>
     </Modal>
   );

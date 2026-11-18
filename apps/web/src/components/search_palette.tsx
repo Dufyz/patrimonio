@@ -244,8 +244,8 @@ const PaletteDialog = ({
             aria-activedescendant={
               active === null ? undefined : optionId(listId, active.id)
             }
-            aria-label="Buscar telas, ativos, lançamentos ou ações"
-            placeholder="Buscar telas, ativos, lançamentos ou ações"
+            aria-label="Buscar telas, ativos, movimentações ou ações"
+            placeholder="Buscar telas, ativos, movimentações ou ações"
             maxLength={SEARCH_TEXT_MAX}
             autoComplete="off"
             spellCheck={false}
@@ -301,12 +301,12 @@ const PaletteDialog = ({
 
           {!idle && server.kind === 'loading' ? (
             <p role="status" className="px-3 py-2 text-[0.8125rem] text-ink-3">
-              Buscando ativos e lançamentos…
+              Buscando ativos e movimentações…
             </p>
           ) : null}
           {!idle && server.kind === 'error' ? (
             <p role="status" className="px-3 py-2 text-[0.8125rem] text-ink-3">
-              Não foi possível buscar ativos e lançamentos agora. As telas e as ações
+              Não foi possível buscar ativos e movimentações agora. As telas e as ações
               continuam valendo.
             </p>
           ) : null}

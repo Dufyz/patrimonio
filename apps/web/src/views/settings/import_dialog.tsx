@@ -264,15 +264,15 @@ export const ImportDialog = ({
       open
       guard={outcome === null}
       title="Importar planilha"
-      subtitle="CSV de compras e vendas ou o JSON da exportação viram lançamentos, com prévia antes de gravar"
+      subtitle="CSV de compras e vendas ou o JSON da exportação viram movimentações, com prévia antes de gravar"
       onClose={onClose}
     >
       {outcome !== null ? (
         <div className="flex flex-col gap-3">
           <Callout tone={outcome.failures.length === 0 ? 'info' : 'warning'}>
             {outcome.imported === 1
-              ? '1 lançamento importado.'
-              : `${outcome.imported} lançamentos importados.`}
+              ? '1 movimentação importada.'
+              : `${outcome.imported} movimentações importadas.`}
             {outcome.failures.length > 0
               ? ` ${outcome.failures.length} ficaram de fora.`
               : ''}{' '}
@@ -301,7 +301,7 @@ export const ImportDialog = ({
           error={error}
           canSave={ready}
           saveLabel={
-            valid.length > 0 ? `Importar ${valid.length} lançamentos` : 'Importar'
+            valid.length > 0 ? `Importar ${valid.length} movimentações` : 'Importar'
           }
           onSave={() => void run()}
           onCancel={onClose}
@@ -358,7 +358,7 @@ export const ImportDialog = ({
             <p className="text-[0.8125rem] text-ink-2">
               Exportação do Patrimônio: carteira e instituição são reencontradas pelo nome
               {exported.skipped > 0
-                ? `; ${exported.skipped} lançamentos de eventos corporativos ficam de fora — registre-os de novo como evento corporativo`
+                ? `; ${exported.skipped} movimentações de eventos corporativos ficam de fora — registre-os de novo como evento corporativo`
                 : ''}
               . Ativos cadastrados à mão (renda fixa de banco) precisam existir antes.
             </p>

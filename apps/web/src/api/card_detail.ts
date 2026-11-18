@@ -34,6 +34,11 @@ export type CardDetailResource = {
     readonly used_percent: number;
     readonly available: string;
   };
+  readonly limit: {
+    readonly used: string;
+    readonly available: string;
+    readonly percent: number;
+  };
   readonly as_of: string;
   readonly invoices: readonly CardInvoiceRowResource[];
   readonly installments: readonly {
@@ -51,6 +56,24 @@ export type CardDetailResource = {
     readonly status: string;
     readonly account_id: string;
   }[];
+  /** O mês da fatura aberta. */
+  readonly open_month: string;
+  readonly open_invoice_categories: readonly {
+    readonly category_id: string | null;
+    readonly name: string;
+    readonly amount: string;
+    readonly percent: number;
+  }[];
+  /** Média das cinco últimas faturas fechadas; nulo sem nenhuma. */
+  readonly average_closed: string | null;
+  readonly future_parts: readonly {
+    readonly month: string;
+    readonly description: string;
+    readonly no: number;
+    readonly total: number;
+    readonly amount: string;
+  }[];
+  readonly future_total: string;
 };
 
 export const fetchCardDetail = (

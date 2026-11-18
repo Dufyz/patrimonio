@@ -14,7 +14,7 @@ const plural = (n: number, one: string, many: string): string =>
 export const backupContent = (file: BackupFile): string =>
   file.entries === null || file.portfolios === null
     ? 'conteúdo não registrado (backup anterior à contagem)'
-    : `${plural(file.entries, 'lançamento', 'lançamentos')} e ${plural(
+    : `${plural(file.entries, 'movimentação', 'movimentações')} e ${plural(
         file.portfolios,
         'carteira',
         'carteiras',
@@ -79,6 +79,7 @@ export const RestoreDialog = ({
 
   return (
     <AlertModal
+      icon="warning"
       open={file !== null}
       title="Restaurar este backup?"
       message={

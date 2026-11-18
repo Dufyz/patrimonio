@@ -38,7 +38,7 @@ const FLOW_ENTRIES: Readonly<Record<string, NavEntry>> = {
   },
   entries: {
     id: 'lancamentos',
-    label: 'Lançamentos',
+    label: 'Movimentações',
     icon: 'swap',
     path: '/lancamentos',
   },
@@ -199,16 +199,9 @@ export const AppLayout = ({
         entries: screens,
       },
       {
-        id: 'planejamento',
-        title: 'Planejamento',
-        entries: [FLOW_ENTRIES['recurrings']].filter(
-          (entry): entry is NavEntry => entry !== undefined,
-        ),
-      },
-      {
         id: 'cadastros',
         title: 'Cadastros',
-        entries: [FLOW_ENTRIES['categories']].filter(
+        entries: [FLOW_ENTRIES['recurrings'], FLOW_ENTRIES['categories']].filter(
           (entry): entry is NavEntry => entry !== undefined,
         ),
       },

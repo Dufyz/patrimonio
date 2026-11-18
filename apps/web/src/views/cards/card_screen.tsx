@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router';
 
 import { fetchAccountNames } from '../../api/book.js';
 import { fetchCardDetail } from '../../api/card_detail.js';
+import { fetchCardsOverview } from '../../api/cards_overview.js';
+import type { CardRowResource } from '../../api/cards_overview.js';
 import type { CardDetailResource } from '../../api/card_detail.js';
 import { setCardArchived } from '../../api/card_write.js';
 import { ApiError } from '../../api/client.js';
@@ -11,14 +13,15 @@ import { newAttemptKey } from '../../lib/entry.js';
 import { CardModal } from './card_modal.js';
 import { usePreferences } from '../../components/preferences.js';
 import { ScreenHeader } from '../../finance/components/screen_header.js';
-import { PanelError } from '../../finance/components/states.js';
+import { EmptyPanel, PanelError } from '../../finance/components/states.js';
+import { Panel } from '../../components/primitives.js';
+import { FinTable, Th, THead } from '../../components/table_parts.js';
+import { StatStrip } from '../../finance/components/stat_strip.js';
+import { StatusTag } from '../../finance/components/tags.js';
+import { financeRoutes } from '../../finance/lib/routes.js';
+import { NewEntryModal } from '../ledger/new_entry_modal.js';
+import { HeaderSelect } from './header_select.js';
 import { TableScreenSkeleton } from '../../finance/components/screen_skeletons.js';
-import {
-  invoiceStatusLabel,
-  monthLabel,
-  paidNote,
-  shortDate,
-} from '../../lib/cards_view.js';
 import { formatMoney } from '../../lib/format.js';
 
 /**
@@ -35,6 +38,10 @@ export const CardScreen = (): React.ReactElement => {
   const [reload, setReload] = useState(0);
   const [editing, setEditing] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [launching, setLaunching] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [cards, setCards] = useState<readonly CardRowResource[]>([]);
+  const [allDue, setAllDue] = useState('0');
   const [archiveError, setArchiveError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,6 +54,12 @@ export const CardScreen = (): React.ReactElement => {
       });
     fetchAccountNames(controller.signal)
       .then(setNames)
+      .catch(() => undefined);
+    fetchCardsOverview(controller.signal)
+      .then((overview) => {
+        setCards(overview.cards);
+        setAllDue(overview.wealth.total_devido);
+      })
       .catch(() => undefined);
     return () => controller.abort();
   }, [id, reload]);
@@ -65,27 +78,56 @@ export const CardScreen = (): React.ReactElement => {
   if (data === null) return <TableScreenSkeleton label="Carregando cartão" columns={5} />;
 
   const money = (value: string): string => formatMoney(value, { hidden }).text;
+  const bare = (value: string): string => formatMoney(value, { hidden, bare: true }).text;
   const accountName = (accountId: string): string => names.get(accountId) ?? 'conta';
   const { card } = data.summary;
+  const dm = (iso: string): string => `${iso.slice(8)}/${iso.slice(5, 7)}`;
+  const fullMonth = (key: string): string =>
+    new Date(
+      Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1),
+    ).toLocaleDateString('pt-BR', { month: 'long', timeZone: 'UTC' });
+  const real = data.invoices.filter((i) => i.status !== 'prevista');
+  const shown = showAll ? real : real.slice(0, 6);
+  const openInvoice = data.invoices.find((i) => i.month === data.open_month);
+  const closedOwed = data.invoices.filter(
+    (i) => (i.status === 'fechada' || i.status === 'parcial') && !isZero(i.remaining),
+  );
+  const firstClosed = closedOwed.at(-1);
+  const widest = Math.max(1, ...real.map((i) => Number(i.total)));
+  const futureNames = [...new Set(data.future_parts.map((p) => p.description))];
+  const futureCaption =
+    data.future_parts.length === 0
+      ? 'nenhuma parcela futura'
+      : futureNames.length === 1
+        ? `${data.future_parts.length} × ${money(data.future_parts[0]?.amount ?? '0')} · ${futureNames[0]?.toLowerCase()}`
+        : `${data.future_parts.length} parcelas em ${futureNames.length} compras`;
+  const options = [
+    { id: 'todos', label: 'Todos os cartões', amount: money(allDue) },
+    ...cards.map((c) => ({
+      id: c.card.id,
+      label: c.card.name,
+      amount: money(c.debt.total),
+    })),
+  ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <ScreenHeader
         title={card.name}
-        crumbs={[{ label: 'Cartões', to: '/cartoes' }, { label: card.name }]}
-        subtitle={`final ${card.last4} · paga pela ${accountName(card.pay_account_id)} · limite ${money(card.limit_amount)} · usado ${data.summary.used_percent}% · disponível ${money(data.summary.available)}`}
+        subtitle={`Final ${card.last4} · fecha dia ${card.closing_day} · vence dia ${card.due_day} · paga com ${accountName(card.pay_account_id)}`}
+        primary={{ label: 'Movimentação', onClick: () => setLaunching(true) }}
         extra={
           <>
             <button
               type="button"
-              className="cursor-pointer rounded-field border border-line px-3 py-1.5 text-sm"
+              className="cursor-pointer rounded-control border border-line-2 bg-panel px-3 py-1.5 text-[0.78125rem] hover:bg-panel-2"
               onClick={() => setEditing(true)}
             >
               Editar cartão
             </button>
             <button
               type="button"
-              className="cursor-pointer rounded-field border border-line px-3 py-1.5 text-sm"
+              className="cursor-pointer rounded-control border border-line-2 bg-panel px-3 py-1.5 text-[0.78125rem] hover:bg-panel-2"
               onClick={() => {
                 setArchiveError(null);
                 setArchiving(true);
@@ -93,24 +135,55 @@ export const CardScreen = (): React.ReactElement => {
             >
               Arquivar
             </button>
-            <label className="text-sm">
-              <span className="sr-only">Cartão</span>
-              <select
-                aria-label="Cartão"
-                className="cursor-pointer rounded-field border border-line px-2 py-1.5"
-                value={card.id}
-                onChange={(e) =>
-                  navigate(
-                    e.target.value === '' ? '/cartoes' : `/cartoes/${e.target.value}`,
-                  )
-                }
-              >
-                <option value="">Cartão: Todos</option>
-                <option value={card.id}>Cartão: {card.name}</option>
-              </select>
-            </label>
+            <HeaderSelect
+              label="Cartão"
+              current={card.name}
+              selected={card.id}
+              footer="Escolha um cartão para ver só as faturas dele."
+              options={options}
+              onSelect={(value) =>
+                navigate(
+                  value === 'todos' ? financeRoutes.cards() : financeRoutes.card(value),
+                )
+              }
+            />
           </>
         }
+      />
+      <StatStrip
+        label="Resumo do cartão"
+        cells={[
+          {
+            id: 'limite',
+            label: 'Limite disponível',
+            value: money(data.limit.available),
+            caption: `de ${money(card.limit_amount)} · ${data.limit.percent}% usado`,
+          },
+          {
+            id: 'aberta',
+            label: 'Fatura aberta',
+            value: money(openInvoice?.total ?? '0'),
+            caption:
+              openInvoice === undefined
+                ? 'sem fatura aberta'
+                : `fecha em ${dm(openInvoice.closing)} · vence ${dm(openInvoice.due)}`,
+          },
+          {
+            id: 'fechada',
+            label: 'Fechada a pagar',
+            value: money(firstClosed?.remaining ?? '0'),
+            caption:
+              firstClosed === undefined
+                ? 'nenhuma fatura fechada'
+                : `vence ${dm(firstClosed.due)} · pagamento previsto`,
+          },
+          {
+            id: 'parcelas',
+            label: 'Parcelas futuras',
+            value: money(data.future_total),
+            caption: futureCaption,
+          },
+        ]}
       />
 
       {editing && (
@@ -132,8 +205,18 @@ export const CardScreen = (): React.ReactElement => {
           onClose={() => setEditing(false)}
         />
       )}
+      {launching && (
+        <NewEntryModal
+          today={data.as_of}
+          accounts={[...names].map(([aid, name]) => ({ id: aid, name }))}
+          context={{ cardId: card.id }}
+          onSaved={() => setReload((n) => n + 1)}
+          onClose={() => setLaunching(false)}
+        />
+      )}
       {archiving && (
         <AlertModal
+          icon="archive"
           open
           title={`Arquivar ${card.name}?`}
           message={
@@ -164,132 +247,243 @@ export const CardScreen = (): React.ReactElement => {
         />
       )}
 
-      <section aria-label="Faturas" className="flex flex-col gap-2">
-        <h2 className="text-label text-ink-3 uppercase">Faturas</h2>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-label text-ink-3 uppercase">
-              <th scope="col">Fatura</th>
-              <th scope="col" className="max-md:hidden">
-                Compras de
-              </th>
-              <th scope="col">Vence</th>
-              <th scope="col" className="text-right">
-                Total
-              </th>
-              <th scope="col">Situação</th>
-            </tr>
-          </thead>
+      <Panel
+        title="Faturas do cartão"
+        action={
+          <span className="text-xs text-ink-3">
+            {showAll ? 'todas as faturas' : 'as seis mais recentes'}
+          </span>
+        }
+      >
+        <FinTable caption="Faturas do cartão">
+          <THead>
+            <Th>Fatura</Th>
+            <Th className="max-md:hidden">Período</Th>
+            <Th>Vence</Th>
+            <Th className="max-lg:hidden">
+              <span className="sr-only">Peso</span>
+            </Th>
+            <Th align="right">Valor (R$)</Th>
+            <Th>Situação</Th>
+            <Th>
+              <span className="sr-only">Abrir</span>
+            </Th>
+          </THead>
           <tbody>
-            {data.invoices.map((inv) => {
-              const note =
-                inv.status === 'paga' ? paidNote(inv.payments, accountName) : null;
-              const href = `/cartoes/${card.id}/faturas/${inv.month}`;
+            {shown.map((inv) => {
+              const href = financeRoutes.card(card.id, inv.month);
+              const isOpen = inv.status === 'aberta';
+              const paid = inv.status === 'paga';
+              const lastPayment = inv.payments
+                .map((p) => p.date)
+                .sort()
+                .at(-1);
               return (
                 <tr
                   key={inv.month}
                   tabIndex={0}
-                  className="cursor-pointer hover:bg-panel-2"
+                  className={`cursor-pointer border-t border-line hover:bg-panel-2 ${
+                    inv.status === 'fechada' || inv.status === 'parcial'
+                      ? 'planned-stripes'
+                      : ''
+                  }`}
                   onClick={() => navigate(href)}
                   onKeyDown={(e) => e.key === 'Enter' && navigate(href)}
                 >
-                  <th scope="row" className="text-left font-normal">
-                    <Link
-                      to={href}
-                      className="no-underline"
-                      onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                    >
-                      {monthLabel(inv.month)}
-                    </Link>
+                  <th
+                    scope="row"
+                    className="px-3 py-[var(--row-pad)] text-left font-semibold"
+                  >
+                    Fatura de {fullMonth(inv.month)}
                   </th>
-                  <td className="max-md:hidden">
-                    {shortDate(inv.from)} a {shortDate(inv.to)}
+                  <td className="tabular px-3 py-[var(--row-pad)] text-ink-2 max-md:hidden">
+                    {dm(inv.from)} – {dm(inv.to)}
                   </td>
-                  <td>{shortDate(inv.due)}</td>
-                  <td className="tabular text-right">{money(inv.total)}</td>
-                  <td>
-                    <span className={inv.overdue ? 'font-medium text-negative' : ''}>
-                      {invoiceStatusLabel(inv.status, inv.overdue)}
+                  <td className="tabular px-3 py-[var(--row-pad)]">{dm(inv.due)}</td>
+                  <td className="px-3 py-[var(--row-pad)] max-lg:hidden">
+                    <span
+                      aria-hidden="true"
+                      className="relative block h-1.5 w-32 overflow-hidden rounded-full bg-line"
+                    >
+                      <span
+                        className="absolute inset-y-0 left-0 rounded-full bg-ink"
+                        style={{ width: `${(Number(inv.total) / widest) * 100}%` }}
+                      />
                     </span>
-                    {note !== null && (
-                      <span className="block text-xs text-ink-3">{note}</span>
-                    )}
+                  </td>
+                  <td className="tabular px-3 py-[var(--row-pad)] text-right font-semibold">
+                    {money(inv.total)}
+                  </td>
+                  <td className="px-3 py-[var(--row-pad)]">
+                    <StatusTag
+                      status={isOpen ? 'aberta' : paid ? 'paga' : 'fechada'}
+                      label={
+                        isOpen
+                          ? 'Aberta'
+                          : paid
+                            ? `Paga em ${lastPayment === undefined ? '—' : dm(lastPayment)}`
+                            : inv.overdue
+                              ? 'Vencida'
+                              : 'A pagar'
+                      }
+                    />
+                  </td>
+                  <td
+                    className="px-3 py-[var(--row-pad)] text-right"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Link to={href} className="text-accent hover:underline">
+                      Abrir fatura
+                    </Link>
                   </td>
                 </tr>
               );
             })}
           </tbody>
-        </table>
-      </section>
+        </FinTable>
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 text-[0.8125rem] text-ink-2">
+          <span>
+            {data.average_closed === null ? (
+              'Ainda não há fatura fechada.'
+            ) : (
+              <>
+                Média das cinco últimas faturas fechadas:{' '}
+                <span className="tabular font-semibold text-ink">
+                  {money(data.average_closed)}
+                </span>
+              </>
+            )}
+          </span>
+          {real.length > 6 ? (
+            <button
+              type="button"
+              className="cursor-pointer text-accent hover:underline"
+              onClick={() => setShowAll((v) => !v)}
+            >
+              {showAll ? 'Ver só as recentes' : 'Ver mais antigas'}
+            </button>
+          ) : null}
+        </footer>
+      </Panel>
 
-      <section aria-label="Parcelamentos" className="flex flex-col gap-2">
-        <h2 className="text-label text-ink-3 uppercase">Parcelamentos</h2>
-        {data.installments.length === 0 ? (
-          <p className="text-sm text-ink-3">Nenhuma compra parcelada em andamento.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-label text-ink-3 uppercase">
-                <th scope="col">Compra</th>
-                <th scope="col">Parcela</th>
-                <th scope="col" className="text-right">
-                  Valor da parcela
-                </th>
-                <th scope="col" className="text-right">
-                  Restante
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.installments.map((plan) => (
-                <tr key={`${plan.description}|${plan.origin}|${plan.total}`}>
-                  <th scope="row" className="text-left font-normal">
-                    {plan.description}
-                    <span className="block text-xs text-ink-3">
-                      em {shortDate(plan.origin)}
-                    </span>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel
+          title="Por categoria"
+          action={
+            <span className="text-xs text-ink-3">
+              fatura aberta · {fullMonth(data.open_month)}
+            </span>
+          }
+        >
+          {data.open_invoice_categories.length === 0 ? (
+            <EmptyPanel message="A fatura aberta ainda não tem compras." />
+          ) : (
+            <FinTable caption="Fatura aberta por categoria">
+              <THead>
+                <Th>Categoria</Th>
+                <Th align="right">Valor</Th>
+                <Th align="right">Peso</Th>
+              </THead>
+              <tbody>
+                {data.open_invoice_categories.map((row) => (
+                  <tr key={row.category_id ?? 'sem'} className="border-t border-line">
+                    <td className="px-3 py-[var(--row-pad)]">{row.name}</td>
+                    <td className="tabular px-3 py-[var(--row-pad)] text-right font-semibold">
+                      {money(row.amount)}
+                    </td>
+                    <td className="px-3 py-[var(--row-pad)]">
+                      <span className="flex items-center justify-end gap-3">
+                        <span
+                          aria-hidden="true"
+                          className="relative block h-1.5 w-24 overflow-hidden rounded-full bg-line"
+                        >
+                          <span
+                            className="absolute inset-y-0 left-0 rounded-full bg-ink-3"
+                            style={{ width: `${row.percent}%` }}
+                          />
+                        </span>
+                        <span className="tabular w-10 text-right">{row.percent}%</span>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-line font-semibold">
+                  <th scope="row" className="px-3 py-[var(--row-pad)] text-left">
+                    Total
                   </th>
-                  <td className="tabular">
-                    {plan.current}/{plan.total}
+                  <td className="tabular px-3 py-[var(--row-pad)] text-right">
+                    {money(openInvoice?.total ?? '0')}
                   </td>
-                  <td className="tabular text-right">{money(plan.amount)}</td>
-                  <td className="tabular text-right">{money(plan.remaining)}</td>
+                  <td />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      <section aria-label="Pagamentos previstos" className="flex flex-col gap-2">
-        <h2 className="text-label text-ink-3 uppercase">Pagamentos previstos</h2>
-        {data.planned_payments.length === 0 ? (
-          <p className="text-sm text-ink-3">Nenhum pagamento previsto.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-label text-ink-3 uppercase">
-                <th scope="col">Vence</th>
-                <th scope="col">Fatura</th>
-                <th scope="col">Sai de</th>
-                <th scope="col" className="text-right">
-                  Valor
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.planned_payments.map((p) => (
-                <tr key={p.month}>
-                  <td>{shortDate(p.due)}</td>
-                  <td>{monthLabel(p.month)}</td>
-                  <td>{accountName(p.account_id)}</td>
-                  <td className="tabular text-right">{money(p.amount)}</td>
+              </tfoot>
+            </FinTable>
+          )}
+        </Panel>
+        <Panel
+          title="Parcelas futuras"
+          action={
+            <span className="text-xs text-ink-3">
+              {futureNames.length === 1 && data.future_parts[0] !== undefined
+                ? `${futureNames[0]?.toLowerCase()} · ${data.future_parts[0].total}x de ${money(data.future_parts[0].amount)}`
+                : 'o que ainda vai cair nas próximas faturas'}
+            </span>
+          }
+        >
+          {data.future_parts.length === 0 ? (
+            <EmptyPanel message="Nenhuma parcela futura." />
+          ) : (
+            <FinTable caption="Parcelas futuras">
+              <THead>
+                <Th>Cai na</Th>
+                <Th align="right">Parcela</Th>
+                <Th align="right">Valor (R$)</Th>
+              </THead>
+              <tbody>
+                {data.future_parts.map((part) => (
+                  <tr
+                    key={`${part.month}:${part.description}`}
+                    className="border-t border-line"
+                  >
+                    <td className="px-3 py-[var(--row-pad)]">
+                      Fatura de {fullMonth(part.month)}
+                      {futureNames.length > 1 ? (
+                        <span className="block text-xs text-ink-3">
+                          {part.description}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="tabular px-3 py-[var(--row-pad)] text-right text-ink-2">
+                      {part.no}/{part.total}
+                    </td>
+                    <td className="tabular px-3 py-[var(--row-pad)] text-right">
+                      {bare(part.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-line font-semibold">
+                  <th
+                    scope="row"
+                    colSpan={2}
+                    className="px-3 py-[var(--row-pad)] text-left"
+                  >
+                    Total a pagar
+                  </th>
+                  <td className="tabular px-3 py-[var(--row-pad)] text-right">
+                    {money(data.future_total)}
+                  </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+              </tfoot>
+            </FinTable>
+          )}
+        </Panel>
+      </div>
     </div>
   );
 };
+
+const isZero = (value: string): boolean => /^-?0+([.,]0+)?$/.test(value);

@@ -7,6 +7,7 @@ import { ApiError } from '../../api/client.js';
 import { setCardArchived } from '../../api/card_write.js';
 import { fetchCardsOverview } from '../../api/cards_overview.js';
 import type { CardRowResource } from '../../api/cards_overview.js';
+import { plural } from '../../lib/settings.js';
 import { usePreferences } from '../../components/preferences.js';
 import { Button } from '../../components/primitives.js';
 import { formatMoney } from '../../lib/format.js';
@@ -16,12 +17,10 @@ import { useResource } from '../../lib/use_resource.js';
 import { AccountModal } from '../accounts/account_modal.js';
 import { CardModal } from '../cards/card_modal.js';
 import {
-  EditButton,
-  Muted,
+  PanelFootnote,
   ROW,
   SettingsPanel,
   SettingsSection,
-  StatusDot,
   Switch,
   TD,
   TH,
@@ -41,8 +40,29 @@ const TYPE_LABEL: Readonly<Record<string, string>> = {
   carteira: 'Carteira / dinheiro',
 };
 
-const asDate = (iso: string): string =>
-  `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+/** A ação de texto da linha, como "Editar" na prancha. */
+const RowLink = ({
+  label,
+  muted = false,
+  onClick,
+  children,
+}: {
+  readonly label: string;
+  readonly muted?: boolean;
+  readonly onClick: () => void;
+  readonly children: React.ReactNode;
+}): React.ReactElement => (
+  <button
+    type="button"
+    aria-label={label}
+    className={`ml-3 cursor-pointer text-[0.8125rem] hover:underline ${
+      muted ? 'text-ink-3' : 'text-accent'
+    }`}
+    onClick={onClick}
+  >
+    {children}
+  </button>
+);
 
 export const AccountsCardsSection = (): React.ReactElement => {
   const { hidden } = usePreferences();
@@ -75,6 +95,8 @@ export const AccountsCardsSection = (): React.ReactElement => {
     accounts.state.kind === 'ready' ? accounts.state.value.accounts : [];
   const cardRows = cards.state.kind === 'ready' ? cards.state.value.cards : [];
   const activeAccounts = accountRows.filter((row) => !row.account.archived);
+  const shownAccounts = activeAccounts;
+  const archivedAccounts = accountRows.filter((row) => row.account.archived);
   const accountName = (id: string): string =>
     accountRows.find((row) => row.account.id === id)?.account.name ?? '—';
 
@@ -111,6 +133,7 @@ export const AccountsCardsSection = (): React.ReactElement => {
 
         <SettingsPanel
           title="Contas"
+          hint={`${plural(shownAccounts.length, 'conta', 'contas')} · entram no saldo em contas`}
           action={
             <Button icon="plus" onClick={() => setAccountModal({ row: null })}>
               Nova conta
@@ -133,96 +156,101 @@ export const AccountsCardsSection = (): React.ReactElement => {
           ) : accountRows.length === 0 ? (
             <p className="p-4 text-[0.8125rem] text-ink-3">Nenhuma conta cadastrada.</p>
           ) : (
-            <div>
-              <table className="w-full text-[0.8125rem] whitespace-nowrap">
-                <caption className="sr-only">Contas cadastradas</caption>
-                <thead>
-                  <tr>
-                    <th scope="col" className={TH}>
-                      Conta
+            <table className="w-full text-[0.8125rem] whitespace-nowrap">
+              <caption className="sr-only">Contas cadastradas</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className={TH}>
+                    Conta
+                  </th>
+                  <th scope="col" className={`${TH} max-md:hidden`}>
+                    Tipo
+                  </th>
+                  <th scope="col" className={TH_RIGHT}>
+                    Saldo de hoje
+                  </th>
+                  <th scope="col" className={TH_RIGHT}>
+                    No patrimônio
+                  </th>
+                  <th scope="col" className="w-36">
+                    <span className="sr-only">Ações</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {shownAccounts.map((row) => (
+                  <tr key={row.account.id} className={ROW}>
+                    <th scope="row" className={`${TD} text-left font-medium`}>
+                      {row.account.name}
                     </th>
-                    <th scope="col" className={`${TH} max-md:hidden`}>
-                      Tipo
-                    </th>
-                    <th scope="col" className={`${TH} max-lg:hidden`}>
-                      Instituição
-                    </th>
-                    <th scope="col" className={TH_RIGHT}>
-                      Saldo de abertura
-                    </th>
-                    <th scope="col" className={`${TH_RIGHT} max-lg:hidden`}>
-                      Data de abertura
-                    </th>
-                    <th scope="col" className={TH}>
-                      No patrimônio
-                    </th>
-                    <th scope="col" className={TH}>
-                      Situação
-                    </th>
-                    <th scope="col" className="w-40" />
+                    <td className={`${TD} text-ink-2 max-md:hidden`}>
+                      {row.account.role === ''
+                        ? (TYPE_LABEL[row.account.type] ?? row.account.type)
+                        : row.account.role}
+                    </td>
+                    <td className={`${TD} tabular text-right`}>{money(row.balance)}</td>
+                    <td className={`${TD} text-right`}>
+                      <Switch
+                        checked={row.account.in_wealth}
+                        label={`No patrimônio: ${row.account.name}`}
+                        onChange={() => void attempt(() => toggleWealth(row))}
+                      />
+                    </td>
+                    <td className="pr-4 text-right whitespace-nowrap">
+                      <RowLink
+                        label={`Editar a conta ${row.account.name}`}
+                        onClick={() => setAccountModal({ row })}
+                      >
+                        Editar
+                      </RowLink>
+                      <RowLink
+                        muted
+                        label={`Arquivar ${row.account.name}`}
+                        onClick={() =>
+                          void attempt(() =>
+                            setAccountArchived(row.account.id, true, newAttemptKey()),
+                          )
+                        }
+                      >
+                        Arquivar
+                      </RowLink>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {accountRows.map((row) => (
-                    <tr key={row.account.id} className={ROW}>
-                      <th scope="row" className={`${TD} text-left font-medium`}>
-                        {row.account.name}
-                      </th>
-                      <td className={`${TD} max-md:hidden`}>
-                        {TYPE_LABEL[row.account.type] ?? row.account.type}
-                      </td>
-                      <td className={`${TD} max-lg:hidden`}>
-                        {row.account.institution ?? <Muted>—</Muted>}
-                      </td>
-                      <td className={`${TD} tabular text-right`}>
-                        {money(row.account.opening_amount)}
-                      </td>
-                      <td className={`${TD} tabular text-right max-lg:hidden`}>
-                        {asDate(row.account.opening_date)}
-                      </td>
-                      <td className={TD}>
-                        <Switch
-                          checked={row.account.in_wealth}
-                          label={`No patrimônio: ${row.account.name}`}
-                          onChange={() => void attempt(() => toggleWealth(row))}
-                        />
-                      </td>
-                      <td className={TD}>
-                        <StatusDot tone={row.account.archived ? 'neutral' : 'ok'}>
-                          {row.account.archived ? 'Arquivada' : 'Ativa'}
-                        </StatusDot>
-                      </td>
-                      <td className="pr-4 text-right whitespace-nowrap">
-                        <EditButton
-                          label={`a conta ${row.account.name}`}
-                          onClick={() => setAccountModal({ row })}
-                        />{' '}
-                        <button
-                          type="button"
-                          className="cursor-pointer text-xs underline"
-                          onClick={() =>
-                            void attempt(() =>
-                              setAccountArchived(
-                                row.account.id,
-                                !row.account.archived,
-                                newAttemptKey(),
-                              ),
-                            )
-                          }
-                        >
-                          {row.account.archived ? 'Reativar' : 'Arquivar'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           )}
+          <PanelFootnote>
+            Arquivar tira a conta das listas e dos saldos; o histórico das movimentações
+            fica guardado.{' '}
+            {archivedAccounts.length === 0 ? (
+              'Nenhuma arquivada.'
+            ) : (
+              <>
+                Arquivadas:{' '}
+                {archivedAccounts.map((row) => (
+                  <span key={row.account.id} className="mr-2 whitespace-nowrap">
+                    {row.account.name}{' '}
+                    <RowLink
+                      label={`Reativar ${row.account.name}`}
+                      onClick={() =>
+                        void attempt(() =>
+                          setAccountArchived(row.account.id, false, newAttemptKey()),
+                        )
+                      }
+                    >
+                      Reativar
+                    </RowLink>
+                  </span>
+                ))}
+              </>
+            )}
+          </PanelFootnote>
         </SettingsPanel>
 
         <SettingsPanel
           title="Cartões"
+          hint={`${plural(cardRows.length, 'cartão', 'cartões')} · cada um paga a fatura por uma conta`}
           action={
             <Button
               icon="plus"
@@ -254,80 +282,81 @@ export const AccountsCardsSection = (): React.ReactElement => {
           ) : cardRows.length === 0 ? (
             <p className="p-4 text-[0.8125rem] text-ink-3">Nenhum cartão cadastrado.</p>
           ) : (
-            <div>
-              <table className="w-full text-[0.8125rem] whitespace-nowrap">
-                <caption className="sr-only">Cartões cadastrados</caption>
-                <thead>
-                  <tr>
-                    <th scope="col" className={TH}>
-                      Cartão
+            <table className="w-full text-[0.8125rem] whitespace-nowrap">
+              <caption className="sr-only">Cartões cadastrados</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className={TH}>
+                    Cartão
+                  </th>
+                  <th scope="col" className={TH_RIGHT}>
+                    Limite
+                  </th>
+                  <th scope="col" className={`${TH_RIGHT} max-md:hidden`}>
+                    Fecha
+                  </th>
+                  <th scope="col" className={`${TH_RIGHT} max-md:hidden`}>
+                    Vence
+                  </th>
+                  <th scope="col" className={`${TH} max-lg:hidden`}>
+                    Paga com
+                  </th>
+                  <th scope="col" className="w-36">
+                    <span className="sr-only">Ações</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {cardRows.map((row) => (
+                  <tr key={row.card.id} className={`${ROW} h-14`}>
+                    <th scope="row" className={`${TD} text-left font-medium`}>
+                      {row.card.name}
+                      {row.card.last4 === '' ? null : (
+                        <span className="block text-xs font-normal text-ink-3">
+                          final {row.card.last4}
+                        </span>
+                      )}
                     </th>
-                    <th scope="col" className={`${TH} max-lg:hidden`}>
-                      Final
-                    </th>
-                    <th scope="col" className={TH_RIGHT}>
-                      Limite
-                    </th>
-                    <th scope="col" className={`${TH_RIGHT} max-xl:hidden`}>
-                      Dia de fechamento
-                    </th>
-                    <th scope="col" className={`${TH_RIGHT} max-lg:hidden`}>
-                      Vencimento
-                    </th>
-                    <th scope="col" className={TH}>
-                      Conta pagadora
-                    </th>
-                    <th scope="col" className={TH}>
-                      Situação
-                    </th>
-                    <th scope="col" className="w-40" />
+                    <td className={`${TD} tabular text-right`}>
+                      {money(row.card.limit_amount)}
+                    </td>
+                    <td className={`${TD} tabular text-right max-md:hidden`}>
+                      dia {String(row.card.closing_day).padStart(2, '0')}
+                    </td>
+                    <td className={`${TD} tabular text-right max-md:hidden`}>
+                      dia {String(row.card.due_day).padStart(2, '0')}
+                    </td>
+                    <td className={`${TD} max-lg:hidden`}>
+                      {accountName(row.card.pay_account_id)}
+                    </td>
+                    <td className="pr-4 text-right whitespace-nowrap">
+                      <RowLink
+                        label={`Editar o cartão ${row.card.name}`}
+                        onClick={() => setCardModal({ row })}
+                      >
+                        Editar
+                      </RowLink>
+                      <RowLink
+                        muted
+                        label={`Arquivar ${row.card.name}`}
+                        onClick={() =>
+                          void attempt(() =>
+                            setCardArchived(row.card.id, true, newAttemptKey()),
+                          )
+                        }
+                      >
+                        Arquivar
+                      </RowLink>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {cardRows.map((row) => (
-                    <tr key={row.card.id} className={ROW}>
-                      <th scope="row" className={`${TD} text-left font-medium`}>
-                        {row.card.name}
-                      </th>
-                      <td className={`${TD} tabular max-lg:hidden`}>
-                        {row.card.last4 || '—'}
-                      </td>
-                      <td className={`${TD} tabular text-right`}>
-                        {money(row.card.limit_amount)}
-                      </td>
-                      <td className={`${TD} tabular text-right max-xl:hidden`}>
-                        dia {row.card.closing_day}
-                      </td>
-                      <td className={`${TD} tabular text-right max-lg:hidden`}>
-                        dia {row.card.due_day}
-                      </td>
-                      <td className={TD}>{accountName(row.card.pay_account_id)}</td>
-                      <td className={TD}>
-                        <StatusDot tone="ok">Ativo</StatusDot>
-                      </td>
-                      <td className="pr-4 text-right whitespace-nowrap">
-                        <EditButton
-                          label={`o cartão ${row.card.name}`}
-                          onClick={() => setCardModal({ row })}
-                        />{' '}
-                        <button
-                          type="button"
-                          className="cursor-pointer text-xs underline"
-                          onClick={() =>
-                            void attempt(() =>
-                              setCardArchived(row.card.id, true, newAttemptKey()),
-                            )
-                          }
-                        >
-                          Arquivar
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           )}
+          <PanelFootnote>
+            O fechamento define em qual fatura cada compra cai; o vencimento gera o
+            pagamento previsto na conta escolhida.
+          </PanelFootnote>
         </SettingsPanel>
       </SettingsSection>
 

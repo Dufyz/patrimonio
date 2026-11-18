@@ -83,7 +83,7 @@ const consolidationDate = (iso: string): string =>
 /** O tipo e a instituição vêm ocultos: a linha do ativo é de uma linha só. */
 const DEFAULT_COLUMN_PREFERENCE: ColumnPreference = {
   ...EMPTY_COLUMN_PREFERENCE,
-  hidden: [],
+  hidden: ['classe', 'instituicao'],
 };
 
 /** O que ainda não existe, e qual história o entrega. */
@@ -126,9 +126,10 @@ export const PositionsScreen = ({
   const rawSituation = params.get('situacao');
   const situations = useMemo(() => listFromParam(rawSituation), [rawSituation]);
   const withoutQuote = situations.includes('sem_cotacao');
-  const wantsClosed = situations.includes('encerrada');
-  // Encerrada sozinha esconde as abertas; sem filtro de situação, as encerradas ficam de fora.
-  const onlyClosed = wantsClosed && situations.length === 1;
+  // Sem filtro de situação as encerradas aparecem ao fim de cada grupo; escolher só
+  // Aberta ou só Sem cotação as tira, e Encerrada sozinha esconde as abertas.
+  const wantsClosed = situations.length === 0 || situations.includes('encerrada');
+  const onlyClosed = situations.length === 1 && situations[0] === 'encerrada';
   const categoryIds = useMemo(() => listFromParam(rawCategory), [rawCategory]);
   const institutionIds = useMemo(() => listFromParam(rawInstitution), [rawInstitution]);
 
@@ -367,7 +368,7 @@ export const PositionsScreen = ({
             {scopeLabel} ·{' '}
             {resource?.as_of == null
               ? 'carteira ainda não consolidada'
-              : `consolidação de ${consolidationDate(resource.as_of)}`}
+              : 'posições abertas hoje, com as encerradas ao fim de cada grupo'}
           </p>
         </div>
 
@@ -385,7 +386,7 @@ export const PositionsScreen = ({
             shortcut="N"
             onClick={() => entry.openEntry({ tab: 'buy', portfolioId })}
           >
-            Lançamento
+            Movimentação
           </Button>
         </Toolbar>
       </header>
@@ -479,7 +480,7 @@ export const PositionsScreen = ({
             actions={
               <ToolbarIconButton
                 label="Exportar CSV"
-                icon="export"
+                icon="download"
                 disabled={resource === null || resource.groups.length === 0}
                 onClick={() => resource !== null && exportCsv(resource)}
               />
@@ -502,7 +503,7 @@ export const PositionsScreen = ({
                   groups={groups}
                   rowId={positionId}
                   rowLabel={positionLabel}
-                  isRowDisabled={(row) => row.closed === true}
+                  isRowPinnedLast={(row) => row.closed === true}
                   groupAction={(group) =>
                     groupByParam === 'categoria' && group.key !== ''
                       ? {
@@ -514,7 +515,12 @@ export const PositionsScreen = ({
                   columnPreference={columnPreference}
                   sort={sort}
                   onSortChange={setSort}
-                  {...(total === null ? {} : { total })}
+                  {...(total === null
+                    ? {}
+                    : {
+                        total,
+                        totalLabel: `Total · ${resource.total.count} posições`,
+                      })}
                   openOnClick
                   onOpenRow={(row) =>
                     onOpenAsset(assetSlug(toAssetRef(row)), row.portfolio_id)
@@ -548,11 +554,12 @@ export const PositionsScreen = ({
             )}
           </div>
           <footer className="border-t border-line px-4 py-3 text-xs text-ink-3">
-            {stamp ??
-              'Carteira ainda não consolidada: a tabela aparece depois da primeira consolidação.'}
-            {hasCaveat
-              ? ' Nem toda linha usa preço do dia — o ponto ao lado do preço indica as exceções.'
-              : ''}
+            {resource !== null && resource.as_of !== null && hasCaveat
+              ? `Preços de ${consolidationDate(resource.as_of).slice(0, 5)}: ${
+                  resource.total.count - resource.price_health.fresh
+                } posições sem cotação do dia, marcadas com ponto laranja. Renda fixa bancária segue na curva.`
+              : (stamp ??
+                'Carteira ainda não consolidada: a tabela aparece depois da primeira consolidação.')}
           </footer>
         </Panel>
       }
@@ -607,7 +614,10 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
     // ordenar "Tesouro IPCA+ 2035" por `IPCA2035` é ordenação invisível.
     sortValue: (row) => positionTitle(row),
     cell: (row) => (
-      <span className="flex min-w-0 items-center gap-2 font-semibold" title={row.name}>
+      <span
+        className={`flex min-w-0 items-center gap-2 font-semibold ${row.closed === true ? 'text-ink-3' : ''}`}
+        title={row.name}
+      >
         <span className="truncate">{positionTitle(row)}</span>
         {row.closed === true ? null : (
           <span className="shrink-0">
@@ -615,7 +625,7 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
           </span>
         )}
         {row.closed === true ? (
-          <span className="shrink-0 rounded-sm bg-accent-soft px-1.5 py-px text-[0.6875rem] font-medium text-accent">
+          <span className="shrink-0 rounded-sm bg-type-move px-1.5 py-px text-[0.6875rem] font-medium text-type-move-ink">
             Fechado
           </span>
         ) : null}
@@ -683,16 +693,6 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
       ),
   },
   {
-    id: 'valor',
-    header: 'Valor',
-    numeric: true,
-    essential: true,
-    sortable: true,
-    sortValue: (row) => row.value,
-    cell: (row) => <Money value={row.value} />,
-    summary: (summary) => <Money value={summary['valor'] ?? null} />,
-  },
-  {
     id: 'investido',
     header: 'Investido',
     numeric: true,
@@ -703,53 +703,65 @@ const BASE_COLUMNS: readonly TableColumn<PositionRow>[] = [
     summary: (summary) => <Money value={summary['custo'] ?? null} />,
   },
   {
+    id: 'valor',
+    header: 'Atualizado',
+    numeric: true,
+    essential: true,
+    sortable: true,
+    sortValue: (row) => row.value,
+    cell: (row) => <Money value={row.value} className="font-semibold" />,
+    summary: (summary) => <Money value={summary['valor'] ?? null} />,
+  },
+  {
     id: 'peso',
     header: 'Peso',
     numeric: true,
     hideBelow: 1000,
     sortable: true,
     sortValue: (row) => row.weight,
-    cell: (row) => (
-      <span className="flex items-center justify-end gap-2">
-        <span
-          aria-hidden="true"
-          className="h-1.5 w-12 overflow-hidden rounded-full bg-panel-2 max-lg:hidden"
-        >
-          <span
-            className="block h-full rounded-full bg-accent"
-            style={{ width: `${Math.min(100, Math.max(0, Number(row.weight ?? 0)))}%` }}
-          />
-        </span>
-        <Percent value={row.weight} decimals={1} />
-      </span>
-    ),
+    cell: (row) => <Percent value={row.weight} decimals={1} />,
     summary: (summary) => <Percent value={summary['peso'] ?? null} decimals={1} />,
   },
   {
     id: 'resultado',
-    header: 'Resultado (R$)',
+    header: 'P&L',
     numeric: true,
     essential: true,
     sortable: true,
     sortValue: (row) => row.open_result,
-    cell: (row) => <MoneyChange value={row.open_result} />,
-    summary: (summary) => <MoneyChange value={summary['resultado'] ?? null} />,
-  },
-  {
-    id: 'resultado_pct',
-    header: 'Resultado (%)',
-    numeric: true,
-    hideBelow: 1000,
-    sortable: true,
-    sortValue: (row) => row.open_result_ratio,
-    cell: (row) => <PercentChange value={row.open_result_ratio} decimals={1} />,
+    cell: (row) => (
+      <span className="whitespace-nowrap">
+        <MoneyChange value={row.open_result} />
+        <span aria-hidden="true" className="px-1.5 text-ink-3">
+          ·
+        </span>
+        {row.closed === true ? (
+          <span className="text-ink-3">realizado</span>
+        ) : (
+          <PercentChange value={row.open_result_ratio} decimals={1} />
+        )}
+      </span>
+    ),
+    // Prancha 5.1: no cabeçalho do grupo e no total o P&L vai em tinta cheia,
+    // sem verde/vermelho; a cor fica nas linhas.
     summary: (summary) => (
-      <PercentChange value={summary['resultado_pct'] ?? null} decimals={1} />
+      <span className="whitespace-nowrap">
+        <MoneyChange value={summary['resultado'] ?? null} tone="neutral" />
+        <span aria-hidden="true" className="px-1.5">
+          ·
+        </span>
+        <Percent
+          value={summary['resultado_pct'] ?? null}
+          decimals={1}
+          signed
+          tone="neutral"
+        />
+      </span>
     ),
   },
 ];
 
-const CLOSED_VISIBLE = new Set(['valor', 'investido', 'resultado', 'resultado_pct']);
+const CLOSED_VISIBLE = new Set(['valor', 'investido', 'resultado']);
 
 /** Em Todas as carteiras, a coluna que diz de qual carteira é cada linha. */
 const PORTFOLIO_COLUMN: TableColumn<PositionRow> = {
@@ -760,24 +772,42 @@ const PORTFOLIO_COLUMN: TableColumn<PositionRow> = {
   sortValue: (row) => row.portfolio_name,
   cell: (row) =>
     row.closed === true ? (
-      <span className="text-ink-3">—</span>
+      <span className="block truncate text-ink-3" title={row.portfolio_name}>
+        {row.portfolio_name}
+      </span>
     ) : (
-      <span className="block truncate" title={row.portfolio_name}>
+      <span className="block truncate text-ink-2" title={row.portfolio_name}>
         {row.portfolio_name}
       </span>
     ),
 };
 
-/** Encerrada mostra investido, vendido e resultado; o resto é traço. */
-const CLOSED_COLUMNS: readonly TableColumn<PositionRow>[] = BASE_COLUMNS.map((column) =>
-  column.id === 'ativo' || CLOSED_VISIBLE.has(column.id)
-    ? column
-    : {
-        ...column,
-        cell: (row: PositionRow) =>
-          row.closed === true ? <span className="text-ink-3">—</span> : column.cell(row),
-      },
-);
+/**
+ * Prancha 5.1: em cinza (texto 2) ficam Carteira, Preço médio, Investido e Peso;
+ * Ativo, Qtd, Preço e Atualizado levam a tinta cheia, e o P&L a cor do sinal.
+ */
+const SECONDARY = new Set(['preco_medio', 'investido', 'peso']);
+
+/** Encerrada mostra investido, vendido e resultado; o resto é traço. Na linha fechada tudo vai em cinza. */
+const CLOSED_COLUMNS: readonly TableColumn<PositionRow>[] = BASE_COLUMNS.map((column) => {
+  if (column.id === 'ativo') return column;
+  const quiet = CLOSED_VISIBLE.has(column.id);
+  return {
+    ...column,
+    cell: (row: PositionRow) =>
+      row.closed === true ? (
+        quiet ? (
+          <span className="text-ink-3">{column.cell(row)}</span>
+        ) : (
+          <span className="text-ink-3">—</span>
+        )
+      ) : SECONDARY.has(column.id) ? (
+        <span className="text-ink-2">{column.cell(row)}</span>
+      ) : (
+        column.cell(row)
+      ),
+  };
+});
 
 const WITH_PORTFOLIO: readonly TableColumn<PositionRow>[] = [
   CLOSED_COLUMNS[0] as TableColumn<PositionRow>,
@@ -881,7 +911,7 @@ const RowMenu = ({
       },
       {
         id: 'transactions',
-        label: 'Ver lançamentos',
+        label: 'Ver movimentações',
         icon: <Icon name="swap" />,
         disabled: onOpenStatement === undefined,
         onSelect: () => onOpenStatement?.(positionTitle(position)),
@@ -929,9 +959,7 @@ const EmptyState = ({
       <Button onClick={onClear}>Limpar filtros</Button>
     ) : (
       <>
-        <p className="text-[0.8125rem] text-ink-3">
-          Um lançamento de compra abre a primeira posição.
-        </p>
+        <p className="text-[0.8125rem] text-ink-3">Um aporte abre a primeira posição.</p>
         <Button variant="primary" onClick={onLaunch}>
           Lançar aporte
         </Button>

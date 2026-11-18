@@ -12,7 +12,7 @@ import type { DateRange } from '../finance/lib/period.js';
  */
 export const HOME_SCREENS = [
   { value: 'visao-geral', label: 'Visão geral', path: '/' },
-  { value: 'lancamentos', label: 'Lançamentos', path: '/lancamentos' },
+  { value: 'lancamentos', label: 'Movimentações', path: '/lancamentos' },
   { value: 'contas', label: 'Contas', path: '/contas' },
   { value: 'cartoes', label: 'Cartões', path: '/cartoes' },
   { value: 'posicoes', label: 'Posições', path: '/carteiras/todas/posicoes' },
@@ -25,15 +25,15 @@ export const HOME_SCOPES = [
 ] as const;
 
 export const DEFAULT_PERIODS = [
-  { value: 'mes-corrente', label: 'Mês corrente' },
+  { value: 'mes-corrente', label: 'Mês atual' },
   { value: 'mes-anterior', label: 'Mês anterior' },
   { value: 'ultimos-12-meses', label: 'Últimos 12 meses' },
   { value: 'ano-ate-hoje', label: 'Ano até hoje' },
 ] as const;
 
 export const DATE_FORMATS = [
-  { value: 'br', label: 'dd/mm/aaaa' },
-  { value: 'iso', label: 'aaaa-mm-dd (ISO)' },
+  { value: 'br', label: '31/12/2026' },
+  { value: 'iso', label: '2026-12-31' },
 ] as const;
 
 export const WEEK_STARTS = [

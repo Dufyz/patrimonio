@@ -72,7 +72,7 @@ export const portfolioHold = (blocking: {
 }): string | null =>
   blocking.transactions === 0
     ? null
-    : `${plural(blocking.transactions, 'lançamento', 'lançamentos')} · ${plural(blocking.assets, 'ativo', 'ativos')}`;
+    : `${plural(blocking.transactions, 'movimentação', 'movimentações')} · ${plural(blocking.assets, 'ativo', 'ativos')}`;
 
 /* -------------------------------------------------------------------------- */
 /* Catálogos da carga inicial                                                 */

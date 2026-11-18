@@ -1,4 +1,20 @@
 import type { RecurringKind, RecurringResource } from '../lib/recurring_view.js';
+
+/** Os números da faixa da tela, somados pelo servidor. */
+export type RecurringsSummary = {
+  readonly receitas: string;
+  readonly despesas: string;
+  readonly aportes: string;
+  readonly aportes_share_pct: string | null;
+  readonly impact: string;
+  readonly already_left: string;
+  readonly already_left_date: string | null;
+};
+
+export type RecurringsListing = {
+  readonly recurrings: readonly RecurringResource[];
+  readonly summary: RecurringsSummary;
+};
 import { request } from './client.js';
 
 /** REC-01/03 · Recorrentes do servidor: lista, criação, edição, pausa, pulo e exclusão. */
@@ -14,6 +30,7 @@ export type RecurringRequest = {
     readonly id: string;
   } | null;
   readonly covers_up_to: string | null;
+  readonly note?: string | null;
   readonly day: number;
   readonly mode: 'manual' | 'automatico';
   readonly amount: string;
@@ -22,16 +39,15 @@ export type RecurringRequest = {
 
 const raw = { parse: (value: unknown) => value };
 
-export const fetchRecurrings = (
-  signal?: AbortSignal,
-): Promise<readonly RecurringResource[]> =>
+export const fetchRecurrings = (signal?: AbortSignal): Promise<RecurringsListing> =>
   request(
     '/api/finance/recurrings',
     {
       parse: (value: unknown) => {
-        const list = (value as { recurrings?: unknown } | null)?.recurrings;
-        if (!Array.isArray(list)) throw new Error('Resposta de recorrentes inválida.');
-        return list as readonly RecurringResource[];
+        const body = value as Partial<RecurringsListing> | null;
+        if (!Array.isArray(body?.recurrings) || body.summary === undefined)
+          throw new Error('Resposta de recorrentes inválida.');
+        return body as RecurringsListing;
       },
     },
     signal === undefined ? {} : { signal },

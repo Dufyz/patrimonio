@@ -1,4 +1,3 @@
-import { normalizeBenchmark } from '@patrimonio/domain';
 import type {
   AllocationContributionResource,
   AllocationResource,
@@ -8,7 +7,6 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { fetchAllocation, putStrategy } from '../api/allocation.js';
 import { ApiError } from '../api/client.js';
-import { updatePortfolio } from '../api/registers.js';
 import { Money, MoneyChange, Percent, Points } from '../components/number.js';
 import { Modal } from '../components/overlay.js';
 import { KeepPrevious } from '../components/pending.js';
@@ -19,7 +17,7 @@ import {
   SkeletonRegion,
   SkeletonTable,
 } from '../components/skeleton.js';
-import { Button, IconButton, Kbd, Label, Panel } from '../components/primitives.js';
+import { Button, IconButton, Kbd, Panel } from '../components/primitives.js';
 import { formatDate, percentAsRatio } from '../lib/overview.js';
 import {
   EMPTY_DRAFT,
@@ -29,7 +27,6 @@ import {
   buildBody,
   editableRows,
   fieldError,
-  maskPercent,
   fromPercent,
   groupTotal,
   isZeroDecimal,
@@ -48,7 +45,6 @@ import { useResource } from '../lib/use_resource.js';
 import { Icon } from '../components/icon.js';
 import { MoneyInput } from './entry/fields.js';
 import { ClassesDialog } from './strategy_classes.js';
-import { ScreenFailed } from '../components/panel_state.js';
 
 /**
  * T-06 · Estratégia — a prancha `09 · Estratégia`.
@@ -72,8 +68,6 @@ export type StrategyViewProps = {
   readonly onSave: (body: PutStrategyBody) => Promise<void>;
   /** O plano de um aporte: a mesma leitura, com o valor. Nulo se a `api` não devolve plano. */
   readonly onPlan: (amount: string) => Promise<AllocationContributionResource | null>;
-  /** EST-03.3: grava o benchmark da carteira; nulo remove. */
-  readonly onSaveBenchmark?: ((benchmark: string | null) => Promise<void>) | undefined;
 };
 
 export type StrategyScreenProps = {
@@ -101,6 +95,8 @@ const LoadedStrategy = ({
     <StrategyView
       resource={resource}
       onSave={async (body) => {
+        // A estratégia grava com a versão que a tela viu: se mudou, o servidor
+        // recusa (409) e a tela mostra o estado atual.
         const version =
           resource.state.kind === 'ready'
             ? resource.state.value.rules.version
@@ -109,7 +105,6 @@ const LoadedStrategy = ({
           await putStrategy(portfolioId, body, version);
         } catch (error) {
           if (error instanceof ApiError && error.status === 409) {
-            // EST-05: o conflito aparece junto do formulário, com o estado atual do servidor.
             resource.reload();
             throw new Error(
               'A estratégia mudou desde que você a abriu. Mostrando o estado atual: confira os alvos e salve de novo.',
@@ -119,193 +114,10 @@ const LoadedStrategy = ({
         }
         resource.reload();
       }}
-      onSaveBenchmark={async (benchmark) => {
-        await updatePortfolio(portfolioId, { benchmark });
-        resource.reload();
-      }}
       onPlan={async (amount) =>
         (await fetchAllocation({ portfolioId, contribution: amount })).contribution
       }
     />
-  );
-};
-
-/* -------------------------------------------------------------------------- */
-/* Regras                                                                      */
-
-const TOLERANCE_PATTERN = /^\d{1,3}([.,]\d{1,2})?$/;
-
-/** `3,5` → `3.50`; nulo se não está entre 0 (exclusive) e 100. */
-export const toleranceBody = (text: string): string | null => {
-  const trimmed = text.trim();
-  if (!TOLERANCE_PATTERN.test(trimmed)) return null;
-  const value = Number(trimmed.replace(',', '.'));
-  if (!(value > 0 && value <= 100)) return null;
-  return value.toFixed(2);
-};
-
-const BENCHMARK_PRESETS = ['CDI', 'IPCA+6', 'IBOV', '110%CDI'] as const;
-
-const BenchmarkEditor = ({
-  current,
-  onSave,
-}: {
-  readonly current: string | null;
-  readonly onSave: (benchmark: string | null) => Promise<void>;
-}): React.ReactElement => {
-  const saved = current ?? '';
-  const [text, setText] = useState(saved);
-  const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
-  const blank = text.trim() === '';
-  const normalized = blank ? null : normalizeBenchmark(text);
-  const invalid = !blank && normalized === null;
-  const dirty = (normalized ?? '') !== saved && !invalid;
-
-  const save = async (): Promise<void> => {
-    if (invalid || busy) return;
-    setBusy(true);
-    setFailure(null);
-    try {
-      await onSave(normalized);
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : 'Não foi possível salvar');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-1 border-line p-4 md:border-l">
-      <Label>Benchmark</Label>
-      <span className="flex items-center gap-2">
-        <input
-          aria-label="Benchmark da estratégia"
-          list="strategy-benchmark-presets"
-          placeholder="Sem benchmark"
-          value={text}
-          aria-invalid={invalid}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') void save();
-          }}
-          className="tabular w-36 rounded-field border border-line bg-field px-2 py-1 text-base font-semibold"
-        />
-        <datalist id="strategy-benchmark-presets">
-          {BENCHMARK_PRESETS.map((preset) => (
-            <option key={preset} value={preset} />
-          ))}
-        </datalist>
-        {dirty ? (
-          <Button variant="primary" disabled={busy} onClick={() => void save()}>
-            Salvar benchmark
-          </Button>
-        ) : null}
-      </span>
-      {invalid ? (
-        <p role="alert" className="text-[0.8125rem] text-negative">
-          Informe um benchmark como CDI, IPCA+6 ou 110%CDI
-        </p>
-      ) : null}
-      {failure === null ? null : (
-        <p role="alert" className="text-[0.8125rem] text-negative">
-          {failure}
-        </p>
-      )}
-      <p className="text-[0.8125rem] text-ink-2">
-        Usado na Visão geral quando esta carteira está selecionada.
-      </p>
-    </div>
-  );
-};
-
-const Rules = ({
-  rules,
-  onSaveTolerance,
-  onSaveBenchmark,
-}: {
-  readonly rules: AllocationResource['rules'];
-  readonly onSaveBenchmark?: ((benchmark: string | null) => Promise<void>) | undefined;
-  /** EST-03.3: grava a tolerância mantendo os alvos salvos. */
-  readonly onSaveTolerance: (tolerancePp: string) => Promise<void>;
-}): React.ReactElement => {
-  const saved = inputText(fromPercent(rules.tolerance_pp));
-  const [text, setText] = useState(saved);
-  const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
-  const body = toleranceBody(text);
-  const dirty = text.trim() !== saved;
-
-  const save = async (): Promise<void> => {
-    if (body === null || busy) return;
-    setBusy(true);
-    setFailure(null);
-    try {
-      await onSaveTolerance(body);
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : 'Não foi possível salvar');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Panel title="Regras da estratégia">
-      <div className="grid grid-cols-1 md:grid-cols-2">
-        <div className="flex flex-col gap-1 border-line p-4">
-          <Label>Tolerância</Label>
-          <span className="flex items-center gap-2">
-            <span aria-hidden="true">±</span>
-            <input
-              aria-label="Tolerância em pontos percentuais"
-              inputMode="decimal"
-              value={text}
-              aria-invalid={body === null}
-              onChange={(event) => setText(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') void save();
-              }}
-              className="tabular w-20 rounded-field border border-line bg-field px-2 py-1 text-right text-base font-semibold"
-            />
-            <span>pp</span>
-            {dirty ? (
-              <Button
-                variant="primary"
-                disabled={body === null || busy}
-                onClick={() => void save()}
-              >
-                Salvar tolerância
-              </Button>
-            ) : null}
-          </span>
-          {failure === null ? null : (
-            <p role="alert" className="text-[0.8125rem] text-negative">
-              {failure}
-            </p>
-          )}
-          <p className="text-[0.8125rem] text-ink-2">
-            Acima disso a classe entra em Requer atenção.
-          </p>
-        </div>
-        {onSaveBenchmark === undefined ? (
-          <div className="flex flex-col gap-1 border-line p-4 md:border-l">
-            <Label>Benchmark</Label>
-            <span className="tabular text-base font-semibold">
-              {rules.benchmark?.name ?? 'Sem benchmark'}
-            </span>
-            <p className="text-[0.8125rem] text-ink-2">
-              Usado na Visão geral quando esta carteira está selecionada.
-            </p>
-          </div>
-        ) : (
-          <BenchmarkEditor
-            key={rules.benchmark?.value ?? ''}
-            current={rules.benchmark?.value ?? null}
-            onSave={onSaveBenchmark}
-          />
-        )}
-      </div>
-    </Panel>
   );
 };
 
@@ -343,20 +155,8 @@ const TargetField = ({
         aria-label={`Alvo de ${row.name}`}
         aria-invalid={error !== null}
         value={text}
-        onChange={(event) => onChange(row.id, maskPercent(event.target.value))}
+        onChange={(event) => onChange(row.id, event.target.value)}
         onFocus={(event) => event.target.select()}
-        onKeyDown={(event) => {
-          // EST-03.1: Enter anda para a próxima classe, como Tab (⌘↵ salva).
-          if (event.key !== 'Enter' || event.metaKey || event.ctrlKey) return;
-          event.preventDefault();
-          const fields = [
-            ...document.querySelectorAll<HTMLInputElement>(
-              'input[aria-label^="Alvo de"]',
-            ),
-          ];
-          const next = fields[fields.indexOf(event.currentTarget) + 1];
-          next?.focus();
-        }}
         className="tabular min-w-0 flex-1 bg-transparent px-2 text-right outline-none"
       />
       <span aria-hidden="true" className="text-[0.75rem] text-ink-3">
@@ -428,25 +228,14 @@ const Cells = ({
         <Points value={defined ? line.deviation_pp : null} tone="neutral" />
       )}
     </td>
-    <td className="px-4 whitespace-nowrap">
-      {defined && line.target_pct !== null ? (
-        <span
-          className={line.over_tolerance ? 'font-semibold text-attention' : 'text-ink-2'}
-        >
-          {line.over_tolerance ? 'fora da tolerância' : 'dentro'}
-        </span>
-      ) : (
-        <span className="text-ink-3">—</span>
-      )}
-    </td>
     <td className="px-4">{bar ? <DeviationBar line={line} scale={scale} /> : null}</td>
-    <td className="px-4 text-right max-[1000px]:hidden">
+    <td className="px-4 text-right">
       <Money value={line.value} />
     </td>
-    <td className="px-4 text-right max-[1200px]:hidden">
+    <td className="px-4 text-right">
       <Money value={defined ? line.target_value : null} />
     </td>
-    <td className="px-4 text-right max-[1100px]:hidden">
+    <td className="px-4 text-right">
       {isZeroDecimal(line.amount_to_move) ? (
         <Money value={line.amount_to_move} />
       ) : (
@@ -464,12 +253,11 @@ const MemberCells = ({ line }: { readonly line: Line }): React.ReactElement => (
     </td>
     <td />
     <td />
-    <td />
-    <td className="px-4 text-right max-[1000px]:hidden">
+    <td className="px-4 text-right">
       <Money value={line.value} />
     </td>
-    <td className="max-[1200px]:hidden" />
-    <td className="max-[1100px]:hidden" />
+    <td />
+    <td />
   </>
 );
 
@@ -493,27 +281,6 @@ const Distribution = ({
 }): React.ReactElement => {
   const { composition, strategy_defined: defined, rules } = data;
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
-  // EST-02.4: busca por classe e filtro por situação (dentro, fora da tolerância).
-  const [query, setQuery] = useState('');
-  const [situation, setSituation] = useState<'todas' | 'dentro' | 'fora'>('todas');
-  const fold = (text: string): string =>
-    text
-      .normalize('NFD')
-      .replace(/\p{Diacritic}/gu, '')
-      .toLowerCase();
-  const visibleNodes = composition.nodes.filter((node) => {
-    const matchesQuery =
-      query.trim() === '' ||
-      fold(node.name).includes(fold(query.trim())) ||
-      node.children.some((child) => fold(child.name).includes(fold(query.trim())));
-    const matchesSituation =
-      situation === 'todas' || !data.strategy_defined
-        ? true
-        : situation === 'fora'
-          ? node.over_tolerance
-          : !node.over_tolerance;
-    return matchesQuery && matchesSituation;
-  });
   const scale = useMemo(() => barScale(composition.nodes), [composition.nodes]);
   const state = saveState(rows, draft);
   const editing = Object.keys(draft).length > 0;
@@ -595,24 +362,6 @@ const Distribution = ({
       hint={`Dê um alvo a cada classe. As categorias dentro dela contam para o alvo. Tolerância ± ${inputText(fromPercent(tolerance))} pp.`}
       action={
         <span className="flex items-center gap-2">
-          <input
-            type="search"
-            aria-label="Buscar classe"
-            placeholder="Buscar classe"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="rounded-field border border-line bg-field px-3 py-1.5 text-[0.8125rem]"
-          />
-          <select
-            aria-label="Situação"
-            value={situation}
-            onChange={(event) => setSituation(event.target.value as typeof situation)}
-            className="rounded-field border border-line bg-field px-2 py-1.5 text-[0.8125rem]"
-          >
-            <option value="todas">Todas</option>
-            <option value="dentro">Dentro</option>
-            <option value="fora">Fora da tolerância</option>
-          </select>
           <Button onClick={onManageClasses}>Classes</Button>
           <Button disabled={!editing} onClick={onRestore}>
             Restaurar
@@ -620,8 +369,8 @@ const Distribution = ({
         </span>
       }
     >
-      <div>
-        <table className="w-full border-collapse text-[0.8125rem]">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-250 border-collapse text-[0.8125rem]">
           <caption className="sr-only">Distribuição por classe contra o alvo</caption>
           <thead>
             <tr className="border-b border-line bg-panel-2 tabular text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
@@ -638,50 +387,21 @@ const Distribution = ({
                 Desvio
               </th>
               <th scope="col" className="px-4 py-2 text-left font-medium">
-                Situação
-              </th>
-              <th scope="col" className="px-4 py-2 text-left font-medium">
                 Atual × alvo
               </th>
-              <th
-                scope="col"
-                className="px-4 py-2 text-right font-medium max-[1000px]:hidden"
-              >
+              <th scope="col" className="px-4 py-2 text-right font-medium">
                 Valor atual
               </th>
-              <th
-                scope="col"
-                className="px-4 py-2 text-right font-medium max-[1200px]:hidden"
-              >
+              <th scope="col" className="px-4 py-2 text-right font-medium">
                 Valor no alvo
               </th>
-              <th
-                scope="col"
-                className="px-4 py-2 text-right font-medium max-[1100px]:hidden"
-              >
-                Diferença (R$)
+              <th scope="col" className="px-4 py-2 text-right font-medium">
+                Para o alvo
               </th>
             </tr>
           </thead>
           <tbody>
-            {visibleNodes.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-ink-3">
-                  Nenhuma classe encontrada.{' '}
-                  <button
-                    type="button"
-                    className="cursor-pointer underline"
-                    onClick={() => {
-                      setQuery('');
-                      setSituation('todas');
-                    }}
-                  >
-                    Limpar filtros
-                  </button>
-                </td>
-              </tr>
-            ) : null}
-            {visibleNodes.flatMap((node) => [
+            {composition.nodes.flatMap((node) => [
               classRow(node),
               ...(node.level === 'group' && open.has(node.id)
                 ? node.children
@@ -728,40 +448,19 @@ const Distribution = ({
               <td className="tabular px-4 text-right">100%</td>
               <td />
               <td />
-              <td />
-              <td className="px-4 text-right max-[1000px]:hidden">
+              <td className="px-4 text-right">
                 <Money value={composition.total} />
               </td>
-              <td className="px-4 text-right max-[1200px]:hidden">
+              <td className="px-4 text-right">
                 <Money value={defined ? composition.total : null} />
               </td>
-              <td className="px-4 text-right max-[1100px]:hidden">
+              <td className="px-4 text-right">
                 <Money value={defined ? '0' : null} />
               </td>
             </tr>
           </tfoot>
         </table>
       </div>
-      {defined ? null : (
-        <div
-          role="status"
-          className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3 text-[0.8125rem] text-ink-2"
-        >
-          <span>
-            Esta carteira ainda não tem estratégia: o atual aparece, o alvo não.
-          </span>
-          <Button
-            variant="secondary"
-            onClick={() =>
-              document
-                .querySelector<HTMLInputElement>('input[aria-label^="Alvo de"]')
-                ?.focus()
-            }
-          >
-            Definir alvos
-          </Button>
-        </div>
-      )}
       {bar}
       <p className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3 text-[0.75rem] text-ink-3">
         <span>
@@ -772,7 +471,7 @@ const Distribution = ({
             : ''}
         </span>
         <span className="flex items-center gap-1">
-          <Kbd>Tab</Kbd> próximo campo · <Kbd>⌘↵</Kbd> salvar
+          <Kbd>Tab</Kbd> próximo campo · <Kbd>⌘S</Kbd> salvar
         </span>
       </p>
     </Panel>
@@ -1000,13 +699,37 @@ const PlanDialog = ({
 /* -------------------------------------------------------------------------- */
 /* A moldura                                                                   */
 
-const Failed = ScreenFailed;
+const Failed = ({
+  error,
+  onRetry,
+}: {
+  readonly error: Error;
+  readonly onRetry: () => void;
+}): React.ReactElement => (
+  <section
+    role="alert"
+    className="rounded-panel border border-line bg-panel p-8 text-center"
+  >
+    <h2 className="text-panel-title font-semibold text-negative">
+      A tela não pôde ser carregada
+    </h2>
+    <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
+      {error.message}
+    </p>
+    <button
+      type="button"
+      className="mt-4 h-control cursor-pointer rounded-control border border-line px-3 text-[0.8125rem] hover:bg-panel-2"
+      onClick={onRetry}
+    >
+      Tentar de novo
+    </button>
+  </section>
+);
 
 export const StrategyView = ({
   resource,
   onSave,
   onPlan,
-  onSaveBenchmark,
 }: StrategyViewProps): React.ReactElement => {
   const { state, pending, reload } = resource;
   const { hidden, toggleHidden } = usePreferences();
@@ -1040,23 +763,9 @@ export const StrategyView = ({
   // ⌘S salva de qualquer campo, e o navegador não abre "Salvar página".
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (
-        (event.metaKey || event.ctrlKey) &&
-        (event.key.toLowerCase() === 's' || event.key === 'Enter')
-      ) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
         event.preventDefault();
         void save();
-        return;
-      }
-      // Esc num campo de alvo descarta o rascunho (EST-06).
-      const target = event.target;
-      if (
-        event.key === 'Escape' &&
-        target instanceof HTMLInputElement &&
-        (target.getAttribute('aria-label') ?? '').startsWith('Alvo de')
-      ) {
-        setDraft(EMPTY_DRAFT);
-        setFailure(null);
       }
     };
     globalThis.addEventListener('keydown', onKey);
@@ -1115,15 +824,6 @@ export const StrategyView = ({
           </Button>
         </div>
       </header>
-
-      <Rules
-        key={value.rules.tolerance_pp}
-        rules={value.rules}
-        onSaveBenchmark={onSaveBenchmark}
-        onSaveTolerance={(tolerance) =>
-          onSave({ ...buildBody(rows, EMPTY_DRAFT), tolerance_pp: tolerance })
-        }
-      />
 
       {value.reference_date === null ? (
         <section className="rounded-panel border border-line bg-panel p-8 text-center">

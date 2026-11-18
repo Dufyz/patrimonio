@@ -148,7 +148,7 @@ export const InvoiceItemModal = ({
             )}
           </Field>
         )}
-        <Field label="Fatura" hint="Só faturas sem pagamento recebem lançamentos.">
+        <Field label="Fatura" hint="Só faturas sem pagamento recebem movimentações.">
           {(p) => (
             <Select
               {...p}

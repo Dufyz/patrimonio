@@ -152,7 +152,7 @@ describe('GoalsView', () => {
   it('declara a taxa usada e mostra a tabela de aportes com a chegada de cada um', () => {
     montar({ kind: 'ready', value: dados(goal) });
 
-    expect(screen.getByRole('heading', { name: 'Objetivos' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Objetivo' })).toBeTruthy();
     expect(screen.getByText(/10,69% ao ano/)).toBeTruthy();
     expect(screen.getAllByText('mar/2043').length).toBeGreaterThan(0);
     expect(screen.getAllByText('jan/2040').length).toBeGreaterThan(0);

@@ -21,7 +21,7 @@ import {
   writeDisplay,
 } from '../../lib/display_preferences.js';
 import type { DisplayPreferences } from '../../lib/display_preferences.js';
-import { SHORTCUTS, describeShortcut, groupShortcuts } from '../../lib/shortcuts.js';
+import { SHORTCUTS, describeShortcut } from '../../lib/shortcuts.js';
 import { Callout, Field, Input, Select } from '../entry/fields.js';
 import { DeleteDialog } from '../registers/delete_dialog.js';
 import { ImportDialog } from './import_dialog.js';
@@ -87,13 +87,36 @@ const DENSITY_OPTIONS = [
   { value: 'compact', label: 'Compacta' },
 ] as const satisfies readonly { value: Density; label: string }[];
 
-const SCOPE_NAMES: Readonly<Record<string, string>> = {
-  global: 'Geral',
-  navigation: 'Navegação',
-  row: 'Na linha',
-  form: 'Formulários',
-  overlay: 'Janelas',
-};
+/** Os atalhos que a prancha lista, com o texto dela. */
+const SHORTCUT_ROWS = [
+  { id: 'new_transaction', label: 'Nova movimentação' },
+  { id: 'search', label: 'Buscar em tudo' },
+  { id: 'hide_values', label: 'Ocultar ou mostrar valores' },
+  { id: 'filter', label: 'Filtrar a lista' },
+  { id: 'form_submit_again', label: 'Salvar e abrir outra movimentação' },
+] as const;
+
+const Pick = ({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly options: readonly { readonly value: string; readonly label: string }[];
+  readonly onChange: (value: string) => void;
+}): React.ReactElement => (
+  <div className="w-48">
+    <Select
+      aria-label={label}
+      invalid={false}
+      options={options.map((item) => ({ id: item.value, name: item.label }))}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  </div>
+);
 
 export const DisplaySection = (): React.ReactElement => {
   const { theme, setTheme, density, setDensity, hidden, setHidden } = usePreferences();
@@ -112,7 +135,7 @@ export const DisplaySection = (): React.ReactElement => {
       title="Exibição"
       description="Preferências de leitura. Valem para este navegador."
     >
-      <SettingsPanel>
+      <SettingsPanel title="Aparência" hint="valem para este navegador">
         <Row title="Tema" hint="Sistema segue a configuração do computador.">
           <Segmented
             label="Tema"
@@ -142,94 +165,82 @@ export const DisplaySection = (): React.ReactElement => {
             onChange={setHidden}
           />
         </Row>
-        <Row title="Tela inicial" hint="Onde o app abre ao entrar pela raiz.">
-          <div className="w-44">
-            <Select
-              aria-label="Tela inicial"
-              invalid={false}
-              options={HOME_SCREENS.map((item) => ({ id: item.value, name: item.label }))}
-              value={display.homeScreen}
-              onChange={(event) =>
-                choose(
-                  'homeScreen',
-                  event.target.value as DisplayPreferences['homeScreen'],
-                )
-              }
-            />
-          </div>
+      </SettingsPanel>
+
+      <SettingsPanel title="Ao abrir o app" hint="o ponto de partida de cada sessão">
+        <Row title="Tela inicial" hint="Visão geral, com o escopo escolhido ao lado.">
+          <Pick
+            label="Tela inicial"
+            value={display.homeScreen}
+            options={HOME_SCREENS}
+            onChange={(value) =>
+              choose('homeScreen', value as DisplayPreferences['homeScreen'])
+            }
+          />
         </Row>
-        <Row title="Escopo padrão" hint="O que a Visão geral resume ao abrir.">
-          <Segmented
-            label="Escopo padrão"
-            options={HOME_SCOPES}
+        <Row title="Escopo da Visão geral" hint="Tudo, Fluxo ou Investimentos.">
+          <Pick
+            label="Escopo da Visão geral"
             value={display.homeScope}
-            onChange={(value) => choose('homeScope', value)}
+            options={HOME_SCOPES}
+            onChange={(value) =>
+              choose('homeScope', value as DisplayPreferences['homeScope'])
+            }
           />
         </Row>
-        <Row
-          title="Período padrão"
-          hint="O intervalo com que as telas de Finanças abrem."
-        >
-          <div className="w-44">
-            <Select
-              aria-label="Período padrão"
-              invalid={false}
-              options={DEFAULT_PERIODS.map((item) => ({
-                id: item.value,
-                name: item.label,
-              }))}
-              value={display.defaultPeriod}
-              onChange={(event) =>
-                choose(
-                  'defaultPeriod',
-                  event.target.value as DisplayPreferences['defaultPeriod'],
-                )
-              }
-            />
-          </div>
-        </Row>
-        <Row title="Formato de data" hint="Como as datas completas são escritas.">
-          <Segmented
-            label="Formato de data"
-            options={DATE_FORMATS}
-            value={display.dateFormat}
-            onChange={(value) => choose('dateFormat', value)}
-          />
-        </Row>
-        <Row title="Primeiro dia da semana" hint="Usado nos calendários.">
-          <Segmented
-            label="Primeiro dia da semana"
-            options={WEEK_STARTS}
-            value={display.weekStart}
-            onChange={(value) => choose('weekStart', value)}
+        <Row title="Período padrão" hint="Usado em Visão geral, Movimentações e Contas.">
+          <Pick
+            label="Período padrão"
+            value={display.defaultPeriod}
+            options={DEFAULT_PERIODS}
+            onChange={(value) =>
+              choose('defaultPeriod', value as DisplayPreferences['defaultPeriod'])
+            }
           />
         </Row>
       </SettingsPanel>
-      <SettingsPanel>
-        <div className="px-4 py-3" aria-label="Atalhos de teclado">
-          <div className="text-[0.8125rem] font-medium">Atalhos de teclado</div>
-          <div className="mb-2 text-[0.8125rem] text-ink-3">
-            Só leitura. Aperte ? em qualquer tela para ver esta lista.
-          </div>
-          <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
-            {groupShortcuts(SHORTCUTS).map((group) => (
-              <div key={group.scope}>
-                <dt className="text-[0.75rem] font-medium text-ink-3 uppercase">
-                  {SCOPE_NAMES[group.scope] ?? group.scope}
-                </dt>
-                {group.items.map((item) => (
-                  <dd
-                    key={item.id}
-                    className="flex justify-between gap-3 text-[0.8125rem]"
-                  >
-                    <span>{item.label}</span>
-                    <kbd className="font-mono text-ink-2">{describeShortcut(item)}</kbd>
-                  </dd>
-                ))}
-              </div>
-            ))}
-          </dl>
-        </div>
+
+      <SettingsPanel title="Formato" hint="como datas e números aparecem">
+        <Row title="Data" hint="Dia/mês/ano, como nos extratos.">
+          <Pick
+            label="Data"
+            value={display.dateFormat}
+            options={DATE_FORMATS}
+            onChange={(value) =>
+              choose('dateFormat', value as DisplayPreferences['dateFormat'])
+            }
+          />
+        </Row>
+        <Row title="Primeiro dia da semana" hint="Usado no seletor de período.">
+          <Pick
+            label="Primeiro dia da semana"
+            value={display.weekStart}
+            options={WEEK_STARTS}
+            onChange={(value) =>
+              choose('weekStart', value as DisplayPreferences['weekStart'])
+            }
+          />
+        </Row>
+      </SettingsPanel>
+
+      <SettingsPanel title="Atalhos de teclado" hint="valem em qualquer tela">
+        <ul>
+          {SHORTCUT_ROWS.map((row) => {
+            const shortcut = SHORTCUTS.find((item) => item.id === row.id);
+            if (shortcut === undefined) return null;
+            return (
+              <li
+                key={row.id}
+                className="flex h-(--row-height) items-center justify-between gap-3 border-t border-line px-4 text-[0.8125rem] first:border-t-0"
+              >
+                <span>{row.label}</span>
+                <kbd className="rounded-control border border-line bg-panel-2 px-1.5 font-mono text-xs text-ink-2">
+                  {describeShortcut(shortcut)}
+                </kbd>
+              </li>
+            );
+          })}
+        </ul>
       </SettingsPanel>
     </SettingsSection>
   );
@@ -335,6 +346,7 @@ export const BackupSection = ({
   const [exporting, setExporting] = useState<'csv' | 'json' | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [choosing, setChoosing] = useState(false);
   const { backup } = settings;
 
   const download = (format: 'csv' | 'json'): void => {
@@ -385,14 +397,31 @@ export const BackupSection = ({
       .finally(() => setRunning(false));
   };
 
+  const last = backup.files[0];
+  const lastText =
+    backup.last_success_at === null
+      ? 'nenhum backup feito ainda'
+      : `${new Date(backup.last_success_at)
+          .toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+          .replace(
+            ', ',
+            ' ',
+          )}${last === undefined ? '' : ` · ${formatBytes(last.bytes)}`}`;
+
   return (
     <SettingsSection
       id="dados-e-backup"
       title="Dados e backup"
       description="Os dados são seus e ficam exportáveis a qualquer momento, em formatos abertos."
     >
-      <SettingsPanel>
-        <Row title="Exportar tudo" hint="Lançamentos, ativos, carteiras e configurações.">
+      <SettingsPanel
+        title="Exportar"
+        hint="os dados são seus e ficam exportáveis em formatos abertos"
+      >
+        <Row
+          title="Exportar tudo"
+          hint="Movimentações, ativos, carteiras e configurações."
+        >
           <Button disabled={exporting !== null} onClick={() => download('csv')}>
             {exporting === 'csv' ? 'Exportando…' : 'CSV por tabela'}
           </Button>
@@ -401,18 +430,53 @@ export const BackupSection = ({
           </Button>
         </Row>
         <Row
-          title="Backup automático"
-          hint="Todo dia às 03:00, cifrado; mantém 7 diários, 4 semanais e 6 mensais."
+          title="Importar planilha"
+          hint="Mapeia as colunas da sua planilha para movimentações e mostra uma prévia antes de gravar."
         >
-          {backup.enabled ? <BackupState backup={backup} /> : null}
-          <Button
-            disabled={running || !backup.enabled || backup.pending}
-            // Desligado, o motivo vai na dica do botão em vez de num texto ao lado
-            // dele, que empurraria o botão para outra linha.
-            {...(backup.enabled ? {} : { title: backupSummary(backup).text })}
-            onClick={run}
-          >
+          <Button onClick={() => setImporting(true)}>Importar arquivo</Button>
+        </Row>
+      </SettingsPanel>
+
+      <SettingsPanel title="Backup" hint="cifrado, guardado fora do aparelho">
+        <Row
+          title="Backup automático"
+          hint="Todo dia às 03:00; mantém 7 diários, 4 semanais e 6 mensais."
+        >
+          <Switch
+            checked={backup.enabled}
+            label="Backup automático"
+            title="O backup automático é ligado na instalação."
+          />
+        </Row>
+        <Row
+          title="Último backup"
+          hint={
+            backup.enabled ? (
+              <>
+                {lastText}
+                {backup.last_failure === null ? null : (
+                  <>
+                    {' · '}
+                    <BackupState backup={backup} />
+                  </>
+                )}
+              </>
+            ) : (
+              backupSummary(backup).text
+            )
+          }
+        >
+          <Button disabled={running || !backup.enabled || backup.pending} onClick={run}>
             {running ? 'Pedindo…' : 'Fazer backup agora'}
+          </Button>
+        </Row>
+        <Row title="Restaurar" hint="Escolha um backup; o estado atual é guardado antes.">
+          <Button
+            disabled={!backup.enabled}
+            aria-expanded={choosing}
+            onClick={() => setChoosing((open) => !open)}
+          >
+            Escolher backup
           </Button>
         </Row>
         {receipt === null ? null : (
@@ -420,25 +484,15 @@ export const BackupSection = ({
             <ActionNote tone={receipt.tone}>{receipt.text}</ActionNote>
           </div>
         )}
-        <BackupFiles backup={backup} />
-        <Row
-          title="Importar planilha"
-          hint="Mapeia as colunas da sua planilha para lançamentos e mostra uma prévia antes de gravar."
-        >
-          <Button onClick={() => setImporting(true)}>Importar arquivo</Button>
-        </Row>
+        {choosing ? <BackupFiles backup={backup} /> : null}
       </SettingsPanel>
-      <SettingsPanel tone="danger">
+
+      <SettingsPanel title="Zona de perigo">
         <Row
           title="Apagar todos os dados"
-          hint="Remove lançamentos, ativos e carteiras. Pede para digitar a frase de confirmação."
-          tone="danger"
+          hint="Remove movimentações, ativos e carteiras. Pede para digitar a frase de confirmação."
         >
-          <Button
-            variant="destructive"
-            className="border-negative"
-            onClick={() => setDeleting(true)}
-          >
+          <Button variant="destructive" onClick={() => setDeleting(true)}>
             Apagar dados
           </Button>
         </Row>
@@ -496,9 +550,9 @@ const DeleteAllDialog = ({
     >
       <Callout tone="warning">
         <strong className="font-semibold">Atenção: nada fica.</strong> Serão excluídos
-        permanentemente os lançamentos, as carteiras e tudo que há nelas, as instituições,
-        os ativos cadastrados à mão, os preços manuais e os proventos anunciados. Preços
-        de mercado e backups já gravados no bucket não são apagados.
+        permanentemente as movimentações, as carteiras e tudo que há nelas, as
+        instituições, os ativos cadastrados à mão, os preços manuais e os proventos
+        anunciados. Preços de mercado e backups já gravados no bucket não são apagados.
       </Callout>
 
       <div>

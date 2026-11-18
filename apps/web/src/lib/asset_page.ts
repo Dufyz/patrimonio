@@ -85,8 +85,8 @@ export const assetSlug = (asset: AssetNaming): string =>
 /* -------------------------------------------------------------------------- */
 
 export const TRANSACTION_KIND_LABELS: Readonly<Record<TransactionKind, string>> = {
-  buy: 'Compra',
-  sell: 'Venda',
+  buy: 'Aporte',
+  sell: 'Resgate',
   payout: 'Provento',
   corporate_event: 'Evento',
 };
@@ -264,7 +264,7 @@ export const assetState = (resource: AssetPageResource): AssetState => {
  * ativo — a lista daqui é curta de propósito.
  */
 export const transactionsCountLabel = (total: number): string =>
-  total === 1 ? '1 lançamento' : `${total} lançamentos`;
+  total === 1 ? '1 movimentação' : `${total} movimentações`;
 
 /** As opções do filtro de tipo, com a contagem de cada uma. */
 export type KindOption = {

@@ -1,3 +1,4 @@
+import { DatePicker } from '../components/date_picker.js';
 import { useEffect, useState } from 'react';
 
 import type { SetManualPriceResponse } from '@patrimonio/contracts';
@@ -110,13 +111,7 @@ export const ManualPriceDialog = ({
           <div className="grid grid-cols-2 gap-4">
             <label className="flex flex-col gap-1.5">
               <FieldLabel>Data do preço</FieldLabel>
-              <input
-                type="date"
-                value={date}
-                data-autofocus
-                className="h-control rounded-control border border-line-2 bg-panel px-3 text-sm"
-                onChange={(event) => setDate(event.target.value)}
-              />
+              <DatePicker value={date} onChange={setDate} />
             </label>
 
             <label className="flex flex-col gap-1.5">

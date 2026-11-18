@@ -212,7 +212,7 @@ export const AssetScreen = ({
         <SkeletonPanel>
           <SkeletonChart />
         </SkeletonPanel>
-        <SkeletonPanel title="Lançamentos">
+        <SkeletonPanel title="Movimentações">
           <SkeletonTable rows={5} columns={5} />
         </SkeletonPanel>
       </SkeletonRegion>
@@ -289,6 +289,7 @@ export const AssetScreen = ({
                     style={{ backgroundColor: dotColor }}
                   />
                   {resource.asset.category_name}
+                  {lotsView !== null ? ' · caixinha' : null}
                 </span>
               )}
               {resource.asset.sector === null ? null : (
@@ -315,13 +316,13 @@ export const AssetScreen = ({
               </span>
               <span className="flex items-center gap-1.5 text-xs text-ink-3">
                 {lotsView !== null ? (
-                  <span>valor bruto</span>
+                  <span>valor na curva</span>
                 ) : resource.price.value === null &&
                   resource.position !== null &&
                   usesValueChart(resource) ? (
                   <span>valor na curva</span>
                 ) : null}
-                {lotsView !== null || resource.price.day_change_ratio === null ? null : (
+                {resource.price.day_change_ratio === null ? null : (
                   <>
                     <PercentChange value={resource.price.day_change_ratio} />
                     <span>hoje</span>
@@ -400,7 +401,7 @@ export const AssetScreen = ({
                   },
                   {
                     id: 'transactions',
-                    label: 'Ver todos os lançamentos',
+                    label: 'Ver todas as movimentações',
                     icon: <Icon name="swap" />,
                     disabled: onOpenStatement === undefined,
                     onSelect: () => onOpenStatement?.(title),
@@ -695,28 +696,24 @@ const KpiStrip = ({
         ? (Number(lots.accrued_interest) / Number(lots.principal)).toFixed(6)
         : null;
 
+    const dayChange =
+      resource.price.day_change_ratio === null ? null : (
+        <>
+          {' · '}
+          <PercentChange value={resource.price.day_change_ratio} /> hoje
+        </>
+      );
     cells = [
-      lots !== null
-        ? {
-            label: 'Valor bruto',
-            value: <Money value={lots.gross_value} />,
-            sub: 'na curva de hoje',
-          }
-        : {
-            label: 'Valor atualizado',
-            value: <Money value={position.value} />,
-            sub: (
-              <>
-                na curva
-                {resource.price.day_change_ratio === null ? null : (
-                  <>
-                    {' · '}
-                    <PercentChange value={resource.price.day_change_ratio} /> hoje
-                  </>
-                )}
-              </>
-            ),
-          },
+      {
+        label: 'Valor atualizado',
+        value: <Money value={lots !== null ? lots.gross_value : position.value} />,
+        sub: (
+          <>
+            na curva
+            {dayChange}
+          </>
+        ),
+      },
       {
         label: 'Valor investido',
         value: <Money value={lots !== null ? lots.principal : position.cost_basis} />,
@@ -739,26 +736,15 @@ const KpiStrip = ({
               value={accruedRatio ?? position.open_result_ratio}
               decimals={2}
             />{' '}
-            sobre o valor investido
+            sobre o principal
           </>
         ),
       },
-      lots === null
-        ? {
-            label: 'Peso na carteira',
-            value: <Percent value={position.weight} decimals={1} />,
-            sub: portfolioName,
-          }
-        : {
-            label: 'Valor líquido',
-            value: <Money value={lots.net_value} />,
-            sub: (
-              <>
-                se resgatado hoje, depois de <Money value={lots.iof_due} /> de IOF e{' '}
-                <Money value={lots.tax_due} /> de IR
-              </>
-            ),
-          },
+      {
+        label: 'Peso na carteira',
+        value: <Percent value={position.weight} decimals={1} />,
+        sub: portfolioName,
+      },
     ];
     if (!caixinha) {
       // POS-06 · CDB comum: aplicado, valor na curva, resultado, taxa, vencimento e prazo.
@@ -810,49 +796,41 @@ const KpiStrip = ({
         },
       ];
     }
-    // Caixinha: bruto, líquido, investido e rendimento, nessa ordem.
-    if (caixinha && lots !== null && cells.length === 4) {
-      const [gross, invested, yielded, net] = cells as [
-        KpiCell,
-        KpiCell,
-        KpiCell,
-        KpiCell,
-      ];
-      cells = [
-        { ...gross, label: 'Valor', sub: 'na curva de hoje, com o CDI do dia' },
-        net,
-        { ...invested, label: 'Aportado' },
-        { ...yielded, label: 'Rendimento' },
-      ];
-    }
-
-    facts = [
-      ...(lots === null
-        ? []
-        : [
-            {
-              label: 'Peso na carteira',
-              value: <Percent value={position.weight} decimals={1} />,
-            },
-          ]),
-      ...(caixinha ? pick('Remuneração', '% do CDI contratado') : []),
-      ...(caixinha ? [] : pick('Carência', 'Liquidez')),
-      ...(caixinha
-        ? [
-            {
-              label: 'Rentabilidade (TIR)',
-              value: <PercentChange value={lifetime.xirr_ratio} decimals={1} />,
-            },
-          ]
-        : []),
-      ...(lots === null
-        ? []
-        : [
-            { label: 'IOF', value: <Money value={lots.iof_due} /> },
-            { label: 'IR', value: <Money value={lots.tax_due} /> },
-          ]),
-    ];
-  } else if (position.unit === 'curve') {
+    facts = caixinha
+      ? [
+          ...pick('Remuneração'),
+          {
+            label: 'Rentabilidade (TIR)',
+            value: <PercentChange value={lifetime.xirr_ratio} decimals={1} />,
+          },
+          ...(lots === null
+            ? []
+            : [
+                { label: 'IR estimado', value: <Money value={lots.tax_due} /> },
+                {
+                  label: 'Líquido se resgatado hoje',
+                  value: <Money value={lots.net_value} />,
+                },
+              ]),
+        ]
+      : [
+          ...(lots === null
+            ? []
+            : [
+                {
+                  label: 'Peso na carteira',
+                  value: <Percent value={position.weight} decimals={1} />,
+                },
+              ]),
+          ...pick('Carência', 'Liquidez'),
+          ...(lots === null
+            ? []
+            : [
+                { label: 'IOF', value: <Money value={lots.iof_due} /> },
+                { label: 'IR', value: <Money value={lots.tax_due} /> },
+              ]),
+        ];
+  } else {
     const noun = QUANTITY_NOUNS[resource.asset.b3_type ?? ''] ?? 'un.';
     cells = [
       {
@@ -913,69 +891,6 @@ const KpiStrip = ({
       {
         label: 'Proventos recebidos',
         value: <Money value={lifetime.payouts_received} />,
-      },
-    ];
-  } else {
-    const noun = QUANTITY_NOUNS[resource.asset.b3_type ?? ''] ?? 'un.';
-    cells = [
-      {
-        label: 'Quantidade',
-        value:
-          position.quantity === null ? (
-            '—'
-          ) : (
-            <>
-              <Quantity value={position.quantity} decimals={0} /> {noun}
-            </>
-          ),
-        sub: portfolioName,
-      },
-      {
-        label: 'Preço médio',
-        value: position.avg_price === null ? '—' : <Money value={position.avg_price} />,
-        sub: (
-          <>
-            investido <Money value={position.cost_basis} />
-          </>
-        ),
-      },
-      {
-        label: 'Preço D-1',
-        value:
-          resource.price.value === null ? '—' : <Money value={resource.price.value} />,
-        sub:
-          resource.price.price_date === null
-            ? null
-            : formatShortDate(resource.price.price_date),
-      },
-      {
-        label: 'Valor',
-        value: <Money value={position.value} />,
-        sub: null,
-      },
-      {
-        label: 'Resultado',
-        value: <MoneyChange value={position.open_result} />,
-        sub: <PercentChange value={position.open_result_ratio} decimals={2} />,
-      },
-      {
-        label: 'Proventos recebidos',
-        value: <Money value={lifetime.payouts_received} />,
-        sub: null,
-      },
-    ];
-    facts = [
-      {
-        label: 'Peso na carteira',
-        value: <Percent value={position.weight} decimals={1} />,
-      },
-      {
-        label: 'Rentabilidade (TWR)',
-        value: <PercentChange value={lifetime.twr_ratio} decimals={1} />,
-      },
-      {
-        label: 'Rentabilidade (TIR)',
-        value: <PercentChange value={lifetime.xirr_ratio} decimals={1} />,
       },
     ];
   }
@@ -1135,7 +1050,7 @@ const PriceChart = ({
         date: mark.trade_date,
         value: mark.unit_price,
         color: mark.side === 'buy' ? SEMANTIC_COLORS.accent : SEMANTIC_COLORS.negative,
-        label: `${mark.side === 'buy' ? 'Compra' : 'Venda'} de ${
+        label: `${mark.side === 'buy' ? 'Aporte' : 'Resgate'} de ${
           mark.quantity
         } em ${formatShortDate(mark.trade_date)}`,
       })),
@@ -1657,7 +1572,7 @@ const HistoryPanel = ({
     >
       <ConfirmDialog
         open={toDelete !== null}
-        title="Excluir lançamento?"
+        title="Excluir movimentação?"
         subject={
           toDelete === null
             ? ''
@@ -1679,8 +1594,8 @@ const HistoryPanel = ({
         search={
           <ToolbarSearch
             value={search}
-            label="Buscar lançamento"
-            placeholder="Buscar lançamento"
+            label="Buscar movimentação"
+            placeholder="Buscar movimentação"
             onChange={setSearch}
           />
         }
@@ -1700,7 +1615,7 @@ const HistoryPanel = ({
         actions={
           <ToolbarIconButton
             label="Exportar CSV"
-            icon="export"
+            icon="download"
             disabled={rows.length === 0}
             onClick={exportRows}
           />
@@ -1713,7 +1628,7 @@ const HistoryPanel = ({
           className="flex items-center justify-between gap-3 border-b border-line bg-panel-2 px-4 py-2 text-[0.8125rem]"
         >
           <span>
-            {notice.kind === 'deleted' ? 'Lançamento excluído.' : notice.message}
+            {notice.kind === 'deleted' ? 'Movimentação excluída.' : notice.message}
           </span>
           {notice.kind === 'deleted' ? (
             <Button disabled={busy} onClick={() => void undo(notice.undoId)}>
@@ -1726,8 +1641,8 @@ const HistoryPanel = ({
       {rows.length === 0 ? (
         <p className="px-4 py-8 text-[0.8125rem] text-ink-3">
           {search !== '' || kind !== null
-            ? 'Nenhum lançamento corresponde ao filtro.'
-            : 'Este papel ainda não tem lançamento.'}
+            ? 'Nenhuma movimentação corresponde ao filtro.'
+            : 'Este papel ainda não tem movimentação.'}
         </p>
       ) : (
         <div>
