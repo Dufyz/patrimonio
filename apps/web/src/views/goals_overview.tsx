@@ -7,6 +7,7 @@ import { fetchGoalsOverview } from '../api/goals.js';
 import { Icon } from '../components/icon.js';
 import { Money, Percent } from '../components/number.js';
 import { KeepPrevious } from '../components/pending.js';
+import { ProgressRing } from '../components/progress_ring.js';
 import { usePreferences } from '../components/preferences.js';
 import { Button, IconButton, Panel } from '../components/primitives.js';
 import { SeriesChart } from '../components/series_chart.js';
@@ -36,7 +37,7 @@ import type { Resource } from '../lib/use_resource.js';
 import { useResource } from '../lib/use_resource.js';
 import { BudgetForm } from './budget_form.js';
 import { RatesPanel, percentText } from './rates_panel.js';
-import { Fact, ScenarioCells, Stat, scenarioRow } from './goals.js';
+import { Fact, GoalTrack, ScenarioCells, Stat, scenarioRow } from './goals.js';
 import { ScreenFailed } from '../components/panel_state.js';
 
 /**
@@ -130,26 +131,6 @@ export const GoalsOverviewScreen = ({
 
 /* -------------------------------------------------------------------------- */
 
-const Badge = ({
-  tone,
-  children,
-}: {
-  readonly tone: 'positive' | 'attention' | 'negative' | 'neutral';
-  readonly children: React.ReactNode;
-}): React.ReactElement => (
-  <span
-    className={`rounded-[4px] px-2 py-0.5 text-[0.71875rem] font-medium whitespace-nowrap ${
-      tone === 'positive'
-        ? 'bg-positive-soft text-positive'
-        : tone === 'neutral'
-          ? 'bg-panel-2 text-ink-2'
-          : 'bg-attention-soft text-attention'
-    }`}
-  >
-    {children}
-  </span>
-);
-
 const Track = ({
   progress,
   expected,
@@ -195,6 +176,14 @@ const Track = ({
 const Summary = ({ data }: { readonly data: Overview }): React.ReactElement => {
   const { totals } = data;
   const badge = overviewBadge(totals);
+  const ringStatus =
+    badge === null
+      ? null
+      : badge.tone === 'positive'
+        ? 'on_track'
+        : badge.tone === 'negative'
+          ? 'overdue'
+          : 'behind';
   const counted = data.portfolios.flatMap((row) =>
     row.goal !== null && row.goal.counted ? [row.portfolio_name] : [],
   );
@@ -210,9 +199,18 @@ const Summary = ({ data }: { readonly data: Overview }): React.ReactElement => {
       <header className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
         <div className="flex min-w-0 items-center gap-3">
           <h2 className="truncate text-[1.125rem] font-semibold">Todos os objetivos</h2>
-          {badge === null ? null : <Badge tone={badge.tone}>{badge.text}</Badge>}
         </div>
       </header>
+
+      {ringStatus === null ? null : (
+        <div className="flex justify-start px-5 pb-3">
+          <ProgressRing
+            status={ringStatus}
+            progressPct={totals.progress_pct}
+            expectedPct={totals.expected_pct}
+          />
+        </div>
+      )}
 
       <p className="flex flex-wrap gap-x-5 gap-y-1 border-y border-line bg-panel-2 px-5 py-2.5 text-[0.8125rem]">
         <Fact label="Meta">
@@ -301,31 +299,18 @@ const Summary = ({ data }: { readonly data: Overview }): React.ReactElement => {
         />
       </div>
 
-      <div className="flex flex-col gap-2 border-t border-line px-5 py-4">
-        <Track
-          progress={totals.progress_pct}
-          expected={totals.expected_pct}
-          state="on_track"
-          label={`${totals.progress_pct}% da meta somada`}
-        />
-        <span className="relative flex justify-between text-[0.8125rem]">
-          <span className="tabular">
-            <strong className="font-semibold">
-              <Percent value={percentAsRatio(totals.progress_pct)} decimals={1} />
-            </strong>{' '}
-            <span className="text-ink-2">acumulado</span>
-          </span>
-          {totals.expected_pct === null ? null : (
-            <span className="tabular text-ink-3">
-              esperado hoje{' '}
-              <Percent value={percentAsRatio(totals.expected_pct)} decimals={1} />
-            </span>
-          )}
-          <span className="tabular text-ink-3">
-            <Money value={totals.target_amount} decimals={0} />
-          </span>
-        </span>
-      </div>
+      {ringStatus === null ? null : (
+        <div className="border-t border-line">
+          <GoalTrack
+            goal={{
+              status: ringStatus,
+              progress_pct: totals.progress_pct,
+              expected_pct: totals.expected_pct,
+              target_amount: totals.target_amount,
+            }}
+          />
+        </div>
+      )}
     </section>
   );
 };
@@ -532,13 +517,13 @@ const PortfolioTable = ({
               <th scope="col" className={`${TH} text-right`}>
                 Acumulado
               </th>
-              <th scope="col" className={`${TH} text-right max-xl:hidden`}>
+              <th scope="col" className={`${TH} text-right max-[1600px]:hidden`}>
                 Falta
               </th>
               <th scope="col" className={`${TH} text-right`}>
                 Aporte necessário
               </th>
-              <th scope="col" className={`${TH} text-right max-xl:hidden`}>
+              <th scope="col" className={`${TH} text-right max-[1600px]:hidden`}>
                 Aporte hoje
               </th>
               {showPlan ? (
@@ -621,7 +606,7 @@ const PortfolioTable = ({
                   <td className={`${TD} text-right`}>
                     <Money value={goal.current_value} />
                   </td>
-                  <td className={`${TD} text-right max-xl:hidden`}>
+                  <td className={`${TD} text-right max-[1600px]:hidden`}>
                     <Money value={goal.remaining_brl} />
                   </td>
                   {goal.counted ? (
@@ -638,7 +623,7 @@ const PortfolioTable = ({
                           do total
                         </Sub>
                       </td>
-                      <td className={`${TD} text-right max-xl:hidden`}>
+                      <td className={`${TD} text-right max-[1600px]:hidden`}>
                         <Money value={goal.current_monthly} decimals={0} />
                         <Sub>
                           <Percent
@@ -714,14 +699,14 @@ const PortfolioTable = ({
               <th scope="row" colSpan={4} className="px-4 py-4 text-left font-semibold">
                 Total
               </th>
-              <td className={`${TD} text-right max-xl:hidden`}>
+              <td className={`${TD} text-right max-[1600px]:hidden`}>
                 <Money value={totals.remaining_brl} />
               </td>
               <td className={`${TD} text-right`}>
                 <Money value={totals.required_monthly} decimals={0} />
                 <Sub>100%</Sub>
               </td>
-              <td className={`${TD} text-right max-xl:hidden`}>
+              <td className={`${TD} text-right max-[1600px]:hidden`}>
                 <Money value={totals.current_monthly} decimals={0} />
                 <Sub>100%</Sub>
               </td>

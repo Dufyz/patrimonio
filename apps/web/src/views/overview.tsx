@@ -1,10 +1,15 @@
+import { AlocacaoPanel } from './geral/alocacao_panel.js';
+import { CarteirasPanel } from './geral/carteiras_panel.js';
+import { EvolucaoPanel } from './geral/evolucao_panel.js';
+import { ObjetivosPanel } from './geral/objetivos_panel.js';
+import { PosicoesPanel } from './geral/posicoes_panel.js';
+import { routes } from '../lib/routes.js';
+import { ALL_SCOPE } from '../lib/scope.js';
 import type {
   GoalsOverviewResource,
   OverviewResource,
-  OverviewTopPositionResource,
   PerformanceResource,
 } from '@patrimonio/contracts';
-import { TOTAL_LINK_LABEL } from '../lib/total_links.js';
 import type { DateOnly } from '@patrimonio/domain';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -15,51 +20,43 @@ import { fetchPerformance } from '../api/performance.js';
 
 import { useEntry } from '../components/entry_provider.js';
 import { useShortcuts } from '../components/shortcuts.js';
-import { Money, MoneyChange, Percent, PercentChange } from '../components/number.js';
-import { OverviewHeader } from '../components/overview_header.js';
 import { KeepPrevious } from '../components/pending.js';
 import { PeriodControl } from '../components/period_control.js';
 import { usePreferences } from '../components/preferences.js';
-import { Button, IconButton, Panel, PriceHealthDot } from '../components/primitives.js';
+import { Button, IconButton, Panel } from '../components/primitives.js';
 import { SeriesChart } from '../components/series_chart.js';
-import { assetSlug, assetTitle } from '../lib/asset_page.js';
 import type { Period } from '../lib/period.js';
 import {
   DEFAULT_PERIOD,
   PERIOD_LABELS,
   decodePeriod,
   encodePeriod,
-  formatDayMonth,
   resolvePeriod,
   returnsPeriod,
+  windowLabel,
 } from '../lib/period.js';
 import {
   CONTRIBUTIONS_COLOR,
   formatDate,
   growthBands,
-  monthLabel,
   monthTicks,
-  percentAsRatio,
   resultColor,
 } from '../lib/overview.js';
 import type { Resource } from '../lib/use_resource.js';
 import { useResource } from '../lib/use_resource.js';
-import { SEMANTIC_COLORS, colorForToken } from '../lib/tokens.js';
+import { axisFloor, toNumber } from '../lib/chart/scale.js';
+import { SEMANTIC_COLORS } from '../lib/tokens.js';
 import { listParam, readParams, writeParams } from '../lib/url_state.js';
 import { Icon } from '../components/icon.js';
-import { ClassesTable } from './overview_classes.js';
-import { GoalPanelBody } from './overview_goal.js';
-import { PortfoliosPanel } from './overview_portfolios.js';
-import { ReturnsBars } from './overview_returns.js';
+import { ReturnsBars, ReturnsBenchmarkAction } from './overview_returns.js';
 import type { PortfolioReturn } from './overview_returns.js';
 import { HomeScopeControl } from '../components/home_scope_control.js';
 import { usePortfolios } from '../components/portfolios_provider.js';
 import {
   SkeletonChart,
-  SkeletonHeader,
+  SkeletonBar,
   SkeletonPanel,
   SkeletonRegion,
-  SkeletonStats,
   SkeletonTable,
 } from '../components/skeleton.js';
 import { ScreenFailed } from '../components/panel_state.js';
@@ -79,6 +76,8 @@ import { ScreenFailed } from '../components/panel_state.js';
  * passar por `number`.
  */
 export type OverviewViewProps = {
+  /** O escopo pedido, conhecido antes da resposta: o cabeçalho não espera por ela. */
+  readonly portfolioId?: string | null | undefined;
   readonly resource: Resource<OverviewResource>;
   /**
    * O retorno contra benchmarks: gráfico, janelas e classes. Nulo quando a
@@ -90,6 +89,8 @@ export type OverviewViewProps = {
     Resource<readonly PortfolioReturn[] | null> | null | undefined;
   /** O objetivo da carteira (ou os de todas): alimenta o painel de independência. */
   readonly goals?: Resource<GoalsOverviewResource> | null | undefined;
+  /** A leitura de Todas as carteiras: alimenta o retorno de cada carteira no painel Carteiras. */
+  readonly portfoliosPerformance?: Resource<PerformanceResource> | null | undefined;
   readonly period: Period;
   readonly onPeriodChange: (period: Period) => void;
   /** Os benchmarks pedidos além do da carteira, que a URL guarda. */
@@ -221,6 +222,17 @@ export const OverviewScreen = ({
 
   const goals = useResource((signal) => fetchGoalsOverview({}, signal), [portfolioId]);
 
+  // O painel Carteiras lista todas, também quando o escopo é uma só; o retorno de
+  // cada uma vem da leitura de Todas as carteiras.
+  const portfoliosPerformance = useResource(
+    (signal) =>
+      fetchPerformance(
+        { portfolioId: null, from: returnsRange.from, to: returnsRange.to },
+        signal,
+      ),
+    [returnsRange.from, returnsRange.to],
+  );
+
   useEffect(() => {
     if (resource.state.kind === 'ready') {
       setInception(resource.state.value.scope.inception as DateOnly | null);
@@ -229,10 +241,12 @@ export const OverviewScreen = ({
 
   return (
     <OverviewView
+      portfolioId={portfolioId}
       resource={resource}
       performance={performance}
       portfolioReturns={portfolioReturns}
       goals={goals}
+      portfoliosPerformance={portfoliosPerformance}
       period={period}
       onPeriodChange={onPeriodChange}
       extraIds={extraIds}
@@ -253,12 +267,26 @@ export const OverviewScreen = ({
 const periodSuffix = (period: Period): string =>
   period.kind === 'custom' ? 'no período' : PERIOD_LABELS[period.preset];
 
+/**
+ * O piso do eixo da evolução (prancha 1: "eixo a partir de R$ 100k"). Zero
+ * quando a série é curta ou toca o zero; aí o eixo parte de zero, como antes.
+ */
+export const evolutionFloor = (overview: OverviewResource): number =>
+  axisFloor(
+    overview.series.flatMap((point) => {
+      const total = toNumber(point.total);
+      const contributions = toNumber(point.contributions);
+      return total === null || contributions === null ? [] : [total, contributions];
+    }),
+  );
+
 export const Evolution = ({
   overview,
 }: {
   readonly overview: OverviewResource;
 }): React.ReactElement => {
-  const bands = growthBands(overview.series);
+  const floor = evolutionFloor(overview);
+  const bands = growthBands(overview.series, floor);
   const ticks = monthTicks(bands.dates);
 
   if (bands.dates.length === 0) {
@@ -307,7 +335,8 @@ export const Evolution = ({
           : []),
       ]}
       valueFormat="money"
-      fromZero
+      fromZero={floor === 0}
+      floor={floor > 0 ? floor : undefined}
       endDot
       inception={overview.scope.inception as DateOnly | null}
       ariaLabel="Evolução do patrimônio, separando aporte, rendimento e proventos"
@@ -317,130 +346,11 @@ export const Evolution = ({
   );
 };
 
-/** O link do cabeçalho de um cartão — `Estratégia →`, `Todas · 28 →`. */
-/** O texto do link do painel Objetivos: criar, quando a carteira ainda não tem. */
-const objectivesAction = (
-  portfolioId: string | null,
-  goals: Resource<GoalsOverviewResource> | null,
-): string => {
-  if (portfolioId === null) return 'Objetivos';
-  if (goals?.state.kind !== 'ready') return 'Objetivo';
-  const own = goals.state.value.portfolios.find(
-    (row) => row.portfolio_id === portfolioId,
-  );
-  return own == null || own.goal === null ? 'Definir objetivo' : 'Objetivo';
-};
-
-const PanelLink = ({
-  onClick,
-  children,
-}: {
-  readonly onClick: () => void;
-  readonly children: React.ReactNode;
-}): React.ReactElement => (
-  <button
-    type="button"
-    className="inline-flex cursor-pointer items-center gap-1 text-xs text-accent hover:underline"
-    onClick={onClick}
-  >
-    {children}
-    <Icon name="arrow-right" size={14} />
-  </button>
-);
-
-const TopPositions = ({
-  overview,
-  onOpenAsset,
-}: {
-  readonly overview: OverviewResource;
-  readonly onOpenAsset?: ((slug: string) => void) | undefined;
-}): React.ReactElement => {
-  const rows = overview.top_positions.rows;
-
-  if (rows.length === 0) {
-    return (
-      <p className="p-4 text-[0.8125rem] text-ink-3">
-        Nenhuma posição aberta. O primeiro lançamento começa a história da carteira.
-      </p>
-    );
-  }
-
-  return (
-    <table className="w-full">
-      <caption className="sr-only">Maiores posições</caption>
-      <thead>
-        <tr className="tabular border-b border-line text-label font-medium tracking-[0.06em] text-ink-3 uppercase">
-          <th scope="col" className="px-4 py-[9px] text-left">
-            Ativo
-          </th>
-          <th scope="col" className="px-4 py-[9px] text-right">
-            Valor
-          </th>
-          <th scope="col" className="px-4 py-[9px] text-right">
-            Peso
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row: OverviewTopPositionResource) => (
-          <tr
-            key={row.asset_id}
-            className="border-t border-line text-[0.8125rem] first:border-t-0"
-          >
-            <th
-              scope="row"
-              className="truncate px-4 py-(--row-pad) text-left font-normal"
-            >
-              <span className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="size-2 shrink-0 rounded-xs"
-                  style={{ backgroundColor: colorForToken(row.color_token) }}
-                />
-                {onOpenAsset === undefined ? (
-                  <span title={row.name}>{assetTitle(row)}</span>
-                ) : (
-                  <button
-                    type="button"
-                    title={row.name}
-                    className="cursor-pointer hover:text-accent"
-                    onClick={() => onOpenAsset(assetSlug(row))}
-                  >
-                    {assetTitle(row)}
-                  </button>
-                )}
-                <PriceHealthDot kind={row.price_source_kind} priceDate={row.price_date} />
-              </span>
-            </th>
-            <td className="px-4 py-(--row-pad) text-right">
-              {onOpenAsset === undefined ? (
-                <Money value={row.value} decimals={2} />
-              ) : (
-                <button
-                  type="button"
-                  aria-label={`${TOTAL_LINK_LABEL}: ${row.ticker ?? row.name}`}
-                  className="cursor-pointer hover:text-accent"
-                  onClick={() => onOpenAsset(assetSlug(row))}
-                >
-                  <Money value={row.value} decimals={2} />
-                </button>
-              )}
-            </td>
-            <td className="px-4 py-(--row-pad) text-right">
-              <Percent value={percentAsRatio(row.weight_pct)} decimals={1} />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-};
-
 const Empty = ({ scope }: { readonly scope: string }): React.ReactElement => (
   <section className="rounded-panel border border-line bg-panel p-8 text-center">
     <h2 className="text-panel-title font-semibold">Carteira ainda não consolidada</h2>
     <p className="mx-auto mt-2 max-w-prose text-[0.8125rem] text-ink-2">
-      {scope} não tem posição calculada. O primeiro lançamento começa a história: a
+      {scope} não tem posição calculada. A primeira movimentação começa a história: a
       consolidação do dia roda em seguida e esta tela passa a responder quanto você tem.
     </p>
   </section>
@@ -448,53 +358,61 @@ const Empty = ({ scope }: { readonly scope: string }): React.ReactElement => (
 
 const Failed = ScreenFailed;
 
-const Skeleton = (): React.ReactElement => (
+const NO_GOALS: Resource<GoalsOverviewResource> = {
+  state: { kind: 'loading' },
+  pending: false,
+  reload: () => undefined,
+};
+
+/** O esqueleto tem a forma das pranchas 1.3 e 1.4: os mesmos painéis, na mesma grade. */
+const Skeleton = ({
+  consolidated,
+}: {
+  readonly consolidated: boolean;
+}): React.ReactElement => (
   <SkeletonRegion label="Carregando a visão geral" className="flex flex-col gap-4">
-    <SkeletonHeader />
-    <SkeletonStats count={4} />
-    <SkeletonPanel>
+    <SkeletonPanel
+      title={consolidated ? 'Evolução das carteiras' : 'Evolução da carteira'}
+    >
+      <div className="flex flex-col gap-2 pb-3">
+        <SkeletonBar className="h-2.5 w-40" />
+        <SkeletonBar className="h-8 w-56" />
+        <SkeletonBar className="h-2.5 w-64" />
+      </div>
       <SkeletonChart />
     </SkeletonPanel>
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <SkeletonPanel title="Carteiras">
-        <SkeletonTable rows={4} columns={3} />
+    <div className={`grid grid-cols-1 items-stretch gap-4 ${TWO_COLUMNS}`}>
+      <SkeletonPanel title="Alocação por classe">
+        <SkeletonTable rows={4} columns={5} />
       </SkeletonPanel>
-      <SkeletonPanel title="Classes de ativo">
-        <SkeletonTable rows={4} columns={3} />
+      <SkeletonPanel title="Carteiras">
+        <SkeletonTable rows={3} columns={5} />
       </SkeletonPanel>
     </div>
-    <SkeletonPanel title="Maiores posições">
-      <SkeletonTable rows={5} columns={4} />
+    <div className={`grid grid-cols-1 items-stretch gap-4 ${TWO_COLUMNS}`}>
+      <SkeletonPanel title="Maiores posições">
+        <SkeletonTable rows={5} columns={3} />
+      </SkeletonPanel>
+      <SkeletonPanel title={consolidated ? 'Objetivos' : 'Objetivo'}>
+        <SkeletonTable rows={2} columns={4} />
+      </SkeletonPanel>
+    </div>
+    <SkeletonPanel title="Retorno × benchmarks">
+      <div className="flex flex-col gap-4 py-1">
+        {[0, 1, 2, 3].map((index) => (
+          <div key={index} className="grid grid-cols-[10rem_1fr_4rem] items-center gap-4">
+            <SkeletonBar className="h-3 w-24" />
+            <SkeletonBar className="h-2.5 w-full" />
+            <SkeletonBar className="ml-auto h-3 w-12" />
+          </div>
+        ))}
+      </div>
     </SkeletonPanel>
   </SkeletonRegion>
 );
 
-/** O gráfico do cabeçalho: aporte e rendimento em reais, empilhados. */
-const EvolutionCard = ({
-  overview,
-  period,
-  today,
-}: {
-  readonly overview: OverviewResource;
-  readonly period: Period;
-  readonly today: DateOnly;
-}): React.ReactElement => {
-  const range = resolvePeriod(period, today, overview.scope.inception as DateOnly | null);
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-baseline gap-x-3">
-        <h2 className="text-panel-title font-semibold">
-          Evolução {periodSuffix(period)}
-        </h2>
-        <span className="text-[0.75rem] text-ink-3">
-          {formatDayMonth(range.from, today)} – {formatDayMonth(range.to, today)}
-        </span>
-      </div>
-      <Evolution overview={overview} />
-    </div>
-  );
-};
+/** As duas colunas das pranchas 1.3 e 1.4, da mesma largura. */
+const TWO_COLUMNS = 'lg:grid-cols-2';
 
 const ReturnsFailed = ({
   error,
@@ -526,7 +444,9 @@ const ReturnsCard = ({
   onExtraIdsChange,
   period,
   periodFrom,
+  compare,
 }: {
+  readonly compare: boolean;
   readonly performance: Resource<PerformanceResource>;
   readonly portfolioReturns: readonly PortfolioReturn[] | null;
   readonly periodFrom: DateOnly;
@@ -539,7 +459,22 @@ const ReturnsCard = ({
   return (
     <Panel
       title="Retorno × benchmarks"
-      hint={`${periodSuffix(period)} · pela cota · nada anualizado`}
+      action={
+        <span className="flex items-baseline gap-3">
+          <span className="text-xs text-ink-3">
+            {periodSuffix(period)} · pela cota · nada anualizado
+          </span>
+          {state.kind === 'ready' ? (
+            <ReturnsBenchmarkAction
+              data={state.value}
+              extraIds={extraIds}
+              onExtraIdsChange={onExtraIdsChange}
+            />
+          ) : null}
+        </span>
+      }
+      id="retorno-benchmarks"
+      className="scroll-mt-4"
     >
       <div
         className={
@@ -560,6 +495,7 @@ const ReturnsCard = ({
             extraIds={extraIds}
             onExtraIdsChange={onExtraIdsChange}
             portfolios={portfolioReturns}
+            compare={compare}
             periodFrom={periodFrom}
           />
         )}
@@ -569,21 +505,21 @@ const ReturnsCard = ({
 };
 
 export const OverviewView = ({
+  portfolioId: requested,
   resource,
   performance,
   portfolioReturns = null,
   goals = null,
+  portfoliosPerformance = null,
   period,
   onPeriodChange,
   extraIds,
   onExtraIdsChange,
   today,
-  onOpenAsset,
-  onOpenScreen,
-  onOpenPortfolio,
 }: OverviewViewProps): React.ReactElement => {
   const { state, pending, reload } = resource;
   const { hidden, toggleHidden } = usePreferences();
+  const shared = usePortfolios();
   const entry = useEntry();
   const openEntry = entry.openEntry;
 
@@ -598,177 +534,154 @@ export const OverviewView = ({
   );
   useShortcuts(shortcuts);
 
-  if (state.kind === 'loading') return <Skeleton />;
   if (state.kind === 'error') return <Failed error={state.error} onRetry={reload} />;
 
-  const overview = state.value;
-  const inception = overview.scope.inception;
+  const overview = state.kind === 'ready' ? state.value : null;
+  const portfolioId = overview?.scope.portfolio_id ?? requested ?? null;
+  const inception = overview?.scope.inception ?? null;
 
-  const subtitle = [
-    overview.scope.name,
-    overview.reference_date === null
-      ? null
-      : `consolidação de ${formatDate(overview.reference_date as DateOnly)}`,
-  ]
-    .filter((part): part is string => part !== null && part !== '')
-    .join(' · ');
+  const subtitle =
+    overview === null
+      ? 'Investimentos'
+      : [
+          'Investimentos',
+          overview.scope.portfolio_id === null
+            ? 'todas as carteiras'
+            : overview.scope.name,
+          overview.reference_date === null
+            ? null
+            : `consolidação de ${formatDate(overview.reference_date as DateOnly)}`,
+        ]
+          .filter((part): part is string => part !== null && part !== '')
+          .join(' · ');
+
+  const header = (
+    <header className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h1 className="text-screen-title leading-7 font-semibold">Visão geral</h1>
+        <p className="truncate text-xs text-ink-3">{subtitle}</p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <HomeScopeControl scope="investimentos" portfolioId={portfolioId} />
+        <PeriodControl
+          value={period}
+          onChange={onPeriodChange}
+          today={today}
+          inception={inception as DateOnly | null}
+        />
+        {/* Abrir a tela ao lado de outra pessoa é um caso de uso real: o
+              modo esconde o número e preserva o layout e o sinal. */}
+        <IconButton
+          label={hidden ? 'Mostrar valores' : 'Ocultar valores'}
+          aria-pressed={hidden}
+          onClick={toggleHidden}
+        >
+          <Icon name={hidden ? 'eye-off' : 'eye'} />
+        </IconButton>
+        <Button
+          variant="primary"
+          icon="plus"
+          shortcut="N"
+          onClick={() => entry.openEntry()}
+        >
+          Movimentação
+        </Button>
+      </div>
+    </header>
+  );
+
+  if (overview === null) {
+    return (
+      <div className="flex flex-col gap-4">
+        {header}
+        <Skeleton consolidated={portfolioId === null} />
+      </div>
+    );
+  }
+
+  const scopeSlug =
+    overview.scope.portfolio_id === null
+      ? ALL_SCOPE
+      : (shared.slugs.get(overview.scope.portfolio_id) ?? ALL_SCOPE);
 
   return (
     <div className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-screen-title leading-7 font-semibold">Visão geral</h1>
-          <p className="truncate text-xs text-ink-3">{subtitle}</p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <HomeScopeControl
-            scope="investimentos"
-            portfolioId={overview.scope.portfolio_id}
-          />
-          <PeriodControl
-            value={period}
-            onChange={onPeriodChange}
-            today={today}
-            inception={inception}
-          />
-          {/* Abrir a tela ao lado de outra pessoa é um caso de uso real: o
-              modo esconde o número e preserva o layout e o sinal. */}
-          <IconButton
-            label={hidden ? 'Mostrar valores' : 'Ocultar valores'}
-            aria-pressed={hidden}
-            onClick={toggleHidden}
-          >
-            <Icon name={hidden ? 'eye-off' : 'eye'} />
-          </IconButton>
-          <Button
-            variant="primary"
-            icon="plus"
-            shortcut="N"
-            onClick={() => entry.openEntry()}
-          >
-            Lançamento
-          </Button>
-        </div>
-      </header>
+      {header}
 
       {overview.reference_date === null ? (
         <Empty scope={overview.scope.name} />
       ) : (
         <KeepPrevious pending={pending} className="flex flex-col gap-4">
-          <OverviewHeader
+          <EvolucaoPanel
+            title={
+              overview.scope.portfolio_id === null
+                ? 'Evolução das carteiras'
+                : 'Evolução da carteira'
+            }
             label={
               overview.scope.portfolio_id === null
                 ? 'Patrimônio · todas as carteiras'
-                : 'Valor da carteira'
+                : `Patrimônio · ${overview.scope.name}`
             }
-            principal={overview.totals.value}
-            {...(overview.totals.month === null
-              ? {}
-              : {
-                  change: {
-                    amount: overview.totals.month.amount,
-                    ratio: percentAsRatio(overview.totals.month.ratio),
-                    periodLabel: monthLabel(overview.reference_date as DateOnly),
-                  },
-                })}
-            {...(overview.scope.recalc_status === 'running' ||
-            overview.scope.recalc_status === 'queued'
-              ? { caveat: 'recalculando: o número é o do última consolidação concluída' }
-              : {})}
-            metrics={[
-              {
-                label: `Rentabilidade ${periodSuffix(period)}`,
-                value: (
-                  <PercentChange value={percentAsRatio(overview.period.return_pct)} />
-                ),
-              },
-              {
-                label: `Aportes ${periodSuffix(period)}`,
-                value: <Money value={overview.period.contributions} />,
-              },
-              {
-                label: `Rendimento ${periodSuffix(period)}`,
-                value: <MoneyChange value={overview.period.income} />,
-              },
-              {
-                label: 'Variação do dia',
-                value: <MoneyChange value={overview.totals.day?.amount ?? null} />,
-              },
-            ]}
-            chart={<EvolutionCard overview={overview} period={period} today={today} />}
+            windowLabel={windowLabel(period)}
+            scopeHint={overview.scope.name}
+            overview={resource}
           />
 
-          <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
-            <Panel
-              title="Alocação por classe"
+          <div className={`grid grid-cols-1 items-stretch gap-4 ${TWO_COLUMNS}`}>
+            <AlocacaoPanel
+              overview={overview}
+              performance={
+                performance !== null && performance.state.kind === 'ready'
+                  ? performance.state.value
+                  : null
+              }
               hint={
                 overview.scope.portfolio_id === null
-                  ? 'soma das carteiras · posição de hoje'
-                  : 'peso e desvio do alvo · posição de hoje'
+                  ? 'somando as carteiras'
+                  : overview.scope.name
               }
-              className="flex flex-col"
-              action={
-                onOpenScreen === undefined ? undefined : (
-                  <PanelLink
-                    onClick={() =>
-                      onOpenScreen(
-                        overview.scope.portfolio_id === null ? 'posicoes' : 'estrategia',
-                      )
-                    }
-                  >
-                    {overview.scope.portfolio_id === null ? 'Posições' : 'Estratégia'}
-                  </PanelLink>
-                )
+              classHref={(id) =>
+                `${routes.portfolio(scopeSlug, 'posicoes')}?classe=${encodeURIComponent(id)}`
               }
-            >
-              <ClassesTable overview={overview} />
-            </Panel>
-
-            <Panel title="Carteiras" hint="posição de hoje" className="flex flex-col">
-              <PortfoliosPanel
-                overview={overview}
-                {...(onOpenPortfolio === undefined ? {} : { onOpenPortfolio })}
-              />
-            </Panel>
+            />
+            <CarteirasPanel
+              performance={
+                portfoliosPerformance !== null &&
+                portfoliosPerformance.state.kind === 'ready'
+                  ? portfoliosPerformance.state.value
+                  : null
+              }
+              total={shared.total ?? overview.totals.value ?? '0.00'}
+              referenceDate={overview.reference_date}
+              selectedId={overview.scope.portfolio_id}
+              selectedName={
+                overview.scope.portfolio_id === null ? null : overview.scope.name
+              }
+              portfolioHref={(id) =>
+                routes.home('investimentos', shared.slugs.get(id) ?? ALL_SCOPE)
+              }
+            />
           </div>
 
-          <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
-            <Panel
-              title="Maiores posições"
-              hint="posição de hoje"
-              className="flex flex-col"
-              action={
-                onOpenScreen === undefined ? undefined : (
-                  <PanelLink onClick={() => onOpenScreen('posicoes')}>
-                    Todas · {overview.top_positions.total_count}
-                  </PanelLink>
-                )
-              }
-            >
-              <TopPositions
-                overview={overview}
-                {...(onOpenAsset === undefined ? {} : { onOpenAsset })}
-              />
-            </Panel>
-
-            <Panel
-              title="Objetivos"
-              className="flex flex-col"
-              action={
-                onOpenScreen === undefined ? undefined : (
-                  <PanelLink onClick={() => onOpenScreen('objetivos')}>
-                    {objectivesAction(overview.scope.portfolio_id, goals)}
-                  </PanelLink>
-                )
-              }
-            >
-              <GoalPanelBody goals={goals} portfolioId={overview.scope.portfolio_id} />
-            </Panel>
+          <div className={`grid grid-cols-1 items-stretch gap-4 ${TWO_COLUMNS}`}>
+            <PosicoesPanel
+              overview={overview}
+              allHref={routes.portfolio(scopeSlug, 'posicoes')}
+              assetHref={(slug) => routes.asset(scopeSlug, slug)}
+            />
+            <ObjetivosPanel
+              goals={goals ?? NO_GOALS}
+              portfolioId={overview.scope.portfolio_id}
+              seeHref={routes.portfolio(scopeSlug, 'objetivos')}
+              defineHref={routes.portfolio(scopeSlug, 'objetivos')}
+            />
           </div>
 
           {performance === null ? null : (
             <ReturnsCard
+              compare={overview.scope.portfolio_id === null}
               performance={performance}
               portfolioReturns={
                 portfolioReturns?.state.kind === 'ready'

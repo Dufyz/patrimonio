@@ -38,7 +38,7 @@ export const FinanceWelcome = ({
           Finanças
         </p>
         <h2 className="mt-1 text-[1.5rem] leading-8 font-semibold">
-          Suas finanças aparecem aqui depois do primeiro lançamento
+          Suas finanças aparecem aqui depois da primeira movimentação
         </h2>
         <p className="mt-1 text-[0.8125rem] text-ink-2">
           Três passos; nenhum gráfico ou tabela vazio é mostrado antes disso.
@@ -76,14 +76,14 @@ export const FinanceWelcome = ({
               title={hasAccount ? undefined : 'Crie uma conta primeiro'}
               onClick={() => setDialog('entry')}
             >
-              Novo lançamento
+              Nova movimentação
             </Button>
           </Step>
         </ol>
       </section>
       <p className="text-[0.8125rem] text-ink-2">
-        A tela troca os blocos por um roteiro. Assim que existe um lançamento, os blocos
-        normais aparecem, mesmo com pouca informação.
+        A tela troca os blocos por um roteiro. Assim que existe uma movimentação, os
+        blocos normais aparecem, mesmo com pouca informação.
       </p>
 
       {dialog === 'account' ? (

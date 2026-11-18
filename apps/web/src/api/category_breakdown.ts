@@ -6,12 +6,16 @@ import { request } from './client.js';
  */
 export type CategoryBreakdownResource = {
   readonly total: string;
+  readonly projected_total: string;
   readonly count: number;
   readonly rows: readonly {
     readonly category_id: string;
     readonly name: string;
     readonly color: string;
     readonly amount: string;
+    readonly planned: string;
+    readonly projected: string;
+    readonly nature: 'fixa' | 'livre';
     readonly count: number;
     readonly tenths: number;
   }[];

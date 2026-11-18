@@ -47,7 +47,7 @@ export type EntryErrors = Partial<
 >;
 
 export const FUTURE_DATE =
-  'Data futura só entra como previsto ao criar um lançamento novo.';
+  'Data futura só entra como previsto ao criar uma movimentação nova.';
 
 /** Aviso do modal quando a data é futura: o lançamento entra como previsto. */
 export const FUTURE_HINT =

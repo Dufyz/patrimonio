@@ -65,11 +65,15 @@ export type GrowthPoint = Pick<
 > &
   Partial<Pick<OverviewPointResource, 'payouts' | 'with_payouts'>>;
 
-export const growthBands = (points: readonly GrowthPoint[]): GrowthBands => ({
+export const growthBands = (
+  points: readonly GrowthPoint[],
+  /** Piso do eixo: a faixa de aportes parte dele, não de zero (`from` fora do gráfico). */
+  floor = 0,
+): GrowthBands => ({
   dates: points.map((point) => point.date as DateOnly),
   contributions: points.map((point) => ({
     date: point.date as DateOnly,
-    from: '0',
+    from: String(floor),
     to: point.contributions,
     amount: point.contributions,
   })),

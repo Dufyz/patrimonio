@@ -92,9 +92,8 @@ export const ClassesTable = ({
   const out = withTarget.filter((line) => line.overTolerance);
   const tolerance = trimDecimals(overview.scope.tolerance_pp);
 
-  const note = consolidated
-    ? 'O alvo é declarado por carteira: abra uma carteira para ver o desvio dela.'
-    : withTarget.length === 0
+  const note =
+    withTarget.length === 0
       ? 'Nenhum alvo declarado: a estratégia desta carteira ainda não foi definida.'
       : out.length === 0
         ? `Todas as classes dentro da tolerância de ${tolerance} pp.`
@@ -237,14 +236,19 @@ export const ClassesTable = ({
         </table>
       </div>
 
-      <p className="flex flex-wrap items-baseline justify-between gap-2 border-t border-line px-4 py-3 text-xs text-ink-3">
-        <span>{note}</span>
-        {strategyHref === undefined || consolidated ? null : (
-          <Link to={strategyHref} className="cursor-pointer text-accent hover:underline">
-            Estratégia →
-          </Link>
-        )}
-      </p>
+      {consolidated ? null : (
+        <p className="flex flex-wrap items-baseline justify-between gap-2 border-t border-line px-4 py-3 text-xs text-ink-3">
+          <span>{note}</span>
+          {strategyHref === undefined ? null : (
+            <Link
+              to={strategyHref}
+              className="cursor-pointer text-accent hover:underline"
+            >
+              Estratégia →
+            </Link>
+          )}
+        </p>
+      )}
     </div>
   );
 };

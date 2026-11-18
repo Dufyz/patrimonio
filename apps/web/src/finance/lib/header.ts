@@ -5,7 +5,7 @@
  */
 
 export const PRIMARY_LABELS = {
-  entries: 'Lançamento',
+  entries: 'Movimentação',
   accounts: 'Conta',
   cards: 'Cartão',
   recurrings: 'Recorrente',

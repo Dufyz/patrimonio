@@ -14,9 +14,9 @@ export type StatusKind = 'prevista' | 'aberta' | 'fechada' | 'paga';
 
 const STATUS_DOT: Readonly<Record<StatusKind, string>> = {
   prevista: 'bg-ink-3',
-  aberta: 'bg-positive',
+  aberta: 'bg-ink-3',
   fechada: 'bg-attention',
-  paga: 'bg-accent',
+  paga: 'bg-positive',
 };
 
 export const StatusTag = ({
@@ -74,5 +74,37 @@ export const NatureTag = ({
   >
     {WITH_GLYPH.has(kind) ? <span aria-hidden="true">↻</span> : null}
     {children ?? kind}
+  </span>
+);
+
+/**
+ * O tipo de um lançamento previsto, só em contorno tracejado e na cor do que ele
+ * faz com o dinheiro: aporte em azul, receita e provento em verde, despesa em
+ * vermelho, pagamento de fatura em violeta. "Previsto" é o tracejado; o texto
+ * diz o tipo, então a cor nunca é o único sinal.
+ */
+const KIND_TAG: Readonly<Record<string, string>> = {
+  APORTE: 'border-accent text-accent',
+  RECEITA: 'border-positive text-positive',
+  PROVENTO: 'border-positive text-positive',
+  DESPESA: 'border-negative text-negative',
+  PAGAMENTO_FATURA: 'border-cat-violet text-cat-violet',
+};
+
+export const KindTag = ({
+  kind,
+  children,
+}: {
+  readonly kind: string;
+  readonly children: React.ReactNode;
+}): React.ReactElement => (
+  <span
+    data-kind={kind}
+    className={cn(
+      'tabular inline-flex items-center rounded-[4px] border border-dashed px-1.5 py-px text-xs leading-[1.3]',
+      KIND_TAG[kind] ?? 'border-line-2 text-ink-2',
+    )}
+  >
+    {children}
   </span>
 );

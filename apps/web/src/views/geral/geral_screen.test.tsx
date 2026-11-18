@@ -1,5 +1,9 @@
 import axe from 'axe-core';
-import type { GoalsOverviewResource, OverviewResource } from '@patrimonio/contracts';
+import type {
+  GoalsOverviewResource,
+  OverviewResource,
+  PerformanceResource,
+} from '@patrimonio/contracts';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -17,6 +21,7 @@ import {
   useFinanceData,
 } from '../../finance/store/finance_store.js';
 import type { Resource } from '../../lib/use_resource.js';
+import { DEFAULT_PERIOD } from '../../lib/period.js';
 import { GeralView } from './geral_screen.js';
 
 /**
@@ -69,6 +74,10 @@ const goalsEmpty = ready({
   totals: { goals: 0 },
 } as unknown as GoalsOverviewResource);
 
+const performanceEmpty = ready({
+  breakdown: { columns: [], classes: [], portfolios: [] },
+} as unknown as PerformanceResource);
+
 const View = ({
   overview,
   onNewEntry = () => {},
@@ -82,9 +91,12 @@ const View = ({
       data={data}
       today={HOJE}
       overview={overview}
+      performance={performanceEmpty}
       goals={goalsEmpty}
+      period={DEFAULT_PERIOD}
+      onPeriodChange={() => {}}
+      inception={null}
       onNewEntry={onNewEntry}
-      onLaunched={() => {}}
     />
   );
 };
@@ -112,31 +124,14 @@ const open = (overview: Resource<OverviewResource>, onNewEntry?: () => void) => 
 };
 
 describe('Visão geral de Geral (GER)', () => {
-  it('VGR-14 · todo painel que ignora o período diz "posição de hoje"', () => {
-    open(ready(overviewOf('300000.00')));
-
-    for (const name of [
-      'Alocação por classe',
-      'Carteiras',
-      'Objetivos',
-      'Faturas abertas',
-      'Contas',
-    ]) {
-      expect(
-        within(screen.getByRole('region', { name })).getByText(/posição de hoje/),
-      ).toBeInTheDocument();
-    }
-  });
-
   it('abre com a data de hoje e os painéis da prancha', () => {
     open(ready(overviewOf('300000.00')));
 
-    expect(screen.getByText(/Hoje · 24\/10\/2026/)).toBeInTheDocument();
+    expect(screen.getByText(/hoje, 24\/10\/2026/)).toBeInTheDocument();
     for (const name of [
       'Patrimônio',
       'Fluxo do mês',
-      'Saldo previsto',
-      'Evolução dos investimentos',
+      'Evolução do patrimônio',
       'Alocação por classe',
       'Objetivos',
       'Próximos lançamentos',
@@ -147,67 +142,12 @@ describe('Visão geral de Geral (GER)', () => {
     }
   });
 
-  it('VGR-03 · a cascata do mês vem do livro do servidor e cada valor leva aos Lançamentos filtrados', async () => {
-    const totals = {
-      receitas: '8720.00',
-      despesas: '3842.43',
-      aportes: '2000.00',
-      saldo_do_mes: '2877.57',
-      previsto: { receitas: '100.00', despesas: '40.00', aportes: '10.00' },
-      a_lancar: 0,
-    };
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) =>
-        String(input).includes('/finance/book')
-          ? new Response(
-              JSON.stringify({
-                range: { from: '2026-10-01', to: '2026-10-31' },
-                rows: [],
-                next_cursor: null,
-                totals,
-                count: 0,
-                groups: null,
-              }),
-              { status: 200 },
-            )
-          : new Response(
-              JSON.stringify({
-                cards: [],
-                upcoming: [],
-                open_total: '0.00',
-                as_of: HOJE,
-                wealth: {
-                  em_contas: '0.00',
-                  abertas: '0.00',
-                  fechadas_a_pagar: '0.00',
-                  total_devido: '0.00',
-                  livre: '0.00',
-                  falta: '0.00',
-                },
-              }),
-              { status: 200 },
-            ),
-      ),
-    );
+  it('a prancha não tem Saldo previsto nem Carteiras em Tudo', () => {
     open(ready(overviewOf('300000.00')));
 
-    const painel = screen.getByRole('region', { name: 'Fluxo do mês' });
-    const tabela = await within(painel).findByRole('table', { name: 'Cascata do mês' });
-    const saldo = within(tabela).getByRole('row', {
-      name: /Saldo do mês$|= Saldo do mês/,
-    });
-    expect(within(saldo).getByText('R$ 2.877,57')).toBeInTheDocument();
-    expect(within(saldo).getByText('R$ 50,00')).toBeInTheDocument();
-    const aportes = within(tabela).getByRole('row', { name: /Aportes/ });
-    const links = within(aportes).getAllByRole('link');
-    expect(links[0]?.getAttribute('href')).toBe(
-      '/lancamentos?tipo=APORTE&situacao=lancado',
-    );
-    expect(links[1]?.getAttribute('href')).toBe(
-      '/lancamentos?tipo=APORTE&situacao=previsto',
-    );
-    vi.unstubAllGlobals();
+    expect(screen.queryByRole('region', { name: 'Saldo previsto' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Carteiras' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Lançar / })).toBeNull();
   });
 
   it('Livre após faturas vem do servidor, diz quanto falta e que faturas não descontam do patrimônio', async () => {
@@ -258,145 +198,11 @@ describe('Visão geral de Geral (GER)', () => {
     });
 
     expect(
-      within(within(tabela).getByRole('row', { name: /Em carteiras/ })).getByText(
+      within(within(tabela).getByRole('row', { name: /Investimentos/ })).getAllByText(
         'R$ 300.000,00',
       ),
     ).toBeInTheDocument();
     expect(within(painel).getAllByText(formatBRL(esperado)).length).toBeGreaterThan(0);
-  });
-
-  it('VGR-04 · o saldo previsto vem da previsão do servidor, com as linhas e o menor saldo', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.includes('/finance/forecast')) {
-          return new Response(
-            JSON.stringify({
-              date: '2026-10-31',
-              balance: '130.16',
-              parts: {
-                em_contas: '1462.51',
-                entradas: '2000.00',
-                saidas: '500.00',
-                aportes: '300.00',
-                faturas: '2532.35',
-                saldo: '130.16',
-              },
-              series: {
-                points: [
-                  { date: '2026-10-23', balance: '1462.51', forecast: false },
-                  { date: '2026-10-24', balance: '1462.51', forecast: false },
-                  { date: '2026-10-25', balance: '-50.00', forecast: true },
-                  { date: '2026-10-31', balance: '130.16', forecast: true },
-                ],
-                lowest: { date: '2026-10-25', balance: '-50.00' },
-                at_end: '130.16',
-              },
-            }),
-            { status: 200 },
-          );
-        }
-        return new Response('{}', { status: 500 });
-      }),
-    );
-    open(ready(overviewOf('300000.00')));
-
-    const painel = screen.getByRole('region', { name: 'Saldo previsto' });
-    const linha = await within(painel).findByRole('row', {
-      name: /Saldo previsto ao fim do mês/,
-    });
-    expect(within(linha).getByText('R$ 130,16')).toBeInTheDocument();
-    for (const label of [
-      'Em contas hoje',
-      'Entradas previstas',
-      'Saídas previstas',
-      'Aportes previstos',
-      'Pagamentos de fatura',
-    ]) {
-      expect(
-        within(painel).getByRole('row', { name: new RegExp(label) }),
-      ).toBeInTheDocument();
-    }
-    expect(within(painel).getByText(/Menor saldo até 25\/10/)).toBeInTheDocument();
-    vi.unstubAllGlobals();
-  });
-
-  it('VGR-05 · a evolução mostra o patrimônio das carteiras, a variação do mês e os totais', () => {
-    const base = overviewOf('194998.09');
-    open(
-      ready({
-        ...base,
-        totals: {
-          value: '194998.09',
-          day: null,
-          month: { amount: '1200.00', ratio: '0.62' },
-        },
-        period: {
-          ...base.period,
-          return_pct: '8.5',
-          contributions: '24000.00',
-          income: '9000.00',
-        },
-      } as OverviewResource),
-    );
-    const painel = screen.getByRole('region', { name: 'Evolução dos investimentos' });
-    expect(
-      within(painel).getByText(/Patrimônio · Todas as carteiras/),
-    ).toBeInTheDocument();
-    expect(within(painel).getByText(/194\.998,09/)).toBeInTheDocument();
-    expect(within(painel).getByText('Aportes 12M')).toBeInTheDocument();
-    expect(within(painel).getByText('Rendimento 12M')).toBeInTheDocument();
-    expect(within(painel).getByText(/em outubro/i)).toBeInTheDocument();
-  });
-
-  it('VGR-06/07 · a classe abre Posições filtrada e o painel Carteiras lista valor e peso', () => {
-    const base = overviewOf('194998.09');
-    open(
-      ready({
-        ...base,
-        composition: {
-          ...base.composition,
-          nodes: [
-            {
-              id: 'renda-fixa',
-              name: 'Renda fixa',
-              color_token: 'class.renda_fixa',
-              level: 'category',
-              value: '157957.29',
-              current_pct: '81.1',
-              target_pct: null,
-              deviation_pp: null,
-              over_tolerance: false,
-              amount_to_move: null,
-              target_value: null,
-              children: [],
-            },
-          ],
-        },
-        by_portfolio: [
-          {
-            portfolio_id: 'p1',
-            name: 'Emergência',
-            value: '140279.26',
-            weight_pct: '71.9',
-          },
-          {
-            portfolio_id: 'p2',
-            name: 'Investimentos',
-            value: '54718.83',
-            weight_pct: '28.1',
-          },
-        ],
-      } as unknown as OverviewResource),
-    );
-    const alocacao = screen.getByRole('region', { name: 'Alocação por classe' });
-    expect(
-      within(alocacao).getByRole('link', { name: 'Renda fixa' }).getAttribute('href'),
-    ).toBe('/carteiras/todas/posicoes?classe=renda-fixa');
-    const carteiras = screen.getByRole('region', { name: 'Carteiras' });
-    expect(within(carteiras).getByText('Emergência')).toBeInTheDocument();
-    expect(within(carteiras).getByText('Investimentos')).toBeInTheDocument();
   });
 
   it('investimentos que falham dizem o que houve e não viram patrimônio zero', () => {
@@ -413,8 +219,9 @@ describe('Visão geral de Geral (GER)', () => {
     });
 
     expect(
-      within(within(tabela).getByRole('row', { name: /Em carteiras/ })).getByText('—'),
-    ).toBeInTheDocument();
+      within(within(tabela).getByRole('row', { name: /Investimentos/ })).getAllByText('—')
+        .length,
+    ).toBeGreaterThan(0);
   });
 
   it('Lançamento abre o novo lançamento', async () => {
@@ -433,17 +240,6 @@ describe('Visão geral de Geral (GER)', () => {
     await userEvent.keyboard('n');
 
     expect(onNewEntry).toHaveBeenCalledTimes(1);
-  });
-
-  it('VGR-15 · cada próximo lançamento tem Lançar, que abre o modal com o valor editável', async () => {
-    open(ready(overviewOf('300000.00')));
-    const painel = screen.getByRole('region', { name: 'Próximos lançamentos' });
-
-    const [first] = within(painel).getAllByRole('button', { name: /^Lançar / });
-    await userEvent.click(first as HTMLElement);
-
-    expect(await screen.findByLabelText('Valor real')).toBeTruthy();
-    expect(screen.getByLabelText('Data')).toBeTruthy();
   });
 });
 

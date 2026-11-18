@@ -31,7 +31,7 @@ export type SearchGroup = {
 };
 
 const TITLES: Readonly<Record<SearchGroupId, string>> = {
-  lancamentos: 'Lançamentos',
+  lancamentos: 'Movimentações',
   contas: 'Contas',
   cartoes: 'Cartões',
   recorrentes: 'Recorrentes',
@@ -160,7 +160,7 @@ export const financeSearchItems = (
             {
               id: 'ver-todos',
               group: group.id,
-              label: `Ver todos os ${group.total} lançamentos`,
+              label: `Ver todas as ${group.total} movimentações`,
               hint: `mostrando ${group.items.length} de ${group.total}`,
               to: financeRoutes.entries(`busca=${encodeURIComponent(query.trim())}`),
             } satisfies SearchItem,

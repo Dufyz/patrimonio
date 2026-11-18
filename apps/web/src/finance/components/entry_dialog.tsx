@@ -34,8 +34,8 @@ import { parseMoneyInput } from '../lib/format.js';
 export type EntryDialogMode = 'new' | 'edit' | 'launch';
 
 const TITLES: Readonly<Record<EntryDialogMode, string>> = {
-  new: 'Novo lançamento',
-  edit: 'Editar lançamento',
+  new: 'Nova movimentação',
+  edit: 'Editar movimentação',
   launch: 'Lançar previsto',
 };
 
