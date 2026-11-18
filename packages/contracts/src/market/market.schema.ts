@@ -63,6 +63,8 @@ export const missingPriceSchema = z.object({
   ticker: z.string(),
   /** A última data com preço, quando houve alguma. */
   last_price_date: dateOnly.nullable(),
+  /** O preço dessa data, quando houve algum. */
+  last_price: decimalString.nullable(),
 });
 
 export const catalogKeySchema = z.enum([

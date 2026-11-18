@@ -1,4 +1,5 @@
 import { LEDGER_EFFECTS } from '@patrimonio/domain';
+import type { Decimal } from 'decimal.js';
 import type { FinEntry, FinSnapshot, LedgerKind } from '@patrimonio/domain';
 
 import { compareDates, isDateInRange, monthKey, shiftMonthKey } from './dates.js';
@@ -72,6 +73,12 @@ export type BookRow = {
   /** LAN-03: "PM R$ 31,20 → R$ 31,45" no aporte. */
   readonly avg_price_before?: string | null | undefined;
   readonly avg_price_after?: string | null | undefined;
+  /**
+   * Só nas linhas de um grupo por conta ou carteira: de que lado o dinheiro passa
+   * por aquele grupo. O aporte sai da conta e entra na carteira; o mesmo lançamento
+   * aparece nos dois grupos, cada um com o seu lado.
+   */
+  readonly side?: 'entrada' | 'saida' | null | undefined;
 };
 
 const BLANK: Omit<BookRow, 'id' | 'kind' | 'date' | 'situation' | 'description'> = {
@@ -347,50 +354,173 @@ export const filterBook = (
 export type BookTotals = {
   readonly receitas: string;
   readonly despesas: string;
+  /** Do total de despesas lançadas, a parte de categorias de natureza fixa (CAT-04). */
+  readonly despesas_fixas: string;
+  /** O resto: natureza livre ou categoria sem natureza. `fixas + livres = despesas`. */
+  readonly despesas_livres: string;
   readonly aportes: string;
-  /** Receitas − Despesas − Aportes, só do lançado (RN-U1). */
+  /** Dos aportes, os que vieram de fora do app: entram na carteira sem sair de conta. */
+  readonly aportes_de_fora: string;
+  /** Receitas − Despesas − Aportes de contas, só do lançado (RN-U1). */
   readonly saldo_do_mes: string;
+  /** O que sai da conta no lançado: despesas + aportes. */
+  readonly sai_da_conta: string;
+  /** Efeito líquido dos previstos no caixa: entradas menos saídas, com o pagamento de fatura. */
+  readonly a_lancar_efeito: string;
   /** Previsto ainda por lançar, por tipo que entra na cascata. */
   readonly previsto: {
     readonly receitas: string;
     readonly despesas: string;
+    readonly despesas_fixas: string;
+    readonly despesas_livres: string;
     readonly aportes: string;
+    readonly aportes_de_fora: string;
+  };
+  /**
+   * O mês inteiro como se fecharia: lançado mais o que ainda falta lançar. É a
+   * coluna "Previsto no mês" da cascata, e `saldo_do_mes` dela é a conta feita
+   * aqui, não na tela.
+   */
+  readonly projetado: {
+    readonly receitas: string;
+    readonly despesas: string;
+    readonly despesas_fixas: string;
+    readonly despesas_livres: string;
+    readonly aportes: string;
+    readonly aportes_de_fora: string;
+    readonly saldo_do_mes: string;
+  };
+  /**
+   * Aportes ÷ receitas, em pontos percentuais com uma casa ("22.9"). Nulo
+   * quando não há receita: dividir por zero não é resposta.
+   */
+  readonly taxa_aporte: {
+    readonly lancada: string | null;
+    readonly prevista: string | null;
   };
   /** Quantas linhas previstas faltam lançar. */
   readonly a_lancar: number;
 };
 
+/** A natureza de uma despesa, lida da categoria dela; sem categoria ou sem natureza é livre. */
+export type RowNature = (row: BookRow) => 'fixa' | 'livre';
+
+const ALL_FREE: RowNature = () => 'livre';
+
+/** CAT-04 · A natureza de cada linha pela categoria que o lançamento carrega. */
+export const rowNatureOf =
+  (data: FinSnapshot): RowNature =>
+  (row) =>
+    row.category_id !== null && findCategory(data, row.category_id)?.nature === 'fixa'
+      ? 'fixa'
+      : 'livre';
+
+const rate = (part: Decimal, whole: Decimal): string | null =>
+  whole.lte(0) ? null : part.times(100).div(whole).toDecimalPlaces(1).toFixed(1);
+
+/** Sinal do tipo no caixa: entradas somam, saídas subtraem; transferência e evento não mudam o total. */
+const EFFECT_SIGN: Readonly<Record<LedgerKind, 1 | -1 | 0>> = {
+  RECEITA: 1,
+  DESPESA: -1,
+  APORTE: -1,
+  PAGAMENTO_FATURA: -1,
+  RESGATE: 1,
+  PROVENTO: 1,
+  TRANSFERENCIA: 0,
+  EVENTO: 0,
+};
+
+/** Efeito líquido das linhas, com o sinal do tipo (aporte de fora do app não sai de conta). */
+export const netEffect = (rows: readonly BookRow[]): Decimal =>
+  rows.reduce((sum, row) => {
+    if (row.amount === null) return sum;
+    if (row.kind === 'APORTE' && row.account_id === null) return sum;
+    const sign = EFFECT_SIGN[row.kind];
+    return sign === 0 ? sum : sign === 1 ? sum.plus(row.amount) : sum.minus(row.amount);
+  }, dec('0'));
+
 /**
  * Os totais do período, sobre as linhas já filtradas — por isso respeitam os
  * filtros ativos e não dependem da página. Só entra na soma o tipo que a matriz
- * `LEDGER_EFFECTS` manda entrar; aporte entra quando sai de uma conta (origem
- * "Fora do app" muda só a posição, RN-U7).
+ * `LEDGER_EFFECTS` manda entrar. Aportes são as compras de ativos nas carteiras,
+ * de uma conta ou de fora do app; o saldo do mês e o que sai da conta só
+ * descontam os que saíram de uma conta: o de fora muda só a posição (RN-U7).
  */
-export const bookTotals = (rows: readonly BookRow[]): BookTotals => {
+export const bookTotals = (
+  rows: readonly BookRow[],
+  natureOf: RowNature = ALL_FREE,
+): BookTotals => {
   const counted = (situation: BookSituation) =>
-    rows.filter(
-      (r) => r.situation === situation && (r.kind !== 'APORTE' || r.account_id !== null),
-    );
+    rows.filter((r) => r.situation === situation);
   const posted = counted('lancado');
   const planned = counted('previsto');
   const flag = (kind: LedgerKind, key: 'receitas' | 'despesas' | 'aportes'): boolean =>
     LEDGER_EFFECTS[kind][key];
   const pick = (list: readonly BookRow[], key: 'receitas' | 'despesas' | 'aportes') =>
     list.filter((r) => flag(r.kind, key));
+  const sum = (list: readonly BookRow[]): Decimal =>
+    total(list.map((r) => dec(r.amount ?? '0')));
+  const split = (list: readonly BookRow[]) => {
+    const expenses = pick(list, 'despesas');
+    return {
+      all: sum(expenses),
+      fixas: sum(expenses.filter((r) => natureOf(r) === 'fixa')),
+      livres: sum(expenses.filter((r) => natureOf(r) !== 'fixa')),
+    };
+  };
 
-  const receitas = total(pick(posted, 'receitas').map((r) => dec(r.amount ?? '0')));
-  const despesas = total(pick(posted, 'despesas').map((r) => dec(r.amount ?? '0')));
-  const aportes = total(pick(posted, 'aportes').map((r) => dec(r.amount ?? '0')));
+  const receitas = sum(pick(posted, 'receitas'));
+  const despesas = split(posted);
+  // Aporte é a compra de ativo na carteira, venha de uma conta ou de fora do
+  // app. O saldo do mês só desconta o que saiu de uma conta (RN-U7).
+  const outside = (list: readonly BookRow[]): Decimal =>
+    sum(pick(list, 'aportes').filter((r) => r.account_id === null));
+  const aportes = sum(pick(posted, 'aportes'));
+  const aportesFora = outside(posted);
+  const previstoReceitas = sum(pick(planned, 'receitas'));
+  const previstoDespesas = split(planned);
+  const previstoAportes = sum(pick(planned, 'aportes'));
+  const previstoFora = outside(planned);
+
+  const projetadoReceitas = receitas.plus(previstoReceitas);
+  const projetadoDespesas = despesas.all.plus(previstoDespesas.all);
+  const projetadoAportes = aportes.plus(previstoAportes);
+  const projetadoFora = aportesFora.plus(previstoFora);
 
   return {
     receitas: money(receitas),
-    despesas: money(despesas),
+    despesas: money(despesas.all),
+    despesas_fixas: money(despesas.fixas),
+    despesas_livres: money(despesas.livres),
     aportes: money(aportes),
-    saldo_do_mes: money(receitas.minus(despesas).minus(aportes)),
+    aportes_de_fora: money(aportesFora),
+    saldo_do_mes: money(receitas.minus(despesas.all).minus(aportes.minus(aportesFora))),
+    sai_da_conta: money(despesas.all.plus(aportes.minus(aportesFora))),
+    a_lancar_efeito: money(netEffect(rows.filter((r) => r.situation === 'previsto'))),
     previsto: {
-      receitas: money(total(pick(planned, 'receitas').map((r) => dec(r.amount ?? '0')))),
-      despesas: money(total(pick(planned, 'despesas').map((r) => dec(r.amount ?? '0')))),
-      aportes: money(total(pick(planned, 'aportes').map((r) => dec(r.amount ?? '0')))),
+      receitas: money(previstoReceitas),
+      despesas: money(previstoDespesas.all),
+      despesas_fixas: money(previstoDespesas.fixas),
+      despesas_livres: money(previstoDespesas.livres),
+      aportes: money(previstoAportes),
+      aportes_de_fora: money(previstoFora),
+    },
+    projetado: {
+      receitas: money(projetadoReceitas),
+      despesas: money(projetadoDespesas),
+      despesas_fixas: money(despesas.fixas.plus(previstoDespesas.fixas)),
+      despesas_livres: money(despesas.livres.plus(previstoDespesas.livres)),
+      aportes: money(projetadoAportes),
+      aportes_de_fora: money(projetadoFora),
+      saldo_do_mes: money(
+        projetadoReceitas
+          .minus(projetadoDespesas)
+          .minus(projetadoAportes.minus(projetadoFora)),
+      ),
+    },
+    taxa_aporte: {
+      lancada: rate(aportes, receitas),
+      prevista: rate(projetadoAportes, projetadoReceitas),
     },
     a_lancar: rows.filter((r) => r.situation === 'previsto').length,
   };
@@ -401,30 +531,138 @@ export type BookGroupBy = 'dia' | 'tipo' | 'conta_carteira';
 export type BookGroup = {
   readonly key: string;
   readonly label: string;
+  /** Rótulo pequeno depois do nome: "conta", "cartão", "carteira", "benefício". Só por conta ou carteira. */
+  readonly tag: string | null;
   readonly totals: BookTotals;
   readonly count: number;
   readonly rows: readonly BookRow[];
+  /** Soma dos valores (sem sinal) das linhas lançadas e das previstas do grupo. */
+  readonly sums: { readonly lancado: string; readonly previsto: string };
+  /** Efeito líquido, com o sinal do tipo, das linhas lançadas e das previstas. */
+  readonly efeito: { readonly lancado: string; readonly previsto: string };
+  /** Por conta ou carteira: o que entrou e o que saiu pelo grupo, só do lançado. */
+  readonly flow: { readonly entradas: string; readonly saidas: string } | null;
 };
 
-const groupOf = (
+type Membership = {
+  readonly key: string;
+  readonly label: string;
+  readonly tag: string | null;
+  readonly rank: number;
+  readonly side: 'entrada' | 'saida' | null;
+  readonly amount: string | null;
+};
+
+/**
+ * Os grupos de conta ou carteira em que uma linha aparece. O aporte aparece nas
+ * duas pontas (sai da conta, entra na carteira), a transferência nas duas contas
+ * e o pagamento de fatura na conta e no cartão; a despesa em duas origens aparece
+ * em cada uma com a sua parte.
+ */
+const membershipsOf = (
   data: FinSnapshot,
   portfolioNames: ReadonlyMap<string, string>,
   row: BookRow,
-  by: BookGroupBy,
-): { key: string; label: string } => {
-  if (by === 'dia') return { key: row.date, label: row.date };
-  if (by === 'tipo') return { key: row.kind, label: row.kind };
-  if (row.portfolio_id !== null) {
-    return {
+): readonly Membership[] => {
+  const out: Membership[] = [];
+  const account = (
+    id: string | null,
+    side: Membership['side'],
+    amount: string | null,
+  ) => {
+    if (id === null) return;
+    const index = data.accounts.findIndex((a) => a.id === id);
+    if (index >= 0) {
+      const found = data.accounts[index];
+      out.push({
+        key: id,
+        label: found?.name ?? id,
+        tag: found?.role_tag?.toLowerCase() ?? 'conta',
+        rank: index,
+        side,
+        amount,
+      });
+      return;
+    }
+    const cardIndex = data.cards.findIndex((c) => c.id === id);
+    out.push({
+      key: id,
+      label: findCard(data, id)?.name ?? id,
+      tag: 'cartão',
+      rank: 1000 + Math.max(0, cardIndex),
+      side,
+      amount,
+    });
+  };
+  const portfolio = (side: Membership['side']) => {
+    if (row.portfolio_id === null) return;
+    const names = [...portfolioNames.keys()];
+    out.push({
       key: `carteira:${row.portfolio_id}`,
       label: portfolioNames.get(row.portfolio_id) ?? row.portfolio_id,
-    };
+      tag: 'carteira',
+      rank: 2000 + Math.max(0, names.indexOf(row.portfolio_id)),
+      side,
+      amount: row.amount,
+    });
+  };
+
+  switch (row.kind) {
+    case 'RECEITA':
+      account(row.account_id, 'entrada', row.amount);
+      break;
+    case 'DESPESA': {
+      const payments = row.entry?.payments ?? [];
+      if (payments.length === 0) {
+        account(row.account_id ?? row.card_id, 'saida', row.amount);
+      } else {
+        for (const payment of payments)
+          account(payment.source_id, 'saida', payment.amount);
+      }
+      break;
+    }
+    case 'TRANSFERENCIA':
+      account(row.account_id, 'saida', row.amount);
+      account(row.to_account_id, 'entrada', row.amount);
+      break;
+    case 'PAGAMENTO_FATURA':
+      account(row.account_id, 'saida', row.amount);
+      account(row.card_id, 'entrada', row.amount);
+      break;
+    case 'APORTE':
+      account(row.account_id, 'saida', row.amount);
+      portfolio('entrada');
+      break;
+    case 'RESGATE':
+      portfolio('saida');
+      account(row.account_id, 'entrada', row.amount);
+      break;
+    case 'PROVENTO':
+      if (row.account_id === null) portfolio('entrada');
+      else account(row.account_id, 'entrada', row.amount);
+      break;
+    case 'EVENTO':
+      portfolio(null);
+      break;
   }
-  const id = row.account_id ?? row.card_id;
-  return id === null
-    ? { key: '-', label: 'Sem conta' }
-    : { key: id, label: accountName(data, id) ?? findCard(data, id)?.name ?? id };
+  if (out.length === 0) {
+    out.push({
+      key: '-',
+      label: 'Sem conta',
+      tag: null,
+      rank: 3000,
+      side: null,
+      amount: row.amount,
+    });
+  }
+  return out;
 };
+
+const groupOf = (
+  row: BookRow,
+  by: Exclude<BookGroupBy, 'conta_carteira'>,
+): { key: string; label: string } =>
+  by === 'dia' ? { key: row.date, label: row.date } : { key: row.kind, label: row.kind };
 
 /** Agrupa; o resumo de cada grupo vem do mesmo `bookTotals`. */
 export const groupBook = (
@@ -434,31 +672,88 @@ export const groupBook = (
   portfolioNames: ReadonlyMap<string, string> = new Map(),
 ): readonly BookGroup[] => {
   const order: string[] = [];
-  const members = new Map<string, { label: string; rows: BookRow[] }>();
-  for (const row of rows) {
-    const { key, label } = groupOf(data, portfolioNames, row, by);
+  const members = new Map<
+    string,
+    { label: string; tag: string | null; rank: number; rows: BookRow[] }
+  >();
+  const place = (
+    key: string,
+    label: string,
+    tag: string | null,
+    rank: number,
+    row: BookRow,
+  ): void => {
     let group = members.get(key);
     if (group === undefined) {
-      group = { label, rows: [] };
+      group = { label, tag, rank, rows: [] };
       members.set(key, group);
       order.push(key);
     }
     group.rows.push(row);
+  };
+
+  for (const row of rows) {
+    if (by === 'conta_carteira') {
+      for (const m of membershipsOf(data, portfolioNames, row)) {
+        place(m.key, m.label, m.tag, m.rank, { ...row, amount: m.amount, side: m.side });
+      }
+    } else {
+      const { key, label } = groupOf(row, by);
+      place(key, label, null, 0, row);
+    }
   }
+
+  const sumOf = (list: readonly BookRow[]): string =>
+    money(total(list.map((r) => dec(r.amount ?? '0'))));
+  const flowOf = (list: readonly BookRow[], side: 'entrada' | 'saida'): string =>
+    money(
+      total(
+        list
+          .filter((r) => r.situation === 'lancado' && r.side === side)
+          .map((r) => dec(r.amount ?? '0')),
+      ),
+    );
+
   return order
     .map((key) => {
-      const group = members.get(key) as { label: string; rows: BookRow[] };
+      const group = members.get(key) as {
+        label: string;
+        tag: string | null;
+        rank: number;
+        rows: BookRow[];
+      };
+      const posted = group.rows.filter((r) => r.situation === 'lancado');
+      const planned = group.rows.filter((r) => r.situation === 'previsto');
       return {
         key,
+        rank: group.rank,
         label: group.label,
-        totals: bookTotals(group.rows),
+        tag: group.tag,
+        totals: bookTotals(group.rows, rowNatureOf(data)),
         count: group.rows.length,
         rows: group.rows,
+        sums: { lancado: sumOf(posted), previsto: sumOf(planned) },
+        efeito: {
+          lancado: money(netEffect(posted)),
+          previsto: money(netEffect(planned)),
+        },
+        flow:
+          by === 'conta_carteira'
+            ? {
+                entradas: flowOf(group.rows, 'entrada'),
+                saidas: flowOf(group.rows, 'saida'),
+              }
+            : null,
       };
     })
     .sort((a, b) =>
-      by === 'dia' ? compareDates(b.key, a.key) : a.label.localeCompare(b.label, 'pt-BR'),
-    );
+      by === 'dia'
+        ? compareDates(b.key, a.key)
+        : by === 'conta_carteira'
+          ? a.rank - b.rank || a.label.localeCompare(b.label, 'pt-BR')
+          : a.label.localeCompare(b.label, 'pt-BR'),
+    )
+    .map(({ rank: _rank, ...group }) => group);
 };
 
 export type BookPage = {
@@ -506,3 +801,43 @@ export const paginateBook = (
       from + limit < rows.length && last !== undefined ? encodeBookCursor(last) : null,
   };
 };
+
+export type FlowMonth = {
+  readonly month: string;
+  readonly receitas: string;
+  readonly despesas: string;
+  readonly aportes: string;
+  /** Lançado + previsto do mês: o que o mês fecharia. */
+  readonly projetado: {
+    readonly receitas: string;
+    readonly despesas: string;
+    readonly aportes: string;
+  };
+};
+
+/**
+ * Receitas, despesas e aportes de cada mês, do mesmo livro e das mesmas regras
+ * da cascata (RN-U16): o gráfico Receitas × despesas não soma por conta própria.
+ */
+export const flowSeries = (
+  rows: readonly BookRow[],
+  months: readonly string[],
+  natureOf: RowNature = ALL_FREE,
+): readonly FlowMonth[] =>
+  months.map((month) => {
+    const totals = bookTotals(
+      rows.filter((row) => row.date.slice(0, 7) === month),
+      natureOf,
+    );
+    return {
+      month,
+      receitas: totals.receitas,
+      despesas: totals.despesas,
+      aportes: totals.aportes,
+      projetado: {
+        receitas: totals.projetado.receitas,
+        despesas: totals.projetado.despesas,
+        aportes: totals.projetado.aportes,
+      },
+    };
+  });

@@ -8,7 +8,7 @@ import type {
 import type { Decimal } from 'decimal.js';
 
 import { invoiceKeyOf } from './cards.js';
-import { compareDates, dateInMonth, monthKey } from './dates.js';
+import { compareDates, dateInMonth, monthKey, shiftMonthKey } from './dates.js';
 import { findCard } from './lookup.js';
 import { dec, min, money } from './money.js';
 
@@ -122,7 +122,7 @@ const plannedEntry = (
     status: 'prevista',
     recurring_id: recurring.id,
     installment: null,
-    note: null,
+    note: recurring.note ?? null,
     payments: recurringPayments(data, recurring, dec(recurring.amount), date),
     version: 1,
   };
@@ -291,3 +291,85 @@ export const removeRecurring = (data: FinSnapshot, recurringId: string): FinSnap
       entry.recurring_id === recurringId ? { ...entry, recurring_id: null } : entry,
     ),
 });
+
+/**
+ * A próxima data em que o recorrente gera previsto: a deste mês se ainda não
+ * foi lançada nem pulada (e, fora o aporte, ainda não passou), senão a do mês
+ * seguinte. Pausado não tem próxima.
+ */
+export const nextOccurrence = (
+  data: FinSnapshot,
+  recurring: FinRecurring,
+  today: string,
+): string | null => {
+  if (!recurring.active) return null;
+  const month = monthKey(today);
+  const skipped = new Set(data.skips.map((skip) => `${skip.recurring_id}:${skip.month}`));
+  const inMonth = data.entries.filter(
+    (entry) => entry.recurring_id === recurring.id && monthKey(entry.date) === month,
+  );
+
+  if (!skipped.has(`${recurring.id}:${month}`)) {
+    const pending = inMonth.find((entry) => entry.status === 'prevista');
+    if (pending !== undefined) return pending.date;
+    if (inMonth.length === 0) {
+      const date = dateInMonth(`${month}-01`, recurring.day);
+      if (recurring.kind === 'aporte' || compareDates(date, today) >= 0) return date;
+    }
+  }
+  return dateInMonth(`${shiftMonthKey(month, 1)}-01`, recurring.day);
+};
+
+export type RecurringsSummary = {
+  readonly receitas: string;
+  readonly despesas: string;
+  readonly aportes: string;
+  /** Aportes sobre as receitas recorrentes, em % com uma casa; nulo sem receita. */
+  readonly aportes_share_pct: string | null;
+  /** Efeito no saldo previsto do mês: só o aporte que ainda falta, negativo. */
+  readonly impact: string;
+  /** Aportes do mês que já saíram, e a data do último. */
+  readonly already_left: string;
+  readonly already_left_date: string | null;
+};
+
+const sumOf = (items: readonly FinRecurring[]): Decimal =>
+  items.reduce((total, item) => total.plus(item.amount), dec('0'));
+
+export const recurringsSummary = (
+  data: FinSnapshot,
+  today: string,
+): RecurringsSummary => {
+  const active = data.recurrings.filter((recurring) => recurring.active);
+  const of = (kind: FinRecurring['kind']): Decimal =>
+    sumOf(active.filter((recurring) => recurring.kind === kind));
+  const receitas = of('receita');
+  const aportes = of('aporte');
+
+  const month = monthKey(today);
+  const pending = plannedAportes(data, month).reduce(
+    (total, item) => total.plus(item.amount),
+    dec('0'),
+  );
+  const skippedNow = new Set(
+    data.skips.filter((skip) => skip.month === month).map((skip) => skip.recurring_id),
+  );
+  const left = active.filter(
+    (recurring) => recurring.kind === 'aporte' && skippedNow.has(recurring.id),
+  );
+  const leftDates = left
+    .map((recurring) => dateInMonth(`${month}-01`, recurring.day))
+    .sort(compareDates);
+
+  return {
+    receitas: money(receitas),
+    despesas: money(of('despesa')),
+    aportes: money(aportes),
+    aportes_share_pct: receitas.gt(0)
+      ? aportes.times(100).div(receitas).toFixed(1)
+      : null,
+    impact: money(pending.negated()),
+    already_left: money(sumOf(left)),
+    already_left_date: leftDates.at(-1) ?? null,
+  };
+};

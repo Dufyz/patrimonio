@@ -19,7 +19,13 @@ export type CategoryRow = {
   readonly amount: string;
   readonly count: number;
   readonly previous_amount: string;
-  /** Décimos de ponto percentual; somam 1000. */
+  /** Previsto no período, sem o lançado (o "previsto no mês" da tela soma os dois). */
+  readonly planned: string;
+  /** Lançado + previsto: a coluna "Previsto no mês" da tela. */
+  readonly projected: string;
+  /** Só despesa: fixa só quando o cadastro diz; qualquer outra é livre. */
+  readonly nature: 'fixa' | 'livre';
+  /** Décimos de ponto percentual do lançado; somam 1000. */
   readonly tenths: number;
 };
 
@@ -28,6 +34,8 @@ export type CategoryBreakdown = {
   readonly range: DateRange;
   readonly comparison: DateRange;
   readonly total: string;
+  /** Lançado + previsto de todas as categorias. */
+  readonly projected_total: string;
   readonly count: number;
   readonly rows: readonly CategoryRow[];
 };
@@ -54,8 +62,25 @@ export const categoryBreakdown = (
     });
   }
 
+  // Previsto do período por categoria: uma categoria só prevista (nada lançado
+  // ainda) também aparece, com lançado zero.
+  const plannedBy = new Map<string, ReturnType<typeof dec>>();
+  for (const entry of ledgerPool(data)) {
+    if (!isPosted(entry) && entry.kind === kind && within(entry.date, range)) {
+      plannedBy.set(
+        entry.category_id,
+        (plannedBy.get(entry.category_id) ?? dec('0')).plus(entry.amount),
+      );
+    }
+  }
+  for (const [id, planned] of plannedBy) {
+    if (planned.gt(0) && !byCategory.has(id)) {
+      byCategory.set(id, { amount: dec('0'), count: 0 });
+    }
+  }
+
   const ordered = [...byCategory.entries()]
-    .filter(([, slot]) => slot.amount.gt(0))
+    .filter(([id, slot]) => slot.amount.gt(0) || (plannedBy.get(id) ?? dec('0')).gt(0))
     .sort((a, b) => b[1].amount.comparedTo(a[1].amount) || a[0].localeCompare(b[0]));
   const tenths = allocatePercentTenths(ordered.map(([, slot]) => slot.amount));
 
@@ -64,6 +89,9 @@ export const categoryBreakdown = (
     range,
     comparison,
     total: money(total(ordered.map(([, slot]) => slot.amount))),
+    projected_total: money(
+      total(ordered.map(([id, slot]) => slot.amount.plus(plannedBy.get(id) ?? dec('0')))),
+    ),
     count: ordered.reduce((acc, [, slot]) => acc + slot.count, 0),
     rows: ordered.map(([categoryId, slot], index) => {
       const category = data.categories.find((c) => c.id === categoryId);
@@ -74,6 +102,9 @@ export const categoryBreakdown = (
         archived: category?.archived ?? false,
         amount: money(slot.amount),
         count: slot.count,
+        planned: money(plannedBy.get(categoryId) ?? dec('0')),
+        projected: money(slot.amount.plus(plannedBy.get(categoryId) ?? dec('0'))),
+        nature: category?.nature === 'fixa' ? ('fixa' as const) : ('livre' as const),
         previous_amount: money(
           total(
             posted
@@ -127,7 +158,10 @@ export type CategoryPeriodUsage = {
  * (previsto não entra em lançado). Aporte não é categoria e não aparece. Toda
  * categoria do cadastro vem na resposta, também as sem uso (zeradas).
  */
-export const categoryPeriodUsage = (data: FinSnapshot, range: DateRange): CategoryPeriodUsage => {
+export const categoryPeriodUsage = (
+  data: FinSnapshot,
+  range: DateRange,
+): CategoryPeriodUsage => {
   const pool = ledgerPool(data);
   const within = pool.filter((entry) => isDateInRange(entry.date, range));
   const sum = (categoryId: string, posted: boolean) =>
@@ -147,7 +181,9 @@ export const categoryPeriodUsage = (data: FinSnapshot, range: DateRange): Catego
   const byKind = (kind: FinKind, posted: boolean) =>
     money(
       total(
-        within.filter((e) => e.kind === kind && isPosted(e) === posted).map((e) => dec(e.amount)),
+        within
+          .filter((e) => e.kind === kind && isPosted(e) === posted)
+          .map((e) => dec(e.amount)),
       ),
     );
 

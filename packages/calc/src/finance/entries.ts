@@ -6,6 +6,7 @@ import type {
   FinSnapshot,
   FinSource,
 } from '@patrimonio/domain';
+import { isUndatedDate } from '@patrimonio/domain';
 import { failure, success } from '@patrimonio/shared';
 import type { Either } from '@patrimonio/shared';
 import type { Decimal } from 'decimal.js';
@@ -206,6 +207,28 @@ export const validateEntryDraft = (
         },
       ),
     );
+  }
+
+  if (isUndatedDate(draft.date)) {
+    if (draft.status !== 'prevista') {
+      errors.push(
+        rule('ENTRY_UNDATED_NOT_PLANNED', 'Sem data só como previsto.', {
+          field: 'date',
+        }),
+      );
+    }
+    if (
+      draft.payments.some((payment) => payment.source_type !== 'conta') ||
+      (draft.installments ?? 1) !== 1
+    ) {
+      errors.push(
+        rule(
+          'ENTRY_UNDATED_SOURCE',
+          'Previsto sem data só sai de uma conta: no cartão a data decide a fatura.',
+          { field: 'date' },
+        ),
+      );
+    }
   }
 
   if (!validAmount(draft.amount)) {

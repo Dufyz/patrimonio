@@ -92,6 +92,13 @@ const rows: readonly Entry[] = [
   ],
   [
     'get',
+    '/finance/flow-series',
+    'Receitas, despesas e aportes por mês, lançado e previsto',
+    c.flowSeriesSchema,
+    { 200: READ },
+  ],
+  [
+    'get',
     '/finance/categories/breakdown',
     'Participação por categoria no período, com comparação',
     c.categoryBreakdownSchema,

@@ -583,6 +583,7 @@ export type RecurringInput = {
   readonly source: FinSource;
   readonly second_source?: FinSource | null | undefined;
   readonly covers_up_to?: string | null | undefined;
+  readonly note?: string | null | undefined;
   readonly day: number;
   readonly mode: FinRecurringMode;
   readonly amount: string;
@@ -743,6 +744,7 @@ const recurringFields = (input: RecurringInput) => ({
   second_source: input.second_source ?? null,
   covers_up_to:
     input.second_source == null ? null : money(dec(input.covers_up_to ?? '0')),
+  note: input.note == null || input.note.trim() === '' ? null : input.note.trim(),
   day: input.day,
   mode: input.mode,
   amount: money(dec(input.amount)),

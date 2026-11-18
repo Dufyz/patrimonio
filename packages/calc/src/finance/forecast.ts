@@ -1,4 +1,5 @@
 import type { FinSnapshot } from '@patrimonio/domain';
+import { isUndatedDate } from '@patrimonio/domain';
 
 import { accountBalance, dailyTotalInAccounts, totalInAccounts } from './accounts.js';
 import type { DailyBalance } from './accounts.js';
@@ -26,6 +27,10 @@ export type PlannedAporte = {
   readonly amount: string;
   /** Nulo é "Fora do app": não sai de conta nenhuma, então não reduz o saldo. */
   readonly account_id: string | null;
+  /** Como o aporte se chama na tela ("Aporte recorrente · Emergência"). */
+  readonly label?: string | undefined;
+  readonly id?: string | undefined;
+  readonly portfolio_id?: string | undefined;
 };
 
 const fromAccounts = (
@@ -174,4 +179,147 @@ export const forecastSeries = (
     lowest,
     at_end: points.at(-1)?.balance ?? money(totalInAccounts(data, today)),
   };
+};
+
+export type NextPlanned = {
+  readonly date: string;
+  readonly label: string;
+  /** Com sinal: positivo entra na conta, negativo sai. */
+  readonly amount: string;
+};
+
+/**
+ * CTA-01 · O próximo previsto de uma conta: a linha mais próxima entre os
+ * lançamentos previstos que passam por ela, os aportes previstos que saem dela e
+ * as faturas dos cartões que ela paga. Vencidos contam até serem lançados (RN-13).
+ */
+export const nextPlanned = (
+  data: FinSnapshot,
+  accountId: string,
+  today: string,
+  aportes: readonly PlannedAporte[] = [],
+): NextPlanned | null => {
+  const found: NextPlanned[] = [];
+  for (const entry of ledgerPool(data)) {
+    if (entry.status !== 'prevista' || isUndatedDate(entry.date)) continue;
+    const part = fromAccounts(entry, accountId);
+    if (part.lte(0)) continue;
+    found.push({
+      date: entry.date,
+      label: entry.description,
+      amount: money(entry.kind === 'receita' ? part : part.neg()),
+    });
+  }
+  for (const aporte of aportes) {
+    if (aporte.account_id !== accountId) continue;
+    found.push({
+      date: aporte.date,
+      label: aporte.label ?? 'aporte',
+      amount: money(dec(aporte.amount).neg()),
+    });
+  }
+  for (const card of activeCards(data)) {
+    if (card.pay_account_id !== accountId) continue;
+    for (const key of cardInvoiceKeys(data, card, today)) {
+      const remaining = invoiceRemaining(data, card, key);
+      if (remaining.lte(0)) continue;
+      found.push({
+        date: invoiceDue(card, key),
+        label: `fatura ${card.name}`,
+        amount: money(remaining.neg()),
+      });
+    }
+  }
+  return found.sort((a, b) => compareDates(a.date, b.date))[0] ?? null;
+};
+
+export type PlannedStatementLine = {
+  readonly id: string;
+  readonly date: string;
+  readonly origin: 'receita' | 'despesa' | 'aporte' | 'fatura';
+  readonly description: string;
+  /** Com sinal: positivo entra na conta, negativo sai. */
+  readonly amount: string;
+  /** O saldo previsto da conta logo depois desta linha. */
+  readonly balance_after: string;
+  readonly entry_id: string | null;
+  readonly category_id: string | null;
+  readonly portfolio_id: string | null;
+  readonly card_id: string | null;
+};
+
+/**
+ * CTA-02 · As linhas previstas de uma conta dentro do período, com o saldo
+ * previsto depois de cada uma, partindo do saldo de hoje. Mesma fórmula do saldo
+ * previsto de Contas: lançamentos previstos, aportes previstos e faturas (RN-U9).
+ */
+export const plannedStatement = (
+  data: FinSnapshot,
+  accountId: string,
+  today: string,
+  range: DateRange,
+  aportes: readonly PlannedAporte[] = [],
+): readonly PlannedStatementLine[] => {
+  type Raw = Omit<PlannedStatementLine, 'balance_after'> & { readonly rank: number };
+  const inside = (date: string): boolean =>
+    compareDates(date, range.from) >= 0 && compareDates(date, range.to) <= 0;
+  const raw: Raw[] = [];
+  for (const entry of ledgerPool(data)) {
+    if (entry.status !== 'prevista' || !inside(entry.date)) continue;
+    const part = fromAccounts(entry, accountId);
+    if (part.lte(0)) continue;
+    raw.push({
+      id: entry.id,
+      date: entry.date,
+      origin: entry.kind === 'receita' ? 'receita' : 'despesa',
+      description: entry.description,
+      amount: money(entry.kind === 'receita' ? part : part.neg()),
+      entry_id: entry.id,
+      category_id: entry.category_id,
+      portfolio_id: null,
+      card_id: null,
+      rank: entry.kind === 'receita' ? 0 : 1,
+    });
+  }
+  for (const aporte of aportes) {
+    if (aporte.account_id !== accountId || !inside(aporte.date)) continue;
+    raw.push({
+      id: aporte.id ?? `aporte:${aporte.date}`,
+      date: aporte.date,
+      origin: 'aporte',
+      description: aporte.label ?? 'Aporte',
+      amount: money(dec(aporte.amount).neg()),
+      entry_id: null,
+      category_id: null,
+      portfolio_id: aporte.portfolio_id ?? null,
+      card_id: null,
+      rank: 2,
+    });
+  }
+  for (const card of activeCards(data)) {
+    if (card.pay_account_id !== accountId) continue;
+    for (const key of cardInvoiceKeys(data, card, today)) {
+      const due = invoiceDue(card, key);
+      const remaining = invoiceRemaining(data, card, key);
+      if (remaining.lte(0) || !inside(due)) continue;
+      raw.push({
+        id: `fatura:${card.id}:${key}`,
+        date: due,
+        origin: 'fatura',
+        description: `Pagamento da fatura ${card.name}`,
+        amount: money(remaining.neg()),
+        entry_id: null,
+        category_id: null,
+        portfolio_id: null,
+        card_id: card.id,
+        rank: 2,
+      });
+    }
+  }
+  raw.sort((a, b) => compareDates(a.date, b.date) || a.rank - b.rank);
+  let balance = dec(accountBalance(data, accountId, today));
+  return raw.map(({ rank: _rank, ...line }) => {
+    balance = balance.plus(line.amount);
+    return { ...line, balance_after: money(balance) };
+  });
 };

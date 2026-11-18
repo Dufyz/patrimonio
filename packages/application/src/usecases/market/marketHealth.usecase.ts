@@ -47,6 +47,7 @@ export type MissingPrice = {
   readonly asset_id: string;
   readonly ticker: string;
   readonly last_price_date: DateOnly | null;
+  readonly last_price: string | null;
 };
 
 /**
@@ -193,6 +194,9 @@ export const getMarketHealth = (deps: MarketHealthDeps) =>
         const lastByAsset = new Map(
           latest.value.map((price) => [price.asset_id, price.price_date]),
         );
+        const lastPriceByAsset = new Map(
+          latest.value.map((price) => [price.asset_id, price.close]),
+        );
 
         const assets = await repositories.market.priceableAssets(date);
         if (assets.isFailure()) return assets;
@@ -223,6 +227,7 @@ export const getMarketHealth = (deps: MarketHealthDeps) =>
             asset_id: assetId,
             ticker: tickerOf.get(assetId) ?? assetId,
             last_price_date: lastByAsset.get(assetId) ?? null,
+            last_price: lastPriceByAsset.get(assetId) ?? null,
           })),
         });
       },

@@ -75,6 +75,7 @@ export type FinanceHandler =
   | 'search'
   | 'listCategories'
   | 'categoryBreakdown'
+  | 'flowSeries'
   | 'categoryUsage'
   | 'createCategory'
   | 'updateCategory'
@@ -167,6 +168,9 @@ export const createFinanceController = (deps: FinanceRouteDeps): FinanceControll
     ),
     categoryUsage: read((r) =>
       uc.getCategoryUsage({ from: q(r)['from'] as string, to: q(r)['to'] as string }),
+    ),
+    flowSeries: read((r) =>
+      uc.getFlowSeries(q(r)['month'] as string, Number(q(r)['count'] ?? 12)),
     ),
     categoryBreakdown: read((r) =>
       uc.getCategoryBreakdown(q(r)['kind'] as 'receita' | 'despesa', {
@@ -276,7 +280,7 @@ export const createFinanceController = (deps: FinanceRouteDeps): FinanceControll
     // Recorrentes
     listRecurrings: read(
       () => uc.listRecurrings(),
-      (recurrings) => ({ recurrings }),
+      (listing) => listing,
     ),
     createRecurring: write((r) => uc.createRecurring(body(r), meta(r))),
     updateRecurring: write((r) => uc.updateRecurring(param(r, 'id'), body(r), meta(r))),

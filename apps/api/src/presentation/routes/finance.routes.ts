@@ -26,6 +26,7 @@ export const financeRoutes = (deps: FinanceRouteDeps): Router => {
     validate(c.listFinCategoriesSchema),
     f.listCategories,
   );
+  router.get('/finance/flow-series', validate(c.flowSeriesSchema), f.flowSeries);
   router.get(
     '/finance/categories/breakdown',
     validate(c.categoryBreakdownSchema),

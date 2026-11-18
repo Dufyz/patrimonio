@@ -65,6 +65,13 @@ export const deleteFinCategoryMovingSchema = written(
 export const categoryUsageSchema = z.object({
   query: z.object({ from: dateOnly, to: dateOnly }),
 });
+/** Receitas × despesas: os `count` meses que terminam em `month`. */
+export const flowSeriesSchema = z.object({
+  query: z.object({
+    month: finMonth,
+    count: z.coerce.number().int().min(1).max(24).default(12),
+  }),
+});
 export const categoryBreakdownSchema = z.object({
   query: z.object({ kind: finKind.default('despesa'), from: dateOnly, to: dateOnly }),
 });
@@ -188,6 +195,7 @@ export const recurringBody = z.object({
   source,
   second_source: source.nullable().optional(),
   covers_up_to: positiveDecimal.nullable().optional(),
+  note: z.string().trim().max(200).nullable().optional(),
   day: z.number().int().min(1).max(31),
   mode: z.enum(['manual', 'automatico']),
   amount: positiveDecimal,
@@ -238,8 +246,23 @@ export const listEntriesSchema = z.object({
     limit: z.coerce.number().int().min(1).max(200).default(50),
   }),
 });
+/** Lista na query: `?tipo=A,B` (como a tela manda), `?tipo=A&tipo=B` ou `?tipo=A`. */
 const csvList = <T extends z.ZodTypeAny>(item: T) =>
-  z.union([z.array(item), item.transform((value) => [value])]).optional();
+  z
+    .preprocess(
+      (value) =>
+        typeof value === 'string'
+          ? value.split(',').filter((part) => part !== '')
+          : Array.isArray(value)
+            ? value.flatMap((part) =>
+                typeof part === 'string'
+                  ? part.split(',').filter((p) => p !== '')
+                  : [part],
+              )
+            : value,
+      z.array(item),
+    )
+    .optional();
 export const LEDGER_KIND_VALUES = [
   'RECEITA',
   'DESPESA',
@@ -274,12 +297,39 @@ export const listBookSchema = z.object({
 const bookTotalsSchema = z.object({
   receitas: z.string(),
   despesas: z.string(),
+  /** Das despesas lançadas, as de categoria fixa; `fixas + livres = despesas`. */
+  despesas_fixas: z.string(),
+  despesas_livres: z.string(),
   aportes: z.string(),
+  /** Dos aportes, os que vieram de fora do app (não saem de conta). */
+  aportes_de_fora: z.string(),
   saldo_do_mes: z.string(),
+  /** Despesas + aportes de contas lançados: o que sai da conta. */
+  sai_da_conta: z.string(),
+  /** Efeito líquido dos previstos no caixa. */
+  a_lancar_efeito: z.string(),
   previsto: z.object({
     receitas: z.string(),
     despesas: z.string(),
+    despesas_fixas: z.string(),
+    despesas_livres: z.string(),
     aportes: z.string(),
+    aportes_de_fora: z.string(),
+  }),
+  /** O mês como se fecharia: lançado mais o que falta lançar, já somado no servidor. */
+  projetado: z.object({
+    receitas: z.string(),
+    despesas: z.string(),
+    despesas_fixas: z.string(),
+    despesas_livres: z.string(),
+    aportes: z.string(),
+    aportes_de_fora: z.string(),
+    saldo_do_mes: z.string(),
+  }),
+  /** Aportes ÷ receitas em pontos percentuais ("22.9"); nulo sem receita. */
+  taxa_aporte: z.object({
+    lancada: z.string().nullable(),
+    prevista: z.string().nullable(),
   }),
   a_lancar: z.number().int().nonnegative(),
 });
@@ -305,12 +355,16 @@ export const bookRowSchema = z.object({
   event_id: z.string().nullable(),
   avg_price_before: z.string().nullable().optional(),
   avg_price_after: z.string().nullable().optional(),
+  /** Só em grupos por conta ou carteira: o lado do dinheiro naquele grupo. */
+  side: z.enum(['entrada', 'saida']).nullable().optional(),
 });
 
 export const bookResponseSchema = z.object({
   range: z.object({ from: z.string(), to: z.string() }),
   rows: z.array(bookRowSchema),
   next_cursor: z.string().nullable(),
+  /** Previstos sem data: fora do período e dos totais (data `9999-12-31`). */
+  undated: z.array(bookRowSchema).optional(),
   totals: bookTotalsSchema,
   count: z.number().int().nonnegative(),
   groups: z
@@ -318,9 +372,13 @@ export const bookResponseSchema = z.object({
       z.object({
         key: z.string(),
         label: z.string(),
+        tag: z.string().nullable(),
         totals: bookTotalsSchema,
         count: z.number().int().nonnegative(),
         rows: z.array(bookRowSchema),
+        sums: z.object({ lancado: z.string(), previsto: z.string() }),
+        efeito: z.object({ lancado: z.string(), previsto: z.string() }),
+        flow: z.object({ entradas: z.string(), saidas: z.string() }).nullable(),
       }),
     )
     .nullable(),

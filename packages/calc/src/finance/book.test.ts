@@ -3,8 +3,15 @@ import { readFileSync } from 'node:fs';
 import type { FinSnapshot } from '@patrimonio/domain';
 import { describe, expect, it } from 'vitest';
 
-import { bookRows, bookTotals, filterBook, groupBook, paginateBook } from './book.js';
-import type { BookInvestmentRow } from './book.js';
+import {
+  bookRows,
+  bookTotals,
+  filterBook,
+  flowSeries,
+  groupBook,
+  paginateBook,
+} from './book.js';
+import type { BookInvestmentRow, BookRow } from './book.js';
 
 const seed = JSON.parse(
   readFileSync(
@@ -154,5 +161,91 @@ describe('livro unificado (LIV-02)', () => {
         expect(a.situation).toBe('previsto');
       }
     }
+  });
+});
+
+describe('cascata do mês: fixas, livres, projetado e taxa de aporte', () => {
+  const row = (over: Partial<BookRow>): BookRow => ({
+    id: 'r',
+    kind: 'DESPESA',
+    date: '2026-11-05',
+    situation: 'lancado',
+    description: 'x',
+    amount: '0.00',
+    account_id: 'c1',
+    to_account_id: null,
+    card_id: null,
+    category_id: null,
+    portfolio_id: null,
+    asset_id: null,
+    asset_class: null,
+    quantity: null,
+    unit_price: null,
+    fees: null,
+    entry: null,
+    event_id: null,
+    ...over,
+  });
+  const natureOf = (r: BookRow) => (r.category_id === 'fixa' ? 'fixa' : 'livre');
+  // Novembro da prancha: receitas 8.720,00 (+1.500,00 previstos), despesas fixas
+  // 3.129,80 (+530,30), livres 712,63 (+887,37), aportes 2.000,00 (+1.000,00).
+  const rows: readonly BookRow[] = [
+    row({ id: 'a', kind: 'RECEITA', amount: '8720.00' }),
+    row({ id: 'b', kind: 'RECEITA', amount: '1500.00', situation: 'previsto' }),
+    row({ id: 'c', amount: '3129.80', category_id: 'fixa' }),
+    row({ id: 'd', amount: '530.30', category_id: 'fixa', situation: 'previsto' }),
+    row({ id: 'e', amount: '712.63', category_id: 'mercado' }),
+    row({ id: 'f', amount: '887.37', category_id: null, situation: 'previsto' }),
+    row({ id: 'g', kind: 'APORTE', amount: '2000.00' }),
+    row({ id: 'h', kind: 'APORTE', amount: '1000.00', situation: 'previsto' }),
+  ];
+
+  it('fixas mais livres fecham com o total de despesas, lançado e previsto', () => {
+    const t = bookTotals(rows, natureOf);
+    expect(t.despesas).toBe('3842.43');
+    expect(t.despesas_fixas).toBe('3129.80');
+    expect(t.despesas_livres).toBe('712.63');
+    expect(t.previsto.despesas_fixas).toBe('530.30');
+    expect(t.previsto.despesas_livres).toBe('887.37');
+  });
+
+  it('o projetado é o lançado mais o que falta lançar, e o saldo fecha', () => {
+    const t = bookTotals(rows, natureOf);
+    expect(t.projetado).toEqual({
+      receitas: '10220.00',
+      despesas: '5260.10',
+      despesas_fixas: '3660.10',
+      despesas_livres: '1600.00',
+      aportes: '3000.00',
+      saldo_do_mes: '1959.90',
+    });
+    expect(t.saldo_do_mes).toBe('2877.57');
+  });
+
+  it('taxa de aporte: 22,9% lançada e 29,4% prevista; sem receita é nula', () => {
+    const t = bookTotals(rows, natureOf);
+    expect(t.taxa_aporte).toEqual({ lancada: '22.9', prevista: '29.4' });
+    const none = bookTotals(
+      rows.filter((r) => r.kind === 'APORTE'),
+      natureOf,
+    );
+    expect(none.taxa_aporte).toEqual({ lancada: null, prevista: null });
+  });
+
+  it('sem a função de natureza, toda despesa é livre', () => {
+    const t = bookTotals(rows);
+    expect(t.despesas_fixas).toBe('0.00');
+    expect(t.despesas_livres).toBe('3842.43');
+  });
+});
+
+describe('flowSeries', () => {
+  it('devolve um ponto por mês pedido, na ordem, zerado quando o mês não tem linhas', () => {
+    const months = ['2026-09', '2026-10', '2026-11'];
+    const series = flowSeries([], months);
+
+    expect(series.map((point) => point.month)).toEqual(months);
+    expect(series[0]?.receitas).toBe('0.00');
+    expect(series[2]?.projetado.aportes).toBe('0.00');
   });
 });
