@@ -1,6 +1,7 @@
 import type { TransactionResource } from '@patrimonio/contracts';
 import { useEffect, useMemo, useState } from 'react';
 
+import { fetchBook } from '../../api/book.js';
 import { fetchTransaction, previewUpdate, updateTransaction } from '../../api/entry.js';
 import type { SaveReceipt } from '../../api/entry.js';
 import { deleteTransaction } from '../../api/transactions.js';
@@ -49,7 +50,30 @@ import { usePreview, useSave } from './hooks.js';
 type Loaded =
   | { readonly status: 'loading' }
   | { readonly status: 'error'; readonly message: string }
-  | { readonly status: 'ready'; readonly transaction: TransactionResource };
+  | {
+      readonly status: 'ready';
+      readonly transaction: TransactionResource;
+      /** A conta da perna financeira; nulo é "Fora do app". */
+      readonly accountId: string | null;
+    };
+
+/**
+ * A conta ligada ao aporte ou resgate vem da perna financeira, que o livro
+ * mostra na linha da transação; provento guarda a conta na própria transação.
+ */
+const accountOf = async (
+  transaction: TransactionResource,
+  signal: AbortSignal,
+): Promise<string | null> => {
+  const own = (transaction as { readonly account_id?: string | null }).account_id;
+  if (own !== undefined && own !== null) return own;
+  if (transaction.kind === 'corporate_event') return null;
+  const book = await fetchBook(
+    { from: transaction.trade_date, to: transaction.trade_date, limit: 200 },
+    signal,
+  );
+  return book.rows.find((row) => row.id === transaction.id)?.account_id ?? null;
+};
 
 const effectKindOf = (transaction: TransactionResource): EffectKind =>
   transaction.kind === 'buy' || transaction.kind === 'sell' ? transaction.kind : 'payout';
@@ -77,8 +101,13 @@ export const EditEntry = ({
     setLoaded({ status: 'loading' });
 
     fetchTransaction(transactionId, controller.signal)
-      .then((transaction) => {
-        if (!controller.signal.aborted) setLoaded({ status: 'ready', transaction });
+      .then(async (transaction) => {
+        const accountId = await accountOf(transaction, controller.signal).catch(
+          () => null,
+        );
+        if (!controller.signal.aborted) {
+          setLoaded({ status: 'ready', transaction, accountId });
+        }
       })
       .catch((cause: unknown) => {
         if (controller.signal.aborted) return;
@@ -93,7 +122,7 @@ export const EditEntry = ({
 
   if (loaded.status === 'loading') {
     return (
-      <SkeletonRegion label="Carregando o lançamento" className="py-4">
+      <SkeletonRegion label="Carregando a movimentação" className="py-4">
         <SkeletonLines lines={5} />
       </SkeletonRegion>
     );
@@ -124,6 +153,7 @@ export const EditEntry = ({
   return (
     <EditFormView
       transaction={loaded.transaction}
+      accountId={loaded.accountId}
       reference={reference}
       assetLabel={assetLabel}
       onSaved={onSaved}
@@ -166,6 +196,7 @@ const before = (changed: boolean, was: string): string | undefined =>
 
 export const EditFormView = ({
   transaction,
+  accountId = null,
   reference,
   assetLabel,
   onSaved,
@@ -173,13 +204,17 @@ export const EditFormView = ({
   onCancel,
 }: {
   readonly transaction: TransactionResource;
+  readonly accountId?: string | null;
   readonly reference: EntryReference;
   readonly assetLabel?: string | undefined;
   readonly onSaved: (receipt: SaveReceipt) => void;
   readonly onDeleted: (receipt: DeletionReceipt) => void;
   readonly onCancel: () => void;
 }): React.ReactElement => {
-  const original = useMemo(() => editFormOf(transaction), [transaction]);
+  const original = useMemo(
+    () => editFormOf(transaction, accountId),
+    [transaction, accountId],
+  );
   const [form, setForm] = useState<EditForm>(original);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -189,8 +224,8 @@ export const EditFormView = ({
     setForm((current) => ({ ...current, [key]: value }));
 
   const built = useMemo(
-    () => buildUpdateBody(transaction, form, transaction.id),
-    [transaction, form],
+    () => buildUpdateBody(transaction, form, transaction.id, accountId),
+    [transaction, form, accountId],
   );
 
   const hasChanges = built.ok && built.changed.length > 0;
@@ -219,7 +254,7 @@ export const EditFormView = ({
     if (!built.ok || built.changed.length === 0) return;
 
     const receipt = await save.run((key) =>
-      updateTransaction(transaction.id, built.body, key),
+      updateTransaction(transaction.id, built.body, key, transaction.updated_at),
     );
     if (receipt !== null) onSaved(receipt);
   };
@@ -269,9 +304,9 @@ export const EditFormView = ({
                 term: 'Operação',
                 value:
                   transaction.kind === 'buy'
-                    ? 'Compra'
+                    ? 'Aporte'
                     : transaction.kind === 'sell'
-                      ? 'Venda'
+                      ? 'Resgate'
                       : 'Provento',
               },
               { term: 'Criado em', value: fullDate(transaction.created_at.slice(0, 10)) },
@@ -293,7 +328,7 @@ export const EditFormView = ({
         }
       >
         <Callout tone="warning">
-          Alterar este lançamento recalcula preço médio, resultado e rentabilidade a
+          Alterar esta movimentação recalcula preço médio, resultado e rentabilidade a
           partir de {fullDate(since)}.
         </Callout>
 
@@ -462,6 +497,31 @@ export const EditFormView = ({
           </Field>
         </div>
 
+        <Field
+          label={transaction.kind === 'buy' ? 'Sai da conta' : 'Entra na conta'}
+          error={visible.show('account')}
+          hint={before(
+            changed('account'),
+            accountId === null
+              ? 'Fora do app'
+              : (reference.accounts?.find((item) => item.id === accountId)?.name ?? ''),
+          )}
+        >
+          {(control) => (
+            <Select
+              {...control}
+              invalid={control['aria-invalid']}
+              changed={changed('account')}
+              options={[
+                ...(reference.accounts ?? []),
+                { id: 'fora', name: 'Fora do app (só histórico)' },
+              ]}
+              value={form.account}
+              onChange={(event) => set('account', event.target.value)}
+            />
+          )}
+        </Field>
+
         {hasChanges ? (
           <EffectPanel
             title="O que muda"
@@ -488,7 +548,7 @@ export const EditFormView = ({
 
       <ConfirmDialog
         open={confirmingDelete}
-        title="Excluir lançamento"
+        title="Excluir movimentação"
         subject={subject}
         consequence={`O preço médio e as posições são recalculados a partir de ${formatShortDate(transaction.trade_date)}. Dá para desfazer logo depois.`}
         onConfirm={() => {

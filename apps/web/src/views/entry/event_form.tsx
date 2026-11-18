@@ -85,7 +85,7 @@ export const EventFormView = ({
             summary: wizard.summary,
             secondary: <BackButton onBack={wizard.onBack} />,
             showCancel: false,
-            saveLabel: 'Cadastrar',
+            saveLabel: 'Salvar',
           })}
       pending={save.pending}
       onSave={() => void submit()}

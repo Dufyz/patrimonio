@@ -54,7 +54,8 @@ export type EntryField =
   | 'amount'
   | 'payoutKind'
   | 'netAmount'
-  | 'factor';
+  | 'factor'
+  | 'account';
 
 export type FieldErrors = Readonly<Partial<Record<EntryField, string>>>;
 
@@ -418,6 +419,8 @@ export type EditForm = {
   readonly tax: string;
   readonly portfolioId: string;
   readonly institutionId: string;
+  /** De onde saiu (aporte) ou para onde foi (resgate, provento): conta ou `OUTSIDE_ACCOUNT`. */
+  readonly account: string;
 };
 
 /**
@@ -437,7 +440,10 @@ export const inputValue = (value: string | null): string => {
   return parts.negative && body !== '0' ? `-${body}` : body;
 };
 
-export const editFormOf = (transaction: TransactionResource): EditForm => ({
+export const editFormOf = (
+  transaction: TransactionResource,
+  accountId: string | null = null,
+): EditForm => ({
   date: transaction.trade_date,
   settlement: transaction.settlement_date,
   quantity: inputValue(transaction.quantity),
@@ -446,6 +452,7 @@ export const editFormOf = (transaction: TransactionResource): EditForm => ({
   tax: inputValue(transaction.tax_withheld),
   portfolioId: transaction.portfolio_id,
   institutionId: transaction.institution_id,
+  account: accountId ?? 'fora',
 });
 
 export type BuiltEdit =
@@ -470,10 +477,11 @@ export const buildUpdateBody = (
   original: TransactionResource,
   form: EditForm,
   transactionId: string,
+  originalAccount: string | null = null,
 ): BuiltEdit => {
   const errors: Partial<Record<EntryField, string>> = {};
   const changed: EntryField[] = [];
-  const body: Record<string, string> = {};
+  const body: Record<string, string | null> = {};
 
   const text = (field: EntryField, key: string, now: string, was: string): void => {
     if (now !== was) {
@@ -547,6 +555,12 @@ export const buildUpdateBody = (
 
   text('portfolio', 'portfolio_id', form.portfolioId, original.portfolio_id);
   text('institution', 'institution_id', form.institutionId, original.institution_id);
+
+  const account = form.account === 'fora' ? null : form.account;
+  if (original.kind !== 'corporate_event' && account !== originalAccount) {
+    body['account_id'] = account;
+    changed.push('account');
+  }
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
@@ -722,8 +736,8 @@ export const ENTRY_TABS: readonly {
   readonly id: EntryTab;
   readonly label: string;
 }[] = [
-  { id: 'buy', label: 'Compra' },
-  { id: 'sell', label: 'Venda' },
+  { id: 'buy', label: 'Aporte' },
+  { id: 'sell', label: 'Resgate' },
   { id: 'payout', label: 'Provento' },
   { id: 'event', label: 'Evento' },
 ];
@@ -805,15 +819,23 @@ export const newAttemptKey = (): string => globalThis.crypto.randomUUID();
 export type EntryReference = {
   readonly portfolios: readonly { readonly id: string; readonly name: string }[];
   readonly institutions: readonly { readonly id: string; readonly name: string }[];
+  /** As contas de Finanças: de onde sai o aporte e para onde vai o resgate. */
+  readonly accounts?: readonly { readonly id: string; readonly name: string }[];
 };
 
 export const referenceOf = (
   settings: Settings,
   institutions: readonly { readonly id: string; readonly name: string }[],
+  accounts: readonly { readonly id: string; readonly name: string }[] = [],
 ): EntryReference => ({
   portfolios: settings.portfolios.map(({ id, name }) => ({ id, name })),
   institutions: institutions.map(({ id, name }) => ({ id, name })),
+  accounts,
 });
+
+/** "Fora do app": a operação entra na carteira sem mexer em nenhuma conta. */
+export const OUTSIDE_ACCOUNT = 'fora';
+export const LAST_ACCOUNT_KEY = 'patrimonio.entry.account';
 
 /** A data de hoje no relógio de quem digita — não em UTC, que às 22h já é amanhã. */
 export const todayDateOnly = (now: Date = new Date()): string =>

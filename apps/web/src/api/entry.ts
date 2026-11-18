@@ -86,11 +86,15 @@ const save = (
   method: 'POST' | 'PATCH',
   body: unknown,
   attemptKey: string,
+  ifMatch?: string,
 ): Promise<SaveReceipt> =>
   request(path, receiptParser, {
     method,
     body: JSON.stringify(body),
-    headers: { 'Idempotency-Key': attemptKey },
+    headers: {
+      'Idempotency-Key': attemptKey,
+      ...(ifMatch === undefined ? {} : { 'If-Match': ifMatch }),
+    },
   });
 
 /* -------------------------------------------------------------------------- */
@@ -141,16 +145,55 @@ export const createTransaction = (
   attemptKey: string,
 ): Promise<SaveReceipt> => save('/api/transactions', 'POST', body, attemptKey);
 
+/**
+ * Compra e venda que também movem dinheiro de uma conta (o livro único): a
+ * mesma operação de `createTransaction`, gravada por `/ledger/aportes` e
+ * `/ledger/resgates`, que criam a perna da conta junto. `account_id` nulo é
+ * "Fora do app" (só histórico).
+ */
+const ledgerReceipt = (message: string): Parser<SaveReceipt> => ({
+  parse: (value) => {
+    const recalculation = isRecord(value) ? value['recalculation'] : null;
+    return {
+      message,
+      queued: recalculation !== null && recalculation !== undefined,
+      transaction: null,
+    };
+  },
+});
+
+export const createLedgerTrade = (
+  kind: 'buy' | 'sell',
+  body: CreateTransactionBody,
+  accountId: string | null,
+  attemptKey: string,
+): Promise<SaveReceipt> =>
+  request(
+    kind === 'buy' ? '/api/ledger/aportes' : '/api/ledger/resgates',
+    ledgerReceipt(kind === 'buy' ? 'Aporte lançado.' : 'Resgate lançado.'),
+    {
+      method: 'POST',
+      body: JSON.stringify({ ...body, account_id: accountId }),
+      headers: { 'Idempotency-Key': attemptKey },
+    },
+  );
+
 export const createPayout = (
   body: CreatePayoutBody,
   attemptKey: string,
 ): Promise<SaveReceipt> => save('/api/transactions/payouts', 'POST', body, attemptKey);
 
+/**
+ * `ifMatch` é o `updated_at` que a tela viu: aporte e resgate com perna na
+ * conta só mudam com ele (LIV-12).
+ */
 export const updateTransaction = (
   id: string,
   body: UpdateTransactionBody,
   attemptKey: string,
-): Promise<SaveReceipt> => save(`/api/transactions/${id}`, 'PATCH', body, attemptKey);
+  ifMatch?: string,
+): Promise<SaveReceipt> =>
+  save(`/api/transactions/${id}`, 'PATCH', body, attemptKey, ifMatch);
 
 export const confirmPayout = (
   id: string,

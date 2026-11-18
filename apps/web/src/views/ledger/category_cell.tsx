@@ -4,6 +4,7 @@ import type { BookRowResource } from '@patrimonio/contracts';
 import { putFinanceEntry } from '../../api/book.js';
 import type { CategoryOption } from '../../api/book.js';
 import { isEntryRow, recategorizeBody } from '../../lib/ledger_batch.js';
+import { SearchSelect } from '../../components/search_select.js';
 
 /**
  * LAN-07 · A célula Categoria: despesa ou receita lançada abre um seletor com as
@@ -45,39 +46,33 @@ export const CategoryCell = ({
   const kind = row.kind === 'RECEITA' ? 'receita' : 'despesa';
   return (
     <span className="flex flex-col gap-1">
-      <select
-        autoFocus
-        aria-label={`Nova categoria de ${row.description}`}
-        defaultValue={row.category_id ?? ''}
-        className="rounded-field border border-line bg-field px-1 py-0.5"
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') setEditing(false);
-        }}
-        onBlur={() => setEditing(false)}
-        onChange={(e) => {
-          const next = e.target.value;
-          if (next === '') return;
-          putFinanceEntry(row.id, recategorizeBody(row, next))
-            .then(() => {
+      <span className="block min-w-44">
+        <SearchSelect
+          defaultOpen
+          label={`Nova categoria de ${row.description}`}
+          options={categories
+            .filter((c) => c.kind === kind)
+            .map((c) => ({ id: c.id, label: c.name }))}
+          value={row.category_id}
+          onDismiss={() => setEditing(false)}
+          onChange={(next) => {
+            if (next === row.category_id) {
               setEditing(false);
-              onSaved();
-            })
-            .catch((cause: unknown) =>
-              setError(
-                cause instanceof Error ? cause.message : 'Não foi possível salvar',
-              ),
-            );
-        }}
-      >
-        <option value="">Escolha…</option>
-        {categories
-          .filter((c) => c.kind === kind)
-          .map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-      </select>
+              return;
+            }
+            putFinanceEntry(row.id, recategorizeBody(row, next))
+              .then(() => {
+                setEditing(false);
+                onSaved();
+              })
+              .catch((cause: unknown) =>
+                setError(
+                  cause instanceof Error ? cause.message : 'Não foi possível salvar',
+                ),
+              );
+          }}
+        />
+      </span>
       {error === null ? null : (
         <span role="alert" className="text-negative">
           {error}

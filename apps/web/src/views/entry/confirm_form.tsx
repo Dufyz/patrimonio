@@ -203,7 +203,7 @@ export const ConfirmFormView = ({
           <Field
             label="Líquido recebido"
             error={visible.show('netAmount')}
-            hint="Se o valor for diferente do previsto, a diferença fica registrada no lançamento."
+            hint="Se o valor for diferente do previsto, a diferença fica registrada na movimentação."
           >
             {(control) => (
               <MoneyInput

@@ -6,7 +6,43 @@ import { MemoryRouter } from 'react-router';
 import { PreferencesProvider } from '../../components/preferences.js';
 import { LedgerScreen } from './ledger_screen.js';
 
-const zero = { receitas: '0', despesas: '0', aportes: '0' };
+const zero = {
+  receitas: '0',
+  despesas: '0',
+  despesas_fixas: '0',
+  despesas_livres: '0',
+  aportes: '0',
+};
+
+type FixtureRow = { date: string; situation: string; [k: string]: unknown };
+
+/** O servidor devolve os grupos prontos; aqui, um por dia com só o lançado. */
+const stringifyBook = (body: unknown): string => {
+  const b = body as { rows?: FixtureRow[]; groups?: unknown } | null;
+  if (b === null || typeof b !== 'object' || !Array.isArray(b.rows) || b.groups) {
+    return JSON.stringify(body);
+  }
+  const dates = [
+    ...new Set(b.rows.filter((r) => r.situation === 'lancado').map((r) => r.date)),
+  ]
+    .sort()
+    .reverse();
+  const groups = dates.map((date) => {
+    const rows = b.rows!.filter((r) => r.date === date && r.situation === 'lancado');
+    return {
+      key: date,
+      label: date,
+      tag: null,
+      totals: (body as { totals: unknown }).totals,
+      count: rows.length,
+      rows,
+      sums: { lancado: '0', previsto: '0' },
+      efeito: { lancado: '0', previsto: '0' },
+      flow: null,
+    };
+  });
+  return JSON.stringify({ ...b, groups });
+};
 const book = {
   range: { from: '2026-11-01', to: '2026-11-30' },
   rows: [
@@ -55,13 +91,26 @@ const book = {
   totals: {
     receitas: '5000',
     despesas: '0',
+    despesas_fixas: '0',
+    despesas_livres: '0',
     aportes: '0',
     saldo_do_mes: '5000',
-    previsto: zero,
+    sai_da_conta: '0',
+    a_lancar_efeito: '-1500',
+    previsto: { ...zero, despesas: '1500', despesas_livres: '1500' },
+    projetado: {
+      receitas: '5000',
+      despesas: '1500',
+      despesas_fixas: '0',
+      despesas_livres: '1500',
+      aportes: '0',
+      saldo_do_mes: '3500',
+    },
+    taxa_aporte: { lancada: null, prevista: null },
     a_lancar: 2,
   },
   count: 1,
-  groups: null,
+  groups: null as null,
 };
 
 afterEach(() => vi.unstubAllGlobals());
@@ -70,7 +119,7 @@ describe('LedgerScreen', () => {
   it('mostra a faixa e a linha do dia', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(JSON.stringify(book), { status: 200 })),
+      vi.fn(async () => new Response(stringifyBook(book), { status: 200 })),
     );
     render(
       <MemoryRouter initialEntries={['/lancamentos?q=zzz']}>
@@ -81,6 +130,7 @@ describe('LedgerScreen', () => {
     );
     await waitFor(() => expect(screen.getByText('Salário')).toBeTruthy());
     expect(screen.getByText('Quarta, 11/11')).toBeTruthy();
+    expect(screen.getByText(/1 lançamento/)).toBeTruthy();
     expect(
       screen.getByRole('button', { name: /Remover filtro Busca: zzz/ }),
     ).toBeTruthy();
@@ -90,15 +140,15 @@ describe('LedgerScreen', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('toolbar')).toBeNull();
     expect(screen.getByText('Saldo do mês')).toBeTruthy();
-    expect(screen.getByText('2 previstos até 30/11')).toBeTruthy();
-    expect(screen.getByText(/Próximos dias · previstos/)).toBeTruthy();
+    expect(screen.getByText(/efeito líquido/)).toBeTruthy();
+    expect(screen.getByText(/Previstos · a lançar/)).toBeTruthy();
     expect(screen.getByText('venceu em 05/01')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Lançar' })).toBeTruthy();
   });
 
   it('NAV-12: cada célula da faixa é um link "abrir lista" que filtra a própria tabela', async () => {
     const fetchMock = vi.fn(
-      async () => new Response(JSON.stringify(book), { status: 200 }),
+      async () => new Response(stringifyBook(book), { status: 200 }),
     );
     vi.stubGlobal('fetch', fetchMock);
     render(
@@ -119,7 +169,7 @@ describe('LedgerScreen', () => {
       '/lancamentos?tipo=DESPESA&situacao=lancado&mes=2026-10',
     );
     expect(href('Aportes')).toBe('/lancamentos?tipo=APORTE&situacao=lancado&mes=2026-10');
-    expect(href('A lançar')).toBe('/lancamentos?situacao=previsto&mes=2026-10');
+    expect(href('Ainda a lançar')).toBe('/lancamentos?situacao=previsto&mes=2026-10');
     // O período da URL é o que a tela pede ao livro.
     expect(fetchMock.mock.calls.some((c) => JSON.stringify(c).includes('2026-10'))).toBe(
       true,
@@ -141,7 +191,7 @@ describe('LedgerScreen', () => {
       'fetch',
       vi.fn(
         async () =>
-          new Response(JSON.stringify({ ...book, rows: [], count: 0 }), { status: 200 }),
+          new Response(stringifyBook({ ...book, rows: [], count: 0 }), { status: 200 }),
       ),
     );
     wrap();
@@ -160,7 +210,7 @@ describe('LedgerScreen', () => {
           calls += 1;
           return calls === 1
             ? new Response('{}', { status: 500 })
-            : new Response(JSON.stringify(book), { status: 200 });
+            : new Response(stringifyBook(book), { status: 200 });
         }
         return new Response('{}', { status: 200 });
       }),
@@ -174,7 +224,7 @@ describe('LedgerScreen', () => {
   it('teclado: Espaço seleciona a linha em foco e Esc limpa', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(JSON.stringify(book), { status: 200 })),
+      vi.fn(async () => new Response(stringifyBook(book), { status: 200 })),
     );
     wrap();
     await waitFor(() => expect(screen.getByText('Salário')).toBeTruthy());
@@ -196,7 +246,7 @@ describe('LedgerScreen', () => {
           calls.push(String(url));
           return new Response(null, { status: 204 });
         }
-        return new Response(JSON.stringify(book), { status: 200 });
+        return new Response(stringifyBook(book), { status: 200 });
       }),
     );
     wrap();
@@ -217,7 +267,7 @@ describe('LedgerScreen', () => {
           calls.push(String(url));
           return new Response(null, { status: 204 });
         }
-        return new Response(JSON.stringify(book), { status: 200 });
+        return new Response(stringifyBook(book), { status: 200 });
       }),
     );
     wrap();
@@ -265,7 +315,7 @@ describe('LedgerScreen', () => {
               }),
               { status: 200 },
             )
-          : new Response(JSON.stringify(withEntry), { status: 200 }),
+          : new Response(stringifyBook(withEntry), { status: 200 }),
       ),
     );
     wrap();
@@ -297,7 +347,7 @@ describe('LedgerScreen', () => {
           posted.push({ url: String(url), body: String(init.body) });
           return new Response('{}', { status: 200 });
         }
-        return new Response(JSON.stringify(recurring), { status: 200 });
+        return new Response(stringifyBook(recurring), { status: 200 });
       }),
     );
     wrap();
@@ -342,7 +392,7 @@ describe('LedgerScreen', () => {
           calls.push(String(url));
           return new Response(null, { status: 204 });
         }
-        return new Response(JSON.stringify(linked), { status: 200 });
+        return new Response(stringifyBook(linked), { status: 200 });
       }),
     );
     wrap();
@@ -374,7 +424,7 @@ describe('LedgerScreen', () => {
           });
           return new Response('{}', { status: 200 });
         }
-        return new Response(JSON.stringify(book), { status: 200 });
+        return new Response(stringifyBook(book), { status: 200 });
       }),
     );
     wrap();
@@ -429,7 +479,7 @@ describe('LedgerScreen', () => {
           },
           category_id: 'c1',
         };
-        return new Response(JSON.stringify({ ...book, rows: [withEntry, ...rest] }), {
+        return new Response(stringifyBook({ ...book, rows: [withEntry, ...rest] }), {
           status: 200,
         });
       }),
@@ -475,7 +525,7 @@ describe('LedgerScreen', () => {
           },
           category_id: 'c1',
         };
-        return new Response(JSON.stringify({ ...book, rows: [withEntry, ...rest] }), {
+        return new Response(stringifyBook({ ...book, rows: [withEntry, ...rest] }), {
           status: 200,
         });
       }),
@@ -507,7 +557,7 @@ describe('LedgerScreen', () => {
             { status: 200 },
           );
         }
-        return new Response(JSON.stringify(book), { status: 200 });
+        return new Response(stringifyBook(book), { status: 200 });
       }),
     );
     wrap();
@@ -548,7 +598,7 @@ describe('LedgerScreen', () => {
             payments: [{ source_type: 'cartao', source_id: 'card1' }],
           },
         };
-        return new Response(JSON.stringify({ ...book, rows: [compra] }), { status: 200 });
+        return new Response(stringifyBook({ ...book, rows: [compra] }), { status: 200 });
       }),
     );
     wrap();

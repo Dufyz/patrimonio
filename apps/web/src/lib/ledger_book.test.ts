@@ -4,7 +4,6 @@ import type { BookRowResource } from '@patrimonio/contracts';
 
 import {
   assetTarget,
-  sectionTotals,
   balanceOf,
   dayLabel,
   batchOnlyDelete,
@@ -119,12 +118,19 @@ describe('ledger_book', () => {
     expect(visibleRows(rows, ['EVENTO'])).toHaveLength(2);
   });
 
-  it('agrupa por tipo na ordem da RN-U1, previstos primeiro, contando previstos', () => {
+  it('agrupa por tipo na ordem da prancha 2.2, previstos primeiro, contando previstos', () => {
     const totals = {} as never;
+    const extra = {
+      tag: null,
+      sums: { lancado: '0.00', previsto: '0.00' },
+      efeito: { lancado: '0.00', previsto: '0.00' },
+      flow: null,
+    };
     const groups = [
       {
         key: 'DESPESA',
         label: 'DESPESA',
+        ...extra,
         totals,
         count: 2,
         rows: [row({ id: 'l' }), row({ id: 'p', situation: 'previsto' })],
@@ -132,15 +138,16 @@ describe('ledger_book', () => {
       {
         key: 'RECEITA',
         label: 'RECEITA',
+        ...extra,
         totals,
         count: 1,
         rows: [row({ id: 'r', kind: 'RECEITA' })],
       },
     ];
     const s = sectionsOfGroups(groups, 'tipo', (k) => k, []);
-    expect(s.map((g) => g.key)).toEqual(['RECEITA', 'DESPESA']);
-    expect(s[1]?.rows.map((r) => r.id)).toEqual(['p', 'l']);
-    expect(s[1]?.count).toBe(2);
+    expect(s.map((g) => g.key)).toEqual(['DESPESA', 'RECEITA']);
+    expect(s[0]?.rows.map((r) => r.id)).toEqual(['p', 'l']);
+    expect(s[0]?.count).toBe(2);
   });
 
   it('exporta as linhas com sinal e lote só aceita excluir com aporte', () => {
@@ -153,21 +160,6 @@ describe('ledger_book', () => {
     expect(out[2]?.[4]).toBe('20');
     expect(batchOnlyDelete(rows)).toBe(false);
     expect(batchOnlyDelete([row({ kind: 'APORTE' })])).toBe(true);
-  });
-});
-
-describe('LAN-05 · sectionTotals', () => {
-  it('só o lançado soma; previsto só conta', () => {
-    const row = (kind: string, situation: string, amount: string | null): never =>
-      ({ kind, situation, amount }) as never;
-    expect(
-      sectionTotals([
-        row('RECEITA', 'lancado', '5000'),
-        row('DESPESA', 'lancado', '1200'),
-        row('DESPESA', 'previsto', '999'),
-        row('TRANSFERENCIA', 'lancado', '300'),
-      ]),
-    ).toEqual({ in: 5000n, out: 1200n, planned: 1 });
   });
 });
 

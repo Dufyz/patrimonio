@@ -37,6 +37,7 @@ import { Field, FieldLabel } from '../views/entry/fields.js';
 import { FormShell } from '../views/entry/form_shell.js';
 import { AssetPicker } from '../views/entry/asset_picker.js';
 import { EntrySummary } from '../views/entry/wizard.js';
+import { fetchAccountNames } from '../api/book.js';
 import { useShortcuts } from './shortcuts.js';
 
 /**
@@ -53,6 +54,11 @@ import { useShortcuts } from './shortcuts.js';
 
 export type OpenEntryRequest = {
   readonly tab?: EntryTab;
+  /**
+   * Uma receita ou despesa que vira esta movimentação de investimento: depois de
+   * gravar, a original é excluída (trocar o tipo ao editar).
+   */
+  readonly replaces?: { readonly label: string; readonly remove: () => Promise<unknown> };
   readonly asset?: PickedAsset | null;
   readonly portfolioId?: string | null;
   readonly seed?: Pick<TradeSeed, 'quantity' | 'price' | 'fees'> & {
@@ -100,6 +106,14 @@ type Reference =
 
 const NOTICE_MS = 8000;
 
+/** O tipo da movimentação, abaixo do título. */
+const TAB_SUBTITLE: Readonly<Record<EntryTab, string>> = {
+  buy: 'Aporte',
+  sell: 'Resgate',
+  payout: 'Provento',
+  event: 'Evento',
+};
+
 export const EntryProvider = ({
   scopePortfolioId,
   search,
@@ -127,12 +141,20 @@ export const EntryProvider = ({
     const controller = new AbortController();
     setReference({ status: 'loading' });
 
-    Promise.all([fetchSettings(controller.signal), fetchInstitutions(controller.signal)])
-      .then(([settings, institutions]) => {
+    Promise.all([
+      fetchSettings(controller.signal),
+      fetchInstitutions(controller.signal),
+      fetchAccountNames(controller.signal).catch(() => new Map<string, string>()),
+    ])
+      .then(([settings, institutions, accounts]) => {
         if (!controller.signal.aborted) {
           setReference({
             status: 'ready',
-            reference: referenceOf(settings, institutions),
+            reference: referenceOf(
+              settings,
+              institutions,
+              [...accounts].map(([id, name]) => ({ id, name })),
+            ),
           });
         }
       })
@@ -184,6 +206,13 @@ export const EntryProvider = ({
       writeRaw(browserStorage(), LAST_INSTITUTION_KEY, institutionId);
     }
     setVersion((current) => current + 1);
+    // O recálculo roda na fila: a tela relê de novo quando ele costuma terminar,
+    // para os números novos aparecerem sem recarregar a página.
+    if (receipt.queued) {
+      for (const delay of [1500, 4000, 9000]) {
+        setTimeout(() => setVersion((current) => current + 1), delay);
+      }
+    }
     setNotice({
       kind: 'saved',
       message: receipt.queued
@@ -221,10 +250,16 @@ export const EntryProvider = ({
 
   const title =
     dialog?.kind === 'edit'
-      ? 'Editar lançamento'
+      ? 'Editar movimentação'
       : dialog?.kind === 'confirm'
         ? 'Confirmar recebimento'
-        : 'Cadastrar transação';
+        : 'Nova movimentação';
+  const entrySubtitle =
+    dialog?.kind === 'entry'
+      ? dialog.request.replaces === undefined
+        ? TAB_SUBTITLE[dialog.tab]
+        : `${TAB_SUBTITLE[dialog.tab]} · substitui ${dialog.request.replaces.label}`
+      : undefined;
 
   return (
     <EntryContext.Provider value={api}>
@@ -238,7 +273,7 @@ export const EntryProvider = ({
         guard
         title={title}
         {...(dialog?.kind === 'entry'
-          ? { aside: <StepIndicator step={step} /> }
+          ? { aside: <StepIndicator step={step} />, subtitle: entrySubtitle }
           : dialog?.label === undefined
             ? {}
             : { subtitle: dialog.label })}
@@ -296,6 +331,19 @@ export const EntryProvider = ({
             {...(search === undefined ? {} : { search })}
             onTab={(tab) => setDialog({ ...dialog, tab })}
             onSaved={(receipt, again, institutionId) => {
+              const replaces = dialog.request.replaces;
+              if (replaces !== undefined) {
+                // A original só sai depois que a nova gravou: nada se perde se falhar.
+                void replaces
+                  .remove()
+                  .then(() => setVersion((current) => current + 1))
+                  .catch(() =>
+                    setNotice({
+                      kind: 'saved',
+                      message: `A movimentação foi gravada, mas ${replaces.label} não foi excluída. Exclua pela lista.`,
+                    }),
+                  );
+              }
               saved(receipt, institutionId);
               // "Salvar e novo": o formulário se limpa sozinho e o modal continua.
               if (!again) close();
@@ -310,7 +358,9 @@ export const EntryProvider = ({
           role="status"
           className="fixed right-6 bottom-6 z-50 flex max-w-md items-center gap-3 rounded-panel border border-line bg-panel px-4 py-3 text-sm shadow-lg"
         >
-          <span>{notice.kind === 'saved' ? notice.message : 'Lançamento excluído.'}</span>
+          <span>
+            {notice.kind === 'saved' ? notice.message : 'Movimentação excluída.'}
+          </span>
           {notice.kind === 'deleted' ? (
             <Button onClick={() => void undo(notice.undoId)}>Desfazer</Button>
           ) : null}
@@ -380,7 +430,7 @@ export const EntryForms = ({
       <FieldLabel>Operação</FieldLabel>
       <div className="max-w-full overflow-x-auto">
         <Segmented
-          label="Tipo de lançamento"
+          label="Tipo de movimentação"
           options={ENTRY_TABS.map((item) => ({
             value: item.id,
             label: item.label,

@@ -24,6 +24,31 @@ const SIGN: Readonly<Record<BookRowResource['kind'], Sign>> = {
 
 export const signOf = (kind: BookRowResource['kind']): Sign => SIGN[kind];
 
+/**
+ * Aporte e resgate são duas movimentações: a do ativo na carteira e a da conta.
+ * O aporte entra no ativo (+) e, se veio de uma conta, sai dela (−); o resgate
+ * sai do ativo (−) e, se foi para uma conta, entra nela (+). Vindo de fora (ou
+ * indo para fora), só existe a perna do ativo. Os totais continuam os do
+ * servidor: aqui é só como a lista mostra cada perna.
+ */
+export const expandInvestmentLegs = (
+  rows: readonly BookRowResource[],
+): readonly BookRowResource[] =>
+  rows.flatMap((row): BookRowResource[] => {
+    if (row.side != null || (row.kind !== 'APORTE' && row.kind !== 'RESGATE')) {
+      return [row];
+    }
+    const aporte = row.kind === 'APORTE';
+    const asset: BookRowResource = { ...row, side: aporte ? 'entrada' : 'saida' };
+    if (row.account_id === null) return [asset];
+    const account: BookRowResource = {
+      ...row,
+      side: aporte ? 'saida' : 'entrada',
+      description: `${row.description} · ${aporte ? 'saída da conta' : 'entrada na conta'}`,
+    };
+    return aporte ? [account, asset] : [asset, account];
+  });
+
 const WEEKDAYS = [
   'Domingo',
   'Segunda',
@@ -39,6 +64,16 @@ export const dayLabel = (date: string): string => {
   const [y, m, d] = date.split('-').map(Number) as [number, number, number];
   const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()] ?? '';
   return `${weekday}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
+};
+
+const SHORT_WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'] as const;
+
+/** `2026-11-11` → `qua, 11/11`; o dia de hoje leva "· hoje". */
+export const dayHeading = (date: string, today: string): string => {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  const weekday = SHORT_WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()] ?? '';
+  const base = `${weekday}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
+  return date === today ? `${base} · hoje` : base;
 };
 
 export type DaySection = {
@@ -86,6 +121,44 @@ export const postedBalance = (rows: readonly BookRowResource[]): bigint =>
     const value = toScaled(row.amount);
     return signOf(row.kind) === '-' ? sum - value : sum + value;
   }, 0n);
+
+/**
+ * Sinal de uma linha como a lista mostra: a perna diz o sentido (entrada +,
+ * saída −); sem perna, aporte e resgate seguem o ativo (aporte +, resgate −).
+ */
+export const legSign = (row: BookRowResource): Sign =>
+  row.side === 'entrada'
+    ? '+'
+    : row.side === 'saida'
+      ? '-'
+      : row.kind === 'APORTE'
+        ? '+'
+        : row.kind === 'RESGATE'
+          ? '-'
+          : signOf(row.kind);
+
+const fromScaled = (value: bigint): string => {
+  const negative = value < 0n;
+  const digits = (negative ? -value : value).toString().padStart(SCALE + 1, '0');
+  const int = digits.slice(0, -SCALE);
+  const frac = digits.slice(-SCALE).replace(/0+$/, '');
+  return `${negative ? '-' : ''}${int}${frac === '' ? '' : `.${frac}`}`;
+};
+
+/**
+ * Efeito líquido das linhas lançadas no patrimônio, somando cada perna com o
+ * sinal que a lista mostra: aporte de uma conta se anula (sai da conta, entra
+ * no ativo); vindo de fora, soma.
+ */
+export const postedLegsNet = (rows: readonly BookRowResource[]): string =>
+  fromScaled(
+    expandInvestmentLegs(rows).reduce((sum, row) => {
+      if (row.situation !== 'lancado' || row.amount === null) return sum;
+      const sign = legSign(row);
+      const value = toScaled(row.amount);
+      return sign === '-' ? sum - value : sign === '+' ? sum + value : sum;
+    }, 0n),
+  );
 
 /** O `saldo_do_mes` do servidor na mesma escala, para conferir a soma. */
 export const balanceOf = (book: Pick<BookResponse, 'totals'>): bigint =>
@@ -175,27 +248,35 @@ export type Grouping = (typeof GROUPINGS)[number];
 export const GROUPING_LABEL: Readonly<Record<Grouping, string>> = {
   dia: 'Dia',
   tipo: 'Tipo',
-  conta_carteira: 'Conta/carteira',
+  conta_carteira: 'Conta ou carteira',
 };
 
-/** RN-U1 · a ordem das seções no agrupamento por tipo. */
+/** A ordem das seções no agrupamento por tipo, como na prancha 2.2. */
 export const KIND_ORDER: readonly BookRowResource['kind'][] = [
-  'RECEITA',
-  'DESPESA',
   'APORTE',
-  'RESGATE',
+  'DESPESA',
+  'RECEITA',
   'PROVENTO',
+  'RESGATE',
   'TRANSFERENCIA',
   'PAGAMENTO_FATURA',
   'EVENTO',
 ];
 
+type ApiGroup = NonNullable<BookResponse['groups']>[number];
+
 export type GroupSection = {
   readonly key: string;
   readonly label: string;
+  /** "conta", "cartão", "carteira": só no agrupamento por conta ou carteira. */
+  readonly tag: string | null;
   /** Inclui os previstos (LAN-05, item 4). */
   readonly count: number;
   readonly rows: readonly BookRowResource[];
+  /** Somas e efeito do grupo, calculados no servidor (RN-U16). */
+  readonly sums: ApiGroup['sums'];
+  readonly efeito: ApiGroup['efeito'];
+  readonly flow: ApiGroup['flow'];
 };
 
 /** Previstos primeiro dentro do grupo; o resto na ordem do servidor. */
@@ -206,18 +287,27 @@ const plannedFirst = (rows: readonly BookRowResource[]): readonly BookRowResourc
 
 export const sectionsOfGroups = (
   groups: NonNullable<BookResponse['groups']>,
-  by: Exclude<Grouping, 'dia'>,
+  by: Grouping,
   kindLabel: (kind: string) => string,
   tipos: readonly string[],
 ): readonly GroupSection[] => {
   const shown = groups
     .map((g) => {
-      const rows = visibleRows(g.rows, tipos);
+      // Por dia só o lançado entra na seção; o previsto tem a sua, no topo.
+      const rows = visibleRows(
+        by === 'dia' ? g.rows.filter((r) => r.situation === 'lancado') : g.rows,
+        tipos,
+      );
       return {
         key: g.key,
-        label: by === 'tipo' ? kindLabel(g.key) : g.label,
+        label:
+          by === 'tipo' ? kindLabel(g.key) : by === 'dia' ? dayLabel(g.key) : g.label,
+        tag: g.tag,
         count: rows.length,
         rows: plannedFirst(rows),
+        sums: g.sums,
+        efeito: g.efeito,
+        flow: g.flow,
       };
     })
     .filter((g) => g.count > 0);
@@ -269,26 +359,6 @@ export const exportRows = (
     r.fees ?? '',
   ]),
 ];
-
-/** LAN-05 · Entradas, saídas e previstos de uma seção; só o lançado soma. */
-export const sectionTotals = (
-  rows: readonly BookRowResource[],
-): { readonly in: bigint; readonly out: bigint; readonly planned: number } => {
-  let inflow = 0n;
-  let outflow = 0n;
-  let planned = 0;
-  for (const row of rows) {
-    if (row.situation !== 'lancado') {
-      planned += 1;
-      continue;
-    }
-    if (row.amount === null) continue;
-    const sign = signOf(row.kind);
-    if (sign === '+') inflow += BigInt(row.amount);
-    else if (sign === '-') outflow += BigInt(row.amount);
-  }
-  return { in: inflow, out: outflow, planned };
-};
 
 /**
  * LAN-03.5 · Para onde leva o ativo de uma linha de investimento: com carteira

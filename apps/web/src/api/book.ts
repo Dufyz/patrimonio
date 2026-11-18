@@ -49,6 +49,26 @@ export const fetchBook = (
   );
 
 /**
+ * O livro inteiro do período: segue o cursor até a última página. Lista agrupada
+ * ou não, a tela mostra tudo (nunca "mostrar mais"); totais e grupos já vêm
+ * completos na primeira página, só as linhas são paginadas.
+ */
+export const fetchWholeBook = async (
+  query: Omit<BookQuery, 'cursor' | 'limit'>,
+  signal?: AbortSignal,
+): Promise<BookResponse> => {
+  const first = await fetchBook({ ...query, limit: 200 }, signal);
+  const rows = [...first.rows];
+  let cursor = first.next_cursor;
+  while (cursor !== null) {
+    const page = await fetchBook({ ...query, limit: 200, cursor }, signal);
+    rows.push(...page.rows);
+    cursor = page.next_cursor;
+  }
+  return { ...first, rows, next_cursor: null };
+};
+
+/**
  * LAN-02/LAN-06 · "Lançar" um previsto, com data e valor reais opcionais.
  * Sem corpo, confirma na data e valor previstos. Cada tentativa leva uma
  * `Idempotency-Key` nova: confirmar duas vezes a mesma não duplica efeito.
@@ -80,6 +100,21 @@ export const fetchAccountNames = async (
     signal === undefined ? {} : { signal },
   );
   return new Map((body.accounts ?? []).map((row) => [row.account.id, row.account.name]));
+};
+
+/** Os cartões por identificador: a coluna "Conta / Carteira" nomeia a origem de uma compra. */
+export const fetchCardNames = async (
+  signal?: AbortSignal,
+): Promise<ReadonlyMap<string, string>> => {
+  const body = await request(
+    '/api/finance/cards',
+    {
+      parse: (v: unknown) =>
+        v as { cards?: readonly { card: { id: string; name: string } }[] },
+    },
+    signal === undefined ? {} : { signal },
+  );
+  return new Map((body.cards ?? []).map((row) => [row.card.id, row.card.name]));
 };
 
 const accept = { parse: (v: unknown): unknown => v };

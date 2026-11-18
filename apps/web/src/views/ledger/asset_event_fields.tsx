@@ -55,7 +55,7 @@ export const AssetEventFields = ({
               />
             )}
           </Field>
-          <Field label="Instituição" error={shown('institutionId')}>
+          <Field label="Custódia (instituição)" error={shown('institutionId')}>
             {(props) => (
               <InstitutionPicker
                 control={props}
@@ -82,7 +82,7 @@ export const AssetEventFields = ({
       </Field>
       {event ? (
         <>
-          <Field label="Tipo">
+          <Field label="Evento">
             {(props) => (
               <Select
                 {...props}
@@ -134,7 +134,7 @@ export const AssetEventFields = ({
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Tipo">
+            <Field label="Natureza">
               {(props) => (
                 <Select
                   {...props}
@@ -145,7 +145,7 @@ export const AssetEventFields = ({
                 />
               )}
             </Field>
-            <Field label="Valor bruto" error={shown('amount')}>
+            <Field label="Valor bruto (R$)" error={shown('amount')}>
               {(props) => (
                 <Input
                   {...props}
@@ -181,7 +181,7 @@ export const AssetEventFields = ({
                 />
               )}
             </Field>
-            <Field label="IR retido" error={shown('tax')}>
+            <Field label="IR retido (R$)" error={shown('tax')}>
               {(props) => (
                 <Input
                   {...props}
@@ -194,7 +194,7 @@ export const AssetEventFields = ({
               )}
             </Field>
           </div>
-          <Field label="Conta" error={shown('accountId')}>
+          <Field label="Destino" error={shown('accountId')}>
             {(props) => (
               <Select
                 {...props}

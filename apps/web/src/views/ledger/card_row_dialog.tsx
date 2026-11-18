@@ -4,6 +4,38 @@ import { useEffect, useState } from 'react';
 import { moveEntryInvoice, reverseCardEntry } from '../../api/book.js';
 import { AlertModal } from '../../components/overlay.js';
 import { formatMoney } from '../../lib/format.js';
+import { Select } from '../entry/fields.js';
+
+const MONTH_NAMES = [
+  'jan',
+  'fev',
+  'mar',
+  'abr',
+  'mai',
+  'jun',
+  'jul',
+  'ago',
+  'set',
+  'out',
+  'nov',
+  'dez',
+];
+
+/** As faturas de três meses antes a doze depois da compra, como "fatura de dez/26". */
+const invoiceMonths = (date: string): readonly { id: string; name: string }[] => {
+  if (!/^\d{4}-\d{2}/.test(date)) return [];
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7)) - 1;
+  return Array.from({ length: 16 }, (_, index) => {
+    const total = year * 12 + month - 3 + index;
+    const y = Math.floor(total / 12);
+    const m = total % 12;
+    return {
+      id: `${y}-${String(m + 1).padStart(2, '0')}`,
+      name: `Fatura de ${MONTH_NAMES[m] ?? ''}/${String(y).slice(2)}`,
+    };
+  });
+};
 import { reversalBody } from '../../lib/ledger_batch.js';
 
 export type CardRowAction = 'move_invoice' | 'reverse';
@@ -47,7 +79,7 @@ export const CardRowDialog = ({
         : (() => {
             const body = reversalBody(row);
             if (body === null)
-              return Promise.reject(new Error('Este lançamento não é de cartão.'));
+              return Promise.reject(new Error('Esta movimentação não é de cartão.'));
             const { cardId, ...rest } = body;
             return reverseCardEntry(cardId, rest);
           })();
@@ -67,6 +99,7 @@ export const CardRowDialog = ({
 
   return (
     <AlertModal
+      icon={action === 'reverse' ? 'undo' : 'swap'}
       open={open}
       title={
         action === 'reverse'
@@ -78,16 +111,17 @@ export const CardRowDialog = ({
           {action === 'reverse' ? (
             <span>
               Cria um crédito de estorno de {amount} na fatura de {row?.date.slice(0, 7)},
-              ligado a este lançamento. A despesa original continua no histórico.
+              ligado a esta movimentação. A despesa original continua no histórico.
             </span>
           ) : (
             <label className="flex flex-col gap-1">
               Fatura de destino (mês)
-              <input
-                type="month"
+              <Select
+                invalid={false}
+                placeholder="Escolha a fatura"
+                options={invoiceMonths(row?.date ?? '')}
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
-                className="rounded-field border border-line bg-field px-2 py-1.5"
               />
             </label>
           )}

@@ -7,7 +7,14 @@ import type { SaveReceipt } from '../../api/entry.js';
 import { Money, Quantity } from '../../components/number.js';
 import { Segmented } from '../../components/primitives.js';
 import { PAYOUT_KIND_LABELS } from '../../lib/asset_page.js';
-import { buildPayoutBody, effectRows, fieldOfApiMessage } from '../../lib/entry.js';
+import {
+  buildPayoutBody,
+  effectRows,
+  fieldOfApiMessage,
+  LAST_ACCOUNT_KEY,
+  OUTSIDE_ACCOUNT,
+} from '../../lib/entry.js';
+import { browserStorage, readRaw } from '../../lib/preferences.js';
 import type {
   EntryField,
   EntryReference,
@@ -88,6 +95,12 @@ export const PayoutFormView = ({
   const [portfolioId, setPortfolioId] = useState(seed.portfolioId);
   const [institutionId, setInstitutionId] = useState(seed.institutionId);
   const [received, setReceived] = useState(false);
+  // Livro único: o provento entra numa conta (ou fica "Fora do app").
+  const accounts = reference.accounts ?? [];
+  const [accountId, setAccountId] = useState<string>(() => {
+    const last = readRaw(browserStorage(), LAST_ACCOUNT_KEY);
+    return last !== null && accounts.some((a) => a.id === last) ? last : OUTSIDE_ACCOUNT;
+  });
 
   const built = useMemo(
     () =>
@@ -137,7 +150,12 @@ export const PayoutFormView = ({
     visible.attempt();
     if (!built.ok) return;
 
-    const receipt = await save.run((key) => createPayout(built.body, key));
+    const receipt = await save.run((key) =>
+      createPayout(
+        { ...built.body, account_id: accountId === OUTSIDE_ACCOUNT ? null : accountId },
+        key,
+      ),
+    );
     if (receipt !== null) onSaved(receipt, false, institutionId);
   };
 
@@ -153,7 +171,7 @@ export const PayoutFormView = ({
             summary: wizard.summary,
             secondary: <BackButton onBack={wizard.onBack} />,
             showCancel: false,
-            saveLabel: 'Cadastrar',
+            saveLabel: 'Salvar',
           })}
       pending={save.pending}
       onSave={() => void submit()}
@@ -219,7 +237,7 @@ export const PayoutFormView = ({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Qtd na data-com" hint="calculada pelos lançamentos">
+        <Field label="Qtd na data-com" hint="calculada pelas movimentações">
           {(control) => (
             <output
               id={control.id}
@@ -368,6 +386,24 @@ export const PayoutFormView = ({
           )}
         </Field>
       </div>
+
+      <Field
+        label="Entra na conta"
+        hint="Provento é rendimento: entra na conta, fora de Receitas."
+      >
+        {(control) => (
+          <Select
+            {...control}
+            invalid={false}
+            options={[
+              ...accounts,
+              { id: OUTSIDE_ACCOUNT, name: 'Fora do app (só histórico)' },
+            ]}
+            value={accountId}
+            onChange={(event) => setAccountId(event.target.value)}
+          />
+        )}
+      </Field>
 
       {received || preview.status === 'error' ? (
         <EffectPanel

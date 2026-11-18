@@ -1,7 +1,9 @@
+import { DatePicker } from '../../components/date_picker.js';
 import { useEffect, useState } from 'react';
 
 import { confirmPlanned } from '../../api/book.js';
 import { AlertModal } from '../../components/overlay.js';
+import { MoneyInput } from '../entry/fields.js';
 import {
   centsToDecimal,
   parseAmountInput,
@@ -39,7 +41,9 @@ export const LaunchPlannedDialog = ({
   useEffect(() => {
     if (planned === null) return;
     setDate(suggestedDate(planned.date, today));
-    setAmount(planned.cents === null ? '' : centsToDecimal(planned.cents));
+    setAmount(
+      planned.cents === null ? '' : centsToDecimal(planned.cents).replace('.', ','),
+    );
     setError(null);
   }, [planned, today]);
 
@@ -68,27 +72,22 @@ export const LaunchPlannedDialog = ({
 
   return (
     <AlertModal
+      icon="check"
       open={planned !== null}
       title={`Lançar ${planned?.description ?? ''}`}
       message={
         <span className="flex flex-col gap-3">
           <label className="flex flex-col gap-1">
             Data
-            <input
-              type="date"
-              value={date}
-              max={today}
-              onChange={(e) => setDate(e.target.value)}
-              className="rounded-field border border-line bg-field px-2 py-1.5"
-            />
+            <DatePicker value={date} max={today} onChange={setDate} />
           </label>
           <label className="flex flex-col gap-1">
             Valor real
-            <input
-              inputMode="decimal"
+            <MoneyInput
+              symbol=""
+              invalid={false}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="rounded-field border border-line bg-field px-2 py-1.5"
             />
           </label>
           <span className="text-ink-3">O valor cadastrado do recorrente não muda.</span>

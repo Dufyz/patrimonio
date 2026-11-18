@@ -5,7 +5,7 @@ import { compareDecimal, parseDecimal } from './decimal.js';
 import type { EffectRow as PairRow } from './entry.js';
 
 /**
- * LAN-09 · O rascunho do modal "Novo lançamento" e o que dele vira pedido.
+ * LAN-09 · O rascunho do modal "Nova movimentação" e o que dele vira pedido.
  *
  * Os tipos entram à medida que o servidor os grava; hoje, receita e despesa.
  * Trocar de tipo mantém os campos compatíveis (data, valor, conta, descrição) e
@@ -22,6 +22,18 @@ export const MODAL_KINDS = [
   'EVENTO',
 ] as const;
 export type ModalKind = (typeof MODAL_KINDS)[number];
+
+/** A linha de contexto sob o título do modal, uma por tipo (prancha 07). */
+export const MODAL_KIND_SUBTITLE: Readonly<Record<ModalKind, string>> = {
+  RECEITA: 'Receita · entra em uma conta',
+  DESPESA: 'Despesa · sai de uma conta ou cartão',
+  TRANSFERENCIA: 'Transferência · conta → conta',
+  PAGAMENTO_FATURA: 'Pagamento de fatura · conta → cartão',
+  APORTE: 'Aporte · conta → carteira, com ativo, quantidade e preço',
+  RESGATE: 'Resgate · carteira → conta',
+  PROVENTO: 'Provento · dividendo, JCP ou juros',
+  EVENTO: 'Evento · custódia, desdobramento',
+};
 
 export const MODAL_KIND_LABEL: Readonly<Record<ModalKind, string>> = {
   RECEITA: 'Receita',
@@ -68,7 +80,26 @@ export type Draft = {
   readonly ratioTo: string;
   /** Aporte lançado a partir de um previsto: o recorrente que sai do mês (LAN-06). */
   readonly recurringId: string;
+  /** Receita e despesa: ainda não aconteceu (status previsto). */
+  readonly planned: boolean;
+  /** Receita e despesa: anotações livres, além da descrição. */
+  readonly note: string;
+  /** Receita e despesa: `accountId` é uma conta ou (só despesa) um cartão. */
+  readonly sourceType: 'conta' | 'cartao';
+  /** Despesa no cartão: número de parcelas, de 1 a 24. */
+  readonly installments: string;
+  /** Despesa: a segunda origem (`conta:<id>` ou `cartao:<id>`); vazio é não dividir. */
+  readonly splitSource: string;
+  /** O quanto sai da segunda origem; o resto sai da primeira. */
+  readonly splitAmount: string;
+  /** Receita e despesa novas: cria também o recorrente do mesmo item. */
+  readonly repeat: boolean;
+  /** Previsto que ainda não tem data (fica fora de período e de totais). */
+  readonly undated: boolean;
 };
+
+/** A data guardada no previsto sem data (`UNDATED_DATE` do domínio). */
+export const UNDATED_DATE = '9999-12-31';
 
 export type DraftContext = {
   readonly accountId?: string | undefined;
@@ -95,7 +126,9 @@ export const newDraft = (
   description: '',
   date: today,
   amount: '',
-  accountId: context.accountId ?? '',
+  accountId:
+    context.accountId ??
+    (context.cardId !== undefined && context.invoice !== true ? context.cardId : ''),
   toAccountId: '',
   cardId: context.cardId ?? '',
   month: '',
@@ -114,6 +147,19 @@ export const newDraft = (
   ratioFrom: '1',
   ratioTo: '2',
   recurringId: '',
+  planned: false,
+  note: '',
+  sourceType:
+    context.cardId !== undefined &&
+    context.invoice !== true &&
+    context.accountId === undefined
+      ? 'cartao'
+      : 'conta',
+  installments: '1',
+  splitSource: '',
+  splitAmount: '',
+  repeat: false,
+  undated: false,
 });
 
 export const switchKind = (draft: Draft, kind: ModalKind): Draft =>
@@ -127,25 +173,38 @@ export const switchKind = (draft: Draft, kind: ModalKind): Draft =>
         cardId: '',
         month: '',
         linkExpense: false,
+        // Só despesa sai de cartão; nos demais tipos a origem volta a ser conta.
+        ...(kind !== 'DESPESA' && draft.sourceType === 'cartao'
+          ? { sourceType: 'conta' as const, accountId: '' }
+          : {}),
+        installments: '1',
+        splitSource: '',
+        splitAmount: '',
+        repeat: isPlannable(kind) ? draft.repeat : false,
+        undated: isPlannable(kind) ? draft.undated : false,
       };
 
 export type DraftErrors = Partial<Record<keyof Draft, string>>;
 
 /** RN-03: lançamento não nasce no futuro; para o futuro, um recorrente. */
 export const FUTURE_DATE_MESSAGE =
-  'Data futura não é lançamento. Crie um recorrente ou um previsto.';
+  'Data futura não é movimentação lançada. Crie um recorrente ou um previsto.';
 
 const positive = (value: string): boolean => {
-  const parts = parseDecimal(value.trim().replace(',', '.'));
+  const parts = parseDecimal(decimal(value));
   return (
     parts !== null && !parts.negative && !/^0*$/.test(parts.integer + parts.fraction)
   );
 };
 
 const nonNegative = (value: string): boolean => {
-  const parts = parseDecimal(value.trim().replace(',', '.'));
+  const parts = parseDecimal(decimal(value));
   return parts !== null && !parts.negative;
 };
+
+/** Receita e despesa podem ser previstas; os demais tipos só nascem lançados. */
+export const isPlannable = (kind: ModalKind): boolean =>
+  kind === 'RECEITA' || kind === 'DESPESA';
 
 export const isInvestment = (kind: ModalKind): boolean =>
   kind === 'APORTE' || kind === 'RESGATE';
@@ -244,9 +303,16 @@ export const validateDraft = (draft: Draft, today: string): DraftErrors => {
   if (!transfer && !payment && draft.description.trim() === '') {
     errors.description = 'Informe a descrição.';
   }
-  if (draft.date === '') errors.date = 'Informe a data.';
-  else if (draft.date > today) errors.date = FUTURE_DATE_MESSAGE;
-  const amount = parseDecimal(draft.amount.replace(',', '.'));
+  if (draft.undated && isPlannable(draft.kind)) {
+    if (draft.sourceType === 'cartao' || draft.splitSource !== '') {
+      errors.undated = 'Sem data só sai de uma conta: no cartão a data decide a fatura.';
+    }
+    if (draft.repeat) errors.undated = 'Recorrente precisa de data: escolha o dia.';
+  } else if (draft.date === '') errors.date = 'Informe a data.';
+  else if (draft.date > today && !isPlannable(draft.kind)) {
+    errors.date = FUTURE_DATE_MESSAGE;
+  }
+  const amount = parseDecimal(decimal(draft.amount));
   if (
     amount === null ||
     amount.negative ||
@@ -266,12 +332,61 @@ export const validateDraft = (draft: Draft, today: string): DraftErrors => {
     if (draft.cardId === '') errors.cardId = 'Escolha o cartão.';
     else if (draft.month === '') errors.cardId = 'Esse cartão não tem fatura a pagar.';
   } else if (draft.categoryId === '') errors.categoryId = 'Escolha a categoria.';
+  if (draft.kind === 'DESPESA') {
+    const count = Number(draft.installments);
+    if (!Number.isInteger(count) || count < 1 || count > 24) {
+      errors.installments = 'De 1 a 24 parcelas.';
+    } else if (count > 1 && (draft.sourceType !== 'cartao' || draft.splitSource !== '')) {
+      errors.installments = 'Só compra no cartão, de uma origem, é parcelada.';
+    }
+    if (draft.splitSource !== '') {
+      if (draft.splitSource === `${draft.sourceType}:${draft.accountId}`) {
+        errors.splitSource = 'A segunda origem precisa ser outra.';
+      } else if (!positive(draft.splitAmount)) {
+        errors.splitAmount = 'Informe quanto sai da segunda origem.';
+      } else if (
+        positive(draft.amount) &&
+        compareDecimal(decimal(draft.splitAmount), decimal(draft.amount)) >= 0
+      ) {
+        errors.splitAmount = 'A parte tem de ser menor que o valor total.';
+      }
+    }
+  }
   return errors;
+};
+
+/** `conta:<id>` ou `cartao:<id>` → a origem do contrato. */
+export const decodeSource = (
+  value: string,
+): { readonly source_type: 'conta' | 'cartao'; readonly source_id: string } => {
+  const [type, id] = value.split(':');
+  return { source_type: type === 'cartao' ? 'cartao' : 'conta', source_id: id ?? '' };
+};
+
+const centsOf = (value: string): number => {
+  const parts = parseDecimal(decimal(value));
+  if (parts === null) return 0;
+  return Number(parts.integer) * 100 + Number(`${parts.fraction}00`.slice(0, 2));
+};
+
+/** As origens do pagamento: uma, ou duas com a parte da segunda (RN-21). */
+const paymentsOf = (draft: Draft): readonly Record<string, string>[] => {
+  const main = { source_type: draft.sourceType, source_id: draft.accountId };
+  if (draft.kind !== 'DESPESA' || draft.splitSource === '') return [main];
+  const rest = centsOf(draft.amount) - centsOf(draft.splitAmount);
+  return [
+    { ...main, amount: (rest / 100).toFixed(2) },
+    { ...decodeSource(draft.splitSource), amount: decimal(draft.splitAmount) },
+  ];
 };
 
 export const isValid = (errors: DraftErrors): boolean => Object.keys(errors).length === 0;
 
-const decimal = (value: string): string => value.trim().replace(',', '.');
+/** `1.500,00` (máscara) ou `1500,5` viram `1500.00`/`1500.5`; `121.10` fica como está. */
+const decimal = (value: string): string => {
+  const trimmed = value.trim();
+  return trimmed.includes(',') ? trimmed.replace(/\./g, '').replace(',', '.') : trimmed;
+};
 
 export type EntryRequest = {
   readonly path: string;
@@ -384,11 +499,16 @@ const toFinanceRequest = (draft: Draft): EntryRequest =>
           body: {
             kind: draft.kind === 'RECEITA' ? 'receita' : 'despesa',
             description: draft.description.trim(),
-            date: draft.date,
+            date: draft.undated ? UNDATED_DATE : draft.date,
             category_id: draft.categoryId,
             amount: decimal(draft.amount),
-            payments: [{ source_type: 'conta', source_id: draft.accountId }],
-            status: 'lancada',
+            payments: paymentsOf(draft),
+            ...(draft.kind === 'DESPESA' && Number(draft.installments) > 1
+              ? { installments: Number(draft.installments) }
+              : {}),
+            // A situação vem da data: depois de hoje (ou sem data) é previsto.
+            status: draft.planned || draft.undated ? 'prevista' : 'lancada',
+            ...(draft.note.trim() === '' ? { note: null } : { note: draft.note.trim() }),
           },
         };
 
@@ -416,6 +536,27 @@ const wealthRows = (effect: EffectResource): readonly EffectRow[] => {
 };
 
 /** As linhas do bloco "Efeito" a partir do preview do servidor. */
+const MONTHS = [
+  'jan',
+  'fev',
+  'mar',
+  'abr',
+  'mai',
+  'jun',
+  'jul',
+  'ago',
+  'set',
+  'out',
+  'nov',
+  'dez',
+];
+
+/** `2026-12` → `dez/26`, como as pranchas escrevem o mês. */
+const monthLabel = (month: string): string =>
+  /^\d{4}-\d{2}$/.test(month)
+    ? `${MONTHS[Number(month.slice(5, 7)) - 1] ?? month.slice(5, 7)}/${month.slice(2, 4)}`
+    : month;
+
 export const effectRows = (effect: EffectResource): readonly EffectRow[] => [
   ...effect.accounts.map((a) => ({
     label: `Saldo · ${a.name}`,
@@ -423,19 +564,19 @@ export const effectRows = (effect: EffectResource): readonly EffectRow[] => [
     after: cents(a.after),
   })),
   ...(effect.invoices ?? []).map((i) => ({
-    label: `Fatura · ${i.name} ${i.month}`,
+    label: `Fatura · ${i.name} · ${monthLabel(i.month)}`,
     before: cents(i.before),
     after: cents(i.after),
   })),
   ...wealthRows(effect),
   ...effect.months.flatMap((m) => [
     {
-      label: `Receitas · ${m.month}`,
+      label: `Receitas · ${monthLabel(m.month)}`,
       before: cents(m.receitas_before),
       after: cents(m.receitas_after),
     },
     {
-      label: `Despesas · ${m.month}`,
+      label: `Despesas · ${monthLabel(m.month)}`,
       before: cents(m.despesas_before),
       after: cents(m.despesas_after),
     },
@@ -508,15 +649,32 @@ export type EditableEntry = {
   readonly payments: readonly {
     readonly source_type: string;
     readonly source_id: string;
+    readonly amount?: string | undefined;
   }[];
+  readonly status?: string | undefined;
+  readonly note?: string | null | undefined;
 };
 
 /** LAN-07 · O rascunho de edição: o tipo e os campos do lançamento que já existe. */
-export const draftFromEntry = (today: string, entry: EditableEntry): Draft => ({
-  ...newDraft(today, {}, entry.kind === 'receita' ? 'RECEITA' : 'DESPESA'),
-  description: entry.description,
-  date: entry.date,
-  amount: entry.amount,
-  categoryId: entry.category_id,
-  accountId: entry.payments[0]?.source_id ?? '',
-});
+export const draftFromEntry = (today: string, entry: EditableEntry): Draft => {
+  const [main, second] = entry.payments;
+  const undated = entry.date === UNDATED_DATE;
+  return {
+    ...newDraft(today, {}, entry.kind === 'receita' ? 'RECEITA' : 'DESPESA'),
+    description: entry.description,
+    date: undated ? '' : entry.date,
+    undated,
+    amount: entry.amount.replace('.', ','),
+    categoryId: entry.category_id,
+    sourceType: main?.source_type === 'cartao' ? 'cartao' : 'conta',
+    accountId: main?.source_id ?? '',
+    splitSource:
+      second === undefined
+        ? ''
+        : `${second.source_type === 'cartao' ? 'cartao' : 'conta'}:${second.source_id}`,
+    splitAmount: second?.amount?.replace('.', ',') ?? '',
+    // Editar decide pela data: um previsto vencido salvo como está vira lançado.
+    planned: undated || entry.date > today,
+    note: entry.note ?? '',
+  };
+};

@@ -17,6 +17,7 @@ import {
   moveBody,
   recategorizeBody,
 } from '../../lib/ledger_batch.js';
+import { Select } from '../entry/fields.js';
 import { batchOnlyDelete } from '../../lib/ledger_book.js';
 
 const ONLY_DELETE = 'Aporte, resgate, provento e evento só aceitam Excluir.';
@@ -56,7 +57,7 @@ export const BatchDialog = ({
     ReadonlyMap<string, { readonly name: string; readonly balance: string }>
   >(new Map());
   const total = formatMoney(batchTotal(chosen), { hidden }).text;
-  const count = `${chosen.length} ${chosen.length === 1 ? 'lançamento' : 'lançamentos'}`;
+  const count = `${chosen.length} ${chosen.length === 1 ? 'movimentação' : 'movimentações'}`;
 
   useEffect(() => {
     if (action !== 'recategorize') return;
@@ -169,18 +170,13 @@ export const BatchDialog = ({
           {action === 'delete' ? null : (
             <label className="flex flex-col gap-1">
               {action === 'recategorize' ? 'Nova categoria' : 'Nova conta'}
-              <select
+              <Select
+                invalid={false}
+                placeholder="Escolha…"
+                options={options.map(([id, name]) => ({ id, name }))}
                 value={target}
                 onChange={(event) => setTarget(event.target.value)}
-                className="rounded-field border border-line bg-field px-2 py-1.5"
-              >
-                <option value="">Escolha…</option>
-                {options.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
           )}
           {failure === null ? null : (
@@ -199,6 +195,7 @@ export const BatchDialog = ({
             : 'Mover'
       }
       danger={action === 'delete'}
+      icon={action === 'delete' ? 'trash' : action === 'recategorize' ? 'tag' : 'swap'}
       pending={busy || (action !== 'delete' && target === '')}
       onCancel={close}
       onConfirm={() => void run()}
@@ -259,7 +256,7 @@ export const BatchActions = ({
           onlyDelete
             ? ONLY_DELETE
             : moveBlocked
-              ? 'Só lançamentos pagos em conta podem mudar de conta.'
+              ? 'Só movimentações pagas em conta podem mudar de conta.'
               : undefined
         }
         onClick={() => setAction('move')}

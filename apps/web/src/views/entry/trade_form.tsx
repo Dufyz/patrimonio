@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
 
-import { createTransaction, previewTransaction } from '../../api/entry.js';
+import { createLedgerTrade, previewTransaction } from '../../api/entry.js';
+import { browserStorage, readRaw, writeRaw } from '../../lib/preferences.js';
 import type { SaveReceipt } from '../../api/entry.js';
 import { Money } from '../../components/number.js';
 import {
   buildTradeBody,
   effectRows,
+  LAST_ACCOUNT_KEY,
+  OUTSIDE_ACCOUNT,
   fieldOfApiMessage,
   operationTotal,
   TOTAL_LABEL,
@@ -88,6 +91,23 @@ export const TradeFormView = ({
   const [portfolioId, setPortfolioId] = useState(seed.portfolioId);
   const [institutionId, setInstitutionId] = useState(seed.institutionId);
   const [generation, setGeneration] = useState(0);
+  // Livro único: o aporte sai de uma conta e o resgate entra numa conta. A
+  // última escolhida volta preenchida; "Fora do app" só registra o histórico.
+  const accounts = reference.accounts ?? [];
+  const [accountId, setAccountId] = useState<string>(() => {
+    const last = readRaw(browserStorage(), LAST_ACCOUNT_KEY);
+    return last !== null &&
+      (last === OUTSIDE_ACCOUNT || accounts.some((a) => a.id === last))
+      ? last
+      : '';
+  });
+  const [accountTouched, setAccountTouched] = useState(false);
+  const accountError =
+    accountId === ''
+      ? kind === 'buy'
+        ? 'Escolha a conta de onde sai o aporte (ou Fora do app).'
+        : 'Escolha a conta que recebe (ou Fora do app).'
+      : undefined;
 
   const built = useMemo(
     () =>
@@ -125,10 +145,19 @@ export const TradeFormView = ({
 
   const submit = async (again: boolean): Promise<void> => {
     visible.attempt();
-    if (!built.ok) return;
+    setAccountTouched(true);
+    if (!built.ok || accountError !== undefined) return;
 
-    const receipt = await save.run((key) => createTransaction(built.body, key));
+    const receipt = await save.run((key) =>
+      createLedgerTrade(
+        kind,
+        built.body,
+        accountId === OUTSIDE_ACCOUNT ? null : accountId,
+        key,
+      ),
+    );
     if (receipt === null) return;
+    writeRaw(browserStorage(), LAST_ACCOUNT_KEY, accountId);
 
     onSaved(receipt, again, institutionId);
 
@@ -155,7 +184,7 @@ export const TradeFormView = ({
             summary: wizard.summary,
             secondary: <BackButton onBack={wizard.onBack} />,
             showCancel: false,
-            saveLabel: 'Cadastrar',
+            saveLabel: 'Salvar',
           })}
       pending={save.pending}
       canSave={!save.pending}
@@ -287,6 +316,31 @@ export const TradeFormView = ({
           )}
         </Field>
       </div>
+
+      <Field
+        label={kind === 'buy' ? 'Sai da conta' : 'Entra na conta'}
+        error={accountTouched ? accountError : undefined}
+        hint={
+          kind === 'buy'
+            ? 'O aporte é despesa financeira da conta e entra na carteira.'
+            : 'O resgate volta para a conta.'
+        }
+      >
+        {(control) => (
+          <Select
+            {...control}
+            invalid={accountTouched && accountError !== undefined}
+            options={[
+              ...accounts,
+              { id: OUTSIDE_ACCOUNT, name: 'Fora do app (só histórico)' },
+            ]}
+            placeholder="Escolha a conta"
+            value={accountId}
+            onBlur={() => setAccountTouched(true)}
+            onChange={(event) => setAccountId(event.target.value)}
+          />
+        )}
+      </Field>
 
       <div className="flex items-baseline justify-between border-t border-line pt-3">
         <FieldLabel>{TOTAL_LABEL[kind]}</FieldLabel>
